@@ -7,6 +7,7 @@ type Request = { method: string; params?: unknown[] };
 const ETH_RPC = 'https://eth-mainnet.g.alchemy.com/v2/test-browser-key';
 const BASE_RPC = 'https://base-mainnet.g.alchemy.com/v2/test-browser-key';
 const unknownChain = { code: 4902, message: 'Unknown chain' };
+const nestedUnknownChain = { code: -32603, data: { originalError: unknownChain } };
 
 test('known wallet networks switch without resolving any app RPC metadata', async () => {
   for (const [chainId, hexChainId] of [[1, '0x1'], [8453, '0x2105']] as const) {
@@ -51,6 +52,66 @@ test('4902 lazily validates metadata and adds then switches the requested networ
       { method: 'wallet_addEthereumChain', params: [{ chainId: hexChainId, chainName, nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, blockExplorerUrls: [explorer], rpcUrls: [rpcUrl] }] },
       { method: 'wallet_switchEthereumChain', params: [{ chainId: hexChainId }] },
     ]);
+  }
+});
+
+test('MetaMask Mobile nested 4902 adds and switches only the requested supported network', async () => {
+  for (const [chainId, hexChainId, rpcUrl] of [[1, '0x1', ETH_RPC], [8453, '0x2105', BASE_RPC]] as const) {
+    const requests: Request[] = [];
+    let resolutions = 0;
+    await switchBrowserChain({ request: async (request) => {
+      requests.push(request);
+      if (requests.length === 1) throw nestedUnknownChain;
+      return null;
+    } }, chainId, () => {
+      resolutions += 1;
+      assert.equal(requests.length, 1, 'Nested errors must still resolve metadata lazily');
+      return { configuredRpcUrl: rpcUrl };
+    });
+    assert.equal(resolutions, 1);
+    assert.deepEqual(requests.map((request) => request.method), [
+      'wallet_switchEthereumChain', 'wallet_addEthereumChain', 'wallet_switchEthereumChain',
+    ]);
+    assert.deepEqual(requests[0].params, [{ chainId: hexChainId }]);
+    assert.deepEqual(requests[2].params, [{ chainId: hexChainId }]);
+    const metadata = requests[1].params?.[0] as { chainId: string; rpcUrls: string[] };
+    assert.equal(metadata.chainId, hexChainId);
+    assert.deepEqual(metadata.rpcUrls, [rpcUrl]);
+  }
+});
+
+test('nested rejection, generic errors, and malformed lookalikes never add a network', async () => {
+  for (const rejection of [
+    { code: 4001, data: { originalError: unknownChain } },
+    { code: -32603, data: { originalError: { code: 4001 } } },
+    { code: -32603, data: { originalError: { code: -32002 } } },
+    { code: -32603, data: { originalError: { code: '4902' } } },
+    { code: -32603, data: { originalError: null } },
+    { code: -32603, data: { originalError: '4902' } },
+    { code: -32603, data: null },
+    { code: -32603, data: '4902' },
+    { code: -32603, data: { code: 4902 } },
+    { code: -32603, cause: unknownChain },
+    new Error('Unknown chain 4902'),
+  ]) {
+    const requests: Request[] = [];
+    await assert.rejects(switchBrowserChain({ request: async (request) => {
+      requests.push(request);
+      throw rejection;
+    } }, 1, () => assert.fail('Only an explicit supported unknown-chain error may resolve metadata')),
+    (cause: unknown) => cause === rejection);
+    assert.deepEqual(requests, [{ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x1' }] }]);
+  }
+});
+
+test('nested 4902 still rejects missing or unreviewed RPC metadata before network add', async () => {
+  for (const configuredRpcUrl of [undefined, 'https://example.com/rpc', BASE_RPC]) {
+    const requests: Request[] = [];
+    await assert.rejects(switchBrowserChain({ request: async (request) => {
+      requests.push(request);
+      throw nestedUnknownChain;
+    } }, 1, () => ({ configuredRpcUrl })), /Add Ethereum or Base in the wallet/);
+    assert.equal(requests.length, 1);
   }
 });
 

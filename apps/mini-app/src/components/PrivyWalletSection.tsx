@@ -30,13 +30,14 @@ function ActionRow({ icon: Icon, title, detail, label, onClick, loading = false,
 }
 
 export default function PrivyWalletControls() {
-  const { ready, authenticated } = usePrivy();
+  const { ready } = usePrivy();
   const { wallets } = useWallets();
-  const { selectedWallet, selectWallet, connect } = usePrivyWallet();
+  const { authenticated, selectedWallet, selectWallet, connect } = usePrivyWallet();
   const { createWallet } = useCreateWallet();
   const { exportWallet } = useExportWallet();
   const [busy, setBusy] = useState<'none' | 'create' | 'connect' | 'export'>('none');
   const [error, setError] = useState('');
+  const [showSelectionHint, setShowSelectionHint] = useState(false);
   const readyTimedOut = useWalletReadyTimeout(ready);
 
   const embedded = useMemo(
@@ -54,6 +55,7 @@ export default function PrivyWalletControls() {
 
   const handleConnect = useCallback(async (external = false) => {
     setBusy('connect'); setError('');
+    if (external) setShowSelectionHint(true);
     try { await connect({ external }); haptic('success'); }
     catch (cause) {
       // Closing the wallet prompt is a choice, not a failure.
@@ -100,19 +102,20 @@ export default function PrivyWalletControls() {
   return <div className={styles.panel}>
     {otherWallets.length > 0 && <section className={styles.walletChoices} aria-labelledby="settings-other-wallets">
       <h3 id="settings-other-wallets">Switch wallet</h3>
+      {showSelectionHint && busy === 'none' && <p role="status" className={styles.statusCopy}>Choose a wallet below to use it.</p>}
       {otherWallets.map((wallet) => <button key={wallet.address} type="button" className={styles.walletChoice}
         aria-label={`Switch to ${wallet.walletClientType ?? 'Ethereum wallet'} ${wallet.address}`}
-        disabled={busy !== 'none'} onClick={() => selectWallet(wallet.address)}>
+        disabled={busy !== 'none'} onClick={() => { selectWallet(wallet.address); setShowSelectionHint(false); }}>
         <span><strong>{wallet.walletClientType ?? 'Ethereum wallet'}</strong><small>{compactAddress(wallet.address)}</small></span>
         <ChevronRight size={17} aria-hidden="true" />
       </button>)}
     </section>}
     <div className={styles.actions} role="group" aria-label="Wallet actions">
       {!embedded && <ActionRow icon={Plus} title="Create wallet" detail="Add an FxAeon wallet." label="Create wallet" variant="primary" onClick={() => void handleCreate()} loading={busy === 'create'} disabled={busy !== 'none'} />}
-      <ActionRow icon={Wallet} title="Connect another wallet" detail="Use an external EVM wallet." label="Connect external wallet" onClick={() => void handleConnect(true)} loading={busy === 'connect'} disabled={busy !== 'none'} />
+      <ActionRow icon={Wallet} title="Connect another wallet" detail="Add a wallet, then select it here." label="Connect external wallet" onClick={() => void handleConnect(true)} loading={busy === 'connect'} disabled={busy !== 'none'} />
       {embedded && <ActionRow icon={KeyRound} title="Export wallet" detail="Open secure export." label="Export wallet" onClick={() => void handleExport()} loading={busy === 'export'} disabled={busy !== 'none'} />}
     </div>
     {error && <p role="alert" className={styles.errorCopy}>{error}</p>}
-    {externalWallets.length > 0 && <p className={styles.statusCopy}>{externalWallets.length} external Ethereum wallet{externalWallets.length === 1 ? '' : 's'} connected.</p>}
+    {externalWallets.length > 0 && <p className={styles.statusCopy}>{externalWallets.length} external Ethereum wallet{externalWallets.length === 1 ? '' : 's'} available.</p>}
   </div>;
 }

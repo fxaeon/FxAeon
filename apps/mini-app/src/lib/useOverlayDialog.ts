@@ -8,6 +8,8 @@ type OverlayDialogOptions = {
   onClose: () => void;
   triggerRef: RefObject<HTMLElement | null>;
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /** Opt-in fallback when this dialog's opener was removed by its result. */
+  restoreFocusFallback?: () => HTMLElement | null;
 };
 
 type OverlayEntry = { id: number; element: HTMLElement; href: string; previousState: () => unknown; navigate: (href: string) => void; dismiss: () => void };
@@ -154,13 +156,15 @@ function visibleFocusableElements(dialog: HTMLElement): HTMLElement[] {
 
 /** Shared lifecycle for modal overlays. The dialog element must have role=dialog,
  * aria-modal=true, an accessible name, and a visible close button. */
-export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, onClose, triggerRef, initialFocusRef }: OverlayDialogOptions) {
+export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, onClose, triggerRef, initialFocusRef, restoreFocusFallback }: OverlayDialogOptions) {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
   const dialogRef = useRef<T>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const fallbackRef = useRef(restoreFocusFallback);
+  fallbackRef.current = restoreFocusFallback;
 
   useEffect(() => {
     if (!open) return;
@@ -245,7 +249,16 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
       historyEntry.finish(consumedBack);
       if (wasTopOnClose) {
         const returnTarget = usedTriggerRef && triggerRef.current?.isConnected ? triggerRef.current : trigger;
-        if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true });
+        if (returnTarget?.isConnected && !returnTarget.matches(':disabled')) returnTarget.focus({ preventScroll: true });
+        else if (fallbackRef.current) window.requestAnimationFrame(() => {
+          // A successful connection may replace its opener during this commit.
+          // Never steal focus from a newer dialog, route, or deliberate target.
+          if (overlayStack.length || window.location.href !== entry.href) return;
+          const active = document.activeElement;
+          if (active instanceof HTMLElement && active !== document.body && active.isConnected && !dialog.contains(active)) return;
+          const fallback = fallbackRef.current?.();
+          if (fallback?.isConnected && !fallback.matches(':disabled')) fallback.focus({ preventScroll: true });
+        });
       }
     };
   }, [open, triggerRef, initialFocusRef]);

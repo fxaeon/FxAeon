@@ -76,7 +76,7 @@ test.describe("browser entry", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("heading", { name: "Portfolio", exact: true })).toBeVisible();
-    await expect(page.getByText("Connect wallet", { exact: true })).toBeVisible();
+    await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     assertNoBackendRequests(requests);
   });
 
@@ -95,7 +95,14 @@ test.describe("browser entry", () => {
       await expect(connect).toBeEnabled();
       await connect.click();
       await expect(page).toHaveURL(new RegExp(`${route.replace("/", "\\/")}(?:\\/)?$`));
-      await expect(page.locator(".wallet-connect-toast")).toContainText(/No browser wallet detected/i);
+      const picker = page.getByRole("dialog", { name: "Connect your wallet", exact: true });
+      await expect(picker).toBeVisible();
+      for (const name of ["MetaMask", "Base Wallet", "OKX", "Rabby", "Other wallets"]) {
+        await expect(picker.getByRole("button", { name, exact: true })).toBeVisible();
+      }
+      await picker.getByRole("button", { name: "Close wallet selection", exact: true }).click();
+      await expect(picker).toHaveCount(0);
+      await expect(connect).toBeEnabled();
     }
     assertNoBackendRequests(requests);
   });
@@ -117,7 +124,7 @@ test.describe("Telegram bridge availability", () => {
     await page.goto("/#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/?(?:#.*)?$/, { timeout: 5_000 });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
-    await expect(page.getByText("Connect wallet", { exact: true })).toBeVisible();
+    await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
     assertNoBackendRequests(requests);
   });
@@ -127,7 +134,7 @@ test.describe("Telegram bridge availability", () => {
     await page.goto("/portfolio#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
-    await page.getByText("Connect wallet", { exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio(?:#.*)?$/);
     await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
@@ -155,7 +162,7 @@ test.describe("Telegram connect CTA with an available bridge", () => {
 
   test("uses the Telegram/Privy entry instead of injected-wallet discovery", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.getByText("Connect wallet", { exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio\/?$/);
     await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     assertNoBackendRequests(requests);
@@ -487,7 +494,9 @@ test.describe("market price context", () => {
     test("preserves actions and markets without a value card", async ({ page, requests }) => {
       await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
       const main = page.getByRole("main");
-      await expect(main.getByRole("button", { name: "Connect wallet", exact: true })).toHaveCount(1);
+      await expect(main.getByRole("button", { name: "Connect wallet", exact: true })).toHaveCount(0);
+      await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Connect wallet", exact: true })).toHaveCount(1);
       await expect(main.locator(".portfolio-value-metrics")).toHaveCount(0);
       await expect(main.getByText("Portfolio value", { exact: true })).toHaveCount(0);
       const actions = main.getByRole("region", { name: "Actions", exact: true });
@@ -599,7 +608,12 @@ test.describe("browser wallet connection", () => {
 
   test("browser users can connect an injected wallet without Telegram", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
+    const picker = page.getByRole("dialog", { name: "Connect your wallet", exact: true });
+    await expect(picker).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open wallet profile", exact: true })).toHaveCount(0);
+    await picker.getByRole("button", { name: "Other wallets", exact: true }).click();
+    await page.getByRole("button", { name: "Test wallet", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio\/?$/);
     await expect(page.getByRole("button", { name: "Open wallet profile", exact: true })).toBeVisible();
     await expect(page.getByText("0x930f0000000000000000000000000000000098b9", { exact: true })).toHaveCount(0);
@@ -651,6 +665,10 @@ test.describe("theme control", () => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Switch to light theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
+    // Portfolio's sole header entry uses the text token. Check the contrasting
+    // primary CTA on Earn now that Portfolio no longer duplicates it in main.
+    await page.goto("/earn", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Switch to official theme" }).click();

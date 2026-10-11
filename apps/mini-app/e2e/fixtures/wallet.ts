@@ -1,8 +1,10 @@
 /** Deterministic EIP-1193 wallet used by browser-only connected-flow tests. */
 export interface BrowserWalletShimOptions {
   address?: string;
-  /** Start with an exposed account, or require eth_requestAccounts on connect. */
+  /** Start with a remembered app session and exposed account, or require an explicit connection. */
   initiallyConnected?: boolean;
+  /** Withhold both injection and EIP-6963 discovery until `window.__wallet.inject()`. */
+  manualInjection?: boolean;
   chainId?: string;
   /** Deterministic switch behavior for network-selector browser regressions. */
   switchChain?: {
@@ -24,6 +26,19 @@ export function browserWalletInitScript(_opts: BrowserWalletShimOptions = {}): (
     let address = o.address ?? '0x930f0000000000000000000000000000000098b9';
     let connected = o.initiallyConnected ?? false;
     let chainId = o.chainId ?? '0x1';
+    const providerRdns = 'com.fxaeon.test';
+    // A connected-flow fixture models a prior deliberate app connection, not
+    // an arbitrary extension that happens to expose eth_accounts. Seed only
+    // once per tab/origin so reload cannot undo disconnect or rewrite a saved
+    // account/provider preference. The app still verifies fresh wallet state.
+    const seededKey = 'fxaeon:e2e-browser-wallet-session-seeded';
+    if (!sessionStorage.getItem(seededKey)) {
+      sessionStorage.setItem(seededKey, '1');
+      if (connected && localStorage.getItem('fxaeon:browser-wallet-disconnected') !== '1') {
+        localStorage.setItem('fxaeon:wallet-provider-rdns', providerRdns);
+        localStorage.setItem('fxaeon:browser-wallet-address', address);
+      }
+    }
     let switchAttempt = 0;
     const pendingSwitches: Array<() => void> = [];
     const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
@@ -65,10 +80,23 @@ export function browserWalletInitScript(_opts: BrowserWalletShimOptions = {}): (
       on(event: string, listener: (...args: unknown[]) => void) { (listeners.get(event) ?? (listeners.set(event, new Set()), listeners.get(event)!)).add(listener); },
       removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
     };
-    (window as unknown as { ethereum: unknown }).ethereum = provider;
+    let injected = false;
+    const announce = () => {
+      if (!injected) return;
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+        detail: { provider, info: { name: 'Test wallet', rdns: providerRdns } },
+      }));
+    };
+    const inject = () => {
+      injected = true;
+      (window as unknown as { ethereum: unknown }).ethereum = provider;
+      announce();
+    };
+    window.addEventListener('eip6963:requestProvider', announce);
     (window as unknown as { __wallet: unknown }).__wallet = {
       provider,
       requests,
+      inject,
       /** Test-only controls exercise real accountsChanged lifecycle handling. */
       setAccounts(accounts: string[]) {
         if (accounts.length > 0) {
@@ -81,5 +109,6 @@ export function browserWalletInitScript(_opts: BrowserWalletShimOptions = {}): (
       },
       releaseSwitch() { pendingSwitches.shift()?.(); },
     };
+    if (!o.manualInjection) inject();
   };
 }

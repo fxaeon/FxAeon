@@ -61,6 +61,7 @@ const mocks: Record<string, string> = {
       } }, children);
     }`,
   '@/lib/wallet': `import { useEffect, useState, useSyncExternalStore } from 'react'; ${store}
+    export { isWalletConnectCancellation } from '@/lib/wallet/connectWatch';
     export function usePrivyWallet() {
       const wallet = useSyncExternalStore(lab.subscribe, () => lab.state.wallet);
       return { ...wallet, switchChain: async (chainId) => lab.set({ wallet: { chainId } }) };

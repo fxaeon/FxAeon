@@ -281,7 +281,7 @@ test('configured ordinary web with the Telegram SDK stub uses browser login with
   const observation = await openHarness(page, { bridge: 'unknown' });
   await expect(page.getByRole('heading', { name: 'Connect your wallet' })).toBeVisible();
   await expect(page.getByRole('button', { name: /create|export|email/i })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Connect browser wallet' }).click();
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
   expect((await state(page)).connectCalls).toBe(1);
   await expectBrowserOnly(page, observation);
@@ -325,7 +325,7 @@ test('Telegram launch hash selects Privy before the bridge loads and keeps it ac
 
 test('Telegram user agent with an empty SDK bridge keeps the configured browser connect flow', async ({ page }) => {
   const observation = await openHarness(page, { telegramUa: true, bridge: 'unknown' });
-  await page.getByRole('button', { name: 'Connect browser wallet' }).click();
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
   await expectBrowserOnly(page, observation);
 });
@@ -358,13 +358,13 @@ test('Telegram Web parent alone cannot load Privy when the delayed bridge has no
   await observation.frame.evaluate(() => {
     (window as any).Telegram = { WebApp: { platform: 'web', initData: '' } };
   });
-  await expect(observation.frame.getByRole('button', { name: 'Connect browser wallet' })).toBeVisible();
+  await expect(observation.frame.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
   await expectBrowserOnly(observation.frame, observation);
 });
 
 test('an unrelated iframe does not wait for Telegram or request Privy', async ({ page }) => {
   const observation = await openIframeHarness(page, 'https://web.telegram.org.example.com/k/');
-  await expect(observation.frame.getByRole('button', { name: 'Connect browser wallet' })).toBeVisible();
+  await expect(observation.frame.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
   await expect(observation.frame.locator('[data-provider-wait="true"]')).toHaveCount(0);
   await expectBrowserOnly(observation.frame, observation);
 });
@@ -403,7 +403,7 @@ test('an empty delayed Telegram bridge settles on the browser provider without l
   });
   await page.clock.runFor(100);
   await page.clock.resume();
-  await page.getByRole('button', { name: 'Connect browser wallet' }).click();
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
   await expectBrowserOnly(page, observation);
 });
@@ -418,9 +418,9 @@ test('a missing Telegram bridge falls back after the bounded wait and never repl
   // regressed longer timeout pass through Playwright's real-time auto-wait.
   await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'browser');
   await expect(page.locator('[data-provider-wait="true"]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Connect browser wallet' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
   await page.clock.resume();
-  await page.getByRole('button', { name: 'Connect browser wallet' }).click();
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
   const identity = await page.locator('[data-identity]').getAttribute('data-identity');
   await page.evaluate(() => {
@@ -436,7 +436,7 @@ test('a missing Telegram bridge falls back after the bounded wait and never repl
 
 test('a Telegram platform hint alone keeps the configured browser connect flow', async ({ page }) => {
   const observation = await openHarness(page, { bridge: 'telegram' });
-  await page.getByRole('button', { name: 'Connect browser wallet' }).click();
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
   await expectBrowserOnly(page, observation);
 });
@@ -459,7 +459,7 @@ for (const hash of ['#tgWebAppData=', '#tgWebAppVersion=8.0&tgWebAppPlatform=and
 
 test('later Telegram hints do not replace an already connected browser provider', async ({ page }) => {
   const observation = await openHarness(page, { bridge: 'unknown' });
-  await page.getByRole('button', { name: 'Connect browser wallet' }).click();
+  await page.getByRole('button', { name: 'Connect wallet' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
   const identity = await page.locator('[data-identity]').getAttribute('data-identity');
   await page.evaluate(() => {
@@ -484,7 +484,7 @@ test('a build without a Privy app ID gives Telegram a browser handoff without lo
   const observation = await openHarness(page, { variant: 'unconfigured', hash: '#tgWebAppData=auth_date%3D1%26hash%3Dsynthetic' });
   await expect(page.getByRole('heading', { name: 'Connect in your browser' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Continue in browser' })).toHaveAttribute('href', 'https://fxaeon.com/');
-  await expect(page.getByRole('button', { name: 'Connect browser wallet' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Connect wallet' })).toHaveCount(0);
   await expectBrowserOnly(page, observation);
 });
 

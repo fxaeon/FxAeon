@@ -4,7 +4,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Wallet, type LucideIcon } from 'lucide-react';
 import { haptic } from '@/lib/telegram';
-import { usePrivyWallet } from '@/lib/wallet';
+import { isWalletConnectCancellation, usePrivyWallet } from '@/lib/wallet';
 import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { userSafeError } from '@/lib/errors';
 import { Button } from '@/components/ui';
@@ -35,7 +35,10 @@ function BrowserWalletControls() {
   const connect = async () => {
     setBusy(true); setError('');
     try { await wallet.connect(); haptic('success'); }
-    catch (cause) { setError(userSafeError(cause, 'Browser wallet connection was cancelled.')); haptic('error'); }
+    catch (cause) {
+      if (isWalletConnectCancellation(cause)) return;
+      setError(userSafeError(cause, 'Browser wallet connection was cancelled.')); haptic('error');
+    }
     finally { setBusy(false); }
   };
 

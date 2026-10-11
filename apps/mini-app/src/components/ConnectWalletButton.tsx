@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { LoaderCircle } from 'lucide-react';
+import Link from 'next/link';
 import { userSafeError } from '@/lib/errors';
 import { haptic } from '@/lib/telegram';
 import { isWalletConnectCancellation, usePrivyWallet } from '@/lib/wallet';
@@ -229,17 +230,36 @@ export default function ConnectWalletButton({ children, loadingLabel = 'Opening 
   // A disabled action is a deliberate product constraint, not a provider
   // hydration state. Respect it at every readiness stage so an invalid form
   // cannot queue a connection that later auto-submits a different action.
-  const isDisabled = opening || Boolean(disabled);
+  // Keep a busy opener focusable: disabling it before the modal mounts makes
+  // the browser drop focus, so the dialog cannot remember or restore it.
+  // The synchronous connect guard still blocks duplicate requests; explicit
+  // product constraints retain native disabled behavior.
+  const isDisabled = Boolean(disabled);
+
+  // An authenticated Privy account may have only unaccepted external
+  // candidates. Offer a deliberate route to the existing choices instead of
+  // reopening the SDK or silently navigating away from a draft/action.
+  if (wallet.selectionRequired && !opening && !isDisabled) {
+    return <Link href="/settings" className={className} id={props.id} title={props.title}
+      aria-label="Choose wallet" data-wallet-connect-trigger>Choose wallet</Link>;
+  }
 
   return (
     <>
       <button
         {...props}
         type="button"
+        data-wallet-connect-trigger
         className={className}
         disabled={isDisabled}
+        aria-disabled={opening || isDisabled || undefined}
         aria-busy={opening || undefined}
-        onClick={() => void connect()}
+        onClick={(event) => {
+          // Some touch browsers do not focus a button on pointer activation.
+          // Record the real opener through focus before opening the dialog.
+          if (!connectingRef.current && !queuedRef.current) event.currentTarget.focus({ preventScroll: true });
+          void connect();
+        }}
       >
         {opening && <LoaderCircle aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin" />}
         {opening ? loadingLabel : children}

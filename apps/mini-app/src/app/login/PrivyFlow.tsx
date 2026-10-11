@@ -8,14 +8,12 @@
  * embedded-wallet creation or a user-approved external-wallet connection.
  * There is no raw private-key field and no delegated/session signer step.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronRight, Lock, Mail, Plus, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   useCreateWallet,
-  useLogin,
-  usePrivy,
-  useWallets,
 } from '@privy-io/react-auth';
 import { haptic } from '@/lib/telegram';
 import { AddressChip, Button, FullScreenSpinner } from '@/components/ui';
@@ -35,29 +33,17 @@ function errorMessage(error: unknown, fallback: string): string {
 function PrivyLoginFlow() {
   const t = useT();
   const router = useRouter();
-  const { ready, authenticated } = usePrivy();
-  const { wallets } = useWallets();
-  const { address: selectedAddress, connect } = usePrivyWallet();
+  const { ready, authenticated, address: walletAddress, selectionRequired, connect } = usePrivyWallet();
   const { createWallet } = useCreateWallet();
   const [phase, setPhase] = useState<Phase>('intro');
   const [error, setError] = useState('');
   const phaseHeadingRef = useRef<HTMLHeadingElement>(null);
   const mountedRef = useRef(false);
-  // Set while a wallet request runs through the shared adapter. Privy sends
-  // login callbacks to every listener, and that request's own promise
-  // reports its outcome, so this flow's login handlers leave it alone.
-  const adapterRequestRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
-
-  const embeddedWallet = useMemo(
-    () => wallets.find((wallet) => wallet.walletClientType === 'privy' || wallet.walletClientType === 'privy-v2'),
-    [wallets]
-  );
-  const walletAddress = selectedAddress ?? embeddedWallet?.address ?? wallets[0]?.address;
 
   useEffect(() => {
     phaseHeadingRef.current?.focus({ preventScroll: true });
@@ -66,43 +52,37 @@ function PrivyLoginFlow() {
   // A persisted Privy session should never force a second login. Let the user
   // choose a wallet only when the authenticated account has no wallet yet.
   useEffect(() => {
-    if (!ready || !authenticated) return;
+    if (!ready) return;
+    if (!authenticated) {
+      if (phase === 'done' || phase === 'choose') setPhase('intro');
+      return;
+    }
     if (phase === 'intro' || phase === 'authenticating' || (phase === 'choose' && walletAddress)) {
       setPhase(walletAddress ? 'done' : 'choose');
     }
   }, [ready, authenticated, phase, walletAddress]);
 
   const fail = useCallback((cause: unknown, fallback: string) => {
+    if (!mountedRef.current) return;
     haptic('error');
     setError(errorMessage(cause, fallback));
     setPhase('error');
   }, []);
 
-  const { login: openPrivyLogin } = useLogin({
-    onComplete: () => {
-      if (adapterRequestRef.current) return;
-      setPhase(walletAddress ? 'done' : 'choose');
-    },
-    onError: (cause) => {
-      if (adapterRequestRef.current) return;
-      if (cause === 'exited_auth_flow' || cause === 'generic_connect_wallet_error') {
-        setPhase('intro');
-        return;
-      }
-      fail(cause, 'Sign-in was not completed.');
-    },
-  });
-
-  const startEmailLogin = useCallback(() => {
+  const startEmailLogin = useCallback(async () => {
     setError('');
     setPhase('authenticating');
-    openPrivyLogin({ loginMethods: ['email'] });
-  }, [openPrivyLogin]);
+    try { await connect({ loginMethod: 'email' }); }
+    catch (cause) {
+      if (!mountedRef.current) return;
+      if (isWalletConnectCancellation(cause)) { setPhase('intro'); return; }
+      fail(cause, 'Sign-in was not completed.');
+    }
+  }, [connect, fail]);
 
   const startExternalWallet = useCallback(async () => {
     setError('');
     setPhase('authenticating');
-    adapterRequestRef.current = true;
     try {
       // The shared adapter is the Telegram-aware path. Inside Telegram it
       // restarts seamless sign-in (or asks to reopen FxAeon from Telegram)
@@ -118,8 +98,6 @@ function PrivyLoginFlow() {
         return;
       }
       fail(cause, 'Sign-in was not completed.');
-    } finally {
-      adapterRequestRef.current = false;
     }
   }, [authenticated, connect, fail]);
 
@@ -134,7 +112,7 @@ function PrivyLoginFlow() {
     try {
       await createWallet();
       haptic('success');
-      setPhase('done');
+      if (mountedRef.current) setPhase('choose');
     } catch (cause) {
       fail(cause, 'Wallet creation was cancelled or failed. No transaction was submitted.');
     }
@@ -142,7 +120,7 @@ function PrivyLoginFlow() {
 
   if (!ready) return <FullScreenSpinner asMain />;
 
-  if (phase === 'done') {
+  if (authenticated && walletAddress) {
     return (
       <main className={`${styles.loginPanel} ${styles.authStage} mx-auto w-full`}>
         <AuthCheck />
@@ -168,7 +146,7 @@ function PrivyLoginFlow() {
     );
   }
 
-  if (phase === 'choose' || phase === 'creating') {
+  if (authenticated && (phase === 'choose' || phase === 'creating' || selectionRequired)) {
     const creating = phase === 'creating';
     return (
       <main className={`${styles.loginPanel} ${styles.authStage} mx-auto w-full`}>
@@ -179,6 +157,11 @@ function PrivyLoginFlow() {
           Create a wallet for this account or connect one you already use. Nothing is created or connected automatically.
         </p>
         <div className={styles.authOptions}>
+          {selectionRequired && <Link href="/settings" className={styles.authOption} aria-label="Choose wallet">
+            <span className={styles.authOptionIcon} aria-hidden="true"><Wallet /></span>
+            <span className={styles.authOptionText}><strong>Choose an available wallet</strong><small>Select the wallet you want to use in Settings.</small></span>
+            <ChevronRight aria-hidden="true" />
+          </Link>}
           <button type="button" className={styles.authOption} onClick={handleCreate} disabled={creating} aria-busy={creating || undefined}>
             <span className={styles.authOptionIcon} aria-hidden="true"><Plus /></span>
             <span className={styles.authOptionText}>
@@ -191,7 +174,7 @@ function PrivyLoginFlow() {
             <span className={styles.authOptionIcon} aria-hidden="true"><Wallet /></span>
             <span className={styles.authOptionText}>
               <strong>Connect an existing wallet</strong>
-              <small>Connect MetaMask, Coinbase Wallet, WalletConnect, or another supported EVM wallet.</small>
+              <small>Add an external wallet, then choose it in Settings.</small>
             </span>
             <ChevronRight aria-hidden="true" />
           </button>
@@ -218,7 +201,7 @@ function PrivyLoginFlow() {
           <Wallet aria-hidden="true" />
           {t('loginCard.wallet')}
         </Button>
-        <Button variant="ghost" onClick={startEmailLogin} disabled={busy}>
+        <Button variant="ghost" onClick={() => void startEmailLogin()} disabled={busy}>
           <Mail aria-hidden="true" />
           {t('loginCard.email')}
         </Button>

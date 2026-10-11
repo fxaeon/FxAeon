@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const appRoot = resolve(__dirname, '../..');
 const repoRoot = resolve(appRoot, '../..');
-const tsxPackage = createRequire(resolve(repoRoot, 'package.json')).resolve('tsx/package.json');
+const tsxPackage = createRequire(resolve(appRoot, 'package.json')).resolve('tsx/package.json');
 const esbuild = createRequire(tsxPackage)('esbuild') as {
   build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ path: string; text: string }> }>;
 };

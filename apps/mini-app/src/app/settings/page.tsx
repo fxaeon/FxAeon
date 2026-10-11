@@ -33,6 +33,8 @@ function formatGwei(value: bigint): string {
 export default function SettingsPage() {
   const { t } = useLocale();
   const wallet = usePrivyWallet();
+  const [walletChoicesExpanded, setWalletChoicesExpanded] = useState(Boolean(wallet.selectionRequired));
+  useEffect(() => { if (wallet.selectionRequired) setWalletChoicesExpanded(true); }, [wallet.selectionRequired]);
   const providerMode = useWalletProviderMode();
   const showGasSettings = providerMode === 'privy' && (!wallet.address || wallet.isEmbedded);
   const [ready, setReady] = useState(false);
@@ -105,7 +107,7 @@ export default function SettingsPage() {
       <section className={styles.section} aria-labelledby={`${id}-wallet`}>
         <h2 id={`${id}-wallet`}>Wallet</h2>
         <AccountSummary />
-        <div className={styles.walletManagement}><Disclosure title="Change wallet"><WalletSection /></Disclosure></div>
+        <div className={styles.walletManagement}><Disclosure title={wallet.selectionRequired ? 'Choose wallet' : 'Change wallet'} defaultOpen={walletChoicesExpanded}><WalletSection /></Disclosure></div>
       </section>
       <section className={styles.section} aria-labelledby={`${id}-preferences`}>
         <h2 id={`${id}-preferences`}>Transaction preferences</h2>
