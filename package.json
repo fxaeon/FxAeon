@@ -25,7 +25,7 @@
     "test:anvil:stress": "node scripts/run_anvil_tests.mjs --suite stress",
     "test:anvil:all": "node scripts/run_anvil_tests.mjs --suite all",
     "test:anvil:browser": "node scripts/run_anvil_tests.mjs --suite browser",
-    "test:deploy-workflow": "node --test scripts/deploy_workflow.contract.test.mjs scripts/release_revision.test.mjs scripts/check_live_gas_oracle.contract.test.mjs",
+    "test:deploy-workflow": "node --test scripts/deploy_workflow.contract.test.mjs scripts/release_revision.test.mjs scripts/check_live_gas_oracle.contract.test.mjs scripts/verify_built_rpc_config.test.mjs",
     "test:stress": "pnpm test:chaos && pnpm test:anvil:stress",
     "test:e2e": "pnpm --dir apps/mini-app test:e2e",
     "test:e2e:borrow-harness": "pnpm --dir apps/mini-app test:e2e:borrow-harness",

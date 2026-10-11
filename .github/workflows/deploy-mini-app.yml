@@ -59,8 +59,16 @@ jobs:
           NEXT_PUBLIC_ALCHEMY_DATA_API_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_DATA_API_KEY }}
           NEXT_PUBLIC_TELEGRAM_APP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
       - name: Check production artifact
+        env:
+          NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}
+          NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL }}
+          NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL }}
+          NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL }}
+          NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL: ${{ secrets.NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL }}
+          NEXT_PUBLIC_INFURA_BASE_RPC_URL: ${{ secrets.NEXT_PUBLIC_INFURA_BASE_RPC_URL }}
         run: |
           node scripts/verify_frontend_secrets.mjs --built
+          node scripts/verify_built_rpc_config.mjs
           pnpm check:bundle
       - name: Stamp production revision
         run: node scripts/release_revision.mjs write "$GITHUB_SHA"

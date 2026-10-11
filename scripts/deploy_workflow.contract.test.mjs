@@ -67,6 +67,15 @@ test('the verified production artifact is revision-stamped and uploaded only for
 
   const artifactCheck = step('Check production artifact');
   assert.match(artifactCheck, /verify_frontend_secrets\.mjs --built/);
+  assert.match(artifactCheck, /node scripts\/verify_built_rpc_config\.mjs/);
+  for (const name of [
+    'NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL',
+    'NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL',
+    'NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL',
+    'NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL',
+    'NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL',
+    'NEXT_PUBLIC_INFURA_BASE_RPC_URL',
+  ]) assert.ok(artifactCheck.includes(name + ': ${{ secrets.' + name + ' }}'));
   assert.match(artifactCheck, /pnpm check:bundle/);
 
   const stamp = step('Stamp production revision');
