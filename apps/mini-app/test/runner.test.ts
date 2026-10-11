@@ -10,6 +10,9 @@ import {
 } from "viem";
 import { clearPendingHashJournalForTests, readPendingHashJournal, readPendingHashes } from "../src/lib/fx/journal";
 import { runTransactionRoute, simulatePlannedRoute, waitForReceipt } from "../src/lib/fx/runner";
+import { capabilityPolicy } from "../src/lib/fx/policy";
+import { FX_TOKENS } from "../src/lib/fx/tokens";
+import { classifyActivity } from "../src/lib/activityClassification";
 import type { GasFeeSelection, GasTierQuotes } from "../src/lib/fx/gasFeePolicy";
 import type { FxPublicClient, PlannedRoute, PlannedTransaction, TransactionPolicy } from "../src/lib/fx/types";
 
@@ -213,6 +216,49 @@ test.before(() => {
 test.after(() => {
   if (globalThis.navigator) Object.defineProperty(globalThis.navigator, "locks", { value: nativeLocks, configurable: true });
 });
+
+for (const directBasePool of [true, false]) {
+  test(`runner journals ${directBasePool ? 'direct' : 'queued'} fxSAVE redemption with the matching History action`, async () => {
+    const vault = FX_TOKENS.fxSAVE.address;
+    const amount = 7n;
+    const abi = parseAbi(['function redeem(uint256 shares,address receiver,address owner)', 'function requestRedeem(uint256 shares)']);
+    const data = directBasePool
+      ? encodeFunctionData({ abi, functionName: 'redeem', args: [amount, WALLET, WALLET] })
+      : encodeFunctionData({ abi, functionName: 'requestRedeem', args: [amount] });
+    const planned = route(1, 'withdrawFxSave');
+    planned.transactions[0] = { ...planned.transactions[0]!, to: vault, data };
+    planned.policy = capabilityPolicy({
+      walletAddress: WALLET, chainId: 1, operation: 'withdrawFxSave',
+      reviewedAction: {
+        kind: 'fxsave-withdraw', amount, receiver: WALLET, instant: false, directBasePool,
+        tokenOutAddress: directBasePool ? FX_TOKENS.fxUSDBasePool.address : FX_TOKENS.fxUSD.address,
+      },
+    });
+    const baseClient = client({ pendingNonces: [4], receipts: [{ status: 'success', blockNumber: 10n }], blocks: [10n] });
+    const result = await runTransactionRoute({
+      route: planned,
+      publicClient: {
+        ...baseClient,
+        getTransactionReceipt: async (args) => ({ ...await baseClient.getTransactionReceipt(args), to: vault }),
+        getTransaction: async (args) => ({ ...await baseClient.getTransaction(args), to: vault, input: data }),
+      } as FxPublicClient,
+      callbacks: { requestSignature: async () => HASH_1 },
+      options: { simulate: false, pollMs: 0, receiptTimeoutMs: 100, waitForNextBlock: false },
+    });
+    assert.equal(result.status, 'confirmed');
+    const [record] = readPendingHashJournal();
+    assert.equal(record?.intent, directBasePool ? 'Withdraw' : 'Queue withdrawal');
+    assert.equal(record?.status, 'confirmed');
+    // History prioritizes the journal's reviewed intent over matching calldata.
+    // Exercise that real path: correct calldata alone cannot repair a bad label.
+    const activity = classifyActivity({
+      wallet: WALLET, chainId: 1, hash: HASH_1, timestamp: 1_000, status: 'confirmed',
+      journal: record, call: { from: WALLET, to: vault, input: data }, transfers: [],
+    });
+    assert.equal(activity.kind, directBasePool ? 'withdraw' : 'queueWithdrawal');
+    assert.equal(activity.title, directBasePool ? 'Withdrew from fxSAVE' : 'Queued fxSAVE withdrawal');
+  });
+}
 
 test("runner signs SDK steps in order, waits every receipt, then performs post-read after an explicit extra block", async () => {
   const events: string[] = [];
