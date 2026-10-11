@@ -35,7 +35,7 @@ explicit rather than assuming it shares the production GitHub configuration.
 | `NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL` | Secret | Origin-restricted Ethereum RPC |
 | `NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL` | Secret | Origin-restricted Base RPC |
 | `NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL` | Optional secrets | Second Alchemy endpoints for Ethereum/Base HTTP and WebSocket failover |
-| `NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_INFURA_BASE_RPC_URL` | Optional secrets | Third-choice Ethereum/Base HTTP fallback endpoints |
+| `NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_INFURA_BASE_RPC_URL` | Optional secrets | Secondary Ethereum/Base HTTP fallback endpoints |
 | `NEXT_PUBLIC_ALCHEMY_DATA_API_KEY` | Secret | Browser-visible wallet-token discovery key, restricted by origin and quota |
 | `NEXT_PUBLIC_TELEGRAM_APP_URL` | Variable | `https://t.me/FxAeonBot` or a configured Mini App launcher |
 | `TELEGRAM_BOT_TOKEN` | Secret | Bot metadata and menu synchronization; never a `NEXT_PUBLIC_*` value |
