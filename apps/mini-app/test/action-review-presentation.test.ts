@@ -35,6 +35,45 @@ function estimate({ nativeValueWei = 0n, executionGasFeeWei = 1_000_000_000_000_
   };
 }
 
+function withdrawalRoute(tokenOut: 'USDC' | 'fxUSD' | 'fxUSDBasePool', instant = false): PlannedRoute {
+  return {
+    ...route(),
+    operation: 'withdrawFxSave',
+    policy: { walletAddress: route().walletAddress, chainId: 1, reviewedAction: {
+      kind: 'fxsave-withdraw', tokenOutAddress: FX_TOKENS[tokenOut].address,
+      amount: 10n ** 18n, receiver: route().walletAddress, instant,
+      directBasePool: tokenOut === 'fxUSDBasePool',
+    } },
+  } as unknown as PlannedRoute;
+}
+
+test('queued fxSAVE reviews keep both later claim assets visible for either selected stablecoin', () => {
+  for (const token of ['USDC', 'fxUSD'] as const) {
+    const facts = primaryReviewFacts(withdrawalRoute(token));
+    // Either claim leg can be zero; review must not promise positive amounts of both.
+    const receive = { label: 'Receive', value: 'fxUSD and/or USDC (later claim)' };
+    assert.deepEqual(facts.find((fact) => fact.label === 'Receive'), receive);
+    assert.equal(facts.find((fact) => fact.label === 'Mode')?.value, 'Queued');
+    // This correction must survive both compact review and consequence summaries.
+    assert.deepEqual(splitReviewFacts(facts).summary.find((fact) => fact.label === 'Receive'), receive);
+    assert.deepEqual(consequenceSummary(facts).find((fact) => fact.label === 'Receive'), receive);
+  }
+});
+
+test('instant fxSAVE reviews retain the selected converted receive asset', () => {
+  for (const token of ['USDC', 'fxUSD'] as const) {
+    const facts = primaryReviewFacts(withdrawalRoute(token, true));
+    assert.deepEqual(facts.find((fact) => fact.label === 'Receive'), { label: 'Receive', value: token });
+    assert.equal(facts.find((fact) => fact.label === 'Mode')?.value, 'Instant');
+  }
+});
+
+test('direct fxSAVE reviews receive fxSP without a later claim', () => {
+  const facts = primaryReviewFacts(withdrawalRoute('fxUSDBasePool'));
+  assert.deepEqual(facts.find((fact) => fact.label === 'Receive'), { label: 'Receive', value: 'fxSP' });
+  assert.equal(facts.find((fact) => fact.label === 'Mode')?.value, 'Direct');
+});
+
 test('gas fee row remains stable while the optional estimate loads and reports failure without blocking', () => {
   const loading = { status: 'refreshing' as const, estimateIsCurrent: false, estimate: undefined, error: undefined };
   assert.deepEqual(missingGasFeeFact(loading), { label: 'Gas fee', value: '—' });

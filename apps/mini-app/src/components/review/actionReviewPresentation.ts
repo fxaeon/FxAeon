@@ -167,7 +167,11 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
         break;
       case 'fxsave-withdraw':
         addTokenAmountFact(facts, 'fxSAVE', intent.amount, FX_TOKENS.fxSAVE.address);
-        addFact(facts, 'Receive', tokenSymbolForAddress(intent.tokenOutAddress) ?? compactAddress(intent.tokenOutAddress));
+        // requestRedeem queues the same claim for either selected stablecoin.
+        // Only an instant conversion or direct fxSP redeem selects one asset.
+        addFact(facts, 'Receive', !intent.directBasePool && !intent.instant
+        ? 'fxUSD and/or USDC (later claim)'
+          : tokenSymbolForAddress(intent.tokenOutAddress) ?? compactAddress(intent.tokenOutAddress));
         addFact(facts, 'Mode', intent.directBasePool ? 'Direct' : intent.instant ? 'Instant' : 'Queued');
         if (intent.slippagePercent !== undefined) addFact(facts, 'Slippage', `${intent.slippagePercent}%`);
         break;

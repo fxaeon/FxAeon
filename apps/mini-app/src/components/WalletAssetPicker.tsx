@@ -15,13 +15,14 @@ import styles from './WalletAssetPicker.module.css';
  * Chooses one wallet holding, by network. The sheet reuses the token picker's
  * surface and the Portfolio row, so a holding reads the same everywhere.
  */
-export function WalletAssetPicker({ assets, value, onChange, label, disabled = false, loading = false }: {
+export function WalletAssetPicker({ assets, value, onChange, label, disabled = false, loading = false, emptyLabel = 'No assets' }: {
   assets: readonly WalletAsset[];
   value: WalletAsset | undefined;
   onChange: (asset: WalletAsset) => void;
   label: string;
   disabled?: boolean;
   loading?: boolean;
+  emptyLabel?: string;
 }) {
   const id = useId();
   const titleId = `${id}-title`;
@@ -59,9 +60,9 @@ export function WalletAssetPicker({ assets, value, onChange, label, disabled = f
       disabled={disabled || !assets.length}
       onClick={() => setOpen((current) => !current)}
     >
-      {value ? <AssetNetworkIcon asset={value} size={28} /> : <span className={`${styles.placeholder} skeleton`} aria-hidden="true" />}
+      {value ? <AssetNetworkIcon asset={value} size={28} /> : <span className={`${styles.placeholder}${loading ? ' skeleton' : ''}`} aria-hidden="true" />}
       <span className={styles.copy}>
-        <strong>{value ? symbol : loading ? 'Loading' : 'No assets'}</strong>
+        <strong>{value ? symbol : loading ? 'Loading' : emptyLabel}</strong>
         {value && <small>{networkLabel(value.chainId)}</small>}
       </span>
       <ChevronDown aria-hidden="true" className={styles.chevron} data-open={open || undefined} />

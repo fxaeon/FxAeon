@@ -306,12 +306,17 @@ function WalletAssetLayer({ address, enabled, expandedAssets, chainPulse, childr
       return;
     }
     const controllers: Partial<Record<FxChainId, ReturnType<typeof createAlchemyChainPulse>>> = {};
+    // Positions and protocol forms use Ethereum only. Base has live consumers
+    // when the portfolio/profile requests expanded assets; otherwise its heads
+    // and wallet logs would be a paid feed with nobody reading the results.
+    const chains: readonly FxChainId[] = active ? [1, 8453] : [1];
+    if (!active) setChainStates((current) => ({ ...current, 8453: EMPTY_CHAIN_STATE[8453] }));
     let disposed = false;
     const update = () => {
       const foreground = document.visibilityState === 'visible' && navigator.onLine;
-      for (const chainId of [1, 8453] as const) controllers[chainId]?.setActive(foreground);
+      for (const chainId of chains) controllers[chainId]?.setActive(foreground);
     };
-    for (const chainId of [1, 8453] as const) {
+    for (const chainId of chains) {
       try {
         const controller = createAlchemyChainPulse({
           chainId, walletAddress: address,

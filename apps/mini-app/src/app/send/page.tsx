@@ -24,6 +24,9 @@ import { displayAssetSymbol } from '@/components/AssetPresentation';
 import { WalletAssetPicker } from '@/components/WalletAssetPicker';
 import { StickyAction } from '@/components/StickyAction';
 import { TransactionSettings } from '@/components/TransactionSettings';
+import { StatusNotice } from '@/components/ProductUI';
+import { useRefreshAction } from '@/lib/useRefreshAction';
+import type { WalletAsset } from '@/lib/walletAssets';
 import styles from './send.module.css';
 const SEND_DEMAND = { expandedAssets: true, chainPulse: true, positions: false } as const;
 
@@ -42,8 +45,21 @@ function SendForm() {
   useWalletDemand(SEND_DEMAND, wallet.ready && Boolean(wallet.address));
   const assets = useWalletAssets({ address: wallet.address, enabled: wallet.ready && Boolean(wallet.address) });
   const tokens = assets.data?.assets.filter((asset) => asset.balanceWei > 0n && canonicalAsset(asset.chainId, asset.tokenAddress)) ?? [];
-  const [assetId, setAssetId] = useState('');
-  const asset = tokens.find((item) => item.id === assetId) ?? tokens[0];
+  // Choose the default once. Price sorting and balance refreshes must never
+  // turn an entered amount into another token or another network's holding.
+  // Retain the identity when an exact zero read removes its funded row.
+  const [selectedAsset, setSelectedAsset] = useState<WalletAsset>();
+  const fundedAsset = selectedAsset ? tokens.find((item) => item.id === selectedAsset.id) : tokens[0];
+  const asset = fundedAsset ?? selectedAsset;
+  useEffect(() => {
+    if (fundedAsset && fundedAsset !== selectedAsset) setSelectedAsset(fundedAsset);
+  }, [fundedAsset, selectedAsset]);
+  const selectedNetworkReady = Boolean(asset && assets.data?.networks[asset.chainId]?.status === 'ready');
+  const missingBalance = Boolean(asset && !fundedAsset && !selectedNetworkReady);
+  const emptyBalance = Boolean(asset && !fundedAsset && selectedNetworkReady);
+  const readFailed = assets.status === 'unavailable' || assets.status === 'partial';
+  const refreshAction = useRefreshAction(`${wallet.address?.toLowerCase()}:${wallet.connectionVersion}`);
+  const refreshing = refreshAction.refreshing || assets.isFetching || assets.status === 'loading' || assets.status === 'idle';
   const [amount, setAmount] = useState('');
   const [recipient, setRecipient] = useState('');
   const [tier, setTier] = useState<GasTier>(readGasTier);
@@ -80,13 +96,15 @@ function SendForm() {
   const amountProblem = asset && trimmedAmount ? decimalInputError(trimmedAmount, asset.decimals) : null;
   const amountUnits = asset && trimmedAmount && !amountProblem ? decimalToUnits(trimmedAmount, asset.decimals) : null;
   // The action names the one thing still missing, so a disabled button is never a mystery.
-  const blocker = !asset ? (assets.status === 'loading' || assets.status === 'idle' ? 'Loading assets' : 'No assets to send')
-    : !trimmedAmount ? 'Enter an amount'
-      : amountUnits === null ? 'Enter a valid amount'
-        : amountUnits > asset.balanceWei ? `Insufficient ${symbol}`
-          : !trimmedRecipient ? 'Enter a recipient'
-            : !recipientValid ? 'Enter a valid address'
-              : null;
+  const blocker = !asset ? (assets.status === 'loading' || assets.status === 'idle' ? 'Loading assets' : readFailed ? 'Check balances' : 'No assets to send')
+    : missingBalance ? `Check ${symbol} balance`
+      : emptyBalance ? `No ${symbol} to send`
+        : !trimmedAmount ? 'Enter an amount'
+          : amountUnits === null ? 'Enter a valid amount'
+            : amountUnits > asset.balanceWei ? `Insufficient ${symbol}`
+              : !trimmedRecipient ? 'Enter a recipient'
+                : !recipientValid ? 'Enter a valid address'
+                  : null;
   const run = async (action: () => Promise<void>) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
@@ -171,15 +189,19 @@ function SendForm() {
       <div className={styles.amountPanel}>
         <div className={styles.panelHead}>
           <label htmlFor="send-amount">Amount</label>
-          <button type="button" className={styles.max} disabled={busy || !asset} onClick={maximum}><span>Max</span></button>
+          <button type="button" className={styles.max} disabled={busy || !fundedAsset} onClick={maximum}><span>Max</span></button>
         </div>
         <div className={styles.amountRow}>
           <span className={styles.amountFit}><input id="send-amount" className={styles.amountInput} style={{ '--amount-length': Math.max(trimmedAmount.length, 4) } as CSSProperties} inputMode="decimal" autoComplete="off" spellCheck={false} placeholder="0.00" value={amount} disabled={busy} aria-invalid={Boolean(amountProblem) || undefined} onKeyDown={reviewOnEnter} onChange={(event) => { setAmount(event.target.value); setError(''); }} /></span>
-          <WalletAssetPicker label="Asset to send" assets={tokens} value={asset} disabled={busy} loading={assets.status === 'loading' || assets.status === 'idle'} onChange={(next) => { setAssetId(next.id); setAmount(''); setError(''); }} />
+          <WalletAssetPicker label="Asset to send" assets={tokens} value={asset} disabled={busy} loading={assets.status === 'loading' || assets.status === 'idle'} emptyLabel={readFailed ? 'Unavailable' : undefined} onChange={(next) => { setSelectedAsset(next); setAmount(''); setError(''); }} />
         </div>
         {amountProblem && trimmedAmount !== '.' ? <p className={styles.hint}>{amountProblem}</p>
-          : asset && <p className={styles.balance}>Available: <span title={`${asset.balance} ${symbol}`}>{formatBalanceDecimal(asset.balance, 8)} {symbol}</span>{asset.usdValue !== null && <span className={styles.balanceUsd}>{formatUsd(asset.usdValue)}</span>}</p>}
+          : asset && <p className={styles.balance}>{missingBalance ? 'Balance unavailable' : <>{fundedAsset && !selectedNetworkReady ? 'Last checked' : 'Available'}: <span title={fundedAsset ? `${fundedAsset.balance} ${symbol}` : undefined}>{fundedAsset ? formatBalanceDecimal(fundedAsset.balance, 8) : '0'} {symbol}</span>{fundedAsset?.usdValue != null && selectedNetworkReady && <span className={styles.balanceUsd}>{formatUsd(fundedAsset.usdValue)}</span>}</>}</p>}
       </div>
+      {(readFailed || missingBalance) && <StatusNotice tone="warning" title={refreshing ? 'Checking balances…' : asset ? 'Couldn’t refresh balances' : 'Couldn’t load balances'}
+        action={<button type="button" disabled={busy || refreshing} aria-busy={refreshing || undefined} onClick={() => void refreshAction.run([assets.refresh])}>{refreshing ? 'Checking…' : 'Retry'}</button>}>
+        {fundedAsset ? 'Showing the last checked balance. Review checks it again before you can send.' : 'Retry to check your supported assets on Ethereum and Base.'}
+      </StatusNotice>}
       <div className={styles.recipientPanel}>
         <label htmlFor="send-recipient" className={styles.fieldLabel}>To</label>
         <div className={styles.recipientRow}>

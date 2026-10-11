@@ -12,6 +12,7 @@ const esbuild = createRequire(createRequire(resolve(root, 'package.json')).resol
 };
 const baselineRef = process.env.RPC_CHAIN_PROOF_BASELINE_REF;
 const baseline = Boolean(baselineRef);
+const demandBaselineRef = process.env.RPC_DEMAND_BASELINE_REF;
 const mocks: Record<string, string> = {
   '@/lib/wallet': `export const usePrivyWallet = () => window.__rpcHarness.wallet;`,
   '@/components/PriceProvider': `const value={prices:{},status:'unavailable',updatedAt:null}; export const useUsdPrices = () => value;`,
@@ -41,13 +42,16 @@ test.beforeAll(async () => {
       if (baseline) build.onLoad({ filter: /clients\.ts$/ }, ({ path }) => path === resolve(root, 'src/lib/fx/clients.ts')
         ? { contents: execFileSync('git', ['show', `${baselineRef}:apps/mini-app/src/lib/fx/clients.ts`], { cwd: repo, encoding: 'utf8' }), loader: 'ts', resolveDir: resolve(root, 'src/lib/fx') }
         : undefined);
+      if (demandBaselineRef) build.onLoad({ filter: /WalletDataProvider\.tsx$/ }, ({ path }) => path === resolve(root, 'src/components/WalletDataProvider.tsx')
+        ? { contents: execFileSync('git', ['show', `${demandBaselineRef}:apps/mini-app/src/components/WalletDataProvider.tsx`], { cwd: repo, encoding: 'utf8' }), loader: 'tsx', resolveDir: resolve(root, 'src/components') }
+        : undefined);
     } }],
   });
   script = result.outputFiles[0].text;
 });
 
 type Call = { chainId: number; method: string; params?: unknown[] };
-async function mount(page: Page, delayMs = 0) {
+async function mount(page: Page, delayMs = 0, realtime = false) {
   const calls: Call[] = [];
   const escaped: string[] = [];
   page.on('websocket', socket => escaped.push(socket.url()));
@@ -73,10 +77,10 @@ async function mount(page: Page, delayMs = 0) {
     } else throw new Error(`Unexpected RPC method: ${payload.method}`);
     return route.fulfill({ headers: { 'access-control-allow-origin': '*' }, json: { jsonrpc: '2.0', id: payload.id, result } });
   });
-  await page.goto('http://rpc.test/');
+  await page.goto(`http://rpc.test/${realtime ? '?realtime=1' : ''}`);
   await page.addScriptTag({ content: script });
-  await expect(page.getByTestId('form-status')).toHaveText('ready/ready');
-  await expect(page.getByTestId('profile-status')).toHaveText('ready/ready');
+  await expect(page.getByTestId('form-status')).toHaveText(realtime ? 'ready/idle' : 'ready/ready');
+  await expect(page.getByTestId('profile-status')).toHaveText(realtime ? 'ready/idle' : 'ready/ready');
   expect(escaped).toEqual([]);
   return { calls, escaped, setNative: (value: bigint) => { native = value; } };
 }
@@ -157,4 +161,100 @@ test('hidden and off-route observers stop periodic work and resume with fresh ba
   setNative(888n);
   await page.getByRole('button', { name: 'Return to wallet route' }).click();
   await expect(page.getByTestId('form-balance')).toHaveText('888');
+});
+
+test('Ethereum-only demand skips Base subscriptions and restores them for the portfolio profile', async ({ page }, testInfo) => {
+  await page.clock.install();
+  await page.addInitScript(() => {
+    type Subscription = { id: number; method: string; params: unknown[] };
+    class FixtureSocket {
+      onopen: (() => void) | null = null;
+      onmessage: ((event: { data: string }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onclose: (() => void) | null = null;
+      closed = false;
+      sent: Subscription[] = [];
+      notifications = 0;
+      constructor(public url: string) {
+        sockets.push(this);
+        queueMicrotask(() => this.onopen?.());
+      }
+      send(data: string) {
+        const request = JSON.parse(data) as Subscription;
+        this.sent.push(request);
+        queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id: request.id, result: `fixture-${request.id}` }) }));
+      }
+      close() { this.closed = true; }
+      head(block: number) {
+        if (this.closed || !this.sent.some(request => request.params[0] === 'newHeads')) return;
+        this.notifications += 1;
+        this.onmessage?.({ data: JSON.stringify({ method: 'eth_subscription', params: { subscription: 'fixture-1', result: { number: `0x${block.toString(16)}` } } }) });
+      }
+    }
+    const sockets: FixtureSocket[] = [];
+    Object.assign(window, { WebSocket: FixtureSocket, __rpcSockets: sockets });
+  });
+  const { calls, escaped, setNative } = await mount(page, 0, true);
+  const snapshot = () => page.evaluate(() => {
+    const sockets = (window as unknown as { __rpcSockets: { url: string; closed: boolean; sent: unknown[]; notifications: number }[] }).__rpcSockets;
+    return [1, 8453].map(chainId => {
+      const matching = sockets.filter(socket => socket.url.includes(chainId === 1 ? 'eth-mainnet' : 'base-mainnet'));
+      return { chainId, active: matching.filter(socket => !socket.closed).length,
+        subscriptions: matching.filter(socket => !socket.closed).reduce((sum, socket) => sum + socket.sent.length, 0),
+        notifications: matching.reduce((sum, socket) => sum + socket.notifications, 0) };
+    });
+  });
+  await expect.poll(async () => (await snapshot()).map(chain => chain.subscriptions)).toEqual(demandBaselineRef ? [3, 3] : [3, 0]);
+  const initial = await snapshot();
+  setNative(777n);
+  // Deliver one minute of Ethereum (12s) and Base (2s) heads. Only sockets the
+  // real provider opened receive notifications; there is no external network.
+  for (let tick = 1; tick <= 30; tick += 1) {
+    await page.clock.runFor(2_000);
+    await page.evaluate(tick => {
+      const sockets = (window as unknown as { __rpcSockets: { url: string; head: (block: number) => void }[] }).__rpcSockets;
+      for (const socket of sockets) {
+        if (socket.url.includes('base-mainnet') || tick % 6 === 0) socket.head(tick);
+      }
+    }, tick);
+    if (tick === 12) await expect(page.getByTestId('form-balance')).toHaveText('777');
+  }
+  const measured = await snapshot();
+  expect(measured.map(chain => chain.notifications)).toEqual(demandBaselineRef ? [5, 30] : [5, 0]);
+  expect(calls.filter(call => call.chainId === 8453)).toHaveLength(0);
+  await expect(page.getByTestId('form-balance')).toHaveText('777');
+  await testInfo.attach('demand-scoped-websocket-proof', { body: JSON.stringify({ baseline: Boolean(demandBaselineRef), simulatedSeconds: 60, initial, measured }, null, 2), contentType: 'application/json' });
+
+  await page.getByRole('button', { name: 'Open portfolio profile' }).click();
+  await expect(page.getByTestId('form-status')).toHaveText('ready/ready');
+  await expect(page.getByTestId('form-base-balance')).toHaveText('777');
+  await expect.poll(async () => (await snapshot()).map(chain => chain.subscriptions)).toEqual([3, 3]);
+  expect(calls.filter(call => call.chainId === 8453 && call.method === 'eth_getBalance')).toHaveLength(1);
+  await page.getByRole('button', { name: 'Close portfolio profile' }).click();
+  await expect.poll(async () => (await snapshot()).map(chain => chain.active)).toEqual(demandBaselineRef ? [1, 1] : [1, 0]);
+  setNative(888n);
+  await page.clock.runFor(16_000);
+  await page.getByRole('button', { name: 'Open portfolio profile' }).click();
+  await expect(page.getByTestId('form-base-balance')).toHaveText('888');
+  await expect.poll(async () => (await snapshot()).map(chain => chain.subscriptions)).toEqual([3, 3]);
+  await page.getByRole('button', { name: 'Close portfolio profile' }).click();
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(async () => (await snapshot()).map(chain => chain.active)).toEqual([0, 0]);
+  // Settle any foreground work, then prove there is no hidden-tab polling.
+  await page.clock.runFor(100);
+  const hidden = calls.length;
+  await page.clock.runFor(61_000);
+  expect(calls).toHaveLength(hidden);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(async () => (await snapshot()).map(chain => chain.subscriptions)).toEqual(demandBaselineRef ? [3, 3] : [3, 0]);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect.poll(async () => (await snapshot()).map(chain => chain.active)).toEqual([0, 0]);
+  expect(escaped).toEqual([]);
 });
