@@ -29,11 +29,13 @@ requires a verified recovery or linked-login path: an email account and a
 Telegram account are not automatically the same Privy user. This change does
 not delete accounts or move assets.
 
-The browser adapter currently supports injected wallets, not a standalone
-WalletConnect QR/relay session. Mobile users can open the site in their EVM
-wallet's browser. Normal Safari/Chrome without a provider needs that handoff;
-do not describe this as connector parity with Privy's external-wallet picker.
-Adding a separately configured mobile connector is a follow-up integration.
+The browser adapter supports injected wallets and now offers explicit
+MetaMask/Trust Wallet browser links. Normal Safari/Chrome without a provider
+uses that handoff, then connects inside the wallet browser. Public routes are
+preserved; query strings, launch data, and unsaved form values are not forwarded.
+There is no QR/relay pairing or additional connector subscription. See
+[mobile wallet-browser handoff](mobile-wallet-browser-handoff.md) for behavior
+and physical-device validation still required before rollout.
 
 ## Proposed Telegram admission and waitlist
 

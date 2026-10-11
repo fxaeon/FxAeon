@@ -17,6 +17,7 @@
     "test:e2e:positions-harness": "playwright test --config e2e/positions-harness.config.ts",
     "test:e2e:privy-send-harness": "playwright test --config e2e/privy-send-harness.config.ts",
     "test:e2e:trade-harness": "playwright test --config e2e/trade-harness.config.ts",
+    "test:e2e:mobile-wallet-harness": "playwright test --config e2e/mobile-wallet-harness.config.ts",
     "test:e2e:wallet-provider-harness": "playwright test --config e2e/wallet-provider-harness.config.ts",
     "test:e2e:overlay": "playwright test --config playwright.overlay.config.ts",
     "test:e2e:state-lab": "playwright test --config playwright.state-lab.config.ts",

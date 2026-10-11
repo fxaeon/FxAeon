@@ -1,13 +1,15 @@
 'use client';
 
-import { createElement, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { assertLocalForkRpcUrl, configuredRpcUrls } from '@/lib/fx/config';
 import { isTelegramLaunchContext } from '@/lib/telegram';
 import { switchBrowserChain as switchBrowserChainWithConfig } from './switchBrowserChain';
-import { eip6963FocusTrapDestination, getDiscoveredEip6963Providers, recordEip6963Announcement, selectEip6963Provider, shouldBindEip6963ProviderEvents, shouldPromptEip6963Provider, waitForWalletProvider, type DiscoveredEip6963Provider, type Eip6963Announcement } from './eip6963';
+import { getDiscoveredEip6963Providers, recordEip6963Announcement, selectEip6963Provider, shouldBindEip6963ProviderEvents, shouldPromptEip6963Provider, waitForWalletProvider, type DiscoveredEip6963Provider, type Eip6963Announcement } from './eip6963';
 import { FxWalletContext } from './context';
 import { asChainNumber, asHexQuantity } from './helpers';
 import { FX_CHAIN_IDS, type FxChainId, type FxPrivyWallet, type FxSelectedWallet, type FxWalletTransaction } from './types';
+import { ExternalWalletDialog } from '@/components/ExternalWalletDialog';
+import { WalletConnectCancelledError } from './connectWatch';
 
 export { usePrivyWallet } from './context';
 export { FX_CHAIN_IDS, type FxChainId, type FxPrivyWallet, type FxSelectedWallet, type FxWalletTransaction, type FxWalletTransactionOptions } from './types';
@@ -111,7 +113,9 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
   const [address, setAddress] = useState<string>();
   const [chainId, setChainId] = useState<FxChainId>();
   const [connectionVersion, setConnectionVersion] = useState(0);
-  const provider = browserProvider();
+  const [selectedProvider, setSelectedProvider] = useState<Eip1193Provider>();
+  const explicitProviderSelectionRef = useRef(false);
+  const provider = selectedProvider ?? browserProvider();
   const discoveryAbortRef = useRef<AbortController | null>(null);
   const connectAttemptRef = useRef(0);
   const boundProviderRef = useRef<Eip1193Provider | undefined>(undefined);
@@ -119,10 +123,19 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
   currentProviderRef.current = provider;
   const currentAddressRef = useRef(address);
   currentAddressRef.current = address;
+  const chainEventVersionRef = useRef(0);
+  const identityEventVersionRef = useRef(0);
 
   const sync = useCallback(async (requestAccounts = false, providerOverride?: Eip1193Provider, attempt = connectAttemptRef.current) => {
-    const currentAttempt = () => attempt === connectAttemptRef.current;
-    const ensureCurrent = () => { if (!currentAttempt()) throw new Error('Wallet connection was cancelled.'); };
+    const startingProvider = currentProviderRef.current;
+    const identityVersion = identityEventVersionRef.current;
+    const chainVersion = chainEventVersionRef.current;
+    const currentAttempt = () => attempt === connectAttemptRef.current
+      // A first explicit selection updates the preferred extension before its
+      // account prompt resolves. Keep that captured provider, while silent
+      // restores may only publish for the provider they started with.
+      && (requestAccounts || currentProviderRef.current === startingProvider);
+    const ensureCurrent = () => { if (!currentAttempt()) throw new WalletConnectCancelledError(); };
     if (!allowTelegramHost && isTelegramLaunchContext()) {
       // The no-Privy build is also used by the static client/E2E harness. A
       // Telegram host must never fall through to browser-wallet discovery,
@@ -131,23 +144,34 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       // usable and never paints a misleading browser-wallet error.
       return;
     }
-    const currentProvider = providerOverride ?? browserProvider();
+    const currentProvider = providerOverride ?? currentProviderRef.current;
     if (!currentProvider) {
       throw new Error('No browser wallet detected. Install MetaMask, Coinbase Wallet, or another EVM wallet to continue.');
     }
     if (!requestAccounts && window.localStorage.getItem(BROWSER_DISCONNECTED_KEY) === '1') {
+      currentAddressRef.current = undefined;
       setAddress(undefined);
       setChainId(undefined);
       return;
     }
     const accounts = await currentProvider.request({ method: requestAccounts ? 'eth_requestAccounts' : 'eth_accounts' });
     ensureCurrent();
+    if (!requestAccounts && (identityEventVersionRef.current !== identityVersion || chainEventVersionRef.current !== chainVersion)) throw new WalletConnectCancelledError();
     const nextAddress = Array.isArray(accounts) && typeof accounts[0] === 'string' ? accounts[0] : undefined;
-    if (requestAccounts && !nextAddress) throw new Error('Wallet connection was cancelled.');
-    setAddress(nextAddress);
-    if (requestAccounts && nextAddress) setConnectionVersion((version) => version + 1);
+    if (requestAccounts && !nextAddress) throw new WalletConnectCancelledError();
+    const accountsVersion = identityEventVersionRef.current;
+    const accountsChainVersion = chainEventVersionRef.current;
     const rawChain = await currentProvider.request({ method: 'eth_chainId' });
     ensureCurrent();
+    if (identityEventVersionRef.current !== accountsVersion || chainEventVersionRef.current !== accountsChainVersion) throw new WalletConnectCancelledError();
+    currentAddressRef.current = nextAddress;
+    if (nextAddress) {
+      currentProviderRef.current = currentProvider;
+      setSelectedProvider(currentProvider);
+      if (requestAccounts) explicitProviderSelectionRef.current = true;
+    }
+    setAddress(nextAddress);
+    if (requestAccounts && nextAddress) setConnectionVersion((version) => version + 1);
     const parsed = asChainNumber(typeof rawChain === 'string' ? rawChain : String(rawChain));
     setChainId(parsed === FX_CHAIN_IDS.ethereum || parsed === FX_CHAIN_IDS.base ? parsed : undefined);
   }, [allowTelegramHost]);
@@ -166,11 +190,15 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
   useEffect(() => {
     const stopDiscovery = discoverEip6963(() => {
       const preferred = window.localStorage.getItem('fxaeon:wallet-provider-rdns');
+      if (selectedProvider && (explicitProviderSelectionRef.current || !shouldPromptEip6963Provider(preferred))) return;
       if (shouldPromptEip6963Provider(preferred)) {
+        identityEventVersionRef.current += 1;
         // A late second announcement invalidates any legacy auto-bind that may
         // have occurred during the single-provider discovery window.
         setAddress(undefined);
         setChainId(undefined);
+        currentAddressRef.current = undefined;
+        setSelectedProvider(undefined);
       }
       setProviderVersion((version) => version + 1);
     });
@@ -189,19 +217,31 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     }, 200);
     let listenersAttached = false;
     const onAccounts = (...args: unknown[]) => {
+      if (currentProviderRef.current !== provider) return;
+      identityEventVersionRef.current += 1;
       if (window.localStorage.getItem(BROWSER_DISCONNECTED_KEY) === '1') {
+        currentAddressRef.current = undefined;
         setAddress(undefined);
         setChainId(undefined);
         return;
       }
       const accounts = Array.isArray(args[0]) ? args[0] : [];
-      setAddress(typeof accounts[0] === 'string' ? accounts[0] : undefined);
+      const nextAddress = typeof accounts[0] === 'string' ? accounts[0] : undefined;
+      currentAddressRef.current = nextAddress;
+      setAddress(nextAddress);
     };
     const onChain = (...args: unknown[]) => {
+      if (currentProviderRef.current !== provider) return;
+      chainEventVersionRef.current += 1;
       const parsed = asChainNumber(typeof args[0] === 'string' ? args[0] : undefined);
       setChainId(parsed === FX_CHAIN_IDS.ethereum || parsed === FX_CHAIN_IDS.base ? parsed : undefined);
     };
-    const onDisconnect = () => { setAddress(undefined); setChainId(undefined); };
+    const onDisconnect = () => {
+      if (currentProviderRef.current !== provider) return;
+      identityEventVersionRef.current += 1;
+      currentAddressRef.current = undefined;
+      setAddress(undefined); setChainId(undefined);
+    };
     const attachListeners = () => {
       if (!provider?.on || listenersAttached) return;
       provider.on('accountsChanged', onAccounts);
@@ -209,9 +249,10 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       provider.on('disconnect', onDisconnect);
       listenersAttached = true;
     };
+    if (selectedProvider) attachListeners();
     const attachTimer = window.setTimeout(() => {
       const preferred = window.localStorage.getItem('fxaeon:wallet-provider-rdns');
-      if (shouldBindEip6963ProviderEvents(preferred)) attachListeners();
+      if (selectedProvider || shouldBindEip6963ProviderEvents(preferred)) attachListeners();
     }, 200);
     return () => {
       cancelled = true;
@@ -224,7 +265,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       }
       stopDiscovery();
     };
-  }, [provider, sync]);
+  }, [provider, selectedProvider, sync]);
 
   const connect = useCallback(async () => {
     if (!allowTelegramHost && isTelegramLaunchContext()) {
@@ -248,7 +289,10 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
         browserProvider,
         window,
         { signal: discoveryAbort.signal },
-      );
+      ).catch((cause) => {
+        if (discoveryAbort.signal.aborted) throw cause;
+        return undefined;
+      });
       const providers = getDiscoveredEip6963Providers();
       const preferred = window.localStorage.getItem('fxaeon:wallet-provider-rdns');
       let selected: DiscoveredEip6963Provider | undefined = preferred
@@ -257,18 +301,18 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       // An explicit reconnect is also the user's opportunity to switch
       // between announced wallets. The preferred provider is used for silent
       // restore above, but should not silently win a user initiated choice.
-      if (providers.length > 1) {
+      if (providers.length > 1 || !availableProvider) {
         selected = await new Promise<DiscoveredEip6963Provider>((resolve, reject) => {
           pendingChoiceRef.current = { resolve, reject };
           setChooser(providers);
         });
-        if (attempt !== connectAttemptRef.current) throw new Error('Wallet connection was cancelled.');
+        if (attempt !== connectAttemptRef.current) throw new WalletConnectCancelledError();
         window.localStorage.setItem('fxaeon:wallet-provider-rdns', selected.rdns);
         setProviderVersion((version) => version + 1);
       }
       await sync(true, selected?.provider ?? availableProvider, attempt);
     } catch (cause) {
-      if (!discoveryAbort.signal.aborted && attempt === connectAttemptRef.current) window.localStorage.setItem(BROWSER_DISCONNECTED_KEY, '1');
+      if (!discoveryAbort.signal.aborted && attempt === connectAttemptRef.current && !currentAddressRef.current) window.localStorage.setItem(BROWSER_DISCONNECTED_KEY, '1');
       throw cause;
     } finally {
       if (discoveryAbortRef.current === discoveryAbort) discoveryAbortRef.current = null;
@@ -279,7 +323,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     // no late result updates state after this provider unmounts.
     connectAttemptRef.current += 1;
     discoveryAbortRef.current?.abort();
-    pendingChoiceRef.current?.reject(new Error('Wallet selection was cancelled.'));
+    pendingChoiceRef.current?.reject(new WalletConnectCancelledError());
     pendingChoiceRef.current = null;
   }, []);
   const disconnect = useCallback(async () => {
@@ -289,11 +333,14 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     const pending = pendingChoiceRef.current;
     pendingChoiceRef.current = null;
     setChooser(null);
-    pending?.reject(new Error('Wallet connection was cancelled.'));
+    pending?.reject(new WalletConnectCancelledError());
     window.localStorage.setItem(BROWSER_DISCONNECTED_KEY, '1');
+    currentAddressRef.current = undefined;
     setAddress(undefined);
     setChainId(undefined);
-    const currentProvider = browserProvider();
+    const currentProvider = currentProviderRef.current;
+    explicitProviderSelectionRef.current = false;
+    setSelectedProvider(undefined);
     if (!currentProvider) return;
     try {
       await currentProvider.request({
@@ -335,16 +382,26 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
   }, [provider, selectedWallet]);
   const sendTransaction = useCallback(async (transaction: FxWalletTransaction) => {
     if (!provider || !selectedWallet?.address) throw new Error('Connect a browser wallet before signing a transaction.');
+    const attempt = connectAttemptRef.current;
+    const ensureCurrent = () => {
+      if (attempt !== connectAttemptRef.current || currentProviderRef.current !== provider || currentAddressRef.current?.toLowerCase() !== selectedWallet.address.toLowerCase()) throw new Error('The selected wallet changed before signing.');
+    };
     if (transaction.from && transaction.from.toLowerCase() !== selectedWallet.address.toLowerCase()) throw new Error('Transaction sender does not match the selected wallet.');
     if (chainId !== transaction.chainId) {
       await switchBrowserChain(provider, transaction.chainId);
-      setChainId(transaction.chainId);
+      ensureCurrent();
     }
+    const chainEventVersion = chainEventVersionRef.current;
     const providerChain = await provider.request({ method: 'eth_chainId' });
+    ensureCurrent();
+    if (chainEventVersion !== chainEventVersionRef.current) throw new Error('The wallet network changed before signing. Review the transaction and try again.');
     if (asChainNumber(typeof providerChain === 'string' ? providerChain : String(providerChain)) !== transaction.chainId) throw new Error('The connected wallet is on the wrong network. Switch chains and try again.');
+    setChainId(transaction.chainId);
     const accounts = await provider.request({ method: 'eth_accounts' });
+    ensureCurrent();
+    if (chainEventVersion !== chainEventVersionRef.current) throw new Error('The wallet network changed before signing. Review the transaction and try again.');
     if (!Array.isArray(accounts) || !accounts.some((account): account is string => typeof account === 'string' && account.toLowerCase() === selectedWallet.address!.toLowerCase())) throw new Error('The connected wallet account does not match the selected wallet.');
-    const request: Record<string, string> = { from: selectedWallet.address, to: transaction.to };
+    const request: Record<string, string> = { from: selectedWallet.address, to: transaction.to, chainId: `0x${transaction.chainId.toString(16)}` };
     if (transaction.data !== undefined) request.data = transaction.data;
     for (const [key, value] of [['value', transaction.value], ['nonce', transaction.nonce], ['gas', transaction.gasLimit], ['gasPrice', transaction.gasPrice], ['maxFeePerGas', transaction.maxFeePerGas], ['maxPriorityFeePerGas', transaction.maxPriorityFeePerGas] ] as const) {
       const normalized = asHexQuantity(value);
@@ -380,69 +437,19 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     const pending = pendingChoiceRef.current;
     pendingChoiceRef.current = null;
     setChooser(null);
-    pending?.reject(new Error('Wallet selection was cancelled.'));
+    pending?.reject(new WalletConnectCancelledError());
   }, []);
   return createElement(
     FxWalletContext.Provider,
     { value: wallet },
     createElement(ReactFragment, null, children, chooser
-      ? createElement(Eip6963ProviderChooser, { providers: chooser, onChoose: chooseProvider, onCancel: cancelProviderChoice })
+      ? createElement(ExternalWalletDialog, { providers: chooser, onChoose: chooseProvider, onCancel: cancelProviderChoice })
       : null),
   );
 }
 
 function ReactFragment({ children }: { children: ReactNode }) {
   return children;
-}
-
-function Eip6963ProviderChooser({
-  providers,
-  onChoose,
-  onCancel,
-}: {
-  providers: readonly DiscoveredEip6963Provider[];
-  onChoose: (provider: DiscoveredEip6963Provider) => void;
-  onCancel: () => void;
-}) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const firstButtonRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const previousFocus = document.activeElement as HTMLElement | null;
-    firstButtonRef.current?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); onCancel(); return; }
-      if (event.key !== 'Tab') return;
-      const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? [])];
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      const destination = eip6963FocusTrapDestination({
-        activeInside: Boolean(dialogRef.current?.contains(document.activeElement)),
-        atFirst: document.activeElement === first,
-        atLast: document.activeElement === last,
-        shiftKey: event.shiftKey,
-      });
-      if (destination === 'last') { event.preventDefault(); last.focus(); }
-      else if (destination === 'first') { event.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus?.focus(); };
-  }, [onCancel]);
-  const options = providers.map((provider, index) => createElement('button', {
-        key: provider.rdns,
-        ref: index === 0 ? firstButtonRef : undefined,
-        type: 'button',
-        className: 'button glass-press flex min-h-12 flex-col items-start rounded-xl px-4 py-3 text-left',
-        onClick: () => onChoose(provider),
-      }, createElement('span', { className: 'font-semibold' }, provider.name), createElement('span', { className: 'text-[11px] text-mut' }, provider.rdns)));
-  return createElement('div', { className: 'wallet-provider-chooser-backdrop', role: 'presentation', onMouseDown: (event: MouseEvent) => { if (event.target === event.currentTarget) onCancel(); } },
-    createElement('div', { ref: dialogRef, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wallet-provider-chooser-title', className: 'wallet-provider-chooser' },
-      createElement('h2', { id: 'wallet-provider-chooser-title', className: 'text-display text-lg font-semibold' }, 'Choose a wallet'),
-      createElement('p', { className: 'mt-2 text-sm text-mut' }, 'Select which browser wallet should connect to FxAeon.'),
-      createElement('div', { className: 'mt-4 flex flex-col gap-2' }, options),
-      createElement('button', { type: 'button', onClick: onCancel, className: 'mt-3 min-h-11 px-3 text-sm text-mut' }, 'Cancel'),
-    ),
-  );
 }
 
 /** Backwards-compatible name for builds that intentionally omit Privy. */
