@@ -248,10 +248,12 @@ test('a pending direct fallback does not block healthy pool count promises', asy
   assert.deepEqual(directCounts(f), [0]);
 });
 
-test('an expired aggregate deadline never starts four late direct fallbacks', async () => {
+test('an expired aggregate deadline never starts direct fallbacks even before the wall clock catches up', async (t) => {
   const gate = deferred();
   const f = fixture({ aggregateGate: gate.promise });
   await assertPublicClientChain(f.client, 1);
+  const now = Date.now();
+  t.mock.method(Date, 'now', () => now);
   const results = await Promise.allSettled(readDirectWalletPositionCounts({
     client: f.client, groups: POSITION_GROUPS, walletAddress: wallet, deadlineAt: Date.now() + 30,
   }));

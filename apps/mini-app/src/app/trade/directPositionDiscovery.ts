@@ -206,12 +206,16 @@ function uniqueVerifiedIds(ids: readonly number[]): number[] {
   return [...unique].sort((a, b) => a - b);
 }
 
+class DirectPositionDeadlineError extends Error {
+  constructor() { super('direct position scan deadline exceeded'); }
+}
+
 async function withDeadline<T>(task: Promise<T>, deadline: number): Promise<T> {
   const remaining = deadline - Date.now();
-  if (remaining <= 0) throw new Error('direct position scan deadline exceeded');
+  if (remaining <= 0) throw new DirectPositionDeadlineError();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('direct position scan deadline exceeded')), remaining);
+    timer = setTimeout(() => reject(new DirectPositionDeadlineError()), remaining);
   });
   try {
     return await Promise.race([task, timeout]);
@@ -282,7 +286,12 @@ export function readDirectWalletPositionCounts(params: {
       throw new Error('position count multicall slot was unavailable');
     }
     return asCount(decodeFunctionResult({ abi: POSITION_NFT_ABI, functionName: 'balanceOf', data: result.returnData as `0x${string}` }));
-  }).catch(() => readDirect(group)));
+  }).catch((cause: unknown) => {
+    // A fired deadline is final even if the wall clock has not caught up
+    // with the timer or moved backwards. It must not start another RPC.
+    if (cause instanceof DirectPositionDeadlineError) throw cause;
+    return readDirect(group);
+  }));
 }
 
 async function scanOwners(params: {
