@@ -20,6 +20,9 @@ export type MobileWalletFixture = {
   holdPrompt: boolean;
   promptsWaiting: number;
   settlePrompt: () => void;
+  rejectPrompt: () => void;
+  /** Change extension authorization without emitting any reconnect event. */
+  setAccountsSilently: (accounts: string[]) => void;
   emit: (event: string, payload?: unknown) => void;
   listenerCount: (event: string) => number;
   provider: Provider;
@@ -28,6 +31,9 @@ export type MobileWalletHarnessState = {
   wallets: MobileWalletFixture[];
   cancellations: number;
   errors: string[];
+  connectionOutcomes: Array<'connected' | 'cancelled' | 'error'>;
+  connectAgain?: () => Promise<void>;
+  connectFromSecondConsumer?: () => Promise<void>;
   announce: (index: number) => void;
   inject: (index: number) => void;
   rerender?: () => void;
@@ -39,14 +45,17 @@ function createFixture(index: number): MobileWalletFixture {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   let accounts: string[] = new URLSearchParams(location.search).get('authorized') === '1' ? [addresses[index]] : [];
   let chain = '0x1';
-  let resolveAccounts: (() => void) | undefined;
-  let resolveChain: (() => void) | undefined;
-  let resolvePrompt: (() => void) | undefined;
+  const pendingAccountReads: Array<() => void> = [];
+  const pendingChainReads: Array<() => void> = [];
+  const pendingPrompts: Array<{ resolve: () => void; reject: (cause: Error) => void }> = [];
   const fixture: MobileWalletFixture = {
     calls: [], holdAccounts: new URLSearchParams(location.search).get('holdAuto') === '1', accountReadsWaiting: 0,
-    settleAccounts: () => resolveAccounts?.(),
-    holdChain: false, chainReadsWaiting: 0, settleChain: () => resolveChain?.(),
-    holdPrompt: false, promptsWaiting: 0, settlePrompt: () => resolvePrompt?.(),
+    settleAccounts: () => { for (const resolve of pendingAccountReads.splice(0)) resolve(); },
+    holdChain: false, chainReadsWaiting: 0, settleChain: () => { for (const resolve of pendingChainReads.splice(0)) resolve(); },
+    holdPrompt: false, promptsWaiting: 0,
+    settlePrompt: () => pendingPrompts.shift()?.resolve(),
+    rejectPrompt: () => pendingPrompts.shift()?.reject(Object.assign(new Error('Connection request rejected.'), { code: 4001 })),
+    setAccountsSilently: (next) => { accounts = [...next]; },
     listenerCount: (event) => listeners.get(event)?.size ?? 0,
     emit: (event, payload) => {
       if (event === 'accountsChanged') accounts = payload as string[];
@@ -58,7 +67,7 @@ function createFixture(index: number): MobileWalletFixture {
       request: async (request) => {
         fixture.calls.push(request);
         if (request.method === 'eth_requestAccounts') {
-          if (fixture.holdPrompt) { fixture.promptsWaiting += 1; await new Promise<void>((resolve) => { resolvePrompt = resolve; }); }
+          if (fixture.holdPrompt) { fixture.promptsWaiting += 1; await new Promise<void>((resolve, reject) => { pendingPrompts.push({ resolve, reject }); }); }
           accounts = [addresses[index]]; return [...accounts];
         }
         if (request.method === 'eth_accounts') {
@@ -67,7 +76,7 @@ function createFixture(index: number): MobileWalletFixture {
           const observed = [...accounts];
           if (fixture.holdAccounts) {
             fixture.accountReadsWaiting += 1;
-            await new Promise<void>((resolve) => { resolveAccounts = resolve; });
+            await new Promise<void>((resolve) => { pendingAccountReads.push(resolve); });
           }
           return observed;
         }
@@ -75,7 +84,7 @@ function createFixture(index: number): MobileWalletFixture {
           const observed = chain;
           if (fixture.holdChain) {
             fixture.chainReadsWaiting += 1;
-            await new Promise<void>((resolve) => { resolveChain = resolve; });
+            await new Promise<void>((resolve) => { pendingChainReads.push(resolve); });
           }
           return observed;
         }
@@ -94,17 +103,46 @@ function createFixture(index: number): MobileWalletFixture {
 }
 const wallets = [createFixture(0), createFixture(1)];
 const announce = (index: number) => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
-  detail: { info: { name: `Test wallet ${index + 1}`, rdns: `test.wallet.${index + 1}` }, provider: wallets[index].provider },
+  detail: { info: { name: new URLSearchParams(location.search).has('longName') ? `A very long wallet extension name for narrow screen testing ${index + 1}` : `Test wallet ${index + 1}`, rdns: `test.wallet.${index + 1}` }, provider: wallets[index].provider },
 }));
 globalThis.__mobileWalletHarness = {
-  wallets, cancellations: 0, errors: [], announce,
+  wallets, cancellations: 0, errors: [], connectionOutcomes: [], announce,
   inject: (index) => { window.ethereum = wallets[index].provider; },
 };
-const mode = new URLSearchParams(location.search).get('wallets');
+const parameters = new URLSearchParams(location.search);
+if (parameters.get('remembered') === '1') {
+  localStorage.setItem('fxaeon:wallet-provider-rdns', 'test.wallet.1');
+  const savedAddress = parameters.get('savedAddress');
+  if (savedAddress === 'missing') localStorage.removeItem('fxaeon:browser-wallet-address');
+  else localStorage.setItem('fxaeon:browser-wallet-address', savedAddress === 'invalid' ? 'not-an-ethereum-address'
+    : savedAddress === 'zero' ? `0x${'0'.repeat(40)}` : addresses[0]);
+}
+const mode = parameters.get('wallets');
 if (mode === 'legacy' || mode === 'single' || mode === 'multiple') window.ethereum = wallets[0].provider;
 if (mode === 'single' || mode === 'multiple') window.addEventListener('eip6963:requestProvider', () => {
   announce(0); if (mode === 'multiple') announce(1);
 });
+
+async function observeConnection(connect: () => Promise<unknown>) {
+  try { await connect(); globalThis.__mobileWalletHarness.connectionOutcomes.push('connected'); }
+  catch (cause) {
+    if (isWalletConnectCancellation(cause)) { globalThis.__mobileWalletHarness.connectionOutcomes.push('cancelled'); throw cause; }
+    globalThis.__mobileWalletHarness.connectionOutcomes.push('error'); throw cause;
+  }
+}
+
+function SharedConsumer() {
+  const wallet = usePrivyWallet();
+  globalThis.__mobileWalletHarness.connectFromSecondConsumer = async () => {
+    try { await observeConnection(wallet.connect); }
+    catch (cause) {
+      if (isWalletConnectCancellation(cause)) globalThis.__mobileWalletHarness.cancellations += 1;
+      else globalThis.__mobileWalletHarness.errors.push(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
+  return <output data-testid="second-wallet-consumer" data-connected={String(wallet.authenticated)}
+    data-address={wallet.address ?? ''} data-chain={wallet.chainId ?? ''} data-prompt={String(wallet.promptOpen)} data-version={wallet.connectionVersion} />;
+}
 
 function Content() {
   const wallet = usePrivyWallet();
@@ -120,12 +158,14 @@ function Content() {
       globalThis.__mobileWalletHarness.errors.push(message); setError(message);
     } finally { setBusy(false); }
   };
+  globalThis.__mobileWalletHarness.connectAgain = () => run(() => observeConnection(wallet.connect));
   return <main data-harness-ready={String(wallet.ready)} data-connected={String(wallet.authenticated)}
-    data-address={wallet.address ?? ''} data-chain={wallet.chainId ?? ''} data-prompt={String(wallet.promptOpen)}>
-    <button disabled={busy} onClick={() => { void run(wallet.connect); }}>Connect wallet</button>
+    data-address={wallet.address ?? ''} data-chain={wallet.chainId ?? ''} data-prompt={String(wallet.promptOpen)} data-version={wallet.connectionVersion}>
+    <button disabled={busy} onClick={() => { void run(() => observeConnection(wallet.connect)); }}>Connect wallet</button>
     <button onClick={() => { void run(wallet.disconnect); }}>Disconnect wallet</button>
     <button onClick={() => { void run(async () => { const result = await wallet.sendTransaction({ chainId: 1, to: '0x0000000000000000000000000000000000000001', value: 0n }); setHash(result.hash); }); }}>Send test transaction</button>
     <button onClick={() => { void run(() => wallet.switchChain(8453)); }}>Switch to Base</button>
+    <SharedConsumer />
     <output data-testid="transaction-hash">{hash}</output>
     {error && <p role="alert">{error}</p>}
   </main>;

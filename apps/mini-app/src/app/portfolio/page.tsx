@@ -54,7 +54,6 @@ import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
 import { claimAvailability, type ClaimableLike } from '@/lib/earnState';
 import { selectWalletTasks } from '@/lib/taskState';
 import styles from '@/app/AccountWorkspace.module.css';
-import ConnectWalletButton from '@/components/ConnectWalletButton';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import { PortfolioAssets, type PortfolioNetwork } from '@/components/PortfolioAssets';
 import { PortfolioWorkspace } from '@/components/ProductLayout';
@@ -179,7 +178,7 @@ function PortfolioWallet() {
   if (!ready || !walletState.ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: setNetwork });
 
   if (!authenticated || !wallet) {
-    return <DisconnectedPortfolio authenticated={authenticated} />;
+    return <DisconnectedPortfolio />;
   }
 
   const loading = walletBalances.status === 'idle' || walletBalances.status === 'loading';
@@ -344,7 +343,7 @@ function portfolioLoadingView({ timedOut, network, onNetworkChange }: {
 
 const WELCOME_MARKS = ['ETH', 'WBTC', 'fxUSD', 'fxSAVE', 'USDC'] as const;
 
-function DisconnectedPortfolio({ authenticated }: { authenticated: boolean }) {
+function DisconnectedPortfolio() {
   return (
     <div id="overview" className={`${styles.overview} ${styles.disconnectedOverview}`}>
       <div className={`${styles.primaryColumn} col-span-full`}>
@@ -356,9 +355,6 @@ function DisconnectedPortfolio({ authenticated }: { authenticated: boolean }) {
           </span>
           <h2 className={presentation.welcomeTitle}>Leverage, savings, and credit. <span>On f(x) Protocol.</span></h2>
         </div>
-        <ConnectWalletButton className="button button-primary glass-press flex min-h-11 w-full max-w-[320px] self-center items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-semibold">
-          {authenticated ? 'Choose wallet' : 'Connect wallet'}
-        </ConnectWalletButton>
         <QuickActions />
         <MarketOverview />
       </div>

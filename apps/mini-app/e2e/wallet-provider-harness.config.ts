@@ -5,7 +5,7 @@ const browserChannel = configuredBrowserChannel(process.env);
 
 export default defineConfig({
   testDir: './specs',
-  testMatch: 'wallet-provider-boundary.spec.ts',
+  testMatch: ['wallet-provider-boundary.spec.ts', 'wallet-wagmi-boundary.spec.ts'],
   outputDir: '../../../output/playwright/wallet-provider-harness',
   fullyParallel: false,
   workers: 1,

@@ -41,7 +41,7 @@ export type FxSelectedWallet = ConnectedWallet & {
 export type FxPrivyWallet = {
   ready: boolean;
   authenticated: boolean;
-  /** Increments only after a provider reports a successful connection. */
+  /** Increments after an accepted connection or deliberate wallet selection. */
   connectionVersion: number;
   wallets: ConnectedWallet[];
   selectedWallet?: FxSelectedWallet;
@@ -51,12 +51,14 @@ export type FxPrivyWallet = {
   isEmbedded: boolean;
   /** True while a wallet prompt (Privy's modal or the browser wallet chooser) is on screen. */
   promptOpen?: boolean;
+  /** Privy has available wallets but requires an explicit choice in Settings. */
+  selectionRequired?: boolean;
   /**
    * Request an account from the user's browser wallet. No private key leaves
    * the wallet. Rejects with WalletConnectCancelledError when the person
    * closes the prompt without connecting.
    */
-  connect: (options?: { external?: boolean }) => Promise<void>;
+  connect: (options?: { external?: boolean; loginMethod?: 'email' }) => Promise<void>;
   /** End the app wallet session. This never transfers assets or exposes keys. */
   disconnect: () => Promise<void>;
   selectWallet: (address: string) => void;

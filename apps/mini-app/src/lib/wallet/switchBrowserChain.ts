@@ -26,6 +26,22 @@ const CHAIN_METADATA: Record<FxChainId, { chainId: string; chainName: string; na
   },
 };
 
+function isUnknownChainError(cause: unknown): boolean {
+  if (typeof cause !== 'object' || cause === null) return false;
+  if ('code' in cause) {
+    if (cause.code === 4001) return false;
+    if (cause.code === 4902) return true;
+  }
+
+  // MetaMask Mobile wraps this code at data.originalError. Keep the lookup
+  // bounded to that shape; unrelated causes or error text cannot trigger add.
+  if (!('data' in cause) || typeof cause.data !== 'object' || cause.data === null) return false;
+  if (!('originalError' in cause.data)) return false;
+  const originalError = cause.data.originalError;
+  return typeof originalError === 'object' && originalError !== null
+    && 'code' in originalError && originalError.code === 4902;
+}
+
 /**
  * Known networks need no app RPC metadata. Resolve and validate a URL only
  * after the wallet explicitly reports an unknown chain (EIP-1193 code 4902).
@@ -42,7 +58,7 @@ export async function switchBrowserChain(
     await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: targetChainId }] });
     return;
   } catch (cause) {
-    if (typeof cause !== 'object' || cause === null || !('code' in cause) || cause.code !== 4902) throw cause;
+    if (!isUnknownChainError(cause)) throw cause;
   }
 
   let rpcUrls: string[];

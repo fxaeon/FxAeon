@@ -8,7 +8,7 @@ test.describe("canonical app home", () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator(".app-shell")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Portfolio", exact: true })).toBeVisible();
-    await expect(page.getByText("Connect wallet", { exact: true })).toBeVisible();
+    await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Your DeFi.*All in one place/ })).toHaveCount(0);
     assertNoBackendRequests(requests);
   });
