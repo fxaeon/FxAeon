@@ -49,6 +49,13 @@ The targeted source comparisons are recorded in [Jumper and Curve](frontend-rese
 
 The f(x) SDK and app read clients can use a bounded ordered RPC list for Ethereum and Base. Each provider URL is validated against its reviewed host and chain, chain identity is checked before use, and transient transport/upstream failures can fail over. Reverts, user rejection, and other request-level errors remain terminal. The production Content Security Policy allows the required Alchemy and Infura Ethereum/Base RPC hosts; provider keys are configured for the `fxaeon.com` browser origin.
 
+HTTP requests prefer primary Alchemy, then Infura, then Alchemy2 on both chains.
+The shared app transport, Ethereum SDK client and request-local SDK bridge
+transport all consume this order. Missing optional providers are skipped;
+adding or changing these build-time variables requires rebuilding the app.
+WebSocket subscriptions retain their separate primary Alchemy → Alchemy2
+order. No Infura WebSocket URL is inferred from its HTTP endpoint.
+
 Maintainers verified that these four GitHub deployment secrets were added on 3 October 2026 (values intentionally omitted):
 
 - `NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL`

@@ -29,22 +29,22 @@ export function requireRpcUrl(chainId: FxChainId): string {
   return configuredRpcUrls(chainId)[0];
 }
 
-/** Optional browser RPC providers, in preference order. Every URL is checked
+/** HTTP preference: primary Alchemy, Infura, then Alchemy2. Every URL is checked
  * against a fixed provider host before it can be used by the wallet app. */
 export function configuredRpcUrls(chainId: FxChainId): string[] {
   assertSupportedChainId(chainId);
   const localFork = chainId === ETHEREUM_CHAIN_ID ? localForkRpcEnv() : undefined;
   if (localFork) return [assertLocalForkRpcUrl(localFork, "Local fork RPC URL")];
   const candidates = chainId === ETHEREUM_CHAIN_ID
-    ? [processEnv("NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL"), processEnv("NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL"), processEnv("NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL")]
-    : [processEnv("NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL"), processEnv("NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL"), processEnv("NEXT_PUBLIC_INFURA_BASE_RPC_URL")];
+    ? [processEnv("NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL"), processEnv("NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL"), processEnv("NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL")]
+    : [processEnv("NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL"), processEnv("NEXT_PUBLIC_INFURA_BASE_RPC_URL"), processEnv("NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL")];
   const labels = chainId === ETHEREUM_CHAIN_ID
-    ? ["NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL", "NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL", "NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL"]
-    : ["NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL", "NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL", "NEXT_PUBLIC_INFURA_BASE_RPC_URL"];
+    ? ["NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL", "NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL", "NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL"]
+    : ["NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL", "NEXT_PUBLIC_INFURA_BASE_RPC_URL", "NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL"];
   const urls = candidates.flatMap((candidate, index) => {
     if (typeof candidate !== "string" || !candidate.trim()) return [];
     const label = labels[index];
-    return [index === 2
+    return [index === 1
       ? assertInfuraRpcUrl(candidate.trim(), chainId, label)
       : assertAlchemyRpcUrl(candidate.trim(), chainId, label)];
   });

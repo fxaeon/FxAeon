@@ -1,9 +1,86 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createPublicClient } from "viem";
-import { mainnet } from "viem/chains";
+import { base, mainnet } from "viem/chains";
 import { getRpcTransport } from "../src/lib/fx/clients";
-import { assertAlchemyRpcUrl, assertInfuraRpcUrl, assertLocalForkRpcUrl, withConfiguredRpcFallback } from "../src/lib/fx/config";
+import { assertAlchemyRpcUrl, assertInfuraRpcUrl, assertLocalForkRpcUrl, configuredRpcUrls, requireRpcUrl, withConfiguredRpcFallback } from "../src/lib/fx/config";
+import { deriveAlchemyWebSocketUrls } from "../src/lib/realtimeChain";
+import { switchBrowserChain } from "../src/lib/wallet/switchBrowserChain";
+
+function providerFixture(chainId: 1 | 8453) {
+  const chainName = chainId === 1 ? "ETHEREUM" : "BASE";
+  const alchemyHost = chainId === 1 ? "eth-mainnet.g.alchemy.com" : "base-mainnet.g.alchemy.com";
+  const infuraHost = chainId === 1 ? "mainnet.infura.io" : "base-mainnet.infura.io";
+  const keys = [`NEXT_PUBLIC_ALCHEMY_${chainName}_RPC_URL`, `NEXT_PUBLIC_INFURA_${chainName}_RPC_URL`, `NEXT_PUBLIC_ALCHEMY2_${chainName}_RPC_URL`] as const;
+  const urls = [`https://${alchemyHost}/v2/primary-key`, `https://${infuraHost}/v3/secondary-key`, `https://${alchemyHost}/v2/tertiary-key`];
+  const names = [...keys, "NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE", "NEXT_PUBLIC_FX_SCREENSHOT_MODE"];
+  const previous = names.map(name => process.env[name]);
+  keys.forEach((key, index) => { process.env[key] = urls[index]; });
+  delete process.env.NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE;
+  delete process.env.NEXT_PUBLIC_FX_SCREENSHOT_MODE;
+  return { keys, urls, restore: () => names.forEach((name, index) => {
+    if (previous[index] === undefined) delete process.env[name]; else process.env[name] = previous[index];
+  }) };
+}
+
+for (const chainId of [1, 8453] as const) {
+  test(`chain ${chainId} HTTP configuration and wallet metadata prefer Alchemy, Infura, then Alchemy2`, async () => {
+    const fixture = providerFixture(chainId);
+    try {
+      assert.deepEqual(configuredRpcUrls(chainId), fixture.urls);
+      assert.equal(requireRpcUrl(chainId), fixture.urls[0]);
+      const requests: { method: string; params?: unknown[] }[] = [];
+      await switchBrowserChain({ request: async request => {
+        requests.push(request);
+        if (requests.length === 1) throw { code: 4902 };
+      } }, chainId, () => ({ configuredRpcUrls: configuredRpcUrls(chainId) }));
+      assert.deepEqual((requests[1].params?.[0] as { rpcUrls: string[] }).rpcUrls, fixture.urls);
+      assert.deepEqual(deriveAlchemyWebSocketUrls(chainId), [fixture.urls[0], fixture.urls[2]].map(url => url.replace('https:', 'wss:')));
+    } finally { fixture.restore(); }
+  });
+
+  test(`chain ${chainId} skips absent providers, deduplicates URLs and preserves provider validation`, () => {
+    const fixture = providerFixture(chainId);
+    try {
+      delete process.env[fixture.keys[1]];
+      assert.deepEqual(configuredRpcUrls(chainId), [fixture.urls[0], fixture.urls[2]]);
+      process.env[fixture.keys[1]] = fixture.urls[1];
+      process.env[fixture.keys[2]] = fixture.urls[0];
+      assert.deepEqual(configuredRpcUrls(chainId), [fixture.urls[0], fixture.urls[1]]);
+      delete process.env[fixture.keys[0]];
+      delete process.env[fixture.keys[2]];
+      assert.deepEqual(configuredRpcUrls(chainId), [fixture.urls[1]]);
+      assert.deepEqual(deriveAlchemyWebSocketUrls(chainId), [], 'HTTP Infura config must not invent a websocket endpoint');
+      process.env[fixture.keys[1]] = fixture.urls[0];
+      assert.throws(() => configuredRpcUrls(chainId), new RegExp(`${fixture.keys[1]} must use the reviewed Infura host`));
+      process.env[fixture.keys[1]] = fixture.urls[1];
+      process.env[fixture.keys[2]] = fixture.urls[1];
+      assert.throws(() => configuredRpcUrls(chainId), new RegExp(`${fixture.keys[2]} must use the reviewed Alchemy host`));
+    } finally { fixture.restore(); }
+  });
+
+  test(`chain ${chainId} HTTP reads fail over to Infura before Alchemy2`, async () => {
+    const fixture = providerFixture(chainId);
+    try {
+      for (const failedProviders of [1, 2]) {
+        const calls: { url: string; method: string }[] = [];
+        const fetchFn: typeof fetch = async (input, init) => {
+          const url = String(input);
+          const request = JSON.parse(String(init?.body)) as { id: number; method: string };
+          calls.push({ url, method: request.method });
+          if (request.method !== 'eth_chainId' && fixture.urls.indexOf(url) < failedProviders) {
+            return new Response('rate limited', { status: 429 });
+          }
+          return Response.json({ jsonrpc: '2.0', id: request.id, result: request.method === 'eth_chainId' ? `0x${chainId.toString(16)}` : '0x7' });
+        };
+        const client = createPublicClient({ chain: chainId === 1 ? mainnet : base, transport: getRpcTransport(configuredRpcUrls(chainId), chainId, fetchFn) });
+        assert.equal(await client.getBalance({ address: '0x0000000000000000000000000000000000001234' }), 7n);
+        assert.deepEqual(calls.filter(call => call.method === 'eth_getBalance').map(call => call.url), fixture.urls.slice(0, failedProviders + 1));
+        assert.deepEqual(calls.filter(call => call.method === 'eth_chainId').map(call => call.url), fixture.urls.slice(0, failedProviders + 1), 'each selected endpoint still proves its chain before balance reads');
+      }
+    } finally { fixture.restore(); }
+  });
+}
 
 test("accepts only the reviewed Alchemy host for each supported chain", () => {
   assert.equal(
@@ -84,8 +161,8 @@ test("configured SDK RPC fallback advances only on transport failures", async ()
   const keys = ["NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL", "NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL", "NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL"] as const;
   const previous = keys.map((key) => process.env[key]);
   process.env.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/primary";
-  process.env.NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/secondary";
-  process.env.NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL = "https://mainnet.infura.io/v3/tertiary";
+  process.env.NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/tertiary";
+  process.env.NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL = "https://mainnet.infura.io/v3/secondary";
   try {
     const attempted: string[] = [];
     const result = await withConfiguredRpcFallback(1, async (url) => {
@@ -94,7 +171,7 @@ test("configured SDK RPC fallback advances only on transport failures", async ()
       return "ok";
     });
     assert.equal(result, "ok");
-    assert.equal(attempted.length, 2);
+    assert.deepEqual(attempted, [process.env.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL, process.env.NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL]);
     assert.throws(() => assertInfuraRpcUrl("https://mainnet.infura.io/v3/project", 8453), /reviewed Infura host/);
 
     attempted.length = 0;
