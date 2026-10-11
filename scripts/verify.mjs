@@ -114,6 +114,7 @@ const isolatedBrowserChecks = [
   { args: ['test:e2e:positions-harness'], label: 'Positions review layout browser harness' },
   { args: ['test:e2e:privy-send-harness'], label: 'Privy embedded send adapter browser harness' },
   { args: ['test:e2e:trade-harness'], label: 'Trade native Max lifecycle browser harness' },
+  { args: ['test:e2e:wallet-provider-harness'], label: 'Telegram-only Privy provider routing browser harness' },
   { args: ['test:e2e:overlay'], label: 'Overlay lifecycle browser harness' },
   { args: ['test:e2e:state-lab'], label: 'UI state lab browser suite' },
 ];

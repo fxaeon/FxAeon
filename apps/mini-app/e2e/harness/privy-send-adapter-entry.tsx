@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PrivyWalletBridge, usePrivyWallet } from '@/lib/wallet';
+import { usePrivyWallet } from '@/lib/wallet';
+import { PrivyWalletBridge } from '@/lib/wallet/PrivyWalletBridge';
 
 declare global {
   var __privySendHarness: any;

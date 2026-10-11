@@ -12,7 +12,8 @@ test.describe('Earn route-specific settings', () => {
         await settings.click();
         const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
         await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(hasSlippage ? 1 : 0);
-        await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toBeVisible();
+        await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toHaveCount(0);
+        await expect(dialog.getByText('Review and confirm the network fee in your connected wallet.')).toBeVisible();
         const box = await dialog.boundingBox();
         expect(box!.x).toBeGreaterThanOrEqual(0);
         expect(box!.x + box!.width).toBeLessThanOrEqual(width);
@@ -23,7 +24,7 @@ test.describe('Earn route-specific settings', () => {
       };
       for (const token of ['fxUSD', 'usdc', 'fxUSDBasePool']) {
         await page.goto(`/earn?token=${token}`, { waitUntil: 'domcontentloaded' });
-        await expect(page.getByRole('button', { name: 'Transaction settings, Standard speed', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Transaction settings, Fees set in wallet', exact: true })).toBeVisible();
         await checkSettings(false);
         // The deposit view stays compact: limits belong to the review, not to helper copy here.
         await expect(page.getByText(/slippage/i)).toHaveCount(0);

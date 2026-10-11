@@ -33,6 +33,7 @@
     "test:e2e:positions-harness": "pnpm --dir apps/mini-app test:e2e:positions-harness",
     "test:e2e:privy-send-harness": "pnpm --dir apps/mini-app test:e2e:privy-send-harness",
     "test:e2e:trade-harness": "pnpm --dir apps/mini-app test:e2e:trade-harness",
+    "test:e2e:wallet-provider-harness": "pnpm --dir apps/mini-app test:e2e:wallet-provider-harness",
     "test:e2e:overlay": "pnpm --dir apps/mini-app test:e2e:overlay",
     "test:e2e:state-lab": "pnpm --dir apps/mini-app test:e2e:state-lab",
     "typecheck": "pnpm --dir apps/mini-app typecheck && tsc -p apps/mini-app/e2e/fork/tsconfig.json && pnpm typecheck:e2e",

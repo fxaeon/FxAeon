@@ -10,6 +10,7 @@ import AppearancePreference from '@/components/AppearancePreference';
 import { Disclosure, PageHeading, ProductSurface } from '@/components/ProductUI';
 import { MissingValue } from '@/components/MissingValue';
 import { usePrivyWallet } from '@/lib/wallet';
+import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { useLocale } from '@/lib/i18n';
 import { haptic } from '@/lib/telegram';
 import { announceSettingsUpdated, GAS_TIERS, readGasTier, readSlippagePercent, SETTINGS_KEY, SLIPPAGE_PRESETS_BPS, type GasTier } from '@/lib/settings';
@@ -32,7 +33,8 @@ function formatGwei(value: bigint): string {
 export default function SettingsPage() {
   const { t } = useLocale();
   const wallet = usePrivyWallet();
-  const showGasSettings = !wallet.address || wallet.isEmbedded;
+  const providerMode = useWalletProviderMode();
+  const showGasSettings = providerMode === 'privy' && (!wallet.address || wallet.isEmbedded);
   const [ready, setReady] = useState(false);
   const [slippageBps, setSlippageBps] = useState(50);
   const [savedBps, setSavedBps] = useState(50);

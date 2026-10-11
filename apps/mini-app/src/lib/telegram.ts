@@ -64,6 +64,13 @@ function locationHasTelegramLaunchParams(): boolean {
   return /(?:^|[?&#])tgWebApp(?:Data|Version|Platform|ThemeParams)=/i.test(locationValue);
 }
 
+function locationHasTelegramMiniAppLaunchData(): boolean {
+  if (typeof window === 'undefined') return false;
+  return [window.location.search, window.location.hash].some((part) =>
+    new URLSearchParams(part.replace(/^[?#]/, '')).getAll('tgWebAppData').some((value) => value.trim().length > 0),
+  );
+}
+
 /**
  * Detect the Telegram host even when its WebApp bridge has not finished
  * loading.  A Mini App can briefly render before `telegram-web-app.js`
@@ -76,17 +83,52 @@ export function looksLikeTelegramUserAgent(userAgent: string): boolean {
   return /Telegram/i.test(userAgent);
 }
 
-function userAgentHasTelegramHost(): boolean {
+/** Native host hints can justify waiting for a late bridge, never authenticating. */
+export function hasTelegramNativeHostHint(): boolean {
   if (typeof navigator === 'undefined') return false;
   const telegramProxy = typeof window !== 'undefined'
     && typeof (window as Window & { TelegramWebviewProxy?: unknown }).TelegramWebviewProxy !== 'undefined';
   return looksLikeTelegramUserAgent(navigator.userAgent) || telegramProxy;
 }
 
+/**
+ * Telegram Web hosts Mini Apps in an iframe with an ordinary browser UA.
+ * Only its exact HTTPS parent origin justifies waiting for a late SDK after
+ * a reload consumes the launch hash. This never selects or authenticates a
+ * Privy session: actual launch data is still required after the bounded wait.
+ */
+export function hasTelegramWebHostHint(): boolean {
+  if (typeof window === 'undefined' || window.parent === window) return false;
+  try {
+    // Chromium exposes the immediate parent origin even when its referrer
+    // policy hides the URL. Other browsers can use the document's referrer.
+    const parentOrigin = window.location.ancestorOrigins?.[0];
+    if (parentOrigin) return parentOrigin === 'https://web.telegram.org';
+    return typeof document !== 'undefined'
+      && new URL(document.referrer).origin === 'https://web.telegram.org';
+  } catch {
+    return false;
+  }
+}
+
 // Capture the launch marker before client navigation or an authentication SDK
 // can consume/replace the initial hash. This is only an availability hint;
 // signed WebApp.initData remains the authentication authority.
 let initialTelegramLaunchSignal = locationHasTelegramLaunchParams();
+const initialTelegramMiniAppLaunchData = locationHasTelegramMiniAppLaunchData();
+
+/**
+ * Select the Mini App wallet experience only when launch data is present.
+ * A Telegram user agent, theme/platform hints, or the ordinary browser script
+ * stub alone must not initialize Privy. Keep the initial signal if routing or
+ * the SDK consumes the launch URL. This is a UX choice, not authentication:
+ * Privy must still verify the signed payload before granting a session.
+ */
+export function hasTelegramMiniAppLaunchData(): boolean {
+  return Boolean(getWebApp()?.initData?.trim())
+    || initialTelegramMiniAppLaunchData
+    || locationHasTelegramMiniAppLaunchData();
+}
 
 /** True when this document was launched with Telegram Web App parameters. */
 export function hasTelegramLaunchSignal(): boolean {
@@ -309,7 +351,7 @@ export function applyTelegramChromeColors(color: string): void {
  * for seamless Telegram authentication.
  */
 export function isTelegramLaunchContext(): boolean {
-  return isTMA() || hasTelegramLaunchSignal() || userAgentHasTelegramHost();
+  return isTMA() || hasTelegramLaunchSignal() || hasTelegramNativeHostHint();
 }
 
 /** Open a reviewed external URL through Telegram when available. */

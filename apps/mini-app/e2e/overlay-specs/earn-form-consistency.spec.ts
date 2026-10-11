@@ -42,10 +42,12 @@ let css = '';
 
 test.beforeAll(async () => {
   const result = await esbuild.build({
-    stdin: {contents:`import React from 'react';import {createRoot} from 'react-dom/client';import EarnPage from './src/app/earn/page';import {TransactionSettings} from './src/components/TransactionSettings';
+    stdin: {contents:`import React from 'react';import {createRoot} from 'react-dom/client';import EarnPage from './src/app/earn/page';import {TransactionSettings} from './src/components/TransactionSettings';import {WalletProviderModeContext} from './src/lib/wallet/providerMode';
       const root = createRoot(document.getElementById('root'));
-      globalThis.__earnHarness = {plans:[],showUncontrolled:() => root.render(<TransactionSettings slippage />),navigate:() => root.render(<button onClick={() => {history.pushState({},'', '/earn');root.render(<EarnPage />);}}>Return to Earn</button>)};
-      root.render(<EarnPage />);`,loader:'tsx',resolveDir:root},
+      // This fixture models an embedded wallet, including its app-managed gas settings.
+      const render = content => root.render(<WalletProviderModeContext.Provider value="privy">{content}</WalletProviderModeContext.Provider>);
+      globalThis.__earnHarness = {plans:[],showUncontrolled:() => render(<TransactionSettings slippage />),navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
+      render(<EarnPage />);`,loader:'tsx',resolveDir:root},
     bundle:true,write:false,format:'iife',platform:'browser',target:'es2022',jsx:'automatic',
     outdir:resolve(root,'test-results','earn-form-harness'),absWorkingDir:root,loader:{'.module.css':'local-css'},
     plugins:[{name:'earn-fixtures',setup(build:{

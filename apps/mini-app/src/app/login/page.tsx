@@ -6,24 +6,25 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import FxLogo from '@/components/FxLogo';
-import { privyConfigured } from '@/lib/privyConfig';
+import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { Button, FullScreenSpinner } from '@/components/ui';
 import { GroupedAddress } from '@/components/GroupedAddress';
 import { WalletAvatar } from '@/components/WalletAvatar';
 import { usePrivyWallet } from '@/lib/wallet';
 import { userSafeError } from '@/lib/errors';
-import { haptic, isTelegramLaunchContext, openExternalLink } from '@/lib/telegram';
+import { haptic, hasTelegramMiniAppLaunchData, openExternalLink } from '@/lib/telegram';
 import styles from '@/components/UtilitySurfaces.module.css';
 
 // The Privy SDK is heavy. Loading the flow dynamically keeps it
 // out of this page's first-paint bundle — the chunk is only fetched once the
-// configuration gate below passes. The same flow supports web and Telegram.
+// Telegram provider gate below passes.
 const PrivyFlow = dynamic(() => import('./PrivyFlow'), {
   ssr: false,
   loading: () => <FullScreenSpinner asMain />,
 });
 
 function LoginContent() {
+  const providerMode = useWalletProviderMode();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -33,8 +34,8 @@ function LoginContent() {
 
   if (!mounted) return <FullScreenSpinner asMain />;
 
-  if (!privyConfigured()) {
-    if (isTelegramLaunchContext()) return <TelegramUnavailableFlow />;
+  if (providerMode !== 'privy') {
+    if (hasTelegramMiniAppLaunchData()) return <TelegramUnavailableFlow />;
     return <BrowserWalletFlow />;
   }
 
@@ -91,7 +92,7 @@ function BrowserWalletFlow() {
       <h1 className={styles.authTitle}>{connected ? 'Wallet connected' : 'Connect your wallet'}</h1>
       <p className={styles.authLead}>{connected
         ? 'Every transaction still needs your approval in this wallet.'
-        : 'Connect MetaMask, Coinbase Wallet, or another EVM wallet. Review and approve each transaction in your wallet.'}</p>
+        : 'Connect MetaMask, Coinbase Wallet, or another EVM wallet. On mobile, open fxaeon.com in your wallet’s browser.'}</p>
 
       {connected && wallet.address ? (
         <>

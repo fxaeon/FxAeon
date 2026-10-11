@@ -1,7 +1,6 @@
 export {
   FX_CHAIN_IDS,
   BrowserWalletProvider,
-  PrivyWalletBridge,
   UnavailableWalletProvider,
   usePrivyWallet,
   type FxChainId,

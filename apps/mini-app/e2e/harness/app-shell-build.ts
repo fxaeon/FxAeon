@@ -74,7 +74,7 @@ const mocks: Record<string, string> = {
       }, [ready]);
       return !ready && timedOut;
     }`,
-  '@/lib/telegram': 'export const haptic = () => {}; export const openExternalLink = () => false; export const applyTelegramChromeColors = () => {}; export const isTelegramLaunchContext = () => false;',
+  '@/lib/telegram': 'export const haptic = () => {}; export const openExternalLink = () => false; export const applyTelegramChromeColors = () => {}; export const isTelegramLaunchContext = () => false; export const hasTelegramMiniAppLaunchData = () => false;',
   '@/lib/privyConfig': "export const PRIVY_APP_ID = ''; export const privyConfigured = () => false;",
   './PrivyFlow': 'export default function PrivyFlow() { return null; }',
   // History's feed module: only its skeleton renders before a wallet exists.

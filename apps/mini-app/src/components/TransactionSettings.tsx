@@ -7,6 +7,7 @@ import { ChevronRight } from 'lucide-react';
 import { SettingsPopover } from '@/components/SettingsPopover';
 import { fetchGasTierQuotes, type GasTierQuotes } from '@/lib/fx/gasFeePolicy';
 import { usePrivyWallet } from '@/lib/wallet';
+import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { haptic } from '@/lib/telegram';
 import {
   DEFAULT_GAS_TIER, DEFAULT_SLIPPAGE_PERCENT, GAS_TIERS, MAX_SLIPPAGE_BPS, MIN_SLIPPAGE_BPS, SETTINGS_KEY, SETTINGS_UPDATED_EVENT, SLIPPAGE_PRESETS_BPS,
@@ -52,38 +53,42 @@ export function TransactionSettings({ slippage = false, slippagePercent, onSlipp
   onSlippageChange?: (percent: string) => void;
 }) {
   const { bps: storedBps, tier } = useStoredSettings();
+  const wallet = usePrivyWallet();
+  const providerMode = useWalletProviderMode();
+  const walletSetsFees = providerMode === 'browser' || (Boolean(wallet.address) && !wallet.isEmbedded);
   // Keep a restored form's exact display text. Round-tripping through basis
   // points can turn 0.101% into 0.10100000000000002%.
   const percent = slippagePercent ?? percentNumber(storedBps);
-  const summary = slippage ? `${percent}% slippage` : `${SPEED_LABELS[tier]} speed`;
+  const summary = slippage ? `${percent}% slippage` : walletSetsFees ? 'Fees set in wallet' : `${SPEED_LABELS[tier]} speed`;
   const changes = [
     slippage && Number(percent) !== DEFAULT_SLIPPAGE_PERCENT ? `${percent}% slippage` : null,
-    tier !== DEFAULT_GAS_TIER ? SPEED_LABELS[tier] : null,
+    !walletSetsFees && tier !== DEFAULT_GAS_TIER ? SPEED_LABELS[tier] : null,
   ].filter(Boolean);
   return <SettingsPopover summary={summary} chip={changes.length ? changes.join(' · ') : null}>
-    <TransactionSettingsPanel slippage={slippage} percent={percent} tier={tier} controlledSlippage={slippagePercent !== undefined} onSlippageChange={onSlippageChange} />
+    <TransactionSettingsPanel slippage={slippage} percent={percent} tier={tier} walletSetsFees={walletSetsFees} controlledSlippage={slippagePercent !== undefined} onSlippageChange={onSlippageChange} />
   </SettingsPopover>;
 }
 
-function TransactionSettingsPanel({ slippage, percent, tier, controlledSlippage, onSlippageChange }: {
-  slippage: boolean; percent: string; tier: GasTier; controlledSlippage: boolean; onSlippageChange?: (percent: string) => void;
+function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, controlledSlippage, onSlippageChange }: {
+  slippage: boolean; percent: string; tier: GasTier; walletSetsFees: boolean; controlledSlippage: boolean; onSlippageChange?: (percent: string) => void;
 }) {
   const id = useId();
-  const wallet = usePrivyWallet();
   // Show the current form value (or saved default); hold edits while focused.
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [gas, setGas] = useState<GasTierQuotes | null>(null);
   const [gasStatus, setGasStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const presetIndex = SLIPPAGE_PRESETS_BPS.findIndex((value) => value / 100 === Number(percent));
-  const walletSetsFees = Boolean(wallet.address) && !wallet.isEmbedded;
 
   useEffect(() => {
+    if (walletSetsFees) return;
     let active = true;
+    setGas(null);
+    setGasStatus('loading');
     void fetchGasTierQuotes(1).then((quotes) => { if (active) { setGas(quotes); setGasStatus('ready'); } })
       .catch(() => { if (active) setGasStatus('unavailable'); });
     return () => { active = false; };
-  }, []);
+  }, [walletSetsFees]);
 
   const choosePreset = (value: number) => {
     haptic('selection');
@@ -135,19 +140,19 @@ function TransactionSettingsPanel({ slippage, percent, tier, controlledSlippage,
     </section>}
     <section className={styles.section} aria-labelledby={`${id}-speed`}>
       <div className={styles.heading}>
-        <h3 id={`${id}-speed`}>Network speed</h3>
-        <span className={styles.value}>{SPEED_LABELS[tier]}</span>
+        <h3 id={`${id}-speed`}>{walletSetsFees ? 'Network fee' : 'Network speed'}</h3>
+        {!walletSetsFees && <span className={styles.value}>{SPEED_LABELS[tier]}</span>}
       </div>
       <p className={styles.help}>{walletSetsFees
-        ? 'Your connected wallet sets its own network fee. This applies to FxAeon’s built-in wallet.'
+        ? 'Review and confirm the network fee in your connected wallet.'
         : 'Faster speeds pay a higher priority fee so the transaction is included sooner.'}</p>
-      <div className={styles.speeds} role="radiogroup" aria-labelledby={`${id}-speed`} data-thumb=""
+      {!walletSetsFees && <div className={styles.speeds} role="radiogroup" aria-labelledby={`${id}-speed`} data-thumb=""
         style={{ '--seg-index': GAS_TIERS.indexOf(tier), '--seg-count': GAS_TIERS.length } as CSSProperties}>
         {GAS_TIERS.map((value) => <button key={value} type="button" role="radio" aria-checked={tier === value} onClick={() => chooseTier(value)}>
           <span>{SPEED_LABELS[value]}</span>
           <small>{gas ? formatGwei(gas.tiers[value].gasPriceWei) : gasStatus === 'loading' ? <span className={`${styles.rateSkeleton} skeleton`} aria-label="Loading fee" /> : '—'}</small>
         </button>)}
-      </div>
+      </div>}
     </section>
     <Link href="/settings" className={styles.more}>All settings<ChevronRight aria-hidden="true" /></Link>
   </div>;
