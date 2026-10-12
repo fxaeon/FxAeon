@@ -41,14 +41,16 @@ test.describe('cohesive responsive design', () => {
     await expect(chart.getByText('f(x) market · Ethereum', { exact: true })).toHaveCount(0);
     await expect(chart.getByText('CoinGecko history · display only', { exact: true })).toHaveCount(0);
     await expect(chart.getByRole('link', { name: 'CoinGecko', exact: true })).toHaveCount(0);
-    const chartBox = await chart.boundingBox();
-    const ticketBox = await ticket.boundingBox();
-    const positionSideBox = await positionSide.boundingBox();
-    expect(chartBox).not.toBeNull();
-    expect(ticketBox).not.toBeNull();
-    expect(positionSideBox).not.toBeNull();
-    expect(chartBox!.x + chartBox!.width).toBeLessThan(ticketBox!.x);
-    expect(Math.abs(chartBox!.y - positionSideBox!.y)).toBeLessThan(5);
+    // The selector lives inside the padded ticket now; align the two outer
+    // cards, and measure them together after the responsive layout settles.
+    await expect.poll(() => page.evaluate(() => {
+      const chart = document.querySelector('.market-chart-panel')?.getBoundingClientRect();
+      const ticket = document.querySelector('.trade-ticket')?.getBoundingClientRect();
+      return {
+        sideBySide: Boolean(chart && ticket && chart.width > 0 && chart.right < ticket.left),
+        aligned: Boolean(chart && ticket && ticket.width > 0 && Math.abs(chart.top - ticket.top) < 5),
+      };
+    })).toEqual({ sideBySide: true, aligned: true });
     await expect(page.getByRole('navigation', { name: 'Primary navigation' }).filter({ visible: true })).toHaveCount(1);
 
     await page.setViewportSize({ width: 390, height: 844 });

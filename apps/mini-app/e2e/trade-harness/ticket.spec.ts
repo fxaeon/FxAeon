@@ -207,11 +207,16 @@ test.describe('the leverage slider is the debt/your-share split', () => {
       await page.getByRole('radio', { name: side, exact: true }).click();
       await page.setViewportSize({ width, height: 900 });
       await expect(slider(page)).toBeVisible();
-      const target = (await slider(page).boundingBox())!;
-      const ticket = (await page.locator('.trade-ticket').boundingBox())!;
-      expect(target.height, `${width}px`).toBeGreaterThanOrEqual(44);
-      expect(target.width, `${width}px`).toBeGreaterThan(ticket.width * 0.72);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${width}px`).toBeLessThanOrEqual(0);
+      await expect.poll(async () => slider(page).evaluate((target) => {
+        const targetRect = target.getBoundingClientRect();
+        const ticketRect = target.closest('.trade-ticket')?.getBoundingClientRect();
+        return {
+          minTouchTarget: targetRect.height >= 44,
+          widthRatio: Boolean(ticketRect && targetRect.width > ticketRect.width * 0.72),
+          noOverflow: document.documentElement.scrollWidth - window.innerWidth <= 0,
+        };
+      }), { message: `${side} ${width}px: slider target fits its ticket after resize` })
+        .toEqual({ minTouchTarget: true, widthRatio: true, noOverflow: true });
       // The range ends and the split caption share one row, inside the ticket.
       // Read once the resize has settled: a slow runner can measure mid-layout.
       await expect.poll(async () => {

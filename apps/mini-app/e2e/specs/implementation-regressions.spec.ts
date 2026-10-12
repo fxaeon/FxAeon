@@ -59,9 +59,13 @@ test.describe('implementation regressions', () => {
         await expect(recent.getByText('No recent FxAeon history', { exact: true })).toHaveCount(0);
         await expect(page.locator('[data-portfolio-value]')).toBeVisible();
         if (viewport.width < 1000) {
-          const recentTop = await recent.evaluate((element) => element.getBoundingClientRect().top);
-          const valueBottom = await page.locator('[data-portfolio-value]').evaluate((element) => element.getBoundingClientRect().bottom);
-          expect(recentTop).toBeGreaterThan(valueBottom);
+          // Hydration can replace the skeleton between separate rect reads.
+          // Sample both live regions in one frame and wait for visible layout.
+          await expect.poll(() => page.evaluate(() => {
+            const recent = document.querySelector('section[aria-label="Recent history"]')?.getBoundingClientRect();
+            const value = document.querySelector('[data-portfolio-value]')?.getBoundingClientRect();
+            return Boolean(recent && value && recent.height > 0 && value.height > 0 && recent.top > value.bottom);
+          }), { message: 'Visible recent history stays below the account value' }).toBe(true);
         }
       }
       assertNoBackendRequests(requests);

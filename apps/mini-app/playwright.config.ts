@@ -17,10 +17,11 @@ const browserChannel = configuredBrowserChannel();
 
 export default defineConfig({
   testDir: './e2e/specs',
-  // The long mobile sweep and route sweep are independent and each owns its
-  // browser context, so two workers reduce release-gate time without changing
-  // coverage. Set E2E_WORKERS=1 on especially constrained runners.
-  fullyParallel: false,
+  // Built-route tests use isolated browser contexts and any harness servers
+  // bind ephemeral ports. Allow Playwright to shard tests across files instead
+  // of assigning whole, unevenly sized spec files to a shard. The worker cap
+  // keeps runner memory bounded; set E2E_WORKERS=1 on constrained runners.
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: Number(process.env.E2E_WORKERS ?? 2),
