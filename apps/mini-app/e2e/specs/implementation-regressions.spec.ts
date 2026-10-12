@@ -104,7 +104,7 @@ test.describe('implementation regressions', () => {
   test('Docs collapses contents into a compact reading region on short phones', async ({ page, requests }) => {
     const viewport = { width: 390, height: 500 } as const;
     await page.setViewportSize(viewport);
-    await page.goto('/docs', { waitUntil: 'domcontentloaded' });
+    await page.goto('/docs/guide', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('main:visible')).toBeVisible();
     const docsPage = page.locator('[class*="docsPage"]');
     const mainGeometry = await docsPage.evaluate((element) => ({
@@ -119,7 +119,7 @@ test.describe('implementation regressions', () => {
     const article = page.locator('article').first();
     await expect(article).toBeVisible();
     await expect(article.locator('header').first()).toBeVisible();
-    await expect(article.getByRole('heading', { name: 'Welcome to FxAeon', exact: true })).toBeVisible();
+    await expect(article.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
     const helpGeometry = await article.locator('section#overview').evaluate((element) => {
       const heading = element.closest('article')?.querySelector('h1')?.getBoundingClientRect();
       const paragraph = element.closest('article')?.querySelector('header p[class*="lead"]')?.getBoundingClientRect();
@@ -136,7 +136,7 @@ test.describe('implementation regressions', () => {
     await expect(contents.getByRole('link')).toHaveCount(13);
     await expect(contents.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
     await page.setViewportSize({ width: 1024, height: 500 });
-    await page.goto('/docs', { waitUntil: 'domcontentloaded' });
+    await page.goto('/docs/guide', { waitUntil: 'domcontentloaded' });
     const docsRail = page.locator('nav[aria-label="Documentation sections"]');
     await expect(docsRail).toHaveAttribute('aria-busy', 'false');
     const lastLink = docsRail.getByRole('link', { name: 'Troubleshooting', exact: true });

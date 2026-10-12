@@ -95,3 +95,39 @@
   .disclosure > summary > svg, .disclosure::details-content, .choice, .radioMark, .actionRow > svg:last-child { transition: none; }
   .notice { animation: none; }
 }
+
+/* A route-owned marker lets the More directory use quieter cards without
+   changing action rows elsewhere in the product. */
+:global([data-utility-directory]) .group > h2 {
+  margin: 0 4px 8px;
+  color: var(--mut-2);
+  font-size: var(--fs-caption);
+  font-weight: 650;
+  letter-spacing: .035em;
+}
+:global([data-utility-directory]) .rowGroup {
+  border-color: var(--hairline);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 97%, var(--mint) 3%);
+  box-shadow: none;
+}
+:global([data-utility-directory]) .actionRow {
+  min-height: 64px;
+  gap: 12px;
+  padding: 11px 14px;
+}
+:global([data-utility-directory]) .actionRow + .actionRow {
+  border-color: color-mix(in srgb, var(--line) 76%, transparent);
+}
+:global([data-utility-directory]) .actionRow:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-2) 84%, var(--mint) 16%);
+}
+:global([data-utility-directory]) .rowIcon {
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--mint-dim) 82%, var(--surface));
+}
+:global([data-utility-directory]) .actionRow > svg:last-child { color: var(--mut-2); }
+
+@media (max-width: 380px) {
+  :global([data-utility-directory]) .actionRow { min-height: 60px; padding-inline: 12px; }
+}

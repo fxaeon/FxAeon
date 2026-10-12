@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Search } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
 import FxLogo from '@/components/FxLogo';
@@ -16,7 +17,8 @@ const PRODUCT_GROUPS = [
   { label: 'Know before you sign', ids: ['fees', 'history', 'privacy', 'troubleshooting'] },
 ];
 
-export default function DocsShell({ page, entries, children }: { page: Page; entries: DocsEntry[]; children: ReactNode }) {
+export default function DocsShell({ page, entries, children, home = false }: { page: Page; entries: DocsEntry[]; children: ReactNode; home?: boolean }) {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const [contentsOpen, setContentsOpen] = useState(true);
@@ -30,6 +32,16 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
     : [{ label: 'In this reference', ids: currentEntries.map(({ id }) => id) }];
 
   useEffect(() => {
+    if (!home) return;
+    const followLegacyHash = () => {
+      if (window.location.hash) router.replace(`/docs/guide${window.location.hash}`);
+    };
+    followLegacyHash();
+    window.addEventListener('hashchange', followLegacyHash);
+    return () => window.removeEventListener('hashchange', followLegacyHash);
+  }, [home, router]);
+
+  useEffect(() => {
     setHydrated(true);
     const media = window.matchMedia('(max-width: 760px)');
     const syncContents = () => setContentsOpen(!media.matches);
@@ -41,7 +53,7 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
     let cancelled = false;
     const updateActive = () => {
       frame = 0;
-      const top = (scrollRoot?.getBoundingClientRect().top ?? 0) + (media.matches ? 225 : 144);
+      const top = (scrollRoot?.getBoundingClientRect().top ?? 0) + (media.matches ? 185 : 144);
       const headings = currentEntries.map(({ id }) => document.getElementById(id)).filter((node): node is HTMLElement => Boolean(node));
       const current = headings.filter((node) => node.getBoundingClientRect().top <= top).at(-1) ?? headings[0];
       if (current) setActiveId(current.id);
@@ -106,15 +118,13 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
 
   const count = searching ? results.length : currentEntries.length;
   return (
-    <div className={styles.docsPage}>
+    <div className={`${styles.docsPage} ${home ? styles.homePage : ''}`} data-searching={searching || undefined}>
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <header className={styles.docsChrome}>
           <div className={styles.docsTopbar}>
-            <Link href="/" className={styles.docsBrand} aria-label="FxAeon home">
+            <Link href="/docs" className={styles.docsBrand} aria-label="FxAeon docs home">
               <FxLogo size={29} />
-              <span>FxAeon</span>
-              <span className={styles.brandDivider} aria-hidden="true" />
-              <span className={styles.brandDocs}>Docs</span>
+              <span className={styles.srOnly}>FxAeon documentation</span>
             </Link>
             <div className={styles.searchRow}>
               <Search className={styles.searchIcon} aria-hidden="true" />
@@ -134,7 +144,10 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
           </div>
           <div className={styles.docsSubnav} role="group" aria-label="Documentation guides">
             <span className={styles.subnavLabel}>Documentation</span>
-            <Link href="/docs" aria-current={page === 'Product guide' ? 'page' : undefined}>Product guide</Link>
+            <Link href="/docs/guide#getting-started" aria-current={!home && page === 'Product guide' ? 'page' : undefined}>Start here</Link>
+            <Link href="/docs/guide#trade">Products</Link>
+            <Link href="/docs/guide#wallets">Wallets</Link>
+            <Link href="/docs/guide#troubleshooting">Help</Link>
             <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
             <span className={styles.subnavCurrent} aria-current="location">{page}</span>
           </div>
@@ -152,8 +165,8 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
               <div className={styles.navLinks} id="docs-contents">
                 {searching ? <>
                   <p className={styles.navGroupLabel}>Search all documentation</p>
-                  {results.map((entry) => <Link key={entry.href} href={entry.page === page ? `#${entry.id}` : entry.href}
-                    className={styles.searchResult} onClick={() => { setQuery(''); if (entry.page === page) followSection(entry.id); }}>
+                  {results.map((entry) => <Link key={entry.href} href={!home && entry.page === page ? `#${entry.id}` : entry.href}
+                    className={styles.searchResult} onClick={() => { setQuery(''); if (!home && entry.page === page) followSection(entry.id); }}>
                     <span className={styles.resultTitle}>{entry.title}<ArrowRight size={13} aria-hidden="true" /></span>
                     <span className={styles.resultPage}>{entry.page}</span>
                     <span className={styles.resultExcerpt}>{searchExcerpt(entry.text, query)}</span>
@@ -175,9 +188,9 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
           <main id="main-content" tabIndex={-1} className={styles.docsContent}>
           <article>
             <header className={styles.docsIntro}>
-              <p className={styles.breadcrumb}><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></p>
-              <h1 id="docs-page-heading" tabIndex={-1}>{page === 'Product guide' ? 'Welcome to FxAeon' : 'The f(x) SDK in FxAeon'}</h1>
-              {page === 'Product guide'
+              {!home && <p className={styles.breadcrumb}><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></p>}
+              <h1 id="docs-page-heading" tabIndex={-1}>{home ? 'Welcome to FxAeon' : page === 'Product guide' ? 'Product guide' : 'The f(x) SDK in FxAeon'}</h1>
+              {home ? <p className={styles.lead}>FxAeon brings <strong>trading, savings, borrowing, and bridging</strong> to your browser and Telegram. Use f(x) Protocol on <strong>Ethereum</strong>, and move supported assets between <strong>Ethereum and Base</strong>.</p> : page === 'Product guide'
                 ? <p className={styles.lead}>Your guide to Trade, Earn, Borrow, and Move. Understand the action before you sign.</p>
                 : <>
                   <p className={styles.lead}>The methods, units, and safeguards behind the app. Start with a read, then explore how a reviewed transaction reaches the chain.</p>
@@ -185,7 +198,7 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
                 </>}
             </header>
             {children}
-            <Link href={page === 'Product guide' ? '/docs/sdk' : '/docs#getting-started'} className={styles.nextPage}>
+            {!home && <><Link href={page === 'Product guide' ? '/docs/sdk' : '/docs/guide#getting-started'} className={styles.nextPage}>
               <span><span className={styles.nextLabel}>{page === 'Product guide' ? 'For developers' : 'Back to the guide'}</span>
                 <strong>{page === 'Product guide' ? 'Explore the SDK integration' : 'Get started with FxAeon'}</strong></span>
               <ArrowRight size={21} aria-hidden="true" />
@@ -197,7 +210,7 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
 
                 <Link href="/">Open FxAeon <ArrowRight size={13} aria-hidden="true" /></Link>
               </div>
-            </footer>
+            </footer></>}
           </article>
           </main>
         </div>

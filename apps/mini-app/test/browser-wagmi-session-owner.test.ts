@@ -203,7 +203,23 @@ test('FAIL-BEFORE: stock single-connector disconnect silently reauthorizes on ac
  const p=new Fake(),cfg=rawConfig([p]);await connect(cfg,{connector:cfg.connectors[0]});await disconnect(cfg,{connector:cfg.connectors[0]});assert.equal(getConnection(cfg).status,'disconnected');p.emit('accountsChanged',[A]);await settle();assert.equal(getConnection(cfg).status,'connected');p.handlers.clear();
 });
 test('foreground reconcile converges silent account/chain mutations through public reconnect',async()=>{
- const o=owner(),p=new Fake();await accepted(o,p);const prompts=p.times('eth_requestAccounts');p.accounts=[B];p.chain='0x2105';o.invalidateForDiscovery();assert.equal(o.getProjection(),undefined);await o.reconcile();assert.equal(o.getProjection()?.address,B);assert.equal(o.getProjection()?.chainId,8453);assert.equal(getConnection(o.getActiveConfig()!).address,B);assert.equal(getConnection(o.getActiveConfig()!).chainId,8453);assert.equal(p.times('eth_requestAccounts'),prompts);o.dispose();
+ const o=owner(),p=new Fake();await accepted(o,p);const prompts=p.times('eth_requestAccounts');p.accounts=[B];p.chain='0x2105';const reconciling=o.reconcile();assert.equal(o.getProjection(),undefined);await reconciling;assert.equal(o.getProjection()?.address,B);assert.equal(o.getProjection()?.chainId,8453);assert.equal(getConnection(o.getActiveConfig()!).address,B);assert.equal(getConnection(o.getActiveConfig()!).chainId,8453);assert.equal(p.times('eth_requestAccounts'),prompts);o.dispose();
+});
+
+test('discovery invalidation retires ownership and requires a fresh exact-provider restore',async()=>{
+ const o=owner(),p=new Fake();await accepted(o,p);
+ const prompts=p.times('eth_requestAccounts');
+ const held=deferred<unknown>();p.overrides.set('eth_accounts',()=>held.promise);
+ const reconciling=o.reconcile().catch(()=>undefined);await settle();
+ o.invalidateForDiscovery();
+ assert.equal(o.getProjection(),undefined);assert.equal(o.getActiveConfig(),undefined);assert.equal(p.count(),0);
+ held.resolve([A]);await reconciling;p.overrides.delete('eth_accounts');
+ p.accounts=[B];p.emit('accountsChanged',[B]);p.chain='0x2105';p.emit('chainChanged',p.chain);
+ await settle();await o.reconcile();assert.equal(o.getProjection(),undefined);assert.equal(p.count(),0);
+ await assert.rejects(o.sendTransaction(8453,{to:A}));assert.equal(p.times('eth_sendTransaction'),0);
+ await accepted(o,p,{mode:'restore',preferredAddress:B});
+ assert.equal(o.getProjection()?.address,B);assert.equal(o.getProjection()?.chainId,8453);
+ assert.equal(p.times('eth_requestAccounts'),prompts);o.dispose();assert.equal(p.count(),0);
 });
 test('foreground reconcile preserves funded reordered address and blocks unsupported/empty sessions',async()=>{
  const o=owner(),p=new Fake();await accepted(o,p);p.accounts=[B,A];await o.reconcile();assert.equal(o.getProjection()?.address,A);p.chain='0x89';await o.reconcile();assert.equal(o.getProjection(),undefined);p.chain='0x1';p.accounts=[];await o.reconcile();assert.equal(o.getProjection(),undefined);p.accounts=[A];await o.reconcile();assert.equal(o.getProjection()?.address,A);o.dispose();

@@ -12,7 +12,7 @@ export const metadata: Metadata = { ...shared, title: { absolute: 'f(x) SDK refe
 
 export default function SdkPage() {
   const entries = [
-    ...createDocsEntries(productSections, 'Product guide', '/docs'),
+    ...createDocsEntries(productSections, 'Product guide', '/docs/guide'),
     ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
   ];
   return <DocsShell page="SDK reference" entries={entries}><SdkArticle /></DocsShell>;

@@ -19,6 +19,7 @@ test.describe('documentation experience', () => {
     await page.setViewportSize({ width: 390, height: 500 });
     for (const id of legacyFragments) {
       await page.goto(`/docs#${id}`, { waitUntil: 'domcontentloaded' });
+      await expect(page).toHaveURL(new RegExp(`/docs/guide#${id}$`));
       const nav = page.getByRole('navigation', { name: 'Documentation sections' });
       await expect(nav).toHaveAttribute('aria-busy', 'false');
       await expect(nav.locator('details')).toHaveJSProperty('open', false);
@@ -33,7 +34,7 @@ test.describe('documentation experience', () => {
   });
 
   test('searches actual text across pages and preserves back navigation', async ({ page }) => {
-    await page.goto('/docs');
+    await page.goto('/docs/guide');
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
     const search = page.getByRole('searchbox', { name: 'Search docs' });
     await expect(search).toBeEnabled();
@@ -45,8 +46,8 @@ test.describe('documentation experience', () => {
     await expect(page.locator('#sdk-earn-heading')).toBeInViewport();
     await expect(page.locator('#sdk-earn-heading')).toBeFocused();
     await page.goBack();
-    await expect(page).toHaveURL(/\/docs\/?$/);
-    await expect(page.getByRole('heading', { name: 'Welcome to FxAeon' })).toBeVisible();
+    await expect(page).toHaveURL(/\/docs\/guide\/?$/);
+    await expect(page.getByRole('heading', { name: 'Product guide' })).toBeVisible();
   });
 
   test('has copyable examples and method anchors without requesting wallet access', async ({ page, context }) => {
@@ -87,7 +88,7 @@ test.describe('documentation experience', () => {
   });
 
   test('keyboard search can be cleared and navigation can be reopened repeatedly', async ({ page }) => {
-    await page.goto('/docs');
+    await page.goto('/docs/guide');
     const docsPage = page.locator('[class*="docsPage"]');
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
     const search = page.getByRole('searchbox', { name: 'Search docs' });
@@ -100,10 +101,14 @@ test.describe('documentation experience', () => {
     await expect(search).toHaveValue('');
     await expect(nav.locator('details')).toHaveJSProperty('open', false);
     const contentsSummary = nav.locator('summary');
+    const themeToggle = page.getByRole('button', { name: /Switch to .* theme/ });
     for (let attempt = 0; attempt < 2; attempt++) {
       if (attempt > 0) await page.keyboard.press('Control+k');
-      for (let step = 0; step < 10; step++) {
-        if (await contentsSummary.evaluate((element) => element === document.activeElement)) break;
+      await page.keyboard.press('Tab');
+      await expect(themeToggle).toBeFocused();
+      await page.keyboard.press('Tab');
+      for (const name of ['Start here', 'Products', 'Wallets', 'Help', 'SDK reference']) {
+        await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
         await page.keyboard.press('Tab');
       }
       await expect(contentsSummary).toBeFocused();
@@ -139,7 +144,7 @@ test.describe('documentation experience', () => {
   test('desktop docs keeps themes, search, copying and Back/Forward navigation usable', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/docs');
+    await page.goto('/docs/guide');
     for (const theme of ['dark', 'light', 'official']) {
       await page.getByRole('button', { name: /Switch to .* theme/ }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);

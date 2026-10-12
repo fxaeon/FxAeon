@@ -83,7 +83,7 @@ html:root {
   --privy-border-radius-sm: 14px; /* Privy's 48px buttons */
   --privy-border-radius-md: var(--radius-sm); /* inputs, wallet rows, panels */
   --privy-border-radius-mdlg: var(--radius-md);
-  --privy-border-radius-lg: var(--radius-lg); /* the modal and the phone sheet */
+  --privy-border-radius-lg: var(--radius-xl); /* the modal and the phone sheet */
   --privy-border-radius-full: var(--radius-full);
 }
 
