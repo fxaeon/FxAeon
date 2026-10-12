@@ -4989,10 +4989,11 @@ details[open] summary:after {
   padding-left: 16px;
   border-left: 1px solid #cbb5e355;
 }
-.privy-note p {
+.privy-note h3 {
   color: #e6daef;
-  font-size: 13px;
-  margin-bottom: 8px;
+  font-size: 27px;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
 }
 .privy-note a {
   font-weight: 650;
@@ -5002,7 +5003,7 @@ details[open] summary:after {
 .privy-note span {
   display: block;
   color: #bdb1c8;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .faq {
@@ -5116,7 +5117,7 @@ details[open] summary:after {
 :root[data-theme="light"] .closing-surface .telegram {
   background: linear-gradient(140deg, #ebe4f1, #ddd0e7);
 }
-:root[data-theme="light"] .privy-note p {
+:root[data-theme="light"] .privy-note h3 {
   color: #53405f;
 }
 :root[data-theme="light"] .privy-note span {
