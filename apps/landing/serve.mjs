@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { createReadStream, statSync, readFileSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 const root = resolve(import.meta.dirname, 'dist');
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.avif': 'image/avif', '.woff2': 'font/woff2', '.xml': 'application/xml', '.txt': 'text/plain; charset=utf-8' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.avif': 'image/avif', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.xml': 'application/xml', '.txt': 'text/plain; charset=utf-8' };
 const headers = readFileSync(resolve(root, '_headers'), 'utf8').split(/\r?\n/)
   .filter((line) => /^\s+[^:]+:/.test(line))
   .map((line) => { const separator = line.indexOf(':'); return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()]; });
