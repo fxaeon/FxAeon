@@ -603,7 +603,7 @@ export default function PositionsPage() {
     <AppShell>
       <div className={`${styles.positionsRoot} ${styles.positionsCompactRoot} ${!wallet.address ? styles.positionsDisconnectedRoot : ''}`} data-position-stage={reviewStage} data-position-view={positionView}>
       <div className={styles.positionsWorkspace}>
-        <h1 className={styles.positionsHeading}>Positions</h1>
+        <h1 className="sr-only">Positions</h1>
         {reviewStage === 'input' && <nav className={styles.positionsViews} aria-label="Trade views">
           <Link href="/trade" className="glass-press">New position</Link>
           <span aria-current="page">Positions</span>

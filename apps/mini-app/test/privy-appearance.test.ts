@@ -24,7 +24,7 @@ test('each theme hands Privy its own background and accent', () => {
     assert.equal(appearance.theme, THEMES[id].colors['--bg'], id);
     assert.equal(appearance.accentColor, THEMES[id].accent, id);
   }
-  assert.deepEqual(themes.map((id) => privyAppearance(id).theme), ['#0d0c13', '#08090b', '#f7f5f1']);
+  assert.deepEqual(themes.map((id) => privyAppearance(id).theme), ['#121115', '#08090b', '#f7f5f1']);
   assert.deepEqual(themes.map((id) => privyAppearance(id).accentColor), ['#b9a0ff', '#b9a0ff', '#7341c8']);
 });
 

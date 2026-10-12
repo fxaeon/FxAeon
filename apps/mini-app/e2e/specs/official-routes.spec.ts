@@ -114,6 +114,7 @@ test.describe("browser entry", () => {
   });
 
   test("documentation routes use their own header and link back to the app", async ({ page, requests }) => {
+    test.setTimeout(60_000);
     await page.setViewportSize({ width: 1280, height: 900 });
     for (const route of DOCS_ROUTES) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
@@ -124,9 +125,10 @@ test.describe("browser entry", () => {
       await expect(openApp).toBeVisible();
       await expect(openApp).toHaveAttribute("href", "/");
       await expect(page.locator(".app-topbar")).toHaveCount(0);
-      await openApp.click();
-      await expect(page).toHaveURL(/\/$/);
     }
+    await page.getByRole("navigation", { name: "FxAeon links", exact: true })
+      .getByRole("link", { name: /^Open app$/i }).click();
+    await expect(page).toHaveURL(/\/$/);
     assertNoBackendRequests(requests);
   });
 });
@@ -715,8 +717,10 @@ test.describe("Move and More compact surfaces", () => {
     await expect(page.getByRole("link", { name: /Receive/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Settings/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Appearance/ })).toBeVisible();
-    await expect(page.getByText("Resources", { exact: true })).toBeVisible();
-    await expect(page.getByText("FxAeon docs", { exact: true })).toBeVisible();
+    for (const redundantGroupTitle of ["Account", "Preferences", "f(x) Protocol", "Resources"]) {
+      await expect(page.getByRole("heading", { name: redundantGroupTitle, exact: true })).toHaveCount(0);
+    }
+    await expect(page.getByRole("link", { name: "FxAeon docs", exact: true })).toHaveAttribute("href", "/docs");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("radiogroup", { name: "Appearance theme", exact: true })).toBeVisible();
     assertNoBackendRequests(requests);

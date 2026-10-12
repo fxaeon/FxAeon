@@ -14,13 +14,13 @@
    stylesheet is the single source of truth for every theme token. */
 :root {
   /* Color roles (Official: violet-tinted night). */
-  --bg: #121215;
+  --bg: #121115;
   --bg-raised: #18171c;
-  --surface: #202024;
-  --surface-2: #29282e;
-  --surface-3: #343239;
-  --card: #202024;
-  --input: #29282e;
+  --surface: #1e1c22;
+  --surface-2: #27242d;
+  --surface-3: #322d3a;
+  --card: #1e1c22;
+  --input: #27242d;
   --line: #35323c;
   --line-strong: #4e485b;
   --text: #f5f3fa;
@@ -83,7 +83,7 @@
   --radius-xs: 8px;
   --radius-sm: 12px;
   --radius-md: 14px;
-  --radius-lg: 18px;
+  --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-full: 9999px;
 
@@ -513,7 +513,7 @@ body::after {
    painted. When it ends, the shell initializer (src/app/shellInitializer.ts)
    marks the session lit and every later heading is plain text at once. */
 @media (prefers-reduced-motion: no-preference) {
-  :root:not([data-heading-lit]) :is(.page-header, .trade-page-heading, [data-page-heading]) h1 {
+  :root:not([data-heading-lit]) .trade-page-heading h1 {
     background: linear-gradient(100deg, var(--text) 0 42%, var(--mint-bright) 48%, var(--brand-coral) 53%, var(--text) 58% 100%) 0 0 / 260% 100% repeat-y;
     -webkit-background-clip: text;
     background-clip: text;
@@ -692,7 +692,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
    appears at once (its heading brings its own light). Content marked
    data-continued replaces the first-paint outline (ProviderLoadingState),
    which already drew it, so it does not fade in a second time. */
-.app-content > :not(.page-header):not([data-continued]):not(:has(:is([data-page-heading], .trade-page-heading))) {
+.app-content > :not(.page-header):not(.sr-only):not([data-continued]):not(:has(:is([data-page-heading], .trade-page-heading))) {
   animation: route-in var(--dur-slow) var(--ease-out) both;
 }
 .app-content > *:nth-child(2) { animation-delay: 40ms; }

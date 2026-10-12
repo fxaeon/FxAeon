@@ -166,7 +166,7 @@ test.describe('cohesive responsive design', () => {
     const welcomeCards = page.getByRole('main').getByRole('link');
     await expect(welcomeCards).toHaveCount(6);
     expect(await welcomeCards.evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).getAttribute('href'))))
-      .toEqual(expect.arrayContaining(['/docs/guide#getting-started', '/docs/guide#trade', '/docs/guide#earn', '/docs/guide#borrow', '/docs/guide#move', '/docs/guide#access']));
+      .toEqual(expect.arrayContaining(['/docs/guide/getting-started', '/docs/guide/trade', '/docs/guide/earn', '/docs/guide/borrow', '/docs/guide/move', '/docs/guide/access']));
     const homeSearch = page.getByRole('searchbox', { name: 'Search docs' });
     await homeSearch.fill('getFxSaveBalance');
     const homeResults = page.getByRole('navigation', { name: 'Documentation sections' });
@@ -176,14 +176,17 @@ test.describe('cohesive responsive design', () => {
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(homeResults).toBeHidden();
     await welcomeCards.getByRole('heading', { name: 'Get started with FxAeon', exact: true }).click();
-    await expect(page).toHaveURL(/\/docs\/guide#(getting-started|overview)$/);
+    await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
+    await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
+    // Keep the index/search assertions on the complete legacy guide route.
+    await page.goto('/docs/guide');
     await expect(page.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
     const search = page.getByRole('searchbox', { name: 'Search docs' });
     const guides = page.getByRole('group', { name: 'Documentation guides' });
     for (const [name, href] of [
-      ['Start here', '/docs/guide#getting-started'], ['Products', '/docs/guide#trade'],
-      ['Wallets', '/docs/guide#wallets'], ['Help', '/docs/guide#troubleshooting'],
+      ['Start here', '/docs/guide/getting-started'], ['Products', '/docs/guide/trade'],
+      ['Wallets', '/docs/guide/wallets'], ['Help', '/docs/guide/troubleshooting'],
     ]) {
       await expect(guides.getByRole('link', { name, exact: true })).toHaveAttribute('href', href);
     }

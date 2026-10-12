@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/test';
+import { test, expect, assertNoBackendRequests } from '../fixtures/test';
 
 const legacyFragments = ['overview', 'getting-started', 'access', 'wallets', 'trade', 'positions', 'earn', 'borrow', 'move', 'fees', 'history', 'recovery', 'privacy', 'troubleshooting'];
 
@@ -64,6 +64,39 @@ test.describe('documentation experience', () => {
     await expect(page.locator('#getPositions')).toBeInViewport();
     await expect(page.locator('#getPositions a')).toHaveAttribute('href', '#getPositions');
     await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('product articles support outline navigation, copying, pagination, and mobile width', async ({ page, context, requests }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/docs/guide/getting-started');
+    await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
+    await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
+
+    const pages = page.getByRole('navigation', { name: 'Pages', exact: true });
+    await expect(pages.getByRole('link', { name: 'Your first transaction', exact: true })).toHaveAttribute('aria-current', 'location');
+    const outline = page.getByRole('navigation', { name: 'On this page', exact: true });
+    const openHeading = page.locator('#start-open');
+    await expect(outline.getByRole('link', { name: 'Open FxAeon', exact: true })).toHaveAttribute('href', '#start-open');
+    await outline.getByRole('link', { name: 'Open FxAeon', exact: true }).click();
+    await expect(page).toHaveURL(/#start-open$/);
+    await expect(openHeading).toBeInViewport();
+
+    const copy = page.getByRole('button', { name: 'Copy page', exact: true });
+    await copy.click();
+    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+    const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboard).toContain('Your first transaction');
+    expect(clipboard).toContain('Open FxAeon');
+
+    const pagination = page.getByRole('navigation', { name: 'Pagination', exact: true });
+    const next = pagination.getByRole('link', { name: /Telegram & browser/ });
+    await expect(next).toHaveAttribute('href', '/docs/guide/access');
+
+    await page.setViewportSize({ width: 320, height: 700 });
+    await expect(page.locator('[class*="docsPage"]')).toBeVisible();
+    expect(await page.locator('[class*="docsPage"]').evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    assertNoBackendRequests(requests);
   });
 
   test('keeps navigation, code and prose contained at every small viewport and large text', async ({ page }) => {

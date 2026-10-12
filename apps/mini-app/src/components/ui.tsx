@@ -130,9 +130,9 @@ export function AppShell({
           className={`app-content ${tabs ? 'app-content-tabs' : ''} flex-1 outline-none ${['/more', '/settings', '/history', '/qr', '/send'].includes(pathname) ? 'utility-content' : ''}`}
         >
           {title && (
-            <header className="page-header">
+            <header className="sr-only">
               <div>
-                <h1 ref={headingRef} tabIndex={-1} className="text-display outline-none">{title}</h1>
+                <h1 ref={headingRef} tabIndex={-1} className="sr-only">{title}</h1>
                 {subtitle && <p className="page-subtitle">{subtitle}</p>}
               </div>
             </header>

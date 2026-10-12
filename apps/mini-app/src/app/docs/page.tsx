@@ -5,6 +5,7 @@ import { productSections } from './ProductArticle';
 import { sdkSections } from './sdk/SdkArticle';
 import { createDocsEntries } from './docsSearch';
 import styles from './Docs.module.css';
+import { productHref } from './productNavigation';
 
 const topics = [
   { id: 'getting-started', title: 'Get started with FxAeon', description: 'Open the app, choose your wallet, and make your first move.', icon: BookOpen },
@@ -17,12 +18,12 @@ const topics = [
 
 export default function DocsPage() {
   const entries = [
-    ...createDocsEntries(productSections, 'Product guide', '/docs/guide'),
+    ...createDocsEntries(productSections, 'Product guide', '/docs/guide').map(entry => ({ ...entry, href: productHref(entry.id) })),
     ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
   ];
   return <DocsShell page="Product guide" entries={entries} home>
     <div className={styles.welcomeGrid}>
-      {topics.map(({ id, title, description, icon: Icon }) => <Link key={id} href={`/docs/guide#${id}`} className={styles.welcomeCard}>
+      {topics.map(({ id, title, description, icon: Icon }) => <Link key={id} href={productHref(id)} className={styles.welcomeCard}>
         <Icon size={24} strokeWidth={1.6} aria-hidden="true" />
         <h2>{title}</h2>
         <p>{description}</p>

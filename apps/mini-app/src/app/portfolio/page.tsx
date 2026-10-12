@@ -353,7 +353,7 @@ function DisconnectedPortfolio() {
           <span className={presentation.welcomeMarks} aria-hidden="true">
             {WELCOME_MARKS.map((symbol) => <TokenIcon key={symbol} symbol={symbol} size={34} />)}
           </span>
-          <h2 className={presentation.welcomeTitle}>Leverage, savings, and credit. <span>On f(x) Protocol.</span></h2>
+          <h2 className={presentation.welcomeTitle}>Leverage, savings, and credit.</h2>
         </div>
         <QuickActions />
         <MarketOverview />

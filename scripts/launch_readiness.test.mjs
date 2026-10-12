@@ -26,7 +26,7 @@ test('privacy disclosure remains reachable and accurately separates device and p
   const docsHome = await readFile(resolve(root, 'apps/mini-app/src/app/docs/page.tsx'), 'utf8');
   const docs = await readFile(resolve(root, 'apps/mini-app/src/app/docs/guide/page.tsx'), 'utf8');
   const article = await readFile(resolve(root, 'apps/mini-app/src/app/docs/ProductArticle.tsx'), 'utf8');
-  assert.ok(docsHome.includes('href={`/docs/guide#${id}`}'));
+  assert.ok(docsHome.includes('href={productHref(id)}'));
   assert.match(docs, /import ProductArticle[^;]+['"]\.\.\/ProductArticle['"]/);
   assert.match(docs, /<ProductArticle\s*\/>/);
   assert.match(article, /href="\/privacy\.html"/);

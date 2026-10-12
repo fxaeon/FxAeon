@@ -14,8 +14,9 @@ export function ProductSurface({ children, className = '', ...props }: HTMLAttri
 }
 
 export function PageHeading({ title, backHref, action }: { title: string; backHref?: string; action?: ReactNode }) {
+  if (!backHref && !action) return <h1 className="sr-only" data-page-heading>{title}</h1>;
   return <header className={styles.heading} data-page-heading>
-    <div>{backHref && <Link href={backHref} aria-label="Go back" className={styles.iconButton}><ArrowLeft aria-hidden="true" size={20} /></Link>}<h1>{title}</h1></div>
+    <div>{backHref && <Link href={backHref} aria-label="Go back" className={styles.iconButton}><ArrowLeft aria-hidden="true" size={20} /></Link>}<h1 className="sr-only">{title}</h1></div>
     {action}
   </header>;
 }
