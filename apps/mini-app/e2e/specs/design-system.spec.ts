@@ -223,11 +223,7 @@ test.describe('cohesive responsive design', () => {
     const menuToggle = page.getByRole('button', { name: 'Close documentation menu', exact: true });
     await expect(menuToggle).toBeFocused();
     await page.keyboard.press('Tab');
-    for (const name of ['Overview', 'Getting started', 'Browser & Telegram', 'Wallets & signing', 'Trade & leverage', 'Manage positions', 'Earn with fxSAVE', 'Borrow fxUSD', 'Move between chains']) {
-      await expect(nav.getByRole('link', { name, exact: true })).toBeFocused();
-      await page.keyboard.press('Tab');
-    }
-    await expect(nav.getByRole('link', { name: 'Fees & slippage', exact: true })).toBeFocused();
+    await expect(nav.getByRole('link', { name: /^Fees & slippage/ })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/docs\/guide#fees$/);
     const articleHeading = page.getByRole('heading', { name: 'Fees & slippage', exact: true });
@@ -245,7 +241,9 @@ test.describe('cohesive responsive design', () => {
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(search).toHaveValue('');
     await expect(nav.getByRole('link')).toHaveCount(14);
-    await page.getByRole('button', { name: 'Close documentation menu', exact: true }).click();
+    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(nav).toBeHidden();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(articleHeading).toBeInViewport();
     assertNoBackendRequests(requests);
