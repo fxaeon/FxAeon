@@ -104,13 +104,11 @@ export default function SettingsPage() {
   return <AppShell>
     <AccountWorkspace className={styles.workspace + ' ' + styles.settingsWorkspace}>
       <PageHeading title={t('settings.title')} backHref="/more" />
-      <section className={styles.section} aria-labelledby={`${id}-wallet`}>
-        <h2 id={`${id}-wallet`}>Wallet</h2>
+      <section className={styles.section} aria-label="Wallet">
         <AccountSummary />
         <div className={styles.walletManagement}><Disclosure title={wallet.selectionRequired ? 'Choose wallet' : 'Change wallet'} defaultOpen={walletChoicesExpanded}><WalletSection /></Disclosure></div>
       </section>
-      <section className={styles.section} aria-labelledby={`${id}-preferences`}>
-        <h2 id={`${id}-preferences`}>Transaction preferences</h2>
+      <section className={styles.section} aria-label="Transaction preferences">
         <ProductSurface className={styles.panel}>
           <div className={styles.preferenceHeading}><h3 id={`${id}-slippage`}>Slippage tolerance</h3>
             <span className={saved ? styles.saved : undefined} role="status" aria-live="polite">{saved ? <><Check size={14} aria-hidden="true" />Saved</> : dirty ? 'Unsaved changes' : ''}</span>

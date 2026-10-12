@@ -392,8 +392,10 @@
   .docsSubnav { padding-inline: 10px; gap: 4px; }
 }
 @media (max-width: 760px) {
-  .docsTopbar { min-height: 64px; grid-template-columns: 32px minmax(0, 1fr) 36px; gap: 16px; }
-  .docsBrand { grid-column: 1; }
+  .docsTopbar { min-height: 64px; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; }
+  .docsBrand { grid-column: 1; min-width: 44px; min-height: 44px; }
+  .docsTheme { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  .clearSearch, .navLink, .codeCaption button, .footerLinks a { min-height: 44px; }
   .searchRow { grid-column: 2; grid-row: 1; }
   .searchInput { min-height: 36px; font-size: 14px; padding-right: 45px; }
   .searchShortcut { display: none; }

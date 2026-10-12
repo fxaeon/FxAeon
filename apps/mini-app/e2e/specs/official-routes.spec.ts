@@ -12,7 +12,7 @@ async function assertNoTopOverlay(page: Page) {
   expect(overlays, "wallet connection must not leave an app-owned overlay under the host chrome").toEqual([]);
 }
 
-const OFFICIAL_ROUTES = [
+const APP_ROUTES = [
   "/",
   "/portfolio",
   "/trade",
@@ -24,7 +24,13 @@ const OFFICIAL_ROUTES = [
   "/settings",
   "/history",
   "/qr",
-  "/docs",
+] as const;
+
+const DOCS_ROUTES = ["/docs", "/docs/guide", "/docs/sdk"] as const;
+
+const OFFICIAL_ROUTES = [
+  ...APP_ROUTES,
+  ...DOCS_ROUTES,
 ] as const;
 
 test.describe("official f(x) client routes", () => {
@@ -89,7 +95,7 @@ test.describe("browser entry", () => {
 
   test("wallet entry stays on every app route", async ({ page, requests }) => {
     test.setTimeout(90_000);
-    for (const route of OFFICIAL_ROUTES) {
+    for (const route of APP_ROUTES) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       const connect = page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true });
       await expect(connect).toBeEnabled();
@@ -103,6 +109,23 @@ test.describe("browser entry", () => {
       await picker.getByRole("button", { name: "Close wallet selection", exact: true }).click();
       await expect(picker).toHaveCount(0);
       await expect(connect).toBeEnabled();
+    }
+    assertNoBackendRequests(requests);
+  });
+
+  test("documentation routes use their own header and link back to the app", async ({ page, requests }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    for (const route of DOCS_ROUTES) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("banner")).toBeVisible();
+      const docsLinks = page.getByRole("navigation", { name: "FxAeon links", exact: true });
+      await expect(docsLinks).toBeVisible();
+      const openApp = docsLinks.getByRole("link", { name: /^Open app$/i });
+      await expect(openApp).toBeVisible();
+      await expect(openApp).toHaveAttribute("href", "/");
+      await expect(page.locator(".app-topbar")).toHaveCount(0);
+      await openApp.click();
+      await expect(page).toHaveURL(/\/$/);
     }
     assertNoBackendRequests(requests);
   });
