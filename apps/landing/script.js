@@ -54,7 +54,7 @@
     );
     const motion = document.querySelector(".motion-toggle");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let paused = reducedMotion.matches;
+    let paused = false;
     try {
       paused ||= localStorage.getItem("fxaeon-motion") === "off";
     } catch {
@@ -92,7 +92,7 @@
       );
       document
         .querySelectorAll(
-          ".section-head, .protocol-flow, .principles article, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .finale, .footer-wordmark",
+          ".section-head, .protocol-flow, .principles article, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .footer-invite",
         )
         .forEach((element) => reveals.observe(element));
     }

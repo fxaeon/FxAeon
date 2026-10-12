@@ -185,7 +185,7 @@ try {
     await page.goto(origin, { waitUntil: 'networkidle' });
     await checkNoOverflow(page, width);
     const desktop = width >= 861;
-    assert.deepEqual(await visibleRoutes(page, '.hero .actions [data-device]'), desktop ? [WEB] : [TELEGRAM], `Hero route at ${width}px`);
+    assert.deepEqual(await visibleRoutes(page, '.hero .actions a'), [TELEGRAM, WEB], `Both explicit app choices remain visible at ${width}px`);
     assert.equal(await page.locator('.site-header button[aria-haspopup="dialog"]').isVisible(), width <= 760, `Menu breakpoint at ${width}px`);
     const visibleNavigationCount = await page.locator('.site-header .nav-side').evaluateAll((elements) => elements.filter((element) => {
       const style = getComputedStyle(element);
@@ -202,10 +202,21 @@ try {
   assert.equal(reduced.scroll, 'auto');
   assert.equal(reduced.transition, '0s');
   assert.equal(reduced.animations, 0, 'Reduced motion starts no CSS animations');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.reload({ waitUntil: 'networkidle' });
+  assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
+  assert.equal(await page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationName), 'chart-draw');
+  await page.getByRole('button', { name: 'Pause animations', exact: true }).click();
+  assert.equal(await page.locator('html').getAttribute('data-motion'), 'off');
+  assert.equal(await page.evaluate(() => document.getAnimations().length), 0, 'Pause stops all decorative motion');
+  await page.reload({ waitUntil: 'networkidle' });
+  assert.equal(await page.locator('html').getAttribute('data-motion'), 'off', 'Motion preference persists');
+  await page.getByRole('button', { name: 'Resume animations', exact: true }).click();
+  assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
   assert.deepEqual(errors, [], 'Landing threw browser errors');
   assert.deepEqual(externalRequests, [], 'Landing requested no external services');
 
-  console.log('Landing browser checks passed: product coverage and links, keyboard menu behavior, theme persistence, text contrast in both themes, reduced motion, responsive device routing, no horizontal overflow, and no external requests.');
+  console.log('Landing browser checks passed: product coverage and links, keyboard menu behavior, theme and motion preferences, text contrast in both themes, reduced motion, responsive device routing, no horizontal overflow, and no external requests.');
 } finally {
   await browser?.close();
   server.kill();

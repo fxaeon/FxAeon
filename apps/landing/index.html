@@ -55,19 +55,31 @@
     <a class="skip-link" href="#main">Skip to content</a>
 
     <header class="site-header">
-      <nav class="nav-side nav-left" aria-label="Main navigation">
-        <a href="#products">Features <span aria-hidden="true">⌄</span></a
-        ><a href="#protocol">How it works</a>
-      </nav>
       <a class="brand" href="/" aria-label="FxAeon home"
         ><img src="assets/fxaeon-mark.svg" width="36" height="36" alt="" /><span
           >FxAeon</span
         ></a
       >
-      <nav class="nav-side nav-right" aria-label="More navigation">
-        <a href="#telegram">Telegram</a
-        ><a href="https://fxaeon.com/docs">Docs</a>
-      </nav>
+      <div class="nav-links">
+        <nav class="nav-side nav-left" aria-label="Main navigation">
+          <a href="#products">Explore</a><a href="#protocol">How it works</a>
+        </nav>
+        <nav class="nav-side nav-right" aria-label="More navigation">
+          <a href="#telegram">Telegram</a
+          ><a href="https://fxaeon.com/docs">Docs</a>
+        </nav>
+      </div>
+      <a class="nav-launch" href="https://fxaeon.com/" data-device="desktop"
+        >Open app</a
+      >
+      <a
+        class="nav-launch"
+        href="https://t.me/FxAeonBot"
+        target="_blank"
+        rel="noreferrer"
+        data-device="mobile"
+        >Open app</a
+      >
       <button
         class="menu-toggle icon-button"
         type="button"
@@ -141,20 +153,15 @@
             In your browser. In Telegram. On your terms.
           </p>
           <div class="actions">
-            <a class="button subtle" href="#protocol"
-              >See how it works <span aria-hidden="true">↓</span></a
-            ><a
-              class="button primary"
-              href="https://fxaeon.com/"
-              data-device="desktop"
-              >Open FxAeon</a
-            ><a
-              class="button primary"
+            <a
+              class="button subtle"
               href="https://t.me/FxAeonBot"
               target="_blank"
               rel="noreferrer"
-              data-device="mobile"
-              >Open FxAeon</a
+              >Open mini app</a
+            >
+            <a class="button primary" href="https://fxaeon.com/"
+              >Open web app</a
             >
           </div>
         </div>
@@ -764,7 +771,7 @@
                   alt=""
                 /><b>A little more possibility.</b>
                 <p>Trade, earn, borrow, and move. <br />Welcome to FxAeon.</p>
-                <span class="bubble-button">Open FxAeon ↗</span>
+                <span class="bubble-button">Open FxAeon</span>
               </div>
             </div>
           </div>
@@ -848,20 +855,30 @@
           </details>
         </div>
       </section>
-      <section class="finale section" aria-labelledby="finale-title">
-        <div class="era-mark" aria-hidden="true">
-          <span></span><span></span>
-        </div>
-        <h2 id="finale-title">Your crypto.<br /><span>Your move.</span></h2>
-        <p>Start with your wallet. See where it takes you.</p>
-        <div class="actions">
+    </main>
+    <div class="footer-frame">
+      <footer class="site-footer">
+        <div class="footer-invite">
+          <img
+            class="footer-emblem"
+            src="assets/fxaeon-mark.svg"
+            width="44"
+            height="44"
+            alt=""
+          />
+          <h2><span>Your next move.</span><br />Starts here.</h2>
+          <p>
+            Trade, save, borrow, and bridge.<br />Bring it all together with
+            FxAeon.
+          </p>
           <a
-            class="button primary"
+            class="footer-launch"
             href="https://fxaeon.com/"
             data-device="desktop"
             >Open FxAeon</a
-          ><a
-            class="button primary"
+          >
+          <a
+            class="footer-launch"
             href="https://t.me/FxAeonBot"
             target="_blank"
             rel="noreferrer"
@@ -869,79 +886,68 @@
             >Open FxAeon</a
           >
         </div>
-      </section>
-    </main>
-    <footer class="site-footer">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <a class="brand" href="/" aria-label="FxAeon home"
-            ><img
-              src="assets/fxaeon-mark.svg"
-              width="36"
-              height="36"
-              alt=""
-            /><span>FxAeon</span></a
-          >
-          <p>Built on f(x) Protocol.<br />Made for your everyday DeFi.</p>
+        <div class="footer-directory">
+          <div class="footer-about">
+            <a class="brand" href="/" aria-label="FxAeon home"
+              ><img
+                src="assets/fxaeon-mark.svg"
+                width="32"
+                height="32"
+                alt=""
+              /><span>FxAeon</span></a
+            >
+            <p>Built on f(x) Protocol.<br />Made for your everyday DeFi.</p>
+          </div>
+          <nav aria-label="Product">
+            <h3>Product</h3>
+            <a href="https://fxaeon.com/trade">Trade</a
+            ><a href="https://fxaeon.com/earn">Earn</a
+            ><a href="https://fxaeon.com/borrow">Borrow</a
+            ><a href="https://fxaeon.com/move">Move</a>
+          </nav>
+          <nav aria-label="Resources">
+            <h3>Resources</h3>
+            <a href="https://fxaeon.com/docs">Documentation</a
+            ><a
+              href="https://fxprotocol.gitbook.io/fx-docs"
+              target="_blank"
+              rel="noreferrer"
+              >f(x) Protocol</a
+            ><a href="https://fxaeon.com/privacy.html">Privacy</a>
+          </nav>
+          <nav aria-label="Connect">
+            <h3>Connect</h3>
+            <a href="https://t.me/FxAeonBot" target="_blank" rel="noreferrer"
+              >Telegram</a
+            ><a href="https://x.com/FxAeonxyz" target="_blank" rel="noreferrer"
+              >X / Twitter</a
+            >
+          </nav>
         </div>
-        <nav aria-label="Product">
-          <h3>Product</h3>
-          <a href="https://fxaeon.com/trade">Trade</a
-          ><a href="https://fxaeon.com/earn">Earn</a
-          ><a href="https://fxaeon.com/borrow">Borrow</a
-          ><a href="https://fxaeon.com/move">Move</a>
-        </nav>
-        <nav aria-label="Resources">
-          <h3>Resources</h3>
-          <a href="https://fxaeon.com/docs">Documentation</a
-          ><a
-            href="https://fxprotocol.gitbook.io/fx-docs"
-            target="_blank"
-            rel="noreferrer"
-            >f(x) Protocol</a
+        <div class="footer-bottom">
+          <p>© <span id="year">2026</span> FxAeon</p>
+          <button
+            class="motion-toggle"
+            type="button"
+            aria-label="Pause animations"
+            aria-pressed="false"
           >
-        </nav>
-        <nav aria-label="Connect">
-          <h3>Connect</h3>
-          <a href="https://t.me/FxAeonBot" target="_blank" rel="noreferrer"
-            >Telegram ↗</a
-          ><a href="https://x.com/FxAeonxyz" target="_blank" rel="noreferrer"
-            >X / Twitter ↗</a
-          ><a href="https://fxaeon.com/privacy.html">Privacy</a>
-        </nav>
-      </div>
-      <div class="footer-wordmark" aria-hidden="true">
-        <img
-          src="assets/fxaeon-mark.svg"
-          width="180"
-          height="180"
-          alt=""
-        /><span>FxAeon</span>
-      </div>
-      <div class="footer-bottom">
-        <p>© <span id="year">2026</span> FxAeon</p>
-        <span>Built on f(x) Protocol</span
-        ><button
-          class="motion-toggle"
-          type="button"
-          aria-label="Pause animations"
-          aria-pressed="false"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M9 5v14M15 5v14" />
-          </svg></button
-        ><button
-          class="theme-toggle"
-          type="button"
-          aria-label="Switch to light theme"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"
-            ></path></svg
-          ><span data-theme-label="">Light mode</span>
-        </button>
-      </div>
-    </footer>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 5v14M15 5v14" />
+            </svg></button
+          ><button
+            class="theme-toggle"
+            type="button"
+            aria-label="Switch to light theme"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"
+              ></path></svg
+            ><span data-theme-label="">Light mode</span>
+          </button>
+        </div>
+      </footer>
+    </div>
   </body>
 </html>
