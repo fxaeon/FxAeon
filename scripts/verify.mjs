@@ -129,6 +129,11 @@ if (phase === 'all' || phase === 'ci-source') {
 }
 
 if (phase === 'all' || phase === 'ci-build') {
+// CI phases use separate runners; the built secret scan covers both exports.
+if (phase === 'ci-build') {
+  const landingBuild = await pnpmRun(['build:landing'], 'standalone landing build');
+  if (landingBuild !== 0) process.exit(landingBuild);
+}
 const buildStartedAt = Date.now();
 const build = await pnpmRun(['build'], 'production build', E2E_BUILD_ENV);
 if (build !== 0) {

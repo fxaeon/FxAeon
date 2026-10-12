@@ -185,6 +185,7 @@ test.describe('cohesive responsive design', () => {
     await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
     await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
     // Keep the index/search assertions on the complete legacy guide route.
+    await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/docs/guide');
     await expect(page.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
@@ -196,6 +197,7 @@ test.describe('cohesive responsive design', () => {
       await expect(guides.getByRole('link', { name, exact: true })).toHaveAttribute('href', href);
     }
     await expect(guides.getByRole('link', { name: 'SDK reference', exact: true })).toHaveAttribute('href', '/docs/sdk');
+    await page.setViewportSize({ width: 390, height: 844 });
     const contents = nav.locator('details');
     await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
     await expect(contents).toHaveJSProperty('open', true);

@@ -194,7 +194,7 @@ for (const market of ['ETH', 'BTC']) {
     await expect(explanation.getByRole('radiogroup')).toHaveCount(0);
     await expect(explanation.getByRole('radio')).toHaveCount(0);
     await expect(explanation.getByRole('button')).toHaveCount(0);
-    await expect(explanation.getByRole('link', { name: 'How it works', exact: true })).toHaveAttribute('href', '/docs#trade');
+    await expect(explanation.getByRole('link', { name: 'How it works', exact: true })).toHaveAttribute('href', '/docs/guide/trade');
     await expect(rows).toHaveCount(2);
     await expect(explanation).toContainText('a 3× long is two thirds minted fxUSD and one third yours');
     await expect(rows.nth(1)).toContainText('67% minted fxUSD · 33% yours');

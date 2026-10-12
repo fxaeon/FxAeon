@@ -188,6 +188,7 @@ test.describe('documentation experience', () => {
     const searchToggle = page.getByRole('button', { name: 'Search documentation', exact: true });
     const optionsToggle = page.getByRole('button', { name: 'More documentation options', exact: true });
     const contentsToggle = page.locator('button[aria-controls="docs-contents"]');
+    const navElement = page.locator('nav[aria-label="Documentation sections"]');
     await expect(page.locator('#docs-search')).toBeEnabled();
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.keyboard.press('Control+k');
@@ -213,7 +214,7 @@ test.describe('documentation experience', () => {
       await expect(nav.getByRole('link', { name: 'Wallets & signing', exact: true })).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(/#wallets$/);
-      await expect(nav.locator('details')).toHaveJSProperty('open', false);
+      await expect(navElement.locator('details')).toHaveJSProperty('open', false);
       await expect(page.locator('#wallets-heading')).toBeInViewport();
     }
   });

@@ -329,13 +329,17 @@ test('docs search results stay in the app with an arrow; only links that leave c
   await expect(results.first()).toBeVisible();
   expect(await results.evaluateAll((links) => links.filter((link) => link.querySelector('.lucide-arrow-up-right')).length)).toBe(0);
   expect(await results.evaluateAll((links) => links.every((link) => !link.getAttribute('target')))).toBe(true);
-  const leaving = page.locator('footer a[target="_blank"]');
+  await page.getByRole('button', { name: 'More documentation options', exact: true }).click();
+  const options = page.getByRole('navigation', { name: 'Documentation options', exact: true });
+  await expect(options).toBeVisible();
+  const leaving = options.locator('a[target="_blank"]');
   expect(await leaving.count()).toBeGreaterThan(0);
   for (const link of await leaving.all()) {
     await expect(link.locator('.lucide-arrow-up-right')).toHaveCount(1);
     await expect(link).toContainText('(opens in a new tab)');
   }
-  await expect(page.locator('footer').getByRole('link', { name: 'Open FxAeon' })).not.toHaveAttribute('target', '_blank');
+  await expect(options.getByRole('link', { name: 'Open app', exact: true })).toHaveAttribute('href', '/');
+  await expect(options.getByRole('link', { name: 'Open app', exact: true })).not.toHaveAttribute('target', '_blank');
 });
 
 test('sign-in, not-found and error screens scroll from their top when they do not fit, and lead back to Portfolio', async ({ page }) => {

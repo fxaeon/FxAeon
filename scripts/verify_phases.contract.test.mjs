@@ -79,7 +79,7 @@ test('CI build phase keeps production gates while route E2E is sharded', () => {
   const buildEnd = runner.indexOf('const builtFailures', buildStart);
   const buildPhase = runner.slice(buildStart, buildEnd);
   assert.ok(buildStart >= 0 && buildEnd > buildStart, 'CI build phase is present');
-  for (const gate of ['production build', 'Built frontend secret scan', 'typecheck', 'bundle check']) {
+  for (const gate of ['build:landing', 'production build', 'Built frontend secret scan', 'typecheck', 'bundle check']) {
     assert.ok(buildPhase.includes(gate), `missing ${gate} in CI build phase`);
   }
   assert.match(buildPhase, /phase === 'all'.*run_built_e2e/s, 'default verify retains full built-route E2E');
