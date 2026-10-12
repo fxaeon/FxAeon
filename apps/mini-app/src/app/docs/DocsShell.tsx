@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, CircleHelp, Copy, Globe, History, Landmark, List, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, ChevronRight, CircleHelp, Copy, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
 import FxLogo from '@/components/FxLogo';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -30,7 +30,12 @@ export default function DocsShell({ page, entries, children, home = false, artic
   const [outline, setOutline] = useState<{ id: string; title: string }[]>([]);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileLinksOpen, setMobileLinksOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLButtonElement>(null);
+  const mobileOptionsRef = useRef<HTMLButtonElement>(null);
   const currentEntries = useMemo(() => entries.filter((entry) => entry.page === page), [entries, page]);
   const results = useMemo(() => searchDocs(entries, query), [entries, query]);
   const searching = query.trim().length > 0;
@@ -45,6 +50,9 @@ export default function DocsShell({ page, entries, children, home = false, artic
     if (!article) return;
     setCopied(false);
     setCopyError(false);
+    setMobileSearchOpen(false);
+    setMobileLinksOpen(false);
+    setQuery('');
     setOutline(Array.from(document.querySelectorAll<HTMLElement>(`[data-docs-article] h2[id], [data-docs-article] h3[id]`)).map(node => { node.tabIndex = -1; return { id: node.id, title: node.textContent ?? '' }; }));
   }, [article]);
 
@@ -106,11 +114,19 @@ export default function DocsShell({ page, entries, children, home = false, artic
     const onShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        inputRef.current?.focus();
+        if (article && media.matches) { setMobileSearchOpen(true); setMobileLinksOpen(false); requestAnimationFrame(() => inputRef.current?.focus()); }
+        else inputRef.current?.focus();
       }
       if (event.key === 'Escape' && document.activeElement === inputRef.current) {
         setQuery('');
+        setMobileSearchOpen(false);
         if (media.matches) setContentsOpen(false);
+        if (article && media.matches) mobileSearchRef.current?.focus();
+      }
+      if (event.key === 'Escape' && article && media.matches) {
+        if (mobileOptionsRef.current?.getAttribute('aria-expanded') === 'true') mobileOptionsRef.current.focus();
+        else if (document.activeElement !== mobileSearchRef.current && mobileMenuRef.current?.getAttribute('aria-expanded') === 'true') mobileMenuRef.current.focus();
+        setMobileLinksOpen(false); setContentsOpen(false);
       }
     };
     (scrollRoot ?? window).addEventListener('scroll', onScroll, { passive: true });
@@ -143,7 +159,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
 
   const count = searching ? results.length : currentEntries.length;
   return (
-    <div className={`${styles.docsPage} ${home ? styles.homePage : ''} ${article ? styles.articlePage : ''}`} data-searching={searching || undefined}>
+    <div className={`${styles.docsPage} ${home ? styles.homePage : ''} ${article ? styles.articlePage : ''}`} data-searching={searching || undefined} data-mobile-search={mobileSearchOpen || undefined} data-navigation-open={contentsOpen || undefined}>
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <header className={styles.docsChrome}>
           <div className={styles.docsTopbar}>
@@ -167,6 +183,11 @@ export default function DocsShell({ page, entries, children, home = false, artic
               <Link href="/" className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
               <ThemeToggle className={styles.docsTheme} />
             </nav>
+            {article && <div className={styles.mobileActions}>
+              <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); if (mobileSearchOpen) { setQuery(''); setContentsOpen(false); } else requestAnimationFrame(() => inputRef.current?.focus()); }}><Search size={20} /></button>
+              <button ref={mobileOptionsRef} type="button" aria-label="More documentation options" aria-expanded={mobileLinksOpen} onClick={() => { setMobileLinksOpen(!mobileLinksOpen); setMobileSearchOpen(false); setContentsOpen(false); setQuery(''); }}><EllipsisVertical size={20} /></button>
+              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link><ThemeToggle className={styles.docsTheme} /></nav>}
+            </div>}
           </div>
           <div className={styles.docsSubnav} role="group" aria-label="Documentation guides">
             <span className={styles.subnavLabel}>Documentation</span>
@@ -177,6 +198,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
             <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
             <span className={styles.subnavCurrent} aria-current="location">{page}</span>
           </div>
+          {article && <div className={styles.mobileBreadcrumb}><button ref={mobileMenuRef} type="button" aria-label={contentsOpen ? 'Close documentation menu' : 'Open documentation menu'} aria-expanded={contentsOpen} aria-controls="docs-contents" onClick={() => { setContentsOpen(!contentsOpen); setMobileSearchOpen(false); setMobileLinksOpen(false); setQuery(''); }}><Menu size={18} /></button><span>{article.group}</span><ChevronRight size={14} aria-hidden="true" /><strong>{article.title}</strong></div>}
         </header>
         <div className={styles.docsLayout}>
           <nav className={styles.docsNav} aria-label={article ? 'Pages' : 'Documentation sections'} aria-busy={!hydrated}>

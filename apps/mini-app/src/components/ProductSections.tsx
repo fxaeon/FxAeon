@@ -19,7 +19,7 @@ const FX_BORROWING_DOCS = 'https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-me
 // Each action page keeps its live facts, its f(x) explainer and what it needs
 // to act safely; the general steps and questions live in the Docs guide, one
 // quiet in-app link away.
-const howItWorks = (section: 'trade' | 'earn' | 'borrow' | 'move') => ({ label: 'How it works', href: `/docs#${section}` });
+const howItWorks = (section: 'trade' | 'earn' | 'borrow' | 'move') => ({ label: 'How it works', href: `/docs/guide/${section}` });
 
 const rebalancingNote = <Callout icon={ShieldAlert} title="A brake before liquidation" link={{ label: 'How rebalancing works', href: FX_REBALANCING_DOCS }}>
   Automatic rebalancing can reduce leverage at protocol thresholds. Liquidation remains possible, so keep room between your position and the limits.

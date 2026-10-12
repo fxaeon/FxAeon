@@ -397,7 +397,7 @@
 .articlePage .contentsDisclosure { overflow: auto; }
 .articlePage .navLinks { max-height: none; padding: 0; }
 .articlePage .navGroup + .navGroup { margin-top: 30px; }
-.articlePage .navGroupLabel { color: var(--docs-text); font-size: 14px; font-weight: 600; padding-inline: 0; margin-bottom: 12px; }
+.articlePage .navGroupLabel { color: var(--docs-text); font-size: 14px; font-weight: 600; padding-inline: 0; margin-bottom: 12px; text-transform: none; letter-spacing: 0; }
 .articlePage .navLink { gap: 12px; min-height: 34px; padding: 6px 0; font-size: 14px; line-height: 22px; border: 0; border-radius: 0; }
 .articlePage .navLink > svg { flex: 0 0 16px; opacity: .7; }
 .articlePage .navLink[aria-current='location'] { background: transparent; color: var(--docs-accent); font-weight: 500; }
@@ -413,6 +413,8 @@
 .articleBody { margin: 0; }
 .articleBody p, .articleBody li { font-size: 16px; line-height: 28px; color: #a1a1aa; }
 .articleBody strong { color: var(--docs-text); }
+.articleBody .externalMark, .chromeLinks .externalMark { display: none; }
+.mobileActions, .mobileBreadcrumb { display: none; }
 .articleBody h3 { margin: 36px 0 16px; font-size: 22px; line-height: 30px; letter-spacing: -.02em; }
 .articleBody > h3:first-child { margin-top: 0; }
 .articleBody .callout { margin: 24px 0; border: 1px solid color-mix(in srgb, var(--docs-accent) 25%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--docs-accent) 5%, var(--docs-bg)); padding: 16px 20px; }
@@ -448,9 +450,27 @@
   .articleOutline { display: none; }
 }
 @media (max-width: 760px) {
+  .articlePage .docsTopbar { grid-template-columns: 1fr auto; padding-inline: 20px; }
+  .articlePage .chromeLinks, .articlePage .docsSubnav { display: none; }
+  .articlePage .searchRow { display: none; position: absolute; top: 64px; left: 20px; width: calc(100% - 40px); z-index: 35; }
+  .articlePage[data-mobile-search] .searchRow { display: flex; }
+  .mobileActions { position: relative; display: flex; align-items: center; grid-column: 2; gap: 0; }
+  .mobileActions > button { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: var(--docs-muted); }
+  .mobileLinks { position: absolute; z-index: 40; top: 48px; right: 0; width: 180px; padding: 8px; border: 1px solid var(--docs-line); border-radius: 12px; background: var(--docs-panel); box-shadow: 0 12px 32px #0004; }
+  .mobileLinks > a { display: flex; align-items: center; min-height: 44px; padding-inline: 12px; color: var(--docs-text); font-size: 14px; }
+  .mobileLinks .docsTheme { margin-left: 8px; }
+  .mobileBreadcrumb { display: flex; min-height: 56px; align-items: center; gap: 12px; padding: 0 20px 0 10px; font-size: 14px; color: var(--docs-muted); }
+  .mobileBreadcrumb button { display: grid; flex: 0 0 32px; place-items: center; min-width: 44px; min-height: 44px; margin-right: -8px; }
+  .mobileBreadcrumb > svg { flex: 0 0 14px; }
+  .mobileBreadcrumb > span { white-space: nowrap; }
+  .mobileBreadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--docs-text); font-size: 14px; font-weight: 600; }
+  .articlePage .docsChrome { margin-bottom: 32px; }
   .articlePage .docsLayout { display: block; width: calc(100% - 48px); }
-  .articlePage .docsNav { top: 112px; height: auto; margin: -20px 0 32px; padding: 4px; border: 1px solid var(--docs-line); border-radius: 10px; }
-  .articlePage .navLinks { max-height: 50dvh; padding: 12px; }
+  .articlePage .docsNav { display: none; position: fixed; z-index: 25; top: 120px; left: 0; width: 100%; height: calc(100dvh - 120px); margin: 0; padding: 24px; border: 0; border-radius: 0; background: var(--docs-bg); }
+  .articlePage[data-navigation-open] .docsNav { display: block; }
+  .articlePage[data-navigation-open] .docsNav[aria-busy='true'] { display: none; }
+  .articlePage .contentsSummary { display: none; }
+  .articlePage .navLinks { max-height: calc(100dvh - 168px); padding: 0; }
   .articlePage .navLink { min-height: 44px; }
   .articlePage .docsContent { display: block; }
   .articlePage .docsIntro { margin-bottom: 40px; }
