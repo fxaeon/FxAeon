@@ -33,7 +33,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
   </> },
   { id: 'access', title: 'Browser & Telegram', content: <>
 <p>The web app and Telegram Mini App offer the same actions. Telegram adds native sizing, haptics, and navigation.</p>
-              <p>In your browser, use Connect wallet to choose an existing wallet. In the Telegram Mini App, Privy powers sign-in and optional embedded wallets: sign in with email to create a wallet, or connect one you already use. Each transaction requires confirmation in your selected wallet.</p>
+              <p>In your browser, use Connect wallet to choose an existing wallet. Open the Mini App from Telegram to sign in seamlessly with your Telegram account through Privy. A wallet is created if you need one; email sign-in and existing wallets are also available. Each transaction requires confirmation in your selected wallet.</p>
               <p>A Telegram link to one screen, such as Open Trade in Telegram on fxaeon.xyz, opens that screen directly. Telegram’s Back button then returns to where the app opened.</p>
   </> },
   { id: 'wallets', title: 'Wallets & signing', content: <>
