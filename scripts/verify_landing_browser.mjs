@@ -206,6 +206,7 @@ try {
   await page.reload({ waitUntil: 'networkidle' });
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
   assert.equal(await page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationName), 'chart-draw');
+  assert.equal(await page.locator('.hero').evaluate((element) => element.getAnimations({ subtree: true }).length), 0, 'Hero stays still while later sections animate');
   await page.getByRole('button', { name: 'Pause animations', exact: true }).click();
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'off');
   assert.equal(await page.evaluate(() => document.getAnimations().length), 0, 'Pause stops all decorative motion');

@@ -91,9 +91,7 @@
         { threshold: 0.12 },
       );
       document
-        .querySelectorAll(
-          ".section-head, .protocol-flow, .principles article, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .footer-invite",
-        )
+        .querySelectorAll(".section-head, .protocol-flow, .principles article, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .footer-invite")
         .forEach((element) => reveals.observe(element));
     }
   };

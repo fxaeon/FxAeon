@@ -4675,3 +4675,560 @@ details[open] summary:after {
     min-width: 94px;
   }
 }
+/* Unified navigation and a quieter editorial rhythm. */
+.site-header {
+  width: min(860px, calc(100% - 40px));
+  min-height: 64px;
+  padding: 7px 12px;
+  gap: 12px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  backdrop-filter: blur(20px);
+}
+.site-header > .brand {
+  height: 46px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  font-size: 23px;
+}
+.site-header .brand img {
+  width: 30px;
+  height: 30px;
+}
+.site-header .nav-links {
+  height: auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.nav-side a {
+  padding: 10px 12px;
+  border-radius: 999px;
+}
+.site-header .nav-launch {
+  min-width: 108px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.hero h1 {
+  letter-spacing: -0.035em;
+  font-weight: 500;
+}
+.section-head h2 {
+  letter-spacing: -0.025em;
+}
+.built-on {
+  background: #141218;
+  color: #c4bbd0;
+  border-radius: 0;
+  border-color: #ffffff08;
+}
+.protocol {
+  max-width: none;
+  margin: 0;
+  padding: 90px max(40px, calc((100vw - 1280px) / 2));
+  background:
+    radial-gradient(ellipse at 15% 30%, #45364e70, transparent 65%),
+    radial-gradient(ellipse at 90% 45%, #352b4b60, transparent 60%),
+    linear-gradient(180deg, #141218, #1c1723 42%, var(--bg));
+  color: #f4eff8;
+}
+.protocol .section-head p {
+  color: #bcb2c8;
+}
+.protocol .protocol-flow {
+  max-width: 1160px;
+  margin-inline: auto;
+}
+.protocol .flow-node {
+  background: #382e40;
+  color: #e9dfef;
+  border-color: #cab4e220;
+}
+.protocol .flow-center {
+  background: linear-gradient(135deg, #655075, #44364f);
+  color: #f5f1fc;
+}
+.protocol .flow-line {
+  background: #9680ac50;
+}
+.protocol .flow-line::after {
+  display: block;
+}
+.protocol .principles {
+  max-width: 1280px;
+  margin-inline: auto;
+  gap: 14px;
+}
+.protocol .principles article {
+  background: linear-gradient(135deg, #352d3d, #28232e);
+  color: #f0eaf5;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: none;
+}
+.protocol .principles article p {
+  color: #bfb4cb;
+}
+.protocol .principles .step-number {
+  color: #c6aee1;
+}
+.products .product-grid {
+  gap: 12px;
+}
+.products .product-card {
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #302a36, #25222b);
+}
+.products .card-copy h3 {
+  letter-spacing: -0.015em;
+  font-weight: 500;
+}
+.products .card-copy p {
+  font-family: Manrope, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.products .trade-art {
+  background: transparent;
+  border: 0;
+  padding-inline: 8px;
+}
+.products .chart-top {
+  color: #bcbac2;
+}
+.products .chart-line {
+  stroke-width: 2.2;
+}
+.products .earn-card {
+  background: linear-gradient(155deg, #3b3441, #28272f);
+}
+.products .borrow-card {
+  background: linear-gradient(135deg, #302a35, #25222b);
+}
+.products .move-card {
+  background: linear-gradient(145deg, #2d2835, #222128);
+}
+
+@media (min-width: 1101px) {
+  .products .product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: 238px 238px;
+  }
+  .products .product-card {
+    height: auto;
+    min-height: 0;
+  }
+  .products .trade-card {
+    grid-column: 1 / 3;
+    grid-row: 1;
+  }
+  .products .trade-card .card-copy {
+    margin-left: 49%;
+    width: 51%;
+    padding: 28px;
+  }
+  .products .trade-art {
+    left: 25px;
+    right: 53%;
+    top: 23px;
+    height: 193px;
+  }
+  .products .trade-card h3 {
+    font-size: 34px;
+    max-width: 7em;
+  }
+  .products .earn-card {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    display: block;
+  }
+  .products .earn-card .card-copy {
+    width: 100%;
+    padding: 28px;
+  }
+  .products .earn-card h3 {
+    font-size: 32px;
+    max-width: 8em;
+  }
+  .products .earn-art {
+    left: 15%;
+    right: 15%;
+    top: auto;
+    bottom: 15px;
+    height: 262px;
+  }
+  .products .earn-art .vault-layer {
+    width: 140px;
+    height: 140px;
+    left: calc(50% - 70px);
+  }
+  .products .earn-art .layer-back {
+    bottom: 23px;
+  }
+  .products .earn-art .layer-middle {
+    bottom: 62px;
+  }
+  .products .earn-art .layer-front {
+    bottom: 101px;
+  }
+  .products .earn-art .vault-token {
+    bottom: 177px;
+    width: 76px;
+    height: 76px;
+    left: calc(50% - 38px);
+  }
+  .products .borrow-card {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .products .move-card {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .products .borrow-card .card-copy,
+  .products .move-card .card-copy {
+    width: 58%;
+    padding: 24px 15px 24px 24px;
+  }
+  .products .borrow-card h3,
+  .products .move-card h3 {
+    font-size: 27px;
+  }
+  .products .borrow-card p,
+  .products .move-card p {
+    font-size: 13px;
+    margin-top: 13px;
+    line-height: 1.45;
+  }
+  .products .borrow-art,
+  .products .move-art {
+    left: 58%;
+    right: 5px;
+    top: 25px;
+    height: 193px;
+  }
+  .products .borrow-art .collateral-stack {
+    width: 90px;
+    left: 0;
+    gap: 7px;
+  }
+  .products .collateral-stack > span {
+    padding: 7px;
+    font-size: 8px;
+    gap: 6px;
+  }
+  .products .collateral-stack img {
+    width: 21px;
+    height: 21px;
+  }
+  .products .borrow-coin {
+    padding: 8px 10px;
+    right: 8px;
+    bottom: 0;
+  }
+  .products .borrow-coin img {
+    width: 36px;
+    height: 36px;
+  }
+  .products .borrow-connector {
+    display: none;
+  }
+  .products .network-badge {
+    padding: 8px;
+    gap: 5px;
+    font-size: 8px;
+  }
+  .products .network-badge img {
+    width: 24px;
+    height: 24px;
+  }
+  .products .ethereum-badge {
+    left: 0;
+    top: 25px;
+  }
+  .products .base-badge {
+    right: 6px;
+    bottom: 15px;
+  }
+  .products .network-orbit {
+    width: 118px;
+    height: 85px;
+    top: 55px;
+  }
+  .products .move-symbol {
+    top: 81px;
+    left: 40%;
+  }
+}
+
+/* A continuous wash joins Telegram, the questions and the footer card. */
+.closing-surface {
+  display: flow-root;
+  background:
+    radial-gradient(ellipse at 92% 52%, #e6c4ce50, transparent 50%),
+    linear-gradient(180deg, var(--bg), #40334d 22%, #a58cba 43%, #c8b6e7 62%);
+}
+.closing-surface .telegram {
+  background: linear-gradient(140deg, #29232f, #27212e 55%, #3e3048);
+  border-color: #d9bdf41a;
+}
+.privy-note {
+  max-width: 390px;
+  margin: 0 0 28px;
+  padding-left: 16px;
+  border-left: 1px solid #cbb5e355;
+}
+.privy-note p {
+  color: #e6daef;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.privy-note a {
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.privy-note span {
+  display: block;
+  color: #bdb1c8;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.faq {
+  --text: #29212f;
+  --muted: #5e506a;
+  max-width: none;
+  margin: 0;
+  padding: 76px max(40px, calc((100vw - 1280px) / 2));
+  background: transparent;
+  color: #29212f;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 70px;
+  align-items: start;
+}
+.faq .faq-heading {
+  text-align: left;
+  padding-top: 16px;
+  margin: 0;
+}
+.faq .faq-heading h2 {
+  font-size: clamp(44px, 5.7vw, 76px);
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  line-height: 1.14;
+}
+.faq .faq-heading h2 span {
+  color: #675676;
+}
+.faq .faq-heading h2 br {
+  display: block;
+}
+.faq .faq-list {
+  width: 100%;
+  max-width: none;
+  padding: 12px;
+  background: #24133120;
+  border-radius: 20px;
+  border: 0;
+}
+.faq .faq-list details {
+  background: #25212b;
+  color: #f7f4fc;
+  border: 0;
+  border-radius: 12px;
+  margin: 0 0 10px;
+  padding: 0 23px;
+}
+.faq .faq-list details:last-child {
+  margin-bottom: 0;
+  border: 0;
+}
+.faq .faq-list summary {
+  padding: 22px 42px 22px 0;
+  font-size: 19px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: #f7f4fc;
+}
+.faq .faq-list summary::after {
+  right: 0;
+  color: #cdb6f6;
+  border-color: #ffffff1c;
+  background: transparent;
+}
+.faq .faq-list details p {
+  padding: 0 0 24px;
+  color: #c6c0ce;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.faq .faq-list details p a {
+  color: #dfceff;
+}
+.footer-frame {
+  margin: 0;
+  padding: 0 12px 12px;
+  background: #c8b6e7;
+  border-radius: 0;
+}
+.footer-frame .footer-invite h2 {
+  letter-spacing: -0.025em;
+}
+:root[data-theme="light"] .built-on {
+  background: #e8dfef;
+  color: #64516e;
+}
+:root[data-theme="light"] .protocol {
+  background:
+    radial-gradient(ellipse at 10% 20%, #d6c1e499, transparent 65%),
+    linear-gradient(180deg, #e8dfef, #eee8f3 55%, var(--bg));
+}
+:root[data-theme="light"] .protocol .section-head p {
+  color: #706079;
+}
+:root[data-theme="light"] .protocol .flow-node {
+  background: #ded2e8;
+  color: #483752;
+}
+:root[data-theme="light"] .protocol .principles article {
+  background: #e7dfed;
+}
+:root[data-theme="light"] .protocol .principles .step-number {
+  color: #786188;
+}
+:root[data-theme="light"] .closing-surface {
+  background:
+    radial-gradient(ellipse at 92% 52%, #f5d4d780, transparent 50%),
+    linear-gradient(180deg, var(--bg), #e2d4eb 25%, #c8b6e7 62%);
+}
+:root[data-theme="light"] .closing-surface .telegram {
+  background: linear-gradient(140deg, #ebe4f1, #ddd0e7);
+}
+:root[data-theme="light"] .privy-note p {
+  color: #53405f;
+}
+:root[data-theme="light"] .privy-note span {
+  color: #6b5976;
+}
+:root[data-theme="light"] .faq .faq-list details[open] summary {
+  color: #f7f4fc;
+}
+
+/* Keep the opening composition still; motion continues in later sections. */
+:root[data-motion] .hero,
+:root[data-motion] .hero *,
+:root[data-motion] .hero *::before,
+:root[data-motion] .hero *::after {
+  animation: none !important;
+}
+
+@media (max-width: 1100px) {
+  .faq {
+    gap: 35px;
+    padding-inline: 36px;
+  }
+  .faq .faq-heading h2 {
+    font-size: 54px;
+  }
+  .products .card-copy h3 {
+    font-size: 30px;
+  }
+  .products .card-copy p {
+    font-size: 14px;
+  }
+}
+@media (max-width: 760px) {
+  .site-header {
+    width: calc(100% - 28px);
+    top: 14px;
+    min-height: 58px;
+    padding: 5px 7px;
+    gap: 4px;
+  }
+  .site-header > .brand {
+    padding-inline: 8px;
+    height: 46px;
+    font-size: 22px;
+  }
+  .site-header .nav-launch {
+    height: 42px;
+    padding: 0 15px;
+    min-width: 88px;
+  }
+  .site-header .menu-toggle {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    background: transparent;
+    border-radius: 999px;
+  }
+  .protocol {
+    padding: 65px 26px;
+  }
+  .faq {
+    display: flex;
+    flex-direction: column;
+    padding: 52px 26px 34px;
+    gap: 30px;
+  }
+  .faq .faq-heading {
+    padding: 0;
+  }
+  .faq .faq-heading h2 {
+    font-size: 48px;
+  }
+  .faq .faq-list {
+    padding: 10px;
+    border-radius: 18px;
+  }
+  .faq .faq-list summary {
+    font-size: 17px;
+    padding-block: 20px;
+  }
+  .footer-frame {
+    padding-inline: 10px;
+    padding-bottom: 10px;
+  }
+}
+@media (max-width: 560px) {
+  .site-header > .brand {
+    font-size: 21px;
+  }
+  .site-header .brand img {
+    width: 28px;
+    height: 28px;
+  }
+  .products .card-copy h3 {
+    font-size: 29px;
+  }
+  .products .card-copy p {
+    font-size: 13px;
+  }
+  .faq {
+    padding-inline: 16px;
+  }
+  .faq .faq-heading {
+    padding-inline: 10px;
+  }
+  .faq .faq-heading h2 {
+    font-size: 44px;
+  }
+  .faq .faq-list details {
+    padding-inline: 18px;
+  }
+  .faq .faq-list summary {
+    font-size: 16px;
+  }
+}
