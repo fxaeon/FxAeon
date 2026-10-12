@@ -28,7 +28,7 @@ for (const width of [320, 390, 1280]) {
 
     // The general steps and questions live in Docs, one in-app link away.
     const docs = explanation.getByRole('link', { name: 'How it works', exact: true });
-    await expect(docs).toHaveAttribute('href', '/docs#trade');
+    await expect(docs).toHaveAttribute('href', '/docs/guide/trade');
     expect((await docs.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     const bounds = await explanation.evaluate((element) => ({ width: element.clientWidth, scrollWidth: element.scrollWidth }));
     expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.width);

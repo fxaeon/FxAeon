@@ -97,8 +97,12 @@ test.describe("browser entry", () => {
     test.setTimeout(90_000);
     for (const route of APP_ROUTES) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
-      const connect = page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true });
-      await expect(connect).toBeEnabled();
+      const walletControls = page.getByRole("group", { name: "Wallet and network controls", exact: true });
+      const connect = walletControls.getByRole("button", { name: "Connect wallet", exact: true });
+      // The header wallet control shows a loading status while its provider
+      // initializes. Wait for the actual wallet entry instead of racing it at
+      // domcontentloaded or accidentally selecting the network picker.
+      await expect(connect).toBeEnabled({ timeout: 20_000 });
       await connect.click();
       await expect(page).toHaveURL(new RegExp(`${route.replace("/", "\\/")}(?:\\/)?$`));
       const picker = page.getByRole("dialog", { name: "Connect your wallet", exact: true });

@@ -1,22 +1,8 @@
 name: Mini App E2E
 
+# Pull requests and main pushes run this suite in shards through Client CI.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/mini-app/**'
-      - 'patches/**'
-      - 'fx-scope.lock.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'apps/mini-app/**'
-      - 'patches/**'
-      - 'fx-scope.lock.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
+  workflow_dispatch:
 
 permissions:
   contents: read

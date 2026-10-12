@@ -20,6 +20,13 @@ const PRODUCT_GROUPS = [
 const PAGE_ICONS: Record<string, typeof BookOpen> = { overview: Globe, 'getting-started': Rocket, access: MessageCircle, wallets: Wallet, trade: CandlestickChart, positions: List, earn: Sprout, borrow: Landmark, move: ArrowLeftRight, fees: Settings2, history: History, privacy: ShieldCheck, troubleshooting: CircleHelp };
 
 type Article = { id: string; title: string; group: string; description: string };
+let searchIndex: Promise<DocsEntry[]> | undefined;
+function fetchSearchIndex() {
+  return searchIndex ??= fetch('/docs/search-index.json').then(async response => {
+    if (!response.ok) throw new Error('Search index unavailable');
+    return await response.json() as DocsEntry[];
+  }).catch(error => { searchIndex = undefined; throw error; });
+}
 
 export default function DocsShell({ page, entries, children, home = false, article }: { page: Page; entries: DocsEntry[]; children: ReactNode; home?: boolean; article?: Article }) {
   const router = useRouter();
@@ -32,19 +39,31 @@ export default function DocsShell({ page, entries, children, home = false, artic
   const [copyError, setCopyError] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileLinksOpen, setMobileLinksOpen] = useState(false);
+  const [searchEntries, setSearchEntries] = useState<DocsEntry[] | null>(null);
+  const [searchError, setSearchError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLButtonElement>(null);
   const mobileOptionsRef = useRef<HTMLButtonElement>(null);
   const currentEntries = useMemo(() => entries.filter((entry) => entry.page === page), [entries, page]);
-  const results = useMemo(() => searchDocs(entries, query), [entries, query]);
+  const results = useMemo(() => searchDocs(searchEntries ?? [], query), [searchEntries, query]);
   const searching = query.trim().length > 0;
-  const groups = article ? ['Get started', 'Wallets', 'Products', 'Help'].map(label => ({ label, ids: productNavigation.filter(item => item.group === label).map(item => item.id) })) : page === 'Product guide'
+  const groups = article || home ? ['Get started', 'Wallets', 'Products', 'Help'].map(label => ({ label, ids: productNavigation.filter(item => item.group === label).map(item => item.id) })) : page === 'Product guide'
     ? PRODUCT_GROUPS
     : [{ label: 'In this reference', ids: currentEntries.map(({ id }) => id) }];
   const articleIndex = productNavigation.findIndex(item => item.id === article?.id);
   const previousArticle = productNavigation[articleIndex - 1];
   const nextArticle = productNavigation[articleIndex + 1];
+
+  function prepareSearch() {
+    if (searchEntries) return;
+    setSearchError(false);
+    void fetchSearchIndex().then(setSearchEntries).catch(() => setSearchError(true));
+  }
+
+  useEffect(() => {
+    if (mobileSearchOpen && hydrated) inputRef.current?.focus();
+  }, [mobileSearchOpen, hydrated]);
 
   useEffect(() => {
     if (!article) return;
@@ -114,16 +133,16 @@ export default function DocsShell({ page, entries, children, home = false, artic
     const onShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        if (article && media.matches) { setMobileSearchOpen(true); setMobileLinksOpen(false); requestAnimationFrame(() => inputRef.current?.focus()); }
+        if (media.matches) { setMobileSearchOpen(true); setMobileLinksOpen(false); }
         else inputRef.current?.focus();
       }
       if (event.key === 'Escape' && document.activeElement === inputRef.current) {
         setQuery('');
         setMobileSearchOpen(false);
         if (media.matches) setContentsOpen(false);
-        if (article && media.matches) mobileSearchRef.current?.focus();
+        if (media.matches) mobileSearchRef.current?.focus();
       }
-      if (event.key === 'Escape' && article && media.matches) {
+      if (event.key === 'Escape' && media.matches) {
         if (mobileOptionsRef.current?.getAttribute('aria-expanded') === 'true') mobileOptionsRef.current.focus();
         else if (document.activeElement !== mobileSearchRef.current && mobileMenuRef.current?.getAttribute('aria-expanded') === 'true') mobileMenuRef.current.focus();
         setMobileLinksOpen(false); setContentsOpen(false);
@@ -170,7 +189,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
             <div className={styles.searchRow}>
               <Search className={styles.searchIcon} aria-hidden="true" />
               <label className={styles.srOnly} htmlFor="docs-search">Search docs</label>
-              <input id="docs-search" ref={inputRef} type="search" value={query} disabled={!hydrated}
+              <input id="docs-search" ref={inputRef} type="search" value={query} disabled={!hydrated} onFocus={prepareSearch}
                 onChange={(event) => { setQuery(event.target.value); if (event.target.value.trim()) setContentsOpen(true); }}
                 placeholder="Search docs…" className={styles.searchInput} autoComplete="off" aria-controls="docs-contents" />
               {query
@@ -183,11 +202,11 @@ export default function DocsShell({ page, entries, children, home = false, artic
               <Link href="/" className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
               <ThemeToggle className={styles.docsTheme} />
             </nav>
-            {article && <div className={styles.mobileActions}>
-              <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); if (mobileSearchOpen) { setQuery(''); setContentsOpen(false); } else requestAnimationFrame(() => inputRef.current?.focus()); }}><Search size={20} /></button>
+            <div className={styles.mobileActions}>
+              <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); if (mobileSearchOpen) { setQuery(''); setContentsOpen(false); } }}><Search size={20} /></button>
               <button ref={mobileOptionsRef} type="button" aria-label="More documentation options" aria-expanded={mobileLinksOpen} onClick={() => { setMobileLinksOpen(!mobileLinksOpen); setMobileSearchOpen(false); setContentsOpen(false); setQuery(''); }}><EllipsisVertical size={20} /></button>
               {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link><ThemeToggle className={styles.docsTheme} /></nav>}
-            </div>}
+            </div>
           </div>
           <div className={styles.docsSubnav} role="group" aria-label="Documentation guides">
             <span className={styles.subnavLabel}>Documentation</span>
@@ -198,12 +217,12 @@ export default function DocsShell({ page, entries, children, home = false, artic
             <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
             <span className={styles.subnavCurrent} aria-current="location">{page}</span>
           </div>
-          {article && <div className={styles.mobileBreadcrumb}><button ref={mobileMenuRef} type="button" aria-label={contentsOpen ? 'Close documentation menu' : 'Open documentation menu'} aria-expanded={contentsOpen} aria-controls="docs-contents" onClick={() => { setContentsOpen(!contentsOpen); setMobileSearchOpen(false); setMobileLinksOpen(false); setQuery(''); }}><Menu size={18} /></button><span>{article.group}</span><ChevronRight size={14} aria-hidden="true" /><strong>{article.title}</strong></div>}
+          <div className={styles.mobileBreadcrumb}><button ref={mobileMenuRef} type="button" aria-label={contentsOpen ? 'Close documentation menu' : 'Open documentation menu'} aria-expanded={contentsOpen} aria-controls="docs-contents" onClick={() => { setContentsOpen(!contentsOpen); setMobileSearchOpen(false); setMobileLinksOpen(false); setQuery(''); }}><Menu size={18} /></button>{article && <><span>{article.group}</span><ChevronRight size={14} aria-hidden="true" /></>}<strong>{article?.title ?? (home ? 'Welcome to FxAeon' : page)}</strong></div>
         </header>
         <div className={styles.docsLayout}>
-          <nav className={styles.docsNav} aria-label={article ? 'Pages' : 'Documentation sections'} aria-busy={!hydrated}>
+          <nav className={styles.docsNav} aria-label={article || home ? 'Pages' : 'Documentation sections'} aria-busy={!hydrated}>
             <div className={styles.railTitle}><BookOpen size={16} aria-hidden="true" />On this page</div>
-            <p className={styles.srOnly} role="status">{searching ? `${count} documentation ${count === 1 ? 'result' : 'results'} found` : ''}</p>
+            <p className={styles.srOnly} role="status">{searching ? searchEntries ? `${count} documentation ${count === 1 ? 'result' : 'results'} found` : searchError ? 'Documentation search unavailable' : 'Loading documentation search' : ''}</p>
             <details className={styles.contentsDisclosure} open={contentsOpen} onToggle={(event) => setContentsOpen(event.currentTarget.open)}>
               <summary className={styles.contentsSummary}>
                 <span>Contents</span>
@@ -214,24 +233,25 @@ export default function DocsShell({ page, entries, children, home = false, artic
                 {searching ? <>
                   <p className={styles.navGroupLabel}>Search all documentation</p>
                   {results.map((entry) => <Link key={entry.href} href={!home && !article && entry.page === page ? `#${entry.id}` : entry.href}
-                    className={styles.searchResult} onClick={() => { setQuery(''); if (!home && !article && entry.page === page) followSection(entry.id); }}>
+                    className={styles.searchResult} onClick={() => { setQuery(''); setMobileSearchOpen(false); if (!home && !article && entry.page === page) followSection(entry.id); }}>
                     <span className={styles.resultTitle}>{entry.title}<ArrowRight size={13} aria-hidden="true" /></span>
                     <span className={styles.resultPage}>{entry.page}</span>
                     <span className={styles.resultExcerpt}>{searchExcerpt(entry.text, query)}</span>
                   </Link>)}
-                  {!results.length && <p className={styles.emptySearch}>Nothing found for “{query}”. Try wallet, cooldown, bridge, or a method name.</p>}
+                  {!searchEntries ? <p className={styles.emptySearch}>{searchError ? <>Search could not load. <button type="button" onClick={prepareSearch}>Try again</button></> : 'Loading search…'}</p> : !results.length && <p className={styles.emptySearch}>Nothing found for “{query}”. Try wallet, cooldown, bridge, or a method name.</p>}
                 </> : <>
                   {groups.map((group) => <div key={group.label} className={styles.navGroup}>
                     <p className={styles.navGroupLabel}>{group.label}</p>
                     {group.ids.map((id) => {
                       const entry = currentEntries.find((item) => item.id === id);
                       const Icon = PAGE_ICONS[id] ?? BookOpen;
-                      return entry && <Link key={id} href={article ? productHref(id) : `#${id}`} className={styles.navLink}
-                        aria-current={(article ? article.id === id : activeId === id) ? 'location' : undefined} onClick={() => { if (!article) followSection(id); }}>
-                        {article && <Icon size={16} aria-hidden="true" />}{article ? productNavigation.find(item => item.id === id)?.title ?? entry.title : entry.title}
+                      return entry && <Link key={id} href={article || home ? productHref(id) : `#${id}`} className={styles.navLink}
+                        aria-current={(article ? article.id === id : !home && activeId === id) ? 'location' : undefined} onClick={() => { if (!article && !home) followSection(id); }}>
+                        {(article || home) && <Icon size={16} aria-hidden="true" />}{article || home ? productNavigation.find(item => item.id === id)?.title ?? entry.title : entry.title}
                       </Link>;
                     })}
                   </div>)}
+                  <Link href={page === 'SDK reference' ? productHref('getting-started') : '/docs/sdk'} className={styles.navLink}><BookOpen size={16} aria-hidden="true" />{page === 'SDK reference' ? 'Product guide' : 'SDK reference'}</Link>
                 </>}
               </div>
             </details>

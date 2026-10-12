@@ -3,7 +3,7 @@ import { ArrowLeftRight, BookOpen, CandlestickChart, Landmark, Sprout, Wallet } 
 import DocsShell from './DocsShell';
 import { productSections } from './ProductArticle';
 import { sdkSections } from './sdk/SdkArticle';
-import { createDocsEntries } from './docsSearch';
+import { createDocsEntries, docsNavigation } from './docsSearch';
 import styles from './Docs.module.css';
 import { productHref } from './productNavigation';
 
@@ -21,7 +21,7 @@ export default function DocsPage() {
     ...createDocsEntries(productSections, 'Product guide', '/docs/guide').map(entry => ({ ...entry, href: productHref(entry.id) })),
     ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
   ];
-  return <DocsShell page="Product guide" entries={entries} home>
+  return <DocsShell page="Product guide" entries={docsNavigation(entries, 'Product guide')} home>
     <div className={styles.welcomeGrid}>
       {topics.map(({ id, title, description, icon: Icon }) => <Link key={id} href={productHref(id)} className={styles.welcomeCard}>
         <Icon size={24} strokeWidth={1.6} aria-hidden="true" />

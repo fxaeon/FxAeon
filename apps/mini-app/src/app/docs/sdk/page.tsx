@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { routeMetadata } from '@/app/routeMetadata';
 import DocsShell from '../DocsShell';
 import { productSections } from '../ProductArticle';
-import { createDocsEntries } from '../docsSearch';
+import { createDocsEntries, docsNavigation } from '../docsSearch';
 import SdkArticle, { sdkSections } from './SdkArticle';
 
 // The shared route metadata keeps the FxAeon banner on share cards. The title is
@@ -15,5 +15,5 @@ export default function SdkPage() {
     ...createDocsEntries(productSections, 'Product guide', '/docs/guide'),
     ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
   ];
-  return <DocsShell page="SDK reference" entries={entries}><SdkArticle /></DocsShell>;
+  return <DocsShell page="SDK reference" entries={docsNavigation(entries, 'SDK reference')}><SdkArticle /></DocsShell>;
 }

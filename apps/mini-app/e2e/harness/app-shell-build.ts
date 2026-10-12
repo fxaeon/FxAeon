@@ -158,6 +158,10 @@ export async function serveAppShellLab(page: Page, lab: { script: string; css: s
     const url = new URL(route.request().url());
     if (url.pathname === '/lab.js') return route.fulfill({ contentType: 'text/javascript', body: lab.script });
     if (url.pathname === '/lab.css') return route.fulfill({ contentType: 'text/css', body: lab.css });
+    if (url.pathname === '/docs/search-index.json') return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 'wallets', title: 'Wallets & signing', page: 'Product guide', href: '/docs/guide/access', text: 'Connect a wallet and sign transactions.' }]),
+    });
     if (url.pathname === '/inter.woff2') return route.fulfill({ contentType: 'font/woff2', body: readFileSync(resolve(appRoot, 'e2e/harness/assets/inter-latin.woff2')) });
     const asset = resolve(appRoot, 'public', `.${url.pathname}`);
     if (url.pathname !== '/' && existsSync(asset) && statSync(asset).isFile()) return route.fulfill({ path: asset });

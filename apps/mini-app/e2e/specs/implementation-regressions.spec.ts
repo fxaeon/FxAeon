@@ -131,9 +131,10 @@ test.describe('implementation regressions', () => {
     const contents = page.locator('details').filter({ has: page.getByText('Contents', { exact: true }) });
     await expect(contents).toHaveCount(1);
     await expect(contents).toHaveJSProperty('open', false);
-    await contents.locator('summary').click();
+    await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Close documentation menu', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await expect(contents).toHaveJSProperty('open', true);
-    await expect(contents.getByRole('link')).toHaveCount(13);
+    await expect(contents.getByRole('link')).toHaveCount(14);
     await expect(contents.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
     await page.setViewportSize({ width: 1024, height: 500 });
     await page.goto('/docs/guide', { waitUntil: 'domcontentloaded' });

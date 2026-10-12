@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import DocsShell from '../../DocsShell';
 import { productSections } from '../../ProductArticle';
 import { sdkSections } from '../../sdk/SdkArticle';
-import { createDocsEntries } from '../../docsSearch';
+import { createDocsEntries, docsNavigation } from '../../docsSearch';
 import { productHref, productNavigation } from '../../productNavigation';
 import styles from '../../Docs.module.css';
 
@@ -25,7 +25,7 @@ export default async function TopicPage({ params }: { params: Promise<{ topic: s
     ...createDocsEntries(productSections, 'Product guide', '/docs/guide').map(entry => ({ ...entry, href: productHref(entry.id) })),
     ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
   ];
-  return <DocsShell page="Product guide" entries={entries} article={article}>
+  return <DocsShell page="Product guide" entries={docsNavigation(entries, 'Product guide')} article={article}>
     <div id={section.id} className={`${styles.section} ${styles.articleBody}`}>{section.content}</div>
   </DocsShell>;
 }

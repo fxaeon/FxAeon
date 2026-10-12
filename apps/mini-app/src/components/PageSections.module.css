@@ -59,3 +59,12 @@
   .sectionAction svg, .word { transition: none; }
   .litLine[data-lighting] .word:not([data-lit]) { color: inherit; }
 }
+
+.sections { gap: 16px; }
+.section { padding: 24px; border-radius: 24px; background: linear-gradient(130deg, color-mix(in srgb, var(--mint) 7%, var(--surface)), var(--surface)); }
+.section:nth-child(even) { background: linear-gradient(140deg, color-mix(in srgb, var(--brand-coral) 7%, var(--surface)), var(--surface)); }
+.sectionHead h2 { font-family: Manrope, var(--font-sans), sans-serif; font-weight: 500; font-size: clamp(24px, 6vw, 30px); line-height: 1.15; }
+.stat { border-top: 0; padding-top: 6px; }
+.stat dd { font-weight: 500; }
+.callout { box-shadow: none; }
+@media (max-width: 380px) { .section { padding: 18px; } .stats { gap: 20px 12px; } }

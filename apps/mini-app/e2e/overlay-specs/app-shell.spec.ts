@@ -225,7 +225,7 @@ test('a route heading is never inside the route fade; heading-less content still
   await setLab(page, { path: '/trade' });
   expect(await fadingAncestors('.trade-page-heading h1')).toEqual([]);
   await setLab(page, { path: '/history' });
-  expect(await fadingAncestors('#main-content > header.sr-only h1')).toEqual([]);
+  expect(await fadingAncestors('#main-content > h1.sr-only')).toEqual([]);
   // History's feed, below its heading, still arrives with the route fade.
   expect(await page.locator('.app-content > :not(.sr-only)').first().evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
 });
@@ -320,8 +320,11 @@ test('the account card holds its loaded shape while the wallet starts, in More a
 test('docs search results stay in the app with an arrow; only links that leave carry the leave mark', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/docs' });
-  const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-  await nav.getByRole('searchbox', { name: 'Search docs' }).fill('wallet');
+  const nav = page.getByRole('navigation', { name: 'Pages', exact: true });
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+  const search = page.getByRole('searchbox', { name: 'Search docs' });
+  await search.fill('wallet');
+  await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
   const results = nav.getByRole('link');
   await expect(results.first()).toBeVisible();
   expect(await results.evaluateAll((links) => links.filter((link) => link.querySelector('.lucide-arrow-up-right')).length)).toBe(0);
@@ -337,7 +340,7 @@ test('docs search results stay in the app with an arrow; only links that leave c
 
 test('sign-in, not-found and error screens scroll from their top when they do not fit, and lead back to Portfolio', async ({ page }) => {
   await open(page, { width: 568, height: 320 });
-  const stages = [['/missing', 'link', 'Back to Portfolio'], ['/error', 'button', 'Try again'], ['/login', 'button', 'Connect browser wallet']] as const;
+  const stages = [['/missing', 'link', 'Back to Portfolio'], ['/error', 'button', 'Try again'], ['/login', 'button', 'Connect wallet']] as const;
   for (const [path, role, action] of stages) {
     await setLab(page, { path, wallet: STATES[1][1] });
     const stage = page.locator('main.utility-stage');
@@ -483,6 +486,7 @@ test('keyboard focus shows one accent ring on the header, dock, rows and choices
   expect(await instant.evaluate((input) => getComputedStyle(input.closest('label')!).outlineStyle), 'a tap shows no focus ring').toBe('none');
 
   await setLab(page, { path: '/docs' });
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
   const search = page.getByRole('searchbox', { name: 'Search docs' });
   await expect(search).toBeEnabled();
   const caret = await search.evaluate((element) => {

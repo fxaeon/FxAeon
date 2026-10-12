@@ -8,6 +8,11 @@ export interface DocsEntry {
   text: string;
 }
 
+/** Keep the page tree in each document; the complete search text is served once. */
+export function docsNavigation(entries: readonly DocsEntry[], page: DocsEntry['page']): DocsEntry[] {
+  return entries.filter(entry => entry.page === page).map((entry) => ({ ...entry, text: '' }));
+}
+
 /** Derive the small, local index from the same content readers see. No service,
  * telemetry, credentials, or separately maintained keyword list is involved. */
 export function textFromContent(node: ReactNode): string {

@@ -193,3 +193,14 @@
   .welcome { padding: 30px 16px; }
   .welcomeTitle { font-size: 32px; }
 }
+
+/* The welcome card carries the bright, blended face of FxAeon. */
+.welcome {
+  --text: #302044; --mint: #6b3eb0; --mint-bright: #6b3eb0; --surface: #d9c6f2;
+  overflow: hidden; border: 0; border-radius: 28px;
+  background: radial-gradient(ellipse at 100% 0%, #f7decf, transparent 62%), linear-gradient(130deg, #c6acf1, #e5d5f8);
+}
+.welcomeTitle { font-weight: 500; letter-spacing: -.055em; }
+.welcomeHorizon { opacity: .3; }
+.quickAction > span { border: 0; border-radius: 50%; background: color-mix(in srgb, var(--mint) 14%, var(--surface)); }
+.positionsSection, .earnSection { border: 0; border-radius: 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--mint) 8%, var(--surface)), var(--surface)); }

@@ -168,6 +168,8 @@ test('a phone opens one position from its row and returns to the list where it w
   await expect(page.locator('[data-position-key="ETH:long:2034"] [data-position-brake="rebalance"]')).toContainText('At the rebalance point');
 
   await page.evaluate(() => { document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 220; });
+  const listScrollTop = await scrollTop(page);
+  expect(listScrollTop).toBeGreaterThan(0);
   await page.locator('[data-position-key="ETH:short:174"]').click();
   await expect(page).toHaveURL(/\/positions\?position=ETH%3Ashort%3A174$/);
   await expect(list(page)).toBeHidden();
@@ -191,7 +193,7 @@ test('a phone opens one position from its row and returns to the list where it w
   await page.getByRole('button', { name: 'All positions', exact: true }).click();
   await expect(list(page)).toBeVisible();
   await expect(page).toHaveURL(/\/positions$/);
-  await expect.poll(() => scrollTop(page)).toBe(220);
+  await expect.poll(() => scrollTop(page)).toBe(listScrollTop);
 
   // Browser Back and Forward move between the same two views.
   await page.locator('[data-position-key="ETH:long:2033"]').click();
