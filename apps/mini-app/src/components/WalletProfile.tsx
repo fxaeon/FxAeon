@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal, flushSync } from 'react-dom';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import type { Address } from 'viem';
 import { ArrowDownToLine, ArrowUpRight, ChevronRight, CircleAlert, History, Layers2, ExternalLink, LogOut, RefreshCw, Settings, X } from 'lucide-react';
@@ -37,16 +38,17 @@ import { useVerifiedWalletName } from '@/components/AccountControls';
 import headerWalletControl from '@/components/HeaderWalletControl.module.css';
 import { WalletAssetModal } from '@/components/WalletAssetDetails';
 import { useRefreshAction } from '@/lib/useRefreshAction';
-import { WalletExportAction } from '@/components/WalletExportAction';
-import { privyConfigured } from '@/lib/privyConfig';
+import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { usePendingActivity } from '@/lib/pendingActivity';
 import { TransactionNotices } from '@/components/TransactionNotices';
 
 const WALLET_PROFILE_DEMAND = { expandedAssets: true, chainPulse: true, positions: true } as const;
+const WalletExportAction = dynamic(() => import('@/components/WalletExportAction').then((module) => module.WalletExportAction), { ssr: false });
 const WALLET_SHEET_ASSET_LIMIT = 6;
 export default function WalletProfile() {
   const pathname = usePathname();
   const wallet = usePrivyWallet();
+  const providerMode = useWalletProviderMode();
   const activeAddress = activeWalletAddress(wallet);
   // Signed steps stay visible after a review closes: a ring while pending, a notice when settled.
   const pendingActivity = usePendingActivity(activeAddress ?? undefined);
@@ -229,7 +231,7 @@ export default function WalletProfile() {
             <nav className={presentation.links} aria-label="Wallet profile actions">
               <ActionRow icon={History} title="History" href="/history" />
               <ActionRow icon={Settings} title="Settings" href="/settings" />
-              {privyConfigured() && wallet.isEmbedded && <WalletExportAction address={activeAddress}
+              {providerMode === 'privy' && wallet.isEmbedded && <WalletExportAction address={activeAddress}
                 disabled={exporting || disconnecting}
                 onStart={() => flushSync(() => { setExporting(true); setDisconnectError(''); setOpenWallet(null); })}
                 onComplete={() => setExporting(false)}

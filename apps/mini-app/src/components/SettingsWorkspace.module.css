@@ -30,3 +30,72 @@
 .save { width: 100%; }
 .error { color: var(--danger); font-size: var(--fs-caption); line-height: 1.6; margin-top: 10px; }
 .walletManagement { margin-top: 8px; }
+
+/* More is a small directory: make the destinations read as grouped tools,
+   with more breathing room on wide screens and quiet cards on mobile. */
+.moreWorkspace { width: min(100%, 760px); gap: 18px; }
+.directory { display: grid; min-width: 0; gap: 14px; }
+
+/* Settings keeps its content in one calm column. These panels use the same
+   lilac theme tokens as the rest of the product, with a lighter edge. */
+.settingsWorkspace { width: min(100%, 680px); gap: 18px; }
+.settingsWorkspace > .section > h2,
+.settingsWorkspace > :global(section#appearance) > h2 {
+  margin-bottom: 10px;
+  color: var(--mut-2);
+  font-size: var(--fs-caption);
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.settingsWorkspace .panel {
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--mint) 4%);
+  box-shadow: none;
+}
+.settingsWorkspace .walletManagement :global(details) {
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 96%, var(--mint) 4%);
+}
+.settingsWorkspace .walletManagement :global(details > summary) {
+  min-height: 52px;
+  padding-inline: 12px;
+  color: var(--text);
+}
+.settingsWorkspace .walletManagement :global(details[open] > summary) {
+  border-bottom: 1px solid var(--line);
+}
+.settingsWorkspace .walletManagement :global(details > div) { padding: 8px; }
+.settingsWorkspace .choices button {
+  border-color: var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-2);
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+.settingsWorkspace .choices button[aria-checked='true'] {
+  border-color: color-mix(in srgb, var(--mint) 58%, transparent);
+  background: var(--mint-dim);
+  color: var(--text);
+}
+.settingsWorkspace .choices button:focus-visible,
+.settingsWorkspace .refresh:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.settingsWorkspace .gasPreference { border-color: var(--hairline); }
+.settingsWorkspace .refresh { border-color: var(--hairline); border-radius: 14px; }
+.settingsWorkspace .disconnect { padding: 4px 0 0; }
+
+@media (min-width: 680px) {
+  .directory { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+}
+
+@media (max-width: 640px) {
+  .moreWorkspace { gap: 14px; }
+  .directory { gap: 12px; }
+  .settingsWorkspace { gap: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settingsWorkspace .choices button { transition: none; }
+}

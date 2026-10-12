@@ -100,7 +100,7 @@ function ActivityRows({ count }: { count: number }) {
 function HistorySilhouette() {
   return <>
     {/* The live title arrives lit; this one stays plain so the sweep plays once. */}
-    <header className={`page-header ${styles.stillHeading}`}><div><h1 className="text-display">History</h1></div></header>
+    <h1 className="sr-only">History</h1>
     <div className={`${account.workspace} ${account.activitySection} ${account.activityCompactWorkspace}`}>
       <section className={activity.section}>
         <div className={activity.filters}>
@@ -177,7 +177,7 @@ const QUICK_ACTIONS: { label: string; icon: LucideIcon }[] = [
  */
 function PortfolioSilhouette() {
   return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
-    <header className={ui.heading}><div><h1>Portfolio</h1></div></header>
+    <h1 className="sr-only">Portfolio</h1>
     <div className={portfolio.dashboard}>
       <div className={portfolio.primary}>
         <section className={`${portfolio.valueCard} ${balance.hero}`}>

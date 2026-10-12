@@ -13,18 +13,19 @@ const src = resolve(root, 'apps/mini-app/src');
 const mockModules: Record<string, string> = {
   '@privy-io/react-auth': `
     import { useState } from 'react';
-    export function usePrivy() { const [, redraw] = useState(0); const h = globalThis.__privySendHarness; h.adapterRerender = () => redraw((n) => n + 1); return { ready: true, authenticated: h.authenticated, user: { id: h.userId } }; }
-    export function useWallets() { const [, redraw] = useState(0); const h = globalThis.__privySendHarness; h.adapterRerender = () => redraw((n) => n + 1); return { wallets: h.wallets }; }
+    export function usePrivy() { const [, redraw] = useState(0); const h = globalThis.__privySendHarness; h.adapterRerender = () => redraw((n) => n + 1); return { ready: h.ready, authenticated: h.authenticated, user: h.authenticated ? { id: h.userId } : null }; }
+    export function useWallets() { const [, redraw] = useState(0); const h = globalThis.__privySendHarness; h.adapterRerender = () => redraw((n) => n + 1); return { ready: true, wallets: h.wallets }; }
     export function useModalStatus() { const [, redraw] = useState(0); const h = globalThis.__privySendHarness; h.modalRerender = () => redraw((n) => n + 1); return { isOpen: h.modalOpen }; }
     export function useSendTransaction() { const h = globalThis.__privySendHarness; return { sendTransaction: async (request, options) => {
       h.requests.push({ request, options });
+      await h.gate('dispatch');
       if (h.sendError) throw new Error(h.sendError);
       h.modalOpen = true;
       h.modalRerender?.();
       h.rerender?.();
       return { hash: '0x' + 'a'.repeat(64) };
     } }; }
-    export function useLogout() { return { logout: async () => {} }; }
+    export function useLogout() { const h = globalThis.__privySendHarness; return { logout: async () => { h.authenticated = false; h.wallets = []; h.adapterRerender?.(); h.rerender?.(); } }; }
     export function useLogin() { return { login: () => {} }; }
     export function useConnectWallet() { return { connectWallet: () => {} }; }
   `,
@@ -79,11 +80,20 @@ async function openHarness(page: import('@playwright/test').Page, embedded = tru
   await page.setContent('<div id="root"></div>');
   await page.evaluate((embedded) => {
     (globalThis as any).__privySendHarness = {
+      ready: true,
       authenticated: true,
       userId: 'user-a',
       wallets: [],
       requests: [],
-      providerChain: '0x1',
+      providerChain: undefined,
+      externalChain: '0x1',
+      targetChain: 1,
+      switchRequests: [],
+      providerReads: [],
+      providerAcquisitions: [],
+      providerCounter: 0,
+      blockedAt: null,
+      holdUsed: false,
       providerAccounts: [],
       requestFrom: undefined,
       embedded,
@@ -98,21 +108,64 @@ async function openHarness(page: import('@playwright/test').Page, embedded = tru
   await expect(page.locator('[data-ready="true"]')).toHaveCount(1);
   await page.evaluate(({ firstAddress, secondAddress }) => {
     const h = (globalThis as any).__privySendHarness;
-    const makeWallet = (address: string) => ({
-      address, type: 'ethereum', walletClientType: h.embedded ? 'privy-v2' : 'metamask', chainId: 'eip155:1',
-      getEthereumProvider: async () => ({ request: async (args: { method: string; params?: unknown[] }) => {
-        if (args.method === 'eth_chainId') return h.providerChain;
-        if (args.method === 'eth_accounts') return h.providerAccounts;
-        if (args.method === 'eth_sendTransaction') { h.providerRequests.push(args); return '0x' + 'a'.repeat(64); }
-        throw new Error(`Unexpected provider call: ${args.method}`);
-      } }),
-      switchChain: async () => {},
-    });
+    h.gate = async (stage: string) => {
+      if (h.holdAt !== stage || h.holdUsed) return;
+      h.holdUsed = true;
+      h.blockedAt = stage;
+      h.rerender?.();
+      await new Promise<void>((resolve) => { h.releaseHold = () => { h.blockedAt = null; resolve(); }; });
+    };
+    const makeWallet = (address: string, chainId = 1): any => {
+      const providerId = ++h.providerCounter;
+      const boundChain = `0x${chainId.toString(16)}`;
+      const listeners = new Map<string, Set<(...values: unknown[]) => void>>();
+      const provider = {
+        request: async (args: { method: string; params?: unknown[] }) => {
+          if (args.method === 'eth_sendTransaction') {
+            h.providerRequests.push(args);
+            await h.gate('dispatch');
+            if (h.sendError) throw new Error(h.sendError);
+            return '0x' + 'a'.repeat(64);
+          }
+          h.providerReads.push({ id: providerId, method: args.method, address, boundChain: h.embedded ? boundChain : h.externalChain });
+          await h.gate(args.method);
+          if (args.method === 'eth_chainId') return h.providerChain ?? (h.embedded ? boundChain : h.externalChain);
+          if (args.method === 'eth_accounts') return h.providerAccounts;
+          throw new Error(`Unexpected provider call: ${args.method}`);
+        },
+        on(event: string, listener: (...values: unknown[]) => void) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event)!.add(listener); },
+        removeListener(event: string, listener: (...values: unknown[]) => void) { listeners.get(event)?.delete(listener); },
+      };
+      return {
+        address, type: 'ethereum', walletClientType: h.embedded ? 'privy-v2' : 'metamask', chainId: `eip155:${chainId}`,
+        getEthereumProvider: async () => {
+          h.providerAcquisitions.push(providerId);
+          await h.gate('getEthereumProvider');
+          return provider;
+        },
+        switchChain: async (next: number) => {
+          h.switchRequests.push(next);
+          await h.gate('switchChain');
+          h.externalChain = `0x${next.toString(16)}`;
+          // Privy's old embedded object is bound to its old chain. The SDK
+          // publishes a replacement object before a fresh provider is valid.
+          h.wallets = h.wallets.map((wallet: { address: string }) => wallet.address !== address ? wallet
+            : h.embedded ? makeWallet(address, next) : { ...wallet, chainId: `eip155:${next}` });
+          h.adapterRerender?.();
+          h.rerender?.();
+        },
+      };
+    };
     h.wallets = [makeWallet(firstAddress), makeWallet(secondAddress)];
     h.providerAccounts = [firstAddress];
     h.adapterRerender?.();
     h.rerender?.();
   }, { firstAddress: first, secondAddress: second });
+  if (!embedded) {
+    await expect(page.locator('main')).toHaveAttribute('data-address', '');
+    await page.getByRole('button', { name: 'Select first wallet', exact: true }).click();
+  }
+  await expect(page.locator('main')).toHaveAttribute('data-address', first);
 }
 
 async function send(page: import('@playwright/test').Page, name: string) {
@@ -123,6 +176,45 @@ async function send(page: import('@playwright/test').Page, name: string) {
 async function closeModal(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Close Privy success screen' }).click();
   await expect(page.locator('main')).toHaveAttribute('data-modal-open', 'false');
+}
+
+type HoldStage = 'getEthereumProvider' | 'eth_chainId' | 'eth_accounts' | 'switchChain' | 'dispatch';
+type Retirement = 'logout' | 'user replacement' | 'unmount' | 'same-account reselection';
+
+async function hold(page: import('@playwright/test').Page, stage: HoldStage) {
+  await page.evaluate((next) => {
+    const h = globalThis.__privySendHarness;
+    h.holdAt = next; h.holdUsed = false; h.blockedAt = null;
+    if (next === 'switchChain') h.targetChain = 8453;
+  }, stage);
+}
+async function waitHeld(page: import('@playwright/test').Page, stage: HoldStage) {
+  await expect.poll(() => page.evaluate(() => globalThis.__privySendHarness.blockedAt)).toBe(stage);
+}
+async function retire(page: import('@playwright/test').Page, how: Retirement) {
+  if (how === 'logout') {
+    await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+    await expect(page.locator('main')).toHaveAttribute('data-authenticated', 'false');
+  } else if (how === 'same-account reselection') {
+    const previous = await page.locator('main').getAttribute('data-connection-version');
+    await page.getByRole('button', { name: 'Select first wallet', exact: true }).click();
+    await expect(page.locator('main')).not.toHaveAttribute('data-connection-version', previous!);
+  } else if (how === 'user replacement') {
+    await page.evaluate(() => {
+      const h = globalThis.__privySendHarness;
+      h.userId = 'user-b'; h.adapterRerender?.(); h.rerender?.();
+    });
+    await expect(page.locator('main')).toHaveAttribute('data-user-id', 'user-b');
+  } else {
+    await page.evaluate(() => globalThis.__privySendHarness.unmount());
+    await expect(page.locator('main')).toHaveCount(0);
+  }
+}
+async function release(page: import('@playwright/test').Page) {
+  await page.evaluate(() => globalThis.__privySendHarness.releaseHold?.());
+}
+async function dispatchCounts(page: import('@playwright/test').Page) {
+  return page.evaluate(() => ({ embedded: globalThis.__privySendHarness.requests.length, external: globalThis.__privySendHarness.providerRequests.length }));
 }
 
 test.describe('real FxAeon Privy send adapter with mocked Privy hooks', () => {
@@ -316,4 +408,113 @@ test.describe('real FxAeon Privy send adapter with mocked Privy hooks', () => {
     await expect(page.locator('main')).toHaveAttribute('data-result', /sender does not match/i);
     expect(await page.evaluate(() => (globalThis as any).__privySendHarness.requests)).toHaveLength(0);
   });
+
+  for (const embeddedMode of [true, false]) {
+    const kind = embeddedMode ? 'embedded' : 'external';
+    for (const stage of ['getEthereumProvider', 'eth_chainId', 'eth_accounts', 'switchChain'] as const) {
+      for (const retirement of ['logout', 'user replacement', 'unmount'] as const) {
+        test(`held ${stage} cannot dispatch after ${retirement} (${kind})`, async ({ page }) => {
+          await openHarness(page, embeddedMode);
+          await hold(page, stage);
+          await page.getByRole('button', { name: 'Send approval', exact: true }).click();
+          await waitHeld(page, stage);
+          expect(await dispatchCounts(page)).toEqual({ embedded: 0, external: 0 });
+          await retire(page, retirement);
+          await release(page);
+          await expect.poll(() => page.evaluate(() => globalThis.__privySendHarness.result)).toMatch(/^error:.*(?:wallet|session).*changed/i);
+          expect(await dispatchCounts(page)).toEqual({ embedded: 0, external: 0 });
+        });
+      }
+    }
+
+    test(`a cached send cannot start synchronously after same-account reselection (${kind})`, async ({ page }) => {
+      await openHarness(page, embeddedMode);
+      await send(page, 'Send retained callback after reselection');
+      await expect(page.locator('main')).toHaveAttribute('data-result', /wallet or session changed/i);
+      expect(await dispatchCounts(page)).toEqual({ embedded: 0, external: 0 });
+    });
+
+    test(`same-account reselection retires held signing intent (${kind})`, async ({ page }) => {
+      await openHarness(page, embeddedMode);
+      await hold(page, 'eth_accounts');
+      await page.getByRole('button', { name: 'Send approval', exact: true }).click();
+      await waitHeld(page, 'eth_accounts');
+      await retire(page, 'same-account reselection');
+      await release(page);
+      await expect.poll(() => page.evaluate(() => globalThis.__privySendHarness.result)).toMatch(/^error:.*(?:wallet|session).*changed/i);
+      expect(await dispatchCounts(page)).toEqual({ embedded: 0, external: 0 });
+    });
+
+    test(`a harmless SDK object refresh preserves the accepted signing intent (${kind})`, async ({ page }) => {
+      await openHarness(page, embeddedMode);
+      await hold(page, 'eth_accounts');
+      await page.getByRole('button', { name: 'Send approval', exact: true }).click();
+      await waitHeld(page, 'eth_accounts');
+      await page.evaluate(() => {
+        const h = globalThis.__privySendHarness;
+        h.wallets = h.wallets.map((wallet: object) => ({ ...wallet }));
+        h.adapterRerender?.(); h.rerender?.();
+      });
+      await release(page);
+      await expect(page.locator('main')).toHaveAttribute('data-result', hash);
+      expect(await dispatchCounts(page)).toEqual(embeddedMode ? { embedded: 1, external: 0 } : { embedded: 0, external: 1 });
+    });
+
+    test(`eventless chain drift during held accounts is caught before dispatch (${kind})`, async ({ page }) => {
+      await openHarness(page, embeddedMode);
+      await hold(page, 'eth_accounts');
+      await page.getByRole('button', { name: 'Send approval', exact: true }).click();
+      await waitHeld(page, 'eth_accounts');
+      await page.evaluate(() => { globalThis.__privySendHarness.providerChain = '0x2105'; });
+      await release(page);
+      await expect(page.locator('main')).toHaveAttribute('data-result', /wrong network/i);
+      expect(await dispatchCounts(page)).toEqual({ embedded: 0, external: 0 });
+    });
+
+    test(`its intended chain switch reacquires the current provider and dispatches once (${kind})`, async ({ page }) => {
+      await openHarness(page, embeddedMode);
+      await page.evaluate(() => { globalThis.__privySendHarness.targetChain = 8453; });
+      await send(page, 'Send action');
+      await expect(page.locator('main')).toHaveAttribute('data-result', hash);
+      const observed = await page.evaluate(() => {
+        const h = globalThis.__privySendHarness;
+        return { switches: h.switchRequests, acquisitions: h.providerAcquisitions, reads: h.providerReads };
+      });
+      expect(observed.switches).toEqual([8453]);
+      expect(observed.acquisitions.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(observed.acquisitions).size).toBe(embeddedMode ? 2 : 1);
+      expect(observed.reads.filter((read: { method: string }) => read.method === 'eth_chainId')).toHaveLength(2);
+      expect(observed.reads.every((read: { boundChain: string }) => read.boundChain === '0x2105')).toBe(true);
+      expect(await dispatchCounts(page)).toEqual(embeddedMode ? { embedded: 1, external: 0 } : { embedded: 0, external: 1 });
+    });
+
+    for (const retirement of ['logout', 'user replacement', 'unmount'] as const) {
+      test(`an already-issued hash survives ${retirement} (${kind})`, async ({ page }) => {
+        await openHarness(page, embeddedMode);
+        await hold(page, 'dispatch');
+        await page.getByRole('button', { name: 'Send approval', exact: true }).click();
+        await waitHeld(page, 'dispatch');
+        const issued = embeddedMode ? { embedded: 1, external: 0 } : { embedded: 0, external: 1 };
+        expect(await dispatchCounts(page)).toEqual(issued);
+        await retire(page, retirement);
+        await release(page);
+        await expect.poll(() => page.evaluate(() => globalThis.__privySendHarness.result)).toBe(hash);
+        expect(await page.evaluate(() => globalThis.__privySendHarness.previousResult)).toBe(hash);
+        expect(await dispatchCounts(page)).toEqual(issued);
+      });
+    }
+
+    test(`an already-issued provider error survives retirement without redispatch (${kind})`, async ({ page }) => {
+      await openHarness(page, embeddedMode);
+      await hold(page, 'dispatch');
+      await page.evaluate(() => { globalThis.__privySendHarness.sendError = 'Original wallet request rejected'; });
+      await page.getByRole('button', { name: 'Send approval', exact: true }).click();
+      await waitHeld(page, 'dispatch');
+      await retire(page, 'unmount');
+      await release(page);
+      await expect.poll(() => page.evaluate(() => globalThis.__privySendHarness.result)).toBe('error:Original wallet request rejected');
+      expect(await dispatchCounts(page)).toEqual(embeddedMode ? { embedded: 1, external: 0 } : { embedded: 0, external: 1 });
+    });
+  }
+
 });

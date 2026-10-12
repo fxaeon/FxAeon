@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The single Privy boundary for the web and Telegram app.
+ * The Privy boundary loaded only for Telegram Mini App launches.
  *
  * Privy is deliberately configured as a client-side wallet and signing
  * provider. FxAeon never receives a private key, authorization key, session
@@ -12,25 +12,19 @@
  * Telegram reconnect restarts it; normal route changes retain the session.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { usePathname } from 'next/navigation';
 import { PrivyProvider, type PrivyClientConfig } from '@privy-io/react-auth';
 import { base, mainnet } from 'viem/chains';
 import { PRIVY_APP_ID } from '@/lib/privyConfig';
 import { getSavedTheme, type ThemeId } from '@/lib/theme';
 import { getWebApp, isTelegramLaunchContext, restoreTelegramLaunchHash, waitForTelegramWebApp } from '@/lib/telegram';
-import { PrivyWalletBridge, UnavailableWalletProvider } from '@/lib/wallet';
+import { UnavailableWalletProvider } from '@/lib/wallet';
+import { PrivyWalletBridge } from '@/lib/wallet/PrivyWalletBridge';
 import { privyAppearance } from '@/lib/wallet/privyAppearance';
 import { TelegramReconnectContext } from '@/lib/wallet/telegramReconnect';
 import './privy-theme.css';
-import WalletRecoveryCoordinator from '@/components/WalletRecoveryCoordinator';
-import ProtocolPositionProvider from '@/components/ProtocolPositionProvider';
-import PositionBrakeProvider from '@/components/PositionBrakeProvider';
-import WalletDataProvider from '@/components/WalletDataProvider';
-import { walletDemandForPathname } from '@/lib/walletDemand';
-import WalletDemandProvider, { useEffectiveWalletDemand } from '@/components/WalletDemandProvider';
+import WalletRouteProviders from '@/components/WalletRouteProviders';
 
 export default function PrivyClientProvider({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() ?? '/';
   const [telegramSession, setTelegramSession] = useState(0);
   const reconnectTelegram = useCallback(() => {
     // The installed SDK's explicit Telegram login opens the legacy web widget.
@@ -85,10 +79,6 @@ export default function PrivyClientProvider({ children }: { children: React.Reac
       showWalletUIs: true,
     },
   }), [theme]);
-  // Data-heavy providers are deliberately route-scoped. Shell, docs, QR and
-  // settings screens must not open wallet RPC/indexer feeds just because the
-  // global provider tree is mounted.
-  const demand = walletDemandForPathname(pathname);
   // P0 login fix: Privy's seamless Telegram Mini-App login triggers at SDK
   // mount IF `#tgWebAppData=…` is still on the URL. Our entry router drops
   // it, so restore it from WebApp.initData BEFORE the provider mounts. A
@@ -122,7 +112,7 @@ export default function PrivyClientProvider({ children }: { children: React.Reac
   });
   if (!PRIVY_APP_ID) return (
     <UnavailableWalletProvider>
-      <WalletDemandProvider routeDemand={demand} routeKey={pathname}><RouteDataProviders>{children}</RouteDataProviders></WalletDemandProvider>
+      <WalletRouteProviders>{children}</WalletRouteProviders>
     </UnavailableWalletProvider>
   );
   // Never gate the product shell on the Telegram bridge.  Telegram can load
@@ -140,19 +130,9 @@ export default function PrivyClientProvider({ children }: { children: React.Reac
       config={privyConfig}
     >
       <PrivyWalletBridge>
-        <WalletDemandProvider routeDemand={demand} routeKey={pathname}><RouteDataProviders>{children}</RouteDataProviders></WalletDemandProvider>
+        <WalletRouteProviders>{children}</WalletRouteProviders>
       </PrivyWalletBridge>
     </PrivyProvider>
     </TelegramReconnectContext.Provider>
   );
-}
-
-function RouteDataProviders({ children }: { children: React.ReactNode }) {
-  const demand = useEffectiveWalletDemand();
-  return <WalletDataProvider enabled={demand.enabled} expandedAssets={demand.expandedAssets} chainPulse={demand.chainPulse}>
-    <ProtocolPositionProvider enabled={demand.positions}>
-      <WalletRecoveryCoordinator />
-      <PositionBrakeProvider>{children}</PositionBrakeProvider>
-    </ProtocolPositionProvider>
-  </WalletDataProvider>;
 }

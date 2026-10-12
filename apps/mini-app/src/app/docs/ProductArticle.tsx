@@ -7,10 +7,10 @@ import { ExternalLink } from './ExternalLink';
 // Keep the card tree materialized so the content index sees its visible copy.
 const topicCards = <div className={styles.topicGrid}>
     {[
-      { href: '#trade', title: 'Trade & positions', description: 'Understand ETH and BTC longs, shorts, and leverage.', icon: CandlestickChart },
-      { href: '#earn', title: 'Earn with fxSAVE', description: 'Deposit, withdraw, and follow a queued redemption.', icon: Sprout },
-      { href: '#borrow', title: 'Borrow fxUSD', description: 'Manage collateral, debt, and repayments.', icon: Landmark },
-      { href: '#move', title: 'Move between chains', description: 'Bridge supported assets between Ethereum and Base.', icon: ArrowLeftRight },
+      { href: '/docs/guide/trade', title: 'Trade & positions', description: 'Understand ETH and BTC longs, shorts, and leverage.', icon: CandlestickChart },
+      { href: '/docs/guide/earn', title: 'Earn with fxSAVE', description: 'Deposit, withdraw, and follow a queued redemption.', icon: Sprout },
+      { href: '/docs/guide/borrow', title: 'Borrow fxUSD', description: 'Manage collateral, debt, and repayments.', icon: Landmark },
+      { href: '/docs/guide/move', title: 'Move between chains', description: 'Bridge supported assets between Ethereum and Base.', icon: ArrowLeftRight },
     ].map(({ href, title, description, icon: Icon }) => <a key={href} href={href} className={styles.topicCard}>
       <span className={styles.topicIcon}><Icon size={19} strokeWidth={1.5} aria-hidden="true" /><ArrowRight size={15} aria-hidden="true" /></span>
       <strong>{title}</strong><span>{description}</span>
@@ -24,22 +24,37 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
               {topicCards}
   </> },
   { id: 'getting-started', title: 'Getting started', content: <>
-<ol>
-                <li>Open FxAeon in a supported browser or Telegram. The app workspace starts on Portfolio.</li>
-                <li>Connect your wallet, then choose Trade, Earn, Borrow, or Move.</li>
-                <li>Enter the amount and check the asset, network, recipient, output, and fees.</li>
-                <li>Confirm each transaction in your wallet. Each step continues after its matching receipt is verified.</li>
+              <ol className={styles.steps}>
+                <li><h3 id="start-open">Open FxAeon</h3><p>Open <a href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">@FxAeonBot</a> in Telegram and launch the mini app, or open the <a href="/">web app</a>. Both start on Portfolio.</p></li>
+                <li><h3 id="start-wallet">Choose your wallet</h3><p>In Telegram, sign in seamlessly with your Telegram account. <ExternalLink href="https://privy.io">Privy</ExternalLink> provides the built-in wallet when you need one. In a browser, choose <strong>Connect wallet</strong> and select your existing wallet. Check the selected address before continuing.</p></li>
+                <li><h3 id="start-fund">Add funds on the right network</h3><p>Choose <a href="/qr">Receive</a> to see your wallet address and QR code. Send the asset you plan to use on the network the action requires. Trade, Earn, and Borrow run on Ethereum; Move connects Ethereum and Base.</p><div className={styles.callout}><p>Keep ETH on the network you are using for gas. A token balance on Base cannot pay an Ethereum transaction fee. Check the token, address, and network in the sending wallet before sending.</p></div></li>
+                <li><h3 id="start-review">Build and review the action</h3><p>Choose Trade, Earn, Borrow, or Move and enter an amount. Review the network, asset, amount, output, recipient where applicable, and fees. The app checks the route before it asks your wallet to sign.</p></li>
+                <li><h3 id="start-confirm">Confirm and follow the result</h3><p>Confirm each requested step in your wallet. A token approval may come before the action itself. FxAeon verifies the matching receipt before continuing, and <a href="/history">History</a> records the submitted transaction on this device.</p></li>
               </ol>
+              <h3 id="start-next">What next?</h3>
+              {topicCards}
+              <h3 id="start-stuck">If something stops</h3>
+              <p>Read the status before retrying. A rejected wallet request, expired quote, or network change can require a fresh review. If a transaction already has a hash, check <a href="/docs/guide/history">History & recovery</a> before submitting again.</p>
   </> },
   { id: 'access', title: 'Browser & Telegram', content: <>
+<h3 id="access-telegram">Sign in through Telegram</h3>
 <p>The web app and Telegram Mini App offer the same actions. Telegram adds native sizing, haptics, and navigation.</p>
-              <p>Use Connect wallet to sign in with email or an existing wallet, on the web or in Telegram. Each transaction requires confirmation in your selected wallet.</p>
+              <p>In your browser, use Connect wallet to choose an existing wallet. Open the Mini App from Telegram to sign in seamlessly with your Telegram account through Privy. A wallet is created if you need one; email sign-in and existing wallets are also available. Each transaction requires confirmation in your selected wallet.</p>
               <p>A Telegram link to one screen, such as Open Trade in Telegram on fxaeon.xyz, opens that screen directly. Telegram’s Back button then returns to where the app opened.</p>
+              <h3 id="access-browser">Use your browser wallet</h3>
+              <p>Choose Connect wallet, select the wallet you use, and approve its connection request. Connecting lets FxAeon read the selected account; it does not send a transaction. On mobile, return to the same browser tab after your wallet opens.</p>
+              <h3 id="access-return">When you come back</h3>
+              <p>Check the selected account and network again. If you switch accounts or the app cannot confirm the current connection, reconnect before reviewing another action. Saved form values are never permission to sign.</p>
   </> },
   { id: 'wallets', title: 'Wallets & signing', content: <>
+<h3 id="wallet-account">Check the selected account</h3>
 <p>Your connected wallet supplies the sender. FxAeon does not receive or store private keys.</p>
+              <p>Open the wallet control to check your address, or use More → Settings to change wallets. Balances and positions belong to the selected account and network.</p>
+              <h3 id="wallet-requests">Understand the requests</h3>
               <p>A transaction may need more than one approval. The review says so before the first wallet request, for example “Two wallet requests: approve fxUSD, then confirm.” If its terms change before signing, review the updated details and choose the action again.</p>
               <div className={styles.callout}><p><strong>Before approval:</strong> confirm the address, network, recipient, amount, contract, and any approval request in your wallet.</p></div>
+              <h3 id="wallet-changes">If your account or network changes</h3>
+              <p>FxAeon stops a review when the signing account or chain no longer matches it. Return to the app, select the intended wallet, and review the updated action. It does not retry a signature or send automatically.</p>
   </> },
   { id: 'trade', title: 'Trade & leverage', content: <>
 <p>Trade supports ETH and BTC long and short positions on Ethereum. Choose an input asset, amount, side, and leverage. The market panel shows the current price and 1H, 1D, 7D, and 30D charts; rest a finger or pointer on the chart to read an earlier price.</p>
@@ -133,15 +148,15 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
               </ul>
   </> },
   { id: 'troubleshooting', title: 'Troubleshooting', content: <>
-<h3>Wallet is not available</h3>
+<h3 id="help-wallet">Wallet is not available</h3>
               <p>Wait for the wallet to load, reload if the screen reports a timeout, or reopen the Mini App from Telegram’s bot menu. Confirm that the wallet is connected and selected.</p>
-              <h3>The action button is disabled</h3>
+              <h3 id="help-disabled">The action button is disabled</h3>
               <p>Check that an amount is positive, the amount format is valid for the selected token, the selected position is current, and any slippage or leverage value is within the displayed bounds.</p>
-              <h3>The review asks for more ETH</h3>
+              <h3 id="help-gas">The review asks for more ETH</h3>
               <p>Network fees are paid in ETH on the network the action uses. Add at least the amount the review names, for example with Receive ETH, then review the action again.</p>
-              <h3>The action stopped or a receipt is unclear</h3>
+              <h3 id="help-receipt">The action stopped or a receipt is unclear</h3>
               <p>Read the status and History entry. A rejection, failed transaction, changed account, timeout, or receipt that does not match stops later steps. Do not resubmit until the wallet and chain state are understood.</p>
-              <h3>Sent but not received</h3>
+              <h3 id="help-delivery">Sent but not received</h3>
               <p>Keep the History entry open. A source transaction can confirm before destination funds arrive; FxAeon checks delivery separately.</p>
   </> },
 ];

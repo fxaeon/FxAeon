@@ -10,6 +10,7 @@ import AppearancePreference from '@/components/AppearancePreference';
 import { Disclosure, PageHeading, ProductSurface } from '@/components/ProductUI';
 import { MissingValue } from '@/components/MissingValue';
 import { usePrivyWallet } from '@/lib/wallet';
+import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { useLocale } from '@/lib/i18n';
 import { haptic } from '@/lib/telegram';
 import { announceSettingsUpdated, GAS_TIERS, readGasTier, readSlippagePercent, SETTINGS_KEY, SLIPPAGE_PRESETS_BPS, type GasTier } from '@/lib/settings';
@@ -32,7 +33,10 @@ function formatGwei(value: bigint): string {
 export default function SettingsPage() {
   const { t } = useLocale();
   const wallet = usePrivyWallet();
-  const showGasSettings = !wallet.address || wallet.isEmbedded;
+  const [walletChoicesExpanded, setWalletChoicesExpanded] = useState(Boolean(wallet.selectionRequired));
+  useEffect(() => { if (wallet.selectionRequired) setWalletChoicesExpanded(true); }, [wallet.selectionRequired]);
+  const providerMode = useWalletProviderMode();
+  const showGasSettings = providerMode === 'privy' && (!wallet.address || wallet.isEmbedded);
   const [ready, setReady] = useState(false);
   const [slippageBps, setSlippageBps] = useState(50);
   const [savedBps, setSavedBps] = useState(50);
@@ -100,13 +104,11 @@ export default function SettingsPage() {
   return <AppShell>
     <AccountWorkspace className={styles.workspace + ' ' + styles.settingsWorkspace}>
       <PageHeading title={t('settings.title')} backHref="/more" />
-      <section className={styles.section} aria-labelledby={`${id}-wallet`}>
-        <h2 id={`${id}-wallet`}>Wallet</h2>
+      <section className={styles.section} aria-label="Wallet">
         <AccountSummary />
-        <div className={styles.walletManagement}><Disclosure title="Change wallet"><WalletSection /></Disclosure></div>
+        <div className={styles.walletManagement}><Disclosure title={wallet.selectionRequired ? 'Choose wallet' : 'Change wallet'} defaultOpen={walletChoicesExpanded}><WalletSection /></Disclosure></div>
       </section>
-      <section className={styles.section} aria-labelledby={`${id}-preferences`}>
-        <h2 id={`${id}-preferences`}>Transaction preferences</h2>
+      <section className={styles.section} aria-label="Transaction preferences">
         <ProductSurface className={styles.panel}>
           <div className={styles.preferenceHeading}><h3 id={`${id}-slippage`}>Slippage tolerance</h3>
             <span className={saved ? styles.saved : undefined} role="status" aria-live="polite">{saved ? <><Check size={14} aria-hidden="true" />Saved</> : dirty ? 'Unsaved changes' : ''}</span>

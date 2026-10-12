@@ -19,6 +19,33 @@ test.describe('product copy and session visibility', () => {
     assertNoBackendRequests(requests);
   });
 
+  test('Trade is the only visible product page heading; other routes keep unanimated screen-reader titles', async ({ page, requests }) => {
+    const titles = [
+      ['/portfolio', 'Portfolio'], ['/positions', 'Positions'], ['/earn', 'Earn'], ['/borrow', 'Borrow'],
+      ['/move', 'Move'], ['/history', 'History'], ['/more', 'More'], ['/settings', 'Settings'],
+    ] as const;
+    for (const [route, title] of titles) {
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      const heading = page.locator('main h1');
+      await expect(heading).toHaveCount(1);
+      await expect(heading).toHaveText(title);
+      expect(await heading.evaluate((element) => {
+        for (let node: Element | null = element; node; node = node.parentElement) {
+          if (node.classList.contains('sr-only')) return true;
+        }
+        return false;
+      }), `${route} keeps its title in the screen-reader-only tree`).toBe(true);
+      expect(await heading.evaluate((element) => element.getAnimations().length), `${route} title is unanimated`).toBe(0);
+    }
+
+    await page.goto('/trade', { waitUntil: 'domcontentloaded' });
+    const tradeHeading = page.locator('.trade-page-heading h1');
+    await expect(tradeHeading).toHaveText('Trade');
+    await expect(tradeHeading).toBeVisible();
+    expect(await tradeHeading.evaluate((element) => element.closest('.sr-only'))).toBeNull();
+    assertNoBackendRequests(requests);
+  });
+
   test('disconnected settings do not expose a session disconnect card', async ({ page, requests }) => {
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();

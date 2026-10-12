@@ -202,7 +202,15 @@ test.describe("single-viewport route contract", () => {
 
         await assertViewportGeometry(page, route, viewport);
         if (CTA_ROUTES.has(route)) {
-          if (route === "/settings") {
+          if (route === "/" || route === "/portfolio") {
+            // The disconnected portfolio is the landing. Its real next
+            // actions are the four links in the named QuickActions section;
+            // the Connect wallet control remains covered by the topbar check.
+            const actions = page.getByRole("region", { name: "Actions" });
+            for (const label of ["Receive", "Trade", "Move", "Earn"]) {
+              await assertReachableAction(page, route, viewport, actions.getByRole("link", { name: label, exact: true }));
+            }
+          } else if (route === "/settings") {
             // Settings' first disconnected action is AccountSummary's Connect
             // control, which has its own account-row style rather than the
             // product form's .button-primary class.

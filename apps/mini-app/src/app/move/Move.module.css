@@ -132,3 +132,7 @@
 .cardHead h2 { color: var(--text); font-size: var(--fs-small); font-weight: 650; letter-spacing: -0.01em; }
 .centerStage { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .centerStage > .moveCard { margin-block: auto; }
+
+.moveCard.moveCard { border: 0; border-radius: 28px; background: linear-gradient(135deg, color-mix(in srgb, var(--mint) 8%, var(--surface)), var(--surface)); box-shadow: none; }
+.routeNode:first-child { background: linear-gradient(135deg, color-mix(in srgb, #9693ff 24%, var(--surface)), var(--surface-2)); }
+.routeNode:last-child { background: linear-gradient(135deg, color-mix(in srgb, #80b8ec 20%, var(--surface)), var(--surface-2)); }

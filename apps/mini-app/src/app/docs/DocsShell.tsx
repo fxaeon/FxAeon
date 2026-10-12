@@ -2,11 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, ChevronDown, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, ChevronRight, CircleHelp, Copy, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
-import { AppShell } from '@/components/ui';
+import FxLogo from '@/components/FxLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 import { searchDocs, searchExcerpt, type DocsEntry } from './docsSearch';
 import styles from './Docs.module.css';
+import { productHref, productNavigation } from './productNavigation';
 
 type Page = 'Product guide' | 'SDK reference';
 const PRODUCT_GROUPS = [
@@ -14,19 +17,81 @@ const PRODUCT_GROUPS = [
   { label: 'Use FxAeon', ids: ['trade', 'positions', 'earn', 'borrow', 'move'] },
   { label: 'Know before you sign', ids: ['fees', 'history', 'privacy', 'troubleshooting'] },
 ];
+const PAGE_ICONS: Record<string, typeof BookOpen> = { overview: Globe, 'getting-started': Rocket, access: MessageCircle, wallets: Wallet, trade: CandlestickChart, positions: List, earn: Sprout, borrow: Landmark, move: ArrowLeftRight, fees: Settings2, history: History, privacy: ShieldCheck, troubleshooting: CircleHelp };
 
-export default function DocsShell({ page, entries, children }: { page: Page; entries: DocsEntry[]; children: ReactNode }) {
+type Article = { id: string; title: string; group: string; description: string };
+let searchIndex: Promise<DocsEntry[]> | undefined;
+function fetchSearchIndex() {
+  return searchIndex ??= fetch('/docs/search-index.json').then(async response => {
+    if (!response.ok) throw new Error('Search index unavailable');
+    return await response.json() as DocsEntry[];
+  }).catch(error => { searchIndex = undefined; throw error; });
+}
+
+export default function DocsShell({ page, entries, children, home = false, article }: { page: Page; entries: DocsEntry[]; children: ReactNode; home?: boolean; article?: Article }) {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [hydrated, setHydrated] = useState(false);
   const [contentsOpen, setContentsOpen] = useState(true);
   const [activeId, setActiveId] = useState(page === 'Product guide' ? 'overview' : 'sdk-overview');
+  const [outline, setOutline] = useState<{ id: string; title: string }[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileLinksOpen, setMobileLinksOpen] = useState(false);
+  const [searchEntries, setSearchEntries] = useState<DocsEntry[] | null>(null);
+  const [searchError, setSearchError] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLButtonElement>(null);
+  const mobileOptionsRef = useRef<HTMLButtonElement>(null);
   const currentEntries = useMemo(() => entries.filter((entry) => entry.page === page), [entries, page]);
-  const results = useMemo(() => searchDocs(entries, query), [entries, query]);
+  const results = useMemo(() => searchDocs(searchEntries ?? [], query), [searchEntries, query]);
   const searching = query.trim().length > 0;
-  const groups = page === 'Product guide'
+  const groups = article || home ? ['Get started', 'Wallets', 'Products', 'Help'].map(label => ({ label, ids: productNavigation.filter(item => item.group === label).map(item => item.id) })) : page === 'Product guide'
     ? PRODUCT_GROUPS
     : [{ label: 'In this reference', ids: currentEntries.map(({ id }) => id) }];
+  const articleIndex = productNavigation.findIndex(item => item.id === article?.id);
+  const previousArticle = productNavigation[articleIndex - 1];
+  const nextArticle = productNavigation[articleIndex + 1];
+
+  function prepareSearch() {
+    if (searchEntries) return;
+    setSearchError(false);
+    void fetchSearchIndex().then(setSearchEntries).catch(() => setSearchError(true));
+  }
+
+  useEffect(() => {
+    if (mobileSearchOpen && hydrated) inputRef.current?.focus();
+  }, [mobileSearchOpen, hydrated]);
+
+  useEffect(() => {
+    if (!article) return;
+    setCopied(false);
+    setCopyError(false);
+    setMobileSearchOpen(false);
+    setMobileLinksOpen(false);
+    setQuery('');
+    setOutline(Array.from(document.querySelectorAll<HTMLElement>(`[data-docs-article] h2[id], [data-docs-article] h3[id]`)).map(node => { node.tabIndex = -1; return { id: node.id, title: node.textContent ?? '' }; }));
+  }, [article]);
+
+  async function copyPage() {
+    try {
+      const content = document.querySelector<HTMLElement>('[data-docs-article]');
+      await navigator.clipboard.writeText(`${article?.title ?? page}\n\n${content?.innerText ?? ''}`);
+      setCopied(true); setCopyError(false);
+    } catch { setCopyError(true); }
+  }
+
+  useEffect(() => {
+    if (!home) return;
+    const followLegacyHash = () => {
+      if (window.location.hash) router.replace(`/docs/guide${window.location.hash}`);
+    };
+    followLegacyHash();
+    window.addEventListener('hashchange', followLegacyHash);
+    return () => window.removeEventListener('hashchange', followLegacyHash);
+  }, [home, router]);
 
   useEffect(() => {
     setHydrated(true);
@@ -34,13 +99,14 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
     const syncContents = () => setContentsOpen(!media.matches);
     syncContents();
     media.addEventListener('change', syncContents);
-    const root = document.querySelector<HTMLElement>('.app-content');
+    const root = document.querySelector<HTMLElement>(`.${styles.docsPage}`);
+    const scrollRoot = root && getComputedStyle(root).overflowY === 'auto' ? root : undefined;
     let frame = 0;
     let cancelled = false;
     const updateActive = () => {
       frame = 0;
-      const top = (root?.getBoundingClientRect().top ?? 0) + (media.matches ? 96 : 52);
-      const headings = currentEntries.map(({ id }) => document.getElementById(id)).filter((node): node is HTMLElement => Boolean(node));
+      const top = (scrollRoot?.getBoundingClientRect().top ?? 0) + (media.matches ? 185 : 144);
+      const headings = article ? Array.from(document.querySelectorAll<HTMLElement>('[data-docs-article] h2[id], [data-docs-article] h3[id]')) : currentEntries.map(({ id }) => document.getElementById(id)).filter((node): node is HTMLElement => Boolean(node));
       const current = headings.filter((node) => node.getBoundingClientRect().top <= top).at(-1) ?? headings[0];
       if (current) setActiveId(current.id);
     };
@@ -67,14 +133,22 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
     const onShortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        inputRef.current?.focus();
+        if (media.matches) { setMobileSearchOpen(true); setMobileLinksOpen(false); }
+        else inputRef.current?.focus();
       }
       if (event.key === 'Escape' && document.activeElement === inputRef.current) {
         setQuery('');
+        setMobileSearchOpen(false);
         if (media.matches) setContentsOpen(false);
+        if (media.matches) mobileSearchRef.current?.focus();
+      }
+      if (event.key === 'Escape' && media.matches) {
+        if (mobileOptionsRef.current?.getAttribute('aria-expanded') === 'true') mobileOptionsRef.current.focus();
+        else if (document.activeElement !== mobileSearchRef.current && mobileMenuRef.current?.getAttribute('aria-expanded') === 'true') mobileMenuRef.current.focus();
+        setMobileLinksOpen(false); setContentsOpen(false);
       }
     };
-    root?.addEventListener('scroll', onScroll, { passive: true });
+    (scrollRoot ?? window).addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('hashchange', restoreHash);
     window.addEventListener('keydown', onShortcut);
     restoreHash();
@@ -84,11 +158,11 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
       cancelled = true;
       cancelAnimationFrame(frame);
       media.removeEventListener('change', syncContents);
-      root?.removeEventListener('scroll', onScroll);
+      (scrollRoot ?? window).removeEventListener('scroll', onScroll);
       window.removeEventListener('hashchange', restoreHash);
       window.removeEventListener('keydown', onShortcut);
     };
-  }, [currentEntries]);
+  }, [currentEntries, article]);
 
   function followSection(id: string) {
     setActiveId(id);
@@ -104,20 +178,51 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
 
   const count = searching ? results.length : currentEntries.length;
   return (
-    <AppShell>
-      <div className={styles.docsPage}>
-        <div className={styles.docsLayout}>
-          <nav className={styles.docsNav} aria-label="Documentation sections" aria-busy={!hydrated}>
-            <div className={styles.railTitle}><BookOpen size={17} aria-hidden="true" />Documentation</div>
-            <label className={styles.srOnly} htmlFor="docs-search">Search docs</label>
+    <div className={`${styles.docsPage} ${home ? styles.homePage : ''} ${article ? styles.articlePage : ''}`} data-searching={searching || undefined} data-mobile-search={mobileSearchOpen || undefined} data-navigation-open={contentsOpen || undefined}>
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <header className={styles.docsChrome}>
+          <div className={styles.docsTopbar}>
+            <Link href="/docs" className={styles.docsBrand} aria-label="FxAeon docs home">
+              <FxLogo size={29} />
+              <span className={styles.srOnly}>FxAeon documentation</span>
+            </Link>
             <div className={styles.searchRow}>
               <Search className={styles.searchIcon} aria-hidden="true" />
-              <input id="docs-search" ref={inputRef} type="search" value={query} disabled={!hydrated}
+              <label className={styles.srOnly} htmlFor="docs-search">Search docs</label>
+              <input id="docs-search" ref={inputRef} type="search" value={query} disabled={!hydrated} onFocus={prepareSearch}
                 onChange={(event) => { setQuery(event.target.value); if (event.target.value.trim()) setContentsOpen(true); }}
                 placeholder="Search docs…" className={styles.searchInput} autoComplete="off" aria-controls="docs-contents" />
-              {query && <button type="button" className={styles.clearSearch} onClick={() => { setQuery(''); inputRef.current?.focus(); }}>Clear</button>}
+              {query
+                ? <button type="button" className={styles.clearSearch} onClick={() => { setQuery(''); inputRef.current?.focus(); }}>Clear</button>
+                : <kbd className={styles.searchShortcut}>Ctrl K</kbd>}
             </div>
-            <p className={styles.srOnly} role="status">{searching ? `${count} documentation ${count === 1 ? 'result' : 'results'} found` : ''}</p>
+            <nav className={styles.chromeLinks} aria-label="FxAeon links">
+              <ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink>
+              <span className={styles.supportLink}><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink></span>
+              <Link href="/" className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
+              <ThemeToggle className={styles.docsTheme} />
+            </nav>
+            <div className={styles.mobileActions}>
+              <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); if (mobileSearchOpen) { setQuery(''); setContentsOpen(false); } }}><Search size={20} /></button>
+              <button ref={mobileOptionsRef} type="button" aria-label="More documentation options" aria-expanded={mobileLinksOpen} onClick={() => { setMobileLinksOpen(!mobileLinksOpen); setMobileSearchOpen(false); setContentsOpen(false); setQuery(''); }}><EllipsisVertical size={20} /></button>
+              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link><ThemeToggle className={styles.docsTheme} /></nav>}
+            </div>
+          </div>
+          <div className={styles.docsSubnav} role="group" aria-label="Documentation guides">
+            <span className={styles.subnavLabel}>Documentation</span>
+            <Link href={productHref('getting-started')} aria-current={article?.group === 'Get started' || (!home && !article && page === 'Product guide') ? 'page' : undefined}>Start here</Link>
+            <Link href={productHref('trade')} aria-current={article?.group === 'Products' ? 'page' : undefined}>Products</Link>
+            <Link href={productHref('wallets')} aria-current={article?.group === 'Wallets' ? 'page' : undefined}>Wallets</Link>
+            <Link href={productHref('troubleshooting')} aria-current={article?.group === 'Help' ? 'page' : undefined}>Help</Link>
+            <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
+            <span className={styles.subnavCurrent} aria-current="location">{page}</span>
+          </div>
+          <div className={styles.mobileBreadcrumb}><button ref={mobileMenuRef} type="button" aria-label={contentsOpen ? 'Close documentation menu' : 'Open documentation menu'} aria-expanded={contentsOpen} aria-controls="docs-contents" onClick={() => { setContentsOpen(!contentsOpen); setMobileSearchOpen(false); setMobileLinksOpen(false); setQuery(''); }}><Menu size={18} /></button>{article && <><span>{article.group}</span><ChevronRight size={14} aria-hidden="true" /></>}<strong>{article?.title ?? (home ? 'Welcome to FxAeon' : page)}</strong></div>
+        </header>
+        <div className={styles.docsLayout}>
+          <nav className={styles.docsNav} aria-label={article || home ? 'Pages' : 'Documentation sections'} aria-busy={!hydrated}>
+            <div className={styles.railTitle}><BookOpen size={16} aria-hidden="true" />On this page</div>
+            <p className={styles.srOnly} role="status">{searching ? searchEntries ? `${count} documentation ${count === 1 ? 'result' : 'results'} found` : searchError ? 'Documentation search unavailable' : 'Loading documentation search' : ''}</p>
             <details className={styles.contentsDisclosure} open={contentsOpen} onToggle={(event) => setContentsOpen(event.currentTarget.open)}>
               <summary className={styles.contentsSummary}>
                 <span>Contents</span>
@@ -127,58 +232,65 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
               <div className={styles.navLinks} id="docs-contents">
                 {searching ? <>
                   <p className={styles.navGroupLabel}>Search all documentation</p>
-                  {results.map((entry) => <Link key={entry.href} href={entry.page === page ? `#${entry.id}` : entry.href}
-                    className={styles.searchResult} onClick={() => { setQuery(''); if (entry.page === page) followSection(entry.id); }}>
+                  {results.map((entry) => <Link key={entry.href} href={!home && !article && entry.page === page ? `#${entry.id}` : entry.href}
+                    className={styles.searchResult} onClick={() => { setQuery(''); setMobileSearchOpen(false); if (!home && !article && entry.page === page) followSection(entry.id); }}>
                     <span className={styles.resultTitle}>{entry.title}<ArrowRight size={13} aria-hidden="true" /></span>
                     <span className={styles.resultPage}>{entry.page}</span>
                     <span className={styles.resultExcerpt}>{searchExcerpt(entry.text, query)}</span>
                   </Link>)}
-                  {!results.length && <p className={styles.emptySearch}>Nothing found for “{query}”. Try wallet, cooldown, bridge, or a method name.</p>}
+                  {!searchEntries ? <p className={styles.emptySearch}>{searchError ? <>Search could not load. <button type="button" onClick={prepareSearch}>Try again</button></> : 'Loading search…'}</p> : !results.length && <p className={styles.emptySearch}>Nothing found for “{query}”. Try wallet, cooldown, bridge, or a method name.</p>}
                 </> : <>
-                  <div className={styles.pageLinks} aria-label="Documentation guides">
-                    <Link href="/docs" aria-current={page === 'Product guide' ? 'page' : undefined}>Guide</Link>
-                    <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
-                  </div>
                   {groups.map((group) => <div key={group.label} className={styles.navGroup}>
                     <p className={styles.navGroupLabel}>{group.label}</p>
                     {group.ids.map((id) => {
                       const entry = currentEntries.find((item) => item.id === id);
-                      return entry && <a key={id} href={`#${id}`} className={styles.navLink}
-                        aria-current={activeId === id ? 'location' : undefined} onClick={() => followSection(id)}>{entry.title}</a>;
+                      const Icon = PAGE_ICONS[id] ?? BookOpen;
+                      return entry && <Link key={id} href={article || home ? productHref(id) : `#${id}`} className={styles.navLink}
+                        aria-current={(article ? article.id === id : !home && activeId === id) ? 'location' : undefined} onClick={() => { if (!article && !home) followSection(id); }}>
+                        {(article || home) && <Icon size={16} aria-hidden="true" />}{article || home ? productNavigation.find(item => item.id === id)?.title ?? entry.title : entry.title}
+                      </Link>;
                     })}
                   </div>)}
+                  <Link href={page === 'SDK reference' ? productHref('getting-started') : '/docs/sdk'} className={styles.navLink}><BookOpen size={16} aria-hidden="true" />{page === 'SDK reference' ? 'Product guide' : 'SDK reference'}</Link>
                 </>}
               </div>
             </details>
+            {!home && <div className={styles.sidebarTheme}><ThemeToggle className={styles.docsTheme} /></div>}
           </nav>
-          <article className={styles.docsContent}>
+          <main id="main-content" tabIndex={-1} className={styles.docsContent}>
+          <article>
             <header className={styles.docsIntro}>
-              <p className={styles.breadcrumb}><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></p>
-              <h1 id="docs-page-heading">{page === 'Product guide' ? 'FxAeon documentation' : 'The f(x) SDK in FxAeon'}</h1>
-              {page === 'Product guide'
+              {!home && <p className={styles.breadcrumb}>{article ? article.group : <><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></>}</p>}
+              <h1 id="docs-page-heading" tabIndex={-1}>{article?.title ?? (home ? 'Welcome to FxAeon' : page === 'Product guide' ? 'Product guide' : 'The f(x) SDK in FxAeon')}</h1>
+              {article ? <><p className={styles.lead}>{article.description}</p><button className={styles.copyPage} type="button" onClick={copyPage}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'Copied' : 'Copy page'}</button>{copyError && <p role="status">Copy is unavailable. Select the text to copy it.</p>}</> : home ? <p className={styles.lead}>FxAeon brings <strong>trading, savings, borrowing, and bridging</strong> to your browser and Telegram. Use f(x) Protocol on <strong>Ethereum</strong>, and move supported assets between <strong>Ethereum and Base</strong>.</p> : page === 'Product guide'
                 ? <p className={styles.lead}>Your guide to Trade, Earn, Borrow, and Move. Understand the action before you sign.</p>
                 : <>
                   <p className={styles.lead}>The methods, units, and safeguards behind the app. Start with a read, then explore how a reviewed transaction reaches the chain.</p>
                   <p className={styles.versionLine}><span className={styles.versionBadge}>SDK 1.0.5</span>15 supported methods<span aria-hidden="true">·</span>Local patches documented</p>
                 </>}
             </header>
-            {children}
-            <Link href={page === 'Product guide' ? '/docs/sdk' : '/docs#getting-started'} className={styles.nextPage}>
+            <div data-docs-article>{children}</div>
+            {article && <nav className={styles.articlePagination} aria-label="Pagination">
+              {previousArticle ? <Link href={productHref(previousArticle.id)}><ArrowLeft size={16} /><span>{previousArticle.title}<small>Previous</small></span></Link> : <span />}
+              {nextArticle ? <Link href={productHref(nextArticle.id)}><span>{nextArticle.title}<small>Next</small></span><ArrowRight size={16} /></Link> : <Link href="/docs/sdk"><span>SDK reference<small>Next</small></span><ArrowRight size={16} /></Link>}
+            </nav>}
+            {!home && <>{!article && <Link href={page === 'Product guide' ? '/docs/sdk' : '/docs/guide#getting-started'} className={styles.nextPage}>
               <span><span className={styles.nextLabel}>{page === 'Product guide' ? 'For developers' : 'Back to the guide'}</span>
                 <strong>{page === 'Product guide' ? 'Explore the SDK integration' : 'Get started with FxAeon'}</strong></span>
               <ArrowRight size={21} aria-hidden="true" />
-            </Link>
+            </Link>}
             <footer className={styles.docsFooter}>
               <p>FxAeon is an independent interface. These docs describe its supported integration, not the full f(x) Protocol.</p>
               <div className={styles.footerLinks}>
                 <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs">f(x) Protocol docs</ExternalLink>
-                <ExternalLink href="https://github.com/fxaeon/FxAeon">View source</ExternalLink>
+
                 <Link href="/">Open FxAeon <ArrowRight size={13} aria-hidden="true" /></Link>
               </div>
-            </footer>
+            </footer></>}
           </article>
+          {article && outline.length > 0 && <nav className={styles.articleOutline} aria-label="On this page"><p><List size={14} aria-hidden="true" />On this page</p>{outline.map(item => <a key={item.id} href={`#${item.id}`} aria-current={activeId === item.id ? 'location' : undefined}>{item.title}</a>)}</nav>}
+          </main>
         </div>
-      </div>
-    </AppShell>
+    </div>
   );
 }

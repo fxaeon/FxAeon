@@ -1,10 +1,10 @@
 import { formatUnits, parseUnits, type Address } from 'viem';
 import { tokens as sdkTokens } from '@aladdindao/fx-sdk';
 import type { PositionInfo } from '@aladdindao/fx-sdk';
-import { assertConfiguredPublicClientChain, assertPublicClientChain, getEthereumClient, getFxReadFacade, type FxPublicClient } from '@/lib/fx';
+import { assertPublicClientChain, assertWalletAddress, getEthereumClient, getFxReadFacade, type FxPublicClient } from '@/lib/fx';
 import { withReadDeadline } from '@/lib/fx/readFacade';
 import { positionPoolAddress } from '@/lib/fx/policy';
-import { discoverDirectWalletPositionIds, readDirectWalletPositionCount } from './directPositionDiscovery';
+import { discoverDirectWalletPositionIds, readDirectWalletPositionCount, readDirectWalletPositionCounts } from './directPositionDiscovery';
 import { FX_READ_DEADLINE_MS } from '@/lib/fx/readFacade';
 import { readCanonicalPositionContext, readCanonicalPositionInfo } from './canonicalPositionReader';
 
@@ -294,14 +294,16 @@ export async function verifyPositionGroupOwnership(params: {
  * a false empty wallet. Only the IDs found by that scan are hydrated through
  * the pinned SDK-compatible canonical reader.
  */
-export async function readPositionGroupWithDirectFallback(params: {
+type PositionGroupReadParams = {
   client: FxPublicClient;
   sdk: Pick<ReturnType<typeof getFxReadFacade>, 'getPositions'>;
   walletAddress: Address;
   group: PositionGroup;
   /** Test hook; production reserves most of the shared refresh deadline. */
   indexerTimeoutMs?: number;
-}): Promise<PositionInfo[]> {
+};
+
+export async function readPositionGroupWithDirectFallback(params: PositionGroupReadParams): Promise<PositionInfo[]> {
   const deadlineAt = Date.now() + FX_READ_DEADLINE_MS;
   // A zero balance is authoritative and avoids an indexer request entirely.
   // This matters for disconnected/empty pools and keeps the fast path cheap.
@@ -311,6 +313,10 @@ export async function readPositionGroupWithDirectFallback(params: {
     group: params.group,
     deadlineAt,
   });
+  return readPositionGroupWithInitialCount(params, expectedCount, deadlineAt);
+}
+
+async function readPositionGroupWithInitialCount(params: PositionGroupReadParams, expectedCount: bigint, deadlineAt: number): Promise<PositionInfo[]> {
   if (expectedCount === 0n) return [];
 
   let indexed: PositionInfo[] = [];
@@ -393,11 +399,26 @@ export async function readPositionGroupWithDirectFallback(params: {
 }
 
 export async function readAllPositionsDetailed(walletAddress: string): Promise<PositionReadResult> {
-  await withReadDeadline(assertConfiguredPublicClientChain(1));
-  const sdk = getFxReadFacade();
-  const client = getEthereumClient();
+  return readAllPositionsFromClient({ walletAddress, client: getEthereumClient() });
+}
+
+/** Injected read boundary for deterministic transport/ownership regression tests. */
+export async function readAllPositionsFromClient(params: {
+  walletAddress: string;
+  client: FxPublicClient;
+  sdk?: PositionGroupReadParams['sdk'];
+}): Promise<PositionReadResult> {
+  assertWalletAddress(params.walletAddress);
+  const walletAddress = params.walletAddress as Address;
+  await withReadDeadline(assertPublicClientChain(params.client, 1));
+  const sdk = params.sdk ?? getFxReadFacade();
+  const deadlineAt = Date.now() + FX_READ_DEADLINE_MS;
+  const counts = readDirectWalletPositionCounts({ client: params.client, walletAddress, groups: POSITION_GROUPS, deadlineAt });
   return settlePositionGroups(
-    (group) => readPositionGroupWithDirectFallback({ client, sdk, walletAddress: walletAddress as Address, group }),
+    async (group) => {
+      const count = await counts[POSITION_GROUPS.indexOf(group)];
+      return readPositionGroupWithInitialCount({ client: params.client, sdk, walletAddress, group }, count, deadlineAt);
+    },
   );
 }
 

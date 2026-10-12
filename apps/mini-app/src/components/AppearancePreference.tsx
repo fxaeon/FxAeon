@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Check } from 'lucide-react';
 import { applyTheme, getSavedTheme, THEMES, type ThemeId } from '@/lib/theme';
 import { haptic } from '@/lib/telegram';
@@ -25,9 +25,7 @@ export function useAppearance() {
 
 export default function AppearancePreference() {
   const { theme, ready, select } = useAppearance();
-  const id = useId();
-  return <section id="appearance" className={styles.section} aria-labelledby={id}>
-    <h2 id={id}>Appearance</h2>
+  return <section id="appearance" className={styles.section} aria-label="Appearance">
     <div className={styles.choices} role="radiogroup" aria-label="Appearance theme">
       {OPTIONS.map((option, index) => {
         const config = THEMES[option];

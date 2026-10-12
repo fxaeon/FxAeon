@@ -11,6 +11,13 @@ import { E2E_BUILD_ENV } from './e2e_build_env.mjs';
  * the Windows CI runner.
  */
 
+const phase = (process.argv[2] ?? 'all').replace(/^--/, '');
+const validPhases = new Set(['all', 'ci-source', 'ci-build', 'ci-isolated-0', 'ci-isolated-1', 'ci-isolated-2']);
+if (!validPhases.has(phase)) {
+  console.error(`[verify] unknown phase: ${phase}`);
+  process.exit(2);
+}
+
 const root = process.cwd();
 const pnpm = process.env.npm_execpath && existsSync(process.env.npm_execpath)
   ? { command: process.execPath, prefix: [process.env.npm_execpath] }
@@ -43,8 +50,24 @@ function pnpmRun(args, label, envOverrides) {
   return run(pnpm.command, [...pnpm.prefix, ...args], label, envOverrides);
 }
 
+async function runLimited(checks, concurrency) {
+  const results = new Array(checks.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(concurrency, checks.length) }, async () => {
+    while (next < checks.length) {
+      const index = next++;
+      results[index] = await checks[index].run();
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 async function runGroup(checks, group) {
-  const results = await Promise.all(checks.map(({ args, label }) => pnpmRun(args, label)));
+  const results = await runLimited(
+    checks.map(({ args, label }) => ({ run: () => pnpmRun(args, label) })),
+    4,
+  );
   const failed = results.filter((code) => code !== 0);
   if (failed.length) {
     console.error(`[verify] ${group} failed (${failed.length} check${failed.length === 1 ? '' : 's'})`);
@@ -54,12 +77,13 @@ async function runGroup(checks, group) {
   return true;
 }
 
+async function verifySource() {
 const scope = await pnpmRun(['verify:scope'], 'scope verification');
-if (scope !== 0) process.exit(scope);
+if (scope !== 0) return scope;
 const architecture = await pnpmRun(['verify:architecture'], 'architecture verification');
-if (architecture !== 0) process.exit(architecture);
+if (architecture !== 0) return architecture;
 const landingBuild = await pnpmRun(['build:landing'], 'standalone landing build');
-if (landingBuild !== 0) process.exit(landingBuild);
+if (landingBuild !== 0) return landingBuild;
 
 // Lightweight checks can overlap. Run the complete test glob once in a single
 // tsx process: it includes the Anvil-contract skips and seeded chaos campaign,
@@ -75,6 +99,7 @@ const quickChecks = await runGroup([
   { args: ['exec', 'node', '--test', 'scripts/generate_csp_headers.contract.test.mjs'], label: 'CSP generation contract' },
   { args: ['exec', 'node', '--test', 'scripts/cloudflare_headers.contract.test.mjs'], label: 'Cloudflare headers contract' },
   { args: ['exec', 'node', '--test', 'apps/mini-app/test/e2e-serve.test.mjs'], label: 'Static E2E server route contract' },
+  { args: ['exec', 'node', '--test', 'scripts/verify_phases.contract.test.mjs'], label: 'Verification runner phase contract' },
   { args: ['test:landing'], label: 'Standalone landing contract' },
   { args: ['exec', 'node', '--test', 'scripts/verify_frontend_secrets.test.mjs', 'scripts/launch_readiness.test.mjs'], label: 'Launch readiness contracts' },
   { args: ['exec', 'node', 'scripts/verify_frontend_secrets.mjs'], label: 'Frontend secret scan' },
@@ -86,43 +111,87 @@ const quickChecks = await runGroup([
 const tests = await pnpmRun(['test'], 'unit and chaos tests');
 if (!quickChecks || tests !== 0) {
   console.error('[verify] source checks failed');
-  process.exit(1);
+  return 1;
+}
+if (phase === 'ci-source') {
+  const landingBrowser = await pnpmRun(['test:landing:browser'], 'standalone landing browser checks');
+  if (landingBrowser !== 0) return landingBrowser;
+}
+return 0;
 }
 
-const build = await pnpmRun(['build'], 'production build', E2E_BUILD_ENV);
-if (build !== 0) process.exit(build);
+if (phase === 'all' || phase === 'ci-source') {
+  const sourceStartedAt = Date.now();
+  const sourceResult = await verifySource();
+  console.log(`[verify] source phase completed in ${((Date.now() - sourceStartedAt) / 1000).toFixed(1)}s`);
+  if (sourceResult !== 0) process.exit(sourceResult);
+  if (phase === 'ci-source') process.exit(process.exitCode ?? 0);
+}
 
-const builtChecks = await Promise.all([
-  run(process.execPath, ['scripts/verify_frontend_secrets.mjs', '--built'], 'Built frontend secret scan'),
-  pnpmRun(['typecheck'], 'typecheck'),
-  pnpmRun(['check:bundle'], 'bundle check'),
-  run(process.execPath, ['scripts/run_built_e2e.mjs'], 'built-route E2E'),
-  pnpmRun(['test:landing:browser'], 'standalone landing browser checks'),
-]);
+if (phase === 'all' || phase === 'ci-build') {
+// CI phases use separate runners; the built secret scan covers both exports.
+if (phase === 'ci-build') {
+  const landingBuild = await pnpmRun(['build:landing'], 'standalone landing build');
+  if (landingBuild !== 0) process.exit(landingBuild);
+}
+const buildStartedAt = Date.now();
+const build = await pnpmRun(['build'], 'production build', E2E_BUILD_ENV);
+if (build !== 0) {
+  console.error(`[verify] build phase failed after ${((Date.now() - buildStartedAt) / 1000).toFixed(1)}s`);
+  process.exit(build);
+}
+
+const builtChecks = await runLimited([
+  { run: () => run(process.execPath, ['scripts/verify_frontend_secrets.mjs', '--built'], 'Built frontend secret scan') },
+  { run: () => pnpmRun(['typecheck'], 'typecheck') },
+  { run: () => pnpmRun(['check:bundle'], 'bundle check') },
+  ...(phase === 'all' ? [
+    { run: () => run(process.execPath, ['scripts/run_built_e2e.mjs'], 'built-route E2E') },
+    { run: () => pnpmRun(['test:landing:browser'], 'standalone landing browser checks') },
+  ] : []),
+], 3);
 const builtFailures = builtChecks.filter((code) => code !== 0);
 if (builtFailures.length) {
   console.error(`[verify] build-dependent checks failed (${builtFailures.length})`);
   process.exitCode = 1;
 }
+console.log(`[verify] build phase completed in ${((Date.now() - buildStartedAt) / 1000).toFixed(1)}s`);
+}
 
 // Isolated browser harnesses are separate Playwright projects so their
-// fixtures never leak into the production mini-app E2E suite. Run them one
-// at a time after the shared build gates to keep browser memory bounded.
+// fixtures never leak into the production mini-app E2E suite. Run at most two
+// after the shared build gates to keep browser memory bounded.
 const isolatedBrowserChecks = [
   { args: ['test:e2e:borrow-harness'], label: 'Borrow selection browser harness' },
   { args: ['test:e2e:move-harness'], label: 'Move review layout browser harness' },
   { args: ['test:e2e:positions-harness'], label: 'Positions review layout browser harness' },
   { args: ['test:e2e:privy-send-harness'], label: 'Privy embedded send adapter browser harness' },
   { args: ['test:e2e:trade-harness'], label: 'Trade native Max lifecycle browser harness' },
+  { args: ['test:e2e:wallet-provider-harness'], label: 'Telegram-only Privy provider routing browser harness' },
+  { args: ['test:e2e:mobile-wallet-harness'], label: 'Mobile wallet-browser handoff browser harness' },
   { args: ['test:e2e:overlay'], label: 'Overlay lifecycle browser harness' },
   { args: ['test:e2e:state-lab'], label: 'UI state lab browser suite' },
 ];
-const isolatedFailures = [];
-for (const check of isolatedBrowserChecks) {
-  const code = await pnpmRun(check.args, check.label);
-  if (code !== 0) isolatedFailures.push(check.label);
-}
-if (isolatedFailures.length) {
-  console.error(`[verify] isolated browser checks failed: ${isolatedFailures.join(', ')}`);
-  process.exitCode = 1;
+const isolatedGroups = [
+  [isolatedBrowserChecks[7]],
+  [isolatedBrowserChecks[6], isolatedBrowserChecks[1]],
+  [isolatedBrowserChecks[0], isolatedBrowserChecks[2], isolatedBrowserChecks[3], isolatedBrowserChecks[4], isolatedBrowserChecks[5], isolatedBrowserChecks[8]],
+];
+const isolatedGroupIndex = phase.startsWith('ci-isolated-') ? Number(phase.slice('ci-isolated-'.length)) : null;
+const selectedIsolatedChecks = isolatedGroupIndex === null
+  ? isolatedBrowserChecks
+  : isolatedGroups[isolatedGroupIndex];
+const shouldRunIsolated = phase === 'all' || isolatedGroupIndex !== null;
+if (shouldRunIsolated) {
+  const isolatedStartedAt = Date.now();
+  const isolatedResults = await runLimited(
+    selectedIsolatedChecks.map((check) => ({ run: () => pnpmRun(check.args, check.label) })),
+    2,
+  );
+  const isolatedFailures = isolatedResults.flatMap((code, index) => code === 0 ? [] : [selectedIsolatedChecks[index].label]);
+  if (isolatedFailures.length) {
+    console.error(`[verify] isolated browser checks failed: ${isolatedFailures.join(', ')}`);
+    process.exitCode = 1;
+  }
+  console.log(`[verify] isolated browser phase completed in ${((Date.now() - isolatedStartedAt) / 1000).toFixed(1)}s`);
 }

@@ -10,10 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Scope, lint, typecheck, test, build
+  source:
+    name: Source checks
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
@@ -24,13 +24,113 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # `pnpm verify` includes the built-artifact Playwright gate. Install the
-      # pinned browser here as well as in the focused E2E workflow so the CI
-      # badge reflects the same release gate instead of failing at launch.
       - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
-      - name: Run complete repository verification
-        run: pnpm verify
+      - name: Run source verification
+        run: pnpm verify --ci-source
         env:
           NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/ci-placeholder
           NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: https://base-mainnet.g.alchemy.com/v2/ci-placeholder
           NEXT_PUBLIC_TELEGRAM_APP_URL: https://t.me/FxAeonBot
+
+  build:
+    name: Production build checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - name: Restore Next.js build cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: apps/mini-app/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mini-app/next.config.*', 'apps/mini-app/package.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mini-app/next.config.*', 'apps/mini-app/package.json') }}-
+      - run: pnpm install --frozen-lockfile
+      - name: Build once and run built artifact checks
+        run: pnpm verify --ci-build
+        env:
+          NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/ci-placeholder
+          NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: https://base-mainnet.g.alchemy.com/v2/ci-placeholder
+          NEXT_PUBLIC_TELEGRAM_APP_URL: https://t.me/FxAeonBot
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mini-app-static-export
+          path: apps/mini-app/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  built-e2e:
+    name: Built E2E shard ${{ matrix.shard }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/4', '2/4', '3/4', '4/4']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: mini-app-static-export
+          path: apps/mini-app/dist
+      - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
+      - name: Run built route browser shard
+        run: pnpm --dir apps/mini-app exec playwright test --shard=${{ matrix.shard }}
+        env:
+          E2E_BUILD: '0'
+
+  isolated-e2e:
+    name: Isolated browser group ${{ matrix.group }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ['ci-isolated-0', 'ci-isolated-1', 'ci-isolated-2']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
+      - name: Run isolated browser checks
+        run: pnpm verify --${{ matrix.group }}
+
+  verify:
+    name: Scope, lint, typecheck, test, build
+    if: ${{ always() }}
+    needs: [source, build, built-e2e, isolated-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every verification phase
+        if: ${{ needs.source.result != 'success' || needs.build.result != 'success' || needs.built-e2e.result != 'success' || needs.isolated-e2e.result != 'success' }}
+        run: |
+          echo "Source: ${{ needs.source.result }}"
+          echo "Build: ${{ needs.build.result }}"
+          echo "Built E2E: ${{ needs.built-e2e.result }}"
+          echo "Isolated E2E: ${{ needs.isolated-e2e.result }}"
+          exit 1
+      - name: All verification phases passed
+        if: ${{ needs.source.result == 'success' && needs.build.result == 'success' && needs.built-e2e.result == 'success' && needs.isolated-e2e.result == 'success' }}
+        run: echo "All verification phases passed"

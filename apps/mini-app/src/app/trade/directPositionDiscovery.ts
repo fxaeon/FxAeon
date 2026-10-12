@@ -1,4 +1,5 @@
-import type { Address } from 'viem';
+import { decodeFunctionResult, encodeFunctionData, multicall3Abi, type Address } from 'viem';
+import { mainnet } from 'viem/chains';
 import { positionPoolAddress } from '@/lib/fx/policy';
 import type { FxPublicClient } from '@/lib/fx/types';
 import type { PositionGroup } from './fxUi';
@@ -205,12 +206,16 @@ function uniqueVerifiedIds(ids: readonly number[]): number[] {
   return [...unique].sort((a, b) => a - b);
 }
 
+class DirectPositionDeadlineError extends Error {
+  constructor() { super('direct position scan deadline exceeded'); }
+}
+
 async function withDeadline<T>(task: Promise<T>, deadline: number): Promise<T> {
   const remaining = deadline - Date.now();
-  if (remaining <= 0) throw new Error('direct position scan deadline exceeded');
+  if (remaining <= 0) throw new DirectPositionDeadlineError();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('direct position scan deadline exceeded')), remaining);
+    timer = setTimeout(() => reject(new DirectPositionDeadlineError()), remaining);
   });
   try {
     return await Promise.race([task, timeout]);
@@ -238,6 +243,55 @@ export async function readDirectWalletPositionCount(params: {
 }): Promise<bigint> {
   const deadline = params.deadlineAt ?? Date.now() + DIRECT_POSITION_SCAN_DEADLINE_MS;
   return withDeadline(readBalance(params.client, positionPoolAddress(params.group.market, params.group.side), params.walletAddress), deadline);
+}
+
+/** Batch initial pool counts on a chain-verified Ethereum client.
+ * Failed/malformed slots retry the existing direct read within the same deadline;
+ * they are never interpreted as an empty wallet. No count survives this refresh.
+ */
+export function readDirectWalletPositionCounts(params: {
+  client: Pick<FxPublicClient, 'readContract'>;
+  groups: readonly PositionGroup[];
+  walletAddress: Address;
+  deadlineAt?: number;
+}): readonly Promise<bigint>[] {
+  const deadline = params.deadlineAt ?? Date.now() + DIRECT_POSITION_SCAN_DEADLINE_MS;
+  const readDirect = async (group: PositionGroup) => {
+    // Do not start a fallback RPC after an exhausted aggregate deadline.
+    if (Date.now() >= deadline) throw new Error('direct position scan deadline exceeded');
+    return readDirectWalletPositionCount({ ...params, group, deadlineAt: deadline });
+  };
+  if (params.groups.length === 0) return [];
+  const batch = (async () => {
+    if (Date.now() >= deadline) throw new Error('direct position scan deadline exceeded');
+    const results: unknown = await withDeadline(params.client.readContract({
+      address: mainnet.contracts.multicall3.address,
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      args: [params.groups.map((group) => ({
+        target: positionPoolAddress(group.market, group.side),
+        allowFailure: true,
+        callData: encodeFunctionData({ abi: POSITION_NFT_ABI, functionName: 'balanceOf', args: [params.walletAddress] }),
+      }))],
+    }), deadline);
+    if (!Array.isArray(results) || results.length !== params.groups.length) throw new Error('position count multicall returned an incomplete batch');
+    return results as unknown[];
+  })();
+  // Each failed slot can fall back independently; a hung fallback must not
+  // consume the other groups' deadline before they begin their ownership work.
+  return params.groups.map((group, index) => batch.then((results) => {
+    const result = results[index];
+    if (!result || typeof result !== 'object' || !('success' in result) || result.success !== true
+      || !('returnData' in result) || typeof result.returnData !== 'string' || !/^0x[0-9a-f]*$/i.test(result.returnData)) {
+      throw new Error('position count multicall slot was unavailable');
+    }
+    return asCount(decodeFunctionResult({ abi: POSITION_NFT_ABI, functionName: 'balanceOf', data: result.returnData as `0x${string}` }));
+  }).catch((cause: unknown) => {
+    // A fired deadline is final even if the wall clock has not caught up
+    // with the timer or moved backwards. It must not start another RPC.
+    if (cause instanceof DirectPositionDeadlineError) throw cause;
+    return readDirect(group);
+  }));
 }
 
 async function scanOwners(params: {

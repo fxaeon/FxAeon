@@ -1,4 +1,4 @@
-import { test, expect, assertNoBackendRequests, installGasTierFixture } from '../fixtures/test';
+import { test, expect, assertNoBackendRequests } from '../fixtures/test';
 
 /** These checks exercise actual components, not a screenshot-only mockup. */
 test.describe('unified product presentation', () => {
@@ -54,36 +54,15 @@ test.describe('unified product presentation', () => {
     });
   }
 
-  test('gas tier and slippage save explicitly without losing the appearance preference', async ({ page, requests }) => {
-    await installGasTierFixture(page);
+  test('web slippage saves without gas quotes or losing saved gas and appearance preferences', async ({ page, requests }) => {
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('fxaeon.settings.v1')) localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ gasTier: 'fast', slippageBps: 50 }));
+    });
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
     const theme = page.getByRole('radiogroup', { name: 'Appearance theme' });
     await theme.getByRole('radio', { name: 'Light', exact: true }).click();
     await expect(theme.getByRole('radio', { name: 'Light', exact: true })).toHaveAttribute('aria-checked', 'true');
-    const gasTier = page.getByRole('radiogroup', { name: 'Gas speed', exact: true });
-    const gasRadios = gasTier.getByRole('radio');
-    await expect(gasRadios).toHaveCount(3);
-    const readGasRadioState = () => gasRadios.evaluateAll((radios) => radios.map((radio) => ({
-      checked: radio.getAttribute('aria-checked'),
-      tabIndex: (radio as HTMLElement).tabIndex,
-    })));
-    await expect.poll(readGasRadioState).toEqual([
-      { checked: 'true', tabIndex: 0 },
-      { checked: 'false', tabIndex: -1 },
-      { checked: 'false', tabIndex: -1 },
-    ]);
-    const gasHelp = page.locator(`#${await gasTier.getAttribute('aria-describedby')}`);
-    await expect(gasHelp).toContainText('Gwei');
-    await expect(gasTier.getByRole('radio', { name: /^Standard\b/ })).toContainText('25');
-    const fast = gasTier.getByRole('radio', { name: /^Fast\b/ });
-    await expect(fast).toContainText('30');
-    await fast.click();
-    await expect(fast).toHaveAttribute('aria-checked', 'true');
-    await expect.poll(readGasRadioState).toEqual([
-      { checked: 'false', tabIndex: -1 },
-      { checked: 'true', tabIndex: 0 },
-      { checked: 'false', tabIndex: -1 },
-    ]);
+    await expect(page.getByRole('radiogroup', { name: 'Gas speed', exact: true })).toHaveCount(0);
     const slippage = page.getByRole('radiogroup').filter({ has: page.getByRole('radio', { name: '0.1%', exact: true }) });
     await slippage.getByRole('radio', { name: '1%', exact: true }).click();
     await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
@@ -94,11 +73,10 @@ test.describe('unified product presentation', () => {
     await expect(save).toBeDisabled();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(slippage.getByRole('radio', { name: '1%', exact: true })).toHaveAttribute('aria-checked', 'true');
-    const persistedGasTier = page.getByRole('radiogroup', { name: 'Gas speed', exact: true });
-    await expect(persistedGasTier.getByRole('radio', { name: /^Fast\b/ })).toHaveAttribute('aria-checked', 'true');
-    await expect(persistedGasTier.getByRole('radio', { name: /^Standard\b/ })).toHaveAttribute('aria-checked', 'false');
-    await expect(persistedGasTier.getByRole('radio', { name: /^Rapid\b/ })).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('radiogroup', { name: 'Gas speed', exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1') || '{}').gasTier)).toBe('fast');
     await expect(theme.getByRole('radio', { name: 'Light', exact: true })).toHaveAttribute('aria-checked', 'true');
+    expect(requests.all.filter((url) => new URL(url).pathname === '/api/gas')).toEqual([]);
     assertNoBackendRequests(requests);
   });
 

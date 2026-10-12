@@ -1,4 +1,5 @@
 /* Shared product geometry; route controllers own transaction behavior. */
+[data-product-ui='v2'] :where(h1, h2, h3, .brand-wordmark) { font-family: Manrope, var(--font-sans), sans-serif; }
 [data-product-ui='v2'] { --product-radius: var(--radius-lg); --product-gap: 20px; }
 [data-product-ui='v2'] .app-topbar { min-height: 64px; padding-block: 10px; align-items: center; gap: 14px; }
 [data-product-ui='v2'] .app-topbar-actions { display: flex; align-items: center; gap: 8px; }
@@ -8,15 +9,29 @@
 [data-product-ui='v2'] .page-header { margin-bottom: 12px; }
 /* Every route title takes the display size, as Trade's does, at every width;
    section titles below it stay smaller (PageSections, SectionTitle, RowGroup). */
-[data-product-ui='v2'] .page-header h1 { font-size: var(--fs-display); font-weight: 680; letter-spacing: -0.045em; line-height: 1.12; }
+[data-product-ui='v2'] .page-header h1 { font-size: var(--fs-display); font-weight: 600; letter-spacing: -0.045em; line-height: 1.12; }
 /* Weight and tracking only: the Trade heading keeps its own responsive size. */
-[data-product-ui='v2'] .trade-page-heading h1 { font-weight: 680; letter-spacing: -0.045em; }
+[data-product-ui='v2'] .trade-page-heading h1 { font-weight: 600; letter-spacing: -0.045em; }
 [data-product-ui='v2'] .app-content { scroll-padding-bottom: 140px; }
 [data-product-ui='v2'] .app-content :where(button, a, input, select, summary):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 /* The amount surface already supplies a visible focus-within ring. */
 [data-product-ui='v2'] .app-content .amount-control input:focus-visible { outline: none; }
 [data-product-ui='v2'] .segmented { box-shadow: none; }
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
+[data-product-ui='v2'] .button-primary { border-radius: 999px; box-shadow: none; }
+[data-product-ui='v2'] .brand-wordmark { font-weight: 650; }
+[data-product-ui='v2'] .ui-card { box-shadow: none; }
+[data-product-ui='v2'] .desktop-navigation { border-color: var(--hairline); background: var(--surface); box-shadow: none; }
+[data-product-ui='v2'] .desktop-navigation a { font-weight: 500; }
+[data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--mint-dim); color: var(--mint-bright); box-shadow: none; }
+[data-product-ui='v2'] .tabbar { border-radius: 22px; box-shadow: 0 8px 24px color-mix(in srgb, var(--surface-shadow) 65%, transparent); }
+[data-product-ui='v2'] .tabbar::before { border-radius: 16px; box-shadow: none; background: color-mix(in srgb, var(--mint) 14%, var(--surface)); }
+[data-product-ui='v2'] .nav-item-mobile { font-weight: 500; }
+@media (min-width: 1000px) {
+  [data-product-ui='v2'] .app-topbar { border: 1px solid var(--hairline); border-radius: 24px; padding: 9px 16px; background: color-mix(in srgb, var(--surface) 90%, transparent); }
+  [data-product-ui='v2'] .desktop-navigation { background: transparent; border-color: transparent; }
+}
+:root[data-theme='light'] [data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { color: var(--mint); }
 [data-product-ui='v2'] [data-flow-stage] { min-width: 0; }
 [data-product-ui='v2'] .reviewTrigger { min-width: 0; }
 [data-product-ui='v2'] [data-trade-ticket] { min-width: 0; align-self: start; }

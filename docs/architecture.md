@@ -23,8 +23,12 @@ flowchart LR
 - `apps/mini-app/src/lib/fx/` adapts the official SDK, validates reviewed
   transaction policy, and executes ordered requests through the selected
   wallet. The immutable method list is in [`../fx-scope.lock.json`](../fx-scope.lock.json).
-- `apps/mini-app/src/lib/wallet/` handles the configured Privy wallet or an
-  explicitly selected injected EVM wallet. It has no server signer.
+- `apps/mini-app/src/lib/wallet/` uses explicitly selected injected EVM wallets
+  on the ordinary web app. The Privy adapter is loaded only for Telegram Mini
+  App launch data in configured builds. The initial provider choice remains
+  stable across route changes; host detection selects UX, not authentication
+  authority. Privy verifies Telegram's signed launch payload. There is no
+  server signer. See [wallet rollout notes](telegram-wallet-rollout.md).
 - `apps/mini-app/src/lib/web3/` and `WalletDataProvider` share public native and
   token-balance reads. Alchemy Data API results can broaden display discovery;
   canonical RPC reads remain authoritative for supported assets.

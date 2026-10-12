@@ -168,12 +168,14 @@ async function sweep(heading: ReturnType<Page['locator']>, at: number | 'finish'
   }, at);
 }
 
-test('the first route heading arrives lit, and its first and last frames are plain text', async ({ page }) => {
+test('the Trade heading arrives lit, and its first and last frames are plain text', async ({ page }) => {
   // Hold the sweep at its start from the first paint, so a slow run cannot let
   // it finish (and mark the session lit) before its frames are inspected.
   await open(page, { initScript: "document.head.append(Object.assign(document.createElement('style'),{textContent:'h1{animation-play-state:paused!important}'}))" });
-  const heading = page.locator('[data-page-heading] h1');
-  await expect(heading).toHaveText('Portfolio');
+  await setLab(page, { path: '/trade' });
+  const heading = page.locator('.trade-page-heading h1');
+  await expect(heading).toHaveText('Trade');
+  await expect(heading).toBeVisible();
   await sweep(heading, 0);
   expect(await headingTint(page, heading), 'first frame is plain text').toBeLessThanOrEqual(14);
   // The eased band reaches the middle of the word about 250ms into the sweep.
@@ -186,20 +188,28 @@ test('the first route heading arrives lit, and its first and last frames are pla
   await expect.poll(() => heading.evaluate((element) => getComputedStyle(element).webkitTextFillColor === getComputedStyle(element).color)).toBe(true);
 });
 
-test('after the first sweep, later routes and reloads show plain titles at once', async ({ page }) => {
+test('after the Trade sweep, other page titles stay unanimated and Trade stays plain', async ({ page }) => {
   await open(page);
-  await sweep(page.locator('[data-page-heading] h1'), 'finish');
+  await setLab(page, { path: '/trade' });
+  await sweep(page.locator('.trade-page-heading h1'), 'finish');
   await expect(page.locator('html')).toHaveAttribute('data-heading-lit', '');
   for (const path of ['/more', '/history', '/trade']) {
     await setLab(page, { path });
     const heading = page.getByRole('heading', { level: 1 });
-    await expect(heading).toBeVisible();
+    await expect(heading).toBeAttached();
+    if (path === '/trade') {
+      await expect(heading).toBeVisible();
+      await expect(heading).not.toHaveClass(/\bsr-only\b/);
+      expect(await headingTint(page, heading)).toBeLessThanOrEqual(14);
+    } else {
+      await expect(heading).toHaveClass(/\bsr-only\b/);
+    }
     expect(await heading.evaluate((element) => element.getAnimations().length), `${path} heading is still`).toBe(0);
-    expect(await headingTint(page, heading)).toBeLessThanOrEqual(14);
   }
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-heading-lit', '');
-  expect(await page.locator('[data-page-heading] h1').evaluate((element) => element.getAnimations().length)).toBe(0);
+  await setLab(page, { path: '/trade' });
+  expect(await page.locator('.trade-page-heading h1').evaluate((element) => element.getAnimations().length)).toBe(0);
 });
 
 test('a route heading is never inside the route fade; heading-less content still fades in', async ({ page }) => {
@@ -211,19 +221,20 @@ test('a route heading is never inside the route fade; heading-less content still
     }
     return names.filter((name) => name === 'route-in');
   });
-  expect(await fadingAncestors('[data-page-heading] h1')).toEqual([]);
+  expect(await fadingAncestors('[data-route="/portfolio"] h1.sr-only')).toEqual([]);
   await setLab(page, { path: '/trade' });
   expect(await fadingAncestors('.trade-page-heading h1')).toEqual([]);
   await setLab(page, { path: '/history' });
-  expect(await fadingAncestors('.page-header h1')).toEqual([]);
+  expect(await fadingAncestors('#main-content > h1.sr-only')).toEqual([]);
   // History's feed, below its heading, still arrives with the route fade.
-  expect(await page.locator('.app-content > :not(.page-header)').first().evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
+  expect(await page.locator('.app-content > :not(.sr-only)').first().evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
 });
 
 test('reduced motion shows plain headings with no sweep and a still canvas', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await open(page);
-  const heading = page.locator('[data-page-heading] h1');
+  await setLab(page, { path: '/trade' });
+  const heading = page.locator('.trade-page-heading h1');
   await expect(heading).toBeVisible();
   expect(await heading.evaluate((element) => element.getAnimations().length)).toBe(0);
   expect(await heading.evaluate((element) => getComputedStyle(element).webkitTextFillColor === getComputedStyle(element).color)).toBe(true);
@@ -262,12 +273,10 @@ test('with data saver on, the canvas stays still from the first paint', async ({
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('More groups its rows in pairs, never repeats a group in its row, and marks only external rows', async ({ page }) => {
+test('More keeps its rows in four pairs and marks only external rows', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
-  await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible();
   const groups = await page.locator('main section').evaluateAll((sections) => sections.map((section) => ({
-    title: section.querySelector('h2')?.textContent ?? '',
     rows: [...section.querySelectorAll('a, button')].map((row) => ({
       title: row.querySelector('strong')?.textContent ?? '',
       described: Boolean(row.querySelector('small')),
@@ -275,14 +284,14 @@ test('More groups its rows in pairs, never repeats a group in its row, and marks
       leaveIcon: Boolean(row.querySelector('.lucide-external-link')),
     })),
   })));
-  expect(groups.map((group) => group.title)).toEqual(['Account', 'Preferences', 'f(x) Protocol', 'Resources']);
+  expect(groups).toHaveLength(4);
   for (const group of groups) {
-    expect(group.rows, `${group.title} holds two rows`).toHaveLength(2);
+    expect(group.rows, 'each group holds two rows').toHaveLength(2);
     for (const row of group.rows) {
-      expect(row.title.toLowerCase().startsWith(group.title.toLowerCase()), `${row.title} repeats its group`).toBe(false);
+      expect(row.title.trim().length, 'every row has a visible name').toBeGreaterThan(0);
       expect(row.leaveIcon, `${row.title}: the leave-the-app icon marks external rows only`).toBe(row.external);
     }
-    expect(new Set(group.rows.map((row) => row.described)).size, `${group.title} describes all of its rows or none`).toBe(1);
+    expect(new Set(group.rows.map((row) => row.described)).size, 'a pair describes both rows or neither').toBe(1);
   }
   const docs = page.getByRole('link', { name: 'Protocol docs How the protocol works (opens in a new tab)', exact: true });
   await expect(docs).toHaveAttribute('target', '_blank');
@@ -311,24 +320,31 @@ test('the account card holds its loaded shape while the wallet starts, in More a
 test('docs search results stay in the app with an arrow; only links that leave carry the leave mark', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/docs' });
-  const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-  await nav.getByRole('searchbox', { name: 'Search docs' }).fill('wallet');
+  const nav = page.getByRole('navigation', { name: 'Pages', exact: true });
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+  const search = page.getByRole('searchbox', { name: 'Search docs' });
+  await search.fill('wallet');
+  await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
   const results = nav.getByRole('link');
   await expect(results.first()).toBeVisible();
   expect(await results.evaluateAll((links) => links.filter((link) => link.querySelector('.lucide-arrow-up-right')).length)).toBe(0);
   expect(await results.evaluateAll((links) => links.every((link) => !link.getAttribute('target')))).toBe(true);
-  const leaving = page.locator('footer a[target="_blank"]');
+  await page.getByRole('button', { name: 'More documentation options', exact: true }).click();
+  const options = page.getByRole('navigation', { name: 'Documentation options', exact: true });
+  await expect(options).toBeVisible();
+  const leaving = options.locator('a[target="_blank"]');
   expect(await leaving.count()).toBeGreaterThan(0);
   for (const link of await leaving.all()) {
     await expect(link.locator('.lucide-arrow-up-right')).toHaveCount(1);
     await expect(link).toContainText('(opens in a new tab)');
   }
-  await expect(page.locator('footer').getByRole('link', { name: 'Open FxAeon' })).not.toHaveAttribute('target', '_blank');
+  await expect(options.getByRole('link', { name: 'Open app', exact: true })).toHaveAttribute('href', '/');
+  await expect(options.getByRole('link', { name: 'Open app', exact: true })).not.toHaveAttribute('target', '_blank');
 });
 
 test('sign-in, not-found and error screens scroll from their top when they do not fit, and lead back to Portfolio', async ({ page }) => {
   await open(page, { width: 568, height: 320 });
-  const stages = [['/missing', 'link', 'Back to Portfolio'], ['/error', 'button', 'Try again'], ['/login', 'button', 'Connect browser wallet']] as const;
+  const stages = [['/missing', 'link', 'Back to Portfolio'], ['/error', 'button', 'Try again'], ['/login', 'button', 'Connect wallet']] as const;
   for (const [path, role, action] of stages) {
     await setLab(page, { path, wallet: STATES[1][1] });
     const stage = page.locator('main.utility-stage');
@@ -474,6 +490,7 @@ test('keyboard focus shows one accent ring on the header, dock, rows and choices
   expect(await instant.evaluate((input) => getComputedStyle(input.closest('label')!).outlineStyle), 'a tap shows no focus ring').toBe('none');
 
   await setLab(page, { path: '/docs' });
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
   const search = page.getByRole('searchbox', { name: 'Search docs' });
   await expect(search).toBeEnabled();
   const caret = await search.evaluate((element) => {

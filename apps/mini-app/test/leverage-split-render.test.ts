@@ -123,8 +123,8 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
     assert.doesNotMatch(html, /<details|<ol(?![^>]*aria-label="Share of a position)/, `${docs} has no steps or questions`);
     assert.doesNotMatch(textOf(html), /in three steps|Before you (?:trade|deposit|move)\b/);
     const docsLinks = [...html.matchAll(/href="\/docs[^"]*"/g)].map((match) => match[0]);
-    assert.deepEqual(docsLinks, [`href="/docs#${docs}"`], `${docs} has one in-app link to its Docs section`);
-    assert.match(html, new RegExp(`href="/docs#${docs}">How it works<svg[^>]*lucide-chevron-right`), 'an in-app link uses a chevron');
+    assert.deepEqual(docsLinks, [`href="/docs/guide/${docs}"`], `${docs} has one in-app link to its Docs guide`);
+    assert.match(html, new RegExp(`href="/docs/guide/${docs}">How it works<svg[^>]*lucide-chevron-right`), 'an in-app link uses a chevron');
   }
 });
 

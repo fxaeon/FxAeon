@@ -1,14 +1,11 @@
 /**
- * Pure rules that keep a wallet connection request from waiting forever.
+ * Pure wallet-prompt visibility and watchdog rules.
  *
- * Privy reports most outcomes through its useLogin/useConnectWallet
- * callbacks, but not all of them. Dismissing its connect-only modal with the
- * backdrop or Escape reports nothing, and login() is a silent no-op when
- * Privy already holds a session. The adapter therefore settles each request
- * from everything it can observe (callbacks and useModalStatus) with
- * stepPrivyPrompt. ConnectWalletButton adds bounded waits for what no
- * callback covers: a provider that never becomes ready, or a wallet that
- * never answers while no prompt is on screen.
+ * Privy's global success/error payloads have no operation identity. The
+ * adapter uses only modal visibility and its own call failures to end a
+ * wait; accepting an external wallet requires explicit app selection.
+ * Callback event shapes below remain useful for compatibility tests, but
+ * must not establish ownership of an application connection attempt.
  */
 
 /** How long a queued click waits for the wallet provider to become ready. */

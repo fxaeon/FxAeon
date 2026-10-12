@@ -742,7 +742,7 @@ function pendingActionIntent(route: PlannedRoute): PendingActionIntent | undefin
     case 'deposit-and-mint': return intent.positionId === 0 ? 'Borrow' : 'Add collateral';
     case 'repay-and-withdraw': return intent.minimumRepayAmount > 0n && intent.withdrawAmount > 0n ? 'Repay and withdraw' : intent.minimumRepayAmount > 0n ? 'Repay' : 'Withdraw collateral';
     case 'fxsave-deposit': return 'Deposit';
-    case 'fxsave-withdraw': return intent.instant ? 'Withdraw' : 'Queue withdrawal';
+    case 'fxsave-withdraw': return intent.directBasePool || intent.instant ? 'Withdraw' : 'Queue withdrawal';
     case 'fxsave-claim': return 'Claim';
     default: return undefined;
   }

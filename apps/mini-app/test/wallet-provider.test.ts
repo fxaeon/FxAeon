@@ -25,6 +25,60 @@ test('EIP-6963 discovery deduplicates provider objects and sanitizes labels', ()
   assert.equal(getDiscoveredEip6963Providers().length, 1);
 });
 
+for (const announcedRdns of ['io.metamask', 'io.metamask.mobile']) {
+  test(`${announcedRdns} restores uniquely through either remembered MetaMask identity`, () => {
+    clearEip6963AnnouncementsForTest();
+    const exact = provider()!;
+    const raw = Object.freeze({ provider: exact, info: Object.freeze({ rdns: announcedRdns, name: 'MetaMask' }) });
+    const recorded = recordEip6963Announcement(raw);
+    recordEip6963Announcement({ provider: provider(), info: { rdns: 'io.rabby', name: 'Rabby' } });
+    assert.equal(recorded?.rdns, 'io.metamask');
+    assert.equal(recorded?.provider, exact);
+    assert.equal(raw.info.rdns, announcedRdns);
+    for (const preferred of ['io.metamask', 'io.metamask.mobile']) {
+      assert.equal(selectEip6963Provider(preferred), recorded);
+      assert.equal(shouldPromptEip6963Provider(preferred), false);
+      assert.equal(shouldBindEip6963ProviderEvents(preferred), true);
+    }
+  });
+}
+
+for (const identities of [['io.metamask', 'io.metamask.mobile'], ['io.metamask.mobile', 'io.metamask']]) {
+  test(`discovery deduplicates one object announced as ${identities.join(' then ')}`, () => {
+    clearEip6963AnnouncementsForTest();
+    const exact = provider()!;
+    const first = recordEip6963Announcement({ provider: exact, info: { rdns: identities[0] } });
+    assert.equal(recordEip6963Announcement({ provider: exact, info: { rdns: identities[1] } }), null);
+    assert.equal(getDiscoveredEip6963Providers().length, 1);
+    assert.equal(first?.rdns, 'io.metamask');
+    for (const preferred of identities) assert.equal(selectEip6963Provider(preferred)?.provider, exact);
+  });
+
+  test(`distinct ${identities.join(' and ')} objects cannot restore through either identity`, () => {
+    clearEip6963AnnouncementsForTest();
+    for (const rdns of identities) recordEip6963Announcement({ provider: provider(), info: { rdns } });
+    assert.equal(getDiscoveredEip6963Providers().length, 2);
+    assert.deepEqual(getDiscoveredEip6963Providers().map((item) => item.rdns), ['io.metamask', 'io.metamask']);
+    for (const preferred of identities) {
+      assert.equal(selectEip6963Provider(preferred), undefined);
+      assert.equal(shouldPromptEip6963Provider(preferred), true);
+      assert.equal(shouldBindEip6963ProviderEvents(preferred), false);
+    }
+  });
+}
+
+test('unrelated and alias-like announcements cannot satisfy a remembered MetaMask identity', () => {
+  clearEip6963AnnouncementsForTest();
+  for (const rdns of ['io.rabby', 'io.metamask.mobile.evil.test', 'IO.METAMASK.MOBILE']) {
+    const recorded = recordEip6963Announcement({ provider: provider(), info: { rdns } });
+    assert.equal(recorded?.rdns, rdns);
+  }
+  for (const preferred of ['io.metamask', 'io.metamask.mobile']) {
+    assert.equal(selectEip6963Provider(preferred), undefined);
+    assert.equal(shouldBindEip6963ProviderEvents(preferred), false);
+  }
+});
+
 test('a valid preferred rdns selects directly while multiple unchosen providers prompt', () => {
   clearEip6963AnnouncementsForTest();
   const first = provider()!;
@@ -42,7 +96,7 @@ test('a valid preferred rdns selects directly while multiple unchosen providers 
 test('missing provider metadata gets a safe local fallback and never requests an icon', () => {
   clearEip6963AnnouncementsForTest();
   const item = recordEip6963Announcement({ provider: provider() });
-  assert.equal(item?.name, 'Browser wallet');
+  assert.equal(item?.name, 'Wallet');
   assert.match(item?.rdns ?? '', /^unknown-wallet-\d+$/);
 });
 
@@ -110,4 +164,12 @@ test('repeated discovery announcements leave no polling reads after cancellation
   await new Promise((resolve) => setTimeout(resolve, 30));
   target.dispatchEvent(new Event('eip6963:announceProvider'));
   assert.equal(reads, stoppedAt);
+});
+
+test('a duplicated self-claimed rdns cannot silently choose the first provider on restore', () => {
+  clearEip6963AnnouncementsForTest();
+  recordEip6963Announcement({ provider: provider(), info: { rdns: 'io.metamask', name: 'MetaMask' } });
+  recordEip6963Announcement({ provider: provider(), info: { rdns: 'io.metamask', name: 'MetaMask' } });
+  assert.equal(selectEip6963Provider('io.metamask'), undefined);
+  assert.equal(shouldBindEip6963ProviderEvents('io.metamask'), false);
 });

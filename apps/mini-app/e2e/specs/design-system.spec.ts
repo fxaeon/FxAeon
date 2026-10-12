@@ -41,14 +41,16 @@ test.describe('cohesive responsive design', () => {
     await expect(chart.getByText('f(x) market · Ethereum', { exact: true })).toHaveCount(0);
     await expect(chart.getByText('CoinGecko history · display only', { exact: true })).toHaveCount(0);
     await expect(chart.getByRole('link', { name: 'CoinGecko', exact: true })).toHaveCount(0);
-    const chartBox = await chart.boundingBox();
-    const ticketBox = await ticket.boundingBox();
-    const positionSideBox = await positionSide.boundingBox();
-    expect(chartBox).not.toBeNull();
-    expect(ticketBox).not.toBeNull();
-    expect(positionSideBox).not.toBeNull();
-    expect(chartBox!.x + chartBox!.width).toBeLessThan(ticketBox!.x);
-    expect(Math.abs(chartBox!.y - positionSideBox!.y)).toBeLessThan(5);
+    // The selector lives inside the padded ticket now; align the two outer
+    // cards, and measure them together after the responsive layout settles.
+    await expect.poll(() => page.evaluate(() => {
+      const chart = document.querySelector('.market-chart-panel')?.getBoundingClientRect();
+      const ticket = document.querySelector('.trade-ticket')?.getBoundingClientRect();
+      return {
+        sideBySide: Boolean(chart && ticket && chart.width > 0 && chart.right < ticket.left),
+        aligned: Boolean(chart && ticket && ticket.width > 0 && Math.abs(chart.top - ticket.top) < 5),
+      };
+    })).toEqual({ sideBySide: true, aligned: true });
     await expect(page.getByRole('navigation', { name: 'Primary navigation' }).filter({ visible: true })).toHaveCount(1);
 
     await page.setViewportSize({ width: 390, height: 844 });
@@ -158,43 +160,92 @@ test.describe('cohesive responsive design', () => {
   });
 
   test('the guide is discoverable, searchable, and supports mobile section deep links', async ({ page, requests }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/more', { waitUntil: 'domcontentloaded' });
     await page.locator('main').getByRole('link', { name: /FxAeon docs/i }).click();
     await expect(page).toHaveURL(/\/docs\/?$/);
+    await expect(page.getByRole('heading', { name: 'Welcome to FxAeon', exact: true })).toBeVisible();
+    const welcomeCards = page.getByRole('main').getByRole('link');
+    await expect(welcomeCards).toHaveCount(6);
+    expect(await welcomeCards.evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).getAttribute('href'))))
+      .toEqual(expect.arrayContaining(['/docs/guide/getting-started', '/docs/guide/trade', '/docs/guide/earn', '/docs/guide/borrow', '/docs/guide/move', '/docs/guide/access']));
+    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+    const homeSearch = page.getByRole('searchbox', { name: 'Search docs' });
+    await homeSearch.fill('getFxSaveBalance');
+    const homeResults = page.getByRole('navigation', { name: 'Pages', exact: true });
+    await expect(homeResults.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
+    const homeFxSave = homeResults.getByRole('link', { name: /^fxSAVE/ });
+    await expect(homeResults).toBeVisible();
+    await expect(homeFxSave).toHaveAttribute('href', '/docs/sdk#sdk-earn');
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(homeSearch).toHaveValue('');
+    await expect(homeResults.getByRole('link')).toHaveCount(14);
+    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(homeResults).toBeHidden();
+    await welcomeCards.getByRole('heading', { name: 'Get started with FxAeon', exact: true }).click();
+    await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
+    await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
+    // Keep the index/search assertions on the complete legacy guide route.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/docs/guide');
+    await expect(page.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    const search = nav.getByRole('searchbox', { name: 'Search docs' });
-    const contents = nav.locator('details');
-    if (!(await contents.evaluate((element) => (element as HTMLDetailsElement).open))) {
-      await contents.locator('summary').click();
+    const guides = page.getByRole('group', { name: 'Documentation guides' });
+    for (const [name, href] of [
+      ['Start here', '/docs/guide/getting-started'], ['Products', '/docs/guide/trade'],
+      ['Wallets', '/docs/guide/wallets'], ['Help', '/docs/guide/troubleshooting'],
+    ]) {
+      await expect(guides.getByRole('link', { name, exact: true })).toHaveAttribute('href', href);
     }
+    await expect(guides.getByRole('link', { name: 'SDK reference', exact: true })).toHaveAttribute('href', '/docs/sdk');
+    await page.setViewportSize({ width: 390, height: 844 });
+    const contents = nav.locator('details');
+    await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
     await expect(contents).toHaveJSProperty('open', true);
-    await expect(nav.getByRole('link')).toHaveCount(15);
+    await expect(nav.getByRole('link')).toHaveCount(14);
+    await page.getByRole('button', { name: 'Close documentation menu', exact: true }).click();
+    await expect(nav).toBeHidden();
+    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+    const search = page.getByRole('searchbox', { name: 'Search docs' });
     await search.fill('network speed');
+    await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
     await expect(nav.getByRole('link')).toHaveCount(1);
     // The compact summary announces the filtered count.
     await expect(nav.getByText('1 result', { exact: true })).toHaveCount(1);
     // Search filters the index, never the underlying article or anchors.
     await expect(page.getByRole('heading', { name: 'Getting started', exact: true })).toBeAttached();
     await search.press('Tab');
-    await expect(nav.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(contents.locator('summary')).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'More documentation options', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    const menuToggle = page.getByRole('button', { name: 'Close documentation menu', exact: true });
+    await expect(menuToggle).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(nav.getByRole('link', { name: /^Fees & slippage/ })).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/#fees$/);
+    await expect(page).toHaveURL(/\/docs\/guide#fees$/);
     const articleHeading = page.getByRole('heading', { name: 'Fees & slippage', exact: true });
     await expect(articleHeading).toBeInViewport();
     await expect.poll(async () => {
       const heading = await articleHeading.boundingBox();
-      const rail = await nav.boundingBox();
-      return heading!.y >= rail!.y + rail!.height;
+      const chrome = await page.locator('[class*="docsChrome"]').boundingBox();
+      return heading!.y >= chrome!.y + chrome!.height - 1;
     }).toBe(true);
+    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
     await search.fill('no-matching-section');
+    await expect(nav.locator('p[role="status"]')).toHaveText('0 documentation results found');
     await expect(nav.getByRole('link')).toHaveCount(0);
-    await expect(nav.getByText('No matches', { exact: true })).toBeVisible();
-    await nav.getByRole('button', { name: 'Clear', exact: true }).click();
-    await expect(nav.getByRole('link')).toHaveCount(15);
+    await expect(nav.getByText(/Nothing found for .*no-matching-section/)).toBeVisible();
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(search).toHaveValue('');
+    await expect(nav.getByRole('link')).toHaveCount(14);
+    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(nav).toBeHidden();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(articleHeading).toBeInViewport();
     assertNoBackendRequests(requests);

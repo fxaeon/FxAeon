@@ -14,6 +14,23 @@ async function setAccounts(page: Page, accounts: string[]) {
 test.describe('wallet session isolation', () => {
   test.use({ telegram: false, browserWallet: { address: ACCOUNT_A, initiallyConnected: true } });
 
+  test('restores the remembered wallet using fresh reads without requesting connection', async ({ page, requests }) => {
+    await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
+    for (const reload of [false, true]) {
+      if (reload) await page.reload({ waitUntil: 'domcontentloaded' });
+      await expect(page.getByRole('button', { name: 'Open wallet profile' })).toContainText('0x930f');
+      await expect(page.getByRole('dialog', { name: 'Connect your wallet', exact: true })).toHaveCount(0);
+      const methods = await page.evaluate(() => (window as unknown as {
+        __wallet: { requests: Array<{ method: string }> };
+      }).__wallet.requests.map((request) => request.method));
+      expect(methods).toContain('eth_accounts');
+      expect(methods).toContain('eth_chainId');
+      expect(methods).not.toContain('eth_requestAccounts');
+      expect(methods).not.toContain('eth_sendTransaction');
+    }
+    assertNoBackendRequests(requests);
+  });
+
   test('disconnect and account switch close the wallet drawer and restore scrolling', async ({ page, requests }) => {
     await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Open wallet profile' }).click();
@@ -53,10 +70,37 @@ test.describe('wallet session isolation', () => {
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => ({
+      disconnected: localStorage.getItem('fxaeon:browser-wallet-disconnected'),
+      provider: localStorage.getItem('fxaeon:wallet-provider-rdns'),
+      address: localStorage.getItem('fxaeon:browser-wallet-address'),
+    }))).toEqual({ disconnected: '1', provider: null, address: null });
     await page.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    const picker = page.getByRole('dialog', { name: 'Connect your wallet', exact: true });
+    await expect(picker).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open wallet profile' })).toHaveCount(0);
+    await picker.getByRole('button', { name: 'Other wallets', exact: true }).click();
+    await page.getByRole('button', { name: 'Test wallet', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible();
+    await expect(picker).toHaveCount(0);
     assertNoBackendRequests(requests);
   });
+
+  for (const close of ['button', 'escape'] as const) {
+    test(`Settings wallet ${close} dismissal is quiet and preserves the connected account`, async ({ page, requests }) => {
+      await page.goto('/settings', { waitUntil: 'domcontentloaded' });
+      await page.locator('summary').filter({ hasText: 'Change wallet' }).click();
+      await page.getByRole('button', { name: 'Reconnect wallet', exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Connect your wallet', exact: true })).toBeVisible();
+      if (close === 'escape') await page.keyboard.press('Escape');
+      else await page.getByRole('button', { name: 'Close wallet selection', exact: true }).click();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.getByText('Browser wallet connected', { exact: true })).toBeVisible();
+      await expect(page.getByRole('alert').filter({ hasText: /wallet connection was cancelled/i })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Reconnect wallet', exact: true })).toBeEnabled();
+      assertNoBackendRequests(requests);
+    });
+  }
 
   test('navigation from the wallet drawer preserves the real Back destination', async ({ page, requests }) => {
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
