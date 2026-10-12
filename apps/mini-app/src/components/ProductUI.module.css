@@ -3,7 +3,7 @@
 :where(.surface) { min-width: 0; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--ring-inset); padding: 16px; }
 .heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .heading > div { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.heading h1 { margin: 0; font-size: var(--fs-display); font-weight: 680; line-height: 1.12; letter-spacing: -0.045em; }
+.heading h1 { margin: 0; font-family: Manrope, var(--font-sans), sans-serif; font-size: var(--fs-display); font-weight: 600; line-height: 1.12; letter-spacing: -0.045em; }
 .iconButton { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; flex: 0 0 44px; margin-left: -10px; border-radius: 50%; color: var(--mut); transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .iconButton:hover { background: var(--surface-2); color: var(--text); }
 

@@ -106,7 +106,8 @@ test.describe('implementation regressions', () => {
     await page.setViewportSize(viewport);
     await page.goto('/docs', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('main:visible')).toBeVisible();
-    const mainGeometry = await page.locator('main').evaluate((element) => ({
+    const docsPage = page.locator('[class*="docsPage"]');
+    const mainGeometry = await docsPage.evaluate((element) => ({
       width: element.getBoundingClientRect().width, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
     }));
     expect(mainGeometry.scrollWidth).toBeLessThanOrEqual(mainGeometry.clientWidth + 1);
@@ -115,11 +116,10 @@ test.describe('implementation regressions', () => {
     await expect(docsNav).toHaveAttribute('aria-busy', 'false');
     const navGeometry = await docsNav.evaluate((element) => ({ height: element.getBoundingClientRect().height }));
     expect(navGeometry.height, 'Compact contents must leave room for the guide').toBeLessThanOrEqual(100);
-    const article = page.locator('[class*="docsContent"]').first();
+    const article = page.locator('article').first();
     await expect(article).toBeVisible();
     await expect(article.locator('header').first()).toBeVisible();
-    await expect(article.getByRole('heading', { name: 'FxAeon documentation', exact: true })).toBeVisible();
-    await expect(article.getByText('Understand every route.', { exact: true })).toHaveCount(0);
+    await expect(article.getByRole('heading', { name: 'Welcome to FxAeon', exact: true })).toBeVisible();
     const helpGeometry = await article.locator('section#overview').evaluate((element) => {
       const heading = element.closest('article')?.querySelector('h1')?.getBoundingClientRect();
       const paragraph = element.closest('article')?.querySelector('header p[class*="lead"]')?.getBoundingClientRect();
@@ -133,7 +133,7 @@ test.describe('implementation regressions', () => {
     await expect(contents).toHaveJSProperty('open', false);
     await contents.locator('summary').click();
     await expect(contents).toHaveJSProperty('open', true);
-    await expect(contents.getByRole('link')).toHaveCount(15);
+    await expect(contents.getByRole('link')).toHaveCount(13);
     await expect(contents.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
     await page.setViewportSize({ width: 1024, height: 500 });
     await page.goto('/docs', { waitUntil: 'domcontentloaded' });

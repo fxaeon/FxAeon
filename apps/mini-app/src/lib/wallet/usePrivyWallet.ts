@@ -339,7 +339,14 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       const candidate = owner.prepare({ provider: route.provider, id: choice.id, name: choice.name }, {
         signal,
         ownsAttempt: () => !signal.aborted && attempt === connectAttemptRef.current,
-        exactProvider: () => { const fresh = resolve(); return fresh.kind === 'injected' ? fresh.provider : undefined; },
+        exactProvider: () => {
+          // After explicit approval, ownership is pinned to that exact object.
+          // Later discovery cannot replace it. A future chooser attempt still
+          // resolves afresh and rejects ambiguous identities before prompting.
+          if (accepted) return route.provider;
+          const fresh = resolve();
+          return fresh.kind === 'injected' ? fresh.provider : undefined;
+        },
       });
       await candidate.ready;
       return { candidate, choice, acceptIdentity: () => { accepted = true; } };

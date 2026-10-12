@@ -35,7 +35,7 @@ test.describe('documentation experience', () => {
   test('searches actual text across pages and preserves back navigation', async ({ page }) => {
     await page.goto('/docs');
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    const search = nav.getByRole('searchbox', { name: 'Search docs' });
+    const search = page.getByRole('searchbox', { name: 'Search docs' });
     await expect(search).toBeEnabled();
     await search.fill('repayments');
     await expect(nav.getByRole('link', { name: /^Overview/ })).toBeVisible();
@@ -46,12 +46,13 @@ test.describe('documentation experience', () => {
     await expect(page.locator('#sdk-earn-heading')).toBeFocused();
     await page.goBack();
     await expect(page).toHaveURL(/\/docs\/?$/);
-    await expect(page.getByRole('heading', { name: 'FxAeon documentation' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome to FxAeon' })).toBeVisible();
   });
 
   test('has copyable examples and method anchors without requesting wallet access', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/docs/sdk#sdk-setup');
+    await expect(page.getByRole('searchbox', { name: 'Search docs' })).toBeEnabled();
     const copy = page.getByRole('button', { name: 'Copy FxAeon app wrapper' });
     await copy.click();
     await expect(copy).toHaveText('Copied');
@@ -65,12 +66,12 @@ test.describe('documentation experience', () => {
   });
 
   test('keeps navigation, code and prose contained at every small viewport and large text', async ({ page }) => {
+    const docsPage = page.locator('[class*="docsPage"]');
     for (const width of [320, 360, 390, 480, 768, 1280]) {
       await page.setViewportSize({ width, height: 750 });
       await page.goto('/docs/sdk#sdk-setup');
-      const main = page.locator('main');
-      await expect(main).toBeVisible();
-      expect(await main.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+      await expect(docsPage).toBeVisible();
+      expect(await docsPage.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
     }
     await page.setViewportSize({ width: 390, height: 750 });
     const before = await page.locator('article h1').evaluate((element) => parseFloat(getComputedStyle(element).fontSize));
@@ -82,13 +83,14 @@ test.describe('documentation experience', () => {
       elements.forEach((element, index) => { element.style.fontSize = `${sizes[index] * 2}px`; });
     });
     expect(await page.locator('article h1').evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeCloseTo(before * 2, 1);
-    expect(await page.locator('main').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+    expect(await docsPage.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
   });
 
   test('keyboard search can be cleared and navigation can be reopened repeatedly', async ({ page }) => {
     await page.goto('/docs');
+    const docsPage = page.locator('[class*="docsPage"]');
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    const search = nav.getByRole('searchbox', { name: 'Search docs' });
+    const search = page.getByRole('searchbox', { name: 'Search docs' });
     await expect(search).toBeEnabled();
     await page.keyboard.press('Control+k');
     await expect(search).toBeFocused();
@@ -97,19 +99,27 @@ test.describe('documentation experience', () => {
     await search.press('Escape');
     await expect(search).toHaveValue('');
     await expect(nav.locator('details')).toHaveJSProperty('open', false);
+    const contentsSummary = nav.locator('summary');
     for (let attempt = 0; attempt < 2; attempt++) {
-      await nav.locator('summary').click();
+      if (attempt > 0) await page.keyboard.press('Control+k');
+      for (let step = 0; step < 10; step++) {
+        if (await contentsSummary.evaluate((element) => element === document.activeElement)) break;
+        await page.keyboard.press('Tab');
+      }
+      await expect(contentsSummary).toBeFocused();
+      await page.keyboard.press('Enter');
       await expect(nav.getByRole('link', { name: 'Wallets & signing', exact: true })).toBeVisible();
       await nav.getByRole('link', { name: 'Wallets & signing', exact: true }).click();
       await expect(nav.locator('details')).toHaveJSProperty('open', false);
       await expect(page.locator('#wallets-heading')).toBeInViewport();
-      if (attempt === 0) await page.locator('main').evaluate((element) => { element.scrollTop = 0; });
+      if (attempt === 0) await docsPage.evaluate((element) => { element.scrollTop = 0; });
     }
   });
 
   test('copy failure is explained and a later attempt can recover', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.goto('/docs/sdk#sdk-setup');
+    await expect(page.getByRole('searchbox', { name: 'Search docs' })).toBeEnabled();
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', {
         configurable: true,
@@ -135,7 +145,7 @@ test.describe('documentation experience', () => {
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     }
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    await nav.getByRole('searchbox', { name: 'Search docs' }).fill('getfxsavebalance');
+    await page.getByRole('searchbox', { name: 'Search docs' }).fill('getfxsavebalance');
     await nav.getByRole('link', { name: /^fxSAVE/ }).click();
     await expect(page.locator('#sdk-earn-heading')).toBeFocused();
     await nav.getByRole('link', { name: 'Read-only quickstart', exact: true }).click();

@@ -89,6 +89,7 @@ test.describe('wallet session isolation', () => {
   for (const close of ['button', 'escape'] as const) {
     test(`Settings wallet ${close} dismissal is quiet and preserves the connected account`, async ({ page, requests }) => {
       await page.goto('/settings', { waitUntil: 'domcontentloaded' });
+      await page.locator('summary').filter({ hasText: 'Change wallet' }).click();
       await page.getByRole('button', { name: 'Reconnect wallet', exact: true }).click();
       await expect(page.getByRole('dialog', { name: 'Connect your wallet', exact: true })).toBeVisible();
       if (close === 'escape') await page.keyboard.press('Escape');

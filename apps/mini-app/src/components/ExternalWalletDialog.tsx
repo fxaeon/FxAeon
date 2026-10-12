@@ -98,7 +98,7 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
   const backLabel = pending && showAll ? 'Back to Other wallets' : 'Back to wallets';
   const title = pending?.name ?? (showAll ? 'Other wallets' : 'Connect your wallet');
 
-  return <div className="wallet-provider-chooser-backdrop" role="presentation" onMouseDown={(event: MouseEvent) => { if (event.target === event.currentTarget) onCancel(); }}>
+  return <div className="wallet-provider-chooser-backdrop" role="presentation" onMouseDown={(event: MouseEvent) => { if (event.target === event.currentTarget) { event.preventDefault(); onCancel(); } }}>
     <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="wallet-provider-chooser-title" aria-describedby={pending ? 'wallet-provider-attempt-message' : undefined} className="wallet-provider-chooser" data-wallet-view={pending?.status ?? (showAll ? 'all' : 'wallets')} onFocusCapture={(event) => {
       focusedWalletId.current = (event.target as HTMLElement).closest('[data-wallet-id]')?.getAttribute('data-wallet-id') ?? null;
     }}>

@@ -1,5 +1,5 @@
 /** Browser-only Wagmi lifecycle. Configs are created only for explicit/saved exact-provider attempts. */
-import { createConfig, createConnector, type Config, type Connector } from 'wagmi';
+import { createConfig, createConnector, ConnectorChainMismatchError, type Config, type Connector } from 'wagmi';
 import { injected } from 'wagmi/connectors/injected';
 import { connect, reconnect, disconnect, getConnection, watchConnection, switchChain, getWalletClient } from 'wagmi/actions';
 import { mainnet, base } from 'wagmi/chains';
@@ -353,7 +353,12 @@ export function createBrowserWagmiSessionOwner(options: {
     interruptWrites() { writeEpoch += 1; switchOwner = undefined; },
     invalidateForDiscovery() {
       writeEpoch += 1; switchOwner = undefined;
-      if (active) { active.revision += 1; active.refreshAbort?.abort(); active.validation?.validation?.dispose(); active.validation = undefined; }
+      // An ambiguous or missing provider identity ends ownership, including
+      // raw listeners and queued reconciliation. A fresh selection/restore
+      // must establish its own exact provider before publishing again.
+      const selected = active;
+      active = undefined;
+      if (selected) retire(selected);
       publish();
     },
     reconcile: reconcileAccepted,
@@ -381,6 +386,14 @@ export function createBrowserWagmiSessionOwner(options: {
       const epoch = writeEpoch;
       const client = await getWalletClient(slot.config, {
         connector: slot.connector, account: value.address as Address, chainId: value.chainId,
+      }).catch((error: unknown) => {
+        // Wagmi catches a chain change during its own provider read before
+        // our retained validation runs. Keep that rejection fail-closed and
+        // present the same actionable message as our other signing guards.
+        if (error instanceof ConnectorChainMismatchError) {
+          throw new Error('The wallet network changed before signing. Review the transaction and try again.');
+        }
+        throw error;
       });
       if (!current(slot) || epoch !== writeEpoch || revision !== slot.revision || projection !== value) throw cancelled();
       const fresh = await readInjectedWalletSession(slot.facade.provider, {

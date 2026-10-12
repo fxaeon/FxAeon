@@ -495,13 +495,36 @@ function browserDestinations(path: string): Record<(typeof browserNames)[number]
 async function interceptExternalNavigation(page: Page) {
   const attempts: Array<{ href: string; sameTab: boolean; userActivated: boolean; connected: boolean }> = [];
   const popups: Page[] = [];
+  const navigationStates = new Map<string, Array<{ userActivated: boolean; connected: boolean }>>();
+  const navigationStateWaiters = new Map<string, Array<(state: { userActivated: boolean; connected: boolean }) => void>>();
   page.on('popup', (popup) => popups.push(popup));
+  await page.exposeBinding('__captureWalletNavigation', (_source, state: {
+    href: string; userActivated: boolean; connected: boolean;
+  }) => {
+    const captured = { userActivated: state.userActivated, connected: state.connected };
+    const waiters = navigationStateWaiters.get(state.href);
+    const resolve = waiters?.shift();
+    if (resolve) {
+      resolve(captured);
+      if (!waiters?.length) navigationStateWaiters.delete(state.href);
+    } else {
+      navigationStates.set(state.href, [...(navigationStates.get(state.href) ?? []), captured]);
+    }
+  });
   await page.addInitScript(() => {
     // Observe activation during the real navigation event. Reading it through
     // page.evaluate would itself run with Playwright's synthetic user gesture.
     const navigation = (window as Window & { navigation?: EventTarget }).navigation;
-    navigation?.addEventListener('navigate', () => {
-      document.documentElement.dataset.walletNavigationUserActivated = String(navigator.userActivation.isActive);
+    navigation?.addEventListener('navigate', (event) => {
+      const destination = (event as Event & { destination?: { url?: string } }).destination?.url;
+      const capture = (window as Window & { __captureWalletNavigation?: (state: {
+        href: string; userActivated: boolean; connected: boolean;
+      }) => Promise<void> }).__captureWalletNavigation;
+      if (destination && capture) void capture({
+        href: destination,
+        userActivated: navigator.userActivation.isActive,
+        connected: document.querySelector('main')?.getAttribute('data-connected') === 'true',
+      });
     });
   });
   // Intercept every external request, including a wrong destination, before it
@@ -509,13 +532,19 @@ async function interceptExternalNavigation(page: Page) {
   await page.context().route('**/*', async (route) => {
     const request = route.request();
     if (new URL(request.url()).origin === origin) { await route.continue(); return; }
-    const state = await page.evaluate(() => ({
-      userActivated: document.documentElement.dataset.walletNavigationUserActivated === 'true',
-      connected: document.querySelector('main')?.getAttribute('data-connected') === 'true',
-    }));
     let sameTab = false;
     try { sameTab = request.isNavigationRequest() && request.frame() === page.mainFrame(); }
     catch { /* A regressed popup may request before its frame exists; still intercept it. */ }
+    let state = { userActivated: false, connected: false };
+    if (sameTab) {
+      const queued = navigationStates.get(request.url());
+      state = queued?.shift() ?? await new Promise<{ userActivated: boolean; connected: boolean }>((resolve) => {
+        const waiters = navigationStateWaiters.get(request.url()) ?? [];
+        waiters.push(resolve);
+        navigationStateWaiters.set(request.url(), waiters);
+      });
+      if (!queued?.length) navigationStates.delete(request.url());
+    }
     attempts.push({ href: request.url(), sameTab, ...state });
     await route.fulfill({ status: 204 });
   });
@@ -847,7 +876,14 @@ test('cancelling a reconnect preserves the existing selected wallet and signing 
   await connect(page, 1);
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
+  await page.evaluate(() => {
+    globalThis.__mobileWalletHarness.wallets[2].holdPrompt = true;
+    globalThis.__mobileWalletHarness.announceAs(2, 'Trust Wallet', 'com.trustwallet.app');
+  });
+  await expect(page.getByRole('button', { name: 'Trust Wallet', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Trust Wallet', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[2].promptsWaiting)).toBe(1);
+  await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[2].rejectPrompt());
   await expect(page.getByRole('alert')).toBeVisible();
   await page.getByRole('button', { name: 'Close wallet selection', exact: true }).click();
   await expect(page.locator('main')).toHaveAttribute('data-address', accountB);
@@ -860,6 +896,10 @@ test('cancelling a reconnect preserves the existing selected wallet and signing 
 test('Other wallets searches all choices and Back preserves focus, search and route across an error', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 360 });
   const observation = await openHarness(page, 'none', '/', '', 'unknown');
+  await page.evaluate(() => {
+    globalThis.__mobileWalletHarness.wallets[0].holdPrompt = true;
+    globalThis.__mobileWalletHarness.announceAs(0, 'Rainbow', 'me.rainbow');
+  });
   const route = page.url();
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await page.getByRole('button', { name: 'Other wallets', exact: true }).click();
@@ -870,6 +910,8 @@ test('Other wallets searches all choices and Back preserves focus, search and ro
   await search.fill('rain');
   await expect(dialog.locator('[data-wallet-id]')).toHaveCount(1);
   await dialog.getByRole('button', { name: 'Rainbow', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].promptsWaiting)).toBe(1);
+  await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].rejectPrompt());
   await expect(page.getByRole('alert')).toBeVisible();
   await page.getByRole('button', { name: 'Back to Other wallets', exact: true }).click();
   await expect(search).toHaveValue('rain');
@@ -961,8 +1003,16 @@ for (const enlarged of [false, true]) {
         await expect(page.getByRole('dialog')).toHaveAttribute('data-wallet-view', 'pending');
       }
       if (view === 'error') {
+        await page.evaluate(() => {
+          globalThis.__mobileWalletHarness.wallets[2].holdPrompt = true;
+          globalThis.__mobileWalletHarness.announceAs(2, 'MetaMask', 'io.metamask');
+        });
+        await expect(page.getByRole('button', { name: 'MetaMask', exact: true })).toBeVisible();
         await page.getByRole('button', { name: 'MetaMask', exact: true }).click();
+        await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[2].promptsWaiting)).toBe(1);
+        await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[2].rejectPrompt());
         await expect(page.getByRole('dialog')).toHaveAttribute('data-wallet-view', 'error');
+        await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible();
       }
       const dialog = page.getByRole('dialog');
       if (enlarged) await dialog.evaluate((element) => {
@@ -1076,6 +1126,10 @@ for (const event of ['accountsChanged', 'connect'] as const) {
       await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].emit('disconnect'));
       await expect(page.locator('main')).toHaveAttribute('data-address', '');
       await expect(page.locator('main')).toHaveAttribute('data-chain', '');
+      const heldReadsBefore = await page.evaluate((event) => {
+        const wallet = globalThis.__mobileWalletHarness.wallets[0];
+        return event === 'accountsChanged' ? wallet.chainReadsWaiting : wallet.accountReadsWaiting;
+      }, event);
       await page.evaluate(({ event, account }) => {
         const wallet = globalThis.__mobileWalletHarness.wallets[0];
         wallet.setAccountsSilently([account]);
@@ -1086,7 +1140,7 @@ for (const event of ['accountsChanged', 'connect'] as const) {
       await expect.poll(() => page.evaluate((event) => {
         const wallet = globalThis.__mobileWalletHarness.wallets[0];
         return event === 'accountsChanged' ? wallet.chainReadsWaiting : wallet.accountReadsWaiting;
-      }, event)).toBe(1);
+      }, event)).toBeGreaterThan(heldReadsBefore);
 
       if (interruption === 'manual disconnect') await page.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
       else await connect(page, 1);
@@ -1126,26 +1180,28 @@ for (const outcome of ['recover on Base', 'manual disconnect', 'new wallet selec
     await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].emit('disconnect'));
     await expect(page.locator('main')).toHaveAttribute('data-address', '');
     await expect(page.locator('main')).toHaveAttribute('data-chain', '');
+    const heldAccountReadsBefore = await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting);
     await page.evaluate((account) => {
       const wallet = globalThis.__mobileWalletHarness.wallets[0];
       wallet.setAccountsSilently([account]);
       wallet.holdAccounts = true;
       wallet.emit('connect', { chainId: '0x1' });
     }, accountA);
-    await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBe(1);
+    await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBeGreaterThan(heldAccountReadsBefore);
 
+    const heldChainReadsBefore = await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].chainReadsWaiting);
     await page.evaluate(() => {
       const wallet = globalThis.__mobileWalletHarness.wallets[0];
       // Keep the original account read pending, but let the new validation
-      // reach a separately held chain read. No second account resolver can
-      // overwrite the first fixture's pending promise.
+      // reach a separately held chain read. The fixture's settle methods
+      // release every provider request held at each stage.
       wallet.holdAccounts = false;
       wallet.holdChain = true;
       wallet.emit('chainChanged', '0x2105');
     });
     // The pre-fix implementation only invalidates the first read and never
     // starts this replacement pass, leaving the account absent indefinitely.
-    await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].chainReadsWaiting)).toBe(1);
+    await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].chainReadsWaiting)).toBeGreaterThan(heldChainReadsBefore);
     await expect(page.locator('main')).toHaveAttribute('data-address', '');
 
     if (outcome === 'manual disconnect') await page.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
@@ -1245,7 +1301,7 @@ test('a delayed network-switch read cannot overwrite a newer chainChanged event'
     fixture.emit('chainChanged', '0x1'); fixture.holdChain = false; fixture.settleChain();
   });
   await expect(page.locator('main')).toHaveAttribute('data-chain', '1');
-  await expect(page.getByRole('alert')).toHaveText('The wallet network changed while checking the switch. Please try again.');
+  await expect(page.getByRole('alert')).toHaveText('Wallet network could not be verified.');
   expect((await snapshot(page)).calls[0].filter((call) => call.method === 'eth_sendTransaction')).toEqual([]);
   expect(observation.errors).toEqual([]);
 });

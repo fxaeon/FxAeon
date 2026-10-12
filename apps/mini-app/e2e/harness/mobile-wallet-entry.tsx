@@ -35,12 +35,13 @@ export type MobileWalletHarnessState = {
   connectAgain?: () => Promise<void>;
   connectFromSecondConsumer?: () => Promise<void>;
   announce: (index: number) => void;
+  announceAs: (index: number, name: string, rdns: string) => void;
   inject: (index: number) => void;
   rerender?: () => void;
 };
 declare global { var __mobileWalletHarness: MobileWalletHarnessState; }
 
-const addresses = ['0x00000000000000000000000000000000000000aa', '0x00000000000000000000000000000000000000bb'];
+const addresses = ['0x00000000000000000000000000000000000000aa', '0x00000000000000000000000000000000000000bb', '0x00000000000000000000000000000000000000cc'];
 function createFixture(index: number): MobileWalletFixture {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   let accounts: string[] = new URLSearchParams(location.search).get('authorized') === '1' ? [addresses[index]] : [];
@@ -101,12 +102,15 @@ function createFixture(index: number): MobileWalletFixture {
   };
   return fixture;
 }
-const wallets = [createFixture(0), createFixture(1)];
+const wallets = [createFixture(0), createFixture(1), createFixture(2)];
 const announce = (index: number) => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
   detail: { info: { name: new URLSearchParams(location.search).has('longName') ? `A very long wallet extension name for narrow screen testing ${index + 1}` : `Test wallet ${index + 1}`, rdns: `test.wallet.${index + 1}` }, provider: wallets[index].provider },
 }));
+const announceAs = (index: number, name: string, rdns: string) => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+  detail: { info: { name, rdns }, provider: wallets[index].provider },
+}));
 globalThis.__mobileWalletHarness = {
-  wallets, cancellations: 0, errors: [], connectionOutcomes: [], announce,
+  wallets, cancellations: 0, errors: [], connectionOutcomes: [], announce, announceAs,
   inject: (index) => { window.ethereum = wallets[index].provider; },
 };
 const parameters = new URLSearchParams(location.search);
@@ -161,7 +165,13 @@ function Content() {
   globalThis.__mobileWalletHarness.connectAgain = () => run(() => observeConnection(wallet.connect));
   return <main data-harness-ready={String(wallet.ready)} data-connected={String(wallet.authenticated)}
     data-address={wallet.address ?? ''} data-chain={wallet.chainId ?? ''} data-prompt={String(wallet.promptOpen)} data-version={wallet.connectionVersion}>
-    <button disabled={busy} onClick={() => { void run(() => observeConnection(wallet.connect)); }}>Connect wallet</button>
+    {/* Mirror ConnectWalletButton: a busy opener stays focusable so the dialog
+        can capture and restore it, including on touch browsers. */}
+    <button aria-disabled={busy || undefined} onClick={(event) => {
+      if (busy) return;
+      event.currentTarget.focus({ preventScroll: true });
+      void run(() => observeConnection(wallet.connect));
+    }}>Connect wallet</button>
     <button onClick={() => { void run(wallet.disconnect); }}>Disconnect wallet</button>
     <button onClick={() => { void run(async () => { const result = await wallet.sendTransaction({ chainId: 1, to: '0x0000000000000000000000000000000000000001', value: 0n }); setHash(result.hash); }); }}>Send test transaction</button>
     <button onClick={() => { void run(() => wallet.switchChain(8453)); }}>Switch to Base</button>

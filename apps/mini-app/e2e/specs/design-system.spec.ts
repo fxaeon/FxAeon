@@ -158,17 +158,21 @@ test.describe('cohesive responsive design', () => {
   });
 
   test('the guide is discoverable, searchable, and supports mobile section deep links', async ({ page, requests }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/more', { waitUntil: 'domcontentloaded' });
     await page.locator('main').getByRole('link', { name: /FxAeon docs/i }).click();
     await expect(page).toHaveURL(/\/docs\/?$/);
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    const search = nav.getByRole('searchbox', { name: 'Search docs' });
+    const search = page.getByRole('searchbox', { name: 'Search docs' });
+    const guides = page.getByRole('group', { name: 'Documentation guides' });
+    await expect(guides.getByRole('link', { name: 'Product guide', exact: true })).toHaveAttribute('href', '/docs');
+    await expect(guides.getByRole('link', { name: 'SDK reference', exact: true })).toHaveAttribute('href', '/docs/sdk');
     const contents = nav.locator('details');
     if (!(await contents.evaluate((element) => (element as HTMLDetailsElement).open))) {
       await contents.locator('summary').click();
     }
     await expect(contents).toHaveJSProperty('open', true);
-    await expect(nav.getByRole('link')).toHaveCount(15);
+    await expect(nav.getByRole('link')).toHaveCount(13);
     await search.fill('network speed');
     await expect(nav.getByRole('link')).toHaveCount(1);
     // The compact summary announces the filtered count.
@@ -176,7 +180,15 @@ test.describe('cohesive responsive design', () => {
     // Search filters the index, never the underlying article or anchors.
     await expect(page.getByRole('heading', { name: 'Getting started', exact: true })).toBeAttached();
     await search.press('Tab');
-    await expect(nav.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Open app', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: /Switch to .* theme/ })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(guides.getByRole('link', { name: 'Product guide', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(guides.getByRole('link', { name: 'SDK reference', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(contents.locator('summary')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -193,8 +205,8 @@ test.describe('cohesive responsive design', () => {
     await search.fill('no-matching-section');
     await expect(nav.getByRole('link')).toHaveCount(0);
     await expect(nav.getByText('No matches', { exact: true })).toBeVisible();
-    await nav.getByRole('button', { name: 'Clear', exact: true }).click();
-    await expect(nav.getByRole('link')).toHaveCount(15);
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+    await expect(nav.getByRole('link')).toHaveCount(13);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(articleHeading).toBeInViewport();
     assertNoBackendRequests(requests);

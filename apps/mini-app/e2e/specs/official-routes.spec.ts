@@ -175,7 +175,7 @@ test.describe("plain browser wallet login", () => {
   test("missing Privy configuration still offers a browser wallet entry", async ({ page, requests }) => {
     await page.goto("/login", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /connect your wallet/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /connect browser wallet/i })).toBeVisible();
+    await expect(page.locator("main").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     await expect(page.getByText(/02\s*Wallet access|Connect once|A focused home for your Ethereum markets/i)).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/wallet setup unavailable|wallet service unavailable|wallet controls are unavailable/i);
     await expect(page.locator("body")).not.toContainText(/private key|session signer|delegat(?:ed|ion)/i);

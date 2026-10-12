@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, ChevronDown, Search } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BookOpen, ChevronDown, Search } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
-import { AppShell } from '@/components/ui';
+import FxLogo from '@/components/FxLogo';
+import ThemeToggle from '@/components/ThemeToggle';
 import { searchDocs, searchExcerpt, type DocsEntry } from './docsSearch';
 import styles from './Docs.module.css';
 
@@ -34,12 +35,13 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
     const syncContents = () => setContentsOpen(!media.matches);
     syncContents();
     media.addEventListener('change', syncContents);
-    const root = document.querySelector<HTMLElement>('.app-content');
+    const root = document.querySelector<HTMLElement>(`.${styles.docsPage}`);
+    const scrollRoot = root && getComputedStyle(root).overflowY === 'auto' ? root : undefined;
     let frame = 0;
     let cancelled = false;
     const updateActive = () => {
       frame = 0;
-      const top = (root?.getBoundingClientRect().top ?? 0) + (media.matches ? 96 : 52);
+      const top = (scrollRoot?.getBoundingClientRect().top ?? 0) + (media.matches ? 225 : 144);
       const headings = currentEntries.map(({ id }) => document.getElementById(id)).filter((node): node is HTMLElement => Boolean(node));
       const current = headings.filter((node) => node.getBoundingClientRect().top <= top).at(-1) ?? headings[0];
       if (current) setActiveId(current.id);
@@ -74,7 +76,7 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
         if (media.matches) setContentsOpen(false);
       }
     };
-    root?.addEventListener('scroll', onScroll, { passive: true });
+    (scrollRoot ?? window).addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('hashchange', restoreHash);
     window.addEventListener('keydown', onShortcut);
     restoreHash();
@@ -84,7 +86,7 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
       cancelled = true;
       cancelAnimationFrame(frame);
       media.removeEventListener('change', syncContents);
-      root?.removeEventListener('scroll', onScroll);
+      (scrollRoot ?? window).removeEventListener('scroll', onScroll);
       window.removeEventListener('hashchange', restoreHash);
       window.removeEventListener('keydown', onShortcut);
     };
@@ -104,19 +106,42 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
 
   const count = searching ? results.length : currentEntries.length;
   return (
-    <AppShell>
-      <div className={styles.docsPage}>
-        <div className={styles.docsLayout}>
-          <nav className={styles.docsNav} aria-label="Documentation sections" aria-busy={!hydrated}>
-            <div className={styles.railTitle}><BookOpen size={17} aria-hidden="true" />Documentation</div>
-            <label className={styles.srOnly} htmlFor="docs-search">Search docs</label>
+    <div className={styles.docsPage}>
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <header className={styles.docsChrome}>
+          <div className={styles.docsTopbar}>
+            <Link href="/" className={styles.docsBrand} aria-label="FxAeon home">
+              <FxLogo size={29} />
+              <span>FxAeon</span>
+              <span className={styles.brandDivider} aria-hidden="true" />
+              <span className={styles.brandDocs}>Docs</span>
+            </Link>
             <div className={styles.searchRow}>
               <Search className={styles.searchIcon} aria-hidden="true" />
+              <label className={styles.srOnly} htmlFor="docs-search">Search docs</label>
               <input id="docs-search" ref={inputRef} type="search" value={query} disabled={!hydrated}
                 onChange={(event) => { setQuery(event.target.value); if (event.target.value.trim()) setContentsOpen(true); }}
                 placeholder="Search docs…" className={styles.searchInput} autoComplete="off" aria-controls="docs-contents" />
-              {query && <button type="button" className={styles.clearSearch} onClick={() => { setQuery(''); inputRef.current?.focus(); }}>Clear</button>}
+              {query
+                ? <button type="button" className={styles.clearSearch} onClick={() => { setQuery(''); inputRef.current?.focus(); }}>Clear</button>
+                : <kbd className={styles.searchShortcut}>Ctrl K</kbd>}
             </div>
+            <nav className={styles.chromeLinks} aria-label="FxAeon links">
+              <ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink>
+              <Link href="/" className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
+              <ThemeToggle className={styles.docsTheme} />
+            </nav>
+          </div>
+          <div className={styles.docsSubnav} role="group" aria-label="Documentation guides">
+            <span className={styles.subnavLabel}>Documentation</span>
+            <Link href="/docs" aria-current={page === 'Product guide' ? 'page' : undefined}>Product guide</Link>
+            <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
+            <span className={styles.subnavCurrent} aria-current="location">{page}</span>
+          </div>
+        </header>
+        <div className={styles.docsLayout}>
+          <nav className={styles.docsNav} aria-label="Documentation sections" aria-busy={!hydrated}>
+            <div className={styles.railTitle}><BookOpen size={16} aria-hidden="true" />On this page</div>
             <p className={styles.srOnly} role="status">{searching ? `${count} documentation ${count === 1 ? 'result' : 'results'} found` : ''}</p>
             <details className={styles.contentsDisclosure} open={contentsOpen} onToggle={(event) => setContentsOpen(event.currentTarget.open)}>
               <summary className={styles.contentsSummary}>
@@ -135,10 +160,6 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
                   </Link>)}
                   {!results.length && <p className={styles.emptySearch}>Nothing found for “{query}”. Try wallet, cooldown, bridge, or a method name.</p>}
                 </> : <>
-                  <div className={styles.pageLinks} aria-label="Documentation guides">
-                    <Link href="/docs" aria-current={page === 'Product guide' ? 'page' : undefined}>Guide</Link>
-                    <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
-                  </div>
                   {groups.map((group) => <div key={group.label} className={styles.navGroup}>
                     <p className={styles.navGroupLabel}>{group.label}</p>
                     {group.ids.map((id) => {
@@ -151,10 +172,11 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
               </div>
             </details>
           </nav>
-          <article className={styles.docsContent}>
+          <main id="main-content" tabIndex={-1} className={styles.docsContent}>
+          <article>
             <header className={styles.docsIntro}>
               <p className={styles.breadcrumb}><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></p>
-              <h1 id="docs-page-heading">{page === 'Product guide' ? 'FxAeon documentation' : 'The f(x) SDK in FxAeon'}</h1>
+              <h1 id="docs-page-heading" tabIndex={-1}>{page === 'Product guide' ? 'Welcome to FxAeon' : 'The f(x) SDK in FxAeon'}</h1>
               {page === 'Product guide'
                 ? <p className={styles.lead}>Your guide to Trade, Earn, Borrow, and Move. Understand the action before you sign.</p>
                 : <>
@@ -172,13 +194,13 @@ export default function DocsShell({ page, entries, children }: { page: Page; ent
               <p>FxAeon is an independent interface. These docs describe its supported integration, not the full f(x) Protocol.</p>
               <div className={styles.footerLinks}>
                 <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs">f(x) Protocol docs</ExternalLink>
-                <ExternalLink href="https://github.com/fxaeon/FxAeon">View source</ExternalLink>
+
                 <Link href="/">Open FxAeon <ArrowRight size={13} aria-hidden="true" /></Link>
               </div>
             </footer>
           </article>
+          </main>
         </div>
-      </div>
-    </AppShell>
+    </div>
   );
 }
