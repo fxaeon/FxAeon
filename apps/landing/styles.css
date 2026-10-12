@@ -422,26 +422,21 @@ button svg {
   position: absolute;
   inset: 0 -7px 0 7px;
   border-radius: 50%;
-  background: repeating-linear-gradient(0deg, #625079 0 3px, #baa4d5 4px 6px);
-  box-shadow: 5px 8px 18px #0007;
+  display: none;
 }
 .coin-face {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  border: 5px solid #e4d7ff;
+  border: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #eee5ff, #b39bcf 53%, #dcc8f7);
-  box-shadow:
-    inset 0 0 0 2px #7a609a,
-    inset 0 0 0 8px #d7c4ef,
-    inset 2px 4px 8px #fff4,
-    2px 3px 4px #615074;
+  background: transparent;
+  box-shadow: 0 12px 36px #0004;
 }
 .coin-face img {
-  width: 66%;
-  height: 66%;
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   filter: none;
   opacity: 1;
@@ -464,7 +459,7 @@ button svg {
   top: 364px;
   --coin-size: 90px;
   transform: rotate(22deg) rotateY(30deg);
-  filter: blur(0.3px);
+  filter: none;
 }
 .coin-usdc {
   right: 3%;
@@ -2494,6 +2489,490 @@ details[open] summary:after {
 :root:not([data-js]) .menu-toggle,
 :root:not([data-js]) .theme-toggle {
   display: none;
+}
+
+/* Compact product compositions keep the artwork and copy together at every width. */
+.products .section-head {
+  margin-bottom: 52px;
+}
+.products .section-head h2 {
+  max-width: 830px;
+  margin-inline: auto;
+}
+.products .product-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.products .product-card {
+  min-height: 250px;
+  border: 1px solid #ffffff05;
+  border-radius: 12px;
+  background: #242327;
+  color: #f7f7f8;
+  transform: none;
+}
+.products .product-card:hover {
+  background: #2b2a2f;
+  transform: none;
+}
+.products .card-copy {
+  padding: 28px;
+  width: auto;
+  margin: 0;
+}
+.products .card-copy h3 {
+  font-size: 30px;
+  line-height: 1.17;
+  letter-spacing: -0.045em;
+  font-weight: 550;
+  padding-right: 12px;
+}
+.products .card-copy p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #bcbac2;
+  margin-top: 16px;
+  max-width: 320px;
+}
+.products .product-link {
+  top: 18px;
+  right: 15px;
+  color: #a6a3ad;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.products .product-card:hover .product-link,
+.products .product-card:focus-within .product-link {
+  opacity: 1;
+}
+.products .trade-card,
+.products .move-card {
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+}
+.products .trade-card .card-copy,
+.products .move-card .card-copy {
+  width: 50%;
+  padding: 28px;
+}
+.products .trade-art {
+  left: 51%;
+  right: 18px;
+  top: 28px;
+  bottom: 24px;
+  width: auto;
+  height: auto;
+  padding: 20px 12px;
+  background: linear-gradient(145deg, #1e1e21, #222125);
+  border-radius: 10px;
+}
+.products .chart-top {
+  font-size: 10px;
+  color: #c4c1cb;
+}
+.products .chart-top img {
+  width: 25px;
+  height: 25px;
+}
+.products .chart-tabs {
+  display: none;
+}
+.products .trade-chart {
+  height: 116px;
+  margin-top: 15px;
+}
+.products .chart-line {
+  stroke: #c6b3fb;
+  stroke-width: 2;
+}
+.products .chart-bottom {
+  font-size: 9px;
+}
+.products .chart-bottom > span:last-child {
+  display: none;
+}
+.products .earn-card,
+.products .borrow-card {
+  grid-row: span 2;
+  min-height: 512px;
+}
+.products .earn-card {
+  background: #1e1e21;
+}
+.products .borrow-card {
+  background: #303033;
+}
+.products .earn-card:hover {
+  background: #242427;
+}
+.products .borrow-card:hover {
+  background: #363639;
+}
+.products .earn-art {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 290px;
+  padding: 0;
+  display: block;
+}
+.vault-layer {
+  position: absolute;
+  width: 135px;
+  height: 135px;
+  left: calc(50% - 67px);
+  border: 1px solid #ffffff15;
+  border-radius: 15px;
+  transform: rotateX(57deg) rotateZ(-35deg);
+  box-shadow:
+    -5px 10px 0 #151518,
+    0 20px 24px #0002;
+}
+.layer-back {
+  bottom: 31px;
+  background: #3a393e;
+}
+.layer-middle {
+  bottom: 69px;
+  background: #505055;
+}
+.layer-front {
+  bottom: 107px;
+  background: linear-gradient(145deg, #77767d, #535258);
+}
+.vault-token {
+  position: absolute;
+  width: 82px;
+  height: 82px;
+  left: calc(50% - 41px);
+  bottom: 171px;
+}
+.vault-token img {
+  width: 100%;
+  height: 100%;
+  filter: none;
+}
+.vault-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 17px;
+  text-align: center;
+  font-size: 12px;
+  color: #c4c1ca;
+}
+.products .borrow-art {
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  height: 242px;
+  transform: none;
+  display: block;
+}
+.products .collateral-stack {
+  position: absolute;
+  top: 6px;
+  left: 23px;
+  width: 123px;
+  gap: 10px;
+  transform: rotate(-8deg);
+}
+.products .collateral-stack > span {
+  background: #eeedf0;
+  color: #333238;
+  padding: 10px;
+  font-size: 10px;
+  border: 1px solid #fff5;
+  border-radius: 8px;
+  box-shadow: 0 8px 12px #0001;
+}
+.products .collateral-stack > span:nth-child(2) {
+  margin-left: 13px;
+  margin-right: -13px;
+}
+.products .collateral-stack img {
+  width: 27px;
+  height: 27px;
+  filter: none;
+}
+.products .borrow-connector {
+  position: absolute;
+  right: 35px;
+  top: 63px;
+  transform: rotate(65deg);
+}
+.products .borrow-connector svg {
+  color: #bfa7f4;
+  stroke: currentColor;
+  width: 31px;
+  height: 31px;
+}
+.products .borrow-coin {
+  position: absolute;
+  bottom: 5px;
+  right: 24px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: #f2f1f4;
+  transform: rotate(9deg);
+  box-shadow: 0 10px 25px #0003;
+}
+.products .borrow-coin img {
+  width: 48px;
+  height: 48px;
+  filter: none;
+}
+.products .borrow-coin b {
+  font-size: 10px;
+}
+.products .move-card {
+  background: #1e1e21;
+}
+.products .move-art {
+  left: 51%;
+  right: 4px;
+  bottom: 16px;
+  height: 215px;
+}
+.products .network-orbit {
+  width: 190px;
+  height: 116px;
+  top: 53px;
+  border: 1px dashed #ffffff20;
+  transform: translateX(-50%) rotate(-30deg);
+}
+.products .orbit-inner {
+  display: none;
+}
+.products .network-badge {
+  gap: 7px;
+  padding: 10px;
+  font-size: 10px;
+  border-radius: 9px;
+  box-shadow: 0 10px 22px #0002;
+}
+.products .network-badge img {
+  width: 28px;
+  height: 28px;
+  filter: none;
+}
+.products .ethereum-badge {
+  top: 29px;
+  left: 4%;
+  transform: rotate(-8deg);
+}
+.products .base-badge {
+  bottom: 22px;
+  right: 8%;
+  transform: rotate(7deg);
+}
+.products .move-symbol {
+  left: 49%;
+  top: 91px;
+  font-size: 23px;
+  color: #bfa7f4;
+}
+.products .product-note {
+  color: var(--muted);
+}
+.hero-coin {
+  transform: none;
+  filter: none;
+}
+.principles {
+  background: transparent;
+  gap: 14px;
+  padding: 0;
+}
+.principles article {
+  background: #e9e6ee;
+  border-radius: 12px;
+  padding: 30px;
+  color: #302b37;
+}
+.principles article p {
+  color: #625b6c;
+}
+.principles .step-number {
+  color: #766289;
+}
+
+@media (max-width: 1100px) {
+  .products .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .products .trade-card {
+    grid-column: span 2;
+    min-height: 240px;
+  }
+  .products .earn-card,
+  .products .borrow-card {
+    grid-row: auto;
+    min-height: 400px;
+  }
+  .products .earn-art {
+    height: 245px;
+    bottom: 0;
+  }
+  .products .vault-layer {
+    width: 120px;
+    height: 120px;
+    left: calc(50% - 60px);
+  }
+  .products .vault-token {
+    width: 72px;
+    height: 72px;
+    left: calc(50% - 36px);
+    bottom: 165px;
+  }
+  .products .borrow-art {
+    height: 217px;
+    bottom: 12px;
+    max-width: 285px;
+    margin: auto;
+  }
+  .products .move-card {
+    grid-column: span 2;
+    min-height: 235px;
+  }
+  .products .card-copy h3 {
+    font-size: 29px;
+  }
+  .products .move-art {
+    max-width: 330px;
+  }
+}
+@media (max-width: 760px) {
+  .products .section-head {
+    margin-bottom: 30px;
+  }
+  .products .section-head h2 {
+    font-size: 40px;
+    line-height: 1.14;
+    max-width: 530px;
+  }
+  .products .section-head p {
+    max-width: 380px;
+    margin-inline: auto;
+    font-size: 12px;
+  }
+  .products .card-copy,
+  .products .trade-card .card-copy,
+  .products .move-card .card-copy {
+    padding: 24px;
+  }
+  .products .card-copy h3 {
+    font-size: 27px;
+    padding: 0;
+  }
+  .products .card-copy p {
+    font-size: 12px;
+    line-height: 1.6;
+    margin-top: 14px;
+  }
+  .products .trade-art {
+    left: 50%;
+    right: 14px;
+    padding: 16px 10px;
+  }
+  .products .trade-card,
+  .products .move-card {
+    min-height: 230px;
+  }
+  .products .earn-card,
+  .products .borrow-card {
+    min-height: 410px;
+  }
+  .products .product-link {
+    opacity: 0.7;
+  }
+  .products .product-link svg {
+    opacity: 1;
+  }
+  .products .move-art {
+    left: 49%;
+  }
+  .principles article {
+    padding: 25px;
+  }
+}
+@media (max-width: 560px) {
+  .products .product-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .products .trade-card,
+  .products .earn-card,
+  .products .borrow-card,
+  .products .move-card {
+    grid-column: auto;
+    grid-row: auto;
+    min-height: 340px;
+    display: block;
+  }
+  .products .card-copy,
+  .products .trade-card .card-copy,
+  .products .move-card .card-copy {
+    width: auto;
+    padding: 25px;
+  }
+  .products .card-copy h3 {
+    font-size: 29px;
+  }
+  .products .card-copy h3 br {
+    display: none;
+  }
+  .products .card-copy h3 br:after {
+    content: " ";
+  }
+  .products .card-copy p {
+    max-width: 310px;
+    font-size: 12px;
+  }
+  .products .trade-art {
+    left: 22px;
+    right: 22px;
+    top: auto;
+    bottom: 14px;
+    height: 179px;
+    padding: 14px 18px;
+  }
+  .products .trade-chart {
+    height: 88px;
+    margin-top: 12px;
+  }
+  .products .chart-bottom {
+    margin-top: 0;
+  }
+  .products .earn-card {
+    min-height: 380px;
+  }
+  .products .earn-art {
+    height: 245px;
+  }
+  .products .borrow-card {
+    min-height: 375px;
+  }
+  .products .borrow-art {
+    bottom: 8px;
+    height: 230px;
+    width: 285px;
+  }
+  .products .move-card {
+    min-height: 345px;
+  }
+  .products .move-art {
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    margin: auto;
+    width: 260px;
+    height: 205px;
+  }
+  .products .section-head h2 {
+    font-size: 35px;
+  }
 }
 @media (max-width: 760px) {
   :root:not([data-js]) .site-header {
