@@ -422,8 +422,7 @@
         aria-labelledby="protocol-title"
       >
         <div class="section-head">
-          <span class="eyebrow">How it works</span>
-          <h2 id="protocol-title">Your wallet. <br />Your call.</h2>
+          <h2 id="protocol-title">Your wallet. Your direction.</h2>
           <p>
             A clear path from your first connection to your next transaction.
           </p>
@@ -486,7 +485,6 @@
         aria-labelledby="products-title"
       >
         <div class="section-head">
-          <span class="eyebrow">Features</span>
           <h2 id="products-title">Built for your next move.</h2>
           <p>Trade, save, borrow, and bridge. All in one place.</p>
         </div>
@@ -714,16 +712,17 @@
         aria-labelledby="telegram-title"
       >
         <div class="telegram-copy">
-          <span class="eyebrow">Telegram</span>
           <svg class="telegram-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="m21 3-3.6 18-5.8-5-3.3 3 .7-5.3L18 6 6.7 12.2 2 10.6Z"
             ></path>
           </svg>
-          <h2 id="telegram-title">At home <br />in Telegram.</h2>
+          <h2 id="telegram-title">
+            Less switching.<br /><span>More doing.</span>
+          </h2>
           <p>
-            Your next move is a message away. <br />Open FxAeon in Telegram and
-            get started.
+            The same FxAeon, right inside Telegram. Open the mini app and keep
+            your wallet, positions, and next move together.
           </p>
           <a
             class="button primary"
@@ -782,13 +781,12 @@
         </div>
       </section>
       <section class="faq section" id="faq" aria-labelledby="faq-title">
-        <div>
-          <span class="eyebrow">FAQ</span>
+        <div class="faq-heading">
           <h2 id="faq-title">
-            A little clarity. <br /><span>Before you begin.</span>
+            Good questions.<br /><span> Clear answers.</span>
           </h2>
           <a class="text-link" href="https://fxaeon.com/docs"
-            >Read the docs
+            >Go deeper in the docs
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14m-6-6 6 6-6 6"></path></svg
           ></a>
@@ -851,13 +849,11 @@
         </div>
       </section>
       <section class="finale section" aria-labelledby="finale-title">
-        <h2 id="finale-title">
-          <span>Your next era.</span> <br />Your next move.
-        </h2>
-        <p>
-          Trade, earn, borrow, and move. <br />All with FxAeon, on f(x)
-          Protocol.
-        </p>
+        <div class="era-mark" aria-hidden="true">
+          <span></span><span></span>
+        </div>
+        <h2 id="finale-title">Your crypto.<br /><span>Your move.</span></h2>
+        <p>Start with your wallet. See where it takes you.</p>
         <div class="actions">
           <a
             class="button primary"
@@ -886,7 +882,7 @@
               alt=""
             /><span>FxAeon</span></a
           >
-          <p>Your crypto. <br />More possibilities.</p>
+          <p>Built on f(x) Protocol.<br />Made for your everyday DeFi.</p>
         </div>
         <nav aria-label="Product">
           <h3>Product</h3>
@@ -914,9 +910,26 @@
           ><a href="https://fxaeon.com/privacy.html">Privacy</a>
         </nav>
       </div>
+      <div class="footer-wordmark" aria-hidden="true">
+        <img
+          src="assets/fxaeon-mark.svg"
+          width="180"
+          height="180"
+          alt=""
+        /><span>FxAeon</span>
+      </div>
       <div class="footer-bottom">
         <p>© <span id="year">2026</span> FxAeon</p>
         <span>Built on f(x) Protocol</span
+        ><button
+          class="motion-toggle"
+          type="button"
+          aria-label="Pause animations"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 5v14M15 5v14" />
+          </svg></button
         ><button
           class="theme-toggle"
           type="button"
