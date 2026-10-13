@@ -44,7 +44,7 @@ async function headerGeometry(page: Page) {
   });
 }
 
-test('the header stays one row with one footprint while the wallet settles, at every phone width', async ({ page }) => {
+test('the header stays one row while the wallet settles, at every phone width', async ({ page }) => {
   await open(page);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 844 });
@@ -52,14 +52,15 @@ test('the header stays one row with one footprint while the wallet settles, at e
     for (const [state, wallet] of STATES) {
       await setLab(page, { wallet });
       const geometry = await headerGeometry(page);
-      expect(geometry.height, `${state} header is one 48px row at ${width}px`).toBeLessThanOrEqual(48);
+      expect(geometry.height, `${state} header is one compact row at ${width}px`).toBeLessThanOrEqual(56);
       expect(geometry.overflow, `${state} header overflows at ${width}px`).toBeLessThanOrEqual(0);
       expect(geometry.groupRight, `${state} controls stay on screen at ${width}px`).toBeLessThanOrEqual(geometry.viewport);
       expect(geometry.smallestControl, `${state} controls keep 44px targets at ${width}px`).toBeGreaterThanOrEqual(44);
       expect(geometry.nameClipped, `the compact address is shown whole at ${width}px`).toBe(false);
-      lefts.push(geometry.groupLeft);
+      if (state !== 'connected') lefts.push(geometry.groupLeft);
+      await expect(page.locator('.network-selector')).toHaveCount(state === 'connected' ? 1 : 0);
     }
-    // On phones the network control never moves when the wallet settles.
+    // Loading and the disconnected entry share a compact footprint.
     if (width <= 430) expect(Math.max(...lefts) - Math.min(...lefts), `wallet controls jump at ${width}px`).toBeLessThanOrEqual(1);
   }
 });
@@ -70,7 +71,7 @@ test('an ENS-length name never breaks the header into two rows', async ({ page }
     await page.setViewportSize({ width, height: 844 });
     await setLab(page, { wallet: { ready: true, authenticated: true, address: ADDRESS, chainId: 1, ensName: 'dextrader-2024.eth' } });
     const geometry = await headerGeometry(page);
-    expect(geometry.height, `header is one row at ${width}px`).toBeLessThanOrEqual(48);
+    expect(geometry.height, `header is one row at ${width}px`).toBeLessThanOrEqual(56);
     expect(geometry.overflow, `header overflows at ${width}px`).toBeLessThanOrEqual(0);
     expect(geometry.smallestControl).toBeGreaterThanOrEqual(44);
   }
@@ -82,7 +83,7 @@ test('loading shows placeholders, not a globe or an empty pill, and they settle 
   await setLab(page, { readyTimeoutMs: 400, wallet: STATES[2][1] });
   await setLab(page, { wallet: STATES[0][1] });
   const group = page.getByRole('group', { name: 'Wallet and network controls' });
-  await expect(group.locator('.network-selector-placeholder')).toBeVisible();
+  await expect(group.locator('.network-selector')).toHaveCount(0);
   await expect(group.locator('img')).toHaveCount(0);
   const placeholder = group.getByRole('status');
   await expect(placeholder).toHaveText('Loading wallet');
@@ -94,8 +95,7 @@ test('loading shows placeholders, not a globe or an empty pill, and they settle 
 
   await setLab(page, { wallet: STATES[1][1] });
   await expect(group.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
-  await expect(group.locator('.network-selector-chains img')).toHaveCount(2);
-  await expect(group.locator('.network-selector')).toHaveAttribute('aria-label', 'Choose a network or connect a wallet');
+  await expect(group.locator('.network-selector')).toHaveCount(0);
 
   await setLab(page, { wallet: STATES[2][1] });
   await expect(group.getByRole('button', { name: 'Open wallet profile' })).toContainText('0x1d34…AF81');
@@ -107,9 +107,9 @@ test('the theme control shows the theme in use and names the one it switches to'
   await open(page);
   await setLab(page, { wallet: STATES[2][1] });
   const expectations = [
-    { theme: 'official', name: 'Official theme. Switch to dark theme' },
+    { theme: 'official', name: 'Light theme. Switch to dark theme' },
     { theme: 'dark', name: 'Dark theme. Switch to light theme' },
-    { theme: 'light', name: 'Light theme. Switch to official theme' },
+    { theme: 'official', name: 'Light theme. Switch to dark theme' },
   ];
   for (const [index, { theme, name }] of expectations.entries()) {
     const toggle = page.getByRole('button', { name, exact: true });
@@ -131,13 +131,12 @@ test('the theme icon follows the pre-hydration theme, so a saved theme never fla
     .map((icon) => icon.getAttribute('data-theme-icon')));
   expect(await visibleIcons()).toEqual(['dark']);
   // Server HTML renders React's default state; the root attribute alone must pick the icon.
-  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
-  expect(await visibleIcons()).toEqual(['light']);
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'official'; });
+  expect(await visibleIcons()).toEqual(['official']);
 });
 
-/** How violet the heading's ink is: the largest blue-over-green excess among
- * bright pixels. Plain text in the dark themes stays under ~12; the band of
- * light (mint-bright, coral) pushes it far higher. */
+/** How blue the heading's ink is: the largest blue-over-green excess among
+ * bright pixels. Plain text stays under ~12; the blue sweep pushes it higher. */
 async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
   const shot = (await heading.screenshot()).toString('base64');
   return page.evaluate(async (png) => {
@@ -150,12 +149,12 @@ async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
     const context = canvas.getContext('2d')!;
     context.drawImage(image, 0, 0);
     const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-    let tint = 0;
+    let blueExcess = 0;
     for (let index = 0; index < data.length; index += 4) {
       const [red, green, blue] = [data[index], data[index + 1], data[index + 2]];
-      if (red + green + blue > 360) tint = Math.max(tint, blue - green);
+      if (red + green + blue > 360) blueExcess = Math.max(blueExcess, blue - green);
     }
-    return tint;
+    return blueExcess;
   }, shot);
 }
 
@@ -180,7 +179,7 @@ test('the Trade heading arrives lit, and its first and last frames are plain tex
   expect(await headingTint(page, heading), 'first frame is plain text').toBeLessThanOrEqual(14);
   // The eased band reaches the middle of the word about 250ms into the sweep.
   await sweep(heading, 120 + 250);
-  expect(await headingTint(page, heading), 'the band of light crosses the word').toBeGreaterThanOrEqual(30);
+  expect(await headingTint(page, heading), 'the blue band crosses the word').toBeGreaterThanOrEqual(30);
   await sweep(heading, 120 + 1499);
   expect(await headingTint(page, heading), 'last frame is plain text').toBeLessThanOrEqual(14);
   await sweep(heading, 'finish');
@@ -571,7 +570,7 @@ test('the first-paint outline hands over to the live shell in place, at every ph
       await expect(page.locator('header.app-topbar')).toBeVisible();
       const live = await shellLayout(page);
       expect(live, `${path} at ${width}px`).toEqual(outline);
-      expect(live.shapes, 'the identity placeholder draws an avatar and an address').toHaveLength(2);
+      expect(live.shapes, 'the entry placeholder draws a compact label').toHaveLength(1);
     }
   }
   // History's feed was already drawn by the outline, so it takes its place without fading in again.

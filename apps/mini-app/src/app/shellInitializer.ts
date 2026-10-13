@@ -7,7 +7,7 @@
 
 /** Theme: the saved palette. Earlier releases used "dark" for today's
  * Official, so the legacy key only keeps an explicit light choice. */
-const THEME = "try{const v=localStorage.getItem('fxaeon_theme_id_v2');const t=v==='official'||v==='dark'||v==='light'?v:localStorage.getItem('fxaeon_theme_id')==='light'?'light':'official';r.dataset.theme=t;r.style.colorScheme=t==='light'?'light':'dark';}catch{}";
+const THEME = "try{const t=localStorage.getItem('fxaeon_theme_id_v2')==='dark'?'dark':'official';r.dataset.theme=t;r.style.colorScheme=t==='dark'?'dark':'light';}catch{}";
 
 /** Route headings arrive lit once per session (globals.css, heading-light):
  * when the first sweep ends the root is marked, and later pages and reloads

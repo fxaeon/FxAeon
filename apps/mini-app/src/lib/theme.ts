@@ -1,10 +1,10 @@
 /** FxAeon palettes shared by the compact toggle and full appearance control. */
 import { applyTelegramChromeColors } from './telegram';
 
-export type ThemeId = 'official' | 'dark' | 'light';
+// Keep the stored "official" id for the light palette across upgrades.
+export type ThemeId = 'official' | 'dark';
 
 const THEME_STORAGE_KEY = 'fxaeon_theme_id_v2';
-const LEGACY_THEME_STORAGE_KEY = 'fxaeon_theme_id';
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -17,21 +17,15 @@ export interface ThemeConfig {
 export const THEMES: Record<ThemeId, ThemeConfig> = {
   official: {
     id: 'official',
-    name: 'Official',
-    accent: '#b9a0ff',
-    colors: { '--bg': '#121115', '--surface': '#1e1c22', '--surface-2': '#27242d' },
+    name: 'Light',
+    accent: '#2563eb',
+    colors: { '--bg': '#f7f7f8', '--surface': '#ffffff', '--surface-2': '#f0f0f2' },
   },
   dark: {
     id: 'dark',
     name: 'Dark',
-    accent: '#b9a0ff',
-    colors: { '--bg': '#08090b', '--surface': '#121418', '--surface-2': '#191c21' },
-  },
-  light: {
-    id: 'light',
-    name: 'Light',
-    accent: '#7341c8',
-    colors: { '--bg': '#f7f5f1', '--surface': '#ffffff', '--surface-2': '#f4f0f8' },
+    accent: '#3b82f6',
+    colors: { '--bg': '#111113', '--surface': '#1b1b1f', '--surface-2': '#242428' },
   },
 };
 
@@ -44,10 +38,7 @@ export function getSavedTheme(): ThemeId {
   if (typeof window === 'undefined') return 'official';
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved === 'official' || saved === 'dark' || saved === 'light') return saved;
-    // The previous release used "dark" for today's Official palette. Preserve
-    // that appearance during migration; an existing light choice stays light.
-    return localStorage.getItem(LEGACY_THEME_STORAGE_KEY) === 'light' ? 'light' : 'official';
+    return saved === 'dark' ? 'dark' : 'official';
   } catch {
     return 'official';
   }
@@ -58,7 +49,7 @@ export function applyTheme(themeId: ThemeId) {
   const theme = THEMES[themeId] || THEMES.official;
   const root = document.documentElement;
   LEGACY_INLINE_TOKENS.forEach((token) => root.style.removeProperty(token));
-  root.style.colorScheme = themeId === 'light' ? 'light' : 'dark';
+  root.style.colorScheme = themeId === 'dark' ? 'dark' : 'light';
   root.setAttribute('data-theme', themeId);
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', theme.colors['--bg']);
   applyTelegramChromeColors(theme.colors['--bg']);

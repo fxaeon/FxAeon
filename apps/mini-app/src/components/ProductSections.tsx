@@ -41,7 +41,7 @@ export function TradeSections({ market, side, leverage, openPositions, positions
   const high = live.isFresh ? live.quote?.high24h : undefined;
   const rangeStatus = liveQuotePending(live.status) ? 'loading' : 'unavailable';
   return <PageSections label={`${market} market details`}>
-    <Section id="trade-market" title={`${market} at a glance`} action={{ label: 'Manage positions', href: '/positions' }}>
+    <Section id="trade-market" title="Market details" action={{ label: 'Manage positions', href: '/positions' }}>
       <StatGrid stats={[
         { label: '24h low', value: <ValueOrSkeleton value={formatUsdPrice(low)} width="lg" status={rangeStatus} label="24 hour low" />, hint: 'Live market feed' },
         { label: '24h high', value: <ValueOrSkeleton value={formatUsdPrice(high)} width="lg" status={rangeStatus} label="24 hour high" />, hint: 'Live market feed' },
@@ -52,36 +52,32 @@ export function TradeSections({ market, side, leverage, openPositions, positions
           : { label: 'Your positions', value: <ValueOrSkeleton value={positionsStatus === 'ready' && openPositions !== null ? `${openPositions} open` : '—'} width="md" status={positionsStatus === 'loading' ? 'loading' : 'unavailable'} label={`Your open ${market} positions`} />, hint: `${market}, long and short` },
       ]} />
     </Section>
-    <Section id="trade-leverage" title="Where leverage comes from" action={howItWorks('trade')}>
+    {rebalancingNote}
+    <Section id="trade-leverage" title="How leverage works" expandable action={howItWorks('trade')}>
       {/* The ticket's slider states the chosen leverage live; these examples follow its side. */}
       <p className={styles.lede}>{side === 'long'
         ? 'On f(x) Protocol, a long’s leverage is fxUSD minted against its collateral. Before fees, a 3× long is two thirds minted fxUSD and one third yours.'
         : `A short deposits fxUSD and borrows ${market === 'ETH' ? 'wstETH' : 'WBTC'} from f(x) Protocol’s long-side reserve. Before fees, a 3× short is three quarters borrowed and one quarter yours.`}</p>
       <LeverageSplit side={side} debtLabel={leverageDebtLabel(side, market)} />
-      {rebalancingNote}
     </Section>
   </PageSections>;
 }
 
 /** Below the fxSAVE form: vault facts and where its yield comes from. */
-export function EarnSections({ apy, apyStatus, cooldown, instantFee, vaultStatus }: {
-  apy: string | null;
-  apyStatus: 'loading' | 'unavailable';
+export function EarnSections({ cooldown, instantFee, vaultStatus }: {
   cooldown: string | null;
   instantFee: string | null;
   /** How the vault configuration read stands while its values are missing. */
   vaultStatus: 'loading' | 'unavailable';
 }) {
   return <PageSections label="fxSAVE details">
-    <Section id="earn-glance" title="The vault at a glance">
+    <Section id="earn-glance" title="Withdrawal terms">
       <StatGrid stats={[
-        { label: 'APY', value: <ValueOrSkeleton value={apy ?? '—'} width="md" status={apyStatus} label="fxSAVE APY" />, hint: 'Variable · official f(x) feed' },
         { label: 'Withdrawal cooldown', value: <ValueOrSkeleton value={cooldown ?? '—'} width="md" status={vaultStatus} label="Withdrawal cooldown" />, hint: 'For queued withdrawals' },
         { label: 'Instant withdrawal fee', value: <ValueOrSkeleton value={instantFee ?? '—'} width="md" status={vaultStatus} label="Instant withdrawal fee" />, hint: 'Skip the cooldown' },
-        { label: 'Deposit with', value: 'fxUSD · USDC', hint: 'Ethereum' },
       ]} />
     </Section>
-    <Section id="earn-yield" title="Where the yield comes from" action={howItWorks('earn')}>
+    <Section id="earn-yield" title="How fxSAVE earns yield" expandable action={howItWorks('earn')}>
       <p className={styles.lede}>fxSAVE holds f(x) Protocol stability pool shares and compounds what they earn, so its value per share follows the vault. The APY is variable.</p>
       <YieldFlow />
     </Section>
@@ -91,7 +87,7 @@ export function EarnSections({ apy, apyStatus, cooldown, instantFee, vaultStatus
 /** Below the Borrow form: the pool's terms and the brake to keep in mind. */
 export function BorrowSections({ ltvLimit }: { ltvLimit: string }) {
   return <PageSections label="Borrowing details">
-    <Section id="borrow-glance" title="Terms at a glance" action={{ label: 'Borrowing details', href: FX_BORROWING_DOCS, external: true }}>
+    <Section id="borrow-glance" title="Borrowing terms" action={{ label: 'Borrowing details', href: FX_BORROWING_DOCS, external: true }}>
       <StatGrid stats={[
         // The form's meter stops a little lower; this names why the two figures differ.
         { label: 'Loan-to-value limit', value: ltvLimit, hint: 'Pool maximum; FxAeon keeps a small margin' },
@@ -109,11 +105,8 @@ export function BorrowSections({ ltvLimit }: { ltvLimit: string }) {
 /** Below Move: the supported routes. */
 export function MoveSections() {
   return <PageSections label="Move details">
-    <Section id="move-glance" title="Routes at a glance" action={howItWorks('move')}>
+    <Section id="move-glance" title="Transfer details" action={howItWorks('move')}>
       <StatGrid stats={[
-        { label: 'Assets', value: 'fxUSD · fxSAVE', hint: 'Official f(x) bridge' },
-        // A narrow tile breaks before the arrow, never between it and Base.
-        { label: 'Networks', value: 'Ethereum ↔ Base', hint: 'Both directions' },
         { label: 'Bridge', value: 'LayerZero', hint: 'Delivery verified by events' },
         { label: 'Fee', value: 'At review', hint: 'Paid in ETH on the source network' },
       ]} />

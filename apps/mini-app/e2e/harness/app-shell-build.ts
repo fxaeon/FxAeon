@@ -105,7 +105,7 @@ const mocks: Record<string, string> = {
     export default function WalletProfile() {
       const wallet = usePrivyWallet();
       if (!wallet.ready) return <span role="status" className="h-11 w-11 animate-pulse rounded-xl bg-[var(--surface)]"><span className="sr-only">Loading wallet</span></span>;
-      if (!wallet.address) return <button type="button" aria-label="Connect wallet" className={accountStyles.walletConnect + ' ' + headerWalletControl.trigger + ' glass-press'}>Connect</button>;
+      if (!wallet.address) return <button type="button" aria-label="Connect wallet" className={accountStyles.walletConnect + ' ' + headerWalletControl.trigger + ' ' + headerWalletControl.connectTrigger + ' glass-press'}>Connect</button>;
       return <button type="button" aria-label="Open wallet profile" className={accountStyles.walletTrigger + ' ' + headerWalletControl.trigger + ' ' + headerWalletControl.identityTrigger + ' glass-press'}>
         <span className={headerWalletControl.identityAvatar}><WalletAvatar address={wallet.address} size={22} /></span>
         <span className={headerWalletControl.identityName} data-wallet-identity-name>{wallet.ensName ?? compactAddress(wallet.address)}</span>

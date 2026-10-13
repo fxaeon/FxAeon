@@ -1,138 +1,37 @@
-.moveWorkspace {
-  width: 100%;
-  max-width: 640px;
-  margin-inline: auto;
-}
-
-.moveCard.moveCard {
-  width: 100%;
-  min-width: 0;
-  padding: 18px;
-  border-color: var(--hairline);
-  border-radius: var(--radius-xl);
-  background: var(--surface);
-  box-shadow: var(--ring-inset);
-}
-
-/* Route: two chain tiles; the reverse control sits in a notch between them. */
-.moveNetworkFlow {
-  grid-template-columns: minmax(0, 1fr) 6px minmax(0, 1fr);
-  gap: 0;
-}
-
-.routeNode {
-  min-width: 0;
-  min-height: 72px;
-  padding: 12px 14px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  box-shadow: none;
-}
-
-.routeNode:first-child,
-.routeNode:last-child {
-  border-color: transparent;
-  background: var(--surface-2);
-}
-.routeNode:last-child { padding-left: 24px; }
-
-.routeIdentity { min-width: 0; gap: 10px; }
+.moveWorkspace { width: 100%; max-width: 520px; margin: 12px auto 0; }
+.centerStage { min-width: 0; }
+.moveCard.moveCard { width: 100%; min-width: 0; padding: 20px; border: 0; border-radius: 20px; background: var(--surface); box-shadow: none; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: -4px 2px 12px; }
+.cardHead > span { font-size: 16px; font-weight: 500; letter-spacing: -.03em; }
+.moveCard.moveCard .moveFormFields { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sourcePanel, .destinationPanel { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
+.destinationPanel { background: var(--feature-surface); }
+.moveCard .sourcePanel :global(.amount-control) { padding: 0; border-radius: 12px; border-color: transparent; background: transparent !important; --amount-ring: none; }
+.moveCard .sourcePanel :global(.amount-control:focus-within) { border-color: var(--mint); }
+.routeNode, .routeNode:first-child, .routeNode:last-child { display: flex; align-items: center; justify-content: space-between; min-height: 32px; padding: 0 0 12px; background: transparent; border: 0; box-shadow: none; border-radius: 0; }
+.routeIdentity { display: flex; align-items: center; min-width: 0; margin: 0; gap: 7px; font-size: 13px; }
 .chainLogo { flex: 0 0 auto; }
-.routeName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.routeSwap {
-  position: relative;
-  z-index: 1;
-  justify-self: center;
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  margin-inline: -21px;
-  border: 4px solid var(--surface) !important;
-  border-radius: 50%;
-  color: var(--text);
-  background: var(--surface-3) !important;
-  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring) !important;
-}
-.routeSwap:hover { color: var(--mint-bright); background: color-mix(in srgb, var(--mint) 18%, var(--surface-3)) !important; }
-.routeSwap svg { transition: transform var(--dur-slow) var(--ease-spring); }
-.routeSwap[data-direction='reverse'] svg { transform: rotate(180deg); }
-
-.moveCard .moveAmountHero { padding: 0; background: transparent; }
-.moveCard.moveCard .moveFormFields {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 12px;
-}
-.moveCard.moveCard .moveFormFields > details { grid-column: auto; grid-row: auto; }
-
-.recipientSection { min-width: 0; }
-.recipientSection > div:first-child > span { font-size: var(--fs-small); }
-.recipientSection > div:first-child > button { min-height: 44px; font-size: var(--fs-caption); }
-.recipientMark {
-  display: flex;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--mint-dim);
-  color: var(--mint);
-}
-.recipientLabel,
-.recipientAddress { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recipientLabel { color: var(--mut); font-size: var(--fs-small); }
-
-.expertDisclosure {
-  min-width: 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-}
-.expertSummary {
-  min-height: 48px;
-  border: 0;
-  background: transparent;
-  color: var(--mut);
-  transition: color var(--dur-fast) ease;
-}
+.routeName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.routeSwap { z-index: 1; align-self: center; display: grid; place-items: center; width: 44px; height: 44px; min-width: 44px; margin: -27px 0; border: 4px solid var(--surface) !important; border-radius: 14px; background: var(--text) !important; color: var(--bg); }
+.routeSwap svg { transform: rotate(90deg); transition: transform 200ms ease; }
+.routeSwap[data-direction='reverse'] svg { transform: rotate(270deg); }
+.routeSwap:hover { color: var(--feature-surface); }
+.receiveAsset { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.receiveAsset strong { font-size: 20px; font-weight: 500; letter-spacing: -.035em; }
+.receiveAsset > span { flex-basis: 100%; color: var(--mut); font-size: 11px; }
+.recipientMark { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto; color: var(--mut); }
+.recipientLabel, .recipientAddress { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expertDisclosure { min-width: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.expertSummary { min-height: 44px; border: 0; background: transparent; color: var(--mut); }
 .expertSummary:hover { color: var(--text); }
-.expertDisclosure[open] > .expertSummary { border-bottom: 1px solid var(--line); }
 .expertRisk { min-width: 0; }
-
-@media (min-width: 840px) {
-  .moveWorkspace { max-width: 640px; }
-  .moveCard.moveCard { padding: 22px; }
-}
-
 @media (max-width: 640px) {
-  .moveWorkspace { max-width: 100%; }
-  .moveCard.moveCard { padding: 16px; border-radius: var(--radius-lg); }
-  .routeNode { min-height: 68px; padding: 10px 12px; }
-  .routeNode:last-child { padding-left: 22px; }
+  .moveWorkspace { margin-top: 0; }
+  .moveCard.moveCard { padding: 16px; }
+  .sourcePanel, .destinationPanel { padding: 14px; }
 }
-
 @media (max-width: 359px) {
   .moveCard.moveCard { padding: 12px; }
-  .routeNode { min-height: 62px; padding: 8px 10px; }
-  .routeNode:last-child { padding-left: 20px; }
-  .routeIdentity { gap: 6px; }
-  .chainLogo { flex-basis: 20px; }
+  .sourcePanel, .destinationPanel { padding: 12px; }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .routeSwap, .routeSwap svg { transition: none !important; }
-}
-
-.moveWorkspace { min-height: 100%; }
-.cardHead { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; margin: -10px -6px 8px 2px; }
-/* The card's own title, in text colour: muted, it read as a disabled control. */
-.cardHead h2 { color: var(--text); font-size: var(--fs-small); font-weight: 650; letter-spacing: -0.01em; }
-.centerStage { display: flex; flex: 1; flex-direction: column; min-width: 0; }
-.centerStage > .moveCard { margin-block: auto; }
-
-.moveCard.moveCard { border: 0; border-radius: 28px; background: linear-gradient(135deg, color-mix(in srgb, var(--mint) 8%, var(--surface)), var(--surface)); box-shadow: none; }
-.routeNode:first-child { background: linear-gradient(135deg, color-mix(in srgb, #9693ff 24%, var(--surface)), var(--surface-2)); }
-.routeNode:last-child { background: linear-gradient(135deg, color-mix(in srgb, #80b8ec 20%, var(--surface)), var(--surface-2)); }
+@media (prefers-reduced-motion: reduce) { .routeSwap svg { transition: none; } }

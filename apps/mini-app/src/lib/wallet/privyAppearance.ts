@@ -37,7 +37,7 @@ function hexColor(value: string): HexColor | undefined {
 export function privyAppearance(themeId: ThemeId): FxPrivyAppearance {
   const theme = THEMES[themeId] ?? THEMES.official;
   return {
-    theme: hexColor(theme.colors['--bg']) ?? (theme.id === 'light' ? 'light' : 'dark'),
+    theme: hexColor(theme.colors['--bg']) ?? (theme.id === 'dark' ? 'dark' : 'light'),
     accentColor: hexColor(theme.accent),
     // A sized image element: the mark has no intrinsic size, and Privy would
     // otherwise stretch it to the 90px limit it applies to wordmarks.

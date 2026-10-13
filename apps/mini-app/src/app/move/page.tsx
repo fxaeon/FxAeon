@@ -37,7 +37,7 @@ import { getRpcTransport } from '@/lib/fx/clients';
 import { usePrivyWallet } from '@/lib/wallet';
 import { parseAmount } from '@/app/trade/fxUi';
 import { resetTransactionAmounts } from '@/lib/transactionState';
-import { ChainIcon } from '@/components/TokenIcon';
+import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 import styles from '@/components/FlowWorkspace.module.css';
 import moveStyles from './Move.module.css';
 
@@ -492,9 +492,14 @@ export default function MovePage() {
             key={reviewRevision}
             surface="content"
             editor={<>
-          <div className={moveStyles.cardHead}><h2>Move between networks</h2><TransactionSettings /></div>
-          <div className={`${styles.networkFlow} ${styles.moveNetworkFlow} ${moveStyles.moveNetworkFlow}`}>
+          <div className={moveStyles.cardHead}><span>Bridge</span><TransactionSettings /></div>
+          <div className={`${styles.moveFormFields} ${moveStyles.moveFormFields}`}>
+            <div className={moveStyles.sourcePanel}>
             <NetworkField label="From" name={sourceName} chainId={sourceChainId} />
+              <AmountField label="Amount" symbol={advanced ? 'OFT' : token} value={amount} onChange={setAmount}
+                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false}
+                tokenSelector={!advanced ? <TokenSelect compact label="Asset" value={token} options={['fxUSD', 'fxSAVE'] as const} onChange={changeToken} balances={moveBalances} balanceStatus={wallet.address ? moveBalanceStatusForPicker : 'disconnected'} /> : undefined} />
+            </div>
             <button
               type="button"
               aria-label={`Reverse route to ${sourceName}`}
@@ -504,22 +509,12 @@ export default function MovePage() {
             >
               <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
             </button>
+            <div className={moveStyles.destinationPanel}>
             <NetworkField label="To" name={destinationName} chainId={destinationChainId} />
-          </div>
-
-          <div className="h-3" aria-hidden="true" />
-          <div className={`${styles.moveFormFields} ${moveStyles.moveFormFields}`}>
-            <div className={`${styles.amountHero} ${styles.moveAmountHero} ${moveStyles.moveAmountHero}`}>
-              <AmountField
-                label="Amount"
-                symbol={advanced ? 'OFT' : token}
-                value={amount}
-                onChange={setAmount}
-                maxDecimals={18}
-                balanceState={moveBalanceState}
-                showUnitPrice={false}
-                tokenSelector={!advanced ? <TokenSelect compact label="Asset" value={token} options={['fxUSD', 'fxSAVE'] as const} onChange={changeToken} balances={moveBalances} balanceStatus={wallet.address ? moveBalanceStatusForPicker : 'disconnected'} /> : undefined}
-              />
+              <div className={moveStyles.receiveAsset}>
+                {!advanced && <TokenIcon symbol={token} size={28} />}
+                <strong>{advanced ? 'Custom token' : token}</strong><span>Receive on {destinationName}</span>
+              </div>
             </div>
 
             <div className={styles.recipientSection}>

@@ -40,6 +40,7 @@ import { ActionWorkspace } from '@/components/ProductLayout';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import { useFxSaveClaimable } from '@/components/WalletDataProvider';
 import { useRefreshAction } from '@/lib/useRefreshAction';
+import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 
 type EarnMode = 'deposit' | 'withdraw' | 'claim';
 
@@ -464,7 +465,7 @@ export default function EarnPage() {
       <ActionWorkspace className={presentation.workspace} density="compact">
         <PageHeading title="Earn" />
         {reviewStage === 'input' && <ProductNav current="save" />}
-        {/* The value is a hero figure on the page, as on Portfolio; the form keeps its card below. */}
+        <div className={presentation.vaultLayout} data-review={reviewStage !== 'input' || mode === 'claim'}>
         {reviewStage === 'input' && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus} onClaim={() => changeMode('claim')} />}
         <ProductSurface className={presentation.panel} data-flow-stage={reviewStage}>
@@ -503,9 +504,9 @@ export default function EarnPage() {
             </>}
           />
         </ProductSurface>
+        </div>
         {reviewStage === 'input' && <VaultDetails config={config} />}
-        {reviewStage === 'input' && <EarnSections apy={fxSaveApy ? `${fxSaveApy.apy.toFixed(2)}%` : null} apyStatus={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'}
-          cooldown={config ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config ? formatRatio(config.instantRedeemFeeRatio) : null}
+        {reviewStage === 'input' && <EarnSections cooldown={config ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config ? formatRatio(config.instantRedeemFeeRatio) : null}
           vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} />}
       </ActionWorkspace>
     </AppShell>
@@ -539,12 +540,16 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, fxS
   const withdrawalTask = selectWalletTasks({ walletAddress: data?.walletAddress ?? '', transactions: [], claimable: claimUnavailable ? null : data?.claimable })
     .find((task) => task.kind === 'withdrawal');
   return <div className={presentation.overview}>
+    <div className={presentation.vaultIdentity}>
+      <TokenIcon symbol="fxSAVE" size={44} />
+      <div><h2>fxSAVE</h2><span>Auto-compounding vault</span></div>
+      <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
+    </div>
     <div className={presentation.balanceTop}>
       <div className={presentation.balanceCopy} data-connected={connected}>
-        <p>{!connected ? 'fxSAVE' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'}</p>
+        <p>{!connected ? 'Deposit assets' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'}</p>
         {!connected ? <>
-          <h2>Earn with fxSAVE</h2>
-          <small>Deposit a supported asset to receive fxSAVE.</small>
+          <div className={presentation.depositAssets}><TokenIcon symbol="fxUSD" size={22} /><TokenIcon symbol="USDC" size={22} /><span>fxUSD, USDC, fxSP</span></div>
         </> : balanceUnavailable ? <>
           <h2><MissingValue width="md" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading fxSAVE balance' : 'fxSAVE balance unavailable'} /></h2>
         </> : empty ? <>
@@ -567,6 +572,7 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, fxS
           <RefreshCw size={16} aria-hidden="true" className={loading ? 'animate-spin' : ''} />
         </button>}
     </div>
+    <p className={presentation.vaultDescription}>Compounding stability-pool yield. Your deposit receives fxSAVE shares.</p>
     {hasPending && <div className={presentation.pendingTask}>
       <StatusNotice title={claimUnavailable ? 'Withdrawal status unavailable' : withdrawalTask?.title ?? 'Withdrawal pending'}
         tone={!claimUnavailable && claim.status === 'ready' ? 'success' : 'neutral'}

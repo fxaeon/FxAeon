@@ -182,8 +182,9 @@ for (const market of ['ETH', 'BTC']) {
     const amount = page.getByRole('textbox', { name: `Amount in ${market === 'ETH' ? 'ETH' : 'WBTC'}` });
     const leverage = page.getByRole('spinbutton', { name: 'Target leverage' });
     const ticket = page.getByRole('radiogroup', { name: 'Position side' });
-    const explanation = page.getByRole('region', { name: 'Where leverage comes from' });
-    const glance = page.getByRole('region', { name: `${market} at a glance` });
+    await page.getByText('How leverage works', { exact: true }).click();
+    const explanation = page.getByRole('region', { name: 'How leverage works' });
+    const glance = page.getByRole('region', { name: 'Market details' });
     const split = explanation.getByRole('list', { name: /Share of a position/ });
     const rows = split.getByRole('listitem');
     const splitHeight = async () => (await split.boundingBox())!.height;
@@ -221,7 +222,7 @@ for (const market of ['ETH', 'BTC']) {
     const nextMarket = market === 'ETH' ? 'BTC' : 'ETH';
     await page.getByRole('combobox', { name: 'Market', exact: true }).selectOption(nextMarket);
     await expect(ticket.getByRole('radio', { name: 'Short' })).toBeChecked();
-    await expect(page.getByRole('region', { name: `${nextMarket} at a glance` })).toContainText(`–${nextMarket === 'ETH' ? '6.0' : '5.0'}×`);
+    await expect(page.getByRole('region', { name: 'Market details' })).toContainText(`–${nextMarket === 'ETH' ? '6.0' : '5.0'}×`);
     await expect(rows.nth(1)).toContainText(`75% borrowed ${nextMarket === 'ETH' ? 'wstETH' : 'WBTC'} · 25% yours`);
   });
 }

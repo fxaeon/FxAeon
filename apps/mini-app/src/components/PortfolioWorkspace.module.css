@@ -194,13 +194,16 @@
   .welcomeTitle { font-size: 32px; }
 }
 
-/* The welcome card carries the bright, blended face of FxAeon. */
+/* A generous, flat lilac surface, with the product's figures leading. */
 .welcome {
-  --text: #302044; --mint: #6b3eb0; --mint-bright: #6b3eb0; --surface: #d9c6f2;
-  overflow: hidden; border: 0; border-radius: 28px;
-  background: radial-gradient(ellipse at 100% 0%, #f7decf, transparent 62%), linear-gradient(130deg, #c6acf1, #e5d5f8);
+  overflow: hidden; border: 0; border-radius: 0;
+  background: transparent; justify-items: start; text-align: left; padding: 24px 4px;
 }
-.welcomeTitle { font-weight: 500; letter-spacing: -.055em; }
-.welcomeHorizon { opacity: .3; }
+.welcomeTitle { max-width: 15ch; font-size: clamp(36px, 7vw, 54px); font-weight: 500; letter-spacing: -.06em; line-height: 1.08; }
+.welcomeTitle span { color: var(--mint); }
+.welcomeHorizon { display: none; }
+.valueCard { padding: 24px 4px; border: 0; border-radius: 0; background: transparent; }
+.valueCard::before { display: none; }
 .quickAction > span { border: 0; border-radius: 50%; background: color-mix(in srgb, var(--mint) 14%, var(--surface)); }
-.positionsSection, .earnSection { border: 0; border-radius: 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--mint) 8%, var(--surface)), var(--surface)); }
+.positionsSection, .earnSection { border: 0; border-radius: 24px; background: var(--surface); padding-inline: 20px; }
+@media (max-width: 380px) { .welcome, .valueCard { padding: 22px 4px; } }

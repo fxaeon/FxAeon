@@ -1,6 +1,6 @@
 .section { min-width: 0; scroll-margin-top: 100px; }
 .section h2 { font-size: var(--fs-small); font-weight: 600; color: var(--mut); margin: 0 0 8px; }
-.choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 12px; background: var(--surface); box-shadow: var(--ring-inset); }
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; border: 1px solid var(--hairline); border-radius: var(--radius-lg); padding: 12px; background: var(--surface); box-shadow: var(--ring-inset); }
 .choice { min-width: 0; min-height: 108px; display: flex; flex-direction: column; gap: 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px; color: var(--text); background: var(--input); text-align: left; transition: border-color var(--dur-fast) ease, background-color var(--dur-base) ease, transform var(--dur-slow) var(--ease-spring); }
 .choice:active:not(:disabled) { transform: scale(0.98); transition-duration: var(--dur-press); }
 .choice[aria-checked='true'] { border-color: var(--mint); background: var(--mint-dim); }

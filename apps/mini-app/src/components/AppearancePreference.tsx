@@ -6,7 +6,7 @@ import { applyTheme, getSavedTheme, THEMES, type ThemeId } from '@/lib/theme';
 import { haptic } from '@/lib/telegram';
 import styles from './AppearancePreference.module.css';
 
-const OPTIONS: ThemeId[] = ['official', 'dark', 'light'];
+const OPTIONS: ThemeId[] = ['official', 'dark'];
 export function useAppearance() {
   const [theme, setTheme] = useState<ThemeId>('official');
   const [ready, setReady] = useState(false);

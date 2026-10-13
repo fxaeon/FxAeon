@@ -130,11 +130,8 @@ function ShellTopBar({ pathname }: { pathname: string }) {
     </nav>
     <span className="app-topbar-actions">
       <span className={control.control}>
-        <span className="network-selector-wrap"><span className="network-selector">
-          <span className={`skeleton ${styles.chainMark}`} /><span className={`network-selector-visual-label skeleton ${styles.networkLabel}`} />
-        </span></span>
-        <span className={`${control.trigger} ${control.identityTrigger}`}>
-          <span className={`skeleton ${styles.avatar}`} /><span className={`skeleton ${styles.identity}`} />
+        <span className={control.identityPlaceholder}>
+          <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
       <button type="button" tabIndex={-1} className="glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[var(--surface)] text-mut">

@@ -24,33 +24,35 @@
 }
 :root {
   color-scheme: dark;
-  --bg: #15121c;
+  --bg: #111113;
   --text: #fafafa;
   --muted: #b0b0b0;
-  --card: #211d29;
-  --line: #cab3e21c;
-  --accent: #bba6ff;
-  --accent-bright: #d5c4ff;
+  --card: #1b1b1f;
+  --line: #b3c3e21c;
+  --accent: #3b82f6;
+  --accent-bright: #3b82f6;
   --ease: cubic-bezier(0.22, 0.7, 0.25, 1);
-  --app-bg: #0d0c13;
-  --app-surface: #17151f;
-  --app-surface-2: #1f1c2a;
-  --app-surface-3: #2a2638;
-  --app-text: #f4f2fa;
-  --app-mut: #a9a2ba;
-  --app-mut-2: #9d95b0;
-  --app-accent: #b9a0ff;
-  --app-on-accent: #120d22;
+  --app-bg: #111113;
+  --app-surface: #1b1b1f;
+  --app-surface-2: #242428;
+  --app-surface-3: #2e2e34;
+  --app-text: #f4f4f5;
+  --app-mut: #a8a8b2;
+  --app-mut-2: #94949f;
+  --app-accent: #3b82f6;
+  --app-on-accent: #0d1422;
   --app-success: #53d5a0;
   --spring: ease;
   --ease-out: ease;
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f8f7f5;
+  --accent: #1d4ed8;
+  --accent-bright: #1e40af;
+  --bg: #f7f7f8;
   --text: #1b1b1b;
-  --muted: #676360;
-  --card: #eeece9;
+  --muted: #62626b;
+  --card: #ffffff;
   --line: #00000012;
 }
 * {
@@ -68,6 +70,13 @@ body {
   -webkit-font-smoothing: antialiased;
   font-size: 15px;
   line-height: 1.55;
+}
+/* The canvas spans the whole document; section surfaces never restart it. */
+body {
+  background: #111113;
+}
+:root[data-theme="light"] body {
+  background: #f7f7f8;
 }
 body.menu-open {
   overflow: hidden;
@@ -117,11 +126,11 @@ button svg {
   stroke-linejoin: round;
 }
 ::selection {
-  background: #bba6ff;
+  background: #2563eb;
   color: #fff;
 }
 :focus-visible {
-  outline: 3px solid #bea7f8;
+  outline: 3px solid var(--accent);
   outline-offset: 6px;
 }
 .skip-link {
@@ -179,7 +188,7 @@ button svg {
   width: max-content;
   max-width: calc(100% - 40px);
   padding: 12px 34px;
-  background: #1b1624c9;
+  background: #161b24c9;
   border: 1px solid #ffffff09;
   border-radius: 999px;
   backdrop-filter: blur(18px);
@@ -202,7 +211,7 @@ button svg {
   filter: none;
 }
 .site-header .brand {
-  color: #c6afff;
+  color: var(--accent);
   font-size: 23px;
 }
 .nav-side {
@@ -213,7 +222,7 @@ button svg {
   white-space: nowrap;
 }
 .nav-side a:hover {
-  color: #d7c7ff;
+  color: #c7daff;
 }
 .nav-side a span {
   margin-left: 3px;
@@ -253,12 +262,12 @@ button svg {
     background 0.25s;
 }
 .button.primary {
-  background: #bba6ff;
+  background: #2563eb;
   color: #fff;
 }
 .button.primary:hover {
-  background: #cbbbff;
-  box-shadow: 0 0 0 7px #bba6ff20;
+  background: #1d4ed8;
+  box-shadow: 0 0 0 7px #2563eb20;
   transform: translateY(-2px);
 }
 .button.subtle {
@@ -338,11 +347,8 @@ button svg {
   isolation: isolate;
   overflow: hidden;
   padding: 0 24px;
-  background:
-    radial-gradient(ellipse at 80% 43%, #ffffff08, transparent 48%),
-    radial-gradient(ellipse at 95% 110%, #b495ff26, transparent 38%),
-    linear-gradient(130deg, #201a28, #131019 45%, #211b29 100%);
-  color: white;
+  background: transparent;
+  color: var(--text);
 }
 .hero-copy {
   padding: 163px 0 0;
@@ -366,7 +372,7 @@ button svg {
   color: #b4b4b4;
 }
 .lede > span {
-  color: #c6afff;
+  color: var(--accent);
 }
 .hero-stage {
   position: relative;
@@ -490,8 +496,8 @@ button svg {
   gap: 100px;
   margin-top: -22px;
   min-height: 120px;
-  background: #f6f3fb;
-  color: #706777;
+  background: #f3f6fb;
+  color: #676c77;
   border-radius: 32px 32px 0 0;
   font-family: Manrope, Arial, sans-serif;
   font-size: 24px;
@@ -547,15 +553,15 @@ h2 {
 }
 .protocol {
   max-width: none;
-  background: #f6f3fb;
-  color: #241c2b;
+  background: #f3f6fb;
+  color: #1c212b;
   padding-top: 84px;
   padding-bottom: 40px;
   border-radius: 0 0 32px 32px;
 }
 .protocol .eyebrow {
-  color: #6d5294;
-  background: #eae3f5;
+  color: #526894;
+  background: #e3e9f5;
 }
 .protocol .section-head p {
   color: #707070;
@@ -575,7 +581,7 @@ h2 {
   gap: 12px;
   padding: 16px 24px;
   border-radius: 16px;
-  background: #eae4f1;
+  background: #e4e8f1;
   font-size: 15px;
   font-weight: 400;
   box-shadow: 0 7px 20px #00000004;
@@ -608,7 +614,7 @@ h2 {
   gap: 2px 9px;
   padding: 23px 27px;
   color: white;
-  background: linear-gradient(135deg, #32263e, #17111e);
+  background: linear-gradient(135deg, #262e3e, #11151e);
   border-radius: 18px;
   box-shadow: 0 10px 40px #0002;
   min-width: 240px;
@@ -638,7 +644,7 @@ h2 {
   min-width: 82px;
   padding: 10px 15px;
   border-radius: 10px;
-  background: #eae4f1;
+  background: #e4e8f1;
   font-size: 12px;
   text-align: center;
 }
@@ -648,17 +654,17 @@ h2 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 60px;
-  background: #292330;
+  background: #232730;
   color: #fff;
   padding: 56px;
   border-radius: 24px;
-  box-shadow: 0 -18px 55px #b495ff24;
+  box-shadow: 0 -18px 55px #95b8ff24;
 }
 .step-number {
   display: block;
   font-family: Manrope, Arial, sans-serif;
   font-size: 22px;
-  color: #c4a8ff;
+  color: var(--accent);
   margin-bottom: 30px;
 }
 .principles h3 {
@@ -682,7 +688,7 @@ h2 {
 .product-card {
   position: relative;
   overflow: hidden;
-  background: #211d29;
+  background: #1d2129;
   border: 1px solid #ffffff04;
   border-radius: 14px;
   color: #fff;
@@ -794,8 +800,8 @@ h2 {
   border-radius: 5px;
 }
 .chart-tabs i:first-child {
-  color: #d5b8ff;
-  background: #bba6ff20;
+  color: var(--accent);
+  background: #a6c4ff20;
 }
 .trade-chart {
   width: 100%;
@@ -804,7 +810,7 @@ h2 {
 }
 .chart-line {
   fill: none;
-  stroke: #b89aea;
+  stroke: var(--accent);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
 }
@@ -835,7 +841,7 @@ h2 {
 }
 .earn-card {
   grid-row: span 2;
-  background: #292333;
+  background: #232833;
 }
 .earn-art {
   height: 260px;
@@ -852,9 +858,9 @@ h2 {
   height: 40px;
   flex: 1;
   border-radius: 8px 8px 0 0;
-  background: linear-gradient(0deg, #292034, #635080);
-  border: 1px solid #bba6ff30;
-  box-shadow: inset 1px 1px 0 #d5bbff20;
+  background: linear-gradient(0deg, #202734, #506080);
+  border: 1px solid #a6c4ff30;
+  box-shadow: inset 1px 1px 0 #bbd2ff20;
 }
 .step-one {
   height: 58px;
@@ -868,7 +874,7 @@ h2 {
 }
 .step-four {
   height: 198px;
-  background: linear-gradient(0deg, #473758, #ac8bd6);
+  background: linear-gradient(0deg, #374258, #8ba4d6);
 }
 .step-three img {
   position: absolute;
@@ -886,11 +892,11 @@ h2 {
   left: 30px;
   display: flex;
   gap: 9px;
-  color: #cbc0d8;
+  color: #c0c8d8;
   font-size: 13px;
 }
 .earn-caption > span {
-  color: #c1a2f2;
+  color: var(--accent);
 }
 .borrow-card .card-copy {
   padding-bottom: 0;
@@ -936,7 +942,7 @@ h2 {
   width: 27px;
   height: 27px;
   fill: none;
-  stroke: #ba9aeb;
+  stroke: var(--accent);
   stroke-width: 1.5;
 }
 .borrow-coin {
@@ -986,7 +992,7 @@ h2 {
   gap: 7px;
   padding: 9px 12px;
   background: #f3f3f3;
-  color: #292330;
+  color: #232730;
   border-radius: 8px;
   font-size: 10px;
 }
@@ -1009,7 +1015,7 @@ h2 {
   position: absolute;
   left: 48%;
   top: 48px;
-  color: #b798e5;
+  color: #98b2e5;
   font-size: 24px;
 }
 .product-note {
@@ -1055,18 +1061,18 @@ h2 {
 .telegram-chat {
   border-radius: 20px;
   overflow: hidden;
-  background: #211d29;
+  background: #1d2129;
   box-shadow: 0 20px 75px #0004;
   transform: rotate(3deg);
   color: #ddd;
-  border: 1px solid #cfbaff15;
+  border: 1px solid #bad1ff15;
 }
 .chat-head {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 18px 23px;
-  background: #292330;
+  background: #232730;
 }
 .chat-head > span {
   display: grid;
@@ -1113,12 +1119,12 @@ h2 {
   display: flex;
   gap: 35px;
   align-self: flex-end;
-  background: #453254;
+  background: #323d54;
 }
 .bubble small {
   align-self: flex-end;
   font-size: 8px;
-  color: #c5b0d9;
+  color: #b0bed9;
 }
 .bubble.in {
   background: #303030;
@@ -1143,8 +1149,8 @@ h2 {
 }
 .bubble-button {
   text-align: center;
-  background: #43304f;
-  color: #dfc4ff;
+  background: #2563eb;
+  color: #ffffff;
   border-radius: 6px;
   padding: 10px;
   font-size: 12px;
@@ -1210,7 +1216,7 @@ summary:after {
 }
 details[open] summary:after {
   content: "−";
-  color: #c4a8ff;
+  color: var(--accent);
 }
 .faq-list p {
   color: var(--muted);
@@ -1233,7 +1239,7 @@ details[open] summary:after {
   letter-spacing: -0.04em;
 }
 .finale h2 span {
-  color: #90849f;
+  color: #848d9f;
 }
 .finale p {
   font-size: 15px;
@@ -1241,7 +1247,7 @@ details[open] summary:after {
   margin: 28px 0 33px;
 }
 .finale .primary {
-  box-shadow: 0 0 0 8px #bba6ff16;
+  box-shadow: 0 0 0 8px #a6c4ff16;
 }
 .site-footer {
   position: relative;
@@ -1257,7 +1263,7 @@ details[open] summary:after {
   padding-bottom: 65px;
 }
 .footer-brand .brand {
-  color: #c6afff;
+  color: var(--accent);
 }
 .footer-brand > p {
   font-size: 14px;
@@ -1333,10 +1339,10 @@ details[open] summary:after {
   zoom: tan(atan2(var(--phone-w), 316px));
   padding: 11px;
   border-radius: 54px;
-  background: linear-gradient(150deg, #2e2a3b, #0e0c13 42%, #1d1927);
+  background: linear-gradient(150deg, #303034, #111113 42%, #242428);
   box-shadow:
     inset 0 0 0 1.5px rgba(255, 255, 255, 0.13),
-    inset 0 0 0 4px #07060a,
+    inset 0 0 0 4px #06070a,
     0 60px 120px -30px rgba(16, 6, 46, 0.75),
     0 30px 60px -30px rgba(0, 0, 0, 0.8),
     0 0 90px -20px var(--accent-glow);
@@ -1346,7 +1352,7 @@ details[open] summary:after {
 :root[data-theme="light"] .phone {
   box-shadow:
     inset 0 0 0 1.5px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 4px #07060a,
+    inset 0 0 0 4px #06070a,
     0 60px 110px -34px rgba(56, 30, 120, 0.5),
     0 0 90px -20px var(--accent-glow);
 }
@@ -1375,7 +1381,7 @@ details[open] summary:after {
   width: 92px;
   height: 27px;
   border-radius: 999px;
-  background: #050407;
+  background: #040507;
   transform: translateX(-50%);
 }
 .phone-status {
@@ -1408,13 +1414,7 @@ details[open] summary:after {
   overflow: hidden;
   padding: 56px 16px 80px;
   border-radius: 44px;
-  background:
-    radial-gradient(
-      130% 46% at 50% -8%,
-      rgba(150, 110, 255, 0.22),
-      transparent 66%
-    ),
-    var(--app-bg);
+  background: var(--app-bg);
   color: var(--app-text);
   font-size: 12px;
   line-height: 1.35;
@@ -1496,7 +1496,7 @@ details[open] summary:after {
   padding: 11px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--app-accent) 15%, var(--app-surface-2));
-  box-shadow: inset 0 0 0 1px rgba(185, 160, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
 }
 .screen-row {
   display: flex;
@@ -1567,8 +1567,8 @@ details[open] summary:after {
   left: 5px;
   width: calc((100% - 10px) / 5);
   border-radius: 27px;
-  background: rgba(185, 160, 255, 0.15);
-  box-shadow: inset 0 0 0 1px rgba(185, 160, 255, 0.24);
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.24);
   transform: translateX(calc(var(--tab) * 100%));
   transition: transform 0.75s var(--spring);
 }
@@ -1619,15 +1619,16 @@ details[open] summary:after {
   transform: none;
   box-shadow:
     inset 0 0 0 1.5px #ffffff30,
-    inset 0 0 0 4px #07060a,
+    inset 0 0 0 4px #06070a,
     0 30px 75px -15px #000b;
   font-family: Inter, Arial, sans-serif;
 }
 .hero .button.subtle {
-  color: #fafafa;
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 22%, transparent);
 }
 .hero .button.subtle span {
-  color: #b0b0b0;
+  color: var(--muted);
 }
 .hero-coin {
   animation: coin-drift 8s ease-in-out infinite;
@@ -1683,7 +1684,7 @@ details[open] summary:after {
 :root[data-theme="light"] .hero-device .phone {
   box-shadow:
     inset 0 0 0 1.5px #ffffff30,
-    inset 0 0 0 4px #07060a,
+    inset 0 0 0 4px #06070a,
     0 30px 75px -15px #000b;
 }
 @media (hover: hover) and (pointer: fine) and (min-width: 861px) {
@@ -1983,10 +1984,10 @@ details[open] summary:after {
   .coin-face {
     border-width: 3px;
     box-shadow:
-      inset 0 0 0 1px #7a609a,
-      inset 0 0 0 5px #d7c4ef,
+      inset 0 0 0 1px #60739a,
+      inset 0 0 0 5px #c4d2ef,
       inset 2px 4px 8px #fff4,
-      2px 3px 4px #615074;
+      2px 3px 4px #505c74;
   }
   .hero-stage figcaption {
     bottom: 23px;
@@ -2511,12 +2512,12 @@ details[open] summary:after {
   min-height: 250px;
   border: 1px solid #ffffff05;
   border-radius: 12px;
-  background: #242327;
+  background: #232427;
   color: #f7f7f8;
   transform: none;
 }
 .products .product-card:hover {
-  background: #2b2a2f;
+  background: #2a2c2f;
   transform: none;
 }
 .products .card-copy {
@@ -2534,14 +2535,14 @@ details[open] summary:after {
 .products .card-copy p {
   font-size: 13px;
   line-height: 1.65;
-  color: #bcbac2;
+  color: #babdc2;
   margin-top: 16px;
   max-width: 320px;
 }
 .products .product-link {
   top: 18px;
   right: 15px;
-  color: #a6a3ad;
+  color: #a3a6ad;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -2568,12 +2569,12 @@ details[open] summary:after {
   width: auto;
   height: auto;
   padding: 20px 12px;
-  background: linear-gradient(145deg, #1e1e21, #222125);
+  background: linear-gradient(145deg, #1e1f21, #212225);
   border-radius: 10px;
 }
 .products .chart-top {
   font-size: 10px;
-  color: #c4c1cb;
+  color: #c1c4cb;
 }
 .products .chart-top img {
   width: 25px;
@@ -2587,7 +2588,7 @@ details[open] summary:after {
   margin-top: 15px;
 }
 .products .chart-line {
-  stroke: #c6b3fb;
+  stroke: var(--accent);
   stroke-width: 2;
 }
 .products .chart-bottom {
@@ -2602,16 +2603,16 @@ details[open] summary:after {
   min-height: 512px;
 }
 .products .earn-card {
-  background: #1e1e21;
+  background: #1e1f21;
 }
 .products .borrow-card {
-  background: #303033;
+  background: #303133;
 }
 .products .earn-card:hover {
-  background: #242427;
+  background: #242527;
 }
 .products .borrow-card:hover {
-  background: #363639;
+  background: #363739;
 }
 .products .earn-art {
   left: 0;
@@ -2630,20 +2631,20 @@ details[open] summary:after {
   border-radius: 15px;
   transform: rotateX(57deg) rotateZ(-35deg);
   box-shadow:
-    -5px 10px 0 #151518,
+    -5px 10px 0 #151618,
     0 20px 24px #0002;
 }
 .layer-back {
   bottom: 31px;
-  background: #3a393e;
+  background: #393b3e;
 }
 .layer-middle {
   bottom: 69px;
-  background: #505055;
+  background: #505255;
 }
 .layer-front {
   bottom: 107px;
-  background: linear-gradient(145deg, #77767d, #535258);
+  background: linear-gradient(145deg, #76787d, #525458);
 }
 .vault-token {
   position: absolute;
@@ -2664,7 +2665,7 @@ details[open] summary:after {
   bottom: 17px;
   text-align: center;
   font-size: 12px;
-  color: #c4c1ca;
+  color: #c1c4ca;
 }
 .products .borrow-art {
   left: 0;
@@ -2683,8 +2684,8 @@ details[open] summary:after {
   transform: rotate(-8deg);
 }
 .products .collateral-stack > span {
-  background: #eeedf0;
-  color: #333238;
+  background: #edeef0;
+  color: #323438;
   padding: 10px;
   font-size: 10px;
   border: 1px solid #fff5;
@@ -2707,7 +2708,7 @@ details[open] summary:after {
   transform: rotate(65deg);
 }
 .products .borrow-connector svg {
-  color: #bfa7f4;
+  color: var(--accent);
   stroke: currentColor;
   width: 31px;
   height: 31px;
@@ -2718,7 +2719,7 @@ details[open] summary:after {
   right: 24px;
   padding: 12px 18px;
   border-radius: 10px;
-  background: #f2f1f4;
+  background: #f1f2f4;
   transform: rotate(9deg);
   box-shadow: 0 10px 25px #0003;
 }
@@ -2731,7 +2732,7 @@ details[open] summary:after {
   font-size: 10px;
 }
 .products .move-card {
-  background: #1e1e21;
+  background: #1e1f21;
 }
 .products .move-art {
   left: 51%;
@@ -2775,7 +2776,7 @@ details[open] summary:after {
   left: 49%;
   top: 91px;
   font-size: 23px;
-  color: #bfa7f4;
+  color: var(--accent);
 }
 .products .product-note {
   color: var(--muted);
@@ -2790,16 +2791,16 @@ details[open] summary:after {
   padding: 0;
 }
 .principles article {
-  background: #e9e6ee;
+  background: #e6e9ee;
   border-radius: 12px;
   padding: 30px;
-  color: #302b37;
+  color: #2b2f37;
 }
 .principles article p {
-  color: #625b6c;
+  color: #5b616c;
 }
 .principles .step-number {
-  color: #766289;
+  color: #626f89;
 }
 
 @media (max-width: 1100px) {
@@ -3011,13 +3012,13 @@ details[open] summary:after {
 
 /* FxAeon's split-petal identity carries from its mark into the ambient geometry. */
 .hero {
-  background-color: #17121f;
+  background-color: #12161f;
 }
 .hero h1 span {
-  color: #ceb7ff;
+  color: var(--accent);
 }
 .button.primary {
-  color: #241639;
+  color: #fff;
 }
 .hero-watermark {
   inset: 90px 14% -70px;
@@ -3026,8 +3027,8 @@ details[open] summary:after {
 }
 .hero-watermark span {
   inset: 5% 5% 53%;
-  border: 1px solid #bca3ea18;
-  background: linear-gradient(135deg, #b699e807, transparent 60%);
+  border: 1px solid #a3bbea18;
+  background: linear-gradient(135deg, #99b3e807, transparent 60%);
   border-radius: 180px 40px 180px 40px;
   transform: skew(-23deg);
 }
@@ -3046,7 +3047,7 @@ details[open] summary:after {
   letter-spacing: -0.035em;
 }
 .site-header .brand {
-  color: #d2baff;
+  color: #bad1ff;
 }
 .flow-center img,
 .brand img,
@@ -3055,10 +3056,10 @@ details[open] summary:after {
   filter: none;
 }
 :root[data-theme="light"] .footer-brand .brand {
-  color: #6e499c;
+  color: #49659c;
 }
 :root[data-theme="light"] .hero h1 span {
-  color: #ceb7ff;
+  color: var(--accent);
 }
 @media (max-width: 1100px) {
   .hero h1 {
@@ -3106,17 +3107,17 @@ details[open] summary:after {
 
 /* One continuous FxAeon experience: quiet surfaces, expressive type and motion. */
 :root {
-  --bg: #121215;
-  --card: #222226;
+  --bg: #121315;
+  --card: #222326;
   --line: #ffffff12;
-  --muted: #b0adb8;
+  --muted: #adb1b8;
 }
 .hero {
-  background-color: #141218;
+  background-color: #121418;
 }
 .built-on {
-  background: #17161b;
-  color: #c3bfcd;
+  background: #16181b;
+  color: #bfc4cd;
   border-radius: 0;
   border-block: 1px solid #ffffff09;
   padding-block: 29px;
@@ -3140,27 +3141,27 @@ details[open] summary:after {
   margin-bottom: 35px;
 }
 .flow-node {
-  background: #252329;
-  color: #ded9e6;
+  background: #232529;
+  color: #d9dde6;
   border: 1px solid #ffffff0d;
   box-shadow: none;
 }
 .flow-center {
-  background: #30283f;
-  border: 1px solid #bca3ee38;
-  box-shadow: 0 12px 55px #b399f018;
+  background: #28303f;
+  border: 1px solid #a3bcee38;
+  box-shadow: 0 12px 55px #99b6f018;
 }
 .flow-line {
-  border-color: #bba6ff45;
+  border-color: #a6c4ff45;
   overflow: visible;
 }
 .flow-line:after {
-  background: #cbb3ff;
-  box-shadow: 0 0 10px #bba6ff80;
+  background: #b3ccff;
+  box-shadow: 0 0 10px #a6c4ff80;
 }
 .flow-options i {
-  background: #242229;
-  color: #d1cadc;
+  background: #222429;
+  color: #cad0dc;
   border: 1px solid #ffffff0a;
 }
 .principles {
@@ -3168,14 +3169,14 @@ details[open] summary:after {
   gap: 12px;
 }
 .principles article {
-  background: #202024;
-  color: #f4f2f8;
+  background: #202124;
+  color: #f2f4f8;
   padding: 32px;
   border: 1px solid #ffffff05;
   border-radius: 12px;
 }
 .principles article p {
-  color: #b6b2be;
+  color: #b2b6be;
   font-size: 13px;
 }
 .principles h3 {
@@ -3185,7 +3186,7 @@ details[open] summary:after {
 .principles .step-number {
   font-size: 19px;
   margin-bottom: 37px;
-  color: #bca5e6;
+  color: var(--accent);
 }
 .products {
   background: none;
@@ -3201,7 +3202,7 @@ details[open] summary:after {
   max-width: 1280px;
   gap: 110px;
   padding: 85px 70px;
-  background: #1c1b20;
+  background: #1b1d20;
   border: 1px solid #ffffff08;
   border-radius: 24px;
 }
@@ -3210,7 +3211,7 @@ details[open] summary:after {
   letter-spacing: -0.055em;
 }
 .telegram-copy h2 span {
-  color: #b6a7d1;
+  color: var(--accent);
 }
 .telegram-copy > p {
   max-width: 390px;
@@ -3224,15 +3225,15 @@ details[open] summary:after {
 .telegram-chat {
   transform: rotate(2deg);
   border-radius: 20px;
-  background: #232129;
+  background: #212429;
   box-shadow: 0 20px 45px #0005;
   border-color: #ffffff12;
 }
 .chat-head {
-  background: #2a2731;
+  background: #272a31;
 }
 .chat-body {
-  background: #1e1c23;
+  background: #1c1e23;
   min-height: 300px;
 }
 .telegram-qr {
@@ -3298,7 +3299,7 @@ details[open] summary:after {
 }
 .faq-list details[open] summary:after {
   transform: rotate(45deg);
-  color: #bba6ff;
+  color: var(--accent);
 }
 .faq-list details[open] summary {
   color: var(--accent);
@@ -3341,15 +3342,15 @@ details[open] summary:after {
   height: 42px;
   border-radius: 45px 18px 45px 18px;
   transform: skew(-22deg) rotate(-10deg);
-  background: linear-gradient(135deg, #f5eeff, #baa0fa 48%, #8964d6);
+  background: linear-gradient(135deg, #eef4ff, #a0befa 48%, #648ad6);
   box-shadow:
     inset 1px 2px 1px #fff7,
-    0 16px 60px #a783ee25;
+    0 16px 60px #83a7ee25;
 }
 .era-mark span + span {
   top: 64px;
   left: 0;
-  background: linear-gradient(135deg, #dac8ff, #9a76dd 55%, #664991);
+  background: linear-gradient(135deg, #c8daff, #7698dd 55%, #496191);
 }
 .finale h2 {
   font-size: clamp(64px, 7.5vw, 105px);
@@ -3357,7 +3358,7 @@ details[open] summary:after {
   letter-spacing: -0.06em;
 }
 .finale h2 span {
-  color: #cbb4f6;
+  color: #b4caf6;
   font-size: 1em;
   line-height: inherit;
 }
@@ -3383,7 +3384,7 @@ details[open] summary:after {
   padding-bottom: 45px;
 }
 .footer-brand .brand {
-  color: #e1d5f3;
+  color: #d5dff3;
 }
 .footer-brand > p {
   font-size: 12px;
@@ -3392,7 +3393,7 @@ details[open] summary:after {
   margin-top: 19px;
 }
 .footer-top h3 {
-  color: #f4f2f7;
+  color: #f2f4f7;
   font-size: 12px;
   margin-bottom: 13px;
 }
@@ -3408,7 +3409,7 @@ details[open] summary:after {
   padding: 27px 0 48px;
   overflow: hidden;
   user-select: none;
-  color: #d8cdea;
+  color: #cdd7ea;
 }
 .footer-wordmark img {
   width: clamp(50px, 12vw, 160px);
@@ -3443,7 +3444,7 @@ details[open] summary:after {
 }
 .motion-toggle[aria-pressed="true"] {
   color: var(--accent);
-  background: #bba6ff14;
+  background: #a6c4ff14;
 }
 
 @keyframes arrive {
@@ -3592,38 +3593,38 @@ details[open] summary:after {
   animation: none !important;
 }
 :root[data-theme="light"] {
-  --bg: #faf9fc;
-  --card: #eeedf2;
-  --line: #2019291c;
-  --muted: #67616e;
+  --bg: #f9fafc;
+  --card: #edeff2;
+  --line: #191e291c;
+  --muted: #61656e;
 }
 :root[data-theme="light"] .protocol {
-  color: #292330;
+  color: #232730;
 }
 :root[data-theme="light"] .principles article {
-  background: #eeebf3;
-  color: #292330;
+  background: #ebeef3;
+  color: #232730;
 }
 :root[data-theme="light"] .principles article p {
-  color: #625a6b;
+  color: #5a606b;
 }
 :root[data-theme="light"] .telegram {
-  background: #eeebf3;
+  background: #ebeef3;
 }
 :root[data-theme="light"] .telegram-copy h2 span {
-  color: #775b9b;
+  color: var(--accent);
 }
 :root[data-theme="light"] .footer-top h3 {
-  color: #292330;
+  color: #232730;
 }
 :root[data-theme="light"] .footer-wordmark {
-  color: #6b568c;
+  color: #56688c;
 }
 :root[data-theme="light"] .finale h2 span {
-  color: #74519f;
+  color: #516b9f;
 }
 :root[data-theme="light"] .faq-list details[open] summary {
-  color: #74519f;
+  color: #516b9f;
 }
 
 @media (min-width: 1440px) {
@@ -3890,8 +3891,8 @@ details[open] summary:after {
   justify-content: center;
   gap: 26px;
   padding: 0 20px;
-  background: #bba6ff;
-  color: #211830;
+  background: #2563eb;
+  color: #ffffff;
   border-radius: 6px 16px 6px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -3900,7 +3901,7 @@ details[open] summary:after {
     transform 0.2s;
 }
 .nav-launch:hover {
-  background: #d0c0ff;
+  background: #1d4ed8;
   transform: translateY(-2px);
 }
 .nav-launch span {
@@ -3920,7 +3921,7 @@ details[open] summary:after {
   height: 280px;
   display: flex;
   align-items: center;
-  background: #202024;
+  background: #202124;
   border: 1px solid #ffffff08;
   border-radius: 18px;
   transition:
@@ -3929,8 +3930,8 @@ details[open] summary:after {
     transform 0.25s;
 }
 .products .product-card:hover {
-  background: #242428;
-  border-color: #bba6ff55;
+  background: #242528;
+  border-color: #a6c4ff55;
   transform: translateY(-3px);
 }
 .products .product-card .card-copy {
@@ -3952,7 +3953,7 @@ details[open] summary:after {
   line-height: 1.7;
   max-width: 240px;
   margin-top: 17px;
-  color: #bcbac2;
+  color: #babdc2;
 }
 .products .product-link {
   top: 14px;
@@ -3960,7 +3961,7 @@ details[open] summary:after {
   opacity: 0.65;
   width: 30px;
   height: 30px;
-  color: #bba6ff;
+  color: var(--accent);
 }
 .products .product-art {
   left: 51%;
@@ -3976,7 +3977,7 @@ details[open] summary:after {
   top: 43px;
   height: 196px;
   padding: 20px 14px 12px;
-  background: #18181b;
+  background: #18191b;
   border: 1px solid #ffffff0b;
   border-radius: 12px;
 }
@@ -4071,27 +4072,27 @@ details[open] summary:after {
   top: 93px;
 }
 :root[data-theme="light"] .products .product-card {
-  background: #f0eef4;
-  border-color: #43324f0a;
+  background: #eef0f4;
+  border-color: #323c4f0a;
 }
 :root[data-theme="light"] .products .product-card:hover {
-  background: #eae6f0;
-  border-color: #79609650;
+  background: #e6e9f0;
+  border-color: #60729650;
 }
 :root[data-theme="light"] .products .card-copy h3 {
-  color: #292330;
+  color: #232730;
 }
 :root[data-theme="light"] .products .card-copy p {
-  color: #655e6f;
+  color: #5e646f;
 }
 :root[data-theme="light"] .products .product-link {
-  color: #715291;
+  color: #526791;
 }
 :root[data-theme="light"] .vault-caption {
-  color: #655e6f;
+  color: #5e646f;
 }
 :root[data-theme="light"] .products .network-orbit {
-  border-color: #71529140;
+  border-color: #52679140;
 }
 
 /* A human-scale finish with one clear invitation. */
@@ -4137,15 +4138,15 @@ details[open] summary:after {
   line-height: 1.35;
   padding: 27px 28px;
   border-radius: 24px 8px 24px 8px;
-  background: #bba6ff;
-  color: #211830;
+  background: #2563eb;
+  color: #fff;
   transition:
     background 0.25s,
     transform 0.25s;
   flex-shrink: 0;
 }
 .footer-launch:hover {
-  background: #d0c0ff;
+  background: #1d4ed8;
   transform: translateY(-4px);
 }
 .launch-arrow {
@@ -4426,18 +4427,18 @@ details[open] summary:after {
     display: flex;
   }
 }
-/* One contained closing card, framed in FxAeon's own lilac. */
+/* One contained closing card, framed in FxAeon's own blue. */
 .footer-frame {
   margin: 16px 18px 18px;
   padding: 10px;
   border-radius: 28px;
-  background: linear-gradient(125deg, #b8a2ef, #746090 45%, #d6c6ff 100%);
+  background: linear-gradient(125deg, #2563eb, #1e40af 45%, #3b82f6 100%);
 }
 .footer-frame .site-footer {
-  --text: #f5f3fa;
-  --muted: #b8b3c1;
+  --text: #f3f5fa;
+  --muted: #b3b8c1;
   --line: #ffffff14;
-  --accent: #d2c0ff;
+  --accent: #3b82f6;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -4447,7 +4448,7 @@ details[open] summary:after {
   border: 0;
   border-radius: 20px;
   color: var(--text);
-  background: #171719;
+  background: #171819;
 }
 .footer-frame .site-footer::before {
   content: "";
@@ -4455,7 +4456,7 @@ details[open] summary:after {
   z-index: -1;
   inset: -30%;
   background:
-    radial-gradient(ellipse at 70% 55%, #b19add18 0, transparent 42%),
+    radial-gradient(ellipse at 70% 55%, #9ab0dd18 0, transparent 42%),
     radial-gradient(ellipse at 15% 25%, #ffffff07 0, transparent 32%);
   pointer-events: none;
 }
@@ -4490,13 +4491,13 @@ details[open] summary:after {
   font-weight: 500;
   letter-spacing: -0.055em;
   margin: 0;
-  color: #f5f3fa;
+  color: #f3f5fa;
 }
 .footer-frame .footer-invite h2 span {
-  color: #a39caa;
+  color: #9ca1aa;
 }
 .footer-invite > p {
-  color: #c4becd;
+  color: #bec3cd;
   font-size: 14px;
   line-height: 1.75;
   margin-top: 0;
@@ -4513,17 +4514,17 @@ details[open] summary:after {
   font-size: 13px;
   line-height: 1.5;
   font-weight: 500;
-  background: #bba6ff;
-  color: #211830;
-  box-shadow: 0 0 0 7px #bba6ff12;
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 0 0 7px #2563eb12;
   margin-top: 8px;
 }
 .footer-launch > span {
   font-size: 19px;
 }
 .footer-frame .footer-launch:hover {
-  background: #d0c0ff;
-  box-shadow: 0 0 0 10px #bba6ff18;
+  background: #1d4ed8;
+  box-shadow: 0 0 0 10px #2563eb18;
   transform: translateY(-2px);
 }
 .footer-frame .footer-directory {
@@ -4535,7 +4536,7 @@ details[open] summary:after {
 }
 .footer-about .brand {
   font-size: 23px;
-  color: #dacbff;
+  color: #3b82f6;
   margin-bottom: 18px;
   gap: 6px;
 }
@@ -4547,26 +4548,26 @@ details[open] summary:after {
   font-size: 13px;
 }
 .footer-frame .footer-directory nav {
-  color: #b8b3c1;
+  color: #b3b8c1;
   font-size: 13px;
   gap: 11px;
 }
 .footer-directory h3 {
   font-size: 15px;
   font-weight: 550;
-  color: #f5f3fa;
+  color: #f3f5fa;
   margin-bottom: 8px;
   letter-spacing: -0.01em;
 }
 .footer-frame .footer-bottom {
   max-width: 1200px;
   margin: 0 auto;
-  color: #b8b3c1;
+  color: #b3b8c1;
   padding-top: 24px;
 }
 .footer-frame .theme-toggle,
 .footer-frame .motion-toggle {
-  color: #b8b3c1;
+  color: #b3b8c1;
 }
 .footer-frame .motion-toggle {
   border-color: #ffffff16;
@@ -4727,8 +4728,8 @@ details[open] summary:after {
   letter-spacing: -0.025em;
 }
 .built-on {
-  background: #141218;
-  color: #c4bbd0;
+  background: #121418;
+  color: #bbc2d0;
   border-radius: 0;
   border-color: #ffffff08;
 }
@@ -4737,29 +4738,29 @@ details[open] summary:after {
   margin: 0;
   padding: 90px max(40px, calc((100vw - 1280px) / 2));
   background:
-    radial-gradient(ellipse at 15% 30%, #45364e70, transparent 65%),
-    radial-gradient(ellipse at 90% 45%, #352b4b60, transparent 60%),
-    linear-gradient(180deg, #141218, #1c1723 42%, var(--bg));
-  color: #f4eff8;
+    radial-gradient(ellipse at 15% 30%, #363e4e70, transparent 65%),
+    radial-gradient(ellipse at 90% 45%, #2b364b60, transparent 60%),
+    linear-gradient(180deg, #121418, #171b23 42%, var(--bg));
+  color: #eff2f8;
 }
 .protocol .section-head p {
-  color: #bcb2c8;
+  color: #b2b9c8;
 }
 .protocol .protocol-flow {
   max-width: 1160px;
   margin-inline: auto;
 }
 .protocol .flow-node {
-  background: #382e40;
-  color: #e9dfef;
-  border-color: #cab4e220;
+  background: #2e3440;
+  color: #dfe4ef;
+  border-color: #b4c3e220;
 }
 .protocol .flow-center {
-  background: linear-gradient(135deg, #655075, #44364f);
-  color: #f5f1fc;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #f1f5fc;
 }
 .protocol .flow-line {
-  background: #9680ac50;
+  background: #808fac50;
 }
 .protocol .flow-line::after {
   display: block;
@@ -4770,17 +4771,17 @@ details[open] summary:after {
   gap: 14px;
 }
 .protocol .principles article {
-  background: linear-gradient(135deg, #352d3d, #28232e);
-  color: #f0eaf5;
+  background: linear-gradient(135deg, #2d323d, #23272e);
+  color: #eaeef5;
   border: 0;
   border-radius: 12px;
   box-shadow: none;
 }
 .protocol .principles article p {
-  color: #bfb4cb;
+  color: #b4bccb;
 }
 .protocol .principles .step-number {
-  color: #c6aee1;
+  color: #aebfe1;
 }
 .products .product-grid {
   gap: 12px;
@@ -4788,7 +4789,7 @@ details[open] summary:after {
 .products .product-card {
   border: 0;
   border-radius: 12px;
-  background: linear-gradient(135deg, #302a36, #25222b);
+  background: linear-gradient(135deg, #232832, #1c2029), #232832;
 }
 .products .card-copy h3 {
   letter-spacing: -0.015em;
@@ -4805,19 +4806,19 @@ details[open] summary:after {
   padding-inline: 8px;
 }
 .products .chart-top {
-  color: #bcbac2;
+  color: #babdc2;
 }
 .products .chart-line {
   stroke-width: 2.2;
 }
 .products .earn-card {
-  background: linear-gradient(155deg, #3b3441, #28272f);
+  background: linear-gradient(155deg, #292f3a, #1e232c), #292f3a;
 }
 .products .borrow-card {
-  background: linear-gradient(135deg, #302a35, #25222b);
+  background: linear-gradient(135deg, #232832, #1c2029), #232832;
 }
 .products .move-card {
-  background: linear-gradient(145deg, #2d2835, #222128);
+  background: linear-gradient(145deg, #232832, #1c2029), #232832;
 }
 
 @media (min-width: 1101px) {
@@ -4976,21 +4977,21 @@ details[open] summary:after {
 .closing-surface {
   display: flow-root;
   background:
-    radial-gradient(ellipse at 92% 52%, #e6c4ce50, transparent 50%),
-    linear-gradient(180deg, var(--bg), #40334d 22%, #a58cba 43%, #c8b6e7 62%);
+    radial-gradient(ellipse at 92% 52%, #2563eb30, transparent 50%),
+    linear-gradient(180deg, var(--bg), #172b57 22%, #1d4ed8 43%, #2563eb 62%);
 }
 .closing-surface .telegram {
-  background: linear-gradient(140deg, #29232f, #27212e 55%, #3e3048);
-  border-color: #d9bdf41a;
+  background: linear-gradient(140deg, #232832, #1c2029 55%, #242d3c), #232832;
+  border-color: #bdcff41a;
 }
 .privy-note {
   max-width: 390px;
   margin: 0 0 28px;
   padding-left: 16px;
-  border-left: 1px solid #cbb5e355;
+  border-left: 1px solid #b5c4e355;
 }
 .privy-note h3 {
-  color: #e6daef;
+  color: #dae1ef;
   font-size: 27px;
   margin-bottom: 12px;
   letter-spacing: -0.02em;
@@ -5002,18 +5003,18 @@ details[open] summary:after {
 }
 .privy-note span {
   display: block;
-  color: #bdb1c8;
+  color: #b1b9c8;
   font-size: 13px;
   line-height: 1.7;
 }
 .faq {
-  --text: #29212f;
-  --muted: #5e506a;
+  --text: #f8fafc;
+  --muted: #dbeafe;
   max-width: none;
   margin: 0;
   padding: 76px max(40px, calc((100vw - 1280px) / 2));
   background: transparent;
-  color: #29212f;
+  color: #f8fafc;
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
   gap: 70px;
@@ -5031,7 +5032,7 @@ details[open] summary:after {
   line-height: 1.14;
 }
 .faq .faq-heading h2 span {
-  color: #675676;
+  color: #dbeafe;
 }
 .faq .faq-heading h2 br {
   display: block;
@@ -5040,13 +5041,13 @@ details[open] summary:after {
   width: 100%;
   max-width: none;
   padding: 12px;
-  background: #24133120;
+  background: #131d3120;
   border-radius: 20px;
   border: 0;
 }
 .faq .faq-list details {
-  background: #25212b;
-  color: #f7f4fc;
+  background: #21242b;
+  color: #f4f7fc;
   border: 0;
   border-radius: 12px;
   margin: 0 0 10px;
@@ -5061,70 +5062,70 @@ details[open] summary:after {
   font-size: 19px;
   line-height: 1.35;
   letter-spacing: -0.01em;
-  color: #f7f4fc;
+  color: #f4f7fc;
 }
 .faq .faq-list summary::after {
   right: 0;
-  color: #cdb6f6;
+  color: var(--accent);
   border-color: #ffffff1c;
   background: transparent;
 }
 .faq .faq-list details p {
   padding: 0 0 24px;
-  color: #c6c0ce;
+  color: #c0c5ce;
   font-size: 13px;
   line-height: 1.75;
 }
 .faq .faq-list details p a {
-  color: #dfceff;
+  color: var(--accent);
 }
 .footer-frame {
   margin: 0;
   padding: 0 12px 12px;
-  background: #c8b6e7;
+  background: #2563eb;
   border-radius: 0;
 }
 .footer-frame .footer-invite h2 {
   letter-spacing: -0.025em;
 }
 :root[data-theme="light"] .built-on {
-  background: #e8dfef;
-  color: #64516e;
+  background: #dfe4ef;
+  color: #515b6e;
 }
 :root[data-theme="light"] .protocol {
   background:
-    radial-gradient(ellipse at 10% 20%, #d6c1e499, transparent 65%),
-    linear-gradient(180deg, #e8dfef, #eee8f3 55%, var(--bg));
+    radial-gradient(ellipse at 10% 20%, #c1cde499, transparent 65%),
+    linear-gradient(180deg, #dfe4ef, #e8ecf3 55%, var(--bg));
 }
 :root[data-theme="light"] .protocol .section-head p {
-  color: #706079;
+  color: #606879;
 }
 :root[data-theme="light"] .protocol .flow-node {
-  background: #ded2e8;
-  color: #483752;
+  background: #d2d9e8;
+  color: #374052;
 }
 :root[data-theme="light"] .protocol .principles article {
-  background: #e7dfed;
+  background: #dfe4ed;
 }
 :root[data-theme="light"] .protocol .principles .step-number {
-  color: #786188;
+  color: #616e88;
 }
 :root[data-theme="light"] .closing-surface {
   background:
-    radial-gradient(ellipse at 92% 52%, #f5d4d780, transparent 50%),
-    linear-gradient(180deg, var(--bg), #e2d4eb 25%, #c8b6e7 62%);
+    radial-gradient(ellipse at 92% 52%, #2563eb20, transparent 50%),
+    linear-gradient(180deg, var(--bg), #b8cef6 25%, #2563eb 62%);
 }
 :root[data-theme="light"] .closing-surface .telegram {
-  background: linear-gradient(140deg, #ebe4f1, #ddd0e7);
+  background: linear-gradient(140deg, #e4e8f1, #d0d8e7);
 }
 :root[data-theme="light"] .privy-note h3 {
-  color: #53405f;
+  color: #404a5f;
 }
 :root[data-theme="light"] .privy-note span {
-  color: #6b5976;
+  color: #596376;
 }
 :root[data-theme="light"] .faq .faq-list details[open] summary {
-  color: #f7f4fc;
+  color: #f4f7fc;
 }
 
 /* Keep the opening composition still; motion continues in later sections. */
@@ -5233,3 +5234,52 @@ details[open] summary:after {
     font-size: 16px;
   }
 }
+
+/* One neutral canvas connects every section. */
+.hero,
+.built-on,
+.protocol,
+.products,
+.closing-surface,
+.footer-frame,
+:root[data-theme="light"] .built-on,
+:root[data-theme="light"] .protocol,
+:root[data-theme="light"] .closing-surface {
+  background: transparent;
+}
+.hero { color: var(--text); }
+.hero .lede { color: var(--muted); }
+.built-on { border-color: transparent; color: var(--muted); }
+:root[data-theme="light"] .built-on { color: var(--muted); }
+.protocol .principles article { background: #1b1b1f; }
+:root[data-theme="dark"] .faq .faq-heading h2 span { color: var(--accent); }
+:root[data-theme="dark"] .faq .faq-list { background: transparent; padding: 0; }
+:root[data-theme="dark"] .faq .faq-list details { background: #1b1b1f; }
+:root[data-theme="dark"] .footer-frame .site-footer {
+  background: #1b1b1f;
+  border: 1px solid #ffffff0b;
+}
+:root[data-theme="light"] .protocol .principles article { background: #ffffff80; }
+:root[data-theme="light"] .protocol .flow-node { background: #ffffffb3; }
+:root[data-theme="light"] .protocol .flow-center { background: #2563eb; }
+
+/* Neutral planes keep blue deliberate across the marketing and app surfaces. */
+.products .product-card,
+.products .earn-card,
+.products .borrow-card,
+.products .move-card { background: linear-gradient(135deg, #242428, #1b1b1f), #242428; }
+.closing-surface .telegram { background: linear-gradient(140deg, #242428, #1b1b1f), #242428; border-color: #ffffff0b; }
+:root[data-theme="light"] .products .product-card { background: #fff; }
+:root[data-theme="light"] .products .product-card:hover { background: #fafafa; }
+:root[data-theme="light"] .closing-surface .telegram { background: #fff; border-color: #e4e4e7; }
+:root[data-theme="light"] .protocol .principles article,
+:root[data-theme="light"] .protocol .flow-node { background: #fff; }
+:root[data-theme="light"] .protocol .flow-center { background: #2563eb; }
+:root[data-theme="light"] .faq { --text: #202024; --muted: #62626b; color: var(--text); }
+:root[data-theme="light"] .faq .faq-heading h2 span { color: var(--accent); }
+:root[data-theme="light"] .faq .faq-list { background: transparent; padding: 0; }
+:root[data-theme="light"] .faq .faq-list details { background: #fff; color: #202024; }
+:root[data-theme="light"] .faq .faq-list summary,
+:root[data-theme="light"] .faq .faq-list details[open] summary { color: #202024; }
+:root[data-theme="light"] .faq .faq-list details p { color: #62626b; }
+:root[data-theme="light"] .faq .faq-list summary::after { border-color: #e4e4e7; }

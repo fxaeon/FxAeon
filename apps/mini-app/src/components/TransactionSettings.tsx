@@ -56,6 +56,7 @@ export function TransactionSettings({ slippage = false, slippagePercent, onSlipp
   const wallet = usePrivyWallet();
   const providerMode = useWalletProviderMode();
   const walletSetsFees = providerMode === 'browser' || (Boolean(wallet.address) && !wallet.isEmbedded);
+  if (!slippage && walletSetsFees) return null;
   // Keep a restored form's exact display text. Round-tripping through basis
   // points can turn 0.101% into 0.10100000000000002%.
   const percent = slippagePercent ?? percentNumber(storedBps);

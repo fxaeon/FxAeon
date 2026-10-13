@@ -49,8 +49,8 @@ portfolio asset loading/empty/error/refresh states and wallet refresh fan-out,
 including recovery after a synchronous reader failure. The state-lab gate
 compares its approved screenshots on Windows; the current reference set
 contains 17 images. Production E2E checks
-server-rendered route metadata and form reachability with 200% text across all
-three appearance themes. See
+server-rendered route metadata and form reachability with 200% text in Light
+(official) and Dark themes. See
 [`browser-test-gates.md`](browser-test-gates.md) for the exact suite map and
 [`ui-state-lab.md`](ui-state-lab.md) for the development-only lab and its
 fixture limits.

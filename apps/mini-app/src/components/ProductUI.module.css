@@ -132,7 +132,10 @@
   :global([data-utility-directory]) .actionRow { min-height: 60px; padding-inline: 12px; }
 }
 
-.surface, .rowGroup { border: 0; border-radius: 24px; box-shadow: none; background: linear-gradient(135deg, color-mix(in srgb, var(--mint) 7%, var(--surface)), var(--surface)); }
-:global([data-utility-directory]) .rowGroup { border: 0; border-radius: 24px; background: linear-gradient(135deg, color-mix(in srgb, var(--mint) 9%, var(--surface)), var(--surface)); }
+.surface, .rowGroup { border: 0; border-radius: 28px; box-shadow: none; background: var(--surface); }
+.surface { padding: 22px; }
+:global([data-utility-directory]) .rowGroup { border: 0; border-radius: 28px; background: var(--surface); }
 .actionRow + .actionRow { border-top-color: color-mix(in srgb, var(--line) 45%, transparent); }
-.rowIcon { border-radius: 50%; }
+.rowIcon { border-radius: 50%; background: var(--feature-surface); }
+.actionRow, :global([data-utility-directory]) .actionRow { min-height: 72px; padding: 16px 20px; }
+.rowCopy strong { font-weight: 500; }

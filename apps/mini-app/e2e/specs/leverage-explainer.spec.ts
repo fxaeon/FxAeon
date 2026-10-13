@@ -7,8 +7,10 @@ for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('group', { name: 'Wallet and network controls' }).getByRole('button', { name: 'Connect wallet' })).toBeVisible();
     const ticketSide = page.getByRole('radiogroup', { name: 'Position side' });
-    const explanation = page.getByRole('region', { name: 'Where leverage comes from' });
+    await page.getByText('How leverage works', { exact: true }).click();
+    const explanation = page.getByRole('region', { name: 'How leverage works' });
     await explanation.scrollIntoViewIfNeeded();
     // The ticket's slider explains the chosen leverage live, so the examples
     // have no side switch of their own; they show the ticket's side.

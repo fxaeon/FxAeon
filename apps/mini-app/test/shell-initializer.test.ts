@@ -31,9 +31,10 @@ function boot({ local = {}, session = {}, blockedStorage = false, connection, hi
 test('the saved theme is applied before the first paint, with the legacy light choice kept', () => {
   assert.deepEqual(boot({ local: { fxaeon_theme_id_v2: 'dark' } }).root, { dataset: { theme: 'dark' }, style: { colorScheme: 'dark' } });
   assert.equal(boot({ local: { fxaeon_theme_id_v2: 'light' } }).root.style.colorScheme, 'light');
-  assert.equal(boot({ local: { fxaeon_theme_id: 'light' } }).root.dataset.theme, 'light');
+  assert.equal(boot({ local: { fxaeon_theme_id: 'light' } }).root.dataset.theme, 'official');
   assert.equal(boot({ local: { fxaeon_theme_id: 'dark' } }).root.dataset.theme, 'official');
   assert.equal(boot().root.dataset.theme, 'official');
+  assert.equal(boot().root.style.colorScheme, 'light');
 });
 
 test('route headings light once per session, and a later load starts plain', () => {

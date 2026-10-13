@@ -1,4 +1,7 @@
+@font-face { font-family: Poppins; src: url('/fonts/poppins-regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Poppins; src: url('/fonts/poppins-medium.woff2') format('woff2'); font-weight: 500 700; font-display: swap; }
 /* Shared product geometry; route controllers own transaction behavior. */
+[data-product-ui='v2'] { font-family: Poppins, var(--font-sans), sans-serif; }
 [data-product-ui='v2'] :where(h1, h2, h3, .brand-wordmark) { font-family: Manrope, var(--font-sans), sans-serif; }
 [data-product-ui='v2'] { --product-radius: var(--radius-lg); --product-gap: 20px; }
 [data-product-ui='v2'] .app-topbar { min-height: 64px; padding-block: 10px; align-items: center; gap: 14px; }
@@ -18,26 +21,28 @@
 [data-product-ui='v2'] .app-content .amount-control input:focus-visible { outline: none; }
 [data-product-ui='v2'] .segmented { box-shadow: none; }
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
-[data-product-ui='v2'] .button-primary { border-radius: 999px; box-shadow: none; }
+[data-product-ui='v2'] .button-primary { border-radius: 999px; box-shadow: none; background: #2563eb; color: #fff; }
 [data-product-ui='v2'] .brand-wordmark { font-weight: 650; }
 [data-product-ui='v2'] .ui-card { box-shadow: none; }
 [data-product-ui='v2'] .desktop-navigation { border-color: var(--hairline); background: var(--surface); box-shadow: none; }
 [data-product-ui='v2'] .desktop-navigation a { font-weight: 500; }
 [data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--mint-dim); color: var(--mint-bright); box-shadow: none; }
-[data-product-ui='v2'] .tabbar { border-radius: 22px; box-shadow: 0 8px 24px color-mix(in srgb, var(--surface-shadow) 65%, transparent); }
-[data-product-ui='v2'] .tabbar::before { border-radius: 16px; box-shadow: none; background: color-mix(in srgb, var(--mint) 14%, var(--surface)); }
-[data-product-ui='v2'] .nav-item-mobile { font-weight: 500; }
+[data-product-ui='v2'] .tabbar { --focus-ring: #fff; border-radius: 999px; border: 1px solid #ffffff14; background: #202024; box-shadow: 0 6px 22px #00000016; }
+[data-product-ui='v2'] .tabbar::before { border-radius: 999px; box-shadow: none; background: #f4f4f5; }
+[data-product-ui='v2'] .nav-item-mobile { font-weight: 400; color: #b5b5bf; }
+[data-product-ui='v2'] .nav-item-mobile[aria-current='page'] { color: #202024; }
 @media (min-width: 1000px) {
-  [data-product-ui='v2'] .app-topbar { border: 1px solid var(--hairline); border-radius: 24px; padding: 9px 16px; background: color-mix(in srgb, var(--surface) 90%, transparent); }
-  [data-product-ui='v2'] .desktop-navigation { background: transparent; border-color: transparent; }
+  [data-product-ui='v2'] .app-topbar { border: 0; border-radius: 0; padding: 12px 0 20px; background: transparent; }
+  [data-product-ui='v2'] .desktop-navigation { background: var(--surface); border: 0; padding: 5px; }
+  [data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--text); color: var(--bg); }
 }
-:root[data-theme='light'] [data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { color: var(--mint); }
+:root[data-theme='light'] [data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { color: var(--bg); }
 [data-product-ui='v2'] [data-flow-stage] { min-width: 0; }
 [data-product-ui='v2'] .reviewTrigger { min-width: 0; }
 [data-product-ui='v2'] [data-trade-ticket] { min-width: 0; align-self: start; }
 @media (max-width: 760px) {
   /* Keep the 44px controls reachable while removing desktop-only header air. */
-  [data-product-ui='v2'] .app-topbar { min-height: 48px; padding-block: 1px; gap: 8px; }
+  [data-product-ui='v2'] .app-topbar { min-height: 56px; padding-block: 5px; gap: 8px; }
   [data-product-ui='v2'] .app-topbar-actions { gap: 6px; }
   [data-product-ui='v2'] .app-topbar-actions > button,
   [data-product-ui='v2'] .network-selector { min-height: 44px; }
@@ -45,6 +50,18 @@
   [data-product-ui='v2'] [data-trade-market],
   [data-product-ui='v2'] [data-trade-ticket] { flex: 0 0 auto !important; width: 100%; min-height: 0; height: auto; max-height: none; overflow: visible; position: static; }
   [data-product-ui='v2'] .trade-ticket { height: auto !important; max-height: none !important; overflow: visible; }
+}
+
+[data-product-ui='v2'] .ui-card { border: 0; background: var(--surface); }
+[data-product-ui='v2'] .trade-page-heading { margin-bottom: 6px; }
+[data-product-ui='v2'] .trade-page-heading h1 { font-size: 32px; font-weight: 500; }
+[data-product-ui='v2'] .portfolio-market-card { border: 0; border-radius: 24px; padding: 20px; background: var(--surface); box-shadow: none; }
+[data-product-ui='v2'] .amount-control { border-radius: 20px; }
+[data-product-ui='v2'] .segmented, [data-product-ui='v2'] .field-control { border-color: transparent; }
+[data-product-ui='v2'] .button:disabled { background: var(--surface-2); color: var(--mut); }
+@media (max-width: 360px), (max-height: 720px) {
+  [data-product-ui='v2'] .app-topbar { min-height: 48px; padding-block: 1px; }
+  [data-product-ui='v2'] .trade-page-heading h1 { font-size: 28px; }
 }
 @media (max-width: 299px) {
   /* Fold cover screens: the header draws its gaps in to stay one row. */

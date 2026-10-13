@@ -9,6 +9,7 @@ test.describe('Earn route-specific settings', () => {
       await page.goto('/earn', { waitUntil: 'domcontentloaded' });
       const settings = page.getByRole('button', { name: /^Transaction settings,/ });
       const checkSettings = async (hasSlippage: boolean) => {
+        if (!hasSlippage) { await expect(settings).toHaveCount(0); return; }
         await settings.click();
         const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
         await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(hasSlippage ? 1 : 0);
@@ -24,7 +25,7 @@ test.describe('Earn route-specific settings', () => {
       };
       for (const token of ['fxUSD', 'usdc', 'fxUSDBasePool']) {
         await page.goto(`/earn?token=${token}`, { waitUntil: 'domcontentloaded' });
-        await expect(page.getByRole('button', { name: 'Transaction settings, Fees set in wallet', exact: true })).toBeVisible();
+        await expect(settings).toHaveCount(0);
         await checkSettings(false);
         // The deposit view stays compact: limits belong to the review, not to helper copy here.
         await expect(page.getByText(/slippage/i)).toHaveCount(0);
@@ -72,10 +73,7 @@ test.describe('Earn unavailable reads', () => {
       await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
       await page.getByRole('textbox', { name: mode === 'deposit' ? 'Amount in fxSP' : 'Amount in fxSAVE', exact: true }).fill('1');
       await expect(page.getByRole('button', { name: mode === 'deposit' ? 'Review deposit' : 'Review withdrawal', exact: true })).toBeDisabled();
-      await page.getByRole('button', { name: /^Transaction settings,/ }).click();
-      const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
-      await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(0);
-      await page.keyboard.press('Escape');
+      await expect(page.getByRole('button', { name: /^Transaction settings,/ })).toHaveCount(0);
       await expect(page.getByRole('button', { name: mode === 'deposit' ? 'Review deposit' : 'Review withdrawal', exact: true })).toBeDisabled();
     }
     assertNoBackendRequests(requests);

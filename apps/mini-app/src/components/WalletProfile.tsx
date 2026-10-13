@@ -22,7 +22,7 @@ import { SplitFigure } from '@/components/SplitFigure';
 import { compactAddress } from '@/lib/addressPresentation';
 import { userSafeError } from '@/lib/errors';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
-import { haptic, openExternalLink } from '@/lib/telegram';
+import { haptic, isTelegramLaunchContext, openExternalLink } from '@/lib/telegram';
 import { usePrivyWallet } from '@/lib/wallet';
 import { activeWalletAddress } from '@/lib/wallet/activeWalletAddress';
 import { canonicalWalletBalancesSnapshot, mergeFreshCanonicalWalletBalances } from '@/lib/portfolioValuation';
@@ -49,6 +49,8 @@ export default function WalletProfile() {
   const pathname = usePathname();
   const wallet = usePrivyWallet();
   const providerMode = useWalletProviderMode();
+  const [telegramEntry, setTelegramEntry] = useState(false);
+  useEffect(() => { setTelegramEntry(isTelegramLaunchContext()); }, [wallet.ready, providerMode]);
   const activeAddress = activeWalletAddress(wallet);
   // Signed steps stay visible after a review closes: a ring while pending, a notice when settled.
   const pendingActivity = usePendingActivity(activeAddress ?? undefined);
@@ -153,8 +155,8 @@ export default function WalletProfile() {
   </span>;
   if (!activeAddress) {
     return (
-      <ConnectWalletButton aria-label="Connect wallet" loadingLabel="Opening…" className={`${styles.walletConnect} ${headerWalletControl.trigger} glass-press`}>
-        Connect
+      <ConnectWalletButton aria-label={telegramEntry ? 'Sign in' : 'Connect wallet'} loadingLabel="Opening…" className={`${styles.walletConnect} ${headerWalletControl.trigger} ${headerWalletControl.connectTrigger} glass-press`}>
+        {telegramEntry ? 'Sign in' : 'Connect'}
       </ConnectWalletButton>
     );
   }

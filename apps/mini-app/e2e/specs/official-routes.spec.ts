@@ -679,11 +679,11 @@ test.describe("browser wallet connection", () => {
 test.describe("theme control", () => {
   test.use({ telegram: false });
 
-  test("switches among official, dark, and light themes, supports radio-key navigation, and persists the choice", async ({ page, requests }) => {
+  test("switches between light and dark themes, supports radio-key navigation, and persists the choice", async ({ page, requests }) => {
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     const appearance = page.getByRole("radiogroup", { name: "Appearance theme", exact: true });
-    await expect(appearance.getByRole("radio")).toHaveCount(3);
-    const officialTheme = appearance.getByRole("radio", { name: /^Official/ });
+    await expect(appearance.getByRole("radio")).toHaveCount(2);
+    const officialTheme = appearance.getByRole("radio", { name: /^Light/ });
     await expect(officialTheme).toHaveAttribute("aria-checked", "true");
     await officialTheme.focus();
     await officialTheme.press("ArrowRight");
@@ -692,16 +692,16 @@ test.describe("theme control", () => {
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(appearance.getByRole("radio", { name: /^Dark/ })).toHaveAttribute("aria-checked", "true");
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Switch to light theme" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("button", { name: "Dark theme. Switch to light theme" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "official");
     await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     // Portfolio's sole header entry uses the text token. Check the contrasting
     // primary CTA on Earn now that Portfolio no longer duplicates it in main.
     await page.goto("/earn", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(246, 243, 238)");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Switch to official theme" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "official");
+    await page.getByRole("button", { name: "Light theme. Switch to dark theme" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.evaluate(() => {
       window.localStorage.removeItem("fxaeon_theme_id_v2");
       window.localStorage.setItem("fxaeon_theme_id", "dark");

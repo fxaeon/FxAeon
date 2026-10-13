@@ -27,7 +27,7 @@ const mocks: Record<string, string> = {
   '@/lib/wallet': `export const usePrivyWallet = () => ({ ...globalThis.__moveSessionHarness.wallet, sendTransaction: async () => ({ hash: '0x' }) });`,
   '@/app/trade/fxUi': `export const parseAmount = (value) => { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? BigInt(Math.round(parsed * 1e18)) : null; };`,
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({amount:'',deposit:'',mint:'',repay:'',withdraw:'',shares:'',fraction:0.5,leverage:2});`,
-  '@/components/TokenIcon': `export const ChainIcon = () => null;`,
+  '@/components/TokenIcon': `export const ChainIcon = () => null; export default () => null;`,
 };
 
 async function buildHarness(): Promise<string> {

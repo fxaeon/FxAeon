@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Moon, Sparkles, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { applyTheme, getSavedTheme, THEMES, type ThemeId } from '@/lib/theme';
 import { haptic } from '@/lib/telegram';
 
-const ICONS = { official: Sparkles, dark: Moon, light: Sun } as const;
-const ORDER: readonly ThemeId[] = ['official', 'dark', 'light'];
+const ICONS = { official: Sun, dark: Moon } as const;
+const ORDER: readonly ThemeId[] = ['official', 'dark'];
 
-/** Shows the theme in use and cycles to the next one. All three icons render;
+/** Shows the theme in use and switches between light and dark. Both icons render;
  * the root's pre-hydration data-theme picks the visible one in CSS, so the
  * icon is right from the first paint instead of flipping after hydration. */
 export default function ThemeToggle({ className = '' }: { className?: string }) {
@@ -24,8 +24,8 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
     return () => window.removeEventListener('fxaeon:theme', sync);
   }, []);
 
-  const next: ThemeId = theme === 'official' ? 'dark' : theme === 'dark' ? 'light' : 'official';
-  const label = `${THEMES[theme].name} theme. Switch to ${next} theme`;
+  const next: ThemeId = theme === 'dark' ? 'official' : 'dark';
+  const label = `${THEMES[theme].name} theme. Switch to ${THEMES[next].name.toLowerCase()} theme`;
   return (
     <button
       type="button"

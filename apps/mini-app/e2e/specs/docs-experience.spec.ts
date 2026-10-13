@@ -76,7 +76,7 @@ test.describe('documentation experience', () => {
 
   test('product articles support outline navigation, copying, pagination, and mobile width', async ({ page, context, requests }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/docs/guide/getting-started');
     await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
     await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
@@ -201,13 +201,23 @@ test.describe('documentation experience', () => {
       await expect(searchToggle).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(optionsToggle).toBeFocused();
-      await page.keyboard.press('Tab');
+      await page.keyboard.press('Shift+Tab');
+      await expect(searchToggle).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.getByRole('link', { name: 'FxAeon docs home', exact: true })).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
       await expect(contentsToggle).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(contentsToggle).toHaveAttribute('aria-expanded', 'true');
       await expect(nav).toBeVisible();
       await page.keyboard.press('Tab');
-      for (const name of ['Overview', 'Getting started', 'Browser & Telegram']) {
+      await expect(page.getByRole('link', { name: 'FxAeon docs home', exact: true })).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(searchToggle).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(optionsToggle).toBeFocused();
+      await page.keyboard.press('Tab');
+      for (const name of ['FxAeon Documentation', 'Overview', 'Getting started', 'Browser & Telegram']) {
         await expect(nav.getByRole('link', { name, exact: true })).toBeFocused();
         await page.keyboard.press('Tab');
       }
@@ -265,7 +275,7 @@ test.describe('documentation experience', () => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/docs/guide');
-    for (const theme of ['dark', 'light', 'official']) {
+    for (const theme of ['dark', 'official']) {
       await page.getByRole('button', { name: /Switch to .* theme/ }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     }
