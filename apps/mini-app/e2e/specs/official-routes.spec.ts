@@ -298,14 +298,20 @@ test.describe("connected browser wallet flows", () => {
       await page.getByRole("radio", { name: flow.market, exact: true }).click();
       await page.getByRole("radiogroup", { name: "Position side" }).getByRole("radio", { name: flow.side, exact: true }).click();
       const leverage = page.getByRole("textbox", { name: flow.label, exact: true });
-      await expect(leverage).toHaveAttribute("min", flow.min);
-      await expect(leverage).toHaveAttribute("max", flow.max);
+      const leverageSlider = page.getByRole("slider", { name: `${flow.label} slider`, exact: true });
+      await expect(leverageSlider).toHaveAttribute("min", flow.min);
+      await expect(leverageSlider).toHaveAttribute("max", flow.max);
       // An empty numeric draft must stay empty and invalid. In particular,
       // it must not silently regain the minimum leverage as a fallback.
+      const reviewAction = page.locator(".reviewTrigger button");
       await leverage.fill("");
+      await expect(leverage).toHaveValue("");
+      await expect(leverage).toHaveAttribute("aria-invalid", "true");
+      await expect(reviewAction).toBeDisabled();
       await leverage.blur();
       await expect(leverage).toHaveValue("");
       await expect(leverage).toHaveAttribute("aria-invalid", "true");
+      await expect(reviewAction).toBeDisabled();
     }
     assertNoBackendRequests(requests);
   });

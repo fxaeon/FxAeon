@@ -668,7 +668,7 @@ async function runProof(captureStage: string) {
       readReviewedTransactionsFromUi(activePage.locator('.reviewInlineContent'));
     const reviewedFactRow = (label: string): Locator => activePage
         .locator('.reviewInlineContent')
-        .locator('div.flex.items-start.justify-between')
+        .locator('[data-review-fact]')
         .filter({ has: activePage.getByText(label, { exact: true }) })
         .filter({ visible: true });
     const capturePreconfirmReview = async (action: string, actionButton: Locator): Promise<void> => {

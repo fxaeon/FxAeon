@@ -316,7 +316,9 @@ export default function TradePage() {
   }, [market, side, slippage]);
 
   useEffect(() => {
-    setLeverage((current) => clampLeverage(current, leverageBounds));
+    // A refreshed pool limit must not turn an empty/invalid draft into a
+    // signable minimum-leverage trade while the user is editing it.
+    setLeverage((current) => Number.isFinite(current) ? clampLeverage(current, leverageBounds) : current);
   }, [leverageBounds]);
 
   const leverageError = leverage > 0 && leverage < leverageBounds.min
