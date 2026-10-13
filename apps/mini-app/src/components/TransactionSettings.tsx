@@ -25,8 +25,10 @@ const formatGwei = (wei: bigint) => {
 };
 
 function useStoredSettings() {
-  const [bps, setBps] = useState(() => Math.round(readSlippagePercent() * 100));
-  const [tier, setTier] = useState<GasTier>(readGasTier);
+  // Match the static HTML on the first client render. Saved preferences are
+  // applied by the effect below, after hydration, without replacing the page.
+  const [bps, setBps] = useState(Math.round(DEFAULT_SLIPPAGE_PERCENT * 100));
+  const [tier, setTier] = useState<GasTier>(DEFAULT_GAS_TIER);
   useEffect(() => {
     const sync = (event: Event) => {
       if (event.type === 'storage' && (event as StorageEvent).key !== SETTINGS_KEY) return;
