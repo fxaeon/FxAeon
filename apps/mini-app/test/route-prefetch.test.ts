@@ -107,17 +107,38 @@ test("an unavailable current snapshot cannot make a warm quote usable", async ()
   assert.equal(await store.readValidated(descriptor(), async () => { throw new Error('RPC unavailable'); }), null);
 });
 
-test("awaited prefetch rejects expiry, changed block, and session invalidation", async () => {
+test("awaited prefetch rejects expiry, a backwards block, and session invalidation", async () => {
   for (const change of ['expiry', 'block', 'session'] as const) {
     const store = new RoutePrefetchStore();
     let now = 1_000;
     let resolve!: (route: PlannedRoute) => void;
     void store.prime(descriptor(), () => new Promise<PlannedRoute>((done) => { resolve = done; }), now);
-    const pending = store.readValidated(descriptor(), async () => descriptor({ blockNumber: change === 'block' ? 101n : 100n }), () => now);
+    const pending = store.readValidated(descriptor(), async () => descriptor({ blockNumber: change === 'block' ? 99n : 100n }), () => now);
     if (change === 'expiry') now += ROUTE_PREFETCH_TTL_MS;
     if (change === 'session') store.invalidate();
     resolve(ROUTE);
     assert.equal(await pending, null);
+  }
+});
+
+test("a newer block reuses exact input calldata without extending its deadline", async () => {
+  const store = new RoutePrefetchStore();
+  await store.prime(descriptor(), async () => ROUTE, 1_000);
+  assert.equal(await store.readValidated(descriptor(), async () => descriptor({ blockNumber: 105n }), () => 2_000), ROUTE);
+  assert.equal(await store.readValidated(descriptor(), async () => descriptor({ blockNumber: 106n }), () => 1_000 + ROUTE_PREFETCH_TTL_MS), null);
+});
+
+test("current limits, wallet, and every ticket input must still match across blocks", async () => {
+  const changes: Partial<RoutePrefetchDescriptor>[] = [
+    { leverageMin: 1.2 }, { leverageMax: 6.7 }, { leverage: 2.1 },
+    { slippagePercent: 1 }, { side: 'short' }, { market: 'BTC' },
+    { inputTokenAddress: WALLET }, { amountWei: 2n },
+    { walletAddress: TOKEN }, { walletChainId: 8453 }, { routeChainId: 8453 }, { sessionId: 'other' },
+  ];
+  for (const change of changes) {
+    const store = new RoutePrefetchStore();
+    await store.prime(descriptor(), async () => ROUTE, 1_000);
+    assert.equal(await store.readValidated(descriptor(), async () => descriptor({ blockNumber: 101n, ...change }), () => 2_000), null);
   }
 });
 

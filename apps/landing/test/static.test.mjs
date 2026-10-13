@@ -276,7 +276,7 @@ test('checked-in icons match the app renderer and preserve their license', async
   const licensePath = appRequire.resolve('lucide-react/package.json');
   const icons = { receive: lucide.ArrowDownToLine, trade: lucide.CandlestickChart, move: lucide.ArrowLeftRight, earn: lucide.PiggyBank };
   for (const [name, Icon] of Object.entries(icons)) {
-    const rendered = renderToStaticMarkup(react.createElement(Icon, { size: 24, color: '#c6a7ff', strokeWidth: 2 }));
+    const rendered = renderToStaticMarkup(react.createElement(Icon, { size: 24, color: '#2973ff', strokeWidth: 2 }));
     assert.equal(await readFile(resolve(root, 'assets/icons', `${name}.svg`), 'utf8'), rendered);
   }
   const normalize = (value) => value.replace(/\r\n?/g, '\n');

@@ -24,7 +24,7 @@ test.describe('shared shell spacing', () => {
       };
     });
 
-    expect(geometry.height, 'mobile top bar should use the compact 48px row').toBe(48);
+    expect(geometry.height, 'normal-height phone top bar uses the 56px touch row').toBe(56);
     expect(geometry.controlHeights.length).toBeGreaterThan(0);
     for (const height of geometry.controlHeights) {
       expect(height, 'top bar controls retain a 44px minimum target').toBeGreaterThanOrEqual(44);
@@ -77,7 +77,7 @@ test.describe('shared shell spacing', () => {
         identityWidth: element.querySelector<HTMLElement>('[aria-label="Open wallet profile"]')?.getBoundingClientRect().width ?? 0,
         viewportWidth: window.innerWidth,
       }));
-      expect(geometry.height).toBe(48);
+      expect(geometry.height).toBe(56);
       expect(geometry.controls.length).toBeGreaterThan(0);
       for (const control of geometry.controls) {
         expect(control.height).toBeGreaterThanOrEqual(44);

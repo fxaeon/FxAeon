@@ -130,11 +130,12 @@ test.describe('network selector', () => {
         const wallet = (window as typeof window & { __wallet?: { setAccounts?: (accounts: string[]) => void } }).__wallet;
         wallet?.setAccounts?.([]);
       });
-      await expect(button).toHaveAttribute('aria-label', 'Choose a network or connect a wallet');
+      await expect(button).toHaveCount(0);
       await page.evaluate(() => {
         (window as typeof window & { __wallet?: { releaseSwitch?: () => void } }).__wallet?.releaseSwitch?.();
       });
       await expect(page.locator('.network-selector-error')).toHaveCount(0);
+      await expect(button).toHaveCount(0);
     });
   });
 
@@ -269,21 +270,29 @@ test.describe('network selector on a narrow viewport', () => {
 test.describe('disconnected header wallet control', () => {
   test.use({ telegram: false, browserWallet: false });
 
-  test('shows a clear Connect action and keeps network selection available', async ({ page }) => {
+  test('shows a compact Connect action without a disconnected network control', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/portfolio');
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
       const control = page.getByRole('group', { name: 'Wallet and network controls' });
       await expect(control.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
+      await expect(control.getByRole('button', { name: 'Connect wallet' })).toHaveText('Connect');
       await expectHeaderToFit(page, width);
-      const network = selector(page);
-      await expect(network).toHaveAttribute('aria-label', 'Choose a network or connect a wallet');
-      await network.click();
-      const menu = page.getByRole('menu', { name: 'Choose wallet network' });
-      await expect(menu).toBeVisible();
-      await expect(menu.getByRole('menuitemradio', { name: 'Ethereum' })).toBeDisabled();
-      await page.keyboard.press('Escape');
+      await expect(control.locator('.network-selector')).toHaveCount(0);
+      expect((await control.boundingBox())!.width).toBeLessThanOrEqual(100);
     }
+  });
+});
+
+test.describe('Telegram header sign-in', () => {
+  test.use({ telegram: true, browserWallet: false });
+
+  test('labels the Telegram entry Sign in without changing the browser entry', async ({ page }) => {
+    await page.goto('/trade', { waitUntil: 'domcontentloaded' });
+    const controls = page.getByRole('group', { name: 'Wallet and network controls' });
+    await expect(controls.getByRole('button', { name: 'Sign in', exact: true })).toHaveText('Sign in');
+    await expect(controls.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(0);
+    await expect(controls.locator('.network-selector')).toHaveCount(0);
   });
 });

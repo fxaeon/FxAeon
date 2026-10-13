@@ -8,7 +8,7 @@ import { THEMES, type ThemeId } from '../src/lib/theme';
 import { FXAEON_MARK_PATH, privyAppearance } from '../src/lib/wallet/privyAppearance';
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const themes: readonly ThemeId[] = ['official', 'dark', 'light'];
+const themes: readonly ThemeId[] = ['official', 'dark'];
 
 /** WCAG relative luminance; Privy's tinycolor getLuminance() uses the same formula. */
 function luminance(hex: string): number {
@@ -24,17 +24,17 @@ test('each theme hands Privy its own background and accent', () => {
     assert.equal(appearance.theme, THEMES[id].colors['--bg'], id);
     assert.equal(appearance.accentColor, THEMES[id].accent, id);
   }
-  assert.deepEqual(themes.map((id) => privyAppearance(id).theme), ['#121115', '#08090b', '#f7f5f1']);
-  assert.deepEqual(themes.map((id) => privyAppearance(id).accentColor), ['#b9a0ff', '#b9a0ff', '#7341c8']);
+  assert.deepEqual(themes.map((id) => privyAppearance(id).theme), ['#f7f7f8', '#111113']);
+  assert.deepEqual(themes.map((id) => privyAppearance(id).accentColor), ['#2973ff', '#2973ff']);
 });
 
 test("each background selects Privy's matching palette", () => {
   // Privy 3.45 uses its dark tokens when the theme hex is at or below 50%
   // luminance, and asks for under 20% or over 80% for accessible contrast.
-  for (const id of ['official', 'dark'] as const) {
-    assert.ok(luminance(String(privyAppearance(id).theme)) < 0.2, id);
+  assert.ok(luminance(String(privyAppearance('dark').theme)) < 0.2);
+  for (const id of ['official'] as const) {
+    assert.ok(luminance(String(privyAppearance(id).theme)) > 0.8, id);
   }
-  assert.ok(luminance(String(privyAppearance('light').theme)) > 0.8);
 });
 
 test("the modal shows FxAeon's own mark from this origin at a set size", () => {

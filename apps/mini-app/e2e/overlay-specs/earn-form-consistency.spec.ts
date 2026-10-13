@@ -15,7 +15,7 @@ const mocks: Record<string, string> = {
   '@/components/ui': `export const AppShell = ({children}) => <main style={{padding:16}}>{children}</main>;`,
   '@/components/ProductUI': `export const PageHeading = ({title}) => <h1>{title}</h1>; export const ProductNav = () => <nav>Products</nav>; export const ProductSurface = ({children,...props}) => <section {...props}>{children}</section>; export const Disclosure = ({title,children}) => <section aria-label={title}>{children}</section>; export const MetricRows = ({rows}) => <dl>{rows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>; export const StatusNotice = ({title}) => <p>{title}</p>; export { ChoiceCards } from 'real:components/ProductUI';`,
   '@/components/ProductSections': `export const EarnSections = () => null;`,
-  '@/components/TokenIcon': `export default () => <span />;`,
+  '@/components/TokenIcon': `export default () => <span />; export const ChainIcon = () => <span aria-hidden="true" />;`,
   '@/components/MissingValue': `export const MissingValue = () => <span>Unavailable</span>; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({status:'ready',prices:{fxUSDBasePool:1,fxUSD:1},refresh:async () => {}});`,
   '@/lib/displayPrices': `export const freshDisplayPrices = snapshot => snapshot.prices;`,
@@ -42,11 +42,12 @@ let css = '';
 
 test.beforeAll(async () => {
   const result = await esbuild.build({
-    stdin: {contents:`import React from 'react';import {createRoot} from 'react-dom/client';import EarnPage from './src/app/earn/page';import {TransactionSettings} from './src/components/TransactionSettings';import {WalletProviderModeContext} from './src/lib/wallet/providerMode';
+    stdin: {contents:`import React from 'react';import {createRoot,hydrateRoot} from 'react-dom/client';import {renderToString} from 'react-dom/server';import EarnPage from './src/app/earn/page';import {TransactionSettings} from './src/components/TransactionSettings';import {WalletProviderModeContext} from './src/lib/wallet/providerMode';
       const root = createRoot(document.getElementById('root'));
       // This fixture models an embedded wallet, including its app-managed gas settings.
       const render = content => root.render(<WalletProviderModeContext.Provider value="privy">{content}</WalletProviderModeContext.Provider>);
-      globalThis.__earnHarness = {plans:[],showUncontrolled:() => render(<TransactionSettings slippage />),navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
+      const settingsTree = <WalletProviderModeContext.Provider value="privy"><TransactionSettings slippage /></WalletProviderModeContext.Provider>;
+      globalThis.__earnHarness = {plans:[],showUncontrolled:() => render(<TransactionSettings slippage />),hydrateSettings:() => {const container=document.createElement('div');container.dataset.testid='settings-hydration-root';container.dataset.hydrationErrors='0';const saved=localStorage.getItem('fxaeon.settings.v1');localStorage.removeItem('fxaeon.settings.v1');container.innerHTML=renderToString(settingsTree);container.dataset.serverSummary=container.querySelector('button')?.getAttribute('aria-label') ?? '';if(saved!==null)localStorage.setItem('fxaeon.settings.v1',saved);document.body.append(container);const errors=[];hydrateRoot(container,settingsTree,{onRecoverableError:error=>{errors.push(String(error));container.dataset.hydrationErrors=String(errors.length);}});return {container,errors};},navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
       render(<EarnPage />);`,loader:'tsx',resolveDir:root},
     bundle:true,write:false,format:'iife',platform:'browser',target:'es2022',jsx:'automatic',
     outdir:resolve(root,'test-results','earn-form-harness'),absWorkingDir:root,loader:{'.module.css':'local-css'},
@@ -292,6 +293,23 @@ test('uncontrolled settings still announce an explicit saved-value commit', asyn
   await input.blur();
   await expect(page.locator('html')).toHaveAttribute('data-settings-updates', '1');
   expect(await storedSlippage(page)).toBe(50);
+});
+
+test('saved non-default settings hydrate without mismatch and restore the settings summary', async ({ page }) => {
+  await mount(page, false);
+  const result = await page.evaluate(() => {
+    localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ slippageBps: 75, gasTier: 'rapid' }));
+    const harness = globalThis as typeof globalThis & { __earnHarness: { hydrateSettings: () => { container: HTMLElement; errors: string[] } } };
+    harness.__earnHarness.hydrateSettings();
+    return true;
+  });
+  expect(result).toBe(true);
+  const hydrated = page.locator('[data-testid="settings-hydration-root"]');
+  await expect(hydrated).toHaveAttribute('data-server-summary', 'Transaction settings, 0.5% slippage');
+  const summary = hydrated.getByRole('button', { name: /Transaction settings,/ });
+  await expect(summary).toContainText('0.75% slippage');
+  await expect(summary).toContainText('Rapid');
+  await expect(hydrated).toHaveAttribute('data-hydration-errors', '0');
 });
 
 

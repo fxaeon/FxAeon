@@ -40,6 +40,7 @@ import { ActionWorkspace } from '@/components/ProductLayout';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import { useFxSaveClaimable } from '@/components/WalletDataProvider';
 import { useRefreshAction } from '@/lib/useRefreshAction';
+import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 
 type EarnMode = 'deposit' | 'withdraw' | 'claim';
 
@@ -464,10 +465,10 @@ export default function EarnPage() {
       <ActionWorkspace className={presentation.workspace} density="compact">
         <PageHeading title="Earn" />
         {reviewStage === 'input' && <ProductNav current="save" />}
-        {/* The value is a hero figure on the page, as on Portfolio; the form keeps its card below. */}
+        <div className={presentation.vaultLayout} data-review={reviewStage !== 'input' || mode === 'claim'}>
         {reviewStage === 'input' && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
-          readWarnings={activeReadWarnings} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus} onClaim={() => changeMode('claim')} />}
-        <ProductSurface className={presentation.panel} data-flow-stage={reviewStage}>
+          readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus} onClaim={() => changeMode('claim')} />}
+        <ProductSurface data-result-container className={presentation.panel} data-flow-stage={reviewStage}>
           <ActionReview
             key={reviewRevision}
             surface="content"
@@ -503,10 +504,12 @@ export default function EarnPage() {
             </>}
           />
         </ProductSurface>
-        {reviewStage === 'input' && <VaultDetails config={config} />}
-        {reviewStage === 'input' && <EarnSections apy={fxSaveApy ? `${fxSaveApy.apy.toFixed(2)}%` : null} apyStatus={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'}
-          cooldown={config ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config ? formatRatio(config.instantRedeemFeeRatio) : null}
-          vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} />}
+        {reviewStage === 'input' && mode !== 'claim' && <div className={presentation.vaultInfo}>
+          <EarnSections cooldown={config ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config ? formatRatio(config.instantRedeemFeeRatio) : null}
+            vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} />
+          <VaultDetails config={config} />
+        </div>}
+        </div>
       </ActionWorkspace>
     </AppShell>
   );
@@ -520,8 +523,9 @@ type SaveData = {
   claimable: Awaited<ReturnType<ReturnType<typeof getFxReadFacade>['getFxSaveClaimable']>> | null;
 };
 
-function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, fxSaveApy, fxSaveApyStatus, onClaim }: {
+function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, config, fxSaveApy, fxSaveApyStatus, onClaim }: {
   data: SaveData | null; loading: boolean; connected: boolean; onRefresh: () => Promise<void>; readWarnings: readonly string[];
+  config: SaveConfig | null;
   fxSaveApy: FxSaveApyResponse | null; fxSaveApyStatus: 'loading' | 'ready' | 'unavailable'; onClaim: () => void;
 }) {
   const snapshot = useUsdPrices();
@@ -539,12 +543,28 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, fxS
   const withdrawalTask = selectWalletTasks({ walletAddress: data?.walletAddress ?? '', transactions: [], claimable: claimUnavailable ? null : data?.claimable })
     .find((task) => task.kind === 'withdrawal');
   return <div className={presentation.overview}>
+    <div className={presentation.vaultIdentity}>
+      <TokenIcon symbol="fxSAVE" size={36} />
+      <div><h2>fxSAVE</h2></div>
+      <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
+      {connected && <button type="button" disabled={loading} onClick={() => void onRefresh()} aria-label="Refresh fxSAVE state" className={presentation.refresh}>
+        <RefreshCw size={16} aria-hidden="true" className={loading ? 'animate-spin' : ''} />
+      </button>}
+    </div>
     <div className={presentation.balanceTop}>
+      <div className={presentation.rate}>
+        <small>Variable APY</small>
+        <strong>{fxSaveApy
+          ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
+          : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
+      </div>
       <div className={presentation.balanceCopy} data-connected={connected}>
-        <p>{!connected ? 'fxSAVE' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'}</p>
+        <p>{!connected ? 'Vault holdings' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'}</p>
         {!connected ? <>
-          <h2>Earn with fxSAVE</h2>
-          <small>Deposit a supported asset to receive fxSAVE.</small>
+          <h2>{config && !readWarnings.includes('vault configuration')
+            ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(Number(formatUnits(config.totalAssetsWei, 18)))
+            : <MissingValue width="md" status={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} label="Vault holdings" />}</h2>
+          <small>fxSP</small>
         </> : balanceUnavailable ? <>
           <h2><MissingValue width="md" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading fxSAVE balance' : 'fxSAVE balance unavailable'} /></h2>
         </> : empty ? <>
@@ -557,15 +577,6 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, fxS
           <small>{formatDisplayAmount(balance!.balanceWei)} fxSAVE</small>
         </>}
       </div>
-      <div className={presentation.rate}>
-        <strong>{fxSaveApy
-          ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
-          : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
-        <small>Variable APY</small>
-      </div>
-        {connected && <button type="button" disabled={loading} onClick={() => void onRefresh()} aria-label="Refresh fxSAVE state" className={presentation.refresh}>
-          <RefreshCw size={16} aria-hidden="true" className={loading ? 'animate-spin' : ''} />
-        </button>}
     </div>
     {hasPending && <div className={presentation.pendingTask}>
       <StatusNotice title={claimUnavailable ? 'Withdrawal status unavailable' : withdrawalTask?.title ?? 'Withdrawal pending'}
@@ -641,7 +652,7 @@ function ClaimState({ data }: { data: SaveData }) {
 function VaultDetails({ config }: { config: SaveConfig | null }) {
   return <Disclosure title="Vault details">
     <p className={presentation.helper}>The displayed APY is variable. fxSAVE and the fxSP it holds are different units.</p>
-    {/* The cooldown and instant fee are figures in "The vault at a glance" just below, so they are not repeated here. */}
+    {/* Withdrawal terms are available in the adjacent disclosure. */}
     {config ? <MetricRows rows={[
       { label: 'Vault holdings', value: `${formatDisplayAmount(config.totalAssetsWei)} fxSP` },
       { label: 'fxSAVE supply', value: `${formatDisplayAmount(config.totalSupplyWei)} fxSAVE` },

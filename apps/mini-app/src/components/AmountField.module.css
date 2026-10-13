@@ -35,14 +35,21 @@
 .shortcuts button > span { padding: 5px 6px; border-radius: 999px; background: var(--surface-2); transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow var(--dur-fast) ease; }
 .shortcuts button:hover:not(:disabled), .shortcuts button[data-selected='true'] { color: var(--mint-bright); }
 .shortcuts button:hover:not(:disabled) > span, .shortcuts button[data-selected='true'] > span { background: var(--mint-dim); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 28%, transparent); }
-:root[data-theme='light'] .shortcuts button:hover:not(:disabled), :root[data-theme='light'] .shortcuts button[data-selected='true'] { color: var(--mint); }
+:root[data-theme='light'] .shortcuts button:hover:not(:disabled), :root[data-theme='light'] .shortcuts button[data-selected='true'] { color: var(--mint-text); }
 :global([data-flow-stage]) .shortcuts button > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button > span { background: var(--surface-3); }
 :global([data-flow-stage]) .shortcuts button:disabled > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button:disabled > span { background: color-mix(in srgb, var(--surface-3) 60%, transparent); }
 .shortcuts button:active:not(:disabled) { transform: scale(0.94); transition-duration: var(--dur-press); }
 .shortcuts button:focus-visible { outline: 2px solid var(--mint-bright); outline-offset: -2px; }
 .shortcuts button:disabled { cursor: not-allowed; opacity: 1; color: var(--mut-2); }
 .shortcuts button:disabled > span { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
-.entryRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-width: 0; min-height: 56px; }
+.entryRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 0; min-height: 56px; }
+/* Give the amount a readable measure when a narrow card cannot fit both.
+ * The asset wraps below instead of squeezing exact balances into a sliver. */
+@container (max-width: 280px) {
+  .entryRow { display: flex; flex-wrap: wrap; }
+  .entryRow .entryFit { min-width: min(128px, 100%); }
+  .token { margin-left: auto; }
+}
 /* The figure sizes to its own width at every phone size: each extra digit
  * steps the type down, so exact amounts never run under the asset pill. */
 .entryFit { display: flex; min-width: 0; flex: 1 1 128px; container-type: inline-size; }
@@ -57,13 +64,15 @@
   font-family: inherit;
   font-size: clamp(14px, calc(100cqi / (var(--amount-entry-length, 4) * 0.62 + 0.4)), var(--amount-max-size, var(--fs-amount)));
   font-weight: 500;
+  line-height: 1.15;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-figure);
   caret-color: var(--mint);
   transition: font-size var(--dur-base) var(--ease-out);
 }
 .entryFit > input::placeholder { color: var(--mut-2); opacity: 0.7; }
-.token { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.token { display: flex; align-items: center; justify-content: flex-end; min-width: 0; max-width: 100%; }
 .token :global(button[aria-haspopup='dialog']) {
   min-height: 44px;
   max-width: 100%;

@@ -1,8 +1,5 @@
 .control {
-  /* Every state of the identity slot (loading, Connect, a compact address such
-     as 0x1d34…AF81) shares one footprint: avatar, gap and up to 7.75em of
-     12px address text. The network control beside it never moves when the
-     wallet settles, and the address always fits whole. */
+  /* Connected identities reserve space for the complete compact address. */
   --chip-pad: 12px;
   --identity-font: var(--fs-caption);
   --identity-width: calc(var(--chip-pad) * 2 + 28px + 7.75 * var(--identity-font));
@@ -10,9 +7,10 @@
   flex: 0 0 auto;
   min-width: 0;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
+  gap: 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   -webkit-user-select: none;
   user-select: none;
@@ -34,9 +32,8 @@
   gap: 7px;
   padding: 0 10px;
   border: 0;
-  border-right: 1px solid var(--line);
-  border-radius: 999px 0 0 999px;
-  background: transparent;
+  border-radius: 12px;
+  background: var(--surface);
 }
 
 .control :global(.network-selector-visual-label) {
@@ -68,13 +65,29 @@
   justify-content: center;
   gap: 6px;
   border: 0;
-  border-radius: 0 999px 999px 0;
-  background: transparent;
+  border-radius: 12px;
+  background: var(--surface);
   color: var(--text);
   padding: 0 var(--chip-pad);
   font-size: var(--identity-font);
   font-weight: 650;
   white-space: nowrap;
+}
+
+.control .connectTrigger {
+  width: 92px;
+  min-width: 92px;
+  padding-inline: 12px;
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+
+@media (hover: hover) {
+  .control .connectTrigger:hover:not(:disabled) { color: var(--text); background: var(--surface-3); }
 }
 
 .identityTrigger {
@@ -118,23 +131,23 @@
   text-overflow: ellipsis;
 }
 
-/* While the wallet provider starts: the avatar and the address as skeleton
-   shapes in the connected chip's place, the same shapes the first-paint
-   outline (ProviderLoadingState) draws, so the handoff does not change them. */
+/* Match the compact entry button until the wallet state is known. */
 .identityPlaceholder {
   display: inline-flex;
-  min-width: var(--identity-width);
+  width: 92px;
   min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 6px;
   padding: 0 var(--chip-pad);
+  border-radius: 999px;
+  background: var(--surface);
 }
 .placeholderAvatar,
 .placeholderName,
 .control :global(.network-selector-placeholder) { display: block; flex: 0 0 auto; }
 .placeholderAvatar { width: 22px; height: 22px; border-radius: 50%; }
-.placeholderName { width: 82px; height: 10px; border-radius: 999px; }
+.placeholderName { width: 44px; height: 10px; border-radius: 999px; }
 .control :global(.network-selector-placeholder) { width: 17px; height: 17px; border-radius: 50%; }
 /* A provider that never became ready is not loading anymore. */
 .identityPlaceholder[data-settled] > * { animation: none; background-position: 50% 0; }
@@ -144,7 +157,7 @@
   .control :global(.network-selector):hover:not(:disabled),
   .trigger:hover:not(:disabled) {
     background: var(--mint-dim);
-    color: var(--mint);
+    color: var(--mint-text);
   }
 }
 

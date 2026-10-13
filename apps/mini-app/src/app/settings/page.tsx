@@ -113,7 +113,7 @@ export default function SettingsPage() {
           <div className={styles.preferenceHeading}><h3 id={`${id}-slippage`}>Slippage tolerance</h3>
             <span className={saved ? styles.saved : undefined} role="status" aria-live="polite">{saved ? <><Check size={14} aria-hidden="true" />Saved</> : dirty ? 'Unsaved changes' : ''}</span>
           </div>
-          <p id={`${id}-help`} className={styles.help}>If the price moves more than this before your transaction confirms, it fails rather than complete at a worse price.</p>
+          <p id={`${id}-help`} className={styles.help}>The transaction fails if price moves past this limit before confirmation.</p>
           <div className={styles.choices} role="radiogroup" aria-label={t('settings.maxSlippage')} aria-describedby={`${id}-help`}>
             {PRESETS.map((bps, index) => <button type="button" key={bps} role="radio" aria-checked={slippageBps === bps} disabled={!ready} tabIndex={slippageBps === bps || (!PRESETS.includes(slippageBps) && index === 0) ? 0 : -1}
               onClick={() => select(bps)} onKeyDown={(event) => {

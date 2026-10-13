@@ -1,24 +1,24 @@
 # FxAeon design contract
 
-FxAeon presents onchain actions as a calm, precise workspace: one decision per surface, numbers as the hero, and violet reserved for intent. Prioritize clear transaction context, readable balances, and obvious next steps over decoration. Product screens use the "Aeon" system described below; the public landing page sets the brand on an aurora field around HTML renderings of the app. Its phones and review show example values, never live data, and assistive technology hears them described as examples.
+FxAeon presents onchain actions as a calm, precise workspace: one decision per surface, numbers as the hero, and blue reserved for intent. Prioritize clear transaction context, readable balances, and obvious next steps over decoration. Light uses a neutral off-white canvas, white cards, and charcoal text. Dark uses a charcoal canvas and neutral raised surfaces. Blue identifies actions, focus, and selected states; avoid cream, purple, and blue-gray surface mixtures. Poppins supplies product text and Manrope supplies headings and figures. Light and Dark are the only appearance choices; the stored official id remains an alias for Light. Portfolio introductions and wallet totals sit directly on the canvas; the market overview and trade form retain separate containers. Avoid colored banner strips, nested decorative cards, and local palettes that override a user's theme.
 
 ## Principles
 
 1. **One surface per decision.** Depth comes from tone (`--bg` → `--surface` → `--surface-2` → `--surface-3`), not from boxes nested inside boxes. A raised control inside a card takes the next tone up instead of a border.
 2. **Numbers lead.** Amounts and totals are large, tight, and tabular; units, cents, and labels recede.
-3. **Violet means intent.** The accent marks the primary action, focus, the active selection, and the market's price line. Long and short use their semantic green and red; success, warning, and danger communicate state only.
-4. **Alive, never misleading.** The canvas breathes behind every route on slow, offset loops; controls answer every hover and press; figures that change (prices, totals) roll to their new digits; and the motion that carries meaning is f(x) Protocol's own: positions draw their collateral split, Trade shows how leverage divides a position, Earn streams the stability pool's sources into fxSAVE. Motion never fakes progress: transaction motion follows actual state, figures roll only when the value really changes and never count up from zero on load, and reduced motion removes loops, travel, and rolling. The app has no aurora; that belongs to the landing.
+3. **Blue means intent.** The accent marks the primary action, focus, the active selection, and the market's price line. Long and short use their semantic green and red; success, warning, and danger communicate state only. Token and protocol logos retain their original colors.
+4. **Alive, never misleading.** The page canvas stays neutral and still. Controls respond to interaction; figures roll only when their value changes; positions draw their collateral split, Trade shows how leverage divides a position, and Earn illustrates the stability pool's sources. Transaction motion follows actual state and never fakes progress. Reduced motion removes loops, travel, and rolling. The landing hero stays still while later card illustrations may animate.
 5. **Honest states.** Unknown, unavailable, or stale data stays distinguishable from zero, and placeholders reserve the final geometry. A placeholder announces what it is waiting for ("Loading fxSAVE APY") and only says "unavailable" once a read has failed.
 
 ## Tokens
 
-`apps/mini-app/src/app/globals.css` is the single source of truth for every live token in the Official, Dark, and Light themes. `src/lib/theme.ts` only holds the preview and host-chrome colors used by the appearance swatches and Telegram; it never writes tokens inline.
+`apps/mini-app/src/app/globals.css` is the single source of truth for every live token in the Light and Dark themes. `src/lib/theme.ts` only holds the preview and host-chrome colors used by the appearance swatches and Telegram; it never writes tokens inline.
 
 | Group | Tokens | Use |
 | --- | --- | --- |
 | Surfaces | `--bg`, `--surface`, `--surface-2`, `--surface-3`, `--hairline`, `--line` | Canvas, cards, inner panels, selected and pressed states, optional separators |
 | Text | `--text`, `--mut`, `--mut-2` | Primary, secondary (≥5.5:1), tertiary (≥4.5:1) on `--surface` and `--surface-2` in every theme |
-| Intent | `--mint` (the accent, violet), `--mint-bright`, `--mint-dim`, `--on-accent` | Primary action, focus, active selection |
+| Intent | `--mint` (the accent, blue), `--mint-bright`, `--mint-dim`, `--on-accent` | Primary action, focus, active selection |
 | State | `--success`, `--warn`, `--danger` and their `-dim` tints; `--long`, `--short` | Status and position side only |
 | Overlay | `--scrim`, `--glass`, `--glass-strong`, `--elevation-1/2`, `--ring-inset` | Sheets, the navigation dock, floating panels |
 
@@ -70,7 +70,7 @@ Forms keep labels attached to their controls, errors close to the affected field
 
 ## Public landing page
 
-The landing page (fxaeon.xyz) is the brand's stage: dark first, with a light theme, an aurora field, editorial type, and the real product rendered in HTML. Keep the Telegram action primary and the web app secondary, and describe only supported Trade, Earn, Borrow, Move, and protocol behavior in the Docs' reviewed wording.
+The landing page (fxaeon.xyz) uses a continuous neutral canvas, editorial type, and the real product rendered in HTML. Offer explicit Open mini app and Open web app actions. Keep the closing footer as a contained card and describe only supported Trade, Earn, Borrow, Move, and protocol behavior in the Docs' reviewed wording.
 
 | Element | Contract |
 | --- | --- |

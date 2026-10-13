@@ -632,6 +632,18 @@ export default function BorrowPage() {
       <PageHeading title="Borrow" />
       {reviewStage === 'input' && <ProductNav current="borrow" />}
       <ConfirmedPositionCards />
+      <div className={presentation.layout} data-review={reviewStage !== 'input'}>
+      {reviewStage === 'input' && <section className={presentation.overview} aria-label="fxUSD borrowing overview">
+        <div className={presentation.vaultIdentity}>
+          <TokenIcon symbol="fxUSD" size={36} />
+          <div><h2>fxUSD</h2><p>Ethereum</p></div>
+        </div>
+        <dl className={presentation.metrics}>
+          <div><dt>Maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd><small>{debtRange.source === 'live' ? 'Pool limit' : 'Live limit unavailable'}</small></div>
+          <div><dt>Annual interest</dt><dd>0%</dd><small>Normal conditions · fees apply</small></div>
+        </dl>
+        <p className={presentation.riskNote}>Collateral can be liquidated. Keep room below the borrowing limit.</p>
+      </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
       {reviewStage === 'input' && <div className={presentation.viewTabs}>
         <Segmented value={view} onChange={chooseView} ariaLabel="Borrow workspace" options={[
@@ -668,7 +680,8 @@ export default function BorrowPage() {
       </div>}
       </ProductSurface>
       {/* A limit, so rounded down to the tenth of a percent. */}
-      {reviewStage === 'input' && <BorrowSections ltvLimit={`${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%`} />}
+      {reviewStage === 'input' && <div className={presentation.details}><BorrowSections ltvLimit={debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} /></div>}
+      </div>
     </ActionWorkspace>
   </AppShell>;
 }

@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const path = require('node:path');
 
+const configuredDistDir = process.env.FX_E2E_DIST_DIR?.trim();
+if (configuredDistDir && !/^[a-zA-Z0-9_-]+$/.test(configuredDistDir)) {
+  throw new Error('FX_E2E_DIST_DIR must be a simple directory name inside the mini-app workspace');
+}
+
 const nextConfig = {
   output: 'export',
   // `pnpm lint` is an explicit release gate. Skipping Next's duplicate build
@@ -14,7 +19,7 @@ const nextConfig = {
   // Export static pages to `dist`. Next's export build can still use `.next`
   // as an intermediate directory, so never run `next dev` and `next build`
   // concurrently in this checkout, even with different final output paths.
-  distDir: process.env.NODE_ENV === 'development' ? '.next' : 'dist',
+  distDir: configuredDistDir || (process.env.NODE_ENV === 'development' ? '.next' : 'dist'),
   images: { unoptimized: true },
   webpack: (config, { webpack, isServer }) => {
     // Wallet/data libraries share a vendor graph. Keep that graph in bounded,

@@ -18,6 +18,13 @@ The token/chain marks come from the SmolDapp asset CDN and AladdinDAO assets.
 Unknown token symbols use the app's text fallback instead of being presented as
 official artwork.
 
+FxAeon's primary brand blue is `#2973FF` across the landing site, app, and docs.
+Filled primary actions use that exact blue with near-black `#0b0c0e` foreground
+text for contrast. Small accent text on light surfaces may use the darker
+accessible blue `#1d4ed8`; this is an accessibility adjustment, not a second
+brand color. Success, warning, danger, token, and network colors keep their
+separate meanings or identities.
+
 ## Theme and layout
 
 The app supports official dark, neutral dark, and light appearance modes. The

@@ -6,14 +6,15 @@ import { liveMarketStore } from '@/lib/liveMarketStore';
 import { positionPoolAddress } from '@/lib/fx/policy';
 
 /**
- * Trade's confirmed result for a newly opened ETH Long (#4242), then the real
- * Positions page, behind a stand-in for Next's router: push() writes the URL
- * at once and renders the next page a little later, as the app router does.
+ * Trade's confirmed result for either a newly opened ETH Long (#4242) or a
+ * closed ETH Long, then the real Positions page behind a stand-in for Next's
+ * router: push() writes the URL at once and renders the next page a little
+ * later, as the app router does.
  * The spec (e2e/positions-harness/position-born.spec.ts) sets
  * `__positionBornConfig` before this bundle runs: the theme, whether the chain
  * has returned the new position yet, and the router's delay.
  */
-type Config = { theme?: 'official' | 'dark' | 'light'; readable?: boolean; navigationDelayMs?: number };
+type Config = { theme?: 'official' | 'dark' | 'light'; readable?: boolean; navigationDelayMs?: number; closedPosition?: boolean };
 const config = ((globalThis as { __positionBornConfig?: Config }).__positionBornConfig ?? {}) as Config;
 const account = '0x930f0000000000000000000000000000000098b9';
 const E18 = 10n ** 18n;
@@ -64,6 +65,12 @@ const result = {
     },
   }],
 };
+const closedAction = { ...action, operation: 'reducePosition', type: 'reducePosition', value: 0n };
+const closedResult = {
+  ...result,
+  operation: 'reducePosition',
+  steps: result.steps.map((step) => ({ ...step, transaction: closedAction })),
+};
 const route = {
   operation: 'increasePosition', chainId: 1, walletAddress: account, transactions: [action],
   details: { routeType: 'Open ETH long position', requestedLeverage: 2.8 },
@@ -77,6 +84,13 @@ const route = {
     },
   },
 };
+const closedRoute = {
+  ...route,
+  operation: 'reducePosition',
+  transactions: [closedAction],
+  details: { routeType: 'Close ETH long position' },
+  policy: { ...route.policy, reviewedAction: { ...route.policy.reviewedAction, kind: 'position-reduce', positionId: existing.info.positionId, isClosePosition: true } },
+};
 
 const readable = config.readable ?? true;
 declare global {
@@ -85,8 +99,9 @@ declare global {
     shared: Record<string, unknown>;
     brakes: Record<string, unknown>;
     prices: Record<string, number>;
-    result: typeof result;
-    route: typeof route;
+    result: typeof result | typeof closedResult;
+    route: typeof route | typeof closedRoute;
+    closedPosition: boolean;
     hint: typeof hint;
     identity: { market: 'ETH'; side: 'long'; positionId: number; transactionHash: string };
     path: string;
@@ -114,7 +129,10 @@ globalThis.__positionBorn = {
     [`ETH:long:${NEW_ID}`]: reading(628_920_000_000_000_000n),
   },
   prices: { ETH: ETH_PRICE, WETH: ETH_PRICE, stETH: 2_443.9, wstETH: 3_045.7, WBTC: 81_354.96, fxUSD: 1, USDC: 1, USDT: 1 },
-  result, route, hint,
+  result: config.closedPosition ? closedResult : result,
+  route: config.closedPosition ? closedRoute : route,
+  closedPosition: Boolean(config.closedPosition),
+  hint,
   identity: { market: 'ETH', side: 'long', positionId: NEW_ID, transactionHash: hash },
   path: window.location.pathname,
   navigations: [],

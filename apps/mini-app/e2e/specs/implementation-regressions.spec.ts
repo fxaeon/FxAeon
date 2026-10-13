@@ -99,7 +99,8 @@ test.describe('implementation regressions', () => {
       await expect(drawer).toBeVisible();
       await drawer.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
       await expect(drawer).toHaveCount(0);
-      await expect(page.getByText('No wallet connected', { exact: true })).toBeVisible();
+      await expect(page.locator('header').getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'View connected account', exact: true })).toHaveCount(0);
       await expect(page).toHaveURL(/\/more\/?$/);
       assertNoBackendRequests(requests);
     });
@@ -138,7 +139,7 @@ test.describe('implementation regressions', () => {
     await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Close documentation menu', exact: true })).toHaveAttribute('aria-expanded', 'true');
     await expect(contents).toHaveJSProperty('open', true);
-    await expect(contents.getByRole('link')).toHaveCount(14);
+    await expect(contents.getByRole('link')).toHaveCount(15);
     await expect(contents.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
     await page.setViewportSize({ width: 1024, height: 500 });
     await page.goto('/docs/guide', { waitUntil: 'domcontentloaded' });

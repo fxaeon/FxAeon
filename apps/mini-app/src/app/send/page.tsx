@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatEther, formatUnits, isAddress, type Address } from 'viem';
 import { ArrowLeft, ArrowUpRight, ChevronRight, Clock3, Wallet } from 'lucide-react';
 import { AppShell } from '@/components/ui';
+import { DecimalInput } from '@/components/DecimalInput';
 import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 import { GroupedAddress } from '@/components/GroupedAddress';
 import { WalletAvatar } from '@/components/WalletAvatar';
@@ -66,6 +67,7 @@ function SendForm() {
   const [quote, setQuote] = useState<SendQuote | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [amountEntryError, setAmountEntryError] = useState('');
   const [hash, setHash] = useState<string | null>(null);
   const recipientHintId = useId();
   const mounted = useRef(true);
@@ -112,6 +114,7 @@ function SendForm() {
     finally { lock.current = false; if (current()) setBusy(false); }
   };
   const maximum = () => void run(async () => {
+    setAmountEntryError('');
     if (!asset) return;
     if (asset.tokenAddress || !wallet.address) { setAmount(asset.balance); return; }
     // Until a recipient is entered, cost a transfer back to this wallet. A plain ETH
@@ -192,10 +195,11 @@ function SendForm() {
           <button type="button" className={styles.max} disabled={busy || !fundedAsset} onClick={maximum}><span>Max</span></button>
         </div>
         <div className={styles.amountRow}>
-          <span className={styles.amountFit}><input id="send-amount" className={styles.amountInput} style={{ '--amount-length': Math.max(trimmedAmount.length, 4) } as CSSProperties} inputMode="decimal" autoComplete="off" spellCheck={false} placeholder="0.00" value={amount} disabled={busy} aria-invalid={Boolean(amountProblem) || undefined} onKeyDown={reviewOnEnter} onChange={(event) => { setAmount(event.target.value); setError(''); }} /></span>
-          <WalletAssetPicker label="Asset to send" assets={tokens} value={asset} disabled={busy} loading={assets.status === 'loading' || assets.status === 'idle'} emptyLabel={readFailed ? 'Unavailable' : undefined} onChange={(next) => { setSelectedAsset(next); setAmount(''); setError(''); }} />
+          <span className={styles.amountFit}><DecimalInput id="send-amount" className={styles.amountInput} style={{ '--amount-length': Math.max(trimmedAmount.length, 4) } as CSSProperties} autoComplete="off" spellCheck={false} placeholder="0.00" value={amount} disabled={busy} aria-invalid={Boolean(amountProblem || amountEntryError) || undefined} onKeyDown={reviewOnEnter} onInvalidInput={setAmountEntryError} onValueChange={(next) => { setAmount(next); setError(''); setAmountEntryError(''); }} maxLength={100} /></span>
+          <WalletAssetPicker label="Asset to send" assets={tokens} value={asset} disabled={busy} loading={assets.status === 'loading' || assets.status === 'idle'} emptyLabel={readFailed ? 'Unavailable' : undefined} onChange={(next) => { setSelectedAsset(next); setAmount(''); setError(''); setAmountEntryError(''); }} />
         </div>
-        {amountProblem && trimmedAmount !== '.' ? <p className={styles.hint}>{amountProblem}</p>
+        {amountEntryError ? <p className={styles.hint} role="alert">{amountEntryError}</p>
+          : amountProblem && trimmedAmount !== '.' ? <p className={styles.hint}>{amountProblem}</p>
           : asset && <p className={styles.balance}>{missingBalance ? 'Balance unavailable' : <>{fundedAsset && !selectedNetworkReady ? 'Last checked' : 'Available'}: <span title={fundedAsset ? `${fundedAsset.balance} ${symbol}` : undefined}>{fundedAsset ? formatBalanceDecimal(fundedAsset.balance, 8) : '0'} {symbol}</span>{fundedAsset?.usdValue != null && selectedNetworkReady && <span className={styles.balanceUsd}>{formatUsd(fundedAsset.usdValue)}</span>}</>}</p>}
       </div>
       {(readFailed || missingBalance) && <StatusNotice tone="warning" title={refreshing ? 'Checking balances…' : asset ? 'Couldn’t refresh balances' : 'Couldn’t load balances'}

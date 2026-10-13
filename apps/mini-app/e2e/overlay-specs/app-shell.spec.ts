@@ -44,7 +44,7 @@ async function headerGeometry(page: Page) {
   });
 }
 
-test('the header stays one row with one footprint while the wallet settles, at every phone width', async ({ page }) => {
+test('the header stays one row while the wallet settles, at every phone width', async ({ page }) => {
   await open(page);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 844 });
@@ -52,14 +52,15 @@ test('the header stays one row with one footprint while the wallet settles, at e
     for (const [state, wallet] of STATES) {
       await setLab(page, { wallet });
       const geometry = await headerGeometry(page);
-      expect(geometry.height, `${state} header is one 48px row at ${width}px`).toBeLessThanOrEqual(48);
+      expect(geometry.height, `${state} header is one compact row at ${width}px`).toBeLessThanOrEqual(56);
       expect(geometry.overflow, `${state} header overflows at ${width}px`).toBeLessThanOrEqual(0);
       expect(geometry.groupRight, `${state} controls stay on screen at ${width}px`).toBeLessThanOrEqual(geometry.viewport);
       expect(geometry.smallestControl, `${state} controls keep 44px targets at ${width}px`).toBeGreaterThanOrEqual(44);
       expect(geometry.nameClipped, `the compact address is shown whole at ${width}px`).toBe(false);
-      lefts.push(geometry.groupLeft);
+      if (state !== 'connected') lefts.push(geometry.groupLeft);
+      await expect(page.locator('.network-selector')).toHaveCount(state === 'connected' ? 1 : 0);
     }
-    // On phones the network control never moves when the wallet settles.
+    // Loading and the disconnected entry share a compact footprint.
     if (width <= 430) expect(Math.max(...lefts) - Math.min(...lefts), `wallet controls jump at ${width}px`).toBeLessThanOrEqual(1);
   }
 });
@@ -70,7 +71,7 @@ test('an ENS-length name never breaks the header into two rows', async ({ page }
     await page.setViewportSize({ width, height: 844 });
     await setLab(page, { wallet: { ready: true, authenticated: true, address: ADDRESS, chainId: 1, ensName: 'dextrader-2024.eth' } });
     const geometry = await headerGeometry(page);
-    expect(geometry.height, `header is one row at ${width}px`).toBeLessThanOrEqual(48);
+    expect(geometry.height, `header is one row at ${width}px`).toBeLessThanOrEqual(56);
     expect(geometry.overflow, `header overflows at ${width}px`).toBeLessThanOrEqual(0);
     expect(geometry.smallestControl).toBeGreaterThanOrEqual(44);
   }
@@ -82,7 +83,7 @@ test('loading shows placeholders, not a globe or an empty pill, and they settle 
   await setLab(page, { readyTimeoutMs: 400, wallet: STATES[2][1] });
   await setLab(page, { wallet: STATES[0][1] });
   const group = page.getByRole('group', { name: 'Wallet and network controls' });
-  await expect(group.locator('.network-selector-placeholder')).toBeVisible();
+  await expect(group.locator('.network-selector')).toHaveCount(0);
   await expect(group.locator('img')).toHaveCount(0);
   const placeholder = group.getByRole('status');
   await expect(placeholder).toHaveText('Loading wallet');
@@ -94,8 +95,7 @@ test('loading shows placeholders, not a globe or an empty pill, and they settle 
 
   await setLab(page, { wallet: STATES[1][1] });
   await expect(group.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
-  await expect(group.locator('.network-selector-chains img')).toHaveCount(2);
-  await expect(group.locator('.network-selector')).toHaveAttribute('aria-label', 'Choose a network or connect a wallet');
+  await expect(group.locator('.network-selector')).toHaveCount(0);
 
   await setLab(page, { wallet: STATES[2][1] });
   await expect(group.getByRole('button', { name: 'Open wallet profile' })).toContainText('0x1d34…AF81');
@@ -107,9 +107,9 @@ test('the theme control shows the theme in use and names the one it switches to'
   await open(page);
   await setLab(page, { wallet: STATES[2][1] });
   const expectations = [
-    { theme: 'official', name: 'Official theme. Switch to dark theme' },
+    { theme: 'official', name: 'Light theme. Switch to dark theme' },
     { theme: 'dark', name: 'Dark theme. Switch to light theme' },
-    { theme: 'light', name: 'Light theme. Switch to official theme' },
+    { theme: 'official', name: 'Light theme. Switch to dark theme' },
   ];
   for (const [index, { theme, name }] of expectations.entries()) {
     const toggle = page.getByRole('button', { name, exact: true });
@@ -131,13 +131,12 @@ test('the theme icon follows the pre-hydration theme, so a saved theme never fla
     .map((icon) => icon.getAttribute('data-theme-icon')));
   expect(await visibleIcons()).toEqual(['dark']);
   // Server HTML renders React's default state; the root attribute alone must pick the icon.
-  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
-  expect(await visibleIcons()).toEqual(['light']);
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'official'; });
+  expect(await visibleIcons()).toEqual(['official']);
 });
 
-/** How violet the heading's ink is: the largest blue-over-green excess among
- * bright pixels. Plain text in the dark themes stays under ~12; the band of
- * light (mint-bright, coral) pushes it far higher. */
+/** How blue the heading's ink is: the largest blue-over-green excess among
+ * bright pixels. Plain text stays under ~12; the blue sweep pushes it higher. */
 async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
   const shot = (await heading.screenshot()).toString('base64');
   return page.evaluate(async (png) => {
@@ -150,12 +149,12 @@ async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
     const context = canvas.getContext('2d')!;
     context.drawImage(image, 0, 0);
     const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
-    let tint = 0;
+    let blueExcess = 0;
     for (let index = 0; index < data.length; index += 4) {
       const [red, green, blue] = [data[index], data[index + 1], data[index + 2]];
-      if (red + green + blue > 360) tint = Math.max(tint, blue - green);
+      if (red + green + blue > 360) blueExcess = Math.max(blueExcess, blue - green);
     }
-    return tint;
+    return blueExcess;
   }, shot);
 }
 
@@ -180,7 +179,7 @@ test('the Trade heading arrives lit, and its first and last frames are plain tex
   expect(await headingTint(page, heading), 'first frame is plain text').toBeLessThanOrEqual(14);
   // The eased band reaches the middle of the word about 250ms into the sweep.
   await sweep(heading, 120 + 250);
-  expect(await headingTint(page, heading), 'the band of light crosses the word').toBeGreaterThanOrEqual(30);
+  expect(await headingTint(page, heading), 'the blue band crosses the word').toBeGreaterThanOrEqual(30);
   await sweep(heading, 120 + 1499);
   expect(await headingTint(page, heading), 'last frame is plain text').toBeLessThanOrEqual(14);
   await sweep(heading, 'finish');
@@ -200,7 +199,12 @@ test('after the Trade sweep, other page titles stay unanimated and Trade stays p
     if (path === '/trade') {
       await expect(heading).toBeVisible();
       await expect(heading).not.toHaveClass(/\bsr-only\b/);
-      expect(await headingTint(page, heading)).toBeLessThanOrEqual(14);
+      const ink = await heading.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { color: style.color, fill: style.webkitTextFillColor, background: style.backgroundImage };
+      });
+      expect(ink.fill).toBe(ink.color);
+      expect(ink.background).toBe('none');
     } else {
       await expect(heading).toHaveClass(/\bsr-only\b/);
     }
@@ -248,23 +252,25 @@ async function canvasStates(page: Page) {
     .map((animation) => animation.playState));
 }
 
-test('the canvas drifts, and holds still under a sheet or review and while the page is hidden', async ({ page }) => {
+test('the decorative canvas remains absent while overlays and visibility change', async ({ page }) => {
   await open(page);
-  await expect.poll(() => canvasStates(page)).toEqual(['running', 'running']);
+  const pseudoContent = await page.evaluate(() => ['::before', '::after'].map((pseudo) => getComputedStyle(document.body, pseudo).content));
+  expect(pseudoContent).toEqual(['none', 'none']);
+  expect(await canvasStates(page)).toEqual([]);
   for (const overlay of ['dialog', 'review'] as const) {
     await setLab(page, { overlay });
-    await expect.poll(() => canvasStates(page), `${overlay} pauses the canvas`).toEqual(['paused', 'paused']);
+    expect(await canvasStates(page), `${overlay} leaves no canvas animation`).toEqual([]);
     await setLab(page, { overlay: 'none' });
-    await expect.poll(() => canvasStates(page), `${overlay} closed resumes it`).toEqual(['running', 'running']);
+    expect(await canvasStates(page), `${overlay} closed leaves no canvas animation`).toEqual([]);
   }
   const setVisibility = (state: 'hidden' | 'visible') => page.evaluate((value) => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value });
     document.dispatchEvent(new Event('visibilitychange'));
   }, state);
   await setVisibility('hidden');
-  await expect.poll(() => canvasStates(page)).toEqual(['paused', 'paused']);
+  expect(await canvasStates(page)).toEqual([]);
   await setVisibility('visible');
-  await expect.poll(() => canvasStates(page)).toEqual(['running', 'running']);
+  expect(await canvasStates(page)).toEqual([]);
 });
 
 test('with data saver on, the canvas stays still from the first paint', async ({ page }) => {
@@ -273,48 +279,42 @@ test('with data saver on, the canvas stays still from the first paint', async ({
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('More keeps its rows in four pairs and marks only external rows', async ({ page }) => {
+test('More directory exposes its quick actions and marks only external links', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
-  const groups = await page.locator('main section').evaluateAll((sections) => sections.map((section) => ({
-    rows: [...section.querySelectorAll('a, button')].map((row) => ({
-      title: row.querySelector('strong')?.textContent ?? '',
-      described: Boolean(row.querySelector('small')),
-      external: row.getAttribute('target') === '_blank',
-      leaveIcon: Boolean(row.querySelector('.lucide-external-link')),
-    })),
-  })));
-  expect(groups).toHaveLength(4);
-  for (const group of groups) {
-    expect(group.rows, 'each group holds two rows').toHaveLength(2);
-    for (const row of group.rows) {
-      expect(row.title.trim().length, 'every row has a visible name').toBeGreaterThan(0);
-      expect(row.leaveIcon, `${row.title}: the leave-the-app icon marks external rows only`).toBe(row.external);
-    }
-    expect(new Set(group.rows.map((row) => row.described)).size, 'a pair describes both rows or neither').toBe(1);
+  const directory = page.locator('[data-utility-directory]');
+  const links = directory.getByRole('link');
+  await expect(links).toHaveCount(7);
+  const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
+  expect(hrefs).toEqual(['/history', '/qr', '/settings', '/settings#appearance', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
+  for (const link of await links.all()) {
+    await expect(link).toHaveAccessibleName(/\S/);
   }
-  const docs = page.getByRole('link', { name: 'Protocol docs How the protocol works (opens in a new tab)', exact: true });
-  await expect(docs).toHaveAttribute('target', '_blank');
-  await expect(page.getByRole('link', { name: 'Borrow fxUSD Manage collateral and debt', exact: true })).toHaveAttribute('href', '/borrow');
+  await expect(directory.getByRole('link', { name: /Protocol docs.*opens in a new tab/ })).toHaveAttribute('target', '_blank');
+  await expect(directory.getByRole('link', { name: 'FxAeon docs' })).toHaveAttribute('href', '/docs');
 });
 
-test('the account card holds its loaded shape while the wallet starts, in More and Settings', async ({ page }) => {
+test('More waits for a connected wallet before showing its account card; Settings preserves its loading shape', async ({ page }) => {
   await open(page);
-  for (const path of ['/more', '/settings']) {
-    await setLab(page, { path, wallet: STATES[0][1] });
-    const loading = page.getByRole('status', { name: 'Loading account' });
-    await expect(loading).toBeVisible();
-    const avatarRadius = await loading.locator('.skeleton').first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { radius: style.borderRadius, width: element.getBoundingClientRect().width };
-    });
-    expect(avatarRadius).toEqual({ radius: '50%', width: 40 });
-    const loadingHeight = (await loading.boundingBox())!.height;
-    await setLab(page, { wallet: STATES[2][1] });
-    const card = page.getByRole('button', { name: 'View connected account' });
-    await expect(card).toBeVisible();
-    expect(Math.abs((await card.boundingBox())!.height - loadingHeight), `${path} account card keeps its height`).toBeLessThanOrEqual(1);
-  }
+  await setLab(page, { path: '/more', wallet: STATES[0][1] });
+  await expect(page.getByRole('status', { name: 'Loading account' })).toHaveCount(0);
+  await setLab(page, { wallet: STATES[2][1] });
+  await expect(page.getByRole('button', { name: 'View connected account' })).toBeVisible();
+
+  await setLab(page, { path: '/settings', wallet: STATES[0][1] });
+  const loading = page.getByRole('status', { name: 'Loading account' });
+  await expect(loading).toBeVisible();
+  const avatarRadius = await loading.locator('.skeleton').first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { radius: style.borderRadius, width: element.getBoundingClientRect().width };
+  });
+  expect(avatarRadius).toEqual({ radius: '50%', width: 40 });
+  const loadingHeight = (await loading.boundingBox())!.height;
+  await setLab(page, { wallet: STATES[2][1] });
+  const card = page.getByRole('button', { name: 'View connected account' });
+  await expect(card).toBeVisible();
+  expect(Math.abs((await card.boundingBox())!.height - loadingHeight), 'Settings account card keeps its height').toBeLessThanOrEqual(1);
 });
 
 test('docs search results stay in the app with an arrow; only links that leave carry the leave mark', async ({ page }) => {
@@ -435,14 +435,18 @@ test('disabled and busy actions stay readable (AA) and look unavailable, in ever
     expect(unavailable.background, 'a disabled primary action does not look like an accent one').not.toBe(unavailable.mint);
     expect(unavailable.cursor).toBe('not-allowed');
   }
-  // The network menu's options wait for a wallet without fading their names.
-  await setLab(page, { path: '/portfolio' });
+  // The selector is visible only for a connected wallet, so both options are enabled.
+  await setLab(page, { path: '/portfolio', wallet: STATES[2][1] });
   await page.locator('.network-selector').click();
   await expect(page.locator('.network-selector-menu')).toBeVisible();
   await settle(page);
-  const options = await contrasts(page, '.network-selector-menu button[data-network-option]:disabled');
+  const options = await contrasts(page, '.network-selector-menu button[data-network-option]');
   expect(options).toHaveLength(2);
   for (const option of options) expect(option.ratio, `${option.text} option`).toBeGreaterThanOrEqual(4.5);
+  await expect(page.locator('.network-selector-menu button[data-network-option]')).toHaveCount(2);
+  await expect(page.locator('.network-selector-menu button[data-network-option]:disabled')).toHaveCount(0);
+  await setLab(page, { wallet: STATES[1][1] });
+  await expect(page.locator('.network-selector')).toHaveCount(0);
 });
 
 test('keyboard focus shows one accent ring on the header, dock, rows and choices, and fields use the accent caret', async ({ page }) => {
@@ -460,7 +464,7 @@ test('keyboard focus shows one accent ring on the header, dock, rows and choices
       const ring = await page.locator(selector).first().evaluate((element) => {
         const probe = document.createElement('span');
         probe.style.color = 'var(--focus-ring)';
-        document.body.append(probe);
+        element.append(probe);
         const expected = getComputedStyle(probe).color;
         probe.remove();
         const style = getComputedStyle(element);
@@ -571,7 +575,7 @@ test('the first-paint outline hands over to the live shell in place, at every ph
       await expect(page.locator('header.app-topbar')).toBeVisible();
       const live = await shellLayout(page);
       expect(live, `${path} at ${width}px`).toEqual(outline);
-      expect(live.shapes, 'the identity placeholder draws an avatar and an address').toHaveLength(2);
+      expect(live.shapes, 'the entry placeholder draws a compact label').toHaveLength(1);
     }
   }
   // History's feed was already drawn by the outline, so it takes its place without fading in again.

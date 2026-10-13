@@ -5,7 +5,10 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { createServer } from "node:net";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const port = parsePort(process.env.ANVIL_PORT ?? "8547", "ANVIL_PORT");
+const previewMode = process.argv.slice(2).includes("--preview");
+const port = parsePort(previewMode
+  ? process.env.FX_FORK_PREVIEW_ANVIL_PORT ?? "8548"
+  : process.env.ANVIL_PORT ?? "8547", previewMode ? "FX_FORK_PREVIEW_ANVIL_PORT" : "ANVIL_PORT");
 // The product runner requires one canonical confirmation by default; callers
 // may request deeper confirmation depth. Interval mining keeps receipt
 // finality deterministic for every fork suite, including browser flows that
@@ -13,7 +16,10 @@ const port = parsePort(process.env.ANVIL_PORT ?? "8547", "ANVIL_PORT");
 const blockTime = parseBlockTime(process.env.ANVIL_BLOCK_TIME ?? "1");
 const rpcUrl = `http://127.0.0.1:${port}`;
 const suite = parseSuite(process.argv.slice(2));
-const browserPort = suite === "browser" ? parsePort(process.env.FX_FORK_BROWSER_PORT ?? "4325", "FX_FORK_BROWSER_PORT") : undefined;
+if (previewMode && suite !== "browser") throw new Error("--preview is only supported with --suite browser");
+const browserPort = suite === "browser" ? parsePort(previewMode
+  ? process.env.FX_FORK_PREVIEW_BROWSER_PORT ?? "4326"
+  : process.env.FX_FORK_BROWSER_PORT ?? "4325", previewMode ? "FX_FORK_PREVIEW_BROWSER_PORT" : "FX_FORK_BROWSER_PORT") : undefined;
 if (browserPort === port) throw new Error("Anvil and browser server must use different ports");
 const manifestPath = resolveManifestPath(process.env.FX_ANVIL_MANIFEST_PATH);
 // Prefer the dedicated fork secret, but make the operator's reviewed
@@ -34,8 +40,10 @@ function parseSuite(args) {
       index += 1;
     } else if (argument.startsWith("--suite=")) {
       requested = argument.slice("--suite=".length).trim().toLowerCase();
+    } else if (argument === "--preview") {
+      continue;
     } else {
-      throw new Error("unknown Anvil test argument; use --suite protocol, earn, stress, all, or browser");
+      throw new Error("unknown Anvil test argument; use --suite protocol, earn, stress, all, browser, or --preview");
     }
   }
   if (!["protocol", "earn", "stress", "all", "browser"].includes(requested)) {
@@ -45,7 +53,9 @@ function parseSuite(args) {
 }
 
 function resolveManifestPath(configured) {
-  const candidate = configured?.trim() || join("artifacts", "anvil", suite === "browser" ? "browser-proof.json" : suite === "earn" ? "earn-proof.json" : "protocol-proof.json");
+  const candidate = configured?.trim() || join("artifacts", "anvil", suite === "browser"
+    ? previewMode ? "browser-preview-proof.json" : "browser-proof.json"
+    : suite === "earn" ? "earn-proof.json" : "protocol-proof.json");
   const resolved = isAbsolute(candidate) ? resolve(candidate) : resolve(root, candidate);
   const fromRoot = relative(root, resolved);
   if (!fromRoot || fromRoot.startsWith("..") || isAbsolute(fromRoot)) {
@@ -101,12 +111,22 @@ function redacted(value) {
 function scrubChildEnvironment() {
   const childEnv = {
     ...process.env,
+    ANVIL_PORT: String(port),
     ANVIL_RPC_URL: rpcUrl,
     FX_ANVIL_FORKED: "1",
     FX_ANVIL_SUITE: suite,
     NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE: "1",
     NEXT_PUBLIC_FX_LOCAL_FORK_RPC_URL: rpcUrl,
   };
+  if (previewMode) {
+    childEnv.FX_FORK_PREVIEW = "1";
+    childEnv.FX_FORK_BROWSER_PORT = String(browserPort);
+    childEnv.FX_E2E_DIST_DIR = `dist-fork-preview-${browserPort}`;
+  } else {
+    delete childEnv.FX_FORK_PREVIEW;
+    delete childEnv.FX_E2E_DIST_DIR;
+    if (browserPort !== undefined) childEnv.FX_FORK_BROWSER_PORT = String(browserPort);
+  }
   if (suite !== "stress") {
     childEnv.FX_ANVIL_MANIFEST_PATH = manifestPath;
     childEnv.FX_ANVIL_EARN_MANIFEST_PATH = suite === "earn"
@@ -534,6 +554,10 @@ process.once("SIGTERM", () => {
 });
 
 try {
+  if (previewMode) {
+    process.stdout.write(`Starting an isolated funded fork preview on http://127.0.0.1:${browserPort}/trade with Anvil RPC on 127.0.0.1:${port}.\n`);
+    process.stdout.write("Only disposable local Anvil accounts and fork state are used; no live wallet funds or private keys are involved. Press Ctrl+C to close the preview and stop the local fork.\n");
+  }
   assertForkUrl(forkUrl);
   await assertLoopbackPortAvailable(port);
   if (browserPort !== undefined) await assertLoopbackPortAvailable(browserPort);
@@ -578,6 +602,9 @@ try {
   assertNotInterrupted();
   if (Number(testExit) !== 0) {
     process.exitCode = Number(testExit);
+  } else if (previewMode) {
+    process.stdout.write("Funded local fork preview closed; its app, browser, and Anvil processes have stopped.\n");
+    process.exitCode = 0;
   } else {
     if (suite === "earn") validateEarnManifest();
     else if (suite === "all") {

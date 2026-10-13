@@ -27,7 +27,7 @@ test.describe("protocol form help and picker keyboard behavior", () => {
     await expect(slippageInput).toHaveValue("0.5");
     const helpId = await slippageInput.getAttribute("aria-describedby");
     expect(helpId).toBeTruthy();
-    await expect(page.locator(`[id="${helpId}"]`)).toContainText("reverts instead of filling worse");
+    await expect(page.locator(`[id="${helpId}"]`)).toContainText("The transaction reverts if price moves past this limit before confirmation.");
 
     // Presets are 44px targets that save at once and update the gear's label.
     const presets = settingsPanel.getByRole("radiogroup", { name: "Max slippage" }).getByRole("radio");
@@ -39,7 +39,7 @@ test.describe("protocol form help and picker keyboard behavior", () => {
     await expect(settings).toHaveAttribute("aria-label", "Transaction settings, 1% slippage");
     await expect(slippageInput).toHaveValue("1");
     await expect(settingsPanel.getByRole("radiogroup", { name: "Network speed" })).toHaveCount(0);
-    await expect(settingsPanel.getByText('Review and confirm the network fee in your connected wallet.')).toBeVisible();
+    await expect(settingsPanel.getByText('Confirm the network fee in your wallet before signing.')).toBeVisible();
 
     // Escape closes the panel and returns focus to the gear.
     await page.keyboard.press("Escape");

@@ -6,9 +6,9 @@ test.describe('cohesive responsive design', () => {
   test('Appearance theme choices persist and all route surfaces inherit the selected palette', async ({ page, requests }) => {
     test.setTimeout(120_000);
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    for (const theme of ['official', 'dark', 'light'] as const) {
+    for (const theme of ['official', 'dark'] as const) {
       const choices = page.getByRole('radiogroup', { name: 'Appearance theme' });
-      const choice = choices.getByRole('radio', { name: new RegExp(`^${theme}$`, 'i') });
+      const choice = choices.getByRole('radio', { name: theme === 'official' ? 'Light' : 'Dark', exact: true });
       await expect(choice).toBeEnabled();
       await choice.click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
@@ -164,9 +164,9 @@ test.describe('cohesive responsive design', () => {
     await page.goto('/more', { waitUntil: 'domcontentloaded' });
     await page.locator('main').getByRole('link', { name: /FxAeon docs/i }).click();
     await expect(page).toHaveURL(/\/docs\/?$/);
-    await expect(page.getByRole('heading', { name: 'Welcome to FxAeon', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'FxAeon Documentation', exact: true })).toBeVisible();
     const welcomeCards = page.getByRole('main').getByRole('link');
-    await expect(welcomeCards).toHaveCount(6);
+    await expect(page.getByRole('heading', {name:'What is FxAeon?', exact:true})).toBeVisible();
     expect(await welcomeCards.evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).getAttribute('href'))))
       .toEqual(expect.arrayContaining(['/docs/guide/getting-started', '/docs/guide/trade', '/docs/guide/earn', '/docs/guide/borrow', '/docs/guide/move', '/docs/guide/access']));
     await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
@@ -179,11 +179,11 @@ test.describe('cohesive responsive design', () => {
     await expect(homeFxSave).toHaveAttribute('href', '/docs/sdk#sdk-earn');
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(homeSearch).toHaveValue('');
-    await expect(homeResults.getByRole('link')).toHaveCount(14);
+    await expect(homeResults.getByRole('link')).toHaveCount(15);
     await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
     await expect(homeResults).toBeHidden();
-    await welcomeCards.getByRole('heading', { name: 'Get started with FxAeon', exact: true }).click();
+    await page.getByRole('main').getByRole('link', {name:'Your first transaction', exact:true}).click();
     await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
     await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
     // Keep the index/search assertions on the complete legacy guide route.
@@ -191,19 +191,12 @@ test.describe('cohesive responsive design', () => {
     await page.goto('/docs/guide');
     await expect(page.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    const guides = page.getByRole('group', { name: 'Documentation guides' });
-    for (const [name, href] of [
-      ['Start here', '/docs/guide/getting-started'], ['Products', '/docs/guide/trade'],
-      ['Wallets', '/docs/guide/wallets'], ['Help', '/docs/guide/troubleshooting'],
-    ]) {
-      await expect(guides.getByRole('link', { name, exact: true })).toHaveAttribute('href', href);
-    }
-    await expect(guides.getByRole('link', { name: 'SDK reference', exact: true })).toHaveAttribute('href', '/docs/sdk');
+    await expect(nav.getByRole('link', {name:'SDK reference',exact:true})).toHaveAttribute('href','/docs/sdk');
     await page.setViewportSize({ width: 390, height: 844 });
     const contents = nav.locator('details');
     await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
     await expect(contents).toHaveJSProperty('open', true);
-    await expect(nav.getByRole('link')).toHaveCount(14);
+    await expect(nav.getByRole('link')).toHaveCount(15);
     await page.getByRole('button', { name: 'Close documentation menu', exact: true }).click();
     await expect(nav).toBeHidden();
     await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
@@ -221,9 +214,19 @@ test.describe('cohesive responsive design', () => {
     await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'More documentation options', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
     const menuToggle = page.getByRole('button', { name: 'Close documentation menu', exact: true });
+    for (let step = 0; step < 5; step += 1) await page.keyboard.press('Shift+Tab');
     await expect(menuToggle).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'FxAeon docs home', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(search).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'More documentation options', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(nav.getByRole('link', { name: /^Fees & slippage/ })).toBeFocused();
     await page.keyboard.press('Enter');
@@ -242,7 +245,7 @@ test.describe('cohesive responsive design', () => {
     await expect(nav.getByText(/Nothing found for .*no-matching-section/)).toBeVisible();
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(search).toHaveValue('');
-    await expect(nav.getByRole('link')).toHaveCount(14);
+    await expect(nav.getByRole('link')).toHaveCount(15);
     await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
     await expect(nav).toBeHidden();
@@ -254,7 +257,7 @@ test.describe('cohesive responsive design', () => {
   test('leverage keeps a full touch target and keyboard control at mobile and desktop widths', async ({ page, requests }) => {
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
     const slider = page.getByRole('slider', { name: 'Target leverage slider', exact: true });
-    const amount = page.getByRole('spinbutton', { name: 'Target leverage', exact: true });
+    const amount = page.getByRole('textbox', { name: 'Target leverage', exact: true });
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(slider).toBeVisible();

@@ -22,6 +22,9 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
 <p>Trade ETH and BTC, earn with fxSAVE, and borrow fxUSD on Ethereum. Move fxUSD and fxSAVE between Ethereum and Base.</p>
               <p>FxAeon is an independent interface built on the f(x) SDK. These guides cover the actions available here, with every transaction approved in your wallet. For protocol design and contract details, read the <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs">f(x) protocol docs</ExternalLink>.</p>
               {topicCards}
+              <h3 id="overview-assets">Understand the assets</h3>
+              <ul><li><strong>fxUSD</strong> is the protocol’s USD-pegged asset. Its market price can move away from one dollar.</li><li><strong>fxSP</strong> represents a share of the Stability Pool.</li><li><strong>fxSAVE</strong> is a tokenized vault that compounds Stability Pool rewards. Holding a vault share is different from holding a fixed amount of dollars.</li></ul>
+              <p>See the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/stability-pool">Stability Pool and fxSAVE explanation</ExternalLink> for the underlying design.</p>
   </> },
   { id: 'getting-started', title: 'Getting started', content: <>
               <ol className={styles.steps}>
@@ -67,6 +70,10 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
                 <li><strong>Choose leverage.</strong> Leverage multiplies exposure within the pool’s live range. More leverage means more of the position is debt, which brings it closer to the point where the protocol rebalances it.</li>
                 <li><strong>Review, then sign.</strong> FxAeon simulates the exact route and shows each step, fee, and minimum output before your wallet opens.</li>
               </ol>
+              <h3 id="trade-example">How leverage changes your equity</h3>
+              <p>Suppose $100 of equity controls $300 of collateral with $200 of debt. That is 3× leverage. If the collateral rises 10%, its value becomes $330 and equity becomes $130. If it falls 10%, equity becomes $70. This simplified long-position example excludes fees, interest, and rebalancing; live positions can behave differently.</p>
+              <h3 id="trade-rebalancing">Rebalancing and liquidation</h3>
+              <p>When a position crosses its rebalance threshold, the protocol can reduce its debt and collateral. This changes the exposure you keep. It does not restore lost equity or guarantee that liquidation cannot happen. Read the <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/rebalancing-the-position-liquidation-brake">rebalancing mechanism</ExternalLink> and <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/risk-management/risk-framework">risk framework</ExternalLink>. Use the current position’s thresholds rather than assuming a fixed price buffer.</p>
               <h3 id="trade-questions">Before you trade</h3>
               <p><strong>What can I trade here?</strong><br />ETH and BTC, long or short, on Ethereum through f(x) Protocol. Pay with the input asset you choose in the amount field.</p>
               <p><strong>How do I close or adjust a position?</strong><br />Open Positions and tap the position, then choose Add, Reduce, Leverage, or Close. Every change gets its own review before your wallet opens.</p>
@@ -83,7 +90,12 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
   { id: 'earn', title: 'Earn with fxSAVE', content: <>
 <p>Earn reads fxSAVE balances, vault value, redemption status, and claimable amounts from Ethereum. Your fxSAVE value and the variable APY sit above the form. Its actions are deposit, withdraw, and claim.</p>
               <p>Deposit supports fxUSD, USDC, and fxSP, the f(x) Stability Pool share. Forms show the selected wallet’s verified balance, and token pickers pair quantity with estimated USD worth. Unavailable balances remain unknown, never zero; fxSAVE remains the withdrawal limit.</p>
-              <p>Withdrawals may be instant or queued. Queued redemptions remain pending through cooldown and expose Claim when ready. Action details show the transaction steps and, for instant withdrawals, the slippage and instant withdrawal fee. Deposits use a fixed minimum set by the f(x) SDK, shown in the review.</p>
+              <p>Choose between an instant withdrawal and a queued withdrawal. The app reads the current instant-exit fee and cooldown from the protocol; check the terms shown before you submit. Deposits use a fixed minimum set by the f(x) SDK, shown in the review.</p>
+              <div className={styles.referenceTable}><table><thead><tr><th>Withdrawal</th><th>What happens</th><th>Costs and protection</th></tr></thead><tbody>
+                <tr><td>Instant</td><td>Redeem into the selected receive asset without waiting through the cooldown.</td><td>The instant-exit fee applies. The reviewed conversion minimum is enforced on-chain; a conversion below it reverts. Max slippage changes that minimum, not the fee.</td></tr>
+                <tr><td>After cooldown</td><td>Request a withdrawal, wait for the displayed cooldown, then submit Claim to receive fxUSD and USDC.</td><td>No instant-exit fee. Network fees still apply to the request and claim. The instant conversion slippage setting does not apply to this queued path.</td></tr>
+              </tbody></table></div>
+              <p>See the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/developers/integrating-fxsave">fxSAVE redemption documentation</ExternalLink> for the underlying withdrawal methods.</p>
               <h3 id="earn-steps">Earn in three steps</h3>
               <ol>
                 <li><strong>Deposit fxUSD or USDC.</strong> You receive fxSAVE, a share of f(x) Protocol’s savings vault.</li>
@@ -91,6 +103,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
                 <li><strong>Withdraw your way.</strong> Withdraw instantly for a fee, or queue it and claim once the cooldown ends.</li>
               </ol>
               <h3 id="earn-questions">Before you deposit</h3>
+              <p><strong>What do I own?</strong><br />fxSAVE is an ERC-4626 vault share. The protocol describes it as an auto-compounding wrapper for Stability Pool rewards. Your token quantity and its redeemable value are separate figures. Read the <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/stability-pool">Stability Pool documentation</ExternalLink> for its peg operations, rewards, and dependency risks.</p>
               <p><strong>Is the APY guaranteed?</strong><br />No. It is variable and shown for information from f(x) Protocol’s feed. It never changes what you sign.</p>
               <p><strong>What does the stability pool do?</strong><br />It holds fxUSD and USDC, keeps fxUSD near a dollar by buying it below the peg and selling it above, and supplies the funds that rebalance leveraged positions. Its depositors earn from position fees, wstETH staking, and USDC lending; fxSAVE compounds those rewards.</p>
               <p><strong>How does a queued withdrawal work?</strong><br />It stays pending through the cooldown. When it is ready, Claim appears on Earn and on your Portfolio, and the claim pays out in fxUSD and USDC.</p>
@@ -107,6 +120,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
                 <li><strong>Repay to withdraw.</strong> Repay fxUSD at any time and withdraw collateral within the position’s limits.</li>
               </ol>
               <h3 id="borrow-questions">Before you borrow</h3>
+              <p><strong>Why can debt exceed the fxUSD I receive?</strong><br />An opening fee can be added to debt. Repayment can also incur a closing fee. Under certain conditions the protocol can apply a temporary borrowing cost, so do not assume every loan is permanently interest-free. Check the review and the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/fxmint-borrowing-fxusd-against-your-btc-and-eth">fxMINT explanation</ExternalLink>.</p>
               <p><strong>What does the loan-to-value limit mean?</strong><br />Debt as a share of collateral value. Each pool sets a range, and FxAeon keeps a small margin under the top so a quote still fits when you sign.</p>
               <p><strong>Can I add collateral or borrow more later?</strong><br />Yes. On Borrow, under Your positions, add collateral, borrow more, repay, or withdraw. From a long position on Positions, Borrow against this position opens Borrow with that position selected. Each change gets its own review.</p>
               <p><strong>What happens if prices fall?</strong><br />Your loan-to-value rises. Automatic rebalancing can reduce leverage at protocol thresholds, and liquidation remains possible. Repaying or adding collateral lowers it.</p>
@@ -127,9 +141,12 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
               <p><strong>When would I use expert mode?</strong><br />To bridge a LayerZero token other than fxUSD or fxSAVE. Expert mode, at the end of the Move form, asks for the token’s contract on each network. Check every address and network before you approve.</p>
   </> },
   { id: 'fees', title: 'Fees & slippage', content: <>
+<h3 id="fees-types">Separate the costs</h3>
+<ul><li><strong>Network gas</strong> pays for chain execution. A browser wallet chooses its gas settings; the app’s gas-speed control is for the built-in wallet.</li><li><strong>Protocol fees</strong> depend on the action, market, and current governance settings. Review the quoted opening, closing, or withdrawal fee.</li><li><strong>Bridge fees</strong> pay for cross-chain messaging and delivery and are quoted separately in Move.</li><li><strong>Slippage</strong> is your execution tolerance, not an estimate of network gas. Use the minimum output in the review to understand what you accept.</li></ul>
+<p>Fee rates can change. The <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/fees">protocol fee reference</ExternalLink> explains the categories; your current transaction review supplies the action-specific amounts.</p>
 <p>Move shows the current LayerZero fee quote. Other actions show estimated gas and network cost when data is available; Base may add network and operator fees. Unavailable estimates stay labelled.</p>
               <p>A gas fee marked max is the most the network fee can be for every step together, so it is what your wallet must hold; usually less is charged. If your wallet doesn’t hold enough ETH for it, plus any ETH the action sends, the review says so before anything is signed: how much to add and on which network, with a Receive ETH link. When the fee can’t be fully estimated, it says more ETH is needed without guessing an amount.</p>
-              <p>Every action form has the same settings gear. On Trade, Positions, and instant fxSAVE withdrawals it sets max slippage: 0.1%, 0.5%, 1%, 2%, or a custom value up to 2%. fxSAVE deposits use the SDK’s fixed minimum, and Borrow and Move use their action defaults. Lower tolerance can fail; higher tolerance allows a lower minimum output. Network speed applies to FxAeon’s built-in wallet; a connected external wallet sets its own fee. Changes are saved on this device and apply to every open form.</p>
+              <p>On Trade, Positions, and instant fxSAVE withdrawals, the settings gear sets max slippage: 0.1%, 0.5%, 1%, 2%, or a custom value up to 2%. fxSAVE deposits use the SDK’s fixed minimum, and Borrow and Move use their action defaults. Lower tolerance can fail; higher tolerance allows a lower minimum output. Network speed is available with FxAeon’s built-in wallet. An external wallet sets its own gas fee, so forms with only gas settings hide the gear on the web. Changes are saved on this device and apply to every open form.</p>
               <p>USD values and charts are display data. Execution follows the live protocol quote and contract checks.</p>
   </> },
   { id: 'history', title: 'History & recovery', aliases: ['recovery'], content: <>
@@ -145,6 +162,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
                 <li>Theme, slippage, and recovery hints are stored on this device and reread against chain state.</li>
                 <li>Review the address, network, contract, amount, recipient, and approval in every wallet prompt.</li>
                 <li>Contract outcomes and liquidation risk are determined by the protocol and network. Wallets, network services, token contracts, bridges, and chains remain external dependencies.</li>
+                <li>If rebalancing, liquidation, and reserves cannot cover bad debt, the protocol can redistribute losses across leveraged positions. Severe short-position insolvency can disable operations, and recapitalization can halt new long-position openings. These protections do not guarantee your principal. Read the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/risk-management/risk-framework">risk framework</ExternalLink> before using leverage.</li>
               </ul>
   </> },
   { id: 'troubleshooting', title: 'Troubleshooting', content: <>

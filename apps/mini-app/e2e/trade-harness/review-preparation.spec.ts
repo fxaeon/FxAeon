@@ -103,10 +103,13 @@ test('a completed warm quote still needs current-block validation and simulation
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.filter((event) => event.name === 'prepareRoutesForReview').length)).toBe(1);
 });
 
-test('a changed block discards the warmed plan and prepares a fresh one', async ({ page }) => {
+test('a new block reuses the warmed plan but still validates and simulates it', async ({ page }) => {
   const fixture = await mount(page); await fill(page);
   await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.end !== undefined))).toBe(true);
-  fixture.block.number = '0x1312d01'; await review(page); await insufficient(page); expect(await planCount(page)).toBe(2);
+  fixture.block.number = '0x1312d01'; await review(page); await insufficient(page); expect(await planCount(page)).toBe(1);
+  const checks = await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.map(event => event.name));
+  expect(checks.filter(name => name === 'prepareRoutesForReview')).toHaveLength(1);
+  expect(checks.filter(name => name === 'readLeverageBounds').length).toBeGreaterThanOrEqual(2);
 });
 
 test('Edit abandons preparation and late results cannot reopen review', async ({ page }) => {

@@ -20,7 +20,7 @@
         ? "Light mode"
         : "Dark mode";
       document.querySelector('meta[name="theme-color"]').content = dark
-        ? "#15121c"
+        ? "#11151e"
         : "#ffffff";
     };
     applyTheme();

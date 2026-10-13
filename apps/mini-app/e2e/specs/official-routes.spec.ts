@@ -46,16 +46,19 @@ test.describe("official f(x) client routes", () => {
       // wallet numbers to make the screen look loaded.
       // An untouched amount input has a real zero notional independent of
       // prices. Exclude only that input hint; wallet/market values stay unknown.
-      const pricedText = await page.locator('body').evaluate((body) => {
+      const pricedText = await page.locator('body').evaluate((body, route) => {
         const copy = body.cloneNode(true) as HTMLElement;
         copy.querySelectorAll('script, style, template').forEach((node) => node.remove());
+        // Product guide articles contain dollar-denominated teaching
+        // examples; only live app surfaces indicate fabricated values.
+        if (route.startsWith('/docs')) copy.querySelectorAll('main article').forEach((node) => node.remove());
         const sourceFields = Array.from(body.querySelectorAll('[data-amount-field]'));
         copy.querySelectorAll('[data-amount-field]').forEach((field, index) => {
           const input = sourceFields[index]?.querySelector('input');
           if (input && !input.value.trim()) field.querySelector('[data-amount-usd]')?.remove();
         });
         return copy.textContent;
-      });
+      }, route);
       expect(pricedText).not.toMatch(/\$\s*\d/);
       await expect(page.locator("body")).not.toContainText(/5,240\.75|3,500(?:\.42)?|104,500/);
       await expect(page.locator("canvas")).toHaveCount(0);
@@ -153,7 +156,7 @@ test.describe("Telegram bridge availability", () => {
     await page.goto("/#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/?(?:#.*)?$/, { timeout: 5_000 });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
-    await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
+    await expect(page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
     assertNoBackendRequests(requests);
   });
@@ -163,7 +166,7 @@ test.describe("Telegram bridge availability", () => {
     await page.goto("/portfolio#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
-    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio(?:#.*)?$/);
     await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
@@ -191,7 +194,7 @@ test.describe("Telegram connect CTA with an available bridge", () => {
 
   test("uses the Telegram/Privy entry instead of injected-wallet discovery", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio\/?$/);
     await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     assertNoBackendRequests(requests);
@@ -256,7 +259,7 @@ test.describe("connected browser wallet flows", () => {
     assertNoBackendRequests(requests);
   });
 
-  test("trade exposes the full official input set and bounds leverage in all four position flows", async ({ page, requests }) => {
+  test("trade exposes the full official input set and rejects an empty leverage in all four position flows", async ({ page, requests }) => {
     await page.goto("/trade", { waitUntil: "domcontentloaded" });
     // Restoring the fixture's account starts a new wallet-scoped form session.
     // Establish this connected-flow precondition before interacting with it.
@@ -294,14 +297,21 @@ test.describe("connected browser wallet flows", () => {
     ] as const) {
       await page.getByRole("radio", { name: flow.market, exact: true }).click();
       await page.getByRole("radiogroup", { name: "Position side" }).getByRole("radio", { name: flow.side, exact: true }).click();
-      const leverage = page.getByRole("spinbutton", { name: flow.label, exact: true });
-      await expect(leverage).toHaveAttribute("min", flow.min);
-      await expect(leverage).toHaveAttribute("max", flow.max);
-      await leverage.fill("20");
-      await expect(leverage).toHaveValue(flow.max);
-      await leverage.fill("0.01");
+      const leverage = page.getByRole("textbox", { name: flow.label, exact: true });
+      const leverageSlider = page.getByRole("slider", { name: `${flow.label} slider`, exact: true });
+      await expect(leverageSlider).toHaveAttribute("min", flow.min);
+      await expect(leverageSlider).toHaveAttribute("max", flow.max);
+      // An empty numeric draft must stay empty and invalid. In particular,
+      // it must not silently regain the minimum leverage as a fallback.
+      const reviewAction = page.locator(".reviewTrigger button");
+      await leverage.fill("");
+      await expect(leverage).toHaveValue("");
+      await expect(leverage).toHaveAttribute("aria-invalid", "true");
+      await expect(reviewAction).toBeDisabled();
       await leverage.blur();
-      await expect(leverage).toHaveValue(flow.min);
+      await expect(leverage).toHaveValue("");
+      await expect(leverage).toHaveAttribute("aria-invalid", "true");
+      await expect(reviewAction).toBeDisabled();
     }
     assertNoBackendRequests(requests);
   });
@@ -421,7 +431,7 @@ test.describe("market price context", () => {
     const slider = page.getByRole("slider", { name: "Target leverage slider" });
     await expect(slider).toBeVisible();
     await slider.fill("3");
-    await expect(page.getByRole("spinbutton", { name: "Target leverage", exact: true })).toHaveValue("3");
+    await expect(page.getByRole("textbox", { name: "Target leverage", exact: true })).toHaveValue("3");
     assertNoBackendRequests(requests);
   });
 
@@ -652,7 +662,7 @@ test.describe("browser wallet connection", () => {
 
   test("Move keeps recipient editable and centralizes wallet connection in review", async ({ page, requests }) => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
-    const recipient = page.getByText(/^Recipient on (Ethereum|Base)$/).locator("xpath=../..");
+    const recipient = page.getByText("Recipient", { exact: true }).locator("xpath=../..");
     // The recipient row is a status, not a second connect control.
     await expect(recipient.getByText("Not connected", { exact: true })).toBeVisible();
     await expect(recipient.getByText("Connect wallet", { exact: true })).toHaveCount(0);
@@ -679,11 +689,11 @@ test.describe("browser wallet connection", () => {
 test.describe("theme control", () => {
   test.use({ telegram: false });
 
-  test("switches among official, dark, and light themes, supports radio-key navigation, and persists the choice", async ({ page, requests }) => {
+  test("switches between light and dark themes, supports radio-key navigation, and persists the choice", async ({ page, requests }) => {
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     const appearance = page.getByRole("radiogroup", { name: "Appearance theme", exact: true });
-    await expect(appearance.getByRole("radio")).toHaveCount(3);
-    const officialTheme = appearance.getByRole("radio", { name: /^Official/ });
+    await expect(appearance.getByRole("radio")).toHaveCount(2);
+    const officialTheme = appearance.getByRole("radio", { name: /^Light/ });
     await expect(officialTheme).toHaveAttribute("aria-checked", "true");
     await officialTheme.focus();
     await officialTheme.press("ArrowRight");
@@ -692,16 +702,16 @@ test.describe("theme control", () => {
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(appearance.getByRole("radio", { name: /^Dark/ })).toHaveAttribute("aria-checked", "true");
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Switch to light theme" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("button", { name: "Dark theme. Switch to light theme" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "official");
     await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     // Portfolio's sole header entry uses the text token. Check the contrasting
     // primary CTA on Earn now that Portfolio no longer duplicates it in main.
     await page.goto("/earn", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(11, 12, 14)");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Switch to official theme" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "official");
+    await page.getByRole("button", { name: "Light theme. Switch to dark theme" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await page.evaluate(() => {
       window.localStorage.removeItem("fxaeon_theme_id_v2");
       window.localStorage.setItem("fxaeon_theme_id", "dark");
@@ -764,7 +774,7 @@ test.describe("Move and More compact surfaces", () => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
     const amount = page.getByLabel("Amount in fxUSD");
     await amount.fill("not-a-number");
-    await expect(page.getByText("Use digits and one decimal point, like 1.25.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Use digits and one decimal separator only.", { exact: true })).toBeVisible();
     await expect(page.getByText(/\b(?:Expected receive|ETA)\b/i)).toHaveCount(0);
     await amount.fill("1");
     await expect(page.getByText(/\b(?:Expected receive|ETA)\b/i)).toHaveCount(0);

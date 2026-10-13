@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
 import {
   CLOUDFLARE_MAX_HEADER_LINE_LENGTH,
   generateCspArtifacts,
+  generate,
   rewriteHeaderPolicy,
 } from './generate_csp_headers.mjs';
 
@@ -17,6 +21,24 @@ const sourceHeaders = `/*
 function fixtureHtml() {
   return '<!doctype html><html><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width"/><link rel="preload" as="script" href="/bootstrap.js"/><script>window.__next_f = [];</script><script>window.__next_f.push([0]);</script></head><body></body></html>';
 }
+
+test('isolated export generation leaves the concurrently served default export untouched', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fxaeon-csp-output-'));
+  try {
+    await Promise.all(['public', 'dist', 'dist-preview'].map(name => mkdir(join(root, name))));
+    await writeFile(join(root, 'public', '_headers'), sourceHeaders);
+    await writeFile(join(root, 'dist', 'index.html'), fixtureHtml());
+    await writeFile(join(root, 'dist-preview', 'index.html'), fixtureHtml());
+    await generate(root, 'dist-preview');
+    assert.equal(await readFile(join(root, 'dist', 'index.html'), 'utf8'), fixtureHtml());
+    assert.match(await readFile(join(root, 'dist-preview', 'index.html'), 'utf8'), /data-fxaeon-generated-csp/);
+    assert.match(await readFile(join(root, 'dist-preview', '_headers'), 'utf8'), /Content-Security-Policy:/);
+    await assert.rejects(generate(root, '../dist'), /simple directory name/);
+  } finally {
+    assert.ok(resolve(root).startsWith(resolve(tmpdir()) + sep));
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('splits CSP into a short HTTP policy and a strict early per-document meta policy', () => {
   const html = fixtureHtml();

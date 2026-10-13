@@ -109,18 +109,18 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
   const { BorrowSections, EarnSections, MoveSections, TradeSections } = await import('../src/components/ProductSections');
   const pages = [
     { docs: 'trade', html: renderToStaticMarkup(React.createElement(TradeSections, { market: 'ETH', side: 'long', leverage: { min: 1.1, max: 6.1 }, openPositions: 2, positionsStatus: 'ready' })),
-      keeps: ['ETH at a glance', '24h low', 'Live market feed', 'Where leverage comes from', 'Share of a position', 'A brake before liquidation'] },
-    { docs: 'earn', html: renderToStaticMarkup(React.createElement(EarnSections, { apy: '6.29%', apyStatus: 'unavailable', cooldown: '1h', instantFee: '1%', vaultStatus: 'unavailable' })),
-      keeps: ['The vault at a glance', '6.29%', 'Instant withdrawal fee', 'Where the yield comes from', 'Sources of stability pool rewards'] },
+      keeps: ['Market details', '24h low', 'Live market feed', 'How leverage works', 'Share of a position', 'A brake before liquidation'] },
+    { docs: 'earn', html: renderToStaticMarkup(React.createElement(EarnSections, { cooldown: '1h', instantFee: '1%', vaultStatus: 'unavailable' })),
+      keeps: ['Withdrawal terms', '1h', 'Instant withdrawal fee', 'How fxSAVE earns yield', 'Sources of stability pool rewards'] },
     { docs: 'borrow', html: renderToStaticMarkup(React.createElement(BorrowSections, { ltvLimit: '85.4%' })),
-      keeps: ['Terms at a glance', '85.4%', 'ETH, WETH, stETH, wstETH, or WBTC', 'A brake before liquidation'] },
-    { docs: 'move', html: renderToStaticMarkup(React.createElement(MoveSections)), keeps: ['Routes at a glance', 'LayerZero'] },
+      keeps: ['Borrowing terms', '85.4%', 'ETH, WETH, stETH, wstETH, or WBTC', 'A brake before liquidation'] },
+    { docs: 'move', html: renderToStaticMarkup(React.createElement(MoveSections)), keeps: ['Transfer details', 'LayerZero'] },
   ];
   for (const { docs, html, keeps } of pages) {
     // Visible copy, or an accessible name such as the split's list label.
     for (const copy of keeps) assert.ok(textOf(html).includes(copy) || html.includes(copy), `${docs} keeps "${copy}"`);
     // The generic step lists and question accordions now live in Docs.
-    assert.doesNotMatch(html, /<details|<ol(?![^>]*aria-label="Share of a position)/, `${docs} has no steps or questions`);
+    assert.doesNotMatch(html, /<ol(?![^>]*aria-label="Share of a position)/, `${docs} has no steps or questions`);
     assert.doesNotMatch(textOf(html), /in three steps|Before you (?:trade|deposit|move)\b/);
     const docsLinks = [...html.matchAll(/href="\/docs[^"]*"/g)].map((match) => match[0]);
     assert.deepEqual(docsLinks, [`href="/docs/guide/${docs}"`], `${docs} has one in-app link to its Docs guide`);

@@ -7,7 +7,7 @@ test.describe('Earn entry and honest unavailable state', () => {
   test('keeps the position, APY, action tabs, and primary action together on a normal phone viewport', async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto('/earn', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: 'Earn with fxSAVE', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'fxSAVE', exact: true })).toBeVisible();
     await expect(page.getByText('Variable APY')).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Deposit', exact: true })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toBeVisible();

@@ -4,8 +4,8 @@ import { useId } from 'react';
 
 /**
  * FxAeon logo mark — two opposing ribbons join into an abstract x / bridge.
- * The silhouette is deliberately distinct from the f(x) protocol mark while
- * A lavender ribbon silhouette remains recognizable at favicon size.
+ * The blue ribbon silhouette is distinct from the f(x) protocol mark
+ * and remains recognizable at favicon size.
  */
 
 export function FxLogo({ size = 56, className = '' }: { size?: number; className?: string }) {
@@ -24,9 +24,9 @@ export function FxLogo({ size = 56, className = '' }: { size?: number; className
     >
       <defs>
         <linearGradient id={id} x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#e4d7ff" />
-          <stop offset="0.48" stopColor="#b89aff" />
-          <stop offset="1" stopColor="#8053cd" />
+          <stop offset="0" stopColor="#2973ff" />
+          <stop offset="0.48" stopColor="#2973ff" />
+          <stop offset="1" stopColor="#2973ff" />
         </linearGradient>
       </defs>
       <path

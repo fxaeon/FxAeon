@@ -49,8 +49,8 @@ portfolio asset loading/empty/error/refresh states and wallet refresh fan-out,
 including recovery after a synchronous reader failure. The state-lab gate
 compares its approved screenshots on Windows; the current reference set
 contains 17 images. Production E2E checks
-server-rendered route metadata and form reachability with 200% text across all
-three appearance themes. See
+server-rendered route metadata and form reachability with 200% text in Light
+(official) and Dark themes. See
 [`browser-test-gates.md`](browser-test-gates.md) for the exact suite map and
 [`ui-state-lab.md`](ui-state-lab.md) for the development-only lab and its
 fixture limits.
@@ -87,6 +87,29 @@ redacted proof manifests; it requires the protected Ethereum RPC secret and
 Foundry/Anvil. Current-candidate results are recorded in
 [`release-validation.md`](release-validation.md); source coverage does not
 mean the protected gates have passed.
+
+For an interactive session, run `pnpm preview:funded-fork` with the same
+`ANVIL_FORK_URL` and Anvil installation. It opens a separate Chrome/Chromium
+window with a disposable account funded with 5 local ETH and 4,000 local USDC.
+The app runs on port 4326 and its Ethereum fork on 8548; automated browser
+tests retain ports 4325 and 8547. Its separate export directory keeps later
+test builds from replacing the manual preview. Build these sequentially.
+
+Use the opened browser window: the local wallet adapter belongs to that
+session. The banner identifies disposable funds, and transactions are sent
+only to the loopback fork. Close the window or press Ctrl+C in the launcher
+to stop the session and discard its state. This Ethereum-only preview does
+not simulate Base bridge delivery or native Telegram sign-in, and opening
+it does not count as passing the automated browser proof.
+
+To reopen a browser against an existing preview without resetting its funds,
+set `FX_FORK_PREVIEW=1`, `FX_FORK_PREVIEW_ATTACH=1`,
+`ANVIL_RPC_URL=http://127.0.0.1:8548`, and `FX_FORK_BROWSER_PORT` to the running
+preview port, then run `pnpm --dir apps/mini-app exec tsx e2e/fork/positions.browser.ts`.
+The attached wallet advertises a stable local-only EIP-6963 identity and checks
+that its connection survives a page reload. Closing this attached window leaves
+the original fork owner and server running. Add `FX_FORK_PREVIEW_VERIFY=1` for a
+headless connection-and-reload check that exits without submitting transactions.
 
 ## Screenshot evidence
 

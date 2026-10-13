@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, ChevronRight, CircleHelp, Copy, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, CircleHelp, Copy, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
 import FxLogo from '@/components/FxLogo';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -78,7 +78,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
   async function copyPage() {
     try {
       const content = document.querySelector<HTMLElement>('[data-docs-article]');
-      await navigator.clipboard.writeText(`${article?.title ?? page}\n\n${content?.innerText ?? ''}`);
+      await navigator.clipboard.writeText(`${article?.title ?? (home ? 'FxAeon Documentation' : page)}\n\n${content?.innerText ?? ''}`);
       setCopied(true); setCopyError(false);
     } catch { setCopyError(true); }
   }
@@ -105,7 +105,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
     let cancelled = false;
     const updateActive = () => {
       frame = 0;
-      const top = (scrollRoot?.getBoundingClientRect().top ?? 0) + (media.matches ? 185 : 144);
+      const top = (scrollRoot?.getBoundingClientRect().top ?? 0) + (media.matches ? 96 : 144);
       const headings = article ? Array.from(document.querySelectorAll<HTMLElement>('[data-docs-article] h2[id], [data-docs-article] h3[id]')) : currentEntries.map(({ id }) => document.getElementById(id)).filter((node): node is HTMLElement => Boolean(node));
       const current = headings.filter((node) => node.getBoundingClientRect().top <= top).at(-1) ?? headings[0];
       if (current) setActiveId(current.id);
@@ -182,9 +182,10 @@ export default function DocsShell({ page, entries, children, home = false, artic
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <header className={styles.docsChrome}>
           <div className={styles.docsTopbar}>
+            <div className={styles.mobileMenu}><button ref={mobileMenuRef} type="button" aria-label={contentsOpen ? 'Close documentation menu' : 'Open documentation menu'} aria-expanded={contentsOpen} aria-controls="docs-contents" onClick={() => { setContentsOpen(!contentsOpen); setMobileSearchOpen(false); setMobileLinksOpen(false); setQuery(''); }}><Menu size={18} /></button></div>
             <Link href="/docs" className={styles.docsBrand} aria-label="FxAeon docs home">
               <FxLogo size={29} />
-              <span className={styles.srOnly}>FxAeon documentation</span>
+              <span>FxAeon Docs</span>
             </Link>
             <div className={styles.searchRow}>
               <Search className={styles.searchIcon} aria-hidden="true" />
@@ -208,16 +209,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
               {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link><ThemeToggle className={styles.docsTheme} /></nav>}
             </div>
           </div>
-          <div className={styles.docsSubnav} role="group" aria-label="Documentation guides">
-            <span className={styles.subnavLabel}>Documentation</span>
-            <Link href={productHref('getting-started')} aria-current={article?.group === 'Get started' || (!home && !article && page === 'Product guide') ? 'page' : undefined}>Start here</Link>
-            <Link href={productHref('trade')} aria-current={article?.group === 'Products' ? 'page' : undefined}>Products</Link>
-            <Link href={productHref('wallets')} aria-current={article?.group === 'Wallets' ? 'page' : undefined}>Wallets</Link>
-            <Link href={productHref('troubleshooting')} aria-current={article?.group === 'Help' ? 'page' : undefined}>Help</Link>
-            <Link href="/docs/sdk" aria-current={page === 'SDK reference' ? 'page' : undefined}>SDK reference</Link>
-            <span className={styles.subnavCurrent} aria-current="location">{page}</span>
-          </div>
-          <div className={styles.mobileBreadcrumb}><button ref={mobileMenuRef} type="button" aria-label={contentsOpen ? 'Close documentation menu' : 'Open documentation menu'} aria-expanded={contentsOpen} aria-controls="docs-contents" onClick={() => { setContentsOpen(!contentsOpen); setMobileSearchOpen(false); setMobileLinksOpen(false); setQuery(''); }}><Menu size={18} /></button>{article && <><span>{article.group}</span><ChevronRight size={14} aria-hidden="true" /></>}<strong>{article?.title ?? (home ? 'Welcome to FxAeon' : page)}</strong></div>
+
         </header>
         <div className={styles.docsLayout}>
           <nav className={styles.docsNav} aria-label={article || home ? 'Pages' : 'Documentation sections'} aria-busy={!hydrated}>
@@ -230,6 +222,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
                 <ChevronDown size={16} className={styles.contentsChevron} aria-hidden="true" />
               </summary>
               <div className={styles.navLinks} id="docs-contents">
+                {!searching && <Link href="/docs" className={styles.navLink} aria-current={home ? 'location' : undefined}>FxAeon Documentation</Link>}
                 {searching ? <>
                   <p className={styles.navGroupLabel}>Search all documentation</p>
                   {results.map((entry) => <Link key={entry.href} href={!home && !article && entry.page === page ? `#${entry.id}` : entry.href}
@@ -255,14 +248,14 @@ export default function DocsShell({ page, entries, children, home = false, artic
                 </>}
               </div>
             </details>
-            {!home && <div className={styles.sidebarTheme}><ThemeToggle className={styles.docsTheme} /></div>}
+            <div className={styles.sidebarTheme}><ThemeToggle className={styles.docsTheme} /></div>
           </nav>
           <main id="main-content" tabIndex={-1} className={styles.docsContent}>
-          <article>
+          <article className={styles.readingArticle}>
             <header className={styles.docsIntro}>
               {!home && <p className={styles.breadcrumb}>{article ? article.group : <><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></>}</p>}
-              <h1 id="docs-page-heading" tabIndex={-1}>{article?.title ?? (home ? 'Welcome to FxAeon' : page === 'Product guide' ? 'Product guide' : 'The f(x) SDK in FxAeon')}</h1>
-              {article ? <><p className={styles.lead}>{article.description}</p><button className={styles.copyPage} type="button" onClick={copyPage}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'Copied' : 'Copy page'}</button>{copyError && <p role="status">Copy is unavailable. Select the text to copy it.</p>}</> : home ? <p className={styles.lead}>FxAeon brings <strong>trading, savings, borrowing, and bridging</strong> to your browser and Telegram. Use f(x) Protocol on <strong>Ethereum</strong>, and move supported assets between <strong>Ethereum and Base</strong>.</p> : page === 'Product guide'
+              <h1 id="docs-page-heading" tabIndex={-1}>{article?.title ?? (home ? 'FxAeon Documentation' : page === 'Product guide' ? 'Product guide' : 'The f(x) SDK in FxAeon')}</h1>
+              {article ? <><p className={styles.lead}>{article.description}</p><button className={styles.copyPage} type="button" onClick={copyPage}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'Copied' : 'Copy page'}</button>{copyError && <p role="status">Copy is unavailable. Select the text to copy it.</p>}</> : home ? <><p className={styles.lead}>Understand the products, use the app, and know what you are signing.</p><button className={styles.copyPage} type="button" onClick={copyPage}>{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? 'Copied' : 'Copy page'}</button>{copyError && <p role="status">Copy is unavailable. Select the text to copy it.</p>}</> : page === 'Product guide'
                 ? <p className={styles.lead}>Your guide to Trade, Earn, Borrow, and Move. Understand the action before you sign.</p>
                 : <>
                   <p className={styles.lead}>The methods, units, and safeguards behind the app. Start with a read, then explore how a reviewed transaction reaches the chain.</p>
@@ -270,6 +263,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
                 </>}
             </header>
             <div data-docs-article>{children}</div>
+            {home && <nav className={styles.articlePagination} aria-label="Pagination"><span /><Link href={productHref('getting-started')}><span><small>Next</small>Your first transaction</span><ArrowRight size={16} /></Link></nav>}
             {article && <nav className={styles.articlePagination} aria-label="Pagination">
               {previousArticle ? <Link href={productHref(previousArticle.id)}><ArrowLeft size={16} /><span>{previousArticle.title}<small>Previous</small></span></Link> : <span />}
               {nextArticle ? <Link href={productHref(nextArticle.id)}><span>{nextArticle.title}<small>Next</small></span><ArrowRight size={16} /></Link> : <Link href="/docs/sdk"><span>SDK reference<small>Next</small></span><ArrowRight size={16} /></Link>}

@@ -46,7 +46,7 @@
 
 .walletTrigger, .walletConnect, .walletIconAction { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .walletTrigger, .walletConnect { min-height: 44px; border-radius: 14px; padding: 0 13px; }
-.walletConnect { display: inline-flex; align-items: center; gap: 8px; color: var(--mint); font-size: 12px; font-weight: 650; }
+.walletConnect { display: inline-flex; align-items: center; gap: 8px; color: var(--mint-text); font-size: 12px; font-weight: 650; }
 .walletIconAction { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; border-radius: 14px; color: var(--mut); }
 .walletIconAction:hover { color: var(--mint); }
 
@@ -74,7 +74,7 @@
 
 .activityList { padding-inline: 16px !important; }
 .activityRow { min-height: 72px !important; border-bottom-color: var(--line) !important; padding-block: 14px !important; }
-.activityLink { min-height: 52px !important; border-top-color: var(--line) !important; padding-inline: 20px !important; color: var(--mint) !important; }
+.activityLink { min-height: 52px !important; border-top-color: var(--line) !important; padding-inline: 20px !important; color: var(--mint-text) !important; }
 .activitySection { display: flex; flex-direction: column; gap: 14px; }
 
 .portfolioPositionItem { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
@@ -99,7 +99,7 @@
 .portfolioEarnActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
 .portfolioEarnActions a { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 11px; color: var(--mut); font-size: 11px; font-weight: 650; }
 .portfolioEarnActions a:hover { border-color: color-mix(in srgb, var(--mint) 44%, var(--line)); color: var(--text); }
-.portfolioEarnActions a:first-child { border-color: color-mix(in srgb, var(--mint) 34%, var(--line)); color: var(--mint); background: var(--mint-dim); }
+.portfolioEarnActions a:first-child { border-color: color-mix(in srgb, var(--mint) 34%, var(--line)); color: var(--mint-text); background: var(--mint-dim); }
 .portfolioEarnSkeleton { display: grid; gap: 9px; min-height: 126px; }
 
 @media (min-width: 900px) {
@@ -133,7 +133,7 @@
   .workspace:global(.portfolio-dashboard) .overview:not(.disconnectedOverview) > .primaryColumn > :global(section[aria-labelledby='recent-activity-title']) { order: 6; }
 }
 
-.walletBackdrop { position: fixed; z-index: 60; inset: 0; display: flex; align-items: center; justify-content: flex-end; background: rgba(8, 5, 18, .64); backdrop-filter: blur(12px) saturate(115%); padding: 16px; }
+.walletBackdrop { position: fixed; z-index: 60; inset: 0; display: flex; align-items: center; justify-content: flex-end; background: rgba(0, 0, 0, .48); backdrop-filter: blur(12px) saturate(115%); padding: 16px; }
 .walletSheet { width: min(100%, 456px); max-height: min(860px, calc(100dvh - 32px)); overflow-y: auto; border: 1px solid color-mix(in srgb, var(--line) 70%, var(--mint) 30%); border-radius: 24px; background-color: var(--surface); background-image: radial-gradient(ellipse at 86% 0%, color-mix(in srgb, var(--mint) 10%, transparent), transparent 34%), linear-gradient(180deg, color-mix(in srgb, var(--surface) 90%, var(--surface-2) 10%), var(--surface) 260px); box-shadow: var(--elevation-2), -16px 0 54px color-mix(in srgb, var(--mint) 7%, transparent); padding: 20px; }
 .walletHeader { display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
 .walletHeader > div { min-width: 0; }
@@ -217,37 +217,37 @@
 }
 .workspace:global(.portfolio-dashboard) .section-heading { margin-top: 0; margin-bottom: 6px; }
 .workspace:global(.portfolio-dashboard) .heading h1 { letter-spacing: -.045em; }
-.workspace:global(.portfolio-dashboard) .tabs { border-color: color-mix(in srgb, var(--line) 82%, var(--mint) 18%); background: linear-gradient(110deg, color-mix(in srgb, var(--input) 92%, var(--mint) 8%), var(--input)); box-shadow: inset 0 1px color-mix(in srgb, var(--text) 4%, transparent); }
-.workspace:global(.portfolio-dashboard) .tabs > [aria-current='page'] { background: linear-gradient(135deg, var(--surface-3), color-mix(in srgb, var(--surface-3) 88%, var(--mint) 12%)); box-shadow: var(--elevation-1), inset 0 1px color-mix(in srgb, var(--text) 6%, transparent); }
+.workspace:global(.portfolio-dashboard) .tabs { border-color: var(--line); background: var(--input); box-shadow: none; }
+.workspace:global(.portfolio-dashboard) .tabs > [aria-current='page'] { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line); }
 .workspace:global(.portfolio-dashboard) .primaryColumn,
 .workspace:global(.portfolio-dashboard) .secondaryColumn { gap: 12px; }
-.workspace:global(.portfolio-dashboard) .valueCard { padding: 18px !important; border-radius: 20px; background: radial-gradient(ellipse at 94% 0%, color-mix(in srgb, var(--mint) 12%, transparent), transparent 45%), linear-gradient(145deg, color-mix(in srgb, var(--surface) 90%, var(--surface-2) 10%), var(--surface)); }
+.workspace:global(.portfolio-dashboard) .valueCard { padding: 18px !important; border-radius: 20px; background: var(--surface); }
 .workspace:global(.portfolio-dashboard) .valueMain { margin-top: 16px; }
 .workspace:global(.portfolio-dashboard) .valueAmount { font-size: clamp(38px, 5vw, 54px) !important; letter-spacing: -.06em; }
 .workspace:global(.portfolio-dashboard) .valueMetrics { margin-top: 16px; padding-top: 12px; }
 .workspace:global(.portfolio-dashboard) .valueMetrics > span + span { border-left: 1px solid color-mix(in srgb, var(--line) 88%, transparent); padding-left: 14px; }
-.workspace:global(.portfolio-dashboard) .action { min-height: 60px; border-color: color-mix(in srgb, var(--line) 84%, var(--mint) 16%); border-radius: 14px; background: linear-gradient(145deg, color-mix(in srgb, var(--surface-2) 90%, var(--mint) 10%), var(--surface-2)); box-shadow: var(--elevation-1), inset 0 1px color-mix(in srgb, var(--text) 4%, transparent); }
-.workspace:global(.portfolio-dashboard) .action span { border: 1px solid color-mix(in srgb, var(--mint) 18%, transparent); background: linear-gradient(145deg, color-mix(in srgb, var(--mint) 22%, var(--surface)), color-mix(in srgb, var(--mint) 10%, var(--surface-2))); }
-.workspace:global(.portfolio-dashboard) .action:hover { border-color: color-mix(in srgb, var(--mint) 46%, var(--line)); background: linear-gradient(145deg, color-mix(in srgb, var(--surface-2) 82%, var(--mint) 18%), var(--surface-2)); box-shadow: var(--elevation-1), 0 10px 24px color-mix(in srgb, var(--mint) 8%, transparent); transform: translateY(-2px); }
+.workspace:global(.portfolio-dashboard) .action { min-height: 60px; border-color: var(--line); border-radius: 14px; background: var(--surface-2); box-shadow: none; }
+.workspace:global(.portfolio-dashboard) .action span { border: 0; background: var(--surface-3); color: var(--text); }
+.workspace:global(.portfolio-dashboard) .action:hover { border-color: var(--line-strong); background: var(--surface-3); box-shadow: none; transform: translateY(-1px); }
 
 .workspace:global(.portfolio-dashboard) .valueCard,
 .workspace:global(.portfolio-dashboard) .balanceCard,
 .workspace:global(.portfolio-dashboard) .portfolioEarnCard,
-.workspace:global(.portfolio-dashboard) .protocolCard { border-color: color-mix(in srgb, var(--line) 82%, var(--mint) 18%); box-shadow: var(--elevation-1), inset 0 1px color-mix(in srgb, var(--text) 4%, transparent); }
+.workspace:global(.portfolio-dashboard) .protocolCard { border-color: var(--line); box-shadow: none; }
 .workspace:global(.portfolio-dashboard) .balanceCard,
 .workspace:global(.portfolio-dashboard) .portfolioEarnCard,
-.workspace:global(.portfolio-dashboard) .protocolCard { background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 78%, var(--surface-2) 22%), var(--surface)); }
-.workspace:global(.portfolio-dashboard) .market > * { position: relative; overflow: hidden; border-color: color-mix(in srgb, var(--line) 82%, var(--mint) 18%); background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--mint) 9%, transparent), transparent 46%), linear-gradient(145deg, color-mix(in srgb, var(--surface) 68%, var(--surface-2) 32%), var(--surface)); box-shadow: var(--elevation-1), inset 0 1px color-mix(in srgb, var(--text) 4%, transparent); transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease; }
-.workspace:global(.portfolio-dashboard) .market > *:hover { border-color: color-mix(in srgb, var(--mint) 42%, var(--line)); box-shadow: var(--elevation-1), 0 10px 28px color-mix(in srgb, var(--mint) 8%, transparent); transform: translateY(-2px); }
+.workspace:global(.portfolio-dashboard) .protocolCard { background: var(--surface); }
+.workspace:global(.portfolio-dashboard) .market > * { position: relative; overflow: hidden; border-color: var(--line); background: var(--surface); box-shadow: none; transition: transform 180ms ease, border-color 180ms ease; }
+.workspace:global(.portfolio-dashboard) .market > *:hover { border-color: var(--line-strong); box-shadow: none; transform: translateY(-1px); }
 .workspace:global(.portfolio-dashboard) .market > * > p { margin-top: 12px; letter-spacing: -.035em; }
-.workspace:global(.portfolio-dashboard) .market :global(.market-chart-compact) { height: 54px; margin-top: 10px; border-radius: 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--mint) 5%, transparent), transparent); }
-.workspace:global(.portfolio-dashboard) .protocolCard > span:first-child { border: 1px solid color-mix(in srgb, var(--mint) 18%, transparent); background: linear-gradient(145deg, color-mix(in srgb, var(--mint) 20%, var(--surface)), var(--mint-dim)); }
-.workspace:global(.portfolio-dashboard) .protocolCard:hover { box-shadow: var(--elevation-1), 0 10px 24px color-mix(in srgb, var(--mint) 7%, transparent); transform: translateY(-2px); }
-.workspace:global(.portfolio-dashboard) .balanceHeader { padding: 14px 16px; background: linear-gradient(100deg, color-mix(in srgb, var(--surface-2) 75%, var(--mint) 25%), var(--surface-2)); }
+.workspace:global(.portfolio-dashboard) .market :global(.market-chart-compact) { height: 54px; margin-top: 10px; border-radius: 10px; background: transparent; }
+.workspace:global(.portfolio-dashboard) .protocolCard > span:first-child { border: 0; background: var(--surface-2); color: var(--text); }
+.workspace:global(.portfolio-dashboard) .protocolCard:hover { box-shadow: none; transform: translateY(-1px); }
+.workspace:global(.portfolio-dashboard) .balanceHeader { padding: 14px 16px; background: var(--surface-2); }
 .workspace:global(.portfolio-dashboard) .balanceRow { min-height: 64px !important; padding-block: 10px !important; transition: background-color 160ms ease; }
 .workspace:global(.portfolio-dashboard) .balanceRow:hover { background: color-mix(in srgb, var(--surface-2) 68%, transparent); }
-.workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button) { min-height: 56px; border: 1px solid color-mix(in srgb, var(--mint) 48%, var(--line)); border-radius: 17px; background: linear-gradient(112deg, color-mix(in srgb, var(--mint-bright) 90%, white 10%), var(--mint)); box-shadow: 0 10px 30px color-mix(in srgb, var(--mint) 20%, transparent), inset 0 1px color-mix(in srgb, white 28%, transparent); color: var(--on-accent); transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease; }
-.workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button:hover) { box-shadow: 0 14px 34px color-mix(in srgb, var(--mint) 27%, transparent), inset 0 1px color-mix(in srgb, white 32%, transparent); filter: saturate(1.06); transform: translateY(-1px); }
+.workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button) { min-height: 56px; border: 1px solid var(--mint); border-radius: 17px; background: var(--mint); box-shadow: none; color: var(--on-accent); transition: transform 180ms ease, background-color 180ms ease; }
+.workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button:hover) { background: var(--mint); transform: translateY(-1px); }
 
 @media (max-width: 600px) {
   .workspace:global(.portfolio-dashboard) { gap: 10px; }

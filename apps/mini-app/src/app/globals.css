@@ -10,42 +10,45 @@
 }
 
 /* FxAeon "Aeon" system — tonal depth instead of nested borders, numbers as the
-   hero, violet reserved for intent, and motion that only explains state. The
+   hero, blue reserved for intent, and motion that only explains state. The
    stylesheet is the single source of truth for every theme token. */
 :root {
-  /* Color roles (Official: violet-tinted night). */
-  --bg: #121115;
-  --bg-raised: #18171c;
-  --surface: #1e1c22;
-  --surface-2: #27242d;
-  --surface-3: #322d3a;
-  --card: #1e1c22;
-  --input: #27242d;
-  --line: #35323c;
-  --line-strong: #4e485b;
-  --text: #f5f3fa;
-  --mut: #b7b1c1;
-  --mut-2: #a49aad;
-  --mint: #bba6ff;
-  --mint-bright: #d3c3ff;
-  --mint-dim: rgba(185, 160, 255, 0.12);
-  --mint-glow: rgba(185, 160, 255, 0.22);
-  --on-accent: #1a1030;
-  --cyan: #d6c7ff;
-  --brand-coral: #c495ff;
-  --success: #53d5a0;
-  --success-dim: rgba(83, 213, 160, 0.12);
-  --danger: #ff5c70;
-  --danger-dim: rgba(255, 92, 112, 0.12);
-  --warn: #f2b84b;
-  --warn-dim: rgba(242, 184, 75, 0.12);
+  /* Neutral surfaces carry the interface; blue identifies actions. */
+  --bg: #f7f7f8;
+  --bg-raised: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f0f0f2;
+  --surface-3: #e7e7eb;
+  --card: #ffffff;
+  --input: #f0f0f2;
+  --line: #e4e4e7;
+  --line-strong: #c4c4cc;
+  --text: #202024;
+  --mut: #5e5e67;
+  --mut-2: #6b6b74;
+  --mint: #2973ff;
+  --mint-bright: #1d4ed8;
+  --mint-text: #1d4ed8;
+  --mint-dim: rgba(41, 115, 255, 0.09);
+  --mint-glow: rgba(41, 115, 255, 0.14);
+  --on-accent: #0b0c0e;
+  --cyan: #1d4ed8;
+  --brand-coral: #2973ff;
+  --success: #216e4b;
+  --success-dim: rgba(35, 115, 78, 0.09);
+  --danger: #b33750;
+  --danger-dim: rgba(179, 55, 80, 0.09);
+  --warn: #805900;
+  --warn-dim: rgba(128, 89, 0, 0.09);
+  --feature-surface: #f0f0f2;
+  --feature-warm: #f0f0f2;
   --long: var(--success);
   --long-dim: var(--success-dim);
   --short: var(--danger);
   --short-dim: var(--danger-dim);
   /* Keyboard focus is intent: one accent ring for chrome and content alike. */
   --focus-ring: var(--mint);
-  --scrim: rgba(4, 3, 10, 0.64);
+  --scrim: rgba(35, 29, 42, 0.32);
   --glass: color-mix(in srgb, var(--bg) 76%, transparent);
   --glass-strong: color-mix(in srgb, var(--surface) 84%, transparent);
   --hairline: color-mix(in srgb, var(--text) 7%, transparent);
@@ -83,14 +86,14 @@
   --radius-xs: 8px;
   --radius-sm: 12px;
   --radius-md: 14px;
-  --radius-lg: 16px;
+  --radius-lg: 24px;
   --radius-xl: 24px;
   --radius-full: 9999px;
 
   /* Elevation belongs to floating surfaces only. */
   --elevation-0: none;
-  --elevation-1: 0 1px 2px rgba(3, 2, 8, 0.24), 0 8px 24px rgba(3, 2, 8, 0.18);
-  --elevation-2: 0 2px 6px rgba(3, 2, 8, 0.28), 0 24px 64px rgba(3, 2, 8, 0.46);
+  --elevation-1: 0 4px 18px rgba(42, 31, 55, 0.07);
+  --elevation-2: 0 16px 48px rgba(42, 31, 55, 0.14);
   --elevation-3: var(--elevation-2);
   --ring-inset: inset 0 1px 0 rgba(255, 255, 255, 0.045);
 
@@ -152,10 +155,10 @@
   --tabbar-reserve: calc(var(--tabbar-panel-height) + var(--tabbar-edge-gap) + 8px);
   /* Scroll content must clear the fixed tab bar and its safe-area inset. */
   --content-bottom-clearance: calc(var(--tabbar-reserve) + 4px);
-  --canvas-wash: rgba(150, 110, 255, 0.09);
-  --canvas-wash-secondary: rgba(196, 149, 255, 0.025);
+  --canvas-wash: transparent;
+  --canvas-wash-secondary: transparent;
   --surface-highlight: rgba(255, 255, 255, 0.045);
-  --surface-shadow: rgba(3, 2, 8, 0.36);
+  --surface-shadow: rgba(42, 31, 55, 0.1);
 }
 
 @supports (transition-timing-function: linear(0, 1)) {
@@ -168,76 +171,82 @@
 /* Saved preferences are applied by a tiny pre-hydration initializer in the
    root layout. First-paint variables prevent a palette flash before React. */
 :root[data-theme='dark'] {
+  --feature-surface: #202024;
+  --feature-warm: #202024;
   color-scheme: dark;
-  --bg: #08090b;
-  --bg-raised: #0d0f12;
-  --surface: #121418;
-  --surface-2: #191c21;
-  --surface-3: #22262d;
-  --card: #121418;
-  --input: #191c21;
-  --line: #24282f;
-  --line-strong: #3b414b;
-  --text: #f4f6f9;
-  --mut: #a6aeb9;
-  --mut-2: #868f9b;
-  --mint: #b9a0ff;
-  --mint-bright: #d3c3ff;
-  --mint-dim: rgba(185, 160, 255, 0.12);
-  --mint-glow: rgba(185, 160, 255, 0.2);
-  --on-accent: #1a1030;
-  --cyan: #d6c7ff;
-  --brand-coral: #c495ff;
+  --bg: #111113;
+  --bg-raised: #161618;
+  --surface: #1b1b1f;
+  --surface-2: #242428;
+  --surface-3: #2e2e34;
+  --card: #1b1b1f;
+  --input: #242428;
+  --line: #303036;
+  --line-strong: #45454d;
+  --text: #f4f4f5;
+  --mut: #a8a8b2;
+  --mut-2: #94949f;
+  --mint: #2973ff;
+  --mint-bright: #2973ff;
+  --mint-text: #5b8fff;
+  --mint-dim: rgba(41, 115, 255, 0.12);
+  --mint-glow: rgba(41, 115, 255, 0.2);
+  --on-accent: #0b0c0e;
+  --cyan: #2973ff;
+  --brand-coral: #2973ff;
   --success: #53d5a0;
   --danger: #ff5c70;
   --warn: #f2b84b;
   --scrim: rgba(0, 0, 0, 0.66);
   --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.32), 0 8px 24px rgba(0, 0, 0, 0.26);
   --elevation-2: 0 2px 6px rgba(0, 0, 0, 0.36), 0 24px 64px rgba(0, 0, 0, 0.56);
-  --canvas-wash: rgba(185, 160, 255, 0.09);
-  --canvas-wash-secondary: rgba(196, 149, 255, 0.03);
+  --canvas-wash: rgba(59, 130, 246, 0.09);
+  --canvas-wash-secondary: rgba(125, 199, 248, 0.03);
   --surface-highlight: rgba(255, 255, 255, 0.035);
   --surface-shadow: rgba(0, 0, 0, 0.44);
 }
 
 :root[data-theme='light'] {
+  --feature-surface: #e7efff;
+  --feature-warm: #f6e8db;
   color-scheme: light;
   --bg: #f7f5f1;
   --bg-raised: #fbfaf8;
   --surface: #ffffff;
-  --surface-2: #f4f0f8;
-  --surface-3: #ebe4f5;
+  --surface-2: #edf2fa;
+  --surface-3: #e3eaf6;
   --card: #ffffff;
-  --input: #f4f0f8;
-  --line: #e7e0ee;
-  --line-strong: #c8bbda;
-  --text: #241a33;
-  --mut: #675c77;
-  --mut-2: #74678a;
-  --mint: #7341c8;
-  --mint-bright: #5f2cb4;
-  --mint-dim: rgba(115, 65, 200, 0.09);
-  --mint-glow: rgba(115, 65, 200, 0.16);
-  --on-accent: #ffffff;
-  --cyan: #8655c7;
-  --brand-coral: #a362c4;
+  --input: #edf2fa;
+  --line: #dfe6f1;
+  --line-strong: #b9c7dc;
+  --text: #17263d;
+  --mut: #566579;
+  --mut-2: #63738a;
+  --mint: #2973ff;
+  --mint-bright: #1d4ed8;
+  --mint-text: #1d4ed8;
+  --mint-dim: rgba(41, 115, 255, 0.09);
+  --mint-glow: rgba(41, 115, 255, 0.16);
+  --on-accent: #0b0c0e;
+  --cyan: #1d4ed8;
+  --brand-coral: #2973ff;
   --success: #12804f;
   --success-dim: rgba(18, 128, 79, 0.09);
   --danger: #c92b49;
   --danger-dim: rgba(201, 43, 73, 0.08);
   --warn: #8a5d06;
   --warn-dim: rgba(176, 120, 12, 0.1);
-  --scrim: rgba(28, 16, 48, 0.3);
+  --scrim: rgba(24, 24, 27, 0.3);
   --glass: color-mix(in srgb, var(--bg) 80%, transparent);
   --glass-strong: color-mix(in srgb, var(--surface) 86%, transparent);
   --hairline: color-mix(in srgb, var(--text) 8%, transparent);
-  --elevation-1: 0 1px 2px rgba(54, 34, 79, 0.06), 0 8px 24px rgba(54, 34, 79, 0.06);
-  --elevation-2: 0 2px 8px rgba(54, 34, 79, 0.08), 0 24px 64px rgba(54, 34, 79, 0.14);
+  --elevation-1: 0 1px 2px rgba(24, 24, 27, 0.04), 0 8px 24px rgba(24, 24, 27, 0.04);
+  --elevation-2: 0 2px 8px rgba(24, 24, 27, 0.06), 0 24px 64px rgba(24, 24, 27, 0.12);
   --ring-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --canvas-wash: rgba(135, 89, 207, 0.07);
-  --canvas-wash-secondary: rgba(163, 98, 196, 0.03);
+  --canvas-wash: rgba(59, 130, 246, 0.07);
+  --canvas-wash-secondary: rgba(54, 123, 181, 0.03);
   --surface-highlight: rgba(255, 255, 255, 0.9);
-  --surface-shadow: rgba(58, 34, 84, 0.1);
+  --surface-shadow: rgba(24, 24, 27, 0.08);
 }
 
 * {
@@ -249,7 +258,7 @@ html {
   width: 100%;
   height: 100%;
   background: var(--bg);
-  color-scheme: dark;
+  color-scheme: light;
   overflow: hidden;
   scroll-behavior: smooth;
 }
@@ -486,7 +495,7 @@ main.utility-stage {
    motion keeps it on the compositor; reduced motion holds the lights still. */
 body::before,
 body::after {
-  content: '';
+  content: none;
   position: fixed;
   z-index: 0;
   inset: -12vmax;
@@ -692,9 +701,11 @@ details[open] > summary .disclosure-closed-only { display: none; }
    appears at once (its heading brings its own light). Content marked
    data-continued replaces the first-paint outline (ProviderLoadingState),
    which already drew it, so it does not fade in a second time. */
-.app-content > :not(.page-header):not(.sr-only):not([data-continued]):not(:has(:is([data-page-heading], .trade-page-heading))) {
+.app-content > :not(.page-header):not(.sr-only):not([data-page-heading]):not([data-continued]):not(:has([data-page-heading], .trade-page-heading)) {
   animation: route-in var(--dur-slow) var(--ease-out) both;
 }
+/* Accessible route titles are labels for assistive technology, never visual content to animate. */
+.app-content :is(h1[data-page-heading], [data-page-heading] h1.sr-only) { animation: none !important; }
 .app-content > *:nth-child(2) { animation-delay: 40ms; }
 .app-content > *:nth-child(3) { animation-delay: 80ms; }
 
@@ -921,7 +932,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 .network-selector-menu strong { font-size: var(--fs-small); font-weight: 600; }
 .network-selector-menu small { margin-top: 2px; color: var(--mut-2); font-size: var(--fs-micro); }
 .network-selector-menu .network-option-label { display: inline-flex; align-items: center; gap: 10px; }
-.network-selector-menu .network-selector-connect { justify-content: center; border-bottom: 1px solid var(--line); border-radius: var(--radius-sm) var(--radius-sm) 6px 6px; color: var(--mint); font-weight: 700; }
+.network-selector-menu .network-selector-connect { justify-content: center; border-bottom: 1px solid var(--line); border-radius: var(--radius-sm) var(--radius-sm) 6px 6px; color: var(--mint-text); font-weight: 700; }
 .network-selector-menu > .network-selector-error { position: static; width: auto; max-width: none; margin: 0 0 4px; box-shadow: none; animation: none; }
 .network-selector-wrap-blocked .network-selector-menu { top: calc(100% + 38px); }
 
@@ -1137,7 +1148,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 .button-primary[aria-busy='true'] {
   background: var(--mint);
   color: var(--on-accent);
-  opacity: 0.86;
+  opacity: 1;
 }
 
 .button-ghost {
@@ -1225,9 +1236,9 @@ details[open] > summary .disclosure-closed-only { display: none; }
 }
 
 .nav-item-active {
-  color: var(--mint-bright);
+  color: var(--mint-text);
 }
-:root[data-theme='light'] .nav-item-active { color: var(--mint); }
+:root[data-theme='light'] .nav-item-active { color: var(--mint-text); }
 
 .nav-item-mobile {
   display: flex;
@@ -1463,11 +1474,15 @@ select.field-control option {
   gap: 8px;
   padding: 0 14px;
   border-radius: 999px;
-  color: var(--mint);
+  color: var(--mint-text);
   font-size: var(--fs-caption);
   font-weight: 600;
   text-align: left;
 }
+
+/* `text-mint` is the text role of the brand token; fills keep `--mint`. */
+.text-mint,
+.hover\:text-mint:hover { color: var(--mint-text); }
 
 /* One shape in every state: a rounded tint drawn 36px tall inside the 44px
    target, adding no width. It used to appear only while :hover stuck after a tap. */

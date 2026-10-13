@@ -73,7 +73,7 @@ async function pageReady(page: Page, route: string, walletConnected: boolean): P
     await page.getByRole('heading', { name: 'Connect your wallet', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
     await page.getByRole('button', { name: 'Connect browser wallet', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
   } else {
-    await page.getByRole('button', { name: 'Choose a network or connect a wallet', exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
+    await page.locator('header').getByRole('button', { name: /^(Connect wallet|Sign in)$/ }).waitFor({ state: 'visible', timeout: 30_000 });
   }
   await page.evaluate(() => document.fonts.ready);
 }

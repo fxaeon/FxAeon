@@ -5,6 +5,7 @@ node_modules/
 
 # Build outputs
 dist/
+/apps/mini-app/dist-fork-preview-*/
 build/
 .next/
 out/

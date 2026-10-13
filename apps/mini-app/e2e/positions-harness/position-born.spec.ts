@@ -7,8 +7,9 @@ import { debtShare } from '../../src/lib/leverageShare';
 /*
  * The position is born: Trade's confirmed result for a newly opened ETH Long
  * draws the split chosen on the ticket, and "View position" carries that bar
- * into the position's own split on /positions with a view transition. The real
- * Trade and Positions pages, result view, rows and transition helper run
+ * into the position's own split on /positions with a view transition. A closed
+ * position result also verifies its in-app return to Positions. The real Trade
+ * and Positions pages, result view, rows and transition helper run
  * against mocked wallet, chain, prices and brake reads, behind a stand-in for
  * Next's asynchronous router (see e2e/harness/position-born-entry.tsx). Set
  * BORN_SHOTS_DIR to keep a filmstrip of the transition and the final states.
@@ -75,15 +76,16 @@ export const useFxSaveClaimable = () => ({ data: null, status: 'idle', isFetchin
 export function useActionReviewLifecycle(props) {
   const harness = globalThis.__positionBorn;
   const trade = Boolean(props.onViewNewPosition);
-  const [stage, setStage] = React.useState(trade ? 'result' : 'input');
+  const showResult = trade || harness.closedPosition;
+  const [stage, setStage] = React.useState(showResult ? 'result' : 'input');
   React.useEffect(() => { props.onStageChange?.(stage); }, [stage, props.onStageChange]);
-  React.useEffect(() => { if (trade && !harness.completed) { harness.completed = true; void props.onComplete?.(harness.result, harness.route); } }, []);
+  React.useEffect(() => { if (showResult && !harness.completed) { harness.completed = true; void props.onComplete?.(harness.result, harness.route); } }, []);
   const reset = () => setStage('input');
   return { canSelectReviewedRoute: false, endConnectFlow: () => {}, error: null, execute: async () => {}, feeSelection: null,
     gasCost: { checking: false, estimate: null, estimateIsCurrent: false, status: 'idle' }, headingRef: { current: null }, loading: false,
     networkSwitching: false, quoteChanges: [], quoteExpired: false, refreshReviewedQuote: async () => {}, refreshing: false, reset,
-    result: stage === 'result' ? harness.result : null, review: async () => {}, reviewTitle: trade ? 'Open ETH Long' : null,
-    route: trade ? harness.route : null, routeSummaries: [], routes: trade ? [harness.route] : [], selectedRoute: 0, selectReviewedRoute: () => {},
+    result: stage === 'result' ? harness.result : null, review: async () => {}, reviewTitle: trade ? 'Open ETH Long' : harness.closedPosition ? 'Close ETH Long' : null,
+    route: showResult ? harness.route : null, routeSummaries: [], routes: showResult ? [harness.route] : [], selectedRoute: 0, selectReviewedRoute: () => {},
     selectGasTier: async () => {}, startConnectFlow: () => {}, stage, status: stage === 'result' ? 'confirmed' : 'planning', statusDetail: '',
     stepResults: stage === 'result' ? harness.result.steps : [], triggerRef: { current: null }, wallet: { ...harness.wallet } };
 }`,
@@ -193,9 +195,9 @@ const PROBE = `(() => {
   };
 })();`;
 
-async function open(page: Page, { theme = 'official', readable = true, api = true }: { theme?: 'official' | 'dark' | 'light'; readable?: boolean; api?: boolean } = {}) {
+async function open(page: Page, { theme = 'official', readable = true, api = true, closedPosition = false }: { theme?: 'official' | 'dark' | 'light'; readable?: boolean; api?: boolean; closedPosition?: boolean } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
-    + `<body><div id="root"></div><script>${api ? PROBE : 'delete Document.prototype.startViewTransition;'}window.__positionBornConfig = ${JSON.stringify({ theme, readable })};</script><script src="/lab.js"></script></body></html>`;
+    + `<body><div id="root"></div><script>${api ? PROBE : 'delete Document.prototype.startViewTransition;'}window.__positionBornConfig = ${JSON.stringify({ theme, readable, closedPosition })};</script><script src="/lab.js"></script></body></html>`;
   await page.unrouteAll({ behavior: 'ignoreErrors' });
   await page.route('http://lab.test/**', async (request) => {
     const url = new URL(request.request().url());
@@ -248,7 +250,7 @@ test.describe('a position opened on Trade', () => {
     await open(page);
     await expect(source(page)).toBeVisible();
     await viewPosition(page).click();
-    await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242&action=increase$/);
+    await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242$/);
     await expect(details(page)).toBeVisible();
     await expect.poll(async () => (await probe(page))?.finished ?? 0).toBe(1);
     const { calls, ready } = (await probe(page))!;
@@ -259,7 +261,7 @@ test.describe('a position opened on Trade', () => {
     expect(share(calls[0].sourceShare)).toBeCloseTo(CHOSEN_SHARE, 6);
     // The update resolved only once the new position's own split was on screen,
     // under the same name: the browser captured the two bars as one.
-    expect(calls[0].atResolve).toMatchObject({ url: '/positions?position=ETH%3Along%3A4242&action=increase', targetKey: KEY, targetName: NAME, targetVisible: true, born: true, sourceInDocument: false });
+    expect(calls[0].atResolve).toMatchObject({ url: '/positions?position=ETH%3Along%3A4242', targetKey: KEY, targetName: NAME, targetVisible: true, born: true, sourceInDocument: false });
     // The bar lands on the confirmed figures, never the ticket's.
     expect(share(calls[0].atResolve!.targetShare)).toBeCloseTo(CONFIRMED_SHARE, 5);
     // Afterwards nothing keeps the name, and the landed bar does not draw in again.
@@ -306,6 +308,26 @@ test.describe('a position opened on Trade', () => {
     await page.evaluate(() => (window as unknown as { __positionBorn: { makeReadable: () => void } }).__positionBorn.makeReadable());
     await expect(details(page)).toBeVisible();
     expect(share(await details(page).locator('[data-position-split]').evaluate((node) => (node as HTMLElement).style.getPropertyValue('--debt-share')))).toBeCloseTo(CONFIRMED_SHARE, 5);
+  });
+
+  test('closing a position offers View positions and keeps the authenticated wallet in-app', async ({ page }) => {
+    const documentRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.isNavigationRequest() && request.resourceType() === 'document') documentRequests.push(new URL(request.url()).pathname);
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await open(page, { closedPosition: true });
+    await expect(page.getByRole('heading', { name: 'Position closed', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'View positions', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'View positions', exact: true }).click();
+    await expect(page).toHaveURL('http://lab.test/positions');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __positionBorn: { path: string } }).__positionBorn.path)).toBe('/positions');
+    expect(await page.evaluate(() => {
+      const wallet = (window as unknown as { __positionBorn: { wallet: { authenticated: boolean; address: string } } }).__positionBorn.wallet;
+      return { authenticated: wallet.authenticated, address: wallet.address };
+    })).toEqual({ authenticated: true, address: '0x930f0000000000000000000000000000000098b9' });
+    expect(await page.evaluate(() => (window as unknown as { __positionBorn: { navigations: string[] } }).__positionBorn.navigations)).toEqual(['/positions']);
+    expect(documentRequests).toEqual(['/trade']);
   });
 });
 

@@ -27,7 +27,7 @@ const mocks: Record<string, string> = {
   '@/lib/wallet': `export const usePrivyWallet = () => ({ ...globalThis.__moveSessionHarness.wallet, sendTransaction: async () => ({ hash: '0x' }) });`,
   '@/app/trade/fxUi': `export const parseAmount = (value) => { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? BigInt(Math.round(parsed * 1e18)) : null; };`,
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({amount:'',deposit:'',mint:'',repay:'',withdraw:'',shares:'',fraction:0.5,leverage:2});`,
-  '@/components/TokenIcon': `export const ChainIcon = () => null;`,
+  '@/components/TokenIcon': `export const ChainIcon = () => null; export default () => null;`,
 };
 
 async function buildHarness(): Promise<string> {
@@ -83,7 +83,7 @@ test('the recipient row is a status, and the developer disclosure reads as exper
   await page.setContent('<div id="root"></div>');
   await page.addScriptTag({ content: bundle });
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
-  const recipient = page.getByText('Recipient on Base', { exact: true }).locator('xpath=../..');
+  const recipient = page.getByText('Recipient', { exact: true }).locator('xpath=../..');
   await expect(recipient.getByText('Your wallet', { exact: true })).toBeVisible();
   await expect(recipient.getByText('0xaaaa…aaaa', { exact: true })).toBeVisible();
   // Signed out, the row says so instead of looking like a second connect control.

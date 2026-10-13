@@ -316,7 +316,9 @@ export default function TradePage() {
   }, [market, side, slippage]);
 
   useEffect(() => {
-    setLeverage((current) => clampLeverage(current, leverageBounds));
+    // A refreshed pool limit must not turn an empty/invalid draft into a
+    // signable minimum-leverage trade while the user is editing it.
+    setLeverage((current) => Number.isFinite(current) ? clampLeverage(current, leverageBounds) : current);
   }, [leverageBounds]);
 
   const leverageError = leverage > 0 && leverage < leverageBounds.min
@@ -431,8 +433,8 @@ export default function TradePage() {
     : null;
 
   // Keep one short-lived route warm while the ticket is valid. This is a
-  // display/review optimization only: ActionReview still rebuilds, simulates,
-  // and validates the route immediately before opening the wallet prompt.
+  // display/review optimization only: ActionReview still simulates and
+  // validates the exact route before review and before opening the wallet.
   // The ticket's outcome preview reads the same warm-up; it never plans its own.
   useEffect(() => {
     const store = prefetchStoreRef.current ?? (prefetchStoreRef.current = new RoutePrefetchStore());
@@ -526,10 +528,13 @@ export default function TradePage() {
     return prefetchStoreRef.current.readValidated(descriptor, async () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine
         || currentTicketRef.current !== ticket || prefetchDescriptorRef.current !== descriptor) return null;
-      const blockNumber = await getEthereumClient().getBlockNumber({ cacheTime: 0 });
+      const [blockNumber, bounds] = await Promise.all([
+        getEthereumClient().getBlockNumber({ cacheTime: 0 }),
+        readLeverageBounds(descriptor.market, descriptor.side, undefined, descriptor.slippagePercent),
+      ]);
       if (document.visibilityState !== 'visible' || !navigator.onLine
         || currentTicketRef.current !== ticket || prefetchDescriptorRef.current !== descriptor) return null;
-      return { ...descriptor, blockNumber };
+      return { ...descriptor, blockNumber, leverageMin: bounds.min, leverageMax: bounds.max };
     });
   }, []);
 
@@ -569,7 +574,7 @@ export default function TradePage() {
   // The primary action says what the ticket still needs before it can be reviewed.
   const reviewBlocker = !wallet.address ? null
     : amountBlocker(amount, tokenDecimals(token), tokenSymbol(token), selectedTokenBalance)
-      ?? (leverage < leverageBounds.min || leverage > leverageBounds.max ? `Choose ${leverageBounds.min.toFixed(1)}×–${leverageBounds.max.toFixed(1)}× leverage` : null)
+      ?? (!Number.isFinite(leverage) || leverage < leverageBounds.min || leverage > leverageBounds.max ? `Choose ${leverageBounds.min.toFixed(1)}×–${leverageBounds.max.toFixed(1)}× leverage` : null)
       ?? (!Number.isFinite(slippageValue) || slippageValue <= 0 || slippageValue > MAX_FX_SLIPPAGE_PERCENT ? 'Set slippage in settings' : null);
 
   const marketPositions = positionState.positions.filter((position) => position.market === market);
@@ -633,7 +638,7 @@ export default function TradePage() {
         <div className={styles.ticketColumn} data-trade-ticket>
           {/* The editor and review deliberately share one card. ActionReview
               replaces this content in place, keeping the user's exact draft stable while the wallet is opened. */}
-          <Card className={`${styles.tradeTicket} trade-ticket ${reviewStage === 'input' ? '' : styles.tradeTicketReview}`}>
+          <Card data-result-container className={`${styles.tradeTicket} trade-ticket ${reviewStage === 'input' ? '' : styles.tradeTicketReview}`}>
             <ActionReview
               key={reviewRevision}
               surface="content"
@@ -673,7 +678,7 @@ export default function TradePage() {
         </div>
         </div>
 
-        {showPositionSection && (
+        {reviewStage === 'input' && showPositionSection && (
           <section aria-labelledby="trade-open-positions-title" className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between gap-3">
               <h2 id="trade-open-positions-title" className="text-[15px] font-semibold">Your positions</h2>

@@ -17,8 +17,8 @@ The production mini-app suite and isolated component harnesses use separate Play
 
 The production suite includes route-specific metadata assertions before
 hydration and compact form checks at 393×852. It checks review-action clearance,
-44px amount shortcuts, and reachability at 200% text in Official, Dark, and
-Light themes. The overlay suite verifies portfolio asset loading, empty,
+44px amount shortcuts, and reachability at 200% text in Light (official) and
+Dark themes. The overlay suite verifies portfolio asset loading, empty,
 unavailable/retry, and refreshing-with-holdings states; its wallet refresh
 harness covers fan-out, account changes, synchronous reader failures, and
 retry. These suites do not establish live RPC health or protocol execution.
