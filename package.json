@@ -62,7 +62,7 @@
     "globals": "17.6.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.68.0",
-    "wrangler": "4.144.0"
+    "wrangler": "4.149.0"
   },
   "packageManager": "pnpm@11.19.0",
   "version": "2.0.0"
