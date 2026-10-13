@@ -5,6 +5,7 @@ import { receiptMovementLines, shouldShowReceiptMovementFallback, type ReceiptPr
 import { StatusNotice, TransactionHashLink } from '@/components/review/ReviewProgress';
 import presentationStyles from './ActionReviewPresentation.module.css';
 import { ValueOrSkeleton } from '@/components/MissingValue';
+import TokenIcon from '@/components/TokenIcon';
 
 export function CompactQuoteMetrics({ facts, gasStatus }: {
   facts: readonly ReviewFact[];
@@ -83,16 +84,31 @@ export function PositionOutcomeSummary({ facts }: { facts: readonly { label: str
   );
 }
 
-export function ReceiptSummary({ receipts }: { receipts: readonly ReceiptPresentation[] }) {
+export function ReceiptSummary({ receipts, variant = 'default' }: { receipts: readonly ReceiptPresentation[]; variant?: 'default' | 'outcome' | 'details' }) {
   if (!receipts.length) return null;
   const { movements, nativeValueIsMovement } = receiptMovementLines(receipts);
   const technicalMovements = receipts.flatMap((receipt) => receipt.technicalMovements);
   const showMovementFallback = shouldShowReceiptMovementFallback(receipts);
+  if (variant === 'outcome') {
+    if (movements.length === 0) return null;
+    // Receipt facts, never the earlier quote, lead the completed action.
+    const ordered = [...movements].sort((a, b) => Number(b.startsWith('received ')) - Number(a.startsWith('received ')));
+    return <section className={presentationStyles.receiptOutcome} aria-label="Verified receipt">
+      <dl>{ordered.map((movement, index) => {
+        const fact = /^(sent|received) (.+) ([A-Za-z][A-Za-z0-9]*)$/.exec(movement);
+        return fact ? <div key={index} data-direction={fact[1]}>
+          <dt>{fact[1] === 'received' ? 'Received' : 'Sent'}</dt>
+          <dd><TokenIcon symbol={fact[3]} size={24} /><span>{fact[2]} <span>{fact[3]}</span></span></dd>
+        </div> : <div key={index}><dd className={presentationStyles.receiptCaveat}>{movement}</dd></div>;
+      })}</dl>
+    </section>;
+  }
   return (
-    <section className="mt-4 w-full rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-left" aria-label="Verified receipt">
-      <p className="text-[13px] font-semibold">Verified receipt</p>
+    <section className={variant === 'details' ? presentationStyles.receiptDetails : 'mt-4 w-full rounded-2xl bg-[var(--surface-2)] px-4 py-3 text-left'} aria-label={variant === 'details' ? 'Receipt fees and technical details' : 'Verified receipt'}>
+      {variant === 'details' && movements.length === 0 && showMovementFallback && <p className="text-[12px] text-mut">No wallet token transfers appear in this receipt. Position changes and native ETH received are not represented by ERC-20 transfer logs.</p>}
+      {variant === 'default' && <><p className="text-[13px] font-semibold">Verified receipt</p>
       {movements.map((movement, index) => <p key={`movement-${index}`} className="mt-1.5 text-[13px] first-letter:uppercase">{movement}</p>)}
-      {movements.length === 0 && showMovementFallback && <p className="mt-1.5 text-[12px] text-mut">Token movements could not be established from the verified receipt logs.</p>}
+      {movements.length === 0 && showMovementFallback && <p className="mt-1.5 text-[12px] text-mut">Token movements could not be established from the verified receipt logs.</p>}</>}
       {technicalMovements.length > 0 && <details className="mt-2 text-[12px]"><summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-mut">Technical movement details<ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 disclosure-chevron" /></summary>{technicalMovements.map((movement, index) => <p key={`technical-${index}`} className="mt-1 break-all font-mono text-[11px] text-mut">{movement}</p>)}</details>}
       {receipts.map((receipt, index) => <div key={`fees-${index}`} className="mt-1.5 text-[12px] text-mut">
         {receipt.executionFee && <p>{receipt.feeLabel}: {receipt.executionFee}</p>}

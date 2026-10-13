@@ -14,7 +14,7 @@ test.describe('Earn route-specific settings', () => {
         const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
         await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(hasSlippage ? 1 : 0);
         await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toHaveCount(0);
-        await expect(dialog.getByText('Review and confirm the network fee in your connected wallet.')).toBeVisible();
+        await expect(dialog.getByText('Confirm the network fee in your wallet before signing.')).toBeVisible();
         const box = await dialog.boundingBox();
         expect(box!.x).toBeGreaterThanOrEqual(0);
         expect(box!.x + box!.width).toBeLessThanOrEqual(width);

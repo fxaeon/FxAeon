@@ -180,7 +180,7 @@ for (const market of ['ETH', 'BTC']) {
     await mount(page);
     await page.getByRole('combobox', { name: 'Market', exact: true }).selectOption(market);
     const amount = page.getByRole('textbox', { name: `Amount in ${market === 'ETH' ? 'ETH' : 'WBTC'}` });
-    const leverage = page.getByRole('spinbutton', { name: 'Target leverage' });
+    const leverage = page.getByRole('textbox', { name: 'Target leverage' });
     const ticket = page.getByRole('radiogroup', { name: 'Position side' });
     await page.getByText('How leverage works', { exact: true }).click();
     await page.getByText('Market details', { exact: true }).click();

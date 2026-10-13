@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode, Ref } from 'react';
+import { ChevronDown } from 'lucide-react';
 import type { TransactionExecutionResult, TransactionStepResult } from '@/lib/fx';
 import type { ReceiptPresentation } from '@/lib/receiptPresentation';
 import { compactAddress } from '@/lib/addressPresentation';
@@ -86,8 +87,13 @@ export function TransactionResultView({
   headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const ResultIcon = presentation.icon;
+  const compactSuccess = result.status === 'confirmed' && presentation.tone === 'success' && !bridgeTracker && result.operation !== 'buildBridgeTx';
+  const transactionLinks = result.steps.some(hasTransactionHash) && <div className="flex w-full flex-col gap-2 text-left">
+    {result.steps.map((step: TransactionStepResult) => hasTransactionHash(step)
+      ? <TransactionHashLink key={`${step.index}-${step.hash}`} step={step} chainId={result.chainId} /> : null)}
+  </div>;
   return (
-    <div className={styles.result}>
+    <div className={`${styles.result} ${compactSuccess ? styles.resultSuccess : ''}`}>
       <span className={styles.resultMark} data-tone={presentation.tone} aria-hidden="true">
         {presentation.tone === 'success'
           // A confirmed receipt draws its check once; nothing else celebrates.
@@ -95,24 +101,25 @@ export function TransactionResultView({
           : <ResultIcon className="h-7 w-7" />}
       </span>
       <h3 ref={headingRef} data-review-focus tabIndex={-1} className="text-display mt-4 text-[22px] font-semibold outline-none">{presentation.title}</h3>
-      <p className="mt-1.5 max-w-[34ch] text-[14px] leading-snug text-mut">
+      {(!compactSuccess || refreshing && positionAction) && <p className="mt-1.5 max-w-[34ch] text-[14px] leading-snug text-mut">
         {resultBodyDuringRefresh({ status: result.status, refreshing, positionAction, body: presentation.body })}
-      </p>
-      <p className={styles.resultMeta} title={result.walletAddress}>
+      </p>}
+      {compactSuccess && <ReceiptSummary receipts={receipts} variant="outcome" />}
+      {!compactSuccess && <><p className={styles.resultMeta} title={result.walletAddress}>
         {chainName(result.chainId)} · Wallet {compactAddress(result.walletAddress)}
       </p>
-      {result.steps.some(hasTransactionHash) && (
-        <div className="mt-4 flex w-full flex-col gap-2 text-left">
-          {result.steps.map((step: TransactionStepResult) => hasTransactionHash(step)
-            ? <TransactionHashLink key={`${step.index}-${step.hash}`} step={step} chainId={result.chainId} />
-            : null)}
-        </div>
-      )}
-      <ReceiptSummary receipts={receipts} />
+      <div className="mt-4 w-full">{transactionLinks}</div>
+      <ReceiptSummary receipts={receipts} /></>}
       {newPosition
         ? <NewPositionRow position={newPosition} />
         : positionLabel && <p className={styles.resultMeta}>Position: {positionLabel}</p>}
       {bridgeTracker}
+      {compactSuccess && <details className={styles.resultDetails}>
+        <summary>Transaction details <ChevronDown aria-hidden="true" className="h-4 w-4 disclosure-chevron" /></summary>
+        <p className={styles.resultMeta} title={result.walletAddress}>{chainName(result.chainId)} · {compactAddress(result.walletAddress)}</p>
+        <ReceiptSummary receipts={receipts} variant="details" />
+        {transactionLinks}
+      </details>}
       <Button variant={presentation.tone === 'danger' ? 'ghost' : 'primary'} className={`mt-5 ${flowStyles.primaryAction}`} onClick={onNext}>{nextLabel}</Button>
     </div>
   );

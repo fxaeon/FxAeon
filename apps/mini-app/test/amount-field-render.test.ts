@@ -81,6 +81,19 @@ test('using the whole balance is worth what the balance is worth', async () => {
   assert.doesNotMatch(unknown.usd, /\$/);
 });
 
+test('whole-balance sentinel displays the exact known balance and stays selected as Max', async () => {
+  const known = await field({ value: 'all', allowAll: true, balanceState: { status: 'ready', amount: '12.340000000000000001' } });
+  assert.match(known.html, /value="12\.340000000000000001"/);
+  assert.match(known.html, /data-selected="true"/);
+  assert.doesNotMatch(known.html, /value="all"/);
+
+  const unavailable = await field({ value: 'all', allowAll: true, balanceState: { status: 'unavailable' } });
+  assert.match(unavailable.html, /value=""/);
+  assert.match(unavailable.html, /title="Balance unavailable"/);
+  assert.match(unavailable.html, /data-selected="true"/);
+  assert.doesNotMatch(unavailable.html, /value="all"/);
+});
+
 test('an amount above the balance says how much is available and how to recover', async () => {
   const over = await field({ value: '2', balanceState: { status: 'ready', amount: '1.256789123' } });
   assert.match(over.text, /Amount exceeds your available 1\.25678912 ETH\. Enter less or use Max\./);
@@ -92,4 +105,10 @@ test('an amount above the balance says how much is available and how to recover'
   assert.match((await field({ value: '1', balanceState: { status: 'ready', amount: '0' } })).text, /This wallet has no ETH\. Add some to continue\./);
   assert.match((await field({ value: '1', balanceState: { status: 'ready', amount: '0' }, tokenSelector: React.createElement('span', null, 'picker') })).text,
     /This wallet has no ETH\. Add some or choose another asset to continue\./);
+});
+
+test('asset precision remains visible as a field error', async () => {
+  const result = await field({ value: '1.234', maxDecimals: 2 });
+  assert.match(result.html, /This asset allows 2 decimal places/);
+  assert.match(result.html, /aria-invalid="true"/);
 });

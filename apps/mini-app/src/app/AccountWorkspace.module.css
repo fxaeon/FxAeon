@@ -46,7 +46,7 @@
 
 .walletTrigger, .walletConnect, .walletIconAction { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .walletTrigger, .walletConnect { min-height: 44px; border-radius: 14px; padding: 0 13px; }
-.walletConnect { display: inline-flex; align-items: center; gap: 8px; color: var(--mint); font-size: 12px; font-weight: 650; }
+.walletConnect { display: inline-flex; align-items: center; gap: 8px; color: var(--mint-text); font-size: 12px; font-weight: 650; }
 .walletIconAction { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; border-radius: 14px; color: var(--mut); }
 .walletIconAction:hover { color: var(--mint); }
 
@@ -74,7 +74,7 @@
 
 .activityList { padding-inline: 16px !important; }
 .activityRow { min-height: 72px !important; border-bottom-color: var(--line) !important; padding-block: 14px !important; }
-.activityLink { min-height: 52px !important; border-top-color: var(--line) !important; padding-inline: 20px !important; color: var(--mint) !important; }
+.activityLink { min-height: 52px !important; border-top-color: var(--line) !important; padding-inline: 20px !important; color: var(--mint-text) !important; }
 .activitySection { display: flex; flex-direction: column; gap: 14px; }
 
 .portfolioPositionItem { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
@@ -99,7 +99,7 @@
 .portfolioEarnActions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 14px; }
 .portfolioEarnActions a { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 11px; color: var(--mut); font-size: 11px; font-weight: 650; }
 .portfolioEarnActions a:hover { border-color: color-mix(in srgb, var(--mint) 44%, var(--line)); color: var(--text); }
-.portfolioEarnActions a:first-child { border-color: color-mix(in srgb, var(--mint) 34%, var(--line)); color: var(--mint); background: var(--mint-dim); }
+.portfolioEarnActions a:first-child { border-color: color-mix(in srgb, var(--mint) 34%, var(--line)); color: var(--mint-text); background: var(--mint-dim); }
 .portfolioEarnSkeleton { display: grid; gap: 9px; min-height: 126px; }
 
 @media (min-width: 900px) {
@@ -247,7 +247,7 @@
 .workspace:global(.portfolio-dashboard) .balanceRow { min-height: 64px !important; padding-block: 10px !important; transition: background-color 160ms ease; }
 .workspace:global(.portfolio-dashboard) .balanceRow:hover { background: color-mix(in srgb, var(--surface-2) 68%, transparent); }
 .workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button) { min-height: 56px; border: 1px solid var(--mint); border-radius: 17px; background: var(--mint); box-shadow: none; color: var(--on-accent); transition: transform 180ms ease, background-color 180ms ease; }
-.workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button:hover) { background: var(--mint-bright); transform: translateY(-1px); }
+.workspace:global(.portfolio-dashboard) .disconnectedOverview > .primaryColumn > :global(button:hover) { background: var(--mint); transform: translateY(-1px); }
 
 @media (max-width: 600px) {
   .workspace:global(.portfolio-dashboard) { gap: 10px; }

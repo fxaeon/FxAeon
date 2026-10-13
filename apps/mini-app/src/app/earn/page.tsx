@@ -468,7 +468,7 @@ export default function EarnPage() {
         <div className={presentation.vaultLayout} data-review={reviewStage !== 'input' || mode === 'claim'}>
         {reviewStage === 'input' && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus} onClaim={() => changeMode('claim')} />}
-        <ProductSurface className={presentation.panel} data-flow-stage={reviewStage}>
+        <ProductSurface data-result-container className={presentation.panel} data-flow-stage={reviewStage}>
           <ActionReview
             key={reviewRevision}
             surface="content"

@@ -20,7 +20,11 @@ import { E2E_BUILD_ENV } from '../../../scripts/e2e_build_env.mjs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = join(__dirname, '..');
-const DIST = join(ROOT, 'dist');
+const DIST_DIR = process.env.FX_E2E_DIST_DIR?.trim() || 'dist';
+if (!/^[a-zA-Z0-9_-]+$/.test(DIST_DIR)) {
+  throw new Error('FX_E2E_DIST_DIR must be a simple directory name inside the mini-app workspace');
+}
+const DIST = join(ROOT, DIST_DIR);
 const PORT = Number(process.env.PORT || 4321);
 
 const BUILD_ENV = E2E_BUILD_ENV;

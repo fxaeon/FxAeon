@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatUnits } from 'viem';
 import { ChevronRight } from 'lucide-react';
 import { SettingsPopover } from '@/components/SettingsPopover';
+import { DecimalInput } from '@/components/DecimalInput';
 import { fetchGasTierQuotes, type GasTierQuotes } from '@/lib/fx/gasFeePolicy';
 import { usePrivyWallet } from '@/lib/wallet';
 import { useWalletProviderMode } from '@/lib/wallet/providerMode';
@@ -79,7 +80,9 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
   const [error, setError] = useState('');
   const [gas, setGas] = useState<GasTierQuotes | null>(null);
   const [gasStatus, setGasStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [inputError, setInputError] = useState('');
   const presetIndex = SLIPPAGE_PRESETS_BPS.findIndex((value) => value / 100 === Number(percent));
+
 
   useEffect(() => {
     if (walletSetsFees) return;
@@ -93,23 +96,21 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
 
   const choosePreset = (value: number) => {
     haptic('selection');
-    setDraft(null); setError('');
+    setDraft(null); setError(''); setInputError('');
     if (writeTransactionSettings({ slippageBps: value })) onSlippageChange?.(percentNumber(value));
   };
   const commit = () => {
     if (draft === null) return;
-    setDraft(null);
     // An untouched restored value is not a new saved preference. It can
     // legitimately have finer precision than the settings editor permits.
     if (controlledSlippage && draft === percent) { setError(''); return; }
-    const text = draft.trim().replace(',', '.');
-    if (!text) { setError(''); return; }
+    const text = draft.replace(',', '.');
     const value = Math.round(Number(text) * 100);
     if (!/^\d*\.?\d+$/.test(text) || !isSlippageBps(value) || Math.abs(Number(text) * 100 - value) > 1e-9) {
       setError(`Enter ${formatPercent(MIN_SLIPPAGE_BPS)} to ${formatPercent(MAX_SLIPPAGE_BPS)} in steps of 0.01%.`);
       return;
     }
-    setError('');
+    setError(''); setInputError(''); setDraft(null);
     if (writeTransactionSettings({ slippageBps: value })) onSlippageChange?.(percentNumber(value));
   };
   const chooseTier = (value: GasTier) => {
@@ -129,15 +130,22 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
         {SLIPPAGE_PRESETS_BPS.map((value) => <button key={value} type="button" role="radio" aria-checked={value / 100 === Number(percent)}
           onClick={() => choosePreset(value)}>{formatPercent(value)}</button>)}
       </div>
-      <label className={styles.custom} data-active={presetIndex < 0 || undefined} data-invalid={Boolean(error) || undefined}>
+      <label className={styles.custom} data-active={presetIndex < 0 || undefined} data-invalid={Boolean(error || inputError) || undefined}>
         <span>Custom</span>
-        <input inputMode="decimal" enterKeyHint="done" autoComplete="off" value={draft ?? percent} aria-label="Slippage tolerance percentage"
-          aria-describedby={`${id}-slippage-help`} aria-invalid={Boolean(error)}
-          onFocus={() => setDraft(percent)} onChange={(event) => { setDraft(event.target.value.slice(0, 6)); setError(''); }}
+        <DecimalInput enterKeyHint="done" autoComplete="off" value={draft ?? percent} aria-label="Slippage tolerance percentage" policy="comma-decimal"
+          aria-describedby={`${id}-slippage-help`} aria-invalid={Boolean(error || inputError)}
+          onFocus={() => setDraft(percent)} onInvalidInput={(message) => { if (message) { setDraft(''); setInputError(message); onSlippageChange?.(''); } else setInputError(''); }}
+          onValueChange={(next) => {
+            setDraft(next); setError(''); setInputError('');
+            const text = next.replace(',', '.');
+            const bps = Math.round(Number(text) * 100);
+            const valid = /^\d*\.?\d+$/.test(text) && isSlippageBps(bps) && Math.abs(Number(text) * 100 - bps) <= 1e-9;
+            onSlippageChange?.(valid ? next : '');
+          }}
           onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(); (event.target as HTMLInputElement).blur(); } }} />
         <span aria-hidden="true">%</span>
       </label>
-      {error && <p className={styles.error} role="alert">{error}</p>}
+      {(inputError || error) && <p className={styles.error} role="alert">{inputError || error}</p>}
     </section>}
     <section className={styles.section} aria-label={walletSetsFees ? 'Network fee' : undefined} aria-labelledby={!walletSetsFees ? `${id}-speed` : undefined}>
       {walletSetsFees ? <p className={`${styles.help} ${styles.walletFeeNote}`}>Confirm the network fee in your wallet before signing.</p> : <>

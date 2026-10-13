@@ -2,7 +2,7 @@
 .section { min-width: 0; padding: 16px 2px; border-top: 1px solid var(--line); }
 .sectionHead { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 12px; }
 .sectionHead h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--mut); letter-spacing: 0; }
-.sectionAction { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: var(--mint); font-size: 12px; font-weight: 500; }
+.sectionAction { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: var(--mint-text); font-size: 12px; font-weight: 500; }
 .sectionAction svg { width: 14px; height: 14px; }
 .sectionAction:hover { text-decoration: underline; }
 .stats { display: grid; gap: 14px; margin: 0; }
@@ -21,5 +21,5 @@
 .calloutIcon svg { width: 17px; height: 17px; }
 .callout h3 { margin: 0; font-size: 12px; font-weight: 500; color: var(--text); }
 .callout p { margin: 5px 0 0; color: var(--mut); font-size: 11px; line-height: 1.7; }
-.calloutLink { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 11px; color: var(--mint); }
+.calloutLink { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 11px; color: var(--mint-text); }
 .calloutLink svg { width: 13px; height: 13px; }

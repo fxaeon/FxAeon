@@ -1,7 +1,7 @@
 import type { PlannedRoute } from './types';
 
 /**
- * A route preview is useful only for the exact form and chain snapshot which
+ * A route preview is useful only for the exact form and wallet session which
  * produced it. Keeping every field explicit makes accidental cache widening
  * visible in review and prevents a prefetched quote from crossing sessions.
  */
@@ -23,7 +23,7 @@ export type RoutePrefetchDescriptor = {
 
 export type PrefetchedRoutes = PlannedRoute | readonly PlannedRoute[];
 
-export const ROUTE_PREFETCH_TTL_MS = 10_000;
+export const ROUTE_PREFETCH_TTL_MS = 30_000;
 
 function finiteNumberKey(value: number, label: string): string {
   if (!Number.isFinite(value)) throw new TypeError(`${label} must be finite`);
@@ -154,7 +154,12 @@ export class RoutePrefetchStore {
         if (this.entry !== entry || entry.expiresAt <= clock()) return null;
         const current = await currentDescriptor();
         if (this.entry !== entry || entry.expiresAt <= clock()
-          || !current || entry.key !== routePrefetchKey(current)) return null;
+          || !current || current.blockNumber < descriptor.blockNumber
+          || entry.key !== routePrefetchKey({ ...current, blockNumber: descriptor.blockNumber })) return null;
+        // A new block alone does not change the user's requested transaction.
+        // The caller rechecks live limits and ActionReview validates/simulates
+        // this exact calldata before review and again before signing. Keep the
+        // short wall-clock expiry; never renew it when the quote is read.
         return routes;
       } catch {
         // Warm-up failures leave the normal fresh planner available.

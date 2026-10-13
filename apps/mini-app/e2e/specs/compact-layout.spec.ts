@@ -58,8 +58,8 @@ test('form review actions remain reachable with 200% text in every appearance th
     for (let attempt = 0; attempt < themes.length; attempt += 1) {
       const current = await html.getAttribute('data-theme') ?? 'official';
       if (current === theme) return;
-      const next = current === 'official' ? 'dark' : current === 'dark' ? 'light' : 'official';
-      await page.getByRole('button', { name: `Switch to ${next} theme` }).click();
+      const next = current === 'dark' ? 'official' : 'dark';
+      await page.getByRole('button', { name: `Switch to ${next === 'official' ? 'light' : 'dark'} theme` }).click();
       await expect(html).toHaveAttribute('data-theme', next);
     }
     await expect(html).toHaveAttribute('data-theme', theme);

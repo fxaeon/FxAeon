@@ -2,6 +2,7 @@
 
 import { type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { usePauseAutomaticPositionRefresh } from './PositionRefreshActivity';
 import { usePresentedTransactions } from '@/lib/pendingActivity';
 import {
@@ -143,6 +144,7 @@ function statusPresentation(params: Parameters<typeof buildStatusPresentation>[0
 }
 
 export function ActionReview(props: ActionReviewProps) {
+  const router = useRouter();
   const lifecycle = useActionReviewLifecycle(props);
   const { label = 'Review action', disabled = false, blocker = null, operationLabel, destructive = false, editor, decisionBefore, executionCost, surface = 'card', planBuilder, onViewNewPosition } = props;
   const { canSelectReviewedRoute, endConnectFlow, error, execute, feeSelection, gasCost, headingRef, loading, networkSwitching, quoteChanges, quoteExpired, refreshReviewedQuote, refreshing, reset, result, review, reviewTitle, route, routeSummaries, routes, selectedRoute, selectReviewedRoute, selectGasTier, startConnectFlow, stage, status, statusDetail, stepResults, triggerRef, wallet } = lifecycle;
@@ -238,8 +240,9 @@ export function ActionReview(props: ActionReviewProps) {
     const positionLabel = positionAction && result.status === 'confirmed' && positionId !== undefined
       ? `${positionMarket ?? 'Protocol'}${positionSide ? ` ${positionSideLabel(positionSide)}` : ''} · #${positionId}`
       : undefined;
-    const positionHref = positionId !== undefined && positionMarket && positionSide
-      ? `/positions?position=${encodeURIComponent(`${positionMarket}:${positionSide}:${positionId}`)}&action=${positionIntent?.kind === 'position-reduce' && positionIntent.isClosePosition ? 'close' : positionIntent?.kind === 'position-reduce' || positionIntent?.kind === 'repay-and-withdraw' ? 'reduce' : positionIntent?.kind === 'position-adjust' ? 'leverage' : 'increase'}`
+    const closedPosition = result.status === 'confirmed' && positionIntent?.kind === 'position-reduce' && positionIntent.isClosePosition;
+    const positionHref = !closedPosition && positionId !== undefined && positionMarket && positionSide
+      ? `/positions?position=${encodeURIComponent(`${positionMarket}:${positionSide}:${positionId}`)}`
       : undefined;
     // A position Trade just opened is named as History names this transaction,
     // and drawn as its row with the split chosen on the ticket.
@@ -247,7 +250,13 @@ export function ActionReview(props: ActionReviewProps) {
       && positionIntent?.kind === 'position-increase' && positionIntent.positionId === 0 && poolLocation
       ? { ...poolLocation, targetLeverage: positionIntent.requestedLeverage }
       : undefined;
-    const presentation = resultPresentation(result, bridge, opened ? openedPositionTitle(opened.market, opened.side) : undefined);
+    const confirmedTitle = opened ? openedPositionTitle(opened.market, opened.side)
+      : closedPosition ? 'Position closed'
+      : result.operation === 'adjustPositionLeverage' ? 'Leverage updated'
+      : positionAction ? 'Position updated'
+      : result.operation === 'depositFxSave' ? 'Deposit complete'
+      : undefined;
+    const presentation = resultPresentation(result, bridge, confirmedTitle);
     const newPosition = opened && receiptPositionIdentity
       && receiptPositionIdentity.market === opened.market && receiptPositionIdentity.side === opened.side
       && opened.targetLeverage !== undefined && Number.isFinite(opened.targetLeverage) && opened.targetLeverage > 0
@@ -309,14 +318,15 @@ export function ActionReview(props: ActionReviewProps) {
               destinationBaselineBlock={bridgeQuote.destinationBaselineBlock}
             />
           ) : undefined}
-          nextLabel={transactionTask ? 'View transaction progress' : approvalSubmittedWithoutAction ? 'Continue action' : bridge ? 'Back to Move' : positionAction ? 'View position' : result.status === 'confirmed' ? 'Done' : 'Try again'}
+          nextLabel={transactionTask ? 'View transaction progress' : approvalSubmittedWithoutAction ? 'Continue action' : bridge ? 'Back to Move' : closedPosition ? 'View positions' : positionAction ? 'View position' : result.status === 'confirmed' ? 'Done' : 'Try again'}
           onNext={() => {
             if (approvalSubmittedWithoutAction) { reset(); return; }
-            if (transactionTask) { window.location.assign(transactionTask.href); return; }
+            if (transactionTask) { router.push(transactionTask.href); return; }
             if (positionAction) {
               // A position this review just opened can open in place, carrying its split.
               if (newPosition && positionHref && onViewNewPosition) { onViewNewPosition({ key: newPosition.key, href: positionHref }); return; }
-              window.location.assign(positionHref ?? '/positions');
+              reset();
+              router.push(positionHref ?? '/positions');
               return;
             }
             reset();

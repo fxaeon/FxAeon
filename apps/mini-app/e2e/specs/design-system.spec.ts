@@ -257,7 +257,7 @@ test.describe('cohesive responsive design', () => {
   test('leverage keeps a full touch target and keyboard control at mobile and desktop widths', async ({ page, requests }) => {
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
     const slider = page.getByRole('slider', { name: 'Target leverage slider', exact: true });
-    const amount = page.getByRole('spinbutton', { name: 'Target leverage', exact: true });
+    const amount = page.getByRole('textbox', { name: 'Target leverage', exact: true });
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(slider).toBeVisible();

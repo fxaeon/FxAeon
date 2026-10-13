@@ -29,8 +29,8 @@
   --muted: #b0b0b0;
   --card: #1b1b1f;
   --line: #b3c3e21c;
-  --accent: #3b82f6;
-  --accent-bright: #3b82f6;
+  --accent: #2973ff;
+  --accent-bright: #2973ff;
   --ease: cubic-bezier(0.22, 0.7, 0.25, 1);
   --app-bg: #111113;
   --app-surface: #1b1b1f;
@@ -39,8 +39,8 @@
   --app-text: #f4f4f5;
   --app-mut: #a8a8b2;
   --app-mut-2: #94949f;
-  --app-accent: #3b82f6;
-  --app-on-accent: #0d1422;
+  --app-accent: #2973ff;
+  --app-on-accent: #0b0c0e;
   --app-success: #53d5a0;
   --spring: ease;
   --ease-out: ease;
@@ -48,7 +48,7 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --accent: #1d4ed8;
-  --accent-bright: #1e40af;
+  --accent-bright: #1d4ed8;
   --bg: #f7f7f8;
   --text: #1b1b1b;
   --muted: #62626b;
@@ -126,8 +126,8 @@ button svg {
   stroke-linejoin: round;
 }
 ::selection {
-  background: #2563eb;
-  color: #fff;
+  background: #2973ff;
+  color: #0b0c0e;
 }
 :focus-visible {
   outline: 3px solid var(--accent);
@@ -262,12 +262,12 @@ button svg {
     background 0.25s;
 }
 .button.primary {
-  background: #2563eb;
-  color: #fff;
+  background: #2973ff;
+  color: #0b0c0e;
 }
 .button.primary:hover {
-  background: #1d4ed8;
-  box-shadow: 0 0 0 7px #2563eb20;
+  background: #2973ff;
+  box-shadow: 0 0 0 7px #2973ff20;
   transform: translateY(-2px);
 }
 .button.subtle {
@@ -1149,8 +1149,8 @@ h2 {
 }
 .bubble-button {
   text-align: center;
-  background: #2563eb;
-  color: #ffffff;
+  background: #2973ff;
+  color: #0b0c0e;
   border-radius: 6px;
   padding: 10px;
   font-size: 12px;
@@ -3018,7 +3018,7 @@ details[open] summary:after {
   color: var(--accent);
 }
 .button.primary {
-  color: #fff;
+  color: #0b0c0e;
 }
 .hero-watermark {
   inset: 90px 14% -70px;
@@ -3891,8 +3891,8 @@ details[open] summary:after {
   justify-content: center;
   gap: 26px;
   padding: 0 20px;
-  background: #2563eb;
-  color: #ffffff;
+  background: #2973ff;
+  color: #0b0c0e;
   border-radius: 6px 16px 6px 16px;
   font-size: 13px;
   font-weight: 500;
@@ -3901,7 +3901,7 @@ details[open] summary:after {
     transform 0.2s;
 }
 .nav-launch:hover {
-  background: #1d4ed8;
+  background: #2973ff;
   transform: translateY(-2px);
 }
 .nav-launch span {
@@ -4138,15 +4138,15 @@ details[open] summary:after {
   line-height: 1.35;
   padding: 27px 28px;
   border-radius: 24px 8px 24px 8px;
-  background: #2563eb;
-  color: #fff;
+  background: #2973ff;
+  color: #0b0c0e;
   transition:
     background 0.25s,
     transform 0.25s;
   flex-shrink: 0;
 }
 .footer-launch:hover {
-  background: #1d4ed8;
+  background: #2973ff;
   transform: translateY(-4px);
 }
 .launch-arrow {
@@ -4432,13 +4432,13 @@ details[open] summary:after {
   margin: 16px 18px 18px;
   padding: 10px;
   border-radius: 28px;
-  background: linear-gradient(125deg, #2563eb, #1e40af 45%, #3b82f6 100%);
+  background: linear-gradient(125deg, #2973ff, #2973ff 45%, #2973ff 100%);
 }
 .footer-frame .site-footer {
   --text: #f3f5fa;
   --muted: #b3b8c1;
   --line: #ffffff14;
-  --accent: #3b82f6;
+  --accent: #2973ff;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -4514,17 +4514,17 @@ details[open] summary:after {
   font-size: 13px;
   line-height: 1.5;
   font-weight: 500;
-  background: #2563eb;
-  color: #fff;
-  box-shadow: 0 0 0 7px #2563eb12;
+  background: #2973ff;
+  color: #0b0c0e;
+  box-shadow: 0 0 0 7px #2973ff12;
   margin-top: 8px;
 }
 .footer-launch > span {
   font-size: 19px;
 }
 .footer-frame .footer-launch:hover {
-  background: #1d4ed8;
-  box-shadow: 0 0 0 10px #2563eb18;
+  background: #2973ff;
+  box-shadow: 0 0 0 10px #2973ff18;
   transform: translateY(-2px);
 }
 .footer-frame .footer-directory {
@@ -4536,7 +4536,7 @@ details[open] summary:after {
 }
 .footer-about .brand {
   font-size: 23px;
-  color: #3b82f6;
+  color: #2973ff;
   margin-bottom: 18px;
   gap: 6px;
 }
@@ -4756,8 +4756,8 @@ details[open] summary:after {
   border-color: #b4c3e220;
 }
 .protocol .flow-center {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  color: #f1f5fc;
+  background: #2973ff;
+  color: #0b0c0e;
 }
 .protocol .flow-line {
   background: #808fac50;
@@ -4977,8 +4977,8 @@ details[open] summary:after {
 .closing-surface {
   display: flow-root;
   background:
-    radial-gradient(ellipse at 92% 52%, #2563eb30, transparent 50%),
-    linear-gradient(180deg, var(--bg), #172b57 22%, #1d4ed8 43%, #2563eb 62%);
+    radial-gradient(ellipse at 92% 52%, #2973ff30, transparent 50%),
+    linear-gradient(180deg, var(--bg), #172b57 22%, #2973ff 43%, #2973ff 62%);
 }
 .closing-surface .telegram {
   background: linear-gradient(140deg, #232832, #1c2029 55%, #242d3c), #232832;
@@ -5082,7 +5082,7 @@ details[open] summary:after {
 .footer-frame {
   margin: 0;
   padding: 0 12px 12px;
-  background: #2563eb;
+  background: #2973ff;
   border-radius: 0;
 }
 .footer-frame .footer-invite h2 {
@@ -5112,8 +5112,8 @@ details[open] summary:after {
 }
 :root[data-theme="light"] .closing-surface {
   background:
-    radial-gradient(ellipse at 92% 52%, #2563eb20, transparent 50%),
-    linear-gradient(180deg, var(--bg), #b8cef6 25%, #2563eb 62%);
+    radial-gradient(ellipse at 92% 52%, #2973ff20, transparent 50%),
+    linear-gradient(180deg, var(--bg), #b8cef6 25%, #2973ff 62%);
 }
 :root[data-theme="light"] .closing-surface .telegram {
   background: linear-gradient(140deg, #e4e8f1, #d0d8e7);
@@ -5264,7 +5264,7 @@ details[open] summary:after {
 }
 :root[data-theme="light"] .protocol .principles article { background: #ffffff80; }
 :root[data-theme="light"] .protocol .flow-node { background: #ffffffb3; }
-:root[data-theme="light"] .protocol .flow-center { background: #2563eb; }
+:root[data-theme="light"] .protocol .flow-center { background: #2973ff; }
 
 /* Neutral planes keep blue deliberate across the marketing and app surfaces. */
 .products .product-card,
@@ -5285,7 +5285,7 @@ details[open] summary:after {
 :root[data-theme="light"] .closing-surface .telegram { background: #fff; border-color: #e4e4e7; }
 :root[data-theme="light"] .protocol .principles article,
 :root[data-theme="light"] .protocol .flow-node { background: #fff; }
-:root[data-theme="light"] .protocol .flow-center { background: #2563eb; }
+:root[data-theme="light"] .protocol .flow-center { background: #2973ff; }
 :root[data-theme="light"] .faq { --text: #202024; --muted: #62626b; color: var(--text); }
 :root[data-theme="light"] .faq .faq-list { background: transparent; padding: 0; }
 :root[data-theme="light"] .faq .faq-list details { background: #fff; color: #202024; }

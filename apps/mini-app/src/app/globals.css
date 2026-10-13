@@ -26,13 +26,14 @@
   --text: #202024;
   --mut: #5e5e67;
   --mut-2: #6b6b74;
-  --mint: #2563eb;
+  --mint: #2973ff;
   --mint-bright: #1d4ed8;
-  --mint-dim: rgba(37, 99, 235, 0.09);
-  --mint-glow: rgba(37, 99, 235, 0.14);
-  --on-accent: #ffffff;
+  --mint-text: #1d4ed8;
+  --mint-dim: rgba(41, 115, 255, 0.09);
+  --mint-glow: rgba(41, 115, 255, 0.14);
+  --on-accent: #0b0c0e;
   --cyan: #1d4ed8;
-  --brand-coral: #2563eb;
+  --brand-coral: #2973ff;
   --success: #216e4b;
   --success-dim: rgba(35, 115, 78, 0.09);
   --danger: #b33750;
@@ -185,13 +186,14 @@
   --text: #f4f4f5;
   --mut: #a8a8b2;
   --mut-2: #94949f;
-  --mint: #3b82f6;
-  --mint-bright: #3b82f6;
-  --mint-dim: rgba(59, 130, 246, 0.12);
-  --mint-glow: rgba(59, 130, 246, 0.2);
-  --on-accent: #06142a;
-  --cyan: #3b82f6;
-  --brand-coral: #3b82f6;
+  --mint: #2973ff;
+  --mint-bright: #2973ff;
+  --mint-text: #5b8fff;
+  --mint-dim: rgba(41, 115, 255, 0.12);
+  --mint-glow: rgba(41, 115, 255, 0.2);
+  --on-accent: #0b0c0e;
+  --cyan: #2973ff;
+  --brand-coral: #2973ff;
   --success: #53d5a0;
   --danger: #ff5c70;
   --warn: #f2b84b;
@@ -220,13 +222,14 @@
   --text: #17263d;
   --mut: #566579;
   --mut-2: #63738a;
-  --mint: #2563eb;
+  --mint: #2973ff;
   --mint-bright: #1d4ed8;
-  --mint-dim: rgba(37, 99, 235, 0.09);
-  --mint-glow: rgba(37, 99, 235, 0.16);
-  --on-accent: #ffffff;
-  --cyan: #3b82f6;
-  --brand-coral: #2563eb;
+  --mint-text: #1d4ed8;
+  --mint-dim: rgba(41, 115, 255, 0.09);
+  --mint-glow: rgba(41, 115, 255, 0.16);
+  --on-accent: #0b0c0e;
+  --cyan: #1d4ed8;
+  --brand-coral: #2973ff;
   --success: #12804f;
   --success-dim: rgba(18, 128, 79, 0.09);
   --danger: #c92b49;
@@ -929,7 +932,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 .network-selector-menu strong { font-size: var(--fs-small); font-weight: 600; }
 .network-selector-menu small { margin-top: 2px; color: var(--mut-2); font-size: var(--fs-micro); }
 .network-selector-menu .network-option-label { display: inline-flex; align-items: center; gap: 10px; }
-.network-selector-menu .network-selector-connect { justify-content: center; border-bottom: 1px solid var(--line); border-radius: var(--radius-sm) var(--radius-sm) 6px 6px; color: var(--mint); font-weight: 700; }
+.network-selector-menu .network-selector-connect { justify-content: center; border-bottom: 1px solid var(--line); border-radius: var(--radius-sm) var(--radius-sm) 6px 6px; color: var(--mint-text); font-weight: 700; }
 .network-selector-menu > .network-selector-error { position: static; width: auto; max-width: none; margin: 0 0 4px; box-shadow: none; animation: none; }
 .network-selector-wrap-blocked .network-selector-menu { top: calc(100% + 38px); }
 
@@ -1233,9 +1236,9 @@ details[open] > summary .disclosure-closed-only { display: none; }
 }
 
 .nav-item-active {
-  color: var(--mint-bright);
+  color: var(--mint-text);
 }
-:root[data-theme='light'] .nav-item-active { color: var(--mint); }
+:root[data-theme='light'] .nav-item-active { color: var(--mint-text); }
 
 .nav-item-mobile {
   display: flex;
@@ -1471,11 +1474,15 @@ select.field-control option {
   gap: 8px;
   padding: 0 14px;
   border-radius: 999px;
-  color: var(--mint);
+  color: var(--mint-text);
   font-size: var(--fs-caption);
   font-weight: 600;
   text-align: left;
 }
+
+/* `text-mint` is the text role of the brand token; fills keep `--mint`. */
+.text-mint,
+.hover\:text-mint:hover { color: var(--mint-text); }
 
 /* One shape in every state: a rounded tint drawn 36px tall inside the 44px
    target, adding no width. It used to appear only while :hover stuck after a tap. */

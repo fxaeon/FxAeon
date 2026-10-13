@@ -6,11 +6,39 @@ const harness = readFileSync(new URL("./run_anvil_tests.mjs", import.meta.url), 
 const browserProof = readFileSync(new URL("../apps/mini-app/e2e/fork/positions.browser.ts", import.meta.url), "utf8");
 const protocolProof = readFileSync(new URL("../apps/mini-app/test/anvil.integration.test.ts", import.meta.url), "utf8");
 const earnProof = readFileSync(new URL("../apps/mini-app/test/earn.anvil.test.ts", import.meta.url), "utf8");
+const nextConfig = readFileSync(new URL("../apps/mini-app/next.config.js", import.meta.url), "utf8");
+const staticServer = readFileSync(new URL("../apps/mini-app/e2e/serve.mjs", import.meta.url), "utf8");
 
 test("fork harness enables deterministic idle blocks for strict finality", () => {
   assert.match(harness, /ANVIL_BLOCK_TIME \?\? "1"/);
   assert.match(harness, /"--block-time", String\(blockTime\)/);
   assert.match(harness, /ANVIL_BLOCK_TIME must be a positive number/);
+});
+
+test("manual funded preview is isolated from the hidden automation defaults", () => {
+  assert.match(harness, /FX_FORK_PREVIEW_ANVIL_PORT \?\? "8548"/);
+  assert.match(harness, /ANVIL_PORT \?\? "8547"/);
+  assert.match(harness, /FX_FORK_PREVIEW_BROWSER_PORT \?\? "4326"/);
+  assert.match(harness, /FX_FORK_BROWSER_PORT \?\? "4325"/);
+  assert.match(harness, /dist-fork-preview-\$\{browserPort\}/);
+  assert.match(harness, /previewMode\) \{/);
+  assert.match(harness, /else if \(previewMode\)/);
+  assert.match(nextConfig, /distDir: configuredDistDir/);
+  assert.match(staticServer, /const DIST = join\(ROOT, DIST_DIR\)/);
+  assert.match(browserProof, /headless: !previewMode/);
+  assert.match(browserProof, /LOCAL FORK PREVIEW/);
+  assert.match(browserProof, /transactions stay on 127\.0\.0\.1/);
+  assert.match(browserProof, /browser\.once\('disconnected', \(\) => resolveDisconnected\(\)\)/);
+  assert.match(browserProof, /page\.waitForEvent\('close', \{ timeout: 0 \}\)/);
+  assert.match(browserProof, /submitted\.push\(\{ hash, to: tx\.to, data: tx\.data \?\? '0x'/);
+  assert.match(browserProof, /const discoverPreviewCandidates = async/);
+  assert.match(browserProof, /positionRouterEventMatchesRecipient\(event, log, receipt\.logs, account\)/);
+  assert.match(browserProof, /owner\.toLowerCase\(\) === account\.toLowerCase\(\)/);
+  assert.match(browserProof, /if \(!previewMode\) \{\s*heldReceipts\.set/);
+  assert.match(browserProof, /if \(!previewMode\) await context\.tracing\.start/);
+  assert.match(browserProof, /if \(!previewMode\) await context\.tracing\.stop/);
+  assert.match(browserProof, /if \(previewMode\) return;/);
+  assert.match(browserProof, /if \(!previewMode\) \{\s*let nextGroup = 0;/);
 });
 
 test("fork proofs validate the configured base through Anvil metadata", () => {

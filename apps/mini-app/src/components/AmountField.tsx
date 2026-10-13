@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import TokenIcon from '@/components/TokenIcon';
+import { DecimalInput } from '@/components/DecimalInput';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import type { TokenBalanceView } from '@/components/wallet-balance-cache';
-import { calculateFractionDecimal, compareExactDecimals, decimalInputError, formatBalanceDecimal, normalizeAmountInput, positiveDecimal } from '@/lib/amount';
+import { calculateFractionDecimal, compareExactDecimals, decimalInputError, formatBalanceDecimal, positiveDecimal } from '@/lib/amount';
 import { formatUsd, formatUsdPrice, priceKeyForSymbol, usdValueForDecimal } from '@/lib/prices';
 import { ASSET_PRICE_MAX_AGE_MS } from '@/lib/walletAssets';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
@@ -69,11 +70,16 @@ export function AmountFieldView({ value, onChange, symbol, label, hint, balance,
   const id = useId();
   const [hydrated, setHydrated] = useState(false);
   const [maxError, setMaxError] = useState('');
+  const [entryError, setEntryError] = useState('');
   useEffect(() => { setHydrated(true); }, []);
-  useEffect(() => { setMaxError(''); }, [symbol]);
+  useEffect(() => { setMaxError(''); setEntryError(''); }, [symbol]);
   // An explicit unavailable state always wins over a legacy balance prop.
   const available = balanceState ? balanceState.status === 'ready' ? balanceState.amount ?? null : null : balance;
   const entered = value.trim();
+  // Keep the whole-balance sentinel internal. Show the exact balance when it
+  // is known; an unavailable balance remains visibly empty instead of showing
+  // a non-numeric sentinel or implying a guessed amount.
+  const displayValue = allowAll && entered.toLowerCase() === 'all' ? available ?? '' : value;
   // "all" spends the whole balance, so it is worth what the balance is worth.
   const worthOf = allowAll && entered.toLowerCase() === 'all' ? available ?? '' : entered;
   const worth = worthOf && !decimalInputError(worthOf, maxDecimals, { allowZero: true }) ? usdValueForDecimal(worthOf, price) : null;
@@ -85,7 +91,7 @@ export function AmountFieldView({ value, onChange, symbol, label, hint, balance,
   const exceedsBalance = Boolean(available && value && compareExactDecimals(value, available, maxDecimals) === 1);
   // An empty field is not an error: the form's action already says "Enter an amount",
   // so leaving the field (to pick an asset, say) never paints it red.
-  const error = decimalInputError(value, maxDecimals, { allowAll, allowZero }) ?? constraintError
+  const error = (entryError || decimalInputError(value, maxDecimals, { allowAll, allowZero })) ?? constraintError
     ?? (!exceedsBalance ? null : hasBalance
       ? `Amount exceeds your available ${formatBalanceDecimal(available!, 8)} ${tokenSymbol(symbol)}. Enter less${showMax ? ' or use Max' : ''}.`
       : `This wallet has no ${tokenSymbol(symbol)}. Add some${tokenSelector ? ' or choose another asset' : ''} to continue.`);
@@ -95,9 +101,9 @@ export function AmountFieldView({ value, onChange, symbol, label, hint, balance,
   const isMax = allowAll ? value.toLowerCase() === 'all' : Boolean(maximum && hasMaximum && compareExactDecimals(value, maximum, maxDecimals) === 0);
   const describedBy = [hint && `${id}-hint`, showBalance && `${id}-balance`, error && `${id}-error`, maxError && `${id}-max-error`].filter(Boolean).join(' ') || undefined;
   const inactive = disabled || !hydrated;
-  const change = (next: string) => { setMaxError(''); onChange(next); };
+  const change = (next: string) => { setMaxError(''); setEntryError(''); onChange(next); };
   const chooseMax = async () => {
-    haptic('selection'); setMaxError('');
+    haptic('selection'); setMaxError(''); setEntryError('');
     if (allowAll) { change('all'); return; }
     // Route-aware maxima must be priced again on every click: gas can change
     // even when the amount and wallet balance have not.
@@ -124,15 +130,9 @@ export function AmountFieldView({ value, onChange, symbol, label, hint, balance,
       {hint && <span className={styles.meta} id={`${id}-hint`}>{hint}</span>}
       <div className={styles.entryRow}>
         <span className={styles.entryFit}>
-        <input id={id} value={value} style={{ '--amount-entry-length': Math.max(value.length, placeholder.length, 1) } as CSSProperties} onChange={(event) => {
-          const raw = event.target.value;
-          if (allowAll && raw.toLowerCase() === 'all') { change('all'); return; }
-          const normalized = normalizeAmountInput(raw, inputPolicy);
-          // Keep rejected text visible so validation blocks review instead of
-          // leaving a previous valid amount silently executable.
-          change(normalized ?? raw.slice(0, 100));
-        }}
-          onKeyDown={submitNearestAction} disabled={inactive} inputMode="decimal" autoComplete="off" spellCheck={false} placeholder={placeholder}
+        <DecimalInput id={id} value={displayValue} onValueChange={change} onInvalidInput={setEntryError} policy={inputPolicy}
+          style={{ '--amount-entry-length': Math.max(displayValue.length, placeholder.length, 1) } as CSSProperties}
+          onKeyDown={submitNearestAction} disabled={inactive} autoComplete="off" spellCheck={false} placeholder={placeholder} maxLength={100}
           aria-label={`${label} in ${tokenSymbol(symbol)}`} aria-describedby={describedBy} aria-invalid={Boolean(error)} aria-errormessage={error ? `${id}-error` : undefined} required={!allowZero} />
         </span>
         <div className={styles.token}>{tokenSelector ?? <span className={styles.tokenLabel} title={tokenSymbol(symbol)}><TokenIcon symbol={symbol} size={24} /><span>{tokenSymbol(symbol)}</span></span>}</div>

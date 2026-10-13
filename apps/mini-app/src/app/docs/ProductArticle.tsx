@@ -90,7 +90,12 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
   { id: 'earn', title: 'Earn with fxSAVE', content: <>
 <p>Earn reads fxSAVE balances, vault value, redemption status, and claimable amounts from Ethereum. Your fxSAVE value and the variable APY sit above the form. Its actions are deposit, withdraw, and claim.</p>
               <p>Deposit supports fxUSD, USDC, and fxSP, the f(x) Stability Pool share. Forms show the selected wallet’s verified balance, and token pickers pair quantity with estimated USD worth. Unavailable balances remain unknown, never zero; fxSAVE remains the withdrawal limit.</p>
-              <p>Withdrawals may be instant or queued. Queued redemptions remain pending through cooldown and expose Claim when ready. Action details show the transaction steps and, for instant withdrawals, the slippage and instant withdrawal fee. Deposits use a fixed minimum set by the f(x) SDK, shown in the review.</p>
+              <p>Choose between an instant withdrawal and a queued withdrawal. The app reads the current instant-exit fee and cooldown from the protocol; check the terms shown before you submit. Deposits use a fixed minimum set by the f(x) SDK, shown in the review.</p>
+              <div className={styles.referenceTable}><table><thead><tr><th>Withdrawal</th><th>What happens</th><th>Costs and protection</th></tr></thead><tbody>
+                <tr><td>Instant</td><td>Redeem into the selected receive asset without waiting through the cooldown.</td><td>The instant-exit fee applies. The reviewed conversion minimum is enforced on-chain; a conversion below it reverts. Max slippage changes that minimum, not the fee.</td></tr>
+                <tr><td>After cooldown</td><td>Request a withdrawal, wait for the displayed cooldown, then submit Claim to receive fxUSD and USDC.</td><td>No instant-exit fee. Network fees still apply to the request and claim. The instant conversion slippage setting does not apply to this queued path.</td></tr>
+              </tbody></table></div>
+              <p>See the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/developers/integrating-fxsave">fxSAVE redemption documentation</ExternalLink> for the underlying withdrawal methods.</p>
               <h3 id="earn-steps">Earn in three steps</h3>
               <ol>
                 <li><strong>Deposit fxUSD or USDC.</strong> You receive fxSAVE, a share of f(x) Protocol’s savings vault.</li>
@@ -157,6 +162,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
                 <li>Theme, slippage, and recovery hints are stored on this device and reread against chain state.</li>
                 <li>Review the address, network, contract, amount, recipient, and approval in every wallet prompt.</li>
                 <li>Contract outcomes and liquidation risk are determined by the protocol and network. Wallets, network services, token contracts, bridges, and chains remain external dependencies.</li>
+                <li>If rebalancing, liquidation, and reserves cannot cover bad debt, the protocol can redistribute losses across leveraged positions. Severe short-position insolvency can disable operations, and recapitalization can halt new long-position openings. These protections do not guarantee your principal. Read the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/risk-management/risk-framework">risk framework</ExternalLink> before using leverage.</li>
               </ul>
   </> },
   { id: 'troubleshooting', title: 'Troubleshooting', content: <>

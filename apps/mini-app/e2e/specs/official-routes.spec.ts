@@ -297,7 +297,7 @@ test.describe("connected browser wallet flows", () => {
     ] as const) {
       await page.getByRole("radio", { name: flow.market, exact: true }).click();
       await page.getByRole("radiogroup", { name: "Position side" }).getByRole("radio", { name: flow.side, exact: true }).click();
-      const leverage = page.getByRole("spinbutton", { name: flow.label, exact: true });
+      const leverage = page.getByRole("textbox", { name: flow.label, exact: true });
       await expect(leverage).toHaveAttribute("min", flow.min);
       await expect(leverage).toHaveAttribute("max", flow.max);
       await leverage.fill("20");
@@ -424,7 +424,7 @@ test.describe("market price context", () => {
     const slider = page.getByRole("slider", { name: "Target leverage slider" });
     await expect(slider).toBeVisible();
     await slider.fill("3");
-    await expect(page.getByRole("spinbutton", { name: "Target leverage", exact: true })).toHaveValue("3");
+    await expect(page.getByRole("textbox", { name: "Target leverage", exact: true })).toHaveValue("3");
     assertNoBackendRequests(requests);
   });
 

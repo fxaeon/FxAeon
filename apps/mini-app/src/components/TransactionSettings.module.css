@@ -7,7 +7,7 @@
 .heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .heading h3 { color: var(--text); font-size: var(--fs-body); font-weight: 600; letter-spacing: -0.01em; }
 .value { color: var(--mint-bright); font-size: var(--fs-small); font-weight: 550; font-variant-numeric: tabular-nums; }
-:root[data-theme='light'] .value { color: var(--mint); }
+:root[data-theme='light'] .value { color: var(--mint-text); }
 .help { color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .walletFeeNote { padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-2); }
 

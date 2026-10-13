@@ -21,12 +21,12 @@
 [data-product-ui='v2'] .app-content .amount-control input:focus-visible { outline: none; }
 [data-product-ui='v2'] .segmented { box-shadow: none; }
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
-[data-product-ui='v2'] .button-primary { border-radius: 999px; box-shadow: none; background: #2563eb; color: #fff; }
+[data-product-ui='v2'] .button-primary { border-radius: 999px; box-shadow: none; background: #2973ff; color: #0b0c0e; }
 [data-product-ui='v2'] .brand-wordmark { font-weight: 650; }
 [data-product-ui='v2'] .ui-card { box-shadow: none; }
 [data-product-ui='v2'] .desktop-navigation { border-color: var(--hairline); background: var(--surface); box-shadow: none; }
 [data-product-ui='v2'] .desktop-navigation a { font-weight: 500; }
-[data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--mint-dim); color: var(--mint-bright); box-shadow: none; }
+[data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--mint-dim); color: var(--mint-text); box-shadow: none; }
 [data-product-ui='v2'] .tabbar { --focus-ring: #fff; border-radius: 999px; border: 1px solid #ffffff14; background: #202024; box-shadow: 0 6px 22px #00000016; }
 [data-product-ui='v2'] .tabbar::before { border-radius: 999px; box-shadow: none; background: #f4f4f5; }
 [data-product-ui='v2'] .nav-item-mobile { font-weight: 400; color: #b5b5bf; }

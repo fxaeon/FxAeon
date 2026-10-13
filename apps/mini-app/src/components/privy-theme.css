@@ -29,12 +29,12 @@ html:root {
   --privy-color-foreground-4: var(--line-strong);
   --privy-color-foreground-disabled: var(--mut-2);
 
-  /* Accent. --on-accent is the text Aeon sets on --mint and --mint-bright. */
+  /* Filled accent states share the exact brand fill and accessible text token. */
   --privy-color-accent: var(--mint);
-  --privy-color-accent-light: var(--mint-bright);
-  --privy-color-accent-dark: var(--mint-bright);
+  --privy-color-accent-light: var(--mint);
+  --privy-color-accent-dark: var(--mint);
   --privy-color-foreground-accent: var(--on-accent);
-  --privy-link-navigation-color: var(--mint);
+  --privy-link-navigation-color: var(--mint-text);
   --privy-link-navigation-decoration: none;
 
   /* Borders and focus, drawn like the app's 2px focus ring. */

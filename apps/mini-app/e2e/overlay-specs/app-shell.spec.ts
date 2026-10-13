@@ -435,14 +435,18 @@ test('disabled and busy actions stay readable (AA) and look unavailable, in ever
     expect(unavailable.background, 'a disabled primary action does not look like an accent one').not.toBe(unavailable.mint);
     expect(unavailable.cursor).toBe('not-allowed');
   }
-  // The network menu's options wait for a wallet without fading their names.
+  // The selector is visible only for a connected wallet, so both options are enabled.
   await setLab(page, { path: '/portfolio', wallet: STATES[2][1] });
   await page.locator('.network-selector').click();
   await expect(page.locator('.network-selector-menu')).toBeVisible();
   await settle(page);
-  const options = await contrasts(page, '.network-selector-menu button[data-network-option]:disabled');
+  const options = await contrasts(page, '.network-selector-menu button[data-network-option]');
   expect(options).toHaveLength(2);
   for (const option of options) expect(option.ratio, `${option.text} option`).toBeGreaterThanOrEqual(4.5);
+  await expect(page.locator('.network-selector-menu button[data-network-option]')).toHaveCount(2);
+  await expect(page.locator('.network-selector-menu button[data-network-option]:disabled')).toHaveCount(0);
+  await setLab(page, { wallet: STATES[1][1] });
+  await expect(page.locator('.network-selector')).toHaveCount(0);
 });
 
 test('keyboard focus shows one accent ring on the header, dock, rows and choices, and fields use the accent caret', async ({ page }) => {

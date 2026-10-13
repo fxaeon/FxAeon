@@ -235,7 +235,7 @@ test.describe("single-viewport route contract", () => {
     const main = page.locator("main:visible");
     await expect(main.getByRole("heading", { name: "Move", exact: true })).toBeVisible();
     await expect(page.getByLabel("Amount in fxUSD")).toBeVisible();
-    await expect(page.getByText("Recipient on Base", { exact: true })).toBeVisible();
+    await expect(page.getByText("Recipient", { exact: true })).toBeVisible();
     await expect(page.locator('summary').filter({ hasText: 'Custom contracts' })).toBeVisible();
     const action = page.locator(".button-primary:visible").first();
     await expect(action).toBeVisible();

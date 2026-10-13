@@ -1,7 +1,7 @@
 .trigger { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 8px; border-radius: 12px; color: var(--mut); font-size: 12px; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .trigger[data-chip] { padding-left: 6px; }
 .chip { padding: 4px 8px; border-radius: 999px; background: var(--mint-dim); color: var(--mint-bright); font-size: var(--fs-micro); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-:root[data-theme='light'] .chip { color: var(--mint); }
+:root[data-theme='light'] .chip { color: var(--mint-text); }
 .trigger:hover { background: var(--surface-2); color: var(--text); }
 .trigger:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
 .trigger > svg { flex-shrink: 0; transition: transform var(--motion-enter) var(--motion-ease); }

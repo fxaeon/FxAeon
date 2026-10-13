@@ -130,7 +130,7 @@
 .quickActions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 14px 0 10px; }
 .quickAction { display: flex; min-width: 0; min-height: 80px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: var(--radius-md); padding: 4px 2px; color: var(--text); font-size: var(--fs-caption); transition: color var(--dur-fast) ease; }
 .quickAction > span { display: grid; flex: 0 0 auto; width: 52px; height: 52px; place-items: center; border: 1px solid var(--hairline); border-radius: 17px; background: var(--surface-2); color: var(--mint-bright); box-shadow: none; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
-:root[data-theme='light'] .quickAction > span { color: var(--mint); background: var(--mint-dim); }
+:root[data-theme='light'] .quickAction > span { color: var(--mint-text); background: var(--mint-dim); }
 .quickAction > strong { font-weight: 600; }
 .quickAction:hover > span { transform: translateY(-2px); border-color: color-mix(in srgb, var(--mint) 45%, var(--line)); background: color-mix(in srgb, var(--mint) 20%, var(--surface-2)); }
 .quickAction:active > span { transform: scale(0.92); transition-duration: var(--dur-press); }

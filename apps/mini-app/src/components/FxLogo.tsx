@@ -24,9 +24,9 @@ export function FxLogo({ size = 56, className = '' }: { size?: number; className
     >
       <defs>
         <linearGradient id={id} x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#3b82f6" />
-          <stop offset="0.48" stopColor="#2563eb" />
-          <stop offset="1" stopColor="#1d4ed8" />
+          <stop offset="0" stopColor="#2973ff" />
+          <stop offset="0.48" stopColor="#2973ff" />
+          <stop offset="1" stopColor="#2973ff" />
         </linearGradient>
       </defs>
       <path

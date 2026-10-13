@@ -485,6 +485,7 @@ export default function MovePage() {
         <PageHeading title="Move" />
         <div className={moveStyles.centerStage}>
         <Card
+          data-result-container
           data-flow-stage={reviewStage}
           className={`${styles.focusCard} ${styles.moveCard} ${moveStyles.moveCard} p-5`}
         >

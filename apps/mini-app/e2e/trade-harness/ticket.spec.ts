@@ -64,7 +64,7 @@ const figure = async (page: Page, label: string) => (await fact(page, label).loc
 /** The review's summary row for a fact (its Details disclosure repeats some facts exactly, further down). */
 const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"]`).first().locator('> span').last();
 const slider = (page: Page) => page.getByRole('slider', { name: 'Target leverage slider', exact: true });
-const leverageField = (page: Page) => page.getByRole('spinbutton', { name: 'Target leverage', exact: true });
+const leverageField = (page: Page) => page.getByRole('textbox', { name: 'Target leverage', exact: true });
 
 test.describe('the ticket’s outcome preview', () => {
   test('previews the warmed route with the figures its review then shows, from the same single plan', async ({ page }) => {

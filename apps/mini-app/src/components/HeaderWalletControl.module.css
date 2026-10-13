@@ -157,7 +157,7 @@
   .control :global(.network-selector):hover:not(:disabled),
   .trigger:hover:not(:disabled) {
     background: var(--mint-dim);
-    color: var(--mint);
+    color: var(--mint-text);
   }
 }
 

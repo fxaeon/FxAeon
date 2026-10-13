@@ -29,6 +29,11 @@ import { mainnet } from 'viem/chains';
 import { readReviewedTransactions as readReviewedTransactionsFromUi, type ReviewedTransaction } from './reviewedTransactions';
 
 const browserChannel = configuredBrowserChannel();
+const previewMode = process.env.FX_FORK_PREVIEW === '1';
+const previewAttachMode = process.env.FX_FORK_PREVIEW_ATTACH === '1';
+const previewVerifyMode = process.env.FX_FORK_PREVIEW_VERIFY === '1';
+assert.ok(!previewAttachMode || previewMode, 'FX_FORK_PREVIEW_ATTACH requires FX_FORK_PREVIEW=1');
+assert.ok(!previewVerifyMode || previewAttachMode, 'FX_FORK_PREVIEW_VERIFY requires FX_FORK_PREVIEW_ATTACH=1');
 const appRoot = fileURLToPath(new URL('../..', import.meta.url));
 const repoRoot = resolve(appRoot, '../..');
 const artifactRoot = resolve(repoRoot, 'artifacts/anvil/browser');
@@ -38,9 +43,11 @@ const parsedRpc = new URL(rpcUrl);
 assert.ok(parsedRpc.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(parsedRpc.hostname)
   && parsedRpc.pathname === '/' && Number(parsedRpc.port) >= 1024
   && !parsedRpc.username && !parsedRpc.password && !parsedRpc.search && !parsedRpc.hash, 'browser proof requires a credential-free localhost fork');
-const port = Number(process.env.FX_FORK_BROWSER_PORT ?? '4325');
+const port = Number(process.env.FX_FORK_BROWSER_PORT ?? (previewAttachMode ? '4326' : '4325'));
 assert.ok(Number.isInteger(port) && port >= 1024 && port <= 65535, 'invalid browser proof port');
 const baseUrl = `http://127.0.0.1:${port}`;
+assert.ok(!previewAttachMode || port !== Number(parsedRpc.port), 'attach preview app and RPC ports must differ');
+assert.ok(!previewAttachMode || Number(parsedRpc.port) === 8548, 'attach preview requires the existing Anvil RPC on port 8548');
 const warmupConcurrency = Number(process.env.FX_FORK_WARMUP_CONCURRENCY ?? '1');
 assert.ok(Number.isInteger(warmupConcurrency) && warmupConcurrency >= 1 && warmupConcurrency <= 2,
   'FX_FORK_WARMUP_CONCURRENCY must be 1 or 2');
@@ -119,6 +126,104 @@ function normalizeForkBlock(value: string | number): bigint {
   return BigInt(value);
 }
 
+/** Attach a disposable browser to the already-running preview. This
+ * path never snapshots/reverts Anvil or starts/stops the app. Transactions
+ * are limited to the existing first Anvil account and local RPC. */
+async function runAttachedPreview(): Promise<void> {
+  assert.ok(previewMode && previewAttachMode, 'attached preview is developer-only');
+  assert.equal(await rpc('eth_chainId'), '0x1', 'attached preview must use the existing mainnet fork');
+  assert.match(await rpc<string>('web3_clientVersion'), /anvil/i, 'attached preview must use Anvil');
+  const response = await fetch(`${baseUrl}/trade`, { redirect: 'error', signal: AbortSignal.timeout(10_000) });
+  assert.equal(response.status, 200, 'the existing local preview app must already be serving /trade');
+  const accounts = await rpc<Address[]>('eth_accounts');
+  const wallet = accounts[0];
+  assert.ok(wallet, 'the existing Anvil fork must expose its funded preview account');
+
+  const browser = await chromium.launch({ headless: previewVerifyMode, args: ['--no-sandbox', '--disable-dev-shm-usage'], ...(browserChannel ? { channel: browserChannel } : {}) });
+  let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+  try {
+    context = await browser.newContext({ viewport: null, locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce' });
+    await context.exposeBinding('__fxForkWallet', async (source, request: { method: string; params?: unknown[] }) => {
+      assert.equal(source.frame, source.page.mainFrame(), 'attached wallet is available only to the app main frame');
+      assert.equal(new URL(source.frame.url()).origin, baseUrl, 'attached wallet rejects external origins');
+      if (request.method === 'eth_accounts') return [wallet];
+      if (request.method === 'eth_requestAccounts') return [wallet];
+      if (request.method === 'eth_chainId') return '0x1';
+      if (request.method === 'net_version') return '1';
+      if (request.method === 'wallet_switchEthereumChain') {
+        assert.equal((request.params?.[0] as { chainId: string })?.chainId, '0x1');
+        return null;
+      }
+      assert.equal(request.method, 'eth_sendTransaction', 'attached preview rejects arbitrary signing methods');
+      assert.equal(request.params?.length, 1, 'attached preview accepts one transaction at a time');
+      const transaction = request.params?.[0] as { from?: unknown } | undefined;
+      assert.ok(transaction && typeof transaction.from === 'string', 'attached transaction must name its sender');
+      assert.equal(transaction.from.toLowerCase(), wallet.toLowerCase(), 'attached preview can send only from the first Anvil account');
+      return rpc<Hex>('eth_sendTransaction', [transaction]);
+    });
+    await context.addInitScript({ content: `
+      const previewWalletProvider = {
+        request(request) { return window.__fxForkWallet(request); },
+        on() {}, removeListener() {},
+      };
+      window.ethereum = previewWalletProvider;
+      window.addEventListener('eip6963:requestProvider', () => {
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: {
+          info: { uuid: 'fxaeon-local-fork-preview', name: 'Local fork preview', icon: '', rdns: 'com.fxaeon.local-fork-preview' },
+          provider: previewWalletProvider,
+        } }));
+      });
+      (() => {
+        const install = () => {
+          if (!document.documentElement || document.getElementById('fxaeon-attached-preview-banner')) return;
+          const banner = document.createElement('div');
+          banner.id = 'fxaeon-attached-preview-banner';
+          banner.setAttribute('role', 'status');
+          banner.textContent = 'LOCAL FORK PREVIEW · Disposable test funds · Transactions stay on 127.0.0.1';
+          Object.assign(banner.style, {
+            position: 'fixed', bottom: '12px', left: '50%', transform: 'translateX(-50%)', zIndex: '2147483647',
+            maxWidth: 'calc(100vw - 24px)', padding: '8px 14px', border: '1px solid #d6a52c',
+            borderRadius: '999px', background: '#fff1c2', color: '#332500',
+            boxShadow: '0 4px 18px rgba(0,0,0,.22)', font: '700 12px/1.3 system-ui,sans-serif',
+            textAlign: 'center', pointerEvents: 'none',
+          });
+          document.documentElement.appendChild(banner);
+        };
+        install();
+        new MutationObserver(install).observe(document, { childList: true, subtree: true });
+      })();
+    ` });
+    await context.route('**/telegram-web-app.js', (route) => route.fulfill({ contentType: 'text/javascript', body: '/* attached local preview */' }));
+    const page = await context.newPage();
+    page.setDefaultTimeout(30_000);
+    page.on('pageerror', (error) => console.error(`Attached preview page error: ${error.message}`));
+    await page.goto(`${baseUrl}/trade`, { waitUntil: 'domcontentloaded' });
+    await page.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Connect your wallet', exact: true })
+      .getByRole('button', { name: 'Other wallets', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Other wallets', exact: true })
+      .locator('[data-wallet-id="injected:com.fxaeon.local-fork-preview"]').click();
+    await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open wallet profile' }))
+      .toContainText(`${wallet.slice(0, 6)}…${wallet.slice(-4)}`);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Open wallet profile' }))
+      .toContainText(`${wallet.slice(0, 6)}…${wallet.slice(-4)}`);
+    if (previewVerifyMode) {
+      console.log(`\nLOCAL FORK ATTACH VERIFIED: ${baseUrl}/trade`);
+      console.log('The first Anvil account connected and restored after hard navigation; the verification browser will close without changing fork state.\n');
+      return;
+    }
+    console.log(`\nLOCAL FORK ATTACHED PREVIEW READY: ${baseUrl}/trade`);
+    console.log(`Using the existing first Anvil account and canonical fork state. Transactions from this app go only to ${parsedRpc.origin}. Close this new browser window to detach; the existing app and Anvil remain running.\n`);
+    await page.waitForEvent('close', { timeout: 0 });
+  } finally {
+    await context?.close().catch(() => undefined);
+    await browser.close().catch(() => undefined);
+  }
+}
+
 async function runProof(captureStage: string) {
   await mkdir(artifactRoot, { recursive: true });
   const reviewRunName = `run-${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')}`;
@@ -174,7 +279,21 @@ async function runProof(captureStage: string) {
   const delayedDiscoveries = new Map<string, number>();
   const blockedDiscoveries = new Set<string>();
   const emittedDiscoveries = new Set<string>();
-  const forkReceiptCache = new Map<string, Promise<Awaited<ReturnType<typeof client.getTransactionReceipt>>>>();
+  const forkReceiptCache = new Map<string, Promise<Awaited<ReturnType<typeof client.getTransactionReceipt>> | null>>();
+  const readForkReceipt = async (hash: Hex) => {
+    const key = hash.toLowerCase();
+    const cached = forkReceiptCache.get(key);
+    if (cached) {
+      const receipt = await cached;
+      if (receipt) return receipt;
+      forkReceiptCache.delete(key);
+    }
+    const pending = client.getTransactionReceipt({ hash }).catch(() => null);
+    forkReceiptCache.set(key, pending);
+    const receipt = await pending;
+    if (!receipt) forkReceiptCache.delete(key);
+    return receipt;
+  };
   const confirmedBeforeIndexer = new Set<string>();
   const restoredConfirmed = new Set<string>();
   const positions: Array<(typeof scenarios)[number] & {
@@ -226,7 +345,9 @@ async function runProof(captureStage: string) {
     const buildEnv = { ...process.env, NEXT_PUBLIC_PRIVY_APP_ID: '', NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: '',
       NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: '', NEXT_PUBLIC_FX_SCREENSHOT_MODE: '', NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE: '1',
       NEXT_PUBLIC_FX_LOCAL_FORK_RPC_URL: rpcUrl, NEXT_PUBLIC_TELEGRAM_APP_URL: 'https://t.me/FxAeonBot' };
-    console.log('Building browser acceptance artifact with localhost-only RPC');
+    console.log(previewMode
+      ? `Building isolated preview artifact ${process.env.FX_E2E_DIST_DIR} with localhost-only RPC`
+      : 'Building browser acceptance artifact with localhost-only RPC');
     await waitForExit(spawn(process.execPath, [resolve(appRoot, 'node_modules/next/dist/bin/next'), 'build'],
       { cwd: appRoot, env: buildEnv, stdio: 'inherit', windowsHide: true }));
     server = spawn(process.execPath, ['e2e/serve.mjs'], { cwd: appRoot, env: { ...buildEnv, E2E_BUILD: '0', PORT: String(port) }, stdio: 'inherit', windowsHide: true });
@@ -273,17 +394,19 @@ async function runProof(captureStage: string) {
       }
       console.log(`Hydrated historical NFT ownership storage for ${group.market} ${group.side}`);
     };
-    let nextGroup = 0;
-    const workers = Array.from({ length: Math.min(warmupConcurrency, scenarios.length) }, async () => {
-      while (true) {
-        const group = scenarios[nextGroup++];
-        if (!group) return;
-        await hydrateGroup(group);
-      }
-    });
-    const workerResults = await Promise.allSettled(workers);
-    const warmupFailure = workerResults.find((result): result is PromiseRejectedResult => result.status === 'rejected');
-    if (warmupFailure) throw warmupFailure.reason;
+    if (!previewMode) {
+      let nextGroup = 0;
+      const workers = Array.from({ length: Math.min(warmupConcurrency, scenarios.length) }, async () => {
+        while (true) {
+          const group = scenarios[nextGroup++];
+          if (!group) return;
+          await hydrateGroup(group);
+        }
+      });
+      const workerResults = await Promise.allSettled(workers);
+      const warmupFailure = workerResults.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (warmupFailure) throw warmupFailure.reason;
+    }
     const funding = parseUnits('4000', 6);
     const before = await client.readContract({ address: usdc, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] });
     assert.ok(await client.readContract({ address: usdc, abi: tokenAbi, functionName: 'balanceOf', args: [donor] }) >= funding);
@@ -297,10 +420,34 @@ async function runProof(captureStage: string) {
     assert.equal(await client.readContract({ address: usdc, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] }) - before, funding);
     await rpc('anvil_setBalance', [wallet, '0x4563918244f40000']); // 5 fork-only ETH for gas.
 
-    browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'], ...(browserChannel ? { channel: browserChannel } : {}) });
-    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
-      locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce' });
-    await context.tracing.start({ screenshots: true, snapshots: true });
+    browser = await chromium.launch({ headless: !previewMode, args: ['--no-sandbox', '--disable-dev-shm-usage'], ...(browserChannel ? { channel: browserChannel } : {}) });
+    const context = await browser.newContext({
+      ...(previewMode ? { viewport: null } : { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 }),
+      locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce',
+    });
+    if (!previewMode) await context.tracing.start({ screenshots: true, snapshots: true });
+    if (previewMode) {
+      await context.addInitScript({ content: `(() => {
+        const install = () => {
+          if (!document.documentElement || document.getElementById('fxaeon-local-fork-preview-banner')) return;
+          const banner = document.createElement('div');
+          banner.id = 'fxaeon-local-fork-preview-banner';
+          banner.setAttribute('role', 'status');
+          banner.setAttribute('aria-label', 'Local fork preview. Disposable test funds only; no real funds are used.');
+          banner.textContent = 'LOCAL FORK PREVIEW · Disposable test funds · transactions stay on 127.0.0.1';
+          Object.assign(banner.style, {
+            position: 'fixed', bottom: '12px', left: '50%', transform: 'translateX(-50%)', zIndex: '2147483647',
+            maxWidth: 'calc(100vw - 24px)', padding: '8px 14px', border: '1px solid #d6a52c',
+            borderRadius: '999px', background: '#fff1c2', color: '#332500',
+            boxShadow: '0 4px 18px rgba(0,0,0,.22)', font: '700 12px/1.3 system-ui,sans-serif',
+            textAlign: 'center', pointerEvents: 'none',
+          });
+          document.documentElement.appendChild(banner);
+        };
+        install();
+        new MutationObserver(install).observe(document, { childList: true, subtree: true });
+      })();` });
+    }
     // A real EIP-1193 adapter installed only by the test. It cannot send to an
     // upstream endpoint or sign messages. A second local account is available
     // for read-only session tests; only the funded account may send a trade.
@@ -329,14 +476,16 @@ async function runProof(captureStage: string) {
       };
       assert.equal(tx.from.toLowerCase(), wallet.toLowerCase());
       const hash = await rpc<Hex>('eth_sendTransaction', [tx]);
-      heldReceipts.set(hash.toLowerCase(), receiptHold());
       submitted.push({ hash, to: tx.to, data: tx.data ?? '0x', value: tx.value,
         gasPrice: tx.gasPrice, maxFeePerGas: tx.maxFeePerGas, maxPriorityFeePerGas: tx.maxPriorityFeePerGas });
-      // Mine the runner's post-receipt boundary without continuously advancing
-      // fork time while slow route simulation/quoting is in progress.
-      miningTasks.push(new Promise(resolveMine => setTimeout(resolveMine, 750))
-        .then(() => rpc('anvil_mine', ['0x1']))
-        .catch(error => { miningErrors.push(String(error)); }));
+      if (!previewMode) {
+        heldReceipts.set(hash.toLowerCase(), receiptHold());
+        // Mine the runner's post-receipt boundary without continuously advancing
+        // fork time while slow route simulation/quoting is in progress.
+        miningTasks.push(new Promise(resolveMine => setTimeout(resolveMine, 750))
+          .then(() => rpc('anvil_mine', ['0x1']))
+          .catch(error => { miningErrors.push(String(error)); }));
+      }
       return hash;
     });
     // Raw browser JavaScript avoids TSX's function-name helpers leaking into
@@ -392,6 +541,27 @@ async function runProof(captureStage: string) {
       await Promise.all(held.map(({ hold }) => hold.waiting));
       await route.fulfill({ response });
     }));
+    const discoverPreviewCandidates = async (
+      group: (typeof scenarios)[number], account: Address,
+    ): Promise<void> => {
+      if (!previewMode) return;
+      for (const transaction of submitted) {
+        const receipt = await readForkReceipt(transaction.hash);
+        if (!receipt || receipt.status !== 'success') continue;
+        for (const log of receipt.logs) {
+          const event = decodePositionRouterEvent(log);
+          if (!event || event.operation !== 'open' || event.pool.toLowerCase() !== group.pool.toLowerCase()
+            || !positionRouterEventMatchesRecipient(event, log, receipt.logs, account)) continue;
+          const positionId = Number(event.positionId);
+          if (!Number.isSafeInteger(positionId) || positionId <= 0
+            || candidates.some(candidate => candidate.pool === group.pool && candidate.positionId === positionId)) continue;
+          try {
+            const owner = await client.readContract({ address: group.pool, abi: poolAbi, functionName: 'ownerOf', args: [BigInt(positionId)] });
+            if (owner.toLowerCase() === account.toLowerCase()) candidates.push({ ...group, positionId });
+          } catch { /* The canonical ownership read excludes burned/unminted positions. */ }
+        }
+      }
+    };
     await context.route('https://api.goldsky.com/**', guardRoute(async route => {
       const url = new URL(route.request().url());
       const group = scenarios.find(s => url.pathname === `/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/${s.graphSubgraph}/gn`);
@@ -410,6 +580,7 @@ async function runProof(captureStage: string) {
         return positionQuery?.[2] !== undefined && positionQuery[2] === walletFilter;
       });
       const queryWallet = sdkQueryWallet ?? historyQueryWallet;
+      if (group && queryWallet) await discoverPreviewCandidates(group, queryWallet);
       if (group && query.startsWith('queryWalletPositionOrders{')) {
         const match = query.match(/^queryWalletPositionOrders\{orders\(first:5,skip:(0|[1-9][0-9]*),where:\{positionId_in:\[([0-9,\"]*)\],type_in:\["Open","Close"\]\},orderBy:blockNumber,orderDirection:desc\)\{idtypehashblockNumbertimestamp\}\}$/);
         assert.ok(!url.search && !url.hash && route.request().method() === 'POST'
@@ -424,11 +595,7 @@ async function runProof(captureStage: string) {
         const orders: Array<{ id: string; type: 'Open' | 'Close'; hash: Hex; blockNumber: string; timestamp: string }> = [];
         for (const hash of hashes) {
           if (!hash) continue;
-          const receipt = await (forkReceiptCache.get(hash.toLowerCase()) ?? (() => {
-            const pending = client.getTransactionReceipt({ hash }).catch(() => null as never);
-            forkReceiptCache.set(hash.toLowerCase(), pending);
-            return pending;
-          })());
+          const receipt = await readForkReceipt(hash);
           if (!receipt) continue;
           const block = await client.getBlock({ blockNumber: receipt.blockNumber });
           for (const log of receipt.logs) {
@@ -458,11 +625,7 @@ async function runProof(captureStage: string) {
       const candidateOrderEvents = new Map<number, Array<{ type: 'Open' | 'Close'; blockNumber: bigint }>>();
       for (const hash of hashes) {
         if (!hash) continue;
-        const receipt = await (forkReceiptCache.get(hash.toLowerCase()) ?? (() => {
-          const pending = client.getTransactionReceipt({ hash }).catch(() => null as never);
-          forkReceiptCache.set(hash.toLowerCase(), pending);
-          return pending;
-        })());
+        const receipt = await readForkReceipt(hash);
         if (!receipt) continue;
         for (const log of receipt.logs) {
           const event = decodePositionRouterEvent(log);
@@ -601,7 +764,10 @@ async function runProof(captureStage: string) {
         await expect(actionButton, 'an expired reviewed quote must remove the confirm action').toHaveCount(0);
         const refreshQuote = activePage.getByRole('button', { name: 'Review updated quote', exact: true });
         await expect(refreshQuote).toBeVisible();
-        await expect(activePage.locator('.reviewInlineContent [role="status"]').filter({ hasText: 'reviewed quote expired' })).toBeVisible();
+        // Stable reviews expose a visually hidden live status, while the
+        // visible status line can still report an in-flight gas check. The
+        // non-signable route and updated-quote action above remain visible.
+        await expect(activePage.locator('.reviewInlineContent [role="status"]').filter({ hasText: 'Review expired.' })).toBeAttached();
         assert.equal(submitted.length, signedBefore, 'quote expiry must not request a wallet signature');
         await activePage.clock.resume();
         fakeClockInstalled = false;
@@ -727,6 +893,24 @@ async function runProof(captureStage: string) {
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
       await expect(activePage.getByRole('dialog', { name: 'Input asset', exact: true })).toBeVisible();
     };
+    // A full document navigation intentionally does not silently restore the
+    // selected wallet (`reconnectOnMount` is disabled). Re-select the same
+    // fork-only injected wallet through the normal chooser before continuing
+    // a connected-session assertion. This keeps the harness faithful to the
+    // app's explicit reconnect behavior without changing the provider state.
+    const ensureForkWalletConnected = async (): Promise<void> => {
+      const expectedAddress = selectedWallet;
+      assert.ok(expectedAddress, 'connected fork browser steps require an explicitly selected account');
+      const profile = activePage.getByRole('button', { name: 'Open wallet profile' });
+      if (!await profile.isVisible().catch(() => false)) {
+        await activePage.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true }).click();
+        await activePage.getByRole('dialog', { name: 'Connect your wallet', exact: true })
+          .getByRole('button', { name: 'Other wallets', exact: true }).click();
+        await activePage.getByRole('dialog', { name: 'Other wallets', exact: true })
+          .locator('[data-wallet-id="legacy:browser"]').click();
+      }
+      await expect(profile).toContainText(`${expectedAddress.slice(0, 6)}…${expectedAddress.slice(-4)}`);
+    };
     const ensureFormAdvancedDetailsOpen = async (): Promise<void> => {
       const trigger = activePage.getByRole('button', { name: /^Transaction settings,/ });
       if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
@@ -778,6 +962,38 @@ async function runProof(captureStage: string) {
     assert.notEqual(fundedUsdc, alternateUsdc, 'session balances must be distinguishable');
     const availableLabel = (value: bigint) => `Available: ${formatBalanceDecimal(formatUnits(value, 6), 4)} USDC`;
     await expect(sessionUsdcOption).toContainText(availableLabel(fundedUsdc));
+    if (previewMode) {
+      await sessionUsdcOption.click();
+      // Exercise the real editor before handing this separate session over.
+      // No review or wallet transaction is requested by these input checks.
+      const previewAmount = page.getByRole('textbox', { name: 'Amount in USDC', exact: true });
+      await previewAmount.fill('1e3');
+      await expect(previewAmount).toHaveValue('');
+      await previewAmount.fill('12.345678');
+      await expect(previewAmount).toHaveValue('12.345678');
+      await previewAmount.press('a');
+      await expect(previewAmount).toHaveValue('12.345678');
+      await previewAmount.fill('');
+      const previewLeverage = page.getByRole('textbox', { name: 'Target leverage', exact: true });
+      await previewLeverage.fill('2.5');
+      await previewLeverage.press('Tab');
+      await expect(previewLeverage).toHaveValue('2.5');
+      await previewLeverage.fill('2');
+      await previewLeverage.press('Tab');
+      await page.screenshot({ path: resolve(artifactRoot, 'manual-preview-ready.png'), fullPage: true });
+      console.log(`\nLOCAL FORK PREVIEW READY: ${baseUrl}/trade`);
+      console.log('A disposable Anvil account is connected and its fork-backed USDC balance is visible. The banner in the page marks this as local test state.');
+      console.log('No live wallet or funds are connected. Close this browser window to stop the preview cleanly; Ctrl+C in the launcher also stops the local app and fork.\n');
+      await new Promise<void>(resolveDisconnected => {
+        if (!browser?.isConnected()) {
+          resolveDisconnected();
+          return;
+        }
+        browser.once('disconnected', () => resolveDisconnected());
+      });
+      tearingDown = true;
+      return;
+    }
     await page.evaluate(`window.__fxForkChangeAccount(${JSON.stringify(alternateWallet)})`);
     await expect(page.getByRole('button', { name: 'Open wallet profile' }))
       .toContainText(`${alternateWallet.slice(0, 6)}…${alternateWallet.slice(-4)}`);
@@ -812,6 +1028,7 @@ async function runProof(captureStage: string) {
     for (const viewport of responsiveViewports) {
       await page.setViewportSize(viewport);
       await page.goto(`${baseUrl}/trade`);
+      await ensureForkWalletConnected();
       await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
       await ensureInputAssetPickerOpen();
       const responsiveUsdc = page.getByRole('option', { name: /^USDC\b/i });
@@ -866,6 +1083,7 @@ async function runProof(captureStage: string) {
     // Set slippage through Settings before opening a real fork-backed review.
     // This scenario uses an external EIP-1193 wallet, which chooses its own fees.
     await page.goto(`${baseUrl}/settings`);
+    await ensureForkWalletConnected();
     const settingsSlippage = page.getByRole('radiogroup').filter({ has: page.getByRole('radio', { name: '0.1%', exact: true }) });
     await settingsSlippage.getByRole('radio', { name: '1%', exact: true }).click();
     await page.getByRole('button', { name: 'Save preferences', exact: true }).click();
@@ -888,6 +1106,7 @@ async function runProof(captureStage: string) {
       blockedDiscoveries.add(key);
       const signedBefore: number = submitted.length;
       await page.goto(`${baseUrl}/trade`);
+      await ensureForkWalletConnected();
       await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
       await page.getByRole('radiogroup', { name: 'Market', exact: true }).getByRole('radio', { name: scenario.market, exact: true }).click();
       await page.getByRole('radiogroup', { name: 'Position side' }).getByRole('radio', { name: scenario.side === 'long' ? 'Long' : 'Short', exact: true }).click();
@@ -898,7 +1117,7 @@ async function runProof(captureStage: string) {
       await usdcOption.click();
       const usdcAmount = page.getByLabel('Amount in USDC', { exact: true });
       await usdcAmount.fill('1000');
-      await page.getByRole('spinbutton', { name: 'Target leverage', exact: true }).fill(scenario.side === 'short' ? '0.5' : '2');
+      await page.getByRole('textbox', { name: 'Target leverage', exact: true }).fill(scenario.side === 'short' ? '0.5' : '2');
       await ensureFormAdvancedDetailsOpen();
       await page.getByLabel('Slippage tolerance percentage').fill('1');
       await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
@@ -946,6 +1165,7 @@ async function runProof(captureStage: string) {
       await expect(viewedDetails).toBeVisible({ timeout: 180_000 });
       await assertCanonicalDetails(scenario, positionId, viewedDetails);
       await page.goto(`${baseUrl}/trade`);
+      await ensureForkWalletConnected();
       await page.getByRole('radiogroup', { name: 'Market', exact: true }).getByRole('radio', { name: scenario.market, exact: true }).click();
       await page.getByRole('radiogroup', { name: 'Position side' }).getByRole('radio', { name: scenario.side === 'long' ? 'Long' : 'Short', exact: true }).click();
       await ensureInputAssetPickerOpen();
@@ -970,6 +1190,7 @@ async function runProof(captureStage: string) {
       await page.screenshot({ path: resolve(artifactRoot, `${scenario.market}-${scenario.side}-confirmed-index-lag.png`), fullPage: true });
 
       await page.reload();
+      await ensureForkWalletConnected();
       await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
       await page.getByRole('radiogroup', { name: 'Market', exact: true }).getByRole('radio', { name: scenario.market, exact: true }).click();
       await page.getByRole('radiogroup', { name: 'Position side' }).getByRole('radio', { name: scenario.side === 'long' ? 'Long' : 'Short', exact: true }).click();
@@ -1048,8 +1269,10 @@ async function runProof(captureStage: string) {
     const externalTransactions = externalResult.steps.flatMap((step) => step.hash && step.receipt ? [{ kind: step.transaction.kind, hash: step.hash, blockNumber: step.receipt.blockNumber.toString() }] : []);
     assert.ok(externalTransactions.length > 0, 'external SDK position must retain receipt evidence');
     await page.reload();
+    await ensureForkWalletConnected();
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     const externalCard = page.locator(`[data-position-key="${externalKey}"]`).first();
     await expect(externalCard).toBeVisible({ timeout: 180_000 });
     await expect.poll(() => proofValue(delayedDiscoveries.get(externalKey) ?? 0)).toBeGreaterThan(0);
@@ -1063,6 +1286,7 @@ async function runProof(captureStage: string) {
     await assertCanonicalRow(externalScenario, externalPositionId, externalCard);
     await openCanonicalPosition(externalScenario, externalPositionId, externalCard);
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     externalPositionProof = {
       market: 'ETH', side: 'long', pool: externalPool, positionId: externalPositionId,
       createdBy: wallet, transferredTo: alternateWallet, transferredBackTo: wallet, finalOwner: alternateWallet,
@@ -1078,21 +1302,25 @@ async function runProof(captureStage: string) {
     const originalWalletKeys = positions.map(position => `${position.market}:${position.side}:${position.positionId}`);
     await transferPosition(wallet, alternateWallet);
     await page.reload();
+    await ensureForkWalletConnected();
     await assertVisiblePositionSet(originalWalletKeys);
     await page.evaluate(`window.__fxForkChangeAccount(${JSON.stringify(alternateWallet)})`);
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toContainText(`${alternateWallet.slice(0, 6)}…${alternateWallet.slice(-4)}`);
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     await assertVisiblePositionSet([externalKey]);
     await transferPosition(alternateWallet, wallet);
     await page.evaluate(`window.__fxForkChangeAccount(${JSON.stringify(wallet)})`);
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toContainText(`${wallet.slice(0, 6)}…${wallet.slice(-4)}`);
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     await assertVisiblePositionSet([...originalWalletKeys, externalKey]);
     await transferPosition(wallet, alternateWallet);
     assert.equal((await client.readContract({ address: externalPool, abi: poolAbi, functionName: 'ownerOf', args: [BigInt(externalPositionId)] })).toLowerCase(), alternateWallet.toLowerCase(), 'external position final owner must be the alternate wallet');
     await page.evaluate(`window.__fxForkChangeAccount(${JSON.stringify(wallet)})`);
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toContainText(`${wallet.slice(0, 6)}…${wallet.slice(-4)}`);
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     await assertVisiblePositionSet(originalWalletKeys);
     console.log(`External SDK position #${externalPositionId} discovered canonically, then isolated across ownership transfers`);
 
@@ -1103,6 +1331,7 @@ async function runProof(captureStage: string) {
     // real SDK/RPC calls.
     for (const position of positions) blockedDiscoveries.delete(`${position.market}:${position.side}:${position.positionId}`);
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     for (const position of positions) {
       const key = `${position.market}:${position.side}:${position.positionId}`;
       await expect.poll(() => proofValue(emittedDiscoveries.has(key))).toBe(true);
@@ -1153,6 +1382,7 @@ async function runProof(captureStage: string) {
     }
 
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     for (const position of positions) {
       await expect(page.locator(`[data-position-key="${position.market}:${position.side}:${position.positionId}"]`).first()).toBeVisible();
       await expect(page.locator(`[data-position-key="${position.market}:${position.side}:${position.positionId}"]`).first()).toContainText('Position value');
@@ -1167,6 +1397,7 @@ async function runProof(captureStage: string) {
     for (const viewport of responsiveViewports) {
       await page.setViewportSize(viewport);
       await page.goto(`${baseUrl}/positions`);
+      await ensureForkWalletConnected();
       const positionCards = page.locator('[data-position-key]');
       await expect(positionCards).toHaveCount(scenarios.length, { timeout: 180_000 });
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
@@ -1205,6 +1436,7 @@ async function runProof(captureStage: string) {
     }
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     const leveragePosition = positions[0];
     assert.ok(leveragePosition, 'browser proof requires a position for the direct leverage check');
     const leverageKey = `${leveragePosition.market}:${leveragePosition.side}:${leveragePosition.positionId}`;
@@ -1227,10 +1459,11 @@ async function runProof(captureStage: string) {
     await expect(positionAction).toBeVisible();
     await positionAction.getByRole('radio', { name: 'Leverage', exact: true }).click();
     await expect(positionAction.getByRole('radio', { name: 'Leverage', exact: true })).toHaveAttribute('aria-checked', 'true');
-    const targetLeverage = page.getByRole('spinbutton', { name: 'Target leverage', exact: true });
+    const targetLeverage = page.getByRole('textbox', { name: 'Target leverage', exact: true });
     await expect(targetLeverage).toBeVisible();
     expect(Number(await targetLeverage.inputValue()), "target leverage must match the card's displayed leverage").toBeCloseTo(Number(leverageDisplay![1]), 2);
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     const borrowTarget = positions.find((position) => position.market === 'ETH' && position.side === 'long');
     assert.ok(borrowTarget, 'browser proof requires an ETH long borrow target');
     const borrowTargetKey = `${borrowTarget.market}:${borrowTarget.side}:${borrowTarget.positionId}`;
@@ -1259,7 +1492,7 @@ async function runProof(captureStage: string) {
     assert.equal(submitted.length, borrowSignedBefore, 'borrow details must not request a signature');
     const { signedBefore: borrowSignedBeforeActual, transactionCount: borrowTransactionCount } = await driveDirectAction(borrowActionName, 'ETH-long-borrow');
     assert.equal(borrowSignedBeforeActual, borrowSignedBefore);
-    await expect(page.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible({ timeout: 180_000 });
+    await expect(page.getByRole('heading', { name: 'Position updated', exact: true })).toBeVisible({ timeout: 180_000 });
     const [borrowCollateralAfter, borrowDebtAfter] = await client.readContract({ address: borrowTarget.pool, abi: poolAbi, functionName: 'getPosition', args: [BigInt(borrowTarget.positionId)] });
     const walletFxUsdAfter = await client.readContract({ address: fxUsd, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] });
     assert.ok(borrowCollateralAfter > borrowCollateralBefore, 'browser borrow did not add collateral to the existing position');
@@ -1285,6 +1518,7 @@ async function runProof(captureStage: string) {
     await page.screenshot({ path: resolve(artifactRoot, 'ETH-long-borrow-confirmed.png'), fullPage: true });
     await page.getByRole('button', { name: 'View position', exact: true }).click();
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     await page.screenshot({ path: resolve(artifactRoot, 'positions-mobile.png'), fullPage: true });
 
     // Exercise Earn reviews with the same real fork-backed SDK route used by
@@ -1314,6 +1548,7 @@ async function runProof(captureStage: string) {
         'Earn fixture must expose the exact real USDC deposit amount');
     }
     await page.goto(`${baseUrl}/earn`);
+    await ensureForkWalletConnected();
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
     await page.getByLabel('Asset', { exact: true }).click();
     await page.getByRole('listbox', { name: 'Asset options', exact: true }).getByRole('option', { name: /^USDC\b/i }).click();
@@ -1344,7 +1579,7 @@ async function runProof(captureStage: string) {
     );
     assert.equal(earnDepositSignedBefore, earnDepositSignatureBaseline);
     assert.ok(earnDepositTransactionCount > 0, 'Earn deposit review must bind at least one real fork transaction');
-    await expect(page.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible({ timeout: 180_000 });
+    await expect(page.getByRole('heading', { name: 'Deposit complete', exact: true })).toBeVisible({ timeout: 180_000 });
     const fxSaveShares = await client.readContract({ address: fxSave, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] });
     assert.ok(fxSaveShares > 0n, 'real Earn deposit must mint the wallet fxSAVE shares needed for withdrawal reviews');
 
@@ -1353,6 +1588,7 @@ async function runProof(captureStage: string) {
     assert.ok(withdrawalShares > 0n, 'Earn fixture must have a positive verified fxSAVE amount for both withdrawal reviews');
     const withdrawalAmount = formatUnits(withdrawalShares, 18);
     await page.goto(`${baseUrl}/earn?mode=withdraw`);
+    await ensureForkWalletConnected();
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByLabel('Amount in fxSAVE', { exact: true }).fill(withdrawalAmount);
@@ -1387,6 +1623,7 @@ async function runProof(captureStage: string) {
     assert.equal(submitted.length, withdrawalReviewSignatureBaseline, 'instant withdrawal review must not request a signature');
 
     await page.goto(`${baseUrl}/earn?mode=withdraw`);
+    await ensureForkWalletConnected();
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByLabel('Amount in fxSAVE', { exact: true }).fill(withdrawalAmount);
@@ -1413,6 +1650,7 @@ async function runProof(captureStage: string) {
 
     for (const route of ['portfolio', 'earn', 'move']) {
       await page.goto(`${baseUrl}/${route}`);
+      await ensureForkWalletConnected();
       if (route === 'portfolio') {
         const portfolioPositions = page.locator('section[aria-label="Positions"] details').first();
         const portfolioPositionsSummary = portfolioPositions.locator('summary');
@@ -1516,6 +1754,7 @@ async function runProof(captureStage: string) {
       const signedBefore: number = submitted.length;
       const usdcBeforeClose = await client.readContract({ address: usdc, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] });
       await page.goto(`${baseUrl}/positions`);
+      await ensureForkWalletConnected();
       await expect(page.locator(`[data-position-key="${key}"]`).first()).toBeVisible();
       // Open the position from its row, then choose Close among its actions.
       await page.locator(`[data-position-key="${key}"]`).first().click();
@@ -1537,7 +1776,7 @@ async function runProof(captureStage: string) {
       await page.screenshot({ path: resolve(artifactRoot, `${position.market}-${position.side}-close-review.png`), fullPage: true });
       const { signedBefore: closeSignedBefore, transactionCount: closeTransactionCount } = await driveDirectAction(closeActionName, `${position.market}-${position.side}-close`);
       assert.equal(closeSignedBefore, signedBefore);
-      const confirmedHeading = page.getByRole('heading', { name: 'Confirmed', exact: true });
+      const confirmedHeading = page.getByRole('heading', { name: 'Position closed', exact: true });
       const closedPositionRow = page.locator(`[data-position-key="${key}"]`);
       // The final position can remove the manager (and therefore its success
       // sheet) as soon as the authoritative empty-position read lands. Accept
@@ -1547,7 +1786,7 @@ async function runProof(captureStage: string) {
         (await confirmedHeading.isVisible().catch(() => false)) || await closedPositionRow.count() === 0
       ), { timeout: 180_000 }).toBe(true);
       if (await confirmedHeading.isVisible().catch(() => false)) {
-        await expect(page.getByRole('button', { name: 'View position', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: /^View positions?$/, exact: true })).toBeVisible();
       }
       await expect(closedPositionRow).toHaveCount(0);
       const [remainingCollateral, remainingDebt] = await client.readContract({ address: position.pool, abi: poolAbi, functionName: 'getPosition', args: [BigInt(position.positionId)] });
@@ -1568,6 +1807,7 @@ async function runProof(captureStage: string) {
     }
     assert.equal(closedPositions.length, scenarios.length, 'every supported position must close through the browser');
     await page.goto(`${baseUrl}/history`);
+    await ensureForkWalletConnected();
     for (const position of closedPositions) {
       const row = page.getByRole('listitem').filter({ hasText: `Closed ${position.market} ${position.side === 'long' ? 'Long' : 'Short'} #${position.positionId}` });
       await expect(row).toBeVisible({ timeout: 180_000 });
@@ -1591,6 +1831,7 @@ async function runProof(captureStage: string) {
       await expect(row.getByRole('link', { name: 'Receipt', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${closeHash}`);
     }
     await page.goto(`${baseUrl}/positions`);
+    await ensureForkWalletConnected();
     // A delayed/unavailable indexer is allowed to leave the product in its
     // honest partial-empty state. Every position has already passed the
     // receipt-bound canonical zero assertion above, so accepting that state
@@ -1609,7 +1850,7 @@ async function runProof(captureStage: string) {
     }
     assert.ok(existingBorrowProof, 'existing-position borrow must complete through the browser');
     completed = true;
-    await context.tracing.stop({ path: resolve(artifactRoot, 'trace.zip') });
+    if (!previewMode) await context.tracing.stop({ path: resolve(artifactRoot, 'trace.zip') });
     };
     await Promise.race([
       runBrowserProof(),
@@ -1621,13 +1862,13 @@ async function runProof(captureStage: string) {
     // Save the browser before diagnostic RPC reads warm caches or allow the
     // failed screen to change. Successful runs and failed runs have distinct
     // trace names so a historical success cannot look like current evidence.
-    if (page) {
+    if (page && !previewMode) {
       await page.screenshot({ path: resolve(artifactRoot, 'failure.png'), fullPage: true }).catch(() => undefined);
       await writeFile(resolve(artifactRoot, 'failure.txt'), `${String(error)}\nBrowser errors: ${JSON.stringify(browserErrors)}\nRoute errors: ${JSON.stringify(routeErrors)}\n${await page.locator('body').innerText().catch(() => '')}`);
       await page.context().tracing.stop({ path: resolve(artifactRoot, 'failure-trace.zip') }).catch(() => undefined);
     }
     const discoveryDiagnostics = [];
-    for (const candidate of candidates) {
+    for (const candidate of previewMode ? [] : candidates) {
       const startedAt = Date.now();
       try {
         const state = await client.readContract({ address: candidate.pool, abi: poolAbi, functionName: 'getPosition', args: [BigInt(candidate.positionId)] });
@@ -1647,7 +1888,7 @@ async function runProof(captureStage: string) {
         discoveryDiagnostics.push({ market: candidate.market, side: candidate.side, positionId: candidate.positionId, error: String(reason), elapsedMs: Date.now() - startedAt });
       }
     }
-    await writeFile(resolve(artifactRoot, 'failure-discovery.json'), JSON.stringify(discoveryDiagnostics, null, 2));
+    if (!previewMode) await writeFile(resolve(artifactRoot, 'failure-discovery.json'), JSON.stringify(discoveryDiagnostics, null, 2));
     throw error;
   } finally {
     tearingDown = true;
@@ -1660,6 +1901,7 @@ async function runProof(captureStage: string) {
       assert.equal(await rpc('evm_revert', [snapshot]), true, 'browser proof snapshot must revert');
     }
   }
+  if (previewMode) return;
   assert.ok(completed);
   assert.ok(captureStage);
   const captureReport = JSON.parse(await readFile(resolve(captureStage, 'capture-report.json'), 'utf8'));
@@ -1707,6 +1949,10 @@ async function runProof(captureStage: string) {
 }
 
 async function main() {
+  if (previewAttachMode) {
+    await runAttachedPreview();
+    return;
+  }
   const stagingRoot = resolve(tmpdir());
   const captureStage = await mkdtemp(resolve(stagingRoot, 'fxaeon-browser-captures-'));
   try {

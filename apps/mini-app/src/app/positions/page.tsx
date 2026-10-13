@@ -635,7 +635,7 @@ export default function PositionsPage() {
             <section className={styles.positionsColumn} aria-labelledby="open-positions-heading">
               <div className={styles.positionSectionHeader}>
                 <div><h2 id="open-positions-heading">Open positions</h2></div>
-                <span>{positions.length} open</span>
+                <span>{positions.length} open{positionState.pendingPositions.length > 0 && ` · ${positionState.pendingPositions.length} syncing`}</span>
               </div>
               {/* A tap opens the position: its figures, actions and form together. */}
               <ProtocolPositionList label="Open positions">

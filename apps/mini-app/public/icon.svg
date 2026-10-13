@@ -4,7 +4,7 @@
       <stop stop-color="#172b4b"/><stop offset="1" stop-color="#0b1424"/>
     </linearGradient>
     <linearGradient id="ribbon" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#3b82f6"/><stop offset=".48" stop-color="#2563eb"/><stop offset="1" stop-color="#1d4ed8"/>
+      <stop stop-color="#2973ff"/><stop offset=".48" stop-color="#2973ff"/><stop offset="1" stop-color="#2973ff"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="18" fill="url(#bg)"/>

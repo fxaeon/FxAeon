@@ -95,6 +95,12 @@ export default function WalletProfile() {
   const walletSnapshotValuation = walletAssetValuation(displayAssets);
   const walletValueLoading = loading || walletBalances.status === 'idle' || walletBalances.status === 'loading' || priceSnapshot.status === 'loading';
   const currentClaimable = claimSnapshot.status === 'ready' ? claimSnapshot.data : null;
+  const pendingPositionCount = positionState.pendingPositions.length;
+  const positionCountValue = positionState.status === 'ready'
+    ? `${positionState.positions.length} open${pendingPositionCount > 0 ? ` · ${pendingPositionCount} syncing` : ''}`
+    : pendingPositionCount > 0
+      ? <><MissingValue width="xs" status={positionState.status === 'loading' || positionState.status === 'idle' ? 'loading' : 'unavailable'} label="Indexed position count unavailable" /> · {pendingPositionCount} syncing</>
+      : '—';
   const claimTask = selectWalletTasks({ walletAddress: wallet.address ?? '', transactions: [], claimable: currentClaimable })
     .find((task) => task.kind === 'withdrawal' && task.state === 'ready');
   const verifiedEnsName = useVerifiedWalletName(wallet.ready && wallet.authenticated ? wallet.address : undefined);
@@ -225,7 +231,7 @@ export default function WalletProfile() {
               </button>}
             </section>
             <section className={presentation.positions} aria-labelledby="wallet-profile-positions-title">
-              <ActionRow icon={Layers2} title="Positions" href="/positions" value={<ValueOrSkeleton value={positionState.status === 'ready' ? `${positionState.positions.length} open` : '—'} width="sm" status={positionState.status === 'loading' || positionState.status === 'idle' ? 'loading' : 'unavailable'} label="Open position count" />} />
+              <ActionRow icon={Layers2} title="Positions" href="/positions" value={<ValueOrSkeleton value={positionCountValue} width="sm" status={positionState.status === 'loading' || positionState.status === 'idle' ? 'loading' : 'unavailable'} label="Indexed open and confirmed syncing positions" />} />
               <h3 id="wallet-profile-positions-title" className="sr-only">Open positions</h3>
               {claimTask && <ActionRow icon={ArrowDownToLine} title="Claim fxSAVE withdrawal" href={claimTask.href} />}
             </section>

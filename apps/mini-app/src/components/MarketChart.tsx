@@ -238,7 +238,7 @@ function readChartTheme(): ChartTheme {
   const tokens = getComputedStyle(document.documentElement);
   const token = (name: string, fallback: string) => tokens.getPropertyValue(name).trim() || fallback;
   return {
-    accent: token('--mint', '#3b82f6'),
+    accent: token('--mint', '#2973ff'),
     axis: token('--mut-2', '#8d869d'),
     crosshair: token('--line-strong', '#3f3a52'),
     label: token('--surface-3', '#282535'),

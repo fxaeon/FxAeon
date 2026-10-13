@@ -10,6 +10,7 @@ import { useUsdPrices } from '@/components/PriceProvider';
 import { useWalletBalances } from '@/components/WalletDataProvider';
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import { LeverageSplitRange } from '@/components/LeverageSplit';
+import { DecimalInput } from '@/components/DecimalInput';
 import type { LeverageSide } from '@/lib/leverageShare';
 import { haptic } from '@/lib/telegram';
 import { formatBalanceDecimal } from '@/lib/amount';
@@ -182,6 +183,7 @@ export function SlippageField({
   const errorId = `${inputId}-error`;
   const helpId = `${inputId}-help`;
   const [touched, setTouched] = useState(false);
+  const [entryError, setEntryError] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const pointerTypeRef = useRef<string | null>(null);
   useEffect(() => {
@@ -195,13 +197,14 @@ export function SlippageField({
     return () => document.removeEventListener('keydown', onDocumentKeyDown);
   }, [showHelp]);
   const numeric = Number(value);
-  const error = value
-    ? (!Number.isFinite(numeric) || numeric <= 0 || numeric > max
+  const validSyntax = /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value);
+  const error = entryError || (value
+    ? (!validSyntax || !Number.isFinite(numeric) || numeric <= 0 || numeric > max
         ? `Enter a slippage tolerance greater than 0% and no more than ${max}%.`
         : null)
     : touched
       ? 'Enter a slippage tolerance.'
-      : null;
+      : null);
 
   return (
     <div>
@@ -240,12 +243,13 @@ export function SlippageField({
       </div>
       {showHelp && inlineHelp && <div id={helpId} role="tooltip" className={styles.slippageHelpInline}>The transaction can fail if adverse price movement exceeds this tolerance.</div>}
       <div className={`${styles.formField} field-control flex min-h-[52px] items-center gap-2 px-4 ${error ? 'field-error' : ''}`}>
-        <input
+        <DecimalInput
           id={inputId}
           value={value}
-          onChange={(event) => onChange(event.target.value.replace(',', '.').slice(0, 32))}
+          onValueChange={(next) => { setEntryError(''); onChange(next); }}
+          onInvalidInput={(message) => { if (message) { setEntryError(message); onChange(''); } else setEntryError(''); }}
+          policy="comma-decimal"
           onBlur={() => setTouched(true)}
-          inputMode="decimal"
           autoComplete="off"
           aria-label="Slippage tolerance percentage"
           aria-invalid={Boolean(error)}
@@ -547,35 +551,63 @@ export function LeverageField({
   const errorId = `${inputId}-error`;
   const splitId = `${inputId}-split`;
   const invalid = Boolean(error);
-  const describedBy = [invalid ? errorId : null, split ? splitId : null].filter(Boolean).join(' ') || undefined;
   const sliderValue = Math.min(max, Math.max(min, Number.isFinite(value) && value > 0 ? value : min));
   const fill = max === min ? 0 : ((sliderValue - min) / (max - min)) * 100;
+  const [leverageDraft, setLeverageDraft] = useState(Number.isFinite(value) ? String(value) : '');
+  const [leverageFocused, setLeverageFocused] = useState(false);
+  const [leverageInputError, setLeverageInputError] = useState('');
+  useEffect(() => {
+    if (!leverageFocused && Number.isFinite(value)) {
+      setLeverageDraft(String(value));
+      setLeverageInputError('');
+    }
+  }, [leverageFocused, value]);
   const numberInput = (
-    <input
+    <DecimalInput
       id={inputId}
-      type="number"
-      inputMode="decimal"
-      min={min}
-      max={max}
-      step="0.1"
-      value={Number.isFinite(value) ? value : ''}
-      onChange={(event) => {
-        if (!event.target.value) {
-          onChange(0);
+      value={leverageDraft}
+      onInvalidInput={(message) => { if (message) { setLeverageDraft(''); setLeverageInputError(message); onChange(Number.NaN); } else setLeverageInputError(''); }}
+      onValueChange={(next) => {
+        setLeverageDraft(next);
+        if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(next)) {
+          setLeverageInputError('Enter leverage using digits and one decimal point.');
+          onChange(Number.NaN);
           return;
         }
-        const next = Number(event.target.value);
-        // Clamp an over-limit paste/keystroke immediately. Values below
-        // the live minimum remain editable until blur so decimals can be
-        // entered naturally, then the field is normalized below.
-        onChange(Number.isFinite(next) ? Math.min(max, next) : 0);
+        const parsed = Number(next);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          setLeverageInputError('Enter a leverage greater than 0.');
+          onChange(Number.NaN);
+          return;
+        }
+        // Preserve the existing upper-bound behavior; values below the live
+        // minimum remain visible and are normalized on blur.
+        const bounded = Math.min(max, parsed);
+        setLeverageInputError('');
+        onChange(bounded);
       }}
+      onFocus={() => setLeverageFocused(true)}
       onBlur={() => {
         haptic('selection');
-        if (Number.isFinite(value) && value > 0 && value < min) onChange(min);
+        setLeverageFocused(false);
+        if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(leverageDraft)) {
+          setLeverageInputError('Enter leverage using digits and one decimal point.');
+          onChange(Number.NaN);
+          return;
+        }
+        const parsed = Number(leverageDraft);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          setLeverageInputError('Enter a valid leverage greater than 0.');
+          onChange(Number.NaN);
+          return;
+        }
+        const normalized = Math.min(max, Math.max(min, parsed));
+        setLeverageDraft(String(normalized));
+        setLeverageInputError('');
+        onChange(normalized);
       }}
-      aria-invalid={invalid}
-      aria-describedby={describedBy}
+      aria-invalid={invalid || Boolean(leverageInputError)}
+      aria-describedby={[invalid || leverageInputError ? errorId : null, split ? splitId : null].filter(Boolean).join(' ') || undefined}
       className={`${styles.leverageInput} field-control min-h-[52px] min-w-0 flex-1 px-4 text-[20px] font-semibold outline-none`}
     />
   );
@@ -622,7 +654,7 @@ export function LeverageField({
         <>
           <div className={styles.tradeCompactLeverageHeader}>
             <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
-            <div className={`${styles.rangeField} ${styles.tradeCompactLeverageValue} range-control ${invalid ? 'field-error' : ''}`}>
+            <div className={`${styles.rangeField} ${styles.tradeCompactLeverageValue} range-control ${invalid || leverageInputError ? 'field-error' : ''}`}>
               {numberInput}
               <span className="text-display text-[18px] font-semibold text-mint" aria-hidden="true">×</span>
             </div>
@@ -635,7 +667,7 @@ export function LeverageField({
         <>
           {/* The live range is stated once, at the slider's ends, as on Trade. */}
           <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
-          <div className={`${styles.rangeField} range-control p-3 ${invalid ? 'field-error' : ''}`}>
+          <div className={`${styles.rangeField} range-control p-3 ${invalid || leverageInputError ? 'field-error' : ''}`}>
             <div className="flex items-center gap-3">
               {numberInput}
               <span className="text-display text-[22px] font-semibold text-mint" aria-hidden="true">×</span>
@@ -646,7 +678,7 @@ export function LeverageField({
           </div>
         </>
       )}
-      {error && <p id={errorId} role="alert" className="mt-1.5 px-1 text-[11px] leading-relaxed text-danger">{error}</p>}
+      {(error || leverageInputError) && <p id={errorId} role="alert" className="mt-1.5 px-1 text-[11px] leading-relaxed text-danger">{error || leverageInputError}</p>}
     </div>
   );
 }

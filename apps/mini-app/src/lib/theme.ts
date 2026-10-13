@@ -18,13 +18,13 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
   official: {
     id: 'official',
     name: 'Light',
-    accent: '#2563eb',
+    accent: '#2973ff',
     colors: { '--bg': '#f7f7f8', '--surface': '#ffffff', '--surface-2': '#f0f0f2' },
   },
   dark: {
     id: 'dark',
     name: 'Dark',
-    accent: '#3b82f6',
+    accent: '#2973ff',
     colors: { '--bg': '#111113', '--surface': '#1b1b1f', '--surface-2': '#242428' },
   },
 };
