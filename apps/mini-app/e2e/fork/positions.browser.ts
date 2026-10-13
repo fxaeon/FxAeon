@@ -1672,15 +1672,10 @@ async function runProof(captureStage: string) {
       await page.getByRole('button', { name: 'Open wallet profile' }).click();
       const drawer = page.getByRole('dialog', { name: new RegExp(`^(?:Wallet ${wallet}|Wallet profile for .*; address ${wallet})$`, 'i') });
       await expect(drawer).toBeVisible();
-      await expect(drawer.locator('[data-position-key]')).toHaveCount(2);
-      for (const position of positions.filter(p => p.market === 'ETH')) {
-        await expect(drawer.locator(`[data-position-key="${position.market}:${position.side}:${position.positionId}"]`)).toBeVisible();
-      }
+      const positionsLink = drawer.getByRole('link', { name: /^Positions\b/ });
+      await expect(positionsLink).toHaveAttribute('href', '/positions');
+      await expect(positionsLink).toContainText(`${positions.length} open`);
       await expect(drawer).not.toContainText(/Last verified|Live verification failed|Live position verification is unavailable/);
-      for (const card of await drawer.locator('[data-position-key]').all()) {
-        const key = await card.getAttribute('data-position-key');
-        assert.ok(positions.some(p => `${p.market}:${p.side}:${p.positionId}` === key), 'drawer must contain a real fork position');
-      }
       await page.screenshot({ path: resolve(artifactRoot, `${route}-wallet-mobile.png`), fullPage: false });
       await page.getByRole('button', { name: 'Close wallet profile' }).click();
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${route} overflows mobile viewport`);
