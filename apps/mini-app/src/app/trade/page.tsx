@@ -574,7 +574,7 @@ export default function TradePage() {
   // The primary action says what the ticket still needs before it can be reviewed.
   const reviewBlocker = !wallet.address ? null
     : amountBlocker(amount, tokenDecimals(token), tokenSymbol(token), selectedTokenBalance)
-      ?? (leverage < leverageBounds.min || leverage > leverageBounds.max ? `Choose ${leverageBounds.min.toFixed(1)}×–${leverageBounds.max.toFixed(1)}× leverage` : null)
+      ?? (!Number.isFinite(leverage) || leverage < leverageBounds.min || leverage > leverageBounds.max ? `Choose ${leverageBounds.min.toFixed(1)}×–${leverageBounds.max.toFixed(1)}× leverage` : null)
       ?? (!Number.isFinite(slippageValue) || slippageValue <= 0 || slippageValue > MAX_FX_SLIPPAGE_PERCENT ? 'Set slippage in settings' : null);
 
   const marketPositions = positionState.positions.filter((position) => position.market === market);

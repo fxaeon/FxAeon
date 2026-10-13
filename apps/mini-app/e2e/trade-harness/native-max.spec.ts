@@ -30,7 +30,7 @@ const mocks: Record<string, string> = {
   '@/lib/confirmedPositions': `export const deriveConfirmedPositionHint = () => null;`,
   '@/lib/confirmedPositionStorage': `export const confirmedPositionHintKey = () => '';`,
   '@/components/WalletDataProvider': `export const useWalletBalances = () => ({status:'ready',data:null});`,
-  '@/components/ProtocolForm': `import React from 'react'; export { AmountFieldView as AmountField } from '@/components/AmountField'; export const LeverageField = ({value,onChange,min,max}) => <input aria-label="Target leverage" type="number" value={value} min={min} max={max} onChange={e=>onChange(Number(e.target.value))} />; export { Segmented } from '${src.replaceAll('\\', '/')}/components/ProtocolForm.tsx'; export const SlippageField = () => null; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>; export const tokenBalanceFor = (balances,token) => balances[token]; export const useWalletTokenBalances = () => ({balances:{ETH:{status:'ready',amount:globalThis.__tradeMaxHarness.balance}},status:'ready',refresh:async()=>{}});`,
+  '@/components/ProtocolForm': `import React from 'react'; export { AmountFieldView as AmountField } from '@/components/AmountField'; export { Segmented, LeverageField } from '${src.replaceAll('\\', '/')}/components/ProtocolForm.tsx'; export const SlippageField = () => null; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>; export const tokenBalanceFor = (balances,token) => balances[token]; export const useWalletTokenBalances = () => ({balances:{ETH:{status:'ready',amount:globalThis.__tradeMaxHarness.balance}},status:'ready',refresh:async()=>{}});`,
   '@/lib/fx': `export const MAX_FX_SLIPPAGE_PERCENT=5; export const clampLeverage=(v)=>v; export const estimatePlannedRouteCost=async()=>({}); export const getEthereumClient=()=>({getBlockNumber:async()=>1n}); export const leverageBoundsFor=(market,side)=>({min:side==='long'?1.1:0.1,max:market==='ETH'?(side==='long'?10:6):(side==='long'?8:5)}); export const planIncreasePosition=async(input)=>({input}); export const prepareLeverageReview=async()=>({}); export const readLeverageBounds=async(market,side)=>leverageBoundsFor(market,side); export const readSignatureRequiredDraft=()=>null; export const restoreSignatureRequiredDraft=()=>null; export const signatureDraftIdFromSearch=()=>null;`,
   '@/lib/fx/nativeMax': `export const nativeMaxErrorMessage=()=> 'Current gas fees are unavailable. Try again shortly.'; export const calculateNativeMax = (input) => new Promise((resolve,reject) => globalThis.__tradeMaxHarness.requests.push({balanceWei:input.balanceWei,resolve,reject}));`,
   '@/lib/fx/routePrefetch': `export class RoutePrefetchStore { invalidate(){} prime(){return Promise.resolve();} get(){return null;} }`,
@@ -180,9 +180,7 @@ for (const market of ['ETH', 'BTC']) {
     await mount(page);
     await page.getByRole('combobox', { name: 'Market', exact: true }).selectOption(market);
     const amount = page.getByRole('textbox', { name: `Amount in ${market === 'ETH' ? 'ETH' : 'WBTC'}` });
-    // The harness deliberately renders this input as type=number, whose
-    // accessible role is spinbutton (unlike the app's decimal text inputs).
-    const leverage = page.getByRole('spinbutton', { name: 'Target leverage' });
+    const leverage = page.getByRole('textbox', { name: 'Target leverage' });
     const ticket = page.getByRole('radiogroup', { name: 'Position side' });
     await page.getByText('How leverage works', { exact: true }).click();
     await page.getByText('Market details', { exact: true }).click();
@@ -229,3 +227,24 @@ for (const market of ['ETH', 'BTC']) {
     await expect(rows.nth(1)).toContainText(`75% borrowed ${nextMarket === 'ETH' ? 'wstETH' : 'WBTC'} · 25% yours`);
   });
 }
+
+test('empty leverage cannot review a valid amount before or after blur', async ({ page }) => {
+  await mount(page);
+  const amount = page.getByRole('textbox', { name: 'Amount in ETH' });
+  const leverage = page.getByRole('textbox', { name: 'Target leverage' });
+  const review = page.getByRole('button', { name: 'Open ETH Long', exact: true });
+
+  await amount.fill('0.1');
+  await expect(leverage).toHaveValue('2');
+  await expect(review).toBeEnabled();
+
+  await leverage.fill('');
+  await expect(leverage).toHaveValue('');
+  await expect(leverage).toHaveAttribute('aria-invalid', 'true');
+  await expect(review, 'an empty leverage draft must block review').toBeDisabled();
+
+  await leverage.blur();
+  await expect(leverage).toHaveValue('');
+  await expect(leverage).toHaveAttribute('aria-invalid', 'true');
+  await expect(review, 'blur must not turn an empty leverage draft into a reviewable value').toBeDisabled();
+});
