@@ -259,7 +259,7 @@ test.describe("connected browser wallet flows", () => {
     assertNoBackendRequests(requests);
   });
 
-  test("trade exposes the full official input set and bounds leverage in all four position flows", async ({ page, requests }) => {
+  test("trade exposes the full official input set and rejects an empty leverage in all four position flows", async ({ page, requests }) => {
     await page.goto("/trade", { waitUntil: "domcontentloaded" });
     // Restoring the fixture's account starts a new wallet-scoped form session.
     // Establish this connected-flow precondition before interacting with it.
@@ -300,11 +300,12 @@ test.describe("connected browser wallet flows", () => {
       const leverage = page.getByRole("textbox", { name: flow.label, exact: true });
       await expect(leverage).toHaveAttribute("min", flow.min);
       await expect(leverage).toHaveAttribute("max", flow.max);
-      await leverage.fill("20");
-      await expect(leverage).toHaveValue(flow.max);
-      await leverage.fill("0.01");
+      // An empty numeric draft must stay empty and invalid. In particular,
+      // it must not silently regain the minimum leverage as a fallback.
+      await leverage.fill("");
       await leverage.blur();
-      await expect(leverage).toHaveValue(flow.min);
+      await expect(leverage).toHaveValue("");
+      await expect(leverage).toHaveAttribute("aria-invalid", "true");
     }
     assertNoBackendRequests(requests);
   });
@@ -701,7 +702,7 @@ test.describe("theme control", () => {
     // Portfolio's sole header entry uses the text token. Check the contrasting
     // primary CTA on Earn now that Portfolio no longer duplicates it in main.
     await page.goto("/earn", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(11, 12, 14)");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Light theme. Switch to dark theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -767,7 +768,7 @@ test.describe("Move and More compact surfaces", () => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
     const amount = page.getByLabel("Amount in fxUSD");
     await amount.fill("not-a-number");
-    await expect(page.getByText("Use digits and one decimal point, like 1.25.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Use digits and one decimal separator only.", { exact: true })).toBeVisible();
     await expect(page.getByText(/\b(?:Expected receive|ETA)\b/i)).toHaveCount(0);
     await amount.fill("1");
     await expect(page.getByText(/\b(?:Expected receive|ETA)\b/i)).toHaveCount(0);

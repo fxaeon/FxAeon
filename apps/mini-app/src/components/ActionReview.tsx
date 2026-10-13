@@ -401,13 +401,13 @@ export function ActionReview(props: ActionReviewProps) {
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Edit
         </button>
       </header>
-      <div className={presentationStyles.reviewScrollBody} role="region" aria-label="Review information" tabIndex={0}>
-
       {showExecutionProgress && (
         <div className={presentationStyles.actualProgress}>
           <TransactionProgressPresentation label="Submitted transactions" status={status} stepResults={stepResults} chainId={reviewChainId} presentation={progress} />
         </div>
       )}
+
+      <div className={presentationStyles.reviewScrollBody} role="region" aria-label="Review information" tabIndex={0}>
 
       {routes.length > 1 && (
         <div className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label="Route options">
@@ -460,7 +460,7 @@ export function ActionReview(props: ActionReviewProps) {
 
       {/* Trade's card says this in its status line, and an error already says why the route must be reviewed again. */}
       {!preparing && quoteExpired && !stablePreparation && !error && <p role="status" className={presentationStyles.reviewNotice}>This reviewed quote expired. Refresh and review the updated terms before signing.</p>}
-      {!preparing && <UpdatedQuoteSummary changes={quoteChanges} />}
+      {stage === 'review' && <UpdatedQuoteSummary changes={quoteChanges} />}
 
       {route && wrongNetwork && <p role="status" className={presentationStyles.reviewNotice}>Wallet is on {chainName(wallet.chainId!)}. Confirmation will switch to {chainName(reviewChainId)} before signing.</p>}
       {route && unsupportedNetwork && <p role="status" className={presentationStyles.reviewNotice}>Wallet network is unavailable or unsupported. Confirmation will request {chainName(reviewChainId)} before signing.</p>}

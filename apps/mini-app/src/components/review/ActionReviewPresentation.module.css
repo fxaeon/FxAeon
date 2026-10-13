@@ -15,6 +15,7 @@
 .surfaceEnter { animation: review-enter var(--dur-slow) var(--ease-out) both; }
 .reviewViewport { display: flex; flex-direction: column; min-height: 0; max-height: var(--review-available-height, calc(100dvh - 160px)); }
 .reviewViewport > header, .reviewViewport > :last-child:not(.reviewScrollBody) { flex-shrink: 0; }
+.reviewViewport > .actualProgress { flex-shrink: 0; max-height: calc(var(--review-available-height, 70dvh) * .6); overflow-y: auto; }
 .reviewScrollBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .reviewScrollBody:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 8px; }
 @keyframes review-enter { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: none; } }

@@ -192,6 +192,9 @@ export const useInvalidateWalletData = () => async () => {
   '@/lib/fx/policy': `export const positionPoolAddress = () => '0x00000000000000000000000000000000000000bb';`,
   // The funds notice links to Receive; the isolated harness has no Next router.
   'next/link': `import React from 'react'; export default ({ href, children, ...props }) => <a href={href} {...props}>{children}</a>;`,
+  // ActionReview uses router.push for its completion links. This harness
+  // mounts into an existing document rather than Next's App Router tree.
+  'next/navigation': `export const useRouter = () => ({ push: () => {}, replace: () => {}, prefetch: () => {} });`,
   '@/lib/fx/tokens': `export const FX_TOKENS = { fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
   'lucide-react': `
     import React from 'react';
@@ -222,6 +225,7 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
         });
         build.onResolve({ filter: /^lucide-react$/ }, () => ({ path: 'lucide-react', namespace: 'mock' }));
         build.onResolve({ filter: /^next\/link$/ }, () => ({ path: 'next/link', namespace: 'mock' }));
+        build.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: 'next/navigation', namespace: 'mock' }));
         build.onLoad({ filter: /.*/, namespace: 'mock' }, (args: { path: string }) => ({ contents: mocks[args.path], loader: 'tsx', resolveDir: resolve(root, 'apps/mini-app') }));
       },
     }],

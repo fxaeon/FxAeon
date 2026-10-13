@@ -1137,19 +1137,7 @@ async function runProof(captureStage: string) {
       if (scenario.market === 'ETH' && scenario.side === 'long') quoteExpiryBlockedUntilRefresh = true;
       assert.equal(tradeSignedBefore, signedBefore);
 
-      // The GraphQL response is deliberately held empty for this candidate.
-      // A receipt-confirmed position must still become a complete card from
-      // the canonical NFT balance/ownerOf scan, without waiting for index lag.
       const positionCard = page.locator(`[data-position-key="${key}"]`).first();
-      await expect(positionCard).toBeVisible({ timeout: 180_000 });
-      await expect(positionCard).toContainText(`${scenario.market} ${scenario.side === 'long' ? 'Long' : 'Short'}`);
-      await expect(positionCard).toContainText(`#${positionId}`);
-      // The row opens its position, where its collateral and debt are shown.
-      await expect(positionCard).toHaveAttribute('href', `/positions?position=${encodeURIComponent(key)}`);
-      await expect.poll(() => proofValue(delayedDiscoveries.get(key) ?? 0)).toBeGreaterThan(0);
-      assert.equal(emittedDiscoveries.has(key), false, 'GraphQL index response must remain withheld during direct discovery');
-      await assertCanonicalRow(scenario, positionId, positionCard);
-      confirmedBeforeIndexer.add(key);
       await expect(page.getByRole('button', { name: 'View position', exact: true })).toBeVisible({ timeout: 180_000 });
       // The result names the new position as History will name this transaction.
       await expect(page.getByRole('heading', { name: `Opened ${scenario.market} ${scenario.side === 'long' ? 'Long' : 'Short'}`, exact: true })).toBeVisible();
@@ -1164,6 +1152,7 @@ async function runProof(captureStage: string) {
       const viewedDetails = page.locator(`[data-position-details="${key}"]`);
       await expect(viewedDetails).toBeVisible({ timeout: 180_000 });
       await assertCanonicalDetails(scenario, positionId, viewedDetails);
+      assert.equal(emittedDiscoveries.has(key), false, 'position details must load canonically while GraphQL remains withheld');
       await page.goto(`${baseUrl}/trade`);
       await ensureForkWalletConnected();
       await page.getByRole('radiogroup', { name: 'Market', exact: true }).getByRole('radio', { name: scenario.market, exact: true }).click();
@@ -1172,7 +1161,16 @@ async function runProof(captureStage: string) {
       await page.getByRole('option', { name: /^USDC\b/i }).click();
       const remainingUsdc = await client.readContract({ address: usdc, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] });
       await expect(page.locator('.trade-ticket')).toContainText(`Available: ${formatBalanceDecimal(formatUnits(remainingUsdc, 6), 8)} USDC`);
-      await expect(positionCard).toBeVisible();
+      // Supporting rows stay off the focused result screen. Returning to the
+      // editor must expose the canonical position despite the withheld index.
+      await expect(positionCard).toBeVisible({ timeout: 180_000 });
+      await expect(positionCard).toContainText(`${scenario.market} ${scenario.side === 'long' ? 'Long' : 'Short'}`);
+      await expect(positionCard).toContainText(`#${positionId}`);
+      await expect(positionCard).toHaveAttribute('href', `/positions?position=${encodeURIComponent(key)}`);
+      await expect.poll(() => proofValue(delayedDiscoveries.get(key) ?? 0)).toBeGreaterThan(0);
+      assert.equal(emittedDiscoveries.has(key), false, 'GraphQL index response must remain withheld during direct discovery');
+      await assertCanonicalRow(scenario, positionId, positionCard);
+      confirmedBeforeIndexer.add(key);
       const transactions = [];
       for (const tx of submitted.slice(signedBefore)) {
         const receipt = await client.getTransactionReceipt({ hash: tx.hash });

@@ -21,8 +21,9 @@ const mocks: Record<string, string> = {
   '@/components/ui': `import React from 'react'; export const AppShell = ({children}) => <div className="app-shell mx-auto w-full app-shell-tabs"><div className="app-workspace"><header className="app-topbar" style={{minHeight:80}}><a href="#">FxAeon</a></header><main id="main-content" data-shell-content="true" className="app-content app-content-tabs flex-1 outline-none">{children}</main></div><nav aria-label="Primary navigation" data-app-navigation data-fixed-navigation="true" className="mobile-tabbar pointer-events-none fixed inset-x-0 bottom-0 z-40"><div className="tabbar-safe mx-auto w-full max-w-[520px]"><div className="tabbar pointer-events-auto">App navigation</div></div></nav></div>; export const Button = React.forwardRef(({children,onClick,disabled,loading,className='',variant='ghost',...props},ref)=><button ref={ref} type="button" {...props} disabled={disabled||loading} onClick={onClick} className={\`button glass-press astryx-interactive flex min-h-12 w-full items-center justify-center gap-2 px-5 py-3 text-[14px] \${variant==='primary'?'button-primary font-semibold':variant==='danger'?'button-danger text-danger':'button-ghost text-[var(--text)]'} \${className}\`}>{children}</button>); export const Card = ({children,className=''}) => <div className={\`ui-card p-5 \${className}\`}>{children}</div>; export const EmptyState = ({title,body}) => <section><h2>{title}</h2><p>{body}</p></section>;`,
   '@/components/review/useActionReviewLifecycle': `import React from 'react'; import { FX_TOKENS } from '@/lib/fx'; import { positionPoolAddress, positionCollateralTokenAddress, positionDebtTokenAddress } from '@/lib/fx/policy';
     const route = (address) => ({ operation:'reducePosition', chainId:1, walletAddress:address, transactions:[{chainId:1,from:address,to:positionPoolAddress('ETH','long'),data:'0x095ea7b3'+'0'.repeat(24)+'b'.repeat(40)+'0'.repeat(63)+'b',value:0n,kind:'approval',type:'approvePosition'},{chainId:1,from:address,to:positionPoolAddress('ETH','long'),data:'0x12345678',value:0n,kind:'action',type:'reducePosition',operation:'reducePosition'}], details:{routeType:'Close ETH long position',slippagePercent:1,executionPrice:'3250.125',colls:'0',debts:'0',minOut:'99000000'}, policy:{reviewedAction:{kind:'position-reduce',poolAddress:positionPoolAddress('ETH','long'),positionId:11,isClosePosition:true,positionType:'long',outputTokenAddress:FX_TOKENS.USDC.address,collateralTokenAddress:positionCollateralTokenAddress('ETH','long'),debtTokenAddress:positionDebtTokenAddress('ETH','long'),slippagePercent:1}} });
-    export function useActionReviewLifecycle(props) { const [stage,setStage] = React.useState('input'); const [accepted,setAccepted] = React.useState(null); const [loading] = React.useState(false); const wallet = globalThis.__positionsReviewHarness.wallet; const previousAddress = React.useRef(wallet.address);
+    export function useActionReviewLifecycle(props) { const [stage,setStage] = React.useState('input'); const [accepted,setAccepted] = React.useState(null); const [stepResults,setStepResults] = React.useState([]); const [loading] = React.useState(false); const wallet = globalThis.__positionsReviewHarness.wallet; const previousAddress = React.useRef(wallet.address);
       globalThis.__positionsReviewHarness.setReviewStage = setStage;
+      globalThis.__positionsReviewHarness.setReviewStepResults = setStepResults;
       React.useEffect(() => { props.onStageChange?.(stage); }, [stage, props.onStageChange]);
       React.useEffect(() => { if (previousAddress.current !== wallet.address && stage !== 'executing' && stage !== 'result') { setStage('input'); setAccepted(null); } previousAddress.current = wallet.address; }, [wallet.address, stage]);
       const review = async () => { if (!props.planBuilder) return; setStage('planning'); const planned = await props.planBuilder(); setAccepted(Array.isArray(planned)?planned[0]:(planned ?? route(wallet.address))); setStage('review'); };
@@ -30,17 +31,17 @@ const mocks: Record<string, string> = {
       const selected = accepted ?? route(wallet.address);
       const result = stage === 'result' ? {status:'confirmed',operation:'reducePosition',chainId:1,walletAddress:selected.walletAddress,steps:[{index:1,transaction:selected.transactions[1],status:'confirmed',hash:'0x'+'1'.repeat(64)}]} : null;
       const feeTiers={standard:{tier:'standard',gasPriceWei:25000000000n,maxFeePerGas:30000000000n,maxPriorityFeePerGas:5000000000n,source:'rpc'},fast:{tier:'fast',gasPriceWei:30000000000n,maxFeePerGas:50000000000n,maxPriorityFeePerGas:10000000000n,source:'rpc'},rapid:{tier:'rapid',gasPriceWei:40000000000n,maxFeePerGas:60000000000n,maxPriorityFeePerGas:20000000000n,source:'rpc'}};
-      return { canSelectReviewedRoute:false,endConnectFlow:()=>{},error:null,execute:async()=>{},feeSelection:wallet.isEmbedded?{snapshot:{chainId:1,tiers:feeTiers},tier:'standard'}:null,gasCost:{checking:false,estimate:{status:'current',gas:240000n,executionGasFeeWei:2400000000000000n,totalNativeCostWei:2400000000000000n,nativeValueWei:0n},estimateIsCurrent:true,status:'ready'},headingRef:{current:null},loading,networkSwitching:false,quoteChanges:[],quoteExpired:false,refreshReviewedQuote:async()=>{},refreshing:false,reset,result,review,reviewTitle:'Close ETH long position',route:stage==='input'?null:selected,routeSummaries:[],routes:[selected],selectedRoute:0,selectReviewedRoute:()=>{},startConnectFlow:()=>{},stage,status:stage==='executing'?'submitted':'reviewing',statusDetail:'',stepResults:[],triggerRef:{current:null},wallet:{...wallet,ready:true,authenticated:true,isEmbedded:wallet.isEmbedded} };
+      return { canSelectReviewedRoute:false,endConnectFlow:()=>{},error:null,execute:async()=>{},feeSelection:wallet.isEmbedded?{snapshot:{chainId:1,tiers:feeTiers},tier:'standard'}:null,gasCost:{checking:false,estimate:{status:'current',gas:240000n,executionGasFeeWei:2400000000000000n,totalNativeCostWei:2400000000000000n,nativeValueWei:0n},estimateIsCurrent:true,status:'ready'},headingRef:{current:null},loading,networkSwitching:false,quoteChanges:[],quoteExpired:false,refreshReviewedQuote:async()=>{},refreshing:false,reset,result,review,reviewTitle:'Close ETH long position',route:stage==='input'?null:selected,routeSummaries:[],routes:[selected],selectedRoute:0,selectReviewedRoute:()=>{},startConnectFlow:()=>{},stage,status:stage==='executing'?'submitted':'reviewing',statusDetail:'',stepResults,triggerRef:{current:null},wallet:{...wallet,ready:true,authenticated:true,isEmbedded:wallet.isEmbedded} };
     }`,
   '@/components/MissingValue': `import React from 'react'; export const ValueOrSkeleton = ({value,label}) => value ? <>{value}</> : <span aria-label={label}>Loading</span>;`,
   '@/lib/addressPresentation': `export const compactAddress = value => value ? value.slice(0,6)+'…'+value.slice(-4) : '';`,
-  '@/lib/transactionProgress': `export const hasTransactionHash = step => Boolean(step?.hash); export const transactionStepProgress=()=>({label:'Ready',className:'',icon:null});`,
+  '@/lib/transactionProgress': `export const hasTransactionHash = step => Boolean(step?.hash); export const transactionStepProgress=step=>({label:step?.status==='submitted'?'Submitted':'Ready',state:step?.status==='submitted'?'submitted':'ready',className:'',icon:null}); export const transactionStepKind=step=>step?.transaction?.kind==='action'?'Action':'Approval'; export const transactionExplorerUrl=(chainId,hash)=>chainId===1?'https://etherscan.io/tx/'+hash:null;`,
   '@/lib/taskState': `export const selectExecutionTask=()=>null;`,
   '@/lib/confirmedPositions': `export const receiptMintedPositionIdentity=()=>null;`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
-  '@/components/review/ReviewProgress': `import React from 'react'; export const chainName=id=>id===8453?'Base':'Ethereum'; export const stepProgress=()=>({label:'Ready',className:'',icon:null}); export const CalldataDisclosure=({data})=><pre>{data}</pre>; export const StatusNotice=({label,body})=><div role="status"><strong>{label}</strong>{body}</div>; export const InlineError=({message})=><div role="alert">{message}</div>; export const TransactionHashLink=({step})=><a href={"https://etherscan.io/tx/"+step.hash}>Receipt</a>;`,
+  '@/components/review/ReviewProgress': `import React from 'react'; export const chainName=id=>id===8453?'Base':'Ethereum'; export const stepProgress=step=>({label:step?.status==='submitted'?'Submitted':'Ready',className:'',icon:null}); export const CalldataDisclosure=({data})=><pre>{data}</pre>; export const StatusNotice=({label,body})=><div role="status"><strong>{label}</strong><span> {body}</span></div>; export const InlineError=({message})=><div role="alert">{message}</div>; export const TransactionHashLink=({step})=><a aria-label="Receipt" href={"https://etherscan.io/tx/"+step.hash}>{step.transaction?.kind==='action'?'Action':'Approval'} {step.index+1} · {step.hash}</a>;`,
   '@/components/review/executionResult': `export const resultPresentation=()=>({title:'Confirmed',body:'Fixture result',tone:'success',icon:()=>null}); export const resultBodyDuringRefresh=({body})=>body;`,
-  '@/components/review/actionReviewStatusModel': `export const buildStatusPresentation=()=>({icon:'clock',label:'Ready',body:'Reviewed terms'});`,
+  '@/components/review/actionReviewStatusModel': `export const buildStatusPresentation=({status})=>status==='submitted'?({icon:'clock',label:'Transaction submitted',body:'Waiting for confirmation on-chain.'}):({icon:'clock',label:'Ready',body:'Reviewed terms'});`,
   '@/components/WalletConnectCTA': `import React from 'react'; export default ({body}) => <section>{body}</section>;`,
   '@/components/ProtocolPositionCard': `import React from 'react'; export const positionIsStale = () => false;
     const keyOf = position => position.market+':'+position.side+':'+position.info.positionId;
@@ -54,7 +55,7 @@ const mocks: Record<string, string> = {
   '@/lib/fx': `import {tokens as t} from '@aladdindao/fx-sdk'; export const FX_TOKENS={ETH:{address:t.eth,decimals:18,key:'ETH'},WETH:{address:t.weth,decimals:18,key:'WETH'},wstETH:{address:t.wstETH,decimals:18,key:'wstETH'},stETH:{address:t.stETH,decimals:18,key:'stETH'},WBTC:{address:t.WBTC,decimals:8,key:'WBTC'},USDC:{address:t.usdc,decimals:6,key:'USDC'},USDT:{address:t.usdt,decimals:6,key:'USDT'},fxUSD:{address:t.fxUSD,decimals:18,key:'fxUSD'},fxUSDBasePool:{address:t.fxUSDBasePool,decimals:18,key:'fxUSDBasePool'},fxSAVE:{address:'0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39',decimals:18,key:'fxSAVE'}}; export const MAX_FX_SLIPPAGE_PERCENT=100; export const clampLeverage=v=>v; export const leverageBoundsFor=()=>({min:1,max:10,source:'fixture'}); export const formatRouteGasCost=()=>({gasFee:'0.0024 ETH',totalCost:'0.0024 ETH'}); export const planAdjustPositionLeverage=async()=>null; export const planIncreasePosition=async()=>null; export const planReducePosition=async()=>null; export const prepareLeverageReview=async({leverage})=>({leverage,bounds:{min:1,max:10,source:'fixture'},plan:null,adjusted:false}); export const readLeverageBounds=async()=>({min:1,max:10,source:'fixture'}); export const readSignatureRequiredDraft=()=>null; export const restoreSignatureRequiredDraftFromSearch=()=>null; export const signatureDraftIdFromSearch=()=>null;`,
   '@/lib/fx/policy': `import {FX_TOKENS} from '@/lib/fx'; const pools={long:['0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8','0xAB709e26Fa6B0A30c119D8c55B887DeD24952473'],short:['0x25707b9e6690B52C60aE6744d711cf9C1dFC1876','0xA0cC8162c523998856D59065fAa254F87D20A5b0']}; export const positionPoolAddress=(market,type)=>pools[type][market==='ETH'?0:1]; export const positionCollateralTokenAddress=(market,type)=>type==='short'?FX_TOKENS.fxUSD.address:market==='ETH'?FX_TOKENS.wstETH.address:FX_TOKENS.WBTC.address; export const positionDebtTokenAddress=(market,type)=>type==='long'?FX_TOKENS.fxUSD.address:market==='ETH'?FX_TOKENS.wstETH.address:FX_TOKENS.WBTC.address;`,
   '@/lib/wallet': `export const usePrivyWallet=()=>({...globalThis.__positionsReviewHarness.wallet,sendTransaction:async()=>{globalThis.__positionsReviewHarness.walletRequests+=1;}}); export const isWalletConnectCancellation=()=>false;`,
-  '@/lib/amount': `export const positiveDecimal=value=>/^\\d+(\\.\\d+)?$/.test(value)&&Number(value)>0?value:null; export const groupDigits=value=>{ const match=/^(\\d+)(\\.\\d+)?$/.exec(value); return match ? match[1].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + (match[2] ?? '') : value; };`,
+  '@/lib/amount': `export const positiveDecimal=value=>/^\\d+(\\.\\d+)?$/.test(value)&&Number(value)>0?value:null; export const normalizeAmountInput=(value,policy='dot-decimal')=>{ if(value.length>100) return null; if(policy==='dot-decimal') return value.includes(',')?null:value; if(value.includes('.')||(value.match(/,/g)||[]).length>1||/^\\d{1,3}(,\\d{3})+$/.test(value)) return null; return value.replace(',','.'); }; export const groupDigits=value=>{ const match=/^(\\d+)(\\.\\d+)?$/.exec(value); return match ? match[1].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + (match[2] ?? '') : value; };`,
   '@/lib/settings': `export const DEFAULT_SLIPPAGE_PERCENT=1; export const GAS_TIERS=['standard','fast','rapid']; export const readSlippagePercent=()=>1; export const SETTINGS_KEY='settings'; export const SETTINGS_UPDATED_EVENT='settings-updated'; export const readGasTier=()=>'standard'; export const DEFAULT_GAS_TIER='standard'; export const MIN_SLIPPAGE_BPS=10; export const MAX_SLIPPAGE_BPS=200; export const SLIPPAGE_PRESETS_BPS=[10,50,100,200]; export const isSlippageBps=(v)=>Number.isInteger(v)&&v>=10&&v<=200; export const writeTransactionSettings=()=>true;`,
   '@/lib/fx/gasFeePolicy': `export const formatGasPriceGwei=value=>Number(value)/1000000000+' Gwei'; export const formatGasTierQuote=quote=>quote.tier+' · '+Number(quote.gasPriceWei)/1000000000+' Gwei'; export const fetchGasTierQuotes=async()=>{ throw new Error('Gas quotes are unavailable in the harness'); };`,
   '@/lib/receiptPresentation': `export const buildReceiptPresentation=()=>({movements:[],technicalMovements:[],executionFee:null,feeLabel:'Network fee',feeCaveat:null,nativeValue:null}); export const receiptTransfersFromLogs=()=>[]; export const shouldShowReceiptMovementFallback=receipts=>receipts.length>0&&receipts.some(receipt=>receipt.transactionKind!=='approval'); export const receiptMovementLines=receipts=>{const tokenMovements=receipts.flatMap(receipt=>receipt.movements); if(tokenMovements.length) return {movements:tokenMovements,nativeValueIsMovement:false}; const nativeSends=receipts.flatMap(receipt=>receipt.nativeValue&&receipt.nativeValueLabel==='Native value sent'?['sent '+receipt.nativeValue]:[]); return {movements:nativeSends,nativeValueIsMovement:nativeSends.length>0};};`,
@@ -274,7 +275,79 @@ test('Add, Reduce, Close, and Leverage use one review column; context changes re
     h.rerender?.();
   });
   await expect(preservedManager).toBeVisible();
+  // Successful results intentionally tuck the chain and wallet identity into
+  // Transaction details. Expanding that disclosure verifies that the result
+  // retains the submitting wallet after the connected account changes.
+  const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Transaction details', { exact: true }) });
+  await resultDetails.locator(':scope > summary').click();
   await expect(preservedManager.locator('[title="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]')).toBeVisible();
   await expect(preservedManager.getByRole('link', { name: 'Receipt' })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
+});
+
+test('submitted transaction status and explorer link stay above navigation while review details scroll', async ({ page }) => {
+  await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
+  const hash = `0x${'a'.repeat(64)}`;
+  for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto('http://positions.test/positions');
+    await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+    if (harness.css) await page.addStyleTag({ content: harness.css });
+    await page.addScriptTag({ content: harness.script });
+    await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
+
+    await page.locator('[data-position-key="ETH:long:11"]').click();
+    await page.getByRole('radiogroup', { name: 'Position action', exact: true }).getByRole('radio', { name: 'Close', exact: true }).click();
+    const reviewAction = page.getByRole('button', { name: 'Review Close ETH long position', exact: true });
+    await reviewAction.scrollIntoViewIfNeeded();
+    await reviewAction.click();
+
+    const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
+    await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
+    for (const label of ['Quote details', 'Advanced details', 'Steps · 2']) {
+      await page.getByText(label, { exact: true }).click();
+    }
+    await reviewInformation.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+    await expect.poll(() => reviewInformation.evaluate((node) => node.scrollTop > 0)).toBe(true);
+    const reviewBodyOverflowed = await reviewInformation.evaluate((node) => node.scrollHeight > node.clientHeight + 1);
+
+    await page.evaluate((submittedHash) => {
+      const h = (globalThis as typeof globalThis & {
+        __positionsReviewHarness: {
+          setReviewStage?: (stage: string) => void;
+          setReviewStepResults?: (steps: unknown[]) => void;
+        };
+      }).__positionsReviewHarness;
+      h.setReviewStepResults?.([{
+        index: 1,
+        transaction: { kind: 'action', type: 'reducePosition', chainId: 1, to: '0x1111111111111111111111111111111111111111', data: '0x12345678', value: 0n },
+        status: 'submitted', hash: submittedHash,
+      }]);
+      h.setReviewStage?.('executing');
+    }, hash);
+
+    const progress = page.getByRole('region', { name: 'Submitted transactions', exact: true });
+    await expect(progress).toBeVisible();
+    await expect(progress.getByText('Transaction submitted', { exact: true })).toBeVisible();
+    const receipt = progress.locator(`a[href="https://etherscan.io/tx/${hash}"]`);
+    await expect(receipt).toBeVisible();
+    await expect(receipt).toHaveAttribute('href', `https://etherscan.io/tx/${hash}`);
+    await expect(receipt).toContainText(hash.slice(0, 8));
+    const fitsAboveNavigation = async () => {
+      const [submittedBox, receiptBox, navigationBox] = await Promise.all([
+        progress.boundingBox(), receipt.boundingBox(), page.locator('[data-app-navigation]').boundingBox(),
+      ]);
+      return Boolean(submittedBox && receiptBox && navigationBox
+        && submittedBox.y >= 0 && submittedBox.x >= 0 && submittedBox.x + submittedBox.width <= viewport.width
+        && submittedBox.y + submittedBox.height <= navigationBox.y
+        && receiptBox.y >= submittedBox.y && receiptBox.y + receiptBox.height <= submittedBox.y + submittedBox.height
+        && receiptBox.y + receiptBox.height <= navigationBox.y);
+    };
+    await expect.poll(fitsAboveNavigation).toBe(true);
+    if (reviewBodyOverflowed) {
+      await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight > node.clientHeight + 1)).toBe(true);
+    }
+    await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/submitted-progress-${viewport.width}x${viewport.height}.png`), fullPage: false });
+  }
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 });

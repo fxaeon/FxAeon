@@ -103,10 +103,11 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
     if (draft === null) return;
     // An untouched restored value is not a new saved preference. It can
     // legitimately have finer precision than the settings editor permits.
-    if (controlledSlippage && draft === percent) { setError(''); return; }
+    if (controlledSlippage && draft === percent) { setDraft(null); setError(''); return; }
     const text = draft.replace(',', '.');
     const value = Math.round(Number(text) * 100);
     if (!/^\d*\.?\d+$/.test(text) || !isSlippageBps(value) || Math.abs(Number(text) * 100 - value) > 1e-9) {
+      setDraft(null);
       setError(`Enter ${formatPercent(MIN_SLIPPAGE_BPS)} to ${formatPercent(MAX_SLIPPAGE_BPS)} in steps of 0.01%.`);
       return;
     }
@@ -134,13 +135,9 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
         <span>Custom</span>
         <DecimalInput enterKeyHint="done" autoComplete="off" value={draft ?? percent} aria-label="Slippage tolerance percentage" policy="comma-decimal"
           aria-describedby={`${id}-slippage-help`} aria-invalid={Boolean(error || inputError)}
-          onFocus={() => setDraft(percent)} onInvalidInput={(message) => { if (message) { setDraft(''); setInputError(message); onSlippageChange?.(''); } else setInputError(''); }}
+          onFocus={() => setDraft(percent)} onInvalidInput={(message) => { if (message) { setDraft(''); setInputError(message); } else setInputError(''); }}
           onValueChange={(next) => {
             setDraft(next); setError(''); setInputError('');
-            const text = next.replace(',', '.');
-            const bps = Math.round(Number(text) * 100);
-            const valid = /^\d*\.?\d+$/.test(text) && isSlippageBps(bps) && Math.abs(Number(text) * 100 - bps) <= 1e-9;
-            onSlippageChange?.(valid ? next : '');
           }}
           onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(); (event.target as HTMLInputElement).blur(); } }} />
         <span aria-hidden="true">%</span>
