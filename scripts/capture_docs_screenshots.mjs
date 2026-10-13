@@ -571,8 +571,10 @@ async function openPortfolioPositions(page) {
 }
 
 async function waitForPopulatedPortfolio(page) {
-  await openPortfolioPositions(page);
+  // The loading outline also contains this disclosure. Wait for canonical
+  // rows before clicking so hydration cannot replace the opened skeleton.
   await waitForPositionKeys(page, positionManifest.positions.filter((position) => position.market === 'ETH'));
+  await openPortfolioPositions(page);
   await page.waitForFunction(() => {
     const positionSection = document.querySelector('section[aria-label="Positions"]');
     const valueCard = document.querySelector('[data-portfolio-value]');
