@@ -1802,7 +1802,7 @@ async function runProof(captureStage: string) {
     await page.goto(`${baseUrl}/history`);
     await ensureForkWalletConnected();
     for (const position of closedPositions) {
-      const row = page.getByRole('listitem').filter({ hasText: `Closed ${position.market} ${position.side === 'long' ? 'Long' : 'Short'} #${position.positionId}` });
+      const row = page.getByRole('listitem').filter({ hasText: `Closed ${position.market} ${position.side === 'long' ? 'Long' : 'Short'}` });
       await expect(row).toBeVisible({ timeout: 180_000 });
       let closeHash: Hex | undefined;
       for (const transaction of position.transactions) {
@@ -1821,7 +1821,13 @@ async function runProof(captureStage: string) {
         if (hasClose) { closeHash = transaction.hash; break; }
       }
       assert.ok(closeHash, `closed ${position.market} ${position.side} #${position.positionId} must have a real router receipt`);
-      await expect(row.getByRole('link', { name: 'Receipt', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${closeHash}`);
+      await row.getByRole('button').click();
+      const detail = page.getByRole('dialog', { name: 'Transaction details', exact: true });
+      await expect(detail).toBeVisible();
+      await expect(detail.getByRole('link', { name: /^View transaction / })).toHaveAttribute('href', `https://etherscan.io/tx/${closeHash}`);
+      await expect(detail.getByRole('link', { name: `${position.market} ${position.side} #${position.positionId}`, exact: true }))
+        .toHaveAttribute('href', `/positions?position=${encodeURIComponent(`${position.market}:${position.side}:${position.positionId}`)}`);
+      await detail.getByRole('button', { name: 'Close transaction details', exact: true }).click();
     }
     await page.goto(`${baseUrl}/positions`);
     await ensureForkWalletConnected();
