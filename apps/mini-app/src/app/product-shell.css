@@ -1,7 +1,7 @@
 @font-face { font-family: Poppins; src: url('/fonts/poppins-regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: Poppins; src: url('/fonts/poppins-medium.woff2') format('woff2'); font-weight: 500 700; font-display: swap; }
 /* Shared product geometry; route controllers own transaction behavior. */
-[data-product-ui='v2'] { font-family: Poppins, var(--font-sans), sans-serif; }
+[data-product-ui='v2'] { font-family: var(--font-sans), sans-serif; font-variant-numeric: tabular-nums; }
 [data-product-ui='v2'] :where(h1, h2, h3, .brand-wordmark) { font-family: Manrope, var(--font-sans), sans-serif; }
 [data-product-ui='v2'] { --product-radius: var(--radius-lg); --product-gap: 20px; }
 [data-product-ui='v2'] .app-topbar { min-height: 64px; padding-block: 10px; align-items: center; gap: 14px; }

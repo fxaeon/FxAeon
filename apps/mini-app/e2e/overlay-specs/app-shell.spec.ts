@@ -272,48 +272,42 @@ test('with data saver on, the canvas stays still from the first paint', async ({
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('More keeps its rows in four pairs and marks only external rows', async ({ page }) => {
+test('More directory exposes its quick actions and marks only external links', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
-  const groups = await page.locator('main section').evaluateAll((sections) => sections.map((section) => ({
-    rows: [...section.querySelectorAll('a, button')].map((row) => ({
-      title: row.querySelector('strong')?.textContent ?? '',
-      described: Boolean(row.querySelector('small')),
-      external: row.getAttribute('target') === '_blank',
-      leaveIcon: Boolean(row.querySelector('.lucide-external-link')),
-    })),
-  })));
-  expect(groups).toHaveLength(4);
-  for (const group of groups) {
-    expect(group.rows, 'each group holds two rows').toHaveLength(2);
-    for (const row of group.rows) {
-      expect(row.title.trim().length, 'every row has a visible name').toBeGreaterThan(0);
-      expect(row.leaveIcon, `${row.title}: the leave-the-app icon marks external rows only`).toBe(row.external);
-    }
-    expect(new Set(group.rows.map((row) => row.described)).size, 'a pair describes both rows or neither').toBe(1);
+  const directory = page.locator('[data-utility-directory]');
+  const links = directory.getByRole('link');
+  await expect(links).toHaveCount(7);
+  const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
+  expect(hrefs).toEqual(['/history', '/qr', '/settings', '/settings#appearance', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
+  for (const link of await links.all()) {
+    await expect(link).toHaveAccessibleName(/\S/);
   }
-  const docs = page.getByRole('link', { name: 'Protocol docs How the protocol works (opens in a new tab)', exact: true });
-  await expect(docs).toHaveAttribute('target', '_blank');
-  await expect(page.getByRole('link', { name: 'Borrow fxUSD Manage collateral and debt', exact: true })).toHaveAttribute('href', '/borrow');
+  await expect(directory.getByRole('link', { name: /Protocol docs.*opens in a new tab/ })).toHaveAttribute('target', '_blank');
+  await expect(directory.getByRole('link', { name: 'FxAeon docs' })).toHaveAttribute('href', '/docs');
 });
 
-test('the account card holds its loaded shape while the wallet starts, in More and Settings', async ({ page }) => {
+test('More waits for a connected wallet before showing its account card; Settings preserves its loading shape', async ({ page }) => {
   await open(page);
-  for (const path of ['/more', '/settings']) {
-    await setLab(page, { path, wallet: STATES[0][1] });
-    const loading = page.getByRole('status', { name: 'Loading account' });
-    await expect(loading).toBeVisible();
-    const avatarRadius = await loading.locator('.skeleton').first().evaluate((element) => {
-      const style = getComputedStyle(element);
-      return { radius: style.borderRadius, width: element.getBoundingClientRect().width };
-    });
-    expect(avatarRadius).toEqual({ radius: '50%', width: 40 });
-    const loadingHeight = (await loading.boundingBox())!.height;
-    await setLab(page, { wallet: STATES[2][1] });
-    const card = page.getByRole('button', { name: 'View connected account' });
-    await expect(card).toBeVisible();
-    expect(Math.abs((await card.boundingBox())!.height - loadingHeight), `${path} account card keeps its height`).toBeLessThanOrEqual(1);
-  }
+  await setLab(page, { path: '/more', wallet: STATES[0][1] });
+  await expect(page.getByRole('status', { name: 'Loading account' })).toHaveCount(0);
+  await setLab(page, { wallet: STATES[2][1] });
+  await expect(page.getByRole('button', { name: 'View connected account' })).toBeVisible();
+
+  await setLab(page, { path: '/settings', wallet: STATES[0][1] });
+  const loading = page.getByRole('status', { name: 'Loading account' });
+  await expect(loading).toBeVisible();
+  const avatarRadius = await loading.locator('.skeleton').first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { radius: style.borderRadius, width: element.getBoundingClientRect().width };
+  });
+  expect(avatarRadius).toEqual({ radius: '50%', width: 40 });
+  const loadingHeight = (await loading.boundingBox())!.height;
+  await setLab(page, { wallet: STATES[2][1] });
+  const card = page.getByRole('button', { name: 'View connected account' });
+  await expect(card).toBeVisible();
+  expect(Math.abs((await card.boundingBox())!.height - loadingHeight), 'Settings account card keeps its height').toBeLessThanOrEqual(1);
 });
 
 test('docs search results stay in the app with an arrow; only links that leave carry the leave mark', async ({ page }) => {
@@ -459,7 +453,7 @@ test('keyboard focus shows one accent ring on the header, dock, rows and choices
       const ring = await page.locator(selector).first().evaluate((element) => {
         const probe = document.createElement('span');
         probe.style.color = 'var(--focus-ring)';
-        document.body.append(probe);
+        element.append(probe);
         const expected = getComputedStyle(probe).color;
         probe.remove();
         const style = getComputedStyle(element);

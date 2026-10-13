@@ -11,18 +11,18 @@
    without its class name. */
 .content { min-height: 0; flex: 1 1 auto; overflow: hidden; }
 
-/* Portfolio's market cards (the frame MarketChart's mini card draws). */
+/* Portfolio's market cards match the live MarketChart card frame. Keep this
+   placeholder self-contained: the provider fallback must not acquire live
+   selectors or behavior. */
 .marketCard {
   display: block;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  background:
-    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--mint) 6%, transparent), transparent 60%),
-    var(--surface);
-  box-shadow: var(--ring-inset);
-  padding: 16px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: none;
+  padding: 20px;
 }
 .marketCard :global(.market-chart-skeleton) { border-radius: 6px; }
 

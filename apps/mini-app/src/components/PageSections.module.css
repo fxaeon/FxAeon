@@ -5,11 +5,11 @@
 .sectionAction { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: var(--mint); font-size: 12px; font-weight: 500; }
 .sectionAction svg { width: 14px; height: 14px; }
 .sectionAction:hover { text-decoration: underline; }
-.stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px 16px; }
-.stat { min-width: 0; display: grid; align-content: start; gap: 5px; }
-.stat dt { color: var(--mut); font-size: 11px; font-weight: 400; }
-.stat dd { min-width: 0; margin: 0; color: var(--text); font-size: 17px; font-weight: 500; letter-spacing: -.025em; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.stat .statHint { color: var(--mut); font-size: 10px; font-weight: 400; letter-spacing: 0; line-height: 1.5; }
+.stats { display: grid; gap: 14px; margin: 0; }
+.stat { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: baseline; gap: 4px 16px; }
+.stat dt { color: var(--mut); font-size: 12px; font-weight: 400; }
+.stat dd { min-width: 0; margin: 0; color: var(--text); font-size: 13px; font-weight: 500; text-align: right; line-height: 1.5; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .statHint { grid-column: 2; color: var(--mut); font-size: 11px; font-weight: 400; letter-spacing: 0; line-height: 1.5; }
 .explainer { border-top: 1px solid var(--line); }
 .explainer > summary { display: flex; min-height: 56px; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; list-style: none; font-size: 13px; color: var(--text); }
 .explainer > summary::-webkit-details-marker { display: none; }
@@ -23,5 +23,3 @@
 .callout p { margin: 5px 0 0; color: var(--mut); font-size: 11px; line-height: 1.7; }
 .calloutLink { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-size: 11px; color: var(--mint); }
 .calloutLink svg { width: 13px; height: 13px; }
-@media(min-width: 840px) { .stats { grid-template-columns: repeat(4,minmax(0,1fr)); } }
-.stats:has(> :nth-child(2):last-child) { grid-template-columns: repeat(2,minmax(0,1fr)); }

@@ -1,7 +1,22 @@
-/* Borrow shares the Earn tab with fxSAVE, so both keep one column width and
-   switching between them never moves the page. */
-.workspace { width: min(100%, 620px); margin-inline: auto; }
-.card { display: flex; min-width: 0; flex-direction: column; gap: 14px; padding: 18px; }
+/* Borrow and Earn share a financial summary and a focused action column. */
+.workspace { width: min(100%, 1080px); margin-inline: auto; }
+.layout { display: grid; grid-template-areas: 'overview' 'action' 'details'; gap: 24px; align-items: start; }
+.layout[data-review='true'] { max-width: 620px; margin-inline: auto; grid-template-areas: 'action'; grid-template-columns: minmax(0, 1fr); }
+.overview { grid-area: overview; min-width: 0; padding: 10px 0 24px; border-bottom: 1px solid var(--line); }
+.vaultIdentity { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.vaultIdentity h2 { margin: 0; font-size: 24px; font-weight: 550; letter-spacing: -.03em; }
+.vaultIdentity p { margin: 3px 0 0; color: var(--mut); font-size: 12px; }
+.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 0; }
+.metrics dt { color: var(--mut); font-size: 12px; }
+.metrics dd { margin: 8px 0 4px; color: var(--text); font-size: clamp(28px, 6.8vw, 38px); line-height: 1.15; font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.metrics small { display: block; color: var(--mut); font-size: 11px; line-height: 1.5; }
+.riskNote { margin: 24px 0 0; max-width: 48ch; color: var(--mut); font-size: 12px; line-height: 1.65; }
+.details { grid-area: details; min-width: 0; }
+.details > div { margin: 0; }
+.card { grid-area: action; display: flex; min-width: 0; flex-direction: column; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+@media (min-width: 840px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: 'overview action' 'details action'; column-gap: 56px; row-gap: 0; }
+}
 
 /* The view switch uses the shared segmented control and its sliding thumb;
    the settings gear sits at the right of the same row. */

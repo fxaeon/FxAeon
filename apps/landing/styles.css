@@ -5248,11 +5248,14 @@ details[open] summary:after {
   background: transparent;
 }
 .hero { color: var(--text); }
+.hero h1 span,
+.telegram-copy h2 span,
+.faq .faq-heading h2 span { color: inherit; }
 .hero .lede { color: var(--muted); }
 .built-on { border-color: transparent; color: var(--muted); }
 :root[data-theme="light"] .built-on { color: var(--muted); }
 .protocol .principles article { background: #1b1b1f; }
-:root[data-theme="dark"] .faq .faq-heading h2 span { color: var(--accent); }
+.protocol .principles .step-number { color: var(--muted); }
 :root[data-theme="dark"] .faq .faq-list { background: transparent; padding: 0; }
 :root[data-theme="dark"] .faq .faq-list details { background: #1b1b1f; }
 :root[data-theme="dark"] .footer-frame .site-footer {
@@ -5267,8 +5270,16 @@ details[open] summary:after {
 .products .product-card,
 .products .earn-card,
 .products .borrow-card,
-.products .move-card { background: linear-gradient(135deg, #242428, #1b1b1f), #242428; }
-.closing-surface .telegram { background: linear-gradient(140deg, #242428, #1b1b1f), #242428; border-color: #ffffff0b; }
+.products .move-card { background: var(--card); border: 1px solid var(--line); }
+.products .product-card:hover { background: color-mix(in srgb, var(--card) 94%, var(--text)); }
+.products .card-copy h3 { color: var(--text); }
+.products .card-copy p { color: var(--muted); }
+.products .earn-art .vault-layer { border-color: #ffffff16; }
+.products .earn-art .layer-back { background: #303236; }
+.products .earn-art .layer-middle { background: #3a3c40; }
+.products .earn-art .layer-front { background: linear-gradient(145deg, #505257, #3d3f43); }
+.products .earn-art .vault-caption { color: var(--muted); }
+.closing-surface .telegram { background: var(--card); border-color: var(--line); }
 :root[data-theme="light"] .products .product-card { background: #fff; }
 :root[data-theme="light"] .products .product-card:hover { background: #fafafa; }
 :root[data-theme="light"] .closing-surface .telegram { background: #fff; border-color: #e4e4e7; }
@@ -5276,7 +5287,6 @@ details[open] summary:after {
 :root[data-theme="light"] .protocol .flow-node { background: #fff; }
 :root[data-theme="light"] .protocol .flow-center { background: #2563eb; }
 :root[data-theme="light"] .faq { --text: #202024; --muted: #62626b; color: var(--text); }
-:root[data-theme="light"] .faq .faq-heading h2 span { color: var(--accent); }
 :root[data-theme="light"] .faq .faq-list { background: transparent; padding: 0; }
 :root[data-theme="light"] .faq .faq-list details { background: #fff; color: #202024; }
 :root[data-theme="light"] .faq .faq-list summary,

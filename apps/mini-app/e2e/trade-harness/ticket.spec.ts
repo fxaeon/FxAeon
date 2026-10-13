@@ -352,9 +352,12 @@ test.describe('the leverage slider is the debt/your-share split', () => {
           lastVisible = tick.x;
         }
       }
-      // At 2.9× the thumb sits just short of 3×: that tick alone steps aside.
+      // Several whole-× ticks may fall inside the thumb clearance at narrow
+      // widths; every tick inside that collision envelope must step aside.
       await leverageField(page).fill('2.9');
-      expect((await tickLayout(page)).ticks.filter((tick) => tick.near)).toHaveLength(1);
+      const nearTicks = (await tickLayout(page)).ticks.filter((tick) => tick.near);
+      expect(nearTicks.length).toBeGreaterThan(0);
+      expect(nearTicks.every((tick) => tick.opacity === 0)).toBe(true);
     }
   });
 

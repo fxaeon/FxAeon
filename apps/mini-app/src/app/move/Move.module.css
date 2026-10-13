@@ -7,6 +7,9 @@
 .sourcePanel, .destinationPanel { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
 .destinationPanel { background: var(--feature-surface); }
 .moveCard .sourcePanel :global(.amount-control) { padding: 0; border-radius: 12px; border-color: transparent; background: transparent !important; --amount-ring: none; }
+/* The amount panel has no inner padding here, so let its shortcut row end at
+   the source panel edge instead of carrying its usual 10px bleed. */
+.moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin-right: 0; }
 .moveCard .sourcePanel :global(.amount-control:focus-within) { border-color: var(--mint); }
 .routeNode, .routeNode:first-child, .routeNode:last-child { display: flex; align-items: center; justify-content: space-between; min-height: 32px; padding: 0 0 12px; background: transparent; border: 0; box-shadow: none; border-radius: 0; }
 .routeIdentity { display: flex; align-items: center; min-width: 0; margin: 0; gap: 7px; font-size: 13px; }

@@ -698,9 +698,11 @@ details[open] > summary .disclosure-closed-only { display: none; }
    appears at once (its heading brings its own light). Content marked
    data-continued replaces the first-paint outline (ProviderLoadingState),
    which already drew it, so it does not fade in a second time. */
-.app-content > :not(.page-header):not(.sr-only):not([data-continued]):not(:has(:is([data-page-heading], .trade-page-heading))) {
+.app-content > :not(.page-header):not(.sr-only):not([data-page-heading]):not([data-continued]):not(:has([data-page-heading], .trade-page-heading)) {
   animation: route-in var(--dur-slow) var(--ease-out) both;
 }
+/* Accessible route titles are labels for assistive technology, never visual content to animate. */
+.app-content :is(h1[data-page-heading], [data-page-heading] h1.sr-only) { animation: none !important; }
 .app-content > *:nth-child(2) { animation-delay: 40ms; }
 .app-content > *:nth-child(3) { animation-delay: 80ms; }
 
@@ -1143,7 +1145,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 .button-primary[aria-busy='true'] {
   background: var(--mint);
   color: var(--on-accent);
-  opacity: 0.86;
+  opacity: 1;
 }
 
 .button-ghost {

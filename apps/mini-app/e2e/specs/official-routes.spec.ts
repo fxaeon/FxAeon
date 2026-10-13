@@ -46,16 +46,19 @@ test.describe("official f(x) client routes", () => {
       // wallet numbers to make the screen look loaded.
       // An untouched amount input has a real zero notional independent of
       // prices. Exclude only that input hint; wallet/market values stay unknown.
-      const pricedText = await page.locator('body').evaluate((body) => {
+      const pricedText = await page.locator('body').evaluate((body, route) => {
         const copy = body.cloneNode(true) as HTMLElement;
         copy.querySelectorAll('script, style, template').forEach((node) => node.remove());
+        // Product guide articles contain dollar-denominated teaching
+        // examples; only live app surfaces indicate fabricated values.
+        if (route.startsWith('/docs')) copy.querySelectorAll('main article').forEach((node) => node.remove());
         const sourceFields = Array.from(body.querySelectorAll('[data-amount-field]'));
         copy.querySelectorAll('[data-amount-field]').forEach((field, index) => {
           const input = sourceFields[index]?.querySelector('input');
           if (input && !input.value.trim()) field.querySelector('[data-amount-usd]')?.remove();
         });
         return copy.textContent;
-      });
+      }, route);
       expect(pricedText).not.toMatch(/\$\s*\d/);
       await expect(page.locator("body")).not.toContainText(/5,240\.75|3,500(?:\.42)?|104,500/);
       await expect(page.locator("canvas")).toHaveCount(0);
@@ -698,7 +701,7 @@ test.describe("theme control", () => {
     // Portfolio's sole header entry uses the text token. Check the contrasting
     // primary CTA on Earn now that Portfolio no longer duplicates it in main.
     await page.goto("/earn", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(246, 243, 238)");
+    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Light theme. Switch to dark theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
