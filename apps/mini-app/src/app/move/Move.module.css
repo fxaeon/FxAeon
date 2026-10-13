@@ -1,11 +1,11 @@
 .moveWorkspace { width: 100%; max-width: 520px; margin: 12px auto 0; }
 .centerStage { min-width: 0; }
-.moveCard.moveCard { width: 100%; min-width: 0; padding: 20px; border: 0; border-radius: 20px; background: var(--surface); box-shadow: none; }
-.cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: -4px 2px 12px; }
+.moveCard.moveCard { width: 100%; min-width: 0; padding: 16px; border: 0; border-radius: 20px; background: var(--surface); box-shadow: none; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin: -2px 2px 8px; }
 .cardHead > span { font-size: 16px; font-weight: 500; letter-spacing: -.03em; }
 .moveCard.moveCard .moveFormFields { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.sourcePanel, .destinationPanel { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
-.destinationPanel { background: var(--feature-surface); }
+.sourcePanel, .destinationPanel { min-width: 0; padding: 14px; border-radius: 14px; background: var(--surface-2); }
+.destinationPanel { display: flex; flex-direction: column; gap: 6px; }
 .moveCard .sourcePanel :global(.amount-control) { padding: 0; border-radius: 12px; border-color: transparent; background: transparent !important; --amount-ring: none; }
 /* The amount panel has no inner padding here, so let its shortcut row end at
    the source panel edge instead of carrying its usual 10px bleed. */
@@ -19,15 +19,19 @@
 .routeSwap svg { transform: rotate(90deg); transition: transform 200ms ease; }
 .routeSwap[data-direction='reverse'] svg { transform: rotate(270deg); }
 .routeSwap:hover { color: var(--feature-surface); }
-.receiveAsset { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
+.receiveAsset { display: flex; align-items: center; gap: 8px; }
 .receiveAsset strong { font-size: 20px; font-weight: 500; letter-spacing: -.035em; }
-.receiveAsset > span { flex-basis: 100%; color: var(--mut); font-size: 11px; }
+.recipientSection { min-width: 0; padding: 0 2px; }
+.recipientHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.recipientWallet { display: flex; min-height: 32px; align-items: center; gap: 8px; }
 .recipientMark { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto; color: var(--mut); }
 .recipientLabel, .recipientAddress { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .expertDisclosure { min-width: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
 .expertSummary { min-height: 44px; border: 0; background: transparent; color: var(--mut); }
 .expertSummary:hover { color: var(--text); }
 .expertRisk { min-width: 0; }
+.moveCard :global(.sticky-action) { position: static; }
+.moveCard :global(.sticky-action)::before { display: none; }
 @media (max-width: 640px) {
   .moveWorkspace { margin-top: 0; }
   .moveCard.moveCard { padding: 16px; }

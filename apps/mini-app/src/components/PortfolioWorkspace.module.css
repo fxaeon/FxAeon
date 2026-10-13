@@ -171,31 +171,7 @@
   .quickAction:hover > span, .quickAction:active > span, .valueTop button:active:not(:disabled) { transform: none; }
 }
 
-/* Carry the landing's blended card palette into the everyday workspace. */
-.welcome {
-  padding: 36px 22px;
-  border: 1px solid var(--hairline);
-  border-radius: 16px;
-  background: radial-gradient(ellipse at 18% 0%, color-mix(in srgb, var(--mint) 17%, transparent), transparent 65%),
-    linear-gradient(135deg, color-mix(in srgb, var(--surface) 94%, var(--brand-coral)), var(--surface));
-}
-.welcomeTitle { max-width: 24ch; font-size: clamp(32px, 6.5vw, 46px); font-weight: 500; letter-spacing: -.04em; line-height: 1.13; }
-.welcomeTitle span { background: none; color: var(--mint-bright); }
-.welcomeHorizon { opacity: .22; }
-.welcomeMarks > * { animation: none; box-shadow: 0 0 0 3px var(--surface); }
-.quickAction > span { background: color-mix(in srgb, var(--surface-2) 95%, var(--mint)); border-color: var(--hairline); }
-.positionsSection, .earnSection {
-  border-radius: 18px;
-  background: linear-gradient(130deg, color-mix(in srgb, var(--surface) 96%, var(--mint)), var(--surface));
-  box-shadow: none;
-}
-:root[data-theme='light'] .welcomeTitle span { color: var(--mint); }
-@media (max-width: 380px) {
-  .welcome { padding: 30px 16px; }
-  .welcomeTitle { font-size: 32px; }
-}
-
-/* A generous, flat lilac surface, with the product's figures leading. */
+/* A flat, open canvas keeps the product's figures in the foreground. */
 .welcome {
   overflow: hidden; border: 0; border-radius: 0;
   background: transparent; justify-items: start; text-align: left; padding: 24px 4px;

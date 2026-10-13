@@ -609,7 +609,7 @@ export default function PositionsPage() {
           <span aria-current="page">Positions</span>
         </nav>}
         {!wallet.address && !preserveActionReview ? (
-          <WalletConnectCTA compact ready={wallet.ready} authenticated={wallet.authenticated} body="Choose or connect a wallet to see and manage your open positions." />
+          <div className={styles.positionsEntry}><WalletConnectCTA compact ready={wallet.ready} authenticated={wallet.authenticated} body="Choose or connect a wallet to see and manage your open positions." /></div>
         ) : positions.length > 0 || positionState.pendingPositions.length > 0 ? (
           reviewStage === 'input' ? <ProtocolPositionNotice
             status={positionState.status}
@@ -627,7 +627,9 @@ export default function PositionsPage() {
         ) : wallet.address && positionState.status === 'partial' && !positions.length && !positionState.pendingPositions.length && reviewStage === 'input' ? (
           <div role="status" aria-live="polite" className="rounded-2xl bg-[var(--warn-dim)] px-4 py-3 text-[13px] text-warn">Some position data couldn’t load, so results may be incomplete.<button type="button" onClick={() => void positionState.refresh()} className="mt-2 min-h-11 rounded-lg px-2 font-semibold text-mint">Retry positions</button></div>
         ) : wallet.address && positionState.status === 'ready' && !positions.length && !positionState.pendingPositions.length && reviewStage === 'input' ? (
-          <EmptyState icon={Layers2} title="No open positions" body="Open an ETH or BTC position to get started." action={<Link href="/trade" className="button button-primary flex min-h-12 items-center justify-center rounded-xl px-4 font-semibold">Open a position</Link>} />
+          <div className={styles.positionsEmpty}>
+            <EmptyState icon={Layers2} title="No open positions" body="Your ETH and BTC positions will appear here." action={<Link href="/trade" className="button button-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 font-medium">Open a position</Link>} />
+          </div>
         ) : wallet.address && positions.length > 0 || preserveActionReview ? (
           <div className={styles.positionManagerGrid} data-review={reviewStage !== 'input' || undefined}>
             <section className={styles.positionsColumn} aria-labelledby="open-positions-heading">

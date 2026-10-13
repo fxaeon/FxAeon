@@ -728,12 +728,9 @@ async function runProof(captureStage: string) {
       await expect(activePage.getByRole('dialog', { name: 'Input asset', exact: true })).toBeVisible();
     };
     const ensureFormAdvancedDetailsOpen = async (): Promise<void> => {
-      const summary = activePage.locator('summary')
-        .filter({ hasText: /^(?:Advanced|Settings)/ }).first();
-      await expect(summary).toBeVisible();
-      const open = await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open);
-      if (!open) await summary.click();
-      await expect(summary).toBeVisible();
+      const trigger = activePage.getByRole('button', { name: /^Transaction settings,/ });
+      if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click();
+      await expect(activePage.getByRole('dialog', { name: 'Transaction settings', exact: true })).toBeVisible();
     };
     // A position row shows its leverage; the position's details, one tap
     // away, show its exact collateral and debt beside the same leverage.
@@ -766,6 +763,13 @@ async function runProof(captureStage: string) {
     // A real connected session must never display another account's balance.
     // Exercise this without reloading, so the shared query cache stays mounted.
     await page.goto(`${baseUrl}/trade`);
+    // A fresh browser session has no remembered provider choice. Connect the
+    // fork-only injected adapter through the same chooser as a real user.
+    await page.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Connect your wallet', exact: true })
+      .getByRole('button', { name: 'Other wallets', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Other wallets', exact: true })
+      .locator('[data-wallet-id="legacy:browser"]').click();
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible();
     await ensureInputAssetPickerOpen();
     const sessionUsdcOption = page.getByRole('option', { name: /^USDC\b/i });
@@ -897,6 +901,7 @@ async function runProof(captureStage: string) {
       await page.getByRole('spinbutton', { name: 'Target leverage', exact: true }).fill(scenario.side === 'short' ? '0.5' : '2');
       await ensureFormAdvancedDetailsOpen();
       await page.getByLabel('Slippage tolerance percentage').fill('1');
+      await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
       const actionButtonName = `Review ${scenario.market} ${scenario.side === 'long' ? 'Long' : 'Short'}`;
       const actionButton = page.getByRole('button', { name: actionButtonName, exact: true });
       await expect(actionButton).toBeVisible({ timeout: 180_000 });
@@ -1525,6 +1530,7 @@ async function runProof(captureStage: string) {
       await closeUsdcOption.click();
       await ensureFormAdvancedDetailsOpen();
       await page.getByLabel('Slippage tolerance percentage').fill('1');
+      await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
       const closeActionName = `Review Close ${position.market} ${position.side} position`;
       await expect(page.getByRole('button', { name: closeActionName, exact: true })).toBeVisible({ timeout: 180_000 });
       assert.equal(submitted.length, signedBefore, 'close details must never request a signature');

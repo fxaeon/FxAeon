@@ -123,7 +123,7 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
         <h3 id={`${id}-slippage`}>Max slippage</h3>
         <span className={styles.value}>{percent}%</span>
       </div>
-      <p className={styles.help} id={`${id}-slippage-help`}>If the price moves more than this before confirmation, the transaction reverts instead of filling worse.</p>
+      <p className={styles.help} id={`${id}-slippage-help`}>The transaction reverts if price moves past this limit before confirmation.</p>
       <div className={styles.choices} role="radiogroup" aria-labelledby={`${id}-slippage`} data-thumb={presetIndex >= 0 || undefined}
         style={{ '--seg-index': Math.max(presetIndex, 0), '--seg-count': SLIPPAGE_PRESETS_BPS.length } as CSSProperties}>
         {SLIPPAGE_PRESETS_BPS.map((value) => <button key={value} type="button" role="radio" aria-checked={value / 100 === Number(percent)}
@@ -139,21 +139,21 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
       </label>
       {error && <p className={styles.error} role="alert">{error}</p>}
     </section>}
-    <section className={styles.section} aria-labelledby={`${id}-speed`}>
+    <section className={styles.section} aria-label={walletSetsFees ? 'Network fee' : undefined} aria-labelledby={!walletSetsFees ? `${id}-speed` : undefined}>
+      {walletSetsFees ? <p className={`${styles.help} ${styles.walletFeeNote}`}>Confirm the network fee in your wallet before signing.</p> : <>
       <div className={styles.heading}>
-        <h3 id={`${id}-speed`}>{walletSetsFees ? 'Network fee' : 'Network speed'}</h3>
-        {!walletSetsFees && <span className={styles.value}>{SPEED_LABELS[tier]}</span>}
+        <h3 id={`${id}-speed`}>Network speed</h3>
+        <span className={styles.value}>{SPEED_LABELS[tier]}</span>
       </div>
-      <p className={styles.help}>{walletSetsFees
-        ? 'Review and confirm the network fee in your connected wallet.'
-        : 'Faster speeds pay a higher priority fee so the transaction is included sooner.'}</p>
-      {!walletSetsFees && <div className={styles.speeds} role="radiogroup" aria-labelledby={`${id}-speed`} data-thumb=""
+      <p className={styles.help}>Faster speeds pay a higher priority fee so the transaction is included sooner.</p>
+      <div className={styles.speeds} role="radiogroup" aria-labelledby={`${id}-speed`} data-thumb=""
         style={{ '--seg-index': GAS_TIERS.indexOf(tier), '--seg-count': GAS_TIERS.length } as CSSProperties}>
         {GAS_TIERS.map((value) => <button key={value} type="button" role="radio" aria-checked={tier === value} onClick={() => chooseTier(value)}>
           <span>{SPEED_LABELS[value]}</span>
           <small>{gas ? formatGwei(gas.tiers[value].gasPriceWei) : gasStatus === 'loading' ? <span className={`${styles.rateSkeleton} skeleton`} aria-label="Loading fee" /> : '—'}</small>
         </button>)}
-      </div>}
+      </div>
+      </>}
     </section>
     <Link href="/settings" className={styles.more}>All settings<ChevronRight aria-hidden="true" /></Link>
   </div>;

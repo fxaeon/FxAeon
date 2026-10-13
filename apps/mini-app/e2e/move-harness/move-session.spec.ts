@@ -83,7 +83,7 @@ test('the recipient row is a status, and the developer disclosure reads as exper
   await page.setContent('<div id="root"></div>');
   await page.addScriptTag({ content: bundle });
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
-  const recipient = page.getByText('Recipient on Base', { exact: true }).locator('xpath=../..');
+  const recipient = page.getByText('Recipient', { exact: true }).locator('xpath=../..');
   await expect(recipient.getByText('Your wallet', { exact: true })).toBeVisible();
   await expect(recipient.getByText('0xaaaa…aaaa', { exact: true })).toBeVisible();
   // Signed out, the row says so instead of looking like a second connect control.

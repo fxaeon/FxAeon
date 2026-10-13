@@ -513,17 +513,17 @@ export default function MovePage() {
             <NetworkField label="To" name={destinationName} chainId={destinationChainId} />
               <div className={moveStyles.receiveAsset}>
                 {!advanced && <TokenIcon symbol={token} size={28} />}
-                <strong>{advanced ? 'Custom token' : token}</strong><span>Receive on {destinationName}</span>
+                <strong>{advanced ? 'Custom token' : token}</strong>
               </div>
             </div>
 
-            <div className={styles.recipientSection}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-[13px] font-medium text-mut">Recipient on {destinationName}</span>
+            <div className={moveStyles.recipientSection}>
+              <div className={moveStyles.recipientHeading}>
+                <span className="text-[13px] text-mut">Recipient</span>
                 <button
                   type="button"
                   onClick={changeRecipientMode}
-                  className="min-h-11 rounded-full px-3 text-[12px] font-semibold text-mint transition-colors hover:bg-[var(--mint-dim)]"
+                  className="min-h-11 rounded-lg px-2 text-[12px] font-medium text-mint transition-colors hover:bg-[var(--mint-dim)]"
                 >
                   {customRecipient ? 'Use connected wallet' : 'Use another wallet'}
                 </button>
@@ -536,12 +536,12 @@ export default function MovePage() {
                   placeholder="0x… destination wallet"
                 />
               ) : (
-                <div className="flex min-h-[56px] items-center justify-between gap-3 rounded-2xl bg-[var(--surface-2)] px-3">
+                <div className={moveStyles.recipientWallet}>
                   <span className={moveStyles.recipientMark}><UserRound className="h-4 w-4" aria-hidden="true" /></span>
                   {/* A status, not a control: the form's own action connects a wallet. */}
                   <span className={`${moveStyles.recipientLabel} mr-auto text-[13px] font-medium text-[var(--text)]`}>Your wallet</span>
                   {wallet.address ? (
-                    <span className={`${moveStyles.recipientAddress} font-mono text-[12px] font-semibold`}>
+                    <span className={`${moveStyles.recipientAddress} font-mono text-[12px] text-mut`}>
                       {`${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}`}
                     </span>
                   ) : <span className={`${moveStyles.recipientAddress} text-[12px] text-mut`}>Not connected</span>}

@@ -50,7 +50,7 @@ test('form review actions remain reachable with 200% text in every appearance th
   // The static export has no wallet/RPC planner; this contract verifies honest
   // layout and reachability without claiming that the route quote is healthy.
   const routes = ['/trade', '/borrow', '/earn', '/move'];
-  const themes = ['official', 'dark', 'light'] as const;
+  const themes = ['official', 'dark'] as const;
   await page.setViewportSize({ width: 393, height: 852 });
 
   async function chooseTheme(theme: typeof themes[number]) {

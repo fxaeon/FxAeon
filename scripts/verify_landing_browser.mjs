@@ -154,6 +154,7 @@ try {
   assert.equal(await dialog.evaluate((element) => element.contains(document.activeElement)), true, 'Shift+Tab returns through menu controls');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.site-menu').open);
+  await page.waitForFunction(() => document.querySelector('.menu-toggle').getAttribute('aria-expanded') === 'false');
   assert.equal(await opener.getAttribute('aria-expanded'), 'false');
   assert.equal(await page.evaluate(() => document.activeElement === document.querySelector('.menu-toggle')), true);
   assert.notEqual(await page.evaluate(() => getComputedStyle(document.body).overflow), 'hidden');

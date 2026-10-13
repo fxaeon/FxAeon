@@ -156,7 +156,7 @@ test.describe("Telegram bridge availability", () => {
     await page.goto("/#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/?(?:#.*)?$/, { timeout: 5_000 });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
-    await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
+    await expect(page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
     assertNoBackendRequests(requests);
   });
@@ -166,7 +166,7 @@ test.describe("Telegram bridge availability", () => {
     await page.goto("/portfolio#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
-    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio(?:#.*)?$/);
     await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
@@ -194,7 +194,7 @@ test.describe("Telegram connect CTA with an available bridge", () => {
 
   test("uses the Telegram/Privy entry instead of injected-wallet discovery", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true }).click();
+    await page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page).toHaveURL(/\/portfolio\/?$/);
     await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     assertNoBackendRequests(requests);
@@ -655,7 +655,7 @@ test.describe("browser wallet connection", () => {
 
   test("Move keeps recipient editable and centralizes wallet connection in review", async ({ page, requests }) => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
-    const recipient = page.getByText(/^Recipient on (Ethereum|Base)$/).locator("xpath=../..");
+    const recipient = page.getByText("Recipient", { exact: true }).locator("xpath=../..");
     // The recipient row is a status, not a second connect control.
     await expect(recipient.getByText("Not connected", { exact: true })).toBeVisible();
     await expect(recipient.getByText("Connect wallet", { exact: true })).toHaveCount(0);

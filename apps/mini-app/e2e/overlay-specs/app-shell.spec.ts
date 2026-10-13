@@ -199,7 +199,12 @@ test('after the Trade sweep, other page titles stay unanimated and Trade stays p
     if (path === '/trade') {
       await expect(heading).toBeVisible();
       await expect(heading).not.toHaveClass(/\bsr-only\b/);
-      expect(await headingTint(page, heading)).toBeLessThanOrEqual(14);
+      const ink = await heading.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { color: style.color, fill: style.webkitTextFillColor, background: style.backgroundImage };
+      });
+      expect(ink.fill).toBe(ink.color);
+      expect(ink.background).toBe('none');
     } else {
       await expect(heading).toHaveClass(/\bsr-only\b/);
     }
@@ -247,23 +252,25 @@ async function canvasStates(page: Page) {
     .map((animation) => animation.playState));
 }
 
-test('the canvas drifts, and holds still under a sheet or review and while the page is hidden', async ({ page }) => {
+test('the decorative canvas remains absent while overlays and visibility change', async ({ page }) => {
   await open(page);
-  await expect.poll(() => canvasStates(page)).toEqual(['running', 'running']);
+  const pseudoContent = await page.evaluate(() => ['::before', '::after'].map((pseudo) => getComputedStyle(document.body, pseudo).content));
+  expect(pseudoContent).toEqual(['none', 'none']);
+  expect(await canvasStates(page)).toEqual([]);
   for (const overlay of ['dialog', 'review'] as const) {
     await setLab(page, { overlay });
-    await expect.poll(() => canvasStates(page), `${overlay} pauses the canvas`).toEqual(['paused', 'paused']);
+    expect(await canvasStates(page), `${overlay} leaves no canvas animation`).toEqual([]);
     await setLab(page, { overlay: 'none' });
-    await expect.poll(() => canvasStates(page), `${overlay} closed resumes it`).toEqual(['running', 'running']);
+    expect(await canvasStates(page), `${overlay} closed leaves no canvas animation`).toEqual([]);
   }
   const setVisibility = (state: 'hidden' | 'visible') => page.evaluate((value) => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => value });
     document.dispatchEvent(new Event('visibilitychange'));
   }, state);
   await setVisibility('hidden');
-  await expect.poll(() => canvasStates(page)).toEqual(['paused', 'paused']);
+  expect(await canvasStates(page)).toEqual([]);
   await setVisibility('visible');
-  await expect.poll(() => canvasStates(page)).toEqual(['running', 'running']);
+  expect(await canvasStates(page)).toEqual([]);
 });
 
 test('with data saver on, the canvas stays still from the first paint', async ({ page }) => {
@@ -429,7 +436,7 @@ test('disabled and busy actions stay readable (AA) and look unavailable, in ever
     expect(unavailable.cursor).toBe('not-allowed');
   }
   // The network menu's options wait for a wallet without fading their names.
-  await setLab(page, { path: '/portfolio' });
+  await setLab(page, { path: '/portfolio', wallet: STATES[2][1] });
   await page.locator('.network-selector').click();
   await expect(page.locator('.network-selector-menu')).toBeVisible();
   await settle(page);

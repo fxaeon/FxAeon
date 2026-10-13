@@ -14,8 +14,10 @@
 .details { grid-area: details; min-width: 0; }
 .details > div { margin: 0; }
 .card { grid-area: action; display: flex; min-width: 0; flex-direction: column; gap: 14px; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.card :global(.sticky-action) { position: static; }
+.card :global(.sticky-action)::before { display: none; }
 @media (min-width: 840px) {
-  .layout { grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: 'overview action' 'details action'; column-gap: 56px; row-gap: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr) 400px; grid-template-rows: min-content 1fr; grid-template-areas: 'overview action' 'details action'; column-gap: 56px; row-gap: 0; }
 }
 
 /* The view switch uses the shared segmented control and its sliding thumb;
@@ -75,6 +77,9 @@
 .action { min-width: 0; }
 
 @media (max-width: 600px) {
+  .overview { padding-top: 0; padding-bottom: 20px; }
+  .vaultIdentity { margin-bottom: 20px; }
+  .riskNote { margin-top: 16px; }
   .card { gap: 12px; padding: 16px; }
   .position { gap: 12px; }
   .positionSummary { gap: 12px; }

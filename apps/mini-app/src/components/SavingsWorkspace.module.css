@@ -1,6 +1,8 @@
 .workspace { width: min(100%, 1080px); margin-inline: auto; padding-bottom: 12px; }
 .workspace > :global(header) { margin-bottom: 10px; }
 .panel { grid-area: action; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.panel :global(.sticky-action) { position: static; }
+.panel :global(.sticky-action)::before { display: none; }
 .vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'information'; gap: 24px; align-items: start; }
 .vaultLayout[data-review='true'] { grid-template-areas: 'action'; }
 .vaultIdentity { display: flex; align-items: center; gap: 12px; padding-bottom: 28px; }
@@ -45,7 +47,7 @@
 .back { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; }
 
 @media (min-width: 840px) {
-  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-areas: 'summary action' 'information action'; column-gap: 56px; row-gap: 0; }
+  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-rows: min-content 1fr; grid-template-areas: 'summary action' 'information action'; column-gap: 56px; row-gap: 0; }
   .vaultLayout[data-review='true'] { grid-template-columns: minmax(0, 620px); justify-content: center; }
   .overview { padding-bottom: 30px; }
   .workspace { --page-sections-width: 100%; }

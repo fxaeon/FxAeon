@@ -68,6 +68,11 @@
   [data-product-ui='v2'] .app-topbar { gap: 4px; }
   [data-product-ui='v2'] .app-topbar-actions { gap: 4px; }
 }
+@media (max-width: 360px) {
+  /* Give each dock label a little more room on narrow phones while keeping
+     the safe-area inset and a clear edge margin. */
+  [data-product-ui='v2'] .tabbar-safe { padding-inline: max(10px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-left, 0px)); }
+}
 @media (max-width: 420px) {
   /* The logo lockup on phones; globals.css steps it aside when space runs out. */
   [data-product-ui='v2'] .brand-wordmark { font-size: 20px; }
