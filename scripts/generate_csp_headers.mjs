@@ -176,10 +176,11 @@ async function walk(directory) {
   return files;
 }
 
-async function generate() {
-  const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-  const miniApp = join(root, 'apps', 'mini-app');
-  const output = join(miniApp, 'dist');
+export async function generate(miniApp = resolve(fileURLToPath(new URL('../apps/mini-app', import.meta.url))), distDir = process.env.FX_E2E_DIST_DIR?.trim() || 'dist') {
+  if (!/^[a-zA-Z0-9_-]+$/.test(distDir)) {
+    throw new Error('FX_E2E_DIST_DIR must be a simple directory name inside the mini-app workspace');
+  }
+  const output = join(miniApp, distDir);
   const sourceHeaders = await readFile(join(miniApp, 'public', '_headers'), 'utf8');
   const outputHeadersPath = join(output, '_headers');
   const htmlFiles = (await walk(output)).filter((file) => file.endsWith('.html'));
