@@ -1590,7 +1590,7 @@ async function runProof(captureStage: string) {
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByLabel('Amount in fxSAVE', { exact: true }).fill(withdrawalAmount);
-    await page.getByRole('group', { name: 'Withdrawal method', exact: true }).getByRole('radio', { name: /Instant/ }).click();
+    await page.getByRole('group', { name: 'Withdrawal method', exact: true }).getByText('Instant', { exact: true }).click();
     await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled({ timeout: 180_000 });
     await expect(page.getByRole('group', { name: 'Withdrawal method', exact: true }).getByRole('radio', { name: /Instant/ })).toBeChecked();
     await expect(page.getByRole('group', { name: 'Withdrawal method', exact: true })).toContainText(/instant fee/i);
@@ -1625,7 +1625,7 @@ async function runProof(captureStage: string) {
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toHaveAttribute('aria-checked', 'true');
     await page.getByLabel('Amount in fxSAVE', { exact: true }).fill(withdrawalAmount);
-    await page.getByRole('group', { name: 'Withdrawal method', exact: true }).getByRole('radio', { name: /After cooldown/ }).click();
+    await page.getByRole('group', { name: 'Withdrawal method', exact: true }).getByText('After cooldown', { exact: true }).click();
     await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled({ timeout: 180_000 });
     await expect(page.getByRole('group', { name: 'Withdrawal method', exact: true }).getByRole('radio', { name: /After cooldown/ })).toBeChecked();
     await expect(page.getByRole('group', { name: 'Withdrawal method', exact: true })).toContainText(/no instant fee/i);
