@@ -47,7 +47,7 @@ test.beforeAll(async () => {
       // This fixture models an embedded wallet, including its app-managed gas settings.
       const render = content => root.render(<WalletProviderModeContext.Provider value="privy">{content}</WalletProviderModeContext.Provider>);
       const settingsTree = <WalletProviderModeContext.Provider value="privy"><TransactionSettings slippage /></WalletProviderModeContext.Provider>;
-      globalThis.__earnHarness = {plans:[],showUncontrolled:() => render(<TransactionSettings slippage />),hydrateSettings:() => {const container=document.createElement('div');container.dataset.testid='settings-hydration-root';container.dataset.hydrationErrors='0';container.innerHTML=renderToString(settingsTree);document.body.append(container);const errors=[];hydrateRoot(container,settingsTree,{onRecoverableError:error=>{errors.push(String(error));container.dataset.hydrationErrors=String(errors.length);}});return {container,errors};},navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
+      globalThis.__earnHarness = {plans:[],showUncontrolled:() => render(<TransactionSettings slippage />),hydrateSettings:() => {const container=document.createElement('div');container.dataset.testid='settings-hydration-root';container.dataset.hydrationErrors='0';const saved=localStorage.getItem('fxaeon.settings.v1');localStorage.removeItem('fxaeon.settings.v1');container.innerHTML=renderToString(settingsTree);container.dataset.serverSummary=container.querySelector('button')?.getAttribute('aria-label') ?? '';if(saved!==null)localStorage.setItem('fxaeon.settings.v1',saved);document.body.append(container);const errors=[];hydrateRoot(container,settingsTree,{onRecoverableError:error=>{errors.push(String(error));container.dataset.hydrationErrors=String(errors.length);}});return {container,errors};},navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
       render(<EarnPage />);`,loader:'tsx',resolveDir:root},
     bundle:true,write:false,format:'iife',platform:'browser',target:'es2022',jsx:'automatic',
     outdir:resolve(root,'test-results','earn-form-harness'),absWorkingDir:root,loader:{'.module.css':'local-css'},
@@ -300,11 +300,12 @@ test('saved non-default settings hydrate without mismatch and restore the settin
   const result = await page.evaluate(() => {
     localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ slippageBps: 75, gasTier: 'rapid' }));
     const harness = globalThis as typeof globalThis & { __earnHarness: { hydrateSettings: () => { container: HTMLElement; errors: string[] } } };
-    const hydrated = harness.__earnHarness.hydrateSettings();
+    harness.__earnHarness.hydrateSettings();
     return true;
   });
   expect(result).toBe(true);
   const hydrated = page.locator('[data-testid="settings-hydration-root"]');
+  await expect(hydrated).toHaveAttribute('data-server-summary', 'Transaction settings, 0.5% slippage');
   const summary = hydrated.getByRole('button', { name: /Transaction settings,/ });
   await expect(summary).toContainText('0.75% slippage');
   await expect(summary).toContainText('Rapid');
