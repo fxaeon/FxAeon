@@ -59,7 +59,7 @@ jobs:
           NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: https://eth-mainnet.g.alchemy.com/v2/ci-placeholder
           NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: https://base-mainnet.g.alchemy.com/v2/ci-placeholder
           NEXT_PUBLIC_TELEGRAM_APP_URL: https://t.me/FxAeonBot
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mini-app-static-export
           path: apps/mini-app/dist
