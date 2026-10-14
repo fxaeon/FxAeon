@@ -11,6 +11,9 @@ const entry = resolve(root, 'apps/mini-app/e2e/harness/privy-send-adapter-entry.
 const src = resolve(root, 'apps/mini-app/src');
 
 const mockModules: Record<string, string> = {
+  // Keep the real wallet context consumed by PrivyWalletBridge, without loading
+  // the public barrel's browser owner, picker UI or Next client/server runtime.
+  '@/lib/wallet': `export { usePrivyWallet } from '@/lib/wallet/context';`,
   '@privy-io/react-auth': `
     import { useState } from 'react';
     export function usePrivy() { const [, redraw] = useState(0); const h = globalThis.__privySendHarness; h.adapterRerender = () => redraw((n) => n + 1); return { ready: h.ready, authenticated: h.authenticated, user: h.authenticated ? { id: h.userId } : null }; }

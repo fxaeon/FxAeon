@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node ../../scripts/generate_csp_headers.mjs",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack && node ../../scripts/generate_csp_headers.mjs",
     "start": "node e2e/serve.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:e2e": "tsc -p e2e/tsconfig.json",

@@ -16,7 +16,7 @@ after(() => {
 });
 
 const unexpected = () => { throw new Error('Rendering a picker must not navigate, select or request accounts'); };
-const router: AppRouterInstance = { back: unexpected, forward: unexpected, refresh: unexpected, push: unexpected, replace: unexpected, prefetch: unexpected };
+const router: AppRouterInstance = { bfcacheId: 'wallet-picker-test', back: unexpected, forward: unexpected, refresh: unexpected, push: unexpected, replace: unexpected, prefetch: unexpected };
 const provider = (): Eip6963Provider => ({ request: async () => unexpected() });
 function render(providers: readonly DiscoveredEip6963Provider[] = [], legacy?: Eip6963Provider, pending?: WalletDialogAttempt) {
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: router },
