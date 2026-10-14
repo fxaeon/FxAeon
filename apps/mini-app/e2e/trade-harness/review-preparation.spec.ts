@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -223,16 +223,23 @@ async function geometry(page: Page, seed = false) {
     const nodes = selectors.map(selector => document.querySelector(selector)!);
     const global = window as unknown as { __reviewNodes?: Element[] };
     if (seed) global.__reviewNodes = nodes;
-    return { same: nodes.map((node,index) => node === global.__reviewNodes?.[index]), boxes: nodes.map(node => { const r=node.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height }; }) };
+    return { same: nodes.map((node,index) => node === global.__reviewNodes?.[index]), boxes: nodes.map(node => { const r=node.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height }; }), facts: nodes.map(node => ({ text: node.textContent, font: getComputedStyle(node).font, children: Array.from(node.children, child => ({ text: child.textContent, width: child.getBoundingClientRect().width, height: child.getBoundingClientRect().height })) })) };
   }, seed);
 }
-for (const viewport of [{ width:393,height:920 }, { width:320,height:568 }, { width:768,height:1024 }, { width:1100,height:1200 }]) {
-  test(`one review card keeps known fields stable and its action reachable at ${viewport.width}px`, async ({ page }) => {
-    await page.setViewportSize(viewport); await mount(page,{feeDelayMs:650}); await fill(page); await review(page);
+// Fallback font metrics vary by platform. Wider glyphs must not make an
+// arriving quote wrap a previously stable label; the one-pixel check stays exact.
+const stabilityViewports: Array<{ width: number; height: number; font?: string }> = [{ width:393,height:920 }, { width:320,height:568 }, { width:320,height:568,font:'Arial' }, { width:320,height:568,font:'Verdana' }, { width:768,height:1024 }, { width:1100,height:1200 }];
+for (const viewport of stabilityViewports) {
+  test(`one review card keeps known fields stable and its action reachable at ${viewport.width}px${viewport.font ? ` in ${viewport.font}` : ''}`, async ({ page }, testInfo) => {
+    await page.setViewportSize(viewport); await mount(page,{feeDelayMs:650});
+    if (viewport.font) await page.addStyleTag({ content: `:root { --font-sans: ${viewport.font}, sans-serif; }` });
+    await fill(page); await review(page);
     await expect(page.getByRole('button',{name:'Checking transaction…',exact:true})).toBeDisabled();
     await page.waitForTimeout(120); const before = await geometry(page,true);
     await expect(page.getByRole('button',{name:'Checking network fees…',exact:true})).toBeDisabled();
     const during = await geometry(page); await insufficient(page); const after = await geometry(page);
+    writeFileSync(testInfo.outputPath('review-geometry.json'), JSON.stringify({ before, during, after }, null, 2));
+    await testInfo.attach('review-geometry', { body: JSON.stringify({ before, during, after }, null, 2), contentType: 'application/json' });
     for (const frame of [during, after]) {
       expect(frame.same.every(Boolean)).toBe(true);
       // Content may now fit more closely after preparation. Keep the known

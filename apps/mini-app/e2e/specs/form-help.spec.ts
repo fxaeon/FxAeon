@@ -39,7 +39,7 @@ test.describe("protocol form help and picker keyboard behavior", () => {
     await expect(settings).toHaveAttribute("aria-label", "Transaction settings, 1% slippage");
     await expect(slippageInput).toHaveValue("1");
     await expect(settingsPanel.getByRole("radiogroup", { name: "Network speed" })).toHaveCount(0);
-    await expect(settingsPanel.getByText('Confirm the network fee in your wallet before signing.')).toBeVisible();
+    await expect(settingsPanel.getByText('Confirm the network fee in your wallet before signing.')).toHaveCount(0);
 
     // Escape closes the panel and returns focus to the gear.
     await page.keyboard.press("Escape");

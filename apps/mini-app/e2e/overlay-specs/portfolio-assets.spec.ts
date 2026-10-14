@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 test('legacy all-token snapshots only display supported holdings plus FXN', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Legacy all-token snapshot', exact: true }).click();
-  await page.getByRole('button', { name: 'All', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Portfolio network' }).selectOption('all');
   await expect(page.getByRole('button', { name: 'View ETH on Ethereum', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'View FXN on Ethereum', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /View Unrelated/ })).toHaveCount(0);
@@ -62,7 +62,7 @@ async function mount(page: Page) {
   await page.addScriptTag({ content: script });
   await expect.poll(() => page.evaluate(() => (window as Window & { __portfolioAssetsHarnessReady?: boolean }).__portfolioAssetsHarnessReady)).toBe(true);
   await expect(page.getByRole('region', { name: 'Assets', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Base', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Portfolio network' }).selectOption('8453');
 }
 
 test('a pending filtered network keeps loading copy instead of reporting a balance failure', async ({ page }) => {

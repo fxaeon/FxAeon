@@ -166,7 +166,8 @@ test('the theme icon follows the pre-hydration theme, so a saved theme never fla
 });
 
 /** How blue the heading's ink is: the largest blue-over-green excess among
- * bright pixels. Plain text stays under ~12; the blue sweep pushes it higher. */
+ * bright pixels. The plain-ink threshold comes from the active text and page
+ * colors so a sharper theme can change the score without changing the test. */
 async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
   const shot = (await heading.screenshot()).toString('base64');
   return page.evaluate(async (png) => {
@@ -188,6 +189,24 @@ async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
   }, shot);
 }
 
+async function plainHeadingTint(page: Page, heading: ReturnType<Page['locator']>) {
+  return heading.evaluate((element) => {
+    const channels = (color: string) => color.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+    const text = channels(getComputedStyle(element).color);
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--bg)';
+    document.body.append(probe);
+    const background = channels(getComputedStyle(probe).backgroundColor);
+    probe.remove();
+    const textSum = text.reduce((sum, value) => sum + value, 0);
+    const backgroundSum = background.reduce((sum, value) => sum + value, 0);
+    let alpha = 1;
+    if (textSum <= 360 && backgroundSum > 360) alpha = (backgroundSum - 360) / (backgroundSum - textSum);
+    const base = background[2] - background[1];
+    return base + alpha * ((text[2] - text[1]) - base);
+  });
+}
+
 async function sweep(heading: ReturnType<Page['locator']>, at: number | 'finish') {
   await heading.evaluate((element, time) => {
     const animation = element.getAnimations().find((item) => (item as CSSAnimation).animationName === 'heading-light')!;
@@ -205,13 +224,14 @@ test('the Trade heading arrives lit, and its first and last frames are plain tex
   const heading = page.locator('.trade-page-heading h1');
   await expect(heading).toHaveText('Trade');
   await expect(heading).toBeVisible();
+  const plainInk = await plainHeadingTint(page, heading);
   await sweep(heading, 0);
-  expect(await headingTint(page, heading), 'first frame is plain text').toBeLessThanOrEqual(14);
+  expect(await headingTint(page, heading), 'first frame matches the current plain text color').toBeLessThanOrEqual(plainInk + 2);
   // The eased band reaches the middle of the word about 250ms into the sweep.
   await sweep(heading, 120 + 250);
-  expect(await headingTint(page, heading), 'the blue band crosses the word').toBeGreaterThanOrEqual(30);
+  expect(await headingTint(page, heading), 'the blue band crosses the plain text color').toBeGreaterThanOrEqual(plainInk + 12);
   await sweep(heading, 120 + 1499);
-  expect(await headingTint(page, heading), 'last frame is plain text').toBeLessThanOrEqual(14);
+  expect(await headingTint(page, heading), 'last frame matches the current plain text color').toBeLessThanOrEqual(plainInk + 2);
   await sweep(heading, 'finish');
   await expect(page.locator('html')).toHaveAttribute('data-heading-lit', '');
   await expect.poll(() => heading.evaluate((element) => getComputedStyle(element).webkitTextFillColor === getComputedStyle(element).color)).toBe(true);
@@ -235,6 +255,9 @@ test('after the Trade sweep, other page titles stay unanimated and Trade stays p
       });
       expect(ink.fill).toBe(ink.color);
       expect(ink.background).toBe('none');
+    } else if (path === '/history') {
+      await expect(heading).toBeVisible();
+      await expect(heading).not.toHaveClass(/\bsr-only\b/);
     } else {
       await expect(heading).toHaveClass(/\bsr-only\b/);
     }
@@ -259,9 +282,9 @@ test('a route heading is never inside the route fade; heading-less content still
   await setLab(page, { path: '/trade' });
   expect(await fadingAncestors('.trade-page-heading h1')).toEqual([]);
   await setLab(page, { path: '/history' });
-  expect(await fadingAncestors('#main-content > h1.sr-only')).toEqual([]);
+  expect(await fadingAncestors('#main-content [data-page-heading] h1')).toEqual([]);
   // History's feed, below its heading, still arrives with the route fade.
-  expect(await page.locator('.app-content > :not(.sr-only)').first().evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
+  expect(await page.locator('#main-content > [data-page-heading] + div').evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
 });
 
 test('reduced motion shows plain headings with no sweep and a still canvas', async ({ page }) => {

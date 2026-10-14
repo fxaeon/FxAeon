@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 type PolicyWindow = Window & {
   __fxaeonCspViolations?: Array<{ blockedURI: string; effectiveDirective: string; violatedDirective: string }>;
   __fxaeonUnlistedInlineScript?: boolean;
+  __fxaeonNextBootstrapExecuted?: boolean;
   __next_f?: unknown[];
 };
 
@@ -21,6 +22,25 @@ for (const document of documents) {
     await page.addInitScript(() => {
       const target = window as PolicyWindow;
       target.__fxaeonCspViolations = [];
+      // Next 16 consumes and clears its Flight queue during hydration. Observe
+      // the actual inline bootstrap before that happens instead of relying on
+      // a retained queue, without supplying any bootstrap data ourselves.
+      let flight: unknown[] | undefined;
+      Object.defineProperty(target, '__next_f', {
+        configurable: true,
+        get: () => flight,
+        set: (value: unknown[]) => {
+          flight = value;
+          if (!Array.isArray(value)) return;
+          const push = value.push;
+          value.push = function (...segments: unknown[]) {
+            if (segments.some((segment) => Array.isArray(segment) && segment[0] === 0)) {
+              target.__fxaeonNextBootstrapExecuted = true;
+            }
+            return push.apply(this, segments);
+          };
+        },
+      });
       window.addEventListener('securitypolicyviolation', (event) => {
         target.__fxaeonCspViolations?.push({
           blockedURI: event.blockedURI,
@@ -39,8 +59,8 @@ for (const document of documents) {
 
     if (document.nextBootstrap) {
       await expect.poll(() => page.evaluate(() => {
-        const flight = (window as PolicyWindow).__next_f;
-        return Array.isArray(flight) && flight.length > 0;
+        const target = window as PolicyWindow;
+        return target.__fxaeonNextBootstrapExecuted === true && Array.isArray(target.__next_f);
       }), { timeout: 5_000, message: `${document.path} Next inline Flight bootstrap should execute under CSP` }).toBe(true);
     }
 

@@ -18,7 +18,7 @@ test('baseline forms keep their action above navigation and Move stays centered'
     // Transformed cards can report fractional-pixel rounding just below 48px.
     expect(bounds.height, `${route} primary CTA retains its 48px baseline`).toBeGreaterThanOrEqual(48 - 0.01);
     expect(bounds.bottom, `${route} action clears navigation`).toBeLessThanOrEqual(bounds.navTop - 4);
-    if (route === '/borrow') await expect(page.getByRole('heading', { name: 'Borrow fxUSD', exact: true })).toHaveCount(0);
+    if (route === '/borrow') await expect(page.getByRole('heading', { name: 'Borrow', exact: true, level: 1 })).toHaveClass(/\bsr-only\b/);
     if (route === '/move') {
       const gaps = await page.locator('[data-flow-stage]').evaluate(card => {
         const rect = card.getBoundingClientRect();

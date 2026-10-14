@@ -29,6 +29,13 @@
 [data-product-ui='v2'] .segmented { box-shadow: none; }
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
 [data-product-ui='v2'] .button-primary { border-radius: 999px; box-shadow: none; background: #2973ff; color: #0b0c0e; }
+[data-product-ui='v2'] .button-primary:disabled:not([aria-busy='true']),
+[data-product-ui='v2'] .button-primary[aria-disabled='true'] {
+  background: var(--surface-3);
+  color: var(--mut);
+  box-shadow: none;
+  filter: none;
+}
 [data-product-ui='v2'] .brand-wordmark { font-weight: 650; }
 [data-product-ui='v2'] .ui-card { box-shadow: none; }
 [data-product-ui='v2'] .desktop-navigation { background: transparent; box-shadow: none; }

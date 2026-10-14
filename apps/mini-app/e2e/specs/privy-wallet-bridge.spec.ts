@@ -41,6 +41,9 @@ const mocks: Record<string, string> = {
     export function useExportWallet() { return { exportWallet: async () => {} }; }
   `,
   'next/link': `export default function Link({ children, ...props }) { return <a {...props}>{children}</a>; }`,
+  // The real browser owner/picker stays in this fixture; only framework
+  // navigation is isolated from the standalone browser bundle.
+  'next/navigation': `export const useRouter = () => ({ push: () => { throw new Error('Unexpected framework navigation in wallet bridge fixture'); } });`,
   '@/lib/fx/clients': `export const getPublicClient = () => { throw new Error('A disconnected browser fixture must not read RPC'); };`,
   '@/components/ui': `export function Button({ children, loading, variant, ...props }) { return <button {...props} disabled={props.disabled || loading}>{children}</button>; }`,
   '@/lib/telegram': `
@@ -48,6 +51,7 @@ const mocks: Record<string, string> = {
     export const isTelegramLaunchContext = () => Boolean(globalThis.__privyHarness?.telegram);
     export const restoreTelegramLaunchHash = () => {};
     export const haptic = () => {};
+    export const openExternalLink = () => false;
   `,
   '@/lib/wallet/telegramReconnect': `
     export function useTelegramReconnect() {
@@ -95,7 +99,7 @@ async function buildHarness(): Promise<string> {
       setup(build: Build) {
         build.onResolve({ filter: /\.css$/ }, (args: { path: string }) => ({ path: args.path, namespace: 'style' }));
         build.onLoad({ filter: /.*/, namespace: 'style' }, () => ({ contents: 'export default {};', loader: 'js' }));
-        build.onResolve({ filter: /^next\/link$/ }, () => ({ path: 'next/link', namespace: 'mock' }));
+        build.onResolve({ filter: /^next\/(?:link|navigation)$/ }, (args) => ({ path: args.path, namespace: 'mock' }));
         build.onResolve({ filter: /^@privy-io\/react-auth$/ }, () => ({ path: '@privy-io/react-auth', namespace: 'mock' }));
         build.onResolve({ filter: /^@\// }, (args: { path: string }) => {
           if (mocks[args.path]) return { path: args.path, namespace: 'mock' };

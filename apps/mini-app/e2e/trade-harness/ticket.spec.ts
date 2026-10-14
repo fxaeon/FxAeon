@@ -245,6 +245,24 @@ async function thumbCentre(thumb: Locator) {
   return box.x + box.width / 2;
 }
 
+async function expectThumbAtLeverage(page: Page, leverage: number) {
+  await expect(slider(page)).toHaveValue(String(leverage));
+  // A side change starts another live-bounds read. Measure the thumb, range,
+  // and bar in one browser turn so they belong to the same committed scale.
+  await expect.poll(async () => {
+    await nextFrames(page);
+    const geometry = await slider(page).evaluate(input => {
+      const range = input as HTMLInputElement;
+      const root = range.parentElement!;
+      const bar = root.querySelector(':scope > div[aria-hidden="true"]')!.getBoundingClientRect();
+      const thumb = root.querySelector(':scope > span[aria-hidden="true"]')!.getBoundingClientRect();
+      return { min: Number(range.min), max: Number(range.max), value: Number(range.value), left: bar.left, width: bar.width, centre: thumb.left + thumb.width / 2 };
+    });
+    if (geometry.value !== leverage) return Infinity;
+    return Math.abs(geometry.centre - geometry.left - leverageTrackPosition(leverage, geometry.min, geometry.max) * geometry.width);
+  }, { message: `the ${leverage}× thumb follows the currently committed live range` }).toBeLessThanOrEqual(1);
+}
+
 test.describe('the leverage slider uses its live minimum and maximum', () => {
   test('keeps a full-width 44px target at phone and desktop widths, without overflow', async ({ page }) => {
     await mount(page);
@@ -281,13 +299,11 @@ test.describe('the leverage slider uses its live minimum and maximum', () => {
     await mount(page);
     for (const leverage of ['2', '3.5', '1.5']) {
       await leverageField(page).fill(leverage);
-      const { at, thumb } = await track(page);
-      expect(Math.abs(await thumbCentre(thumb) - at(leverageTrackPosition(Number(leverage), Number(await slider(page).getAttribute('min')), Number(await slider(page).getAttribute('max')))))).toBeLessThanOrEqual(1);
+      await expectThumbAtLeverage(page, Number(leverage));
     }
     await page.getByRole('radio', { name: 'Short' }).click();
     await leverageField(page).fill('3');
-    const short = await track(page);
-    expect(Math.abs(await thumbCentre(short.thumb) - short.at(leverageTrackPosition(3, Number(await slider(page).getAttribute('min')), Number(await slider(page).getAttribute('max')))))).toBeLessThanOrEqual(1);
+    await expectThumbAtLeverage(page, 3);
     await expect(slider(page)).toHaveAttribute('aria-valuetext', '3.0×, 75% borrowed wstETH');
   });
 

@@ -305,10 +305,17 @@
 .amountUsd { display: block; color: var(--mut); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 .positionSummary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 34px; padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
 .positionSummary > span:last-child { font-variant-numeric: tabular-nums; color: var(--mut); }
-.riskPrices { display: grid; gap: 8px; padding: 2px 0; }
+.riskPrices { display: grid; gap: 8px; padding: 2px 0; container: review-risk-prices / inline-size; }
 .riskPrices > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--fs-small); }
 .riskPrices > div > span:first-child { color: var(--mut); }
 .riskPrices > div > span:last-child { max-width: 60%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* Narrow reviews keep the same label width while an estimate replaces its
+   skeleton. Wider system fonts otherwise squeeze a known label onto a second
+   line only when the quote arrives. Prices retain their complete units. */
+@container review-risk-prices (max-width: 300px) {
+  .riskPrices > div { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px; font-size: var(--fs-caption); }
+  .riskPrices > div > span:last-child { min-width: 0; max-width: none; }
+}
 .riskExplanation { color: var(--mut); font-size: var(--fs-caption); }
 .riskExplanation > summary { display: flex; align-items: center; gap: 5px; min-height: 44px; cursor: pointer; list-style: none; }
 .riskExplanation p { margin: 0 0 8px; line-height: 1.5; }

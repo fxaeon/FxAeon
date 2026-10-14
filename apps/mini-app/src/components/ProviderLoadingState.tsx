@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import FxLogo from '@/components/FxLogo';
+import { PageHeading } from '@/components/ProductUI';
 import TokenIcon from '@/components/TokenIcon';
 import { useT } from '@/lib/i18n';
 import styles from './ProviderLoadingState.module.css';
@@ -100,7 +101,7 @@ function ActivityRows({ count }: { count: number }) {
 function HistorySilhouette() {
   return <>
     {/* The live title arrives lit; this one stays plain so the sweep plays once. */}
-    <h1 className="sr-only">History</h1>
+    <PageHeading title="History" backHref="/more" visible />
     <div className={`${account.workspace} ${account.activitySection} ${account.activityCompactWorkspace}`}>
       <section className={activity.section}>
         <div className={activity.filters}>
