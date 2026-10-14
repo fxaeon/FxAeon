@@ -68,7 +68,7 @@ test.describe('Disconnected Portfolio entry', () => {
     await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
     const products = page.getByRole('region', { name: 'Savings and borrowing', exact: true });
     await expect(products.getByRole('link', { name: /Earn with fxSAVE/ })).toHaveAttribute('href', '/earn');
-    await expect(products.getByText(/6\.25% variable APY/)).toBeVisible();
+    await expect(products.getByText(/6\.25% APY/)).toBeVisible();
     await expect(products.getByRole('link', { name: /Borrow fxUSD/ })).toHaveAttribute('href', '/borrow');
     await expect(page.getByRole('heading', { name: 'Markets', exact: true })).toBeVisible();
     await expect(page.getByText('24h change', { exact: true })).toBeVisible();

@@ -428,7 +428,7 @@ function ProductOverview() {
   return <section className={presentation.productOverview} aria-label="Savings and borrowing">
     <Link href="/earn" className={presentation.productCard}>
       <div><TokenIcon symbol="fxSAVE" size={28} /><strong>Earn with fxSAVE</strong><ChevronRight size={15} aria-hidden="true" /></div>
-      <p>{apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> variable APY</>
+      <p>{apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> APY</>
         : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading fxSAVE APY" /> : <span>APY unavailable</span>}</p>
     </Link>
     <Link href="/borrow" className={presentation.productCard}>

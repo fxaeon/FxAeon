@@ -579,7 +579,7 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
         </>}
       </div>
       <div className={presentation.rate}>
-        <small>Variable APY</small>
+        <small>APY</small>
         <strong>{fxSaveApy
           ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
           : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>

@@ -88,7 +88,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
               <p>After a transaction, the app rereads state. Stale data can block an action until the current position and plan are available.</p>
   </> },
   { id: 'earn', title: 'Earn with fxSAVE', content: <>
-<p>Earn reads fxSAVE balances, vault value, redemption status, and claimable amounts from Ethereum. Your fxSAVE value and the variable APY sit above the form. Its actions are deposit, withdraw, and claim.</p>
+<p>Earn reads fxSAVE balances, vault value, redemption status, and claimable amounts from Ethereum. Your fxSAVE value and APY sit above the form. Its actions are deposit, withdraw, and claim.</p>
               <p>Deposit supports fxUSD, USDC, and fxSP, the f(x) Stability Pool share. Forms show the selected wallet’s verified balance, and token pickers pair quantity with estimated USD worth. Unavailable balances remain unknown, never zero; fxSAVE remains the withdrawal limit.</p>
               <p>Choose between an instant withdrawal and a queued withdrawal. The app reads the current instant-exit fee and cooldown from the protocol; check the terms shown before you submit. Deposits use a fixed minimum set by the f(x) SDK, shown in the review.</p>
               <div className={styles.referenceTable}><table><thead><tr><th>Withdrawal</th><th>What happens</th><th>Costs and protection</th></tr></thead><tbody>
