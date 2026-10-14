@@ -11,6 +11,10 @@ const sdkDirectory = dirname(requireSdk.resolve('@aladdindao/fx-sdk'));
 const importNative = new Function('url', 'return import(url)') as (url: string) => Promise<{ FxSdk: typeof FxSdk }>;
 const WALLET = '0x1111111111111111111111111111111111111111';
 const WAD = 10n ** 18n;
+function timeIndependentPlan(plan: object) {
+  const quote = (plan as { fxSaveQuote?: Record<string, unknown> }).fxSaveQuote;
+  return quote ? { ...plan, fxSaveQuote: { ...quote, readAt: 0 } } : plan;
+}
 const ABI = parseAbi([
   'function allowance(address owner,address spender) view returns (uint256)',
   'function queryConvert(uint256 amount,uint256 encoding,uint256[] routes) view returns (uint256)',
@@ -29,10 +33,25 @@ const ABI = parseAbi([
 // checks establish which settings affect a route, without sending transactions
 // or replacing the pinned SDK's arithmetic or policy validation.
 for (const bundle of ['ESM', 'CommonJS'] as const) {
-  test(`installed ${bundle} Earn routes use slippage only for instant stable withdrawals`, async () => {
+  test(`installed ${bundle} Earn routes use slippage only for instant stable withdrawals`, async (context) => {
     const { FxSdk: Sdk } = bundle === 'ESM'
       ? await importNative(pathToFileURL(resolve(sdkDirectory, 'index.js')).href)
       : requireSdk('@aladdindao/fx-sdk') as { FxSdk: typeof FxSdk };
+    let quoteClock = Date.now();
+    context.mock.method(Date, 'now', () => quoteClock);
+    async function planAtFreshTime<T extends object>(build: () => Promise<T>, expectsQuote = true): Promise<T> {
+      quoteClock += 1;
+      const plan = await build();
+      const quote = (plan as { fxSaveQuote?: { readAt: number } }).fxSaveQuote;
+      if (expectsQuote) {
+        assert.ok(quote, 'an executable savings quote preserves its accepted metadata');
+        assert.ok(Number.isSafeInteger(quote.readAt) && quote.readAt > 0);
+        assert.equal(quote.readAt, quoteClock, 'each plan records its own strictly advancing read time');
+      } else {
+        assert.equal(quote, undefined, 'a queued withdrawal does not invent an accepted receive quote');
+      }
+      return plan;
+    }
     let allowance = 0n;
     function read(data: Hex): Hex {
       const decoded = decodeFunctionData({ abi: ABI, data });
@@ -55,9 +74,10 @@ for (const bundle of ['ESM', 'CommonJS'] as const) {
     }, { retryCount: 0 }) as unknown as FxSdkConfig['rpcTransport'] });
     const amount = 10n * WAD + 1n;
     for (allowance of [0n, amount]) {
-      const deposit = await sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'fxUSDBasePool', amount });
+      const deposit = await planAtFreshTime(() => sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'fxUSDBasePool', amount }));
       for (const slippage of [0.01, 0.29, 0.5, 2]) {
-        assert.deepEqual(await sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'fxUSDBasePool', amount, slippage }), deposit);
+        const plan = await planAtFreshTime(() => sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'fxUSDBasePool', amount, slippage }));
+        assert.deepEqual(timeIndependentPlan(plan), timeIndependentPlan(deposit));
       }
       assert.equal(deposit.txs.length, allowance === 0n ? 2 : 1);
       const decoded = decodeFunctionData({ abi: ABI, data: deposit.txs.at(-1)!.data as Hex });
@@ -66,9 +86,10 @@ for (const bundle of ['ESM', 'CommonJS'] as const) {
     }
     for (const tokenOut of ['usdc', 'fxUSD', 'fxUSDBasePool'] as const) {
       const request = { userAddress: WALLET, tokenOut, amount, instant: false };
-      const reference = await sdk.withdrawFxSave(request);
+      const reference = await planAtFreshTime(() => sdk.withdrawFxSave(request), tokenOut === 'fxUSDBasePool');
       for (const slippage of [0.01, 0.29, 0.5, 2]) {
-        assert.deepEqual(await sdk.withdrawFxSave({ ...request, slippage }), reference);
+        const plan = await planAtFreshTime(() => sdk.withdrawFxSave({ ...request, slippage }), tokenOut === 'fxUSDBasePool');
+        assert.deepEqual(timeIndependentPlan(plan), timeIndependentPlan(reference));
       }
       assert.equal(reference.txs.length, 1);
       const decoded = decodeFunctionData({ abi: ABI, data: reference.txs[0].data as Hex });
@@ -81,7 +102,7 @@ for (const bundle of ['ESM', 'CommonJS'] as const) {
         await assert.rejects(sdk.withdrawFxSave(request), /Slippage must be/);
         let previousMinima: readonly bigint[] | undefined;
         for (const slippage of [0.01, 0.29, 0.5, 2]) {
-          const plan = await sdk.withdrawFxSave({ ...request, slippage });
+          const plan = await planAtFreshTime(() => sdk.withdrawFxSave({ ...request, slippage }));
           assert.equal(plan.txs.length, allowance === 0n ? 2 : 1);
           const action = plan.txs.at(-1)!;
           const decoded = decodeFunctionData({ abi: ABI, data: action.data as Hex });
