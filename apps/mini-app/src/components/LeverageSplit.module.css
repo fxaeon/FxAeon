@@ -24,13 +24,8 @@
 .caption { min-width: 0; color: var(--mut); text-align: center; font-variant-numeric: tabular-nums; }
 .caption b { color: var(--text); font-weight: 650; }
 
-/* The leverage slider is the same split, drawn at the chosen leverage: the
-   full track is the position's value, debt left of the thumb and the trader's
-   share right of it, in the position card's colours. Beyond the live range the
-   split carries on thinned and dimmed: drawn, never selectable. --lever-ground
-   is the surface the slider sits on (a card's surface unless its host says
-   otherwise), so the dimmed ends read as cut into the bar and the ticks'
-   ink stays quiet against it. */
+/* The leverage slider spans the live min/max range. The filled part ends at
+   the chosen leverage; the educational debt split is stated below the track. */
 .slider {
   position: relative;
   height: 44px;
@@ -53,8 +48,8 @@
   pointer-events: none;
 }
 .sliderDebt, .sliderYours { display: block; height: 100%; }
-.sliderDebt { flex: 0 0 calc(var(--share) * 100%); background: color-mix(in srgb, var(--text) 24%, transparent); }
-.sliderYours { flex: 1 1 auto; background: linear-gradient(90deg, var(--mint), var(--brand-coral)); }
+.sliderDebt { flex: 0 0 calc(var(--share) * 100%); background: linear-gradient(90deg, var(--mint), var(--brand-coral)); }
+.sliderYours { flex: 1 1 auto; background: color-mix(in srgb, var(--text) 24%, transparent); }
 /* Whole-× ticks are hairlines standing on the bar's upper edge, in an ink
    mixed from the text and the ground: they mark the scale without ever
    cutting the split, and step aside near the thumb (see LeverageSplitRange). */
@@ -144,18 +139,15 @@
    simply keeps its own width at the edge. */
 .bounds {
   display: grid;
-  grid-template-columns:
-    minmax(calc(var(--min-share) * 100%), max-content)
-    minmax(0, 1fr)
-    minmax(calc((1 - var(--max-share)) * 100%), max-content);
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: baseline;
   color: var(--mut);
   font-size: var(--fs-micro);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.bounds > :first-child { justify-self: end; }
-.bounds > :last-child { justify-self: start; }
+.bounds > :first-child { justify-self: start; }
+.bounds > :last-child { justify-self: end; }
 /* The row measures itself: below about 310px the caption runs within a few
    pixels of wrapping, and platforms whose glyphs set a little wider (Linux,
    Android) wrap it. There the asset name steps out of sight, still read

@@ -75,7 +75,9 @@ test('the preview reads the review’s own collateral, debt and fee facts for th
     const review = new Map(routeFinancialReviewFacts(planned).map((fact) => [fact.label, fact]));
     assert.deepEqual({ label: facts.collateral.label, value: facts.collateral.value, title: facts.collateral.title }, review.get('Estimated collateral'));
     assert.deepEqual(facts.debt, review.get('Estimated debt'));
-    assert.deepEqual(facts.fee, review.get('Protocol fee rate'));
+    assert.deepEqual(facts.fee, review.get('f(x) fee'));
+    assert.deepEqual(facts.executionPrice, review.get('Execution price'));
+    assert.equal(facts.executionPrice?.value, `2,500.5 fxUSD / ${market === 'ETH' ? 'stETH' : 'WBTC'}`);
     assert.equal(facts.collateral.value, collateral);
     assert.equal(facts.debt.value, debt);
     assert.equal(facts.fee?.value, '0.3%');

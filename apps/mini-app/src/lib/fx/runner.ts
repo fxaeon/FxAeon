@@ -323,7 +323,7 @@ export async function simulatePlannedRoute(
       success: false,
       error: normalizeFxProtocolError(
         error,
-        "Simulation is unavailable. Check your connection and try again.",
+        "Transaction simulation is unavailable. Try again.",
         route.operation,
       ),
     };

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getEidByChainId } from '@aladdindao/fx-sdk';
 import { type Address, type Hex } from 'viem';
 import { CheckCircle2, ChevronDown, Clock3, ExternalLink, LoaderCircle, Network, RefreshCw, XCircle } from 'lucide-react';
-import { assertPublicClientChain, getPublicClient } from '@/lib/fx';
+import { assertPublicClientChain, getPublicClient } from '@/lib/fx/clients';
 import { userSafeError } from '@/lib/errors';
 import {
   findSourceOftSent,
@@ -84,6 +84,7 @@ export function BridgeTracker({
 }: BridgeTrackerProps) {
   const [verifiedContextKey, setVerifiedContextKey] = useState<string | null>(null);
   const [sourceEventFound, setSourceEventFound] = useState(false);
+  const [sourceReverted, setSourceReverted] = useState(false);
   const [detectedDestinationTxHash, setDetectedDestinationTxHash] = useState<string | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [canRetry, setCanRetry] = useState(false);
@@ -113,6 +114,7 @@ export function BridgeTracker({
   useEffect(() => {
     setVerifiedContextKey(null);
     setSourceEventFound(false);
+    setSourceReverted(false);
     setDetectedDestinationTxHash(null);
     setVerificationError(null);
     setCanRetry(false);
@@ -143,6 +145,7 @@ export function BridgeTracker({
     const maxAttempts = 24;
     const pollMs = 15_000;
     let attempts = 0;
+    let sourceReceiptReverted = false;
     let sourceMessage: SourceOftSentMatch | undefined;
     // Advance this cursor between polls. Recovered bridges can be days old,
     // and a single baseline-to-head eth_getLogs request exceeds common RPC
@@ -159,13 +162,18 @@ export function BridgeTracker({
         await assertPublicClientChain(sourceClient, sourceChainId);
         if (!sourceMessage) {
           const receipt = await sourceClient.getTransactionReceipt({ hash: sourceTxHash as Hex });
+          if (cancelled) return;
           if (receipt.transactionHash.toLowerCase() !== sourceTxHash.toLowerCase()) {
             throw new Error('source bridge receipt hash does not match the submitted transaction');
           }
           if (typeof receipt.blockNumber !== 'bigint' || receipt.blockNumber < 0n) {
             throw new Error('The source receipt is missing block information.');
           }
-          if (receipt.status !== 'success') throw new Error('source bridge receipt is not successful');
+          if (receipt.status !== 'success') {
+            sourceReceiptReverted = true;
+            if (!cancelled) setSourceReverted(true);
+            throw new Error('The source transaction reverted. Destination delivery will not occur.');
+          }
           sourceMessage = findSourceOftSent(receipt.logs as unknown as readonly BridgeEventLog[], {
             sourceOftAddress: sourceOftAddress as Address,
             destinationEid: getEidByChainId(destinationChainId),
@@ -204,9 +212,13 @@ export function BridgeTracker({
             amountReceivedLD: sourceMessage.amountReceivedLD,
           },
         });
+        // A route change or retry can finish an old RPC request after the new
+        // verification loop starts. Never let it move the new loop's cursor.
+        if (cancelled) return;
         nextDestinationBlock = scan.nextBlock;
         destinationCursorRef.current = scan.nextBlock;
         if (!scan.match) {
+          if (!cancelled) setDetectedDestinationTxHash(null);
           throw new Error(scan.complete
             ? 'destination chain has not emitted the matching OFTReceived event'
             : `Scanning historical destination blocks through ${scan.nextBlock - 1n}.`);
@@ -259,6 +271,7 @@ export function BridgeTracker({
       } catch (cause) {
         if (!cancelled) setVerificationError(userSafeError(cause, 'Destination delivery is not verified yet. Check again shortly.'));
       }
+      if (sourceReceiptReverted) return;
       attempts += 1;
       if (!cancelled && attempts < maxAttempts && isForegroundOnline()) {
         retryTimerRef.current = window.setTimeout(() => { retryTimerRef.current = null; void verify(); }, pollMs);
@@ -280,7 +293,7 @@ export function BridgeTracker({
   const effectiveStatus: BridgeStepStatus = verified ? 'destination_verified' : status === 'destination_verified' ? 'source_confirmed' : status;
   const sourceDone = Boolean(sourceTxHash) && effectiveStatus !== 'pending' && effectiveStatus !== 'failed';
   const delivered = effectiveStatus === 'destination_verified';
-  const failed = effectiveStatus === 'failed';
+  const failed = effectiveStatus === 'failed' || sourceReverted;
   const submitted = Boolean(sourceTxHash);
   const sourceExplorer = sourceTxHash ? `${explorerFor(sourceChain)}/tx/${sourceTxHash}` : null;
   const destinationExplorer = detectedDestinationTxHash ? `${explorerFor(destinationChain)}/tx/${detectedDestinationTxHash}` : null;
@@ -297,32 +310,32 @@ export function BridgeTracker({
           </div>
         </div>
         <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold ${delivered ? 'bg-[var(--success-dim)] text-success' : failed ? 'bg-[var(--danger-dim)] text-danger' : sourceDone ? 'bg-[var(--warn-dim)] text-warn' : 'bg-[var(--mint-dim)] text-mint'}`}>
-          {delivered ? 'Received' : failed ? 'Reverted' : sourceDone ? 'In transit' : submitted ? 'Submitted' : 'Not submitted'}
+          {delivered ? 'Destination received' : failed ? sourceReverted ? 'Source reverted' : 'Bridge interrupted' : sourceDone ? 'Source confirmed' : submitted ? 'Source pending' : 'Awaiting signature'}
         </span>
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
         <TimelineRow
           state={failed ? 'failed' : submitted ? 'done' : 'active'}
-          title="Submitted"
-          body={failed ? `Submitted on ${sourceChain}, but the transaction reverted.` : submitted ? `Transaction hash saved on ${sourceChain}.` : 'Waiting for the wallet to submit the transaction.'}
+          title={submitted ? 'Transaction submitted' : 'Awaiting signature'}
+          body={failed ? submitted ? `Transaction hash saved on ${sourceChain}. Check the source explorer for its final status.` : 'No source transaction hash is available. Delivery has not been verified.' : submitted ? `Transaction hash saved on ${sourceChain}.` : 'Confirm the bridge transaction in your wallet.'}
           action={sourceExplorer ? { label: 'Explorer', onClick: () => { openExternalLink(sourceExplorer); } } : undefined}
         />
         <TimelineRow
           state={failed ? 'failed' : sourceDone ? 'done' : submitted ? 'active' : 'pending'}
-          title="Confirmed on source"
-          body={failed ? 'The source receipt shows a revert.' : sourceDone ? sourceEventFound ? 'Source receipt confirmed; bridge message found.' : 'Source receipt confirmed. Checking the bridge message.' : submitted ? 'Waiting for the source-chain receipt.' : 'Starts after submission.'}
+          title="Source confirmed"
+          body={failed ? sourceReverted ? 'The source receipt shows a revert.' : 'Source confirmation is unavailable. Check the transaction before trying another bridge.' : sourceDone ? sourceEventFound ? 'Source receipt confirmed; bridge message found.' : 'Source receipt confirmed. Checking the bridge message.' : submitted ? 'Waiting for the source-chain receipt.' : 'Starts after submission.'}
         />
         <TimelineRow
-          state={delivered ? 'done' : sourceDone ? 'active' : 'pending'}
+          state={delivered ? 'done' : sourceDone && !failed && hasVerificationContext && !canRetry && (autoStart || manualStarted) ? 'active' : 'pending'}
           title="Waiting for destination"
-          body={delivered ? `Delivery was verified on ${destinationChain}.` : sourceDone ? `Checking ${destinationChain} for the matching delivery. No ETA is available.` : 'Starts after source confirmation.'}
+          body={delivered ? `Delivery was verified on ${destinationChain}.` : failed ? 'Destination delivery has not been verified.' : sourceDone ? !hasVerificationContext ? 'Recovery details are missing. Destination delivery cannot be checked.' : canRetry ? 'Automatic checking has paused. Check the destination again to resume.' : !autoStart && !manualStarted ? 'Start a destination check to verify delivery.' : `Checking ${destinationChain} for the matching delivery. No ETA is available.` : 'Starts after source confirmation.'}
           action={layerzeroScan ? { label: 'Track', onClick: () => { openExternalLink(layerzeroScan); } } : undefined}
         />
         <TimelineRow
           state={delivered ? 'done' : 'pending'}
-          title="Received"
-          body={delivered ? <>{amount ? <><ValueOrSkeleton value={amount} width="sm" label="Bridge amount loading" /> {token}</> : token} was verified at the recipient on {destinationChain}.</> : 'Not verified on the destination yet.'}
+          title="Destination received"
+          body={delivered ? <>The matching {token} delivery was verified at the recipient on {destinationChain}.</> : 'Not verified on the destination yet.'}
           action={destinationExplorer ? { label: 'Explorer', onClick: () => { openExternalLink(destinationExplorer); } } : undefined}
         />
       </div>
@@ -335,7 +348,7 @@ export function BridgeTracker({
           </div>
         </details>
       )}
-      {sourceDone && !delivered && !failed && (canRetry || (!autoStart && !manualStarted)) && (
+      {sourceDone && hasVerificationContext && !delivered && !failed && (canRetry || (!autoStart && !manualStarted)) && (
         <button
           type="button"
           onClick={() => {

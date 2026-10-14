@@ -62,13 +62,15 @@ function opening(market: 'ETH' | 'BTC' = 'ETH', side: 'long' | 'short' = 'long',
 }
 
 function route(intent: ReviewedActionIntent, details: RouteDetails): PlannedRoute {
+  const mintRouter = '0xB753366082466c4B5984312f0c4Bb97554be067E';
+  const borrow = intent.kind === 'deposit-and-mint';
   return {
     operation: operations[intent.kind],
     walletAddress: WALLET,
     chainId: 1,
-    transactions: [],
+    transactions: borrow ? [{ kind: 'action', operation: 'depositAndMint', chainId: 1, from: WALLET, to: mintRouter, data: '0x216d5108', value: 0n }] : [],
     policy: { walletAddress: WALLET, chainId: 1, reviewedAction: intent },
-    details,
+    details: borrow ? { protocolFeeQuote: { poolAddress: intent.poolAddress, routerAddress: mintRouter, ratios: ['0', '0', '0', '0'] }, ...details } : details,
   };
 }
 
@@ -140,7 +142,7 @@ test('pure ActionReview presentation builder keeps verified action facts and aut
     { label: 'Position', value: 'New position' },
   ]);
   const facts = routeFacts(planned, { estimate: undefined, estimateIsCurrent: false }, { protocolFee: '0.2 fxUSD' });
-  assert.equal(facts.find((fact) => fact.label === 'Protocol fee')?.value, '0.2 fxUSD');
+  assert.equal(facts.find((fact) => fact.label === 'f(x) fee')?.value, '0.2 fxUSD');
   assert.equal(facts.some((fact) => fact.label === 'Estimated debt'), true);
 });
 
@@ -179,6 +181,24 @@ test('bridge review keeps validated source, destination, asset, recipient, recei
     { label: 'Recipient', value: WALLET },
     { label: 'Bridge fee', value: '0.001 ETH', title: '0.001 ETH' },
   ]);
+  assert.equal(primaryReviewFacts(planned).find(fact => fact.label === 'Delivery estimate')?.value, 'Not provided by bridge');
+});
+
+test('bridge receipt estimates retain exact precision and disappear when stale or outside the send bounds', () => {
+  const quote = { nativeFee: 100n, destinationChainId: 8453, bridgeToken: 'fxSAVE',
+    bridgeAmount: 1_234_567_890_123_456_789n, minAmountLD: 1_234_500_000_000_000_000n,
+    estimatedReceived: 1_234_550_000_000_000_001n, receiptReadAt: Date.now() };
+  const planned = { operation: 'buildBridgeTx', chainId: 1, walletAddress: WALLET,
+    transactions: [], quote } as unknown as PlannedRoute;
+  assert.deepEqual(primaryReviewFacts(planned).find(fact => fact.label === 'Estimated received'), {
+    label: 'Estimated received', value: '1.234550000000000001 fxSAVE', title: '1.234550000000000001 fxSAVE',
+  });
+  for (const changed of [
+    { ...quote, receiptReadAt: Date.now() - 30_001 },
+    { ...quote, receiptReadAt: Date.now() + 30_000 },
+    { ...quote, estimatedReceived: quote.bridgeAmount + 1n },
+    { ...quote, estimatedReceived: quote.minAmountLD - 1n },
+  ]) assert.equal(primaryReviewFacts({ ...planned, quote: changed }).some(fact => fact.label === 'Estimated received'), false);
 });
 
 test('BTC quote accounting uses 18 decimals, while converter output uses 8 decimals', () => {
@@ -300,7 +320,7 @@ test('ETH long leverage decreases, reductions, borrowing and repayment are quote
   assert.deepEqual(collateralFact(route({
     kind: 'deposit-and-mint', poolAddress: positionPoolAddress('ETH', 'long'), positionId: 4,
     depositTokenAddress: FX_TOKENS.stETH.address, depositAmount: 1n, nativeInput: false, mintAmount: 1n,
-  }, details)), stEth);
+  }, details)), { ...stEth, title: `${stEth.title}; accepted f(x) supply fee is 0%, so this quote needs no supply fee deduction.` });
   assert.deepEqual(collateralFact(route({
     kind: 'repay-and-withdraw', poolAddress: positionPoolAddress('ETH', 'long'), positionId: 4,
     minimumRepayAmount: 1n, repayTokenAddress: FX_TOKENS.fxUSD.address, withdrawTokenAddress: FX_TOKENS.wstETH.address,
@@ -383,7 +403,7 @@ test('borrow quotes use pool accounting, not the deposit input units', () => {
   assert.equal(facts.find((fact) => fact.label === 'Estimated collateral')?.value, '1 stETH');
   assert.equal(facts.find((fact) => fact.label === 'Estimated debt')?.value, '2 fxUSD');
   assert.equal(facts.some((fact) => fact.label === 'Receive'), false, 'Do not invent net proceeds when the SDK only quotes debt');
-  assert.equal(primaryReviewFacts(route(intent, { colls: '1000000000000000000', debts: '2000000000000000000' })).find((fact) => fact.label === 'Borrow')?.title, '0.000000000000000001 fxUSD');
+  assert.equal(primaryReviewFacts(route(intent, { colls: '1000000000000000000', debts: '2000000000000000000' })).find((fact) => fact.label === 'Debt added')?.title, '0.000000000000000001 fxUSD');
   assert.equal(facts.find((fact) => fact.label === 'Minimum converted deposit')?.value, '0.2 wstETH');
   assert.equal(facts.some((fact) => fact.label === 'Execution price'), false, 'An oracle price is not a swap execution price');
 });
@@ -418,8 +438,8 @@ test('fxSAVE deposits show independent input-conversion and share minimum units'
         { label: 'fxSAVE deposit base-pool minimum shares', value: '2500000000000000000' },
       ],
     }));
-    assert.equal(facts[0].value, `1.234567 ${token.key}`);
-    assert.equal(facts[1].value, '2.5 fxSP');
+    assert.equal(facts.find(fact => fact.label === 'Minimum converted deposit')?.value, `1.234567 ${token.key}`);
+    assert.equal(facts.find(fact => fact.label === 'Minimum fxSP')?.value, '2.5 fxSP');
   }
 });
 
@@ -461,6 +481,7 @@ test('identity fxSAVE deposits omit only the zero converter no-op and retain the
   });
   const facts = routeFinancialReviewFacts(planned);
   assert.deepEqual(facts.map(({ label, value }) => ({ label, value })), [
+    { label: 'Estimated fxSAVE received', value: 'Unavailable' },
     { label: 'Minimum fxSP', value: '892.0224645 fxSP' },
   ]);
 });
@@ -493,6 +514,8 @@ test('both instant fxSAVE output legs use the destination token decimals', () =>
     ],
   }));
   assert.deepEqual(facts.map(({ label, value }) => ({ label, value })), [
+    { label: 'Estimated received', value: 'Unavailable' },
+    { label: 'f(x) fee', value: 'Unavailable' },
     { label: 'Minimum received (fxUSD leg)', value: '1.234567 USDC' },
     { label: 'Minimum received (USDC leg)', value: '7.654321 USDC' },
   ]);

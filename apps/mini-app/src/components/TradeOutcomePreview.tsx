@@ -1,47 +1,47 @@
 'use client';
 
-import { useUsdPrices } from '@/components/PriceProvider';
+import { useEffect, useState } from 'react';
 import { MissingValue } from '@/components/MissingValue';
-import { freshDisplayPrices } from '@/lib/displayPrices';
-import { positionCollateralTokenAddress } from '@/lib/fx/policy';
+import { LIQUIDATION_QUOTE_TTL_MS } from '@/lib/fx/liquidationQuote';
 import { positionOutcomeFacts } from '@/lib/fx/reviewFormatting';
-import { FX_TOKENS, type FxTokenKey } from '@/lib/fx/tokens';
 import type { PlannedRoute } from '@/lib/fx/types';
-import { approximately, collateralUsdEstimate } from '@/lib/tradeOutcome';
+import { approximately } from '@/lib/tradeOutcome';
 import styles from './TradeOutcomePreview.module.css';
 
-/** The token a new position's collateral is quoted in, so the placeholder can reserve its USD line. */
-function collateralKey(market: 'ETH' | 'BTC', side: 'long' | 'short'): FxTokenKey | undefined {
-  const address = positionCollateralTokenAddress(market, side).toLowerCase();
-  return (Object.keys(FX_TOKENS) as FxTokenKey[]).find((key) => FX_TOKENS[key].address.toLowerCase() === address);
-}
-
-type Row = { label: string; value?: string; title?: string; usd?: string | null; reserveUsd?: boolean };
+type Row = { label: string; value?: string; title?: string };
 
 /**
  * What the ticket's warmed route would hold once it executes, under the
- * leverage field: the position's collateral (with a USD value while a fresh
- * price exists), the debt it takes, and the protocol fee. These are the
- * review's own facts for that route, with the review's labels, units and
- * rounding, each marked as an estimate; the review still plans, simulates and
+ * leverage field: the expected execution price, projected liquidation price,
+ * and protocol fee. Execution uses the review's own quote; liquidation uses
+ * the same projected amounts and a fresh pool threshold. Both prices are
+ * estimates; the review still plans, simulates and
  * validates the route before anything is signed. `route` is null while the
  * warm-up runs: the same rows hold their place with placeholders.
  */
-export function TradeOutcomePreview({ market, side, route }: { market: 'ETH' | 'BTC'; side: 'long' | 'short'; route: PlannedRoute | null }) {
-  const prices = freshDisplayPrices(useUsdPrices());
+export function TradeOutcomePreview({ route }: { market: 'ETH' | 'BTC'; side: 'long' | 'short'; route: PlannedRoute | null }) {
+  const [, expireQuote] = useState(0);
+  useEffect(() => {
+    const readAt = route?.details?.liquidationQuote?.readAt;
+    const now = Date.now();
+    if (readAt === undefined || !Number.isFinite(readAt) || readAt > now) return;
+    const delay = readAt + LIQUIDATION_QUOTE_TTL_MS - now;
+    // The ticket can stay untouched: stop displaying an expired pool threshold.
+    const timer = window.setTimeout(() => expireQuote((value) => value + 1), Math.max(0, delay + 1));
+    return () => window.clearTimeout(timer);
+  }, [route]);
   const facts = route ? positionOutcomeFacts(route) : null;
   // A route the review cannot describe either has nothing to preview.
   if (route && !facts) return null;
-  const expectedKey = collateralKey(market, side);
   const rows: Row[] = facts ? [
-    { label: facts.collateral.label, value: approximately(facts.collateral.value), title: facts.collateral.title, usd: collateralUsdEstimate(facts.collateral, prices) },
-    { label: facts.debt.label, value: approximately(facts.debt.value), title: facts.debt.title },
+    { label: 'Execution price', value: facts.executionPrice ? approximately(facts.executionPrice.value) : 'Unavailable', title: facts.executionPrice?.title },
+    { label: 'Liquidation price', value: facts.liquidationPrice ? approximately(facts.liquidationPrice.value) : 'Unavailable', title: facts.liquidationPrice?.title },
     // The rate is the pool's own quoted rate, shown exactly as the review shows it.
-    { label: facts.fee?.label ?? 'Protocol fee rate', value: facts.fee?.value ?? 'Unavailable', title: facts.fee?.title },
+    { label: facts.fee?.label ?? 'f(x) fee', value: facts.fee?.value ?? 'Unavailable', title: facts.fee?.title },
   ] : [
-    { label: 'Estimated collateral', reserveUsd: expectedKey !== undefined && prices[expectedKey] !== undefined },
-    { label: 'Estimated debt' },
-    { label: 'Protocol fee rate' },
+    { label: 'Execution price' },
+    { label: 'Liquidation price' },
+    { label: 'f(x) fee' },
   ];
   return (
     <div className={styles.outcome} role="group" aria-label="Estimated position" aria-busy={!facts || undefined} data-trade-outcome={facts ? 'ready' : 'pending'}>
@@ -50,10 +50,8 @@ export function TradeOutcomePreview({ market, side, route }: { market: 'ETH' | '
           <dt>{row.label}</dt>
           <dd>
             {row.value === undefined
-              ? <MissingValue width={row.label === 'Protocol fee rate' ? 'sm' : 'xl'} announce={false} label={`Loading ${row.label.toLowerCase()}`} />
+              ? <MissingValue width={row.label === 'f(x) fee' ? 'sm' : 'xl'} announce={false} label={`Loading ${row.label.toLowerCase()}`} />
               : <span className={styles.figure} title={row.title}>{row.value}</span>}
-            {row.usd && <span className={`${styles.usd} ${styles.figure}`}>{row.usd}</span>}
-            {row.reserveUsd && <span className={styles.usd}><MissingValue width="lg" announce={false} label="Loading USD value" /></span>}
           </dd>
         </div>)}
       </dl>

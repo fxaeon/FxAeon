@@ -8,7 +8,7 @@ test.describe('Earn entry and honest unavailable state', () => {
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto('/earn', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'fxSAVE', exact: true })).toBeVisible();
-    await expect(page.getByText('Variable APY')).toBeVisible();
+    await expect(page.getByText('APY', { exact: true })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Deposit', exact: true })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toBeVisible();
     const primary = page.getByRole('button', { name: 'Connect wallet', exact: true }).last();
@@ -106,8 +106,8 @@ test.describe('connected Earn summary at normal phone width', () => {
     await expect(page.getByText(/^(?:Your fxSAVE value|Last verified fxSAVE value|fxSAVE balance)$/)).toBeVisible();
     await expect(page.getByText('Last verified position value', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('status', { name: 'fxSAVE balance' })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Variable APY')).toBeVisible();
-    const apyRow = page.getByText('Variable APY', { exact: true }).locator('..');
+    await expect(page.getByText('APY', { exact: true })).toBeVisible();
+    const apyRow = page.getByText('APY', { exact: true }).locator('..');
     await expect(apyRow.getByText('6.96%', { exact: true })).toBeVisible();
     const geometry = await page.evaluate(() => {
       const summary = document.querySelector<HTMLElement>('[class*="balanceTop"]');

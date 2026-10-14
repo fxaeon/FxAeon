@@ -199,7 +199,7 @@ export default function WalletProfile() {
                 </button>
               </div></div>
               <strong className={`${presentation.total} ${balancePresentation.value}`}>{walletSnapshotValuation.totalUsd !== null
-                ? <SplitFigure value={formatUsd(walletSnapshotValuation.totalUsd)} />
+                ? <SplitFigure value={formatUsd(walletSnapshotValuation.totalUsd)} fractionClassName={balancePresentation.fraction} />
                 : walletValueLoading ? <MissingValue width="xl" status="loading" label="Loading wallet value" />
                   : <span className={presentation.totalUnavailable}>
                     <span role="status" aria-label="Wallet value unavailable"><CircleAlert size={16} aria-hidden="true" />Value unavailable</span>

@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FX_SAVE_UNITS, fxSaveUsdValue, normalizedFxSaveAssetsWei } from '../src/lib/fxSaveUnits';
+import { FX_SAVE_UNITS, fxSaveUsdValue, fxSaveVaultUsdValue, normalizedFxSaveAssetsWei } from '../src/lib/fxSaveUnits';
 
 const prices = { fxUSD: 1, fxUSDBasePool: 1.25, fxSAVE: 1.75 };
+
+test('vault USD value uses fxSP valuation or a recent official TVL without stablecoin parity', () => {
+  const reported = { tvlUsd: 84_423_918.8125, observedAt: 1_000 };
+  assert.equal(fxSaveVaultUsdValue(100n * 10n ** 18n, prices, reported, 1_001), 125);
+  assert.equal(fxSaveVaultUsdValue(undefined, {}, reported, 1_001), reported.tvlUsd);
+  assert.equal(fxSaveVaultUsdValue(undefined, {}, reported, 301_000), null);
+  assert.equal(fxSaveVaultUsdValue(undefined, {}, reported, 999), null);
+  assert.equal(fxSaveVaultUsdValue(100n * 10n ** 18n, { fxUSD: 1 }, null), null);
+  assert.equal(fxSaveVaultUsdValue(0n, {}, null), 0);
+});
 const fourTokens = 4_000_000_000_000_000_000n;
 
 test('SDK assets and queued redemption fields are base-pool shares, not fxUSD or fxSAVE', () => {

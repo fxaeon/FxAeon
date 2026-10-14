@@ -57,6 +57,22 @@ export interface RouteDetails {
     routerAddress: Address;
     ratios: readonly [string, string, string, string];
   };
+  /** Display-only estimates from the same SDK planning reads as this action.
+   * Calldata, token and amount bind the quote; ratios use base-pool 1e18 units. */
+  fxSaveQuote?: {
+    kind: 'deposit' | 'direct-withdraw' | 'instant-withdraw';
+    inputAmount: string;
+    tokenAddress: Address;
+    actionTo: Address;
+    actionData: Hex;
+    readAt: number;
+    estimatedOutput?: string;
+    instantFeeRatio?: string;
+    grossFxUSD?: string;
+    grossUSDC?: string;
+    netFxUSD?: string;
+    netUSDC?: string;
+  };
   routeType?: string;
   positionId?: number;
   leverage?: number;
@@ -64,6 +80,17 @@ export interface RouteDetails {
   minOut?: string;
   colls?: string;
   debts?: string;
+  /** Display-only liquidation parameters read alongside a new-position quote.
+   * Bound to its pool and usable only within the route prefetch lifetime. */
+  liquidationQuote?: {
+    poolAddress: Address;
+    liquidateRatio: string;
+    /** Optional independently verified rebalance threshold from the same pool. */
+    rebalanceRatio?: string;
+    readAt: number;
+    /** Live stETH per wstETH, required for both ETH quote denominations. */
+    stEthPerWstEth?: string;
+  };
   /** stETH per wstETH (1e18 fixed point, as decimal digits) read with
    * `wstETH.stEthPerToken()` while this ETH long route was planned. Display
    * only: it states wstETH quote figures in the pool's stETH accounting.
@@ -125,6 +152,9 @@ export interface BridgeRouteQuote {
   /** Optional display/reconciliation fields attached by the UI. */
   bridgeToken?: string;
   bridgeAmount?: bigint;
+  /** Optional estimate read for this exact send; not a guaranteed receipt. */
+  estimatedReceived?: bigint;
+  receiptReadAt?: number;
   deliveryLowerBound?: bigint;
   destinationTokenAddress?: Address;
   /** Latest destination block captured before the source wallet prompt. */

@@ -167,6 +167,7 @@ const fixtures = `
     priceStatus: 'fresh', usdValue: amount * price, logoUrl: null, source: 'canonical',
   });
   const holdings = [asset(1, 'USDC', 'USDC', 4500, 1, 6, USDC), asset(1, 'ETH', 'ETH', 1.25, 2400), asset(8453, 'ETH', 'ETH', 0.5, 2400), asset(1, 'fxUSD', 'fxUSD', 1200, 1, 18, FXUSD)];
+  const dustHolding = asset(1, 'USDC', 'USDC', 0.01, 1, 6, USDC);
   const networks = { 1: { chainId: 1, status: 'ready', error: '' }, 8453: { chainId: 8453, status: 'ready', error: '' } };
   const E18 = 10n ** 18n;
   const position = (market, side, positionId, colls, debts, collsToken, debtsToken, leverage) => ({ market, side, info: {
@@ -180,12 +181,12 @@ const fixtures = `
       'ETH:long:2033': { side: 'long', debtRatio: 507n * E18 / 1000n, rebalanceRatio: 880n * E18 / 1000n, liquidateRatio: 950n * E18 / 1000n, priceAtRead: 2400 },
       'BTC:short:109': { side: 'short', debtRatio: 700n * E18 / 1000n, rebalanceRatio: 900n * E18 / 1000n, liquidateRatio: 950n * E18 / 1000n, priceAtRead: 104000 },
     },
-    assets: (stage) => {
-      const assets = stage === 'empty' ? [] : holdings;
+      assets: (stage) => {
+      const assets = stage === 'empty' ? [] : stage === 'dust' ? [dustHolding] : holdings;
       return { walletAddress: WALLET, assets, networks, totalUsdValue: assets.reduce((sum, item) => sum + item.usdValue, 0), unpricedAssetCount: 0, updatedAt: now, source: 'canonical' };
     },
-    balances: (stage) => ({ balances: stage === 'empty' ? [] : [{ key: 'USDC', address: USDC, decimals: 6, amountWei: unit(4500, 6) }, { key: 'ETH', address: '0x0000000000000000000000000000000000000000', decimals: 18, amountWei: unit(1.25) }, { key: 'fxUSD', address: FXUSD, decimals: 18, amountWei: unit(1200) }], failedTokens: [] }),
-    fxSave: (stage) => stage === 'empty' ? { balanceWei: 0n, assetsWei: 0n } : { balanceWei: unit(571.4286), assetsWei: unit(600) },
+    balances: (stage) => ({ balances: stage === 'empty' ? [] : stage === 'dust' ? [{ key: 'USDC', address: USDC, decimals: 6, amountWei: unit(0.01, 6) }] : [{ key: 'USDC', address: USDC, decimals: 6, amountWei: unit(4500, 6) }, { key: 'ETH', address: '0x0000000000000000000000000000000000000000', decimals: 18, amountWei: unit(1.25) }, { key: 'fxUSD', address: FXUSD, decimals: 18, amountWei: unit(1200) }], failedTokens: [] }),
+    fxSave: (stage) => stage === 'empty' || stage === 'dust' ? { balanceWei: 0n, assetsWei: 0n } : { balanceWei: unit(571.4286), assetsWei: unit(600) },
     history: (market, range) => {
       const base = market === 'ETH' ? 2400 : 104000;
       const points = Array.from({ length: 48 }, (_, index) => ({ timestamp: now - (47 - index) * 1_800_000, price: base * (0.97 + 0.03 * Math.sin(index / 6) + index * 0.0009) }));

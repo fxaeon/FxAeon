@@ -11,10 +11,18 @@
 /* The landing's headline scale: a large, tight figure that stands on the
    canvas without a card. */
 .value {
-  font-size: clamp(40px, 12.4vw, 60px);
-  line-height: 1.02;
+  /* Flex avoids inline baseline/descender space changing between skeletons
+     and rolling digits; both occupy the same figure line. */
+  display: flex;
+  align-items: center;
+  min-height: 1.125em;
+  font-size: clamp(40px, 12.4vw, 56px);
+  line-height: 1.12;
   font-weight: 650;
   letter-spacing: -.055em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+
+/* Cents carry real value even when the whole-dollar amount is zero. */
+.fraction { color: var(--text); }

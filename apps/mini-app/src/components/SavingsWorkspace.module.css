@@ -1,23 +1,27 @@
 .workspace { width: min(100%, 1080px); margin-inline: auto; padding-bottom: 12px; }
 .workspace > :global(header) { margin-bottom: 10px; }
-.panel { grid-area: action; padding: 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.panel { grid-area: action; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
 .panel :global(.sticky-action) { position: static; }
 .panel :global(.sticky-action)::before { display: none; }
-.vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'information'; gap: 24px; align-items: start; }
+.vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'information'; gap: 18px; align-items: start; }
 .vaultLayout[data-review='true'] { grid-template-areas: 'action'; }
-.vaultIdentity { display: flex; align-items: center; gap: 12px; padding-bottom: 28px; }
+.vaultIdentity { display: flex; align-items: center; gap: 12px; padding-bottom: 16px; }
 .vaultIdentity h2 { font-family: Manrope, sans-serif; font-size: 26px; font-weight: 600; letter-spacing: -.04em; }
 .network { margin-left: auto; display: flex; align-items: center; gap: 5px; color: var(--mut); font-size: 12px; }
 /* Financial figures sit directly on the canvas; only the action owns a card. */
-.overview { grid-area: summary; display: flex; min-width: 0; flex-direction: column; padding: 10px 0 24px; border-bottom: 1px solid var(--line); }
-.balanceTop { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; align-items: start; gap: 24px; }
+.overview { grid-area: summary; display: flex; min-width: 0; flex-direction: column; padding: 6px 0 18px; border-bottom: 1px solid var(--line); }
+.balanceTop { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .65fr); min-width: 0; align-items: start; gap: 20px; }
 .balanceCopy { min-width: 0; flex: 1; }
-.balanceCopy > p { margin: 0 0 10px; color: var(--mut); font-size: var(--fs-small); font-weight: 400; }
-.balanceCopy h2 { max-width: 100%; margin: 0 0 6px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(28px, 6.8vw, 38px); line-height: 1.15; letter-spacing: -.045em; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
+.balanceCopy > p { margin: 0 0 6px; color: var(--mut); font-size: var(--fs-small); font-weight: 400; }
+.balanceCopy h2 { max-width: 100%; margin: 0 0 3px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(28px, 6.8vw, 38px); line-height: 1.15; letter-spacing: -.045em; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
 .balanceCopy small { display: block; max-width: 100%; overflow-wrap: anywhere; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .rate { min-width: 0; }
-.rate > strong { display: block; font-size: clamp(28px, 6.8vw, 38px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
-.rate > small { display: block; margin-bottom: 10px; color: var(--mut); font-size: var(--fs-small); font-weight: 400; }
+.rate > strong { display: block; font-size: clamp(22px, 5vw, 30px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.rate > small { display: block; margin-bottom: 6px; color: var(--mut); font-size: var(--fs-small); font-weight: 400; }
+.vaultHoldings { margin: 14px 0 0; font-size: var(--fs-small); }
+.vaultHoldings > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.vaultHoldings dt { color: var(--mut); }
+.vaultHoldings dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .vaultInfo { grid-area: information; min-width: 0; }
 .vaultInfo > :global([aria-label='fxSAVE details']) { margin: 0; padding: 0; }
 .vaultInfo > details { margin-top: 0; }
@@ -28,6 +32,14 @@
 .actionTabs { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0 0 10px; }
 .actionTabs > :first-child { min-width: 0; flex: 1 1 auto; }
 .editor { display: flex; min-width: 0; flex-direction: column; gap: 10px; }
+.estimateRow { display: flex; min-width: 0; flex-direction: column; gap: 5px; margin-top: -2px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); }
+.estimateRow > div { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 12px; }
+.estimateRow span { color: var(--mut); font-size: var(--fs-small); }
+.estimateRow strong { color: var(--text); font-size: var(--fs-small); font-variant-numeric: tabular-nums; text-align: right; }
+.estimateRow small { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
+.fundingGuide { margin: -2px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.fundingGuide a, .fundingGuide button { color: var(--mint); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.fundingGuide button { min-height: 32px; }
 .panel > [role='status'] { margin-block: 12px; }
 .receiveRow { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; font-size: var(--fs-small); color: var(--mut); }
 .receiveRow > div { min-width: 0; max-width: 66%; }
@@ -37,8 +49,11 @@
 .retryButton:hover { background: var(--warn-dim); }
 .retryButton:disabled { cursor: not-allowed; opacity: .55; }
 .withdrawOptions :global(fieldset) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.withdrawOptions :global(label) { align-items: flex-start; gap: 6px; min-height: 68px; padding: 10px; }
-.withdrawOptions :global(label small) { margin-top: 4px; font-size: var(--fs-caption); }
+.withdrawOptions :global(legend) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; margin: -1px; white-space: nowrap; }
+.withdrawOptions :global(label) { align-items: center; gap: 6px; min-height: 54px; padding: 7px 8px; border-radius: 12px; }
+.withdrawOptions :global(label strong) { font-size: 12px; line-height: 1.25; }
+.withdrawOptions :global(label small) { margin-top: 3px; font-size: 10.5px; line-height: 1.25; }
+.withdrawOptions :global(label > span:last-child) { width: 16px; height: 16px; flex-basis: 16px; }
 .helper { margin: 0; color: var(--mut); font-size: var(--fs-small); line-height: 1.55; }
 .workspace > details { margin-top: 8px; }
 .workspace > details p { margin-bottom: 16px; }
@@ -55,18 +70,18 @@
 
 @media (max-width: 640px) {
   .workspace { gap: 8px; }
-  .vaultLayout { gap: 20px; }
-  .overview { padding: 8px 0 20px; }
-  .vaultIdentity { padding-bottom: 24px; gap: 9px; }
+  .vaultLayout { gap: 16px; }
+  .overview { padding: 6px 0 16px; }
+  .vaultIdentity { padding-bottom: 14px; gap: 9px; }
   .vaultIdentity h2 { font-size: 24px; }
   .vaultIdentity > img { width: 36px !important; height: 36px !important; }
   .workspace > :global(header), .workspace > :global(nav) { margin-bottom: 0; }
-  .panel { padding: 16px; }
+  .panel { padding: 14px; }
   .actionTabs { margin-bottom: 8px; }
   .editor { gap: 8px; }
   .panel > [role='status'] { margin-block: 8px; }
-  .balanceTop { gap: 16px; }
-  .withdrawOptions :global(label) { padding: 8px; }
+  .balanceTop { gap: 12px; }
+  .balanceTop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .withdrawOptions :global(label) { padding: 7px 8px; }
   .withdrawOptions :global(fieldset) { gap: 6px; }
-  .withdrawOptions :global(legend) { margin-bottom: 6px; }
 }

@@ -18,12 +18,13 @@ const mocks: Record<string, string> = {
   '@/components/ui': `import React from 'react'; export const AppShell = ({children}) => <main>{children}</main>; export const Card = ({children, ...props}) => <section {...props}>{children}</section>;`,
   '@/components/ProductUI': `import React from 'react'; export const PageHeading = ({title}) => <h1>{title}</h1>;`,
   '@/components/ProductLayout': `import React from 'react'; export const ActionWorkspace = ({children}) => <main>{children}</main>;`,
-  '@/components/ActionReview': `import React from 'react'; export const ActionReview = ({editor, onStageChange}) => { const [stage,setStage] = React.useState('input'); const move = (next) => { setStage(next); onStageChange?.(next); }; if (stage === 'input') return <>{editor}<button type="button" onClick={() => move('review')}>Review transfer</button></>; if (stage === 'review') return <section><h2>Reviewed bridge route</h2><button type="button" onClick={() => move('executing')}>Confirm transfer</button><button type="button" onClick={() => move('input')}>Edit</button></section>; return <section><h2>Bridge execution in progress</h2><button type="button" onClick={() => move('input')}>Edit</button></section>; };`,
+  '@/components/ActionReview': `import React from 'react'; export const ActionReview = ({editor, onStageChange, blocker, label='Review transfer'}) => { const [stage,setStage] = React.useState('input'); const move = (next) => { setStage(next); onStageChange?.(next); }; if (stage === 'input') return <>{editor}<button type="button" disabled={Boolean(blocker)} onClick={() => move('review')}>{blocker || label}</button></>; if (stage === 'review') return <section><h2>Reviewed bridge route</h2><button type="button" onClick={() => { globalThis.__moveSessionHarness.executionCount++; move('executing'); }}>Confirm transfer</button><button type="button" onClick={() => move('input')}>Edit</button></section>; return <section><h2>Bridge execution in progress</h2><button type="button" onClick={() => move('input')}>Edit</button></section>; };`,
   // Trade's illustration shares ProductSections with MoveSections; its unused
   // Segmented import must still be exported by this isolated module mock.
   '@/components/ProtocolForm': `import React from 'react'; export const Segmented = () => null; export const AmountField = ({label,value,onChange}) => <label>{label}<input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /></label>; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>;`,
   '@/components/WalletDataProvider': `export const useMoveBalances = () => ({ data: { balances: {} }, status: 'ready', refresh: async () => {} });`,
   '@/lib/fx': `export const asFxSdkRpcTransport = (value) => value; export const assertAddress = (value) => value; export const assertBridgeActionTarget = () => {}; export const advancedBridgePolicy = () => ({}); export const assertChecksummedAddress = (value) => value; export const assertPublicClientChain = () => {}; export const bridgeDeliveryLowerBound = () => 0n; export const getBridgeApprovalAllowance = async () => 0n; export const getFxReadFacade = () => ({}); export const withReadDeadline = (value) => value; export const getPublicClient = () => ({ readContract: async () => 0n }); export const planBridgeRoute = async () => ({}); export const resolveBridgeApprovalTokenAddress = () => '0x0000000000000000000000000000000000000001'; export const resolveBridgeTokenAddress = () => '0x0000000000000000000000000000000000000001'; export const requireRpcUrl = () => 'http://localhost'; export const restoreSignatureRequiredDraftFromSearch = () => undefined; export const validateAdvancedBridgeContracts = async () => ({});`,
+  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL = 30000; export const fetchBridgePreview = (params) => { const h = globalThis.__moveSessionHarness; h.preview ??= { calls: [], pending: [], responses: [], defaultResponse: { readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 9n * 10n ** 17n, estimatedReceived: 95n * 10n ** 16n, nativeBalance: 10n ** 18n, sourceGas: 2n * 10n ** 15n } }; h.executionCount ??= 0; h.preview.calls.push(params); if (h.preview.fetch) return h.preview.fetch(params); return Promise.resolve(h.preview.responses.shift() ?? h.preview.defaultResponse); }; export const isFreshBridgePreview = (preview, now = Date.now()) => Boolean(preview && preview.readAt <= now && now - preview.readAt < BRIDGE_PREVIEW_TTL); export const readBridgeReceiptEstimate = async () => undefined;`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({ ...globalThis.__moveSessionHarness.wallet, sendTransaction: async () => ({ hash: '0x' }) });`,
   '@/app/trade/fxUi': `export const parseAmount = (value) => { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? BigInt(Math.round(parsed * 1e18)) : null; };`,
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({amount:'',deposit:'',mint:'',repay:'',withdraw:'',shares:'',fraction:0.5,leverage:2});`,
@@ -62,7 +63,7 @@ test('the Move page preserves execution through its destination-chain switch and
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
   const amount = page.getByRole('textbox', { name: 'Amount', exact: true });
   await amount.fill('12');
-  await page.getByRole('button', { name: 'Review transfer' }).click();
+  await page.getByRole('button', { name: 'Send fxUSD to Base' }).click();
   await page.getByRole('button', { name: 'Confirm transfer' }).click();
   const progress = page.getByRole('heading', { name: 'Bridge execution in progress' });
   await expect(progress).toBeVisible();
@@ -76,25 +77,103 @@ test('the Move page preserves execution through its destination-chain switch and
 
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(amount).toHaveValue('');
-  await expect(page.getByRole('button', { name: 'Review transfer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Enter an amount' })).toBeVisible();
 });
 
 test('the recipient row is a status, and the developer disclosure reads as expert mode', async ({ page }) => {
   await page.setContent('<div id="root"></div>');
   await page.addScriptTag({ content: bundle });
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
-  const recipient = page.getByText('Recipient', { exact: true }).locator('xpath=../..');
+  const recipient = page.getByText('Your wallet', { exact: true }).locator('xpath=../../..');
   await expect(recipient.getByText('Your wallet', { exact: true })).toBeVisible();
   await expect(recipient.getByText('0xaaaa…aaaa', { exact: true })).toBeVisible();
-  // Signed out, the row says so instead of looking like a second connect control.
+  await expect(page.getByRole('button', { name: /Transaction settings/ })).toBeVisible();
+  await page.getByRole('button', { name: /Transaction settings/ }).click();
+  const settings = page.getByRole('dialog', { name: 'Transaction settings' });
+  await expect(settings).toBeVisible();
+  const expert = settings.getByRole('checkbox', { name: 'Expert mode · custom contracts' });
+  await expert.check();
+  await expect(settings).toBeVisible();
+  await expect(expert).toBeChecked();
+  const sourceOft = settings.getByRole('textbox', { name: 'Ethereum OFT' });
+  const destinationOft = settings.getByRole('textbox', { name: 'Base OFT' });
+  await expect(sourceOft).toBeVisible();
+  await expect(destinationOft).toBeVisible();
+  await sourceOft.fill('0x1111111111111111111111111111111111111111');
+  await destinationOft.fill('0x2222222222222222222222222222222222222222');
+  await expect(sourceOft).toHaveValue('0x1111111111111111111111111111111111111111');
+  await expect(destinationOft).toHaveValue('0x2222222222222222222222222222222222222222');
+  await settings.getByRole('button', { name: 'Close transaction settings' }).click();
+  // Signed out, the recipient row says so instead of looking like a second connect control.
   await page.evaluate(() => {
     const harness = (window as Window & { __moveSessionHarness: { wallet: { address?: string; authenticated: boolean }; rerender?: () => void } }).__moveSessionHarness;
     harness.wallet = { ...harness.wallet, address: undefined, authenticated: false };
     harness.rerender?.();
   });
-  await expect(recipient.getByText('Not connected', { exact: true })).toBeVisible();
-  await expect(recipient.getByText('Connect wallet', { exact: true })).toHaveCount(0);
-  const disclosure = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Expert mode' }) });
-  await expect(disclosure.locator('summary').first()).toHaveText('Expert mode · custom contracts');
-  await expect(disclosure).not.toHaveAttribute('open');
+  await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
+  await expect(page.getByText('Connect wallet', { exact: true })).toHaveCount(0);
+});
+
+test('Move keeps a late quote bound to the current amount and recipient', async ({ page }) => {
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: bundle });
+  await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
+  await page.evaluate(() => {
+    const harness = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
+    harness.preview = { calls: [], pending: [], responses: [], defaultResponse: { readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 9n * 10n ** 17n, estimatedReceived: 95n * 10n ** 16n, nativeBalance: 10n ** 18n, sourceGas: 2n * 10n ** 15n } };
+    harness.preview.fetch = (params: unknown) => new Promise((resolve) => harness.preview.pending.push({ params, resolve }));
+  });
+  await page.getByRole('textbox', { name: 'Amount', exact: true }).fill('1');
+  await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.pending.length)).toBe(1);
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
+  const destination = page.getByRole('textbox', { name: 'Destination wallet' });
+  const nextRecipient = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  await destination.fill(nextRecipient);
+  await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.pending.length)).toBe(2);
+  await page.evaluate(() => {
+    const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
+    h.preview.pending[1].resolve({ readAt: Date.now(), nativeFee: 10n ** 16n, minimumReceived: 95n * 10n ** 16n, estimatedReceived: 99n * 10n ** 16n, nativeBalance: 11n * 10n ** 15n, sourceGas: 2n * 10n ** 15n });
+  });
+  await expect(page.locator('section[aria-label="Receive assets"] strong').first()).toHaveText('0.99');
+  await page.evaluate(() => {
+    const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
+    h.preview.pending[0].resolve({ readAt: Date.now(), nativeFee: 10n ** 16n, minimumReceived: 80n * 10n ** 16n, estimatedReceived: 81n * 10n ** 16n, nativeBalance: 1n, sourceGas: 2n * 10n ** 15n });
+  });
+  await expect(page.locator('section[aria-label="Receive assets"] strong').first()).toHaveText('0.99');
+  await expect(page.getByText('Minimum received').locator('xpath=following-sibling::dd')).toContainText('0.95 fxUSD');
+  await expect(page.getByText('Bridge fee').locator('xpath=following-sibling::dd')).toContainText('0.01 ETH');
+  await expect(page.getByRole('alert')).toContainText('Your balance does not cover the bridge fee and estimated transaction gas');
+  const review = page.getByRole('button', { name: 'Add ETH on Ethereum for fees' });
+  await expect(review).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.executionCount)).toBe(0);
+});
+
+test('Move expires and refreshes its quote, and blocks zero or invalid recipients with field errors', async ({ page }) => {
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: bundle });
+  await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
+  const fresh = () => ({ readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 9n * 10n ** 17n, estimatedReceived: 95n * 10n ** 16n, nativeBalance: 10n ** 18n, sourceGas: 2n * 10n ** 15n });
+  await page.evaluate((expired) => {
+    const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
+    h.preview = { calls: [], pending: [], responses: [], defaultResponse: { readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 9n * 10n ** 17n, estimatedReceived: 95n * 10n ** 16n, nativeBalance: 10n ** 18n, sourceGas: 2n * 10n ** 15n } };
+    h.preview.responses.push(expired);
+  }, { ...fresh(), readAt: Date.now() - 31_000 });
+  await page.getByRole('textbox', { name: 'Amount', exact: true }).fill('1');
+  await expect(page.getByRole('status')).toContainText('Quote expired');
+  await page.evaluate((response) => { (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.responses.push(response); }, fresh());
+  await page.getByRole('button', { name: 'Refresh quote' }).click();
+  await expect(page.locator('section[aria-label="Receive assets"] strong').first()).toHaveText('0.95');
+  const quote = page.locator('section[aria-label="Bridge quote"]');
+  const callCount = await page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.calls.length);
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
+  const destination = page.getByRole('textbox', { name: 'Destination wallet' });
+  for (const value of ['0x0000000000000000000000000000000000000000', 'not an address']) {
+    await destination.fill(value);
+    await expect(destination).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');
+    await expect(quote.getByText('Unavailable').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enter a valid address' })).toBeDisabled();
+    await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.executionCount)).toBe(0);
+  }
+  await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.calls.length)).toBe(callCount);
 });

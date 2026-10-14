@@ -53,7 +53,15 @@ function createFixture(options = {}) {
       if(name==='getPoolInfo') result=[10n**36n,0n,0n,10n**36n,0n];
       else if(name==='paused') result=false;
       else if(name==='getDebtRatioRange') result=[100000000000000000n,950000000000000000n];
-      else if(name==='getPoolFeeRatio') result=[1000000n,2000000n,3000000n,4000000n];
+      else if(name==='getLiquidateRatios') {
+        if (options.liquidationReadUnavailable) throw new Error('fixture: liquidation threshold unavailable');
+        result=[950000000000000000n,50000000n];
+      }
+      else if(name==='getRebalanceRatios') {
+        if (options.rebalanceReadUnavailable) throw new Error('fixture: rebalance threshold unavailable');
+        result=[880000000000000000n,25000000n];
+      }
+      else if(name==='getPoolFeeRatio') result=options.feeRatios ?? [1000000n,2000000n,3000000n,4000000n];
       else if(name==='getRate'||name==='stEthPerToken') result=1200000000000000000n;
       else if(name==='getPrice') {const p=(target.toLowerCase()===sdk.pools.WBTC.oracle.toLowerCase()?60000n:2000n)*10n**18n;result=[p,p*995n/1000n,p*1005n/1000n];}
       else if(name==='queryConvert') {

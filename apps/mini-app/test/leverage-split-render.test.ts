@@ -146,9 +146,9 @@ test('the ticket caption states the split at the chosen leverage, with the same 
   }
 });
 
-test('the leverage slider is a native slider in leverage units whose track draws the split', async () => {
+test('the leverage slider uses the live leverage scale and keeps the debt split in its caption', async () => {
   const { LeverageSplitRange } = await import('../src/components/LeverageSplit');
-  const { debtShare } = await import('../src/lib/leverageShare');
+  const { leverageTrackPosition } = await import('../src/lib/leverageShare');
   const render = (side: 'long' | 'short', value: number, min: number, max: number, debtLabel: string) => renderToStaticMarkup(React.createElement(LeverageSplitRange, {
     id: 'lever', label: 'Target leverage slider', side, debtLabel, value, leverage: value, min, max, describedBy: 'split', captionId: 'split', onChange: () => undefined,
   }));
@@ -161,7 +161,7 @@ test('the leverage slider is a native slider in leverage units whose track draws
   assert.match(render('short', 2.8, 0.1, 6, 'borrowed wstETH'), /aria-valuetext="2\.8×, 74% borrowed wstETH"/);
   // The thumb sits at the debt share, and the range's ends where their leverages fall on the split.
   const style = /class="test-slider"[^>]*style="([^"]+)"/.exec(long)![1];
-  assert.equal(style, `--share:${debtShare('long', 2.8)};--min-share:${debtShare('long', 1.1)};--max-share:${debtShare('long', 6.1)}`);
+  assert.equal(style, `--share:${leverageTrackPosition(2.8, 1.1, 6.1)};--min-share:0;--max-share:1`);
   // The bar is the split alone: nothing is ever cut into it. Ticks live on their own layer, drawing
   // only, and need the measured track for their spacing, so none is drawn before layout.
   assert.match(long, /<div class="test-sliderBar" aria-hidden="true"><i class="test-sliderDebt"><\/i><i class="test-sliderYours"><\/i><i class="test-sliderOff" data-end="min"><\/i><i class="test-sliderOff" data-end="max"><\/i><\/div>/);

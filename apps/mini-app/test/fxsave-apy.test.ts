@@ -38,3 +38,11 @@ test('fetches and validates the official APY payload', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test('validates optional USD TVL independently of APY for the same fxSAVE address', () => {
+  const payload = (tvl: unknown) => ({ code: 200, data: { fxSave: { address: FX_SAVE_TOKEN_ADDRESS, apy: '6.7', tvl } } });
+  assert.deepEqual(parseFxSaveApyResponse(payload('84423918.8125'), 123), { apy: 6.7, observedAt: 123, tvlUsd: 84423918.8125 });
+  for (const invalid of [-1, Infinity, 'garbage', '0x10', '', undefined, 1e14]) {
+    assert.deepEqual(parseFxSaveApyResponse(payload(invalid), 123), { apy: 6.7, observedAt: 123 });
+  }
+});

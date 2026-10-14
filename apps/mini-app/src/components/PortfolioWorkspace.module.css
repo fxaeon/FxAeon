@@ -3,8 +3,8 @@
 .workspace { width: min(100%, 1120px); margin-inline: auto; }
 /* Replacing the first-paint fallback, which already drew this layout: no second fade-in. */
 :global(.app-content) > .continued { animation: none; }
-.dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-.primary, .secondary { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+.dashboard { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.primary, .secondary { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
 
 /* The total is the page's headline, not a box: the figure stands on the canvas
  * with a slow light behind it, and its actions and breakdown follow directly. */
@@ -33,7 +33,7 @@
   pointer-events: none;
   animation: hero-light 11s var(--ease-in-out) infinite alternate;
 }
-:root[data-theme='light'] .valueCard::before { background: radial-gradient(closest-side, color-mix(in srgb, var(--mint) 11%, transparent), transparent); }
+:root:is([data-theme='official'], [data-theme='light']) .valueCard::before { background: radial-gradient(closest-side, color-mix(in srgb, var(--mint) 11%, transparent), transparent); }
 @keyframes hero-light {
   from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.75; }
   to { transform: translate3d(6%, 12px, 0) scale(1.1); opacity: 1; }
@@ -127,10 +127,10 @@
 @keyframes welcome-float { from { transform: translate3d(0, -3px, 0); } to { transform: translate3d(0, 4px, 0); } }
 
 /* Quick actions: four round, tactile shortcuts inside the value card. */
-.quickActions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 14px 0 10px; }
-.quickAction { display: flex; min-width: 0; min-height: 80px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border-radius: var(--radius-md); padding: 4px 2px; color: var(--text); font-size: var(--fs-caption); transition: color var(--dur-fast) ease; }
+.quickActions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 8px 0 4px; }
+.quickAction { display: flex; min-width: 0; min-height: 72px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: var(--radius-md); padding: 4px 2px; color: var(--text); font-size: var(--fs-caption); transition: color var(--dur-fast) ease; }
 .quickAction > span { display: grid; flex: 0 0 auto; width: 52px; height: 52px; place-items: center; border: 1px solid var(--hairline); border-radius: 17px; background: var(--surface-2); color: var(--mint-bright); box-shadow: none; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
-:root[data-theme='light'] .quickAction > span { color: var(--mint-text); background: var(--mint-dim); }
+:root:is([data-theme='official'], [data-theme='light']) .quickAction > span { color: var(--mint-text); background: var(--mint-dim); }
 .quickAction > strong { font-weight: 600; }
 .quickAction:hover > span { transform: translateY(-2px); border-color: color-mix(in srgb, var(--mint) 45%, var(--line)); background: color-mix(in srgb, var(--mint) 20%, var(--surface-2)); }
 .quickAction:active > span { transform: scale(0.92); transition-duration: var(--dur-press); }
@@ -145,11 +145,11 @@
   padding: 2px 16px;
 }
 .positionsSection :global(details), .earnSection :global(details) { border-top: 0; }
-.positionsSection :global(details > summary), .earnSection :global(details > summary) { min-height: 56px; color: var(--text); font-size: var(--fs-body); font-weight: 600; }
+.positionsSection :global(details > summary), .earnSection :global(details > summary) { min-height: 48px; color: var(--text); font-size: var(--fs-body); font-weight: 600; }
 .positionsSection :global(details > summary > span:nth-child(2)), .earnSection :global(details > summary > span:nth-child(2)) { color: var(--mut); font-weight: 500; }
 @media (min-width: 1000px) {
   .dashboard { grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 28px; align-items: start; }
-  .primary, .secondary { gap: 20px; }
+  .primary, .secondary { gap: 14px; }
   /* The short side column (markets, borrowing) stays in view beside the long ledger. */
   .secondary { position: sticky; top: 16px; padding-top: 2px; }
 }
@@ -174,13 +174,35 @@
 /* A flat, open canvas keeps the product's figures in the foreground. */
 .welcome {
   overflow: hidden; border: 0; border-radius: 0;
-  background: transparent; justify-items: start; text-align: left; padding: 24px 4px;
+  background: transparent; justify-items: start; text-align: left; gap: 12px; padding: 8px 4px 4px;
 }
 .welcomeTitle { max-width: 15ch; font-size: clamp(36px, 7vw, 54px); font-weight: 500; letter-spacing: -.06em; line-height: 1.08; }
 .welcomeTitle span { color: var(--mint); }
 .welcomeHorizon { display: none; }
-.valueCard { padding: 24px 4px; border: 0; border-radius: 0; background: transparent; }
+.valueCard { padding: 6px 4px 0; border: 0; border-radius: 0; background: transparent; }
 .valueCard::before { display: none; }
 .quickAction > span { border: 0; border-radius: 50%; background: var(--surface-2); color: var(--text); }
-.positionsSection, .earnSection { border: 0; border-radius: 24px; background: var(--surface); padding-inline: 20px; }
-@media (max-width: 380px) { .welcome, .valueCard { padding: 22px 4px; } }
+.positionsSection, .earnSection { border: 0; border-radius: 16px; background: var(--surface); padding-inline: 16px; }
+.welcomeMarks > * { animation: none; box-shadow: 0 0 0 3px var(--bg); }
+.disconnectedPrimary { gap: 12px; }
+.productActions { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 0; }
+.marketTimeframe { color: var(--mut); font-size: var(--fs-caption); font-weight: 500; }
+.emptyPositions { display: flex; min-height: 44px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.emptyPositions h2 { margin: 0; font-size: var(--fs-body); font-weight: 600; }
+.emptyPositions > span { color: var(--mut); font-size: var(--fs-small); }
+.productOverview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.productCard { display: flex; min-width: 0; flex-direction: column; gap: 8px; border-radius: 16px; background: var(--surface); padding: 14px; transition: background-color var(--dur-fast) ease; }
+.productCard > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.productCard > div strong { flex: 1; font-size: var(--fs-small); font-weight: 600; }
+.productCard > div > svg { flex: 0 0 auto; color: var(--mut); }
+.productCard p { margin: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.productCard p strong { color: var(--text); font-size: var(--fs-body); font-weight: 650; }
+.productCard:hover { background: var(--surface-2); }
+.productCard:focus-visible { outline: 2px solid #2973ff; outline-offset: 2px; }
+@media (max-width: 380px) {
+  .welcome { padding-top: 4px; }
+  .quickAction > span { width: 44px; height: 44px; }
+  .productCard { padding: 12px; }
+  .productCard > div { gap: 6px; }
+  .productCard > div > svg { display: none; }
+}

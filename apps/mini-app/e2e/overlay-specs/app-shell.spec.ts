@@ -27,6 +27,35 @@ async function setLab(page: Page, patch: Record<string, unknown>) {
   await page.evaluate((value) => (globalThis as typeof globalThis & { __shellLab: { set: (patch: unknown) => void } }).__shellLab.set(value), patch);
 }
 
+test('network and wallet have separate surfaces and stay within the topbar in both themes', async ({ page }) => {
+  await open(page);
+  await setLab(page, { wallet: STATES[2][1] });
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const theme of ['official', 'dark']) {
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      const geometry = await page.locator('[data-header-wallet-control]').evaluate(element => {
+        const network = element.querySelector('.network-selector')!;
+        const wallet = element.querySelector('[aria-label="Open wallet profile"]')!;
+        const n = network.getBoundingClientRect(); const w = wallet.getBoundingClientRect();
+        const groupStyle = getComputedStyle(element);
+        return { gap: w.left - n.right, networkWidth: n.width, walletWidth: w.width,
+          networkBackground: getComputedStyle(network).backgroundColor,
+          walletBackground: getComputedStyle(wallet).backgroundColor,
+          groupBackground: groupStyle.backgroundColor,
+          overflow: document.documentElement.scrollWidth - innerWidth };
+      });
+      expect(geometry.gap).toBeGreaterThanOrEqual(6);
+      expect(geometry.networkWidth).toBeGreaterThanOrEqual(44);
+      expect(geometry.walletWidth).toBeGreaterThanOrEqual(44);
+      expect(geometry.groupBackground).toBe('rgba(0, 0, 0, 0)');
+      expect(geometry.networkBackground).not.toBe('rgba(0, 0, 0, 0)');
+      expect(geometry.walletBackground).not.toBe('rgba(0, 0, 0, 0)');
+      expect(geometry.overflow).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
 async function headerGeometry(page: Page) {
   return page.locator('header.app-topbar').evaluate((topbar) => {
     const group = topbar.querySelector('[data-header-wallet-control]')!.getBoundingClientRect();
@@ -106,6 +135,7 @@ test('loading shows placeholders, not a globe or an empty pill, and they settle 
 test('the theme control shows the theme in use and names the one it switches to', async ({ page }) => {
   await open(page);
   await setLab(page, { wallet: STATES[2][1] });
+  await expect(page.locator('.theme-toggle [data-theme-icon]')).toHaveCount(2);
   const expectations = [
     { theme: 'official', name: 'Light theme. Switch to dark theme' },
     { theme: 'dark', name: 'Dark theme. Switch to light theme' },
@@ -136,7 +166,8 @@ test('the theme icon follows the pre-hydration theme, so a saved theme never fla
 });
 
 /** How blue the heading's ink is: the largest blue-over-green excess among
- * bright pixels. Plain text stays under ~12; the blue sweep pushes it higher. */
+ * bright pixels. The plain-ink threshold comes from the active text and page
+ * colors so a sharper theme can change the score without changing the test. */
 async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
   const shot = (await heading.screenshot()).toString('base64');
   return page.evaluate(async (png) => {
@@ -158,6 +189,24 @@ async function headingTint(page: Page, heading: ReturnType<Page['locator']>) {
   }, shot);
 }
 
+async function plainHeadingTint(page: Page, heading: ReturnType<Page['locator']>) {
+  return heading.evaluate((element) => {
+    const channels = (color: string) => color.match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+    const text = channels(getComputedStyle(element).color);
+    const probe = document.createElement('span');
+    probe.style.backgroundColor = 'var(--bg)';
+    document.body.append(probe);
+    const background = channels(getComputedStyle(probe).backgroundColor);
+    probe.remove();
+    const textSum = text.reduce((sum, value) => sum + value, 0);
+    const backgroundSum = background.reduce((sum, value) => sum + value, 0);
+    let alpha = 1;
+    if (textSum <= 360 && backgroundSum > 360) alpha = (backgroundSum - 360) / (backgroundSum - textSum);
+    const base = background[2] - background[1];
+    return base + alpha * ((text[2] - text[1]) - base);
+  });
+}
+
 async function sweep(heading: ReturnType<Page['locator']>, at: number | 'finish') {
   await heading.evaluate((element, time) => {
     const animation = element.getAnimations().find((item) => (item as CSSAnimation).animationName === 'heading-light')!;
@@ -175,13 +224,14 @@ test('the Trade heading arrives lit, and its first and last frames are plain tex
   const heading = page.locator('.trade-page-heading h1');
   await expect(heading).toHaveText('Trade');
   await expect(heading).toBeVisible();
+  const plainInk = await plainHeadingTint(page, heading);
   await sweep(heading, 0);
-  expect(await headingTint(page, heading), 'first frame is plain text').toBeLessThanOrEqual(14);
+  expect(await headingTint(page, heading), 'first frame matches the current plain text color').toBeLessThanOrEqual(plainInk + 2);
   // The eased band reaches the middle of the word about 250ms into the sweep.
   await sweep(heading, 120 + 250);
-  expect(await headingTint(page, heading), 'the blue band crosses the word').toBeGreaterThanOrEqual(30);
+  expect(await headingTint(page, heading), 'the blue band crosses the plain text color').toBeGreaterThanOrEqual(plainInk + 12);
   await sweep(heading, 120 + 1499);
-  expect(await headingTint(page, heading), 'last frame is plain text').toBeLessThanOrEqual(14);
+  expect(await headingTint(page, heading), 'last frame matches the current plain text color').toBeLessThanOrEqual(plainInk + 2);
   await sweep(heading, 'finish');
   await expect(page.locator('html')).toHaveAttribute('data-heading-lit', '');
   await expect.poll(() => heading.evaluate((element) => getComputedStyle(element).webkitTextFillColor === getComputedStyle(element).color)).toBe(true);
@@ -205,6 +255,9 @@ test('after the Trade sweep, other page titles stay unanimated and Trade stays p
       });
       expect(ink.fill).toBe(ink.color);
       expect(ink.background).toBe('none');
+    } else if (path === '/history') {
+      await expect(heading).toBeVisible();
+      await expect(heading).not.toHaveClass(/\bsr-only\b/);
     } else {
       await expect(heading).toHaveClass(/\bsr-only\b/);
     }
@@ -229,9 +282,9 @@ test('a route heading is never inside the route fade; heading-less content still
   await setLab(page, { path: '/trade' });
   expect(await fadingAncestors('.trade-page-heading h1')).toEqual([]);
   await setLab(page, { path: '/history' });
-  expect(await fadingAncestors('#main-content > h1.sr-only')).toEqual([]);
+  expect(await fadingAncestors('#main-content [data-page-heading] h1')).toEqual([]);
   // History's feed, below its heading, still arrives with the route fade.
-  expect(await page.locator('.app-content > :not(.sr-only)').first().evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
+  expect(await page.locator('#main-content > [data-page-heading] + div').evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
 });
 
 test('reduced motion shows plain headings with no sweep and a still canvas', async ({ page }) => {
@@ -299,8 +352,12 @@ test('More waits for a connected wallet before showing its account card; Setting
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[0][1] });
   await expect(page.getByRole('status', { name: 'Loading account' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveCount(0);
   await setLab(page, { wallet: STATES[2][1] });
   await expect(page.getByRole('button', { name: 'View connected account' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveAttribute('href', '/qr');
+  await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveAttribute('href', '/history');
 
   await setLab(page, { path: '/settings', wallet: STATES[0][1] });
   const loading = page.getByRole('status', { name: 'Loading account' });
@@ -585,12 +642,28 @@ test('the first-paint outline hands over to the live shell in place, at every ph
   expect(await feed.evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).not.toContain('route-in');
 });
 
-test('the dock names Portfolio, matching its page, and every label fits a 320px dock in each theme', async ({ page }) => {
+test('the dock names Portfolio and keeps compact 44px targets at 320px and 390px', async ({ page }) => {
   await open(page, { width: 320, height: 700 });
   await setLab(page, { wallet: STATES[2][1] });
   const nav = page.locator('nav.mobile-tabbar');
   await expect(nav.getByRole('link', { name: 'Portfolio', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { level: 1, name: 'Portfolio' })).toBeVisible();
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 700 });
+    await expect(nav).toBeVisible();
+    const geometry = await nav.locator('.tabbar').evaluate((dock) => {
+      const rect = dock.getBoundingClientRect();
+      return { height: rect.height, links: [...dock.querySelectorAll<HTMLElement>('.nav-item-mobile')].map((item) => {
+        const box = item.getBoundingClientRect();
+        return { label: item.querySelector<HTMLElement>('.nav-label')?.textContent, width: box.width, height: box.height };
+      }) };
+    });
+    expect(geometry.height, `dock is compact at ${width}px`).toBeLessThanOrEqual(60);
+    expect(geometry.links).toHaveLength(5);
+    for (const item of geometry.links) {
+      expect(Math.min(item.width, item.height), `${item.label} keeps a 44px touch target at ${width}px`).toBeGreaterThanOrEqual(44);
+    }
+  }
   for (const theme of ['official', 'dark', 'light']) {
     await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
     const fits = await nav.locator('.nav-item-mobile').evaluateAll((items) => items.map((item) => {
@@ -599,12 +672,11 @@ test('the dock names Portfolio, matching its page, and every label fits a 320px 
       range.selectNodeContents(label);
       const text = range.getBoundingClientRect();
       const box = item.getBoundingClientRect();
-      return { label: label.textContent, spare: box.width - text.width, height: box.height, width: box.width, lines: range.getClientRects().length };
+      return { label: label.textContent, spare: box.width - text.width, lines: range.getClientRects().length };
     }));
     for (const item of fits) {
       expect(item.spare, `${item.label} needs breathing room in the ${theme} dock`).toBeGreaterThanOrEqual(8);
       expect(item.lines, `${item.label} stays on one line`).toBe(1);
-      expect(Math.min(item.width, item.height)).toBeGreaterThanOrEqual(44);
     }
   }
 });

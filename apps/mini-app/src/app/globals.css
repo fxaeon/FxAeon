@@ -150,11 +150,11 @@
   /* Bottom-nav geometry: dock + safe area + one 8px spacing unit. Keep the
      reserve in one token so route-level action rails and scroll padding clear
      the same fixed navigation surface on every host. */
-  --tabbar-panel-height: 66px;
+  --tabbar-panel-height: 58px;
   --tabbar-edge-gap: max(env(safe-area-inset-bottom, 0px), 8px);
   --tabbar-reserve: calc(var(--tabbar-panel-height) + var(--tabbar-edge-gap) + 8px);
   /* Scroll content must clear the fixed tab bar and its safe-area inset. */
-  --content-bottom-clearance: calc(var(--tabbar-reserve) + 4px);
+  --content-bottom-clearance: calc(var(--tabbar-reserve) + 12px);
   --canvas-wash: transparent;
   --canvas-wash-secondary: transparent;
   --surface-highlight: rgba(255, 255, 255, 0.045);
@@ -206,45 +206,45 @@
   --surface-shadow: rgba(0, 0, 0, 0.44);
 }
 
-:root[data-theme='light'] {
-  --feature-surface: #e7efff;
-  --feature-warm: #f6e8db;
+:root:is([data-theme='official'], [data-theme='light']) {
+  --feature-surface: #e5edff;
+  --feature-warm: #f4e8dd;
   color-scheme: light;
-  --bg: #f7f5f1;
-  --bg-raised: #fbfaf8;
+  --bg: #f3f6fb;
+  --bg-raised: #f9fbff;
   --surface: #ffffff;
-  --surface-2: #edf2fa;
-  --surface-3: #e3eaf6;
+  --surface-2: #eaf0f8;
+  --surface-3: #dce6f3;
   --card: #ffffff;
-  --input: #edf2fa;
-  --line: #dfe6f1;
-  --line-strong: #b9c7dc;
-  --text: #17263d;
-  --mut: #566579;
-  --mut-2: #63738a;
-  --mint: #2973ff;
+  --input: #eaf0f8;
+  --line: #cdd8e7;
+  --line-strong: #a9bcd4;
+  --text: #12213a;
+  --mut: #44556c;
+  --mut-2: #586a81;
+  --mint: #245fdb;
   --mint-bright: #1d4ed8;
-  --mint-text: #1d4ed8;
-  --mint-dim: rgba(41, 115, 255, 0.09);
+  --mint-text: #194fc4;
+  --mint-dim: rgba(36, 95, 219, 0.12);
   --mint-glow: rgba(41, 115, 255, 0.16);
-  --on-accent: #0b0c0e;
+  --on-accent: #ffffff;
   --cyan: #1d4ed8;
   --brand-coral: #2973ff;
-  --success: #12804f;
+  --success: #146b46;
   --success-dim: rgba(18, 128, 79, 0.09);
-  --danger: #c92b49;
+  --danger: #b32341;
   --danger-dim: rgba(201, 43, 73, 0.08);
-  --warn: #8a5d06;
+  --warn: #795005;
   --warn-dim: rgba(176, 120, 12, 0.1);
   --scrim: rgba(24, 24, 27, 0.3);
   --glass: color-mix(in srgb, var(--bg) 80%, transparent);
   --glass-strong: color-mix(in srgb, var(--surface) 86%, transparent);
-  --hairline: color-mix(in srgb, var(--text) 8%, transparent);
+  --hairline: color-mix(in srgb, var(--text) 14%, transparent);
   --elevation-1: 0 1px 2px rgba(24, 24, 27, 0.04), 0 8px 24px rgba(24, 24, 27, 0.04);
   --elevation-2: 0 2px 8px rgba(24, 24, 27, 0.06), 0 24px 64px rgba(24, 24, 27, 0.12);
-  --ring-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --canvas-wash: rgba(59, 130, 246, 0.07);
-  --canvas-wash-secondary: rgba(54, 123, 181, 0.03);
+  --ring-inset: inset 0 0 0 1px var(--line);
+  --canvas-wash: rgba(59, 130, 246, 0.025);
+  --canvas-wash-secondary: transparent;
   --surface-highlight: rgba(255, 255, 255, 0.9);
   --surface-shadow: rgba(24, 24, 27, 0.08);
 }
@@ -360,11 +360,11 @@ main.utility-stage {
 .wallet-provider-chooser {
   display: flex;
   flex-direction: column;
-  width: min(100%, 440px);
+  width: min(100%, 380px);
   max-height: calc(100dvh - 40px);
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
+  border-radius: 24px;
   background: var(--surface);
   box-shadow: var(--elevation-2);
   text-align: left;
@@ -377,14 +377,14 @@ main.utility-stage {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 16px 0 24px;
+  padding: 18px 14px 0 24px;
 }
 
 .wallet-provider-chooser-header h2 {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.25;
   font-weight: 650;
   letter-spacing: var(--tracking-display);
@@ -416,23 +416,26 @@ main.utility-stage {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px 24px 24px;
+  padding: 18px 20px 24px;
 }
 
-.wallet-provider-options { display: grid; gap: 8px; }
+.wallet-provider-options { display: grid; gap: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); }
 .wallet-provider-option {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 56px;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
+  min-height: 64px;
+  padding: 10px 12px;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   text-align: left;
   transition: background-color var(--dur-fast) ease, transform var(--dur-press) var(--ease-out);
 }
+.wallet-provider-options .wallet-provider-option + .wallet-provider-option { border-top: 1px solid var(--line); }
+.wallet-provider-chevron { flex-shrink: 0; color: var(--mut); opacity: .65; }
+.wallet-provider-detected { display: inline-flex; flex-shrink: 0; align-items: center; gap: 3px; padding: 3px 6px; border-radius: 6px; background: var(--mint-dim); color: var(--mint-text); font-size: 10px; line-height: 1.3; font-weight: 600; }
 
 .wallet-provider-mark {
   display: grid;
@@ -445,12 +448,25 @@ main.utility-stage {
 }
 .wallet-provider-brand { background: #fff; }
 .wallet-provider-mark img { width: 32px; height: 32px; object-fit: contain; }
-.wallet-provider-option-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15px; line-height: 1.35; font-weight: 600; }
+.wallet-provider-option-name {
+  display: -webkit-box;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 600;
+}
 .wallet-provider-search { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 16px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--mut); background: var(--surface-2); }
 .wallet-provider-search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-size: 16px; }
 .wallet-provider-search svg { flex-shrink: 0; }
 .wallet-provider-empty { margin: 12px 0; color: var(--mut); font-size: 13px; line-height: 1.5; }
-.wallet-provider-other { margin-top: 8px; }
+.wallet-provider-other { margin-top: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); }
+.wallet-provider-recovery { width: 100%; text-align: left; border-top: 1px solid var(--line); padding-top: 16px; }
+.wallet-provider-recovery summary { min-height: 44px; padding-block: 12px; color: var(--mut); font-size: 13px; cursor: pointer; }
 .wallet-provider-attempt { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 16px 0; text-align: center; }
 .wallet-provider-attempt > .wallet-provider-mark { width: 64px; height: 64px; border-radius: var(--radius-lg); }
 .wallet-provider-attempt > .wallet-provider-mark img { width: 48px; height: 48px; }
@@ -468,19 +484,13 @@ main.utility-stage {
 .wallet-provider-option:active { transform: scale(.99); }
 
 @media (max-width: 600px) {
-  .wallet-provider-chooser-backdrop { align-items: flex-end; padding: 16px 0 0; }
+  .wallet-provider-chooser-backdrop { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .wallet-provider-chooser {
-    width: 100%;
-    max-height: calc(100dvh - max(16px, env(safe-area-inset-top)));
-    border-bottom: 0;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    /* Keep the starting frame if delayed, but release the terminal frame so
-       the base transform returns to its canonical `none` value. */
-    animation: sheet-up var(--dur-sheet) var(--ease-sheet) backwards;
+    max-height: calc(100dvh - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   }
-  .wallet-provider-chooser-header { padding: 16px max(12px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left)); }
-  .wallet-provider-chooser-content { padding-right: max(20px, env(safe-area-inset-right)); padding-left: max(20px, env(safe-area-inset-left)); }
-  .wallet-provider-chooser-content { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .wallet-provider-chooser-header { padding: 14px 10px 0 18px; }
+  .wallet-provider-chooser-content { padding: 14px 14px 20px; }
+  .wallet-provider-option { gap: 9px; padding-inline: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -586,34 +596,10 @@ summary:focus-visible {
   outline-offset: 3px;
 }
 
-/* Below the desktop layout a form's primary action never rests behind the tab
-   bar. StickyAction keeps it in the form when its place is on screen and lets it
-   ride just above the navigation otherwise; the canvas fade behind it shows only
-   while it rides, so it never covers content beneath a resting action. */
+/* Form actions keep their place in the card; the shell's bottom padding lets
+   the last action scroll fully clear of the navigation. */
+.sticky-action { position: static; }
 .sticky-action-sentinel { display: block; height: 0; }
-@media (max-width: 839px) {
-  .sticky-action {
-    position: sticky;
-    /* The scroll area's bottom padding already reserves the tab bar, and
-       sticky offsets are measured inside that padding. */
-    bottom: 8px;
-    z-index: 6;
-  }
-  /* The fade reaches past the action as a soft shadow rather than a wider box:
-     shadows are ink, so they never widen the scroll area. */
-  .sticky-action::before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: -14px 0 calc(-8px - var(--content-bottom-clearance));
-    background: var(--bg);
-    box-shadow: 0 -10px 24px 18px var(--bg);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--dur-base) var(--ease-out);
-  }
-  .sticky-action[data-riding]::before { opacity: 1; }
-}
 
 /* Disclosure state lives in plain CSS so it never depends on Tailwind group-*
    variants: postcss-selector-parser 6.1.3 once made them compile to nothing
@@ -772,28 +758,27 @@ details[open] > summary .disclosure-closed-only { display: none; }
 }
 
 .app-topbar-actions > button {
-  border: 1px solid var(--hairline);
-  background: var(--glass-strong);
-  box-shadow: var(--ring-inset);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   color: var(--mut);
   transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-press) var(--ease-out);
 }
 
 .app-topbar-actions > button:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--mint) 34%, var(--line));
+  background: var(--surface-2);
   color: var(--text);
 }
 
 .app-topbar-actions > button:active:not(:disabled) { transform: scale(0.96); }
 .app-topbar-actions { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
-/* The theme control shows the theme in use. All three icons are rendered and
+/* The theme control shows the theme in use. Both icons are rendered and
    the root's pre-hydration data-theme picks one, so it is right on first
    paint; after a tap the new one turns in. */
 .theme-toggle-icon { display: none; }
-:root:not([data-theme='dark']):not([data-theme='light']) .theme-toggle-icon[data-theme-icon='official'],
-:root[data-theme='dark'] .theme-toggle-icon[data-theme-icon='dark'],
-:root[data-theme='light'] .theme-toggle-icon[data-theme-icon='light'] { display: block; }
+:root:not([data-theme='dark']) .theme-toggle-icon[data-theme-icon='official'],
+:root[data-theme='dark'] .theme-toggle-icon[data-theme-icon='dark'] { display: block; }
 .theme-toggle[data-switched] .theme-toggle-icon { animation: theme-icon-in var(--dur-slow) var(--ease-spring) both; }
 @keyframes theme-icon-in {
   from { opacity: 0; transform: rotate(-60deg) scale(0.6); }
@@ -1187,12 +1172,12 @@ details[open] > summary .disclosure-closed-only { display: none; }
 /* Navigation: a floating dock. The highlight travels between tabs on a
    spring; its index is set by TabBar and survives route remounts. */
 .tabbar {
-  --tab-inset: 6px;
+  --tab-inset: 4px;
   position: relative;
   isolation: isolate;
   min-height: var(--tabbar-panel-height);
   border: 1px solid var(--hairline);
-  border-radius: 24px;
+  border-radius: 20px;
   /* No backdrop blur: the canvas behind the dock drifts continuously, so a
      blur would be recomputed every frame on mid-range phones. A near-opaque
      tone reads the same and keeps scrolling smooth. */
@@ -1216,10 +1201,9 @@ details[open] > summary .disclosure-closed-only { display: none; }
   bottom: var(--tab-inset);
   left: var(--tab-inset);
   width: calc((100% - var(--tab-inset) * 2) / var(--tab-count, 5));
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--mint-dim);
-  /* The landing phone's tab light: a ring and a soft glow beneath it. */
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 22%, transparent), 0 8px 22px -10px var(--mint-glow);
+  box-shadow: none;
   transform: translateX(calc(var(--tab-index, 0) * 100%));
   transition: transform var(--dur-slow) var(--ease-spring), opacity var(--dur-fast) ease;
 }
@@ -1238,17 +1222,17 @@ details[open] > summary .disclosure-closed-only { display: none; }
 .nav-item-active {
   color: var(--mint-text);
 }
-:root[data-theme='light'] .nav-item-active { color: var(--mint-text); }
+:root:is([data-theme='official'], [data-theme='light']) .nav-item-active { color: var(--mint-text); }
 
 .nav-item-mobile {
   display: flex;
-  min-height: 54px;
+  min-height: 48px;
   flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  border-radius: 18px;
+  gap: 3px;
+  border-radius: 16px;
   font-size: var(--fs-micro);
   font-weight: 600;
   line-height: 1;
@@ -1303,7 +1287,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
   transform: translateX(calc(var(--seg-index, 0) * 100%));
   transition: transform var(--dur-slow) var(--ease-spring), background-color var(--dur-base) ease, box-shadow var(--dur-base) ease;
 }
-:root[data-theme='light'] .segmented[data-thumb]::before { background: var(--surface); box-shadow: 0 1px 2px rgba(54, 34, 79, 0.1), 0 2px 8px rgba(54, 34, 79, 0.06); }
+:root:is([data-theme='official'], [data-theme='light']) .segmented[data-thumb]::before { background: var(--surface); box-shadow: 0 1px 2px rgba(54, 34, 79, 0.1), 0 2px 8px rgba(54, 34, 79, 0.06); }
 .segmented[data-thumb][data-index='-1']::before { opacity: 0; }
 
 .segmented-option {
@@ -1567,7 +1551,7 @@ select.field-control option {
   transition: transform var(--dur-slow) var(--ease-spring);
 }
 
-:root[data-theme='light'] .chart-range-tabs[data-thumb]::before {
+:root:is([data-theme='official'], [data-theme='light']) .chart-range-tabs[data-thumb]::before {
   background: var(--surface) padding-box;
   box-shadow: inset 0 0 0 1px rgba(54, 34, 79, 0.08);
 }
@@ -1715,8 +1699,8 @@ select.field-control option {
 /* Long/short: the sliding thumb takes the side's tint; the active label its color. */
 .segmented-sides[data-thumb][data-active='long']::before { background: color-mix(in srgb, var(--long) 15%, var(--surface-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--long) 32%, transparent); }
 .segmented-sides[data-thumb][data-active='short']::before { background: color-mix(in srgb, var(--short) 15%, var(--surface-2)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--short) 32%, transparent); }
-:root[data-theme='light'] .segmented-sides[data-thumb][data-active='long']::before { background: color-mix(in srgb, var(--long) 12%, var(--surface)); }
-:root[data-theme='light'] .segmented-sides[data-thumb][data-active='short']::before { background: color-mix(in srgb, var(--short) 10%, var(--surface)); }
+:root:is([data-theme='official'], [data-theme='light']) .segmented-sides[data-thumb][data-active='long']::before { background: color-mix(in srgb, var(--long) 12%, var(--surface)); }
+:root:is([data-theme='official'], [data-theme='light']) .segmented-sides[data-thumb][data-active='short']::before { background: color-mix(in srgb, var(--short) 10%, var(--surface)); }
 .segmented-sides .segmented-option-active[data-value='long'] { color: var(--long); }
 .segmented-sides .segmented-option-active[data-value='short'] { color: var(--short); }
 
@@ -1900,7 +1884,7 @@ select.field-control option {
     var(--skeleton-tone);
   animation: shimmer 1.6s var(--ease-in-out) infinite;
 }
-:root[data-theme='light'] :is(.skeleton, .missing-value-bar, .market-chart-skeleton) {
+:root:is([data-theme='official'], [data-theme='light']) :is(.skeleton, .missing-value-bar, .market-chart-skeleton) {
   --skeleton-tone: color-mix(in srgb, var(--mut) 14%, transparent);
   --skeleton-glint: rgb(255 255 255 / 62%);
 }
@@ -2056,12 +2040,11 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
   .app-content { max-width: 1120px; }
   .app-content.utility-content { max-width: 560px; }
   .app-topbar { max-width: 1120px; margin: 0 auto var(--header-gap); }
-  .desktop-navigation { display: flex; align-items: center; gap: 2px; margin-right: auto; margin-left: 28px; padding: 2px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--glass-strong); box-shadow: var(--ring-inset); }
-  .desktop-navigation a { position: relative; display: grid; min-height: 44px; place-items: center; padding: 0 16px; border-radius: 999px; font-size: var(--fs-small); font-weight: 600; color: var(--mut); white-space: nowrap; transition: background-color var(--dur-base) ease, color var(--dur-base) ease, transform var(--dur-slow) var(--ease-spring); }
+  .desktop-navigation { display: flex; align-items: center; gap: 2px; margin-right: auto; margin-left: 12px; padding: 2px; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
+  .desktop-navigation a { position: relative; display: grid; min-height: 44px; place-items: center; padding: 0 12px; border-radius: 999px; font-size: var(--fs-small); font-weight: 600; color: var(--mut); white-space: nowrap; transition: background-color var(--dur-base) ease, color var(--dur-base) ease, transform var(--dur-slow) var(--ease-spring); }
   .desktop-navigation a:hover { color: var(--text); }
   .desktop-navigation a:active { transform: scale(0.96); transition-duration: var(--dur-press); }
-  .desktop-navigation a[aria-current='page'] { color: var(--text); background: var(--surface-3); box-shadow: var(--ring-inset); }
-  :root[data-theme='light'] .desktop-navigation a[aria-current='page'] { background: var(--surface); box-shadow: 0 1px 2px rgba(54, 34, 79, 0.1), 0 2px 8px rgba(54, 34, 79, 0.06); }
+  .desktop-navigation a[aria-current='page'] { color: var(--mint-text); background: var(--mint-dim); box-shadow: none; }
   .page-header { max-width: 1120px; margin: 0 auto 20px; }
   .mobile-tabbar { display: none; }
   .app-content-tabs { padding-bottom: 0; scroll-padding-bottom: 0; }
@@ -2081,6 +2064,13 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
 
 }
 
+@media (min-width: 840px) and (max-width: 1039px) {
+  .app-topbar { gap: 12px; }
+  .app-topbar .brand-wordmark { display: none; }
+  .desktop-navigation { margin-left: 0; }
+  .desktop-navigation a { padding-inline: 10px; }
+}
+
 @media (max-width: 640px) {
   :root {
     --header-height: 48px;
@@ -2091,7 +2081,7 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
      wordmark steps aside whole (it wraps onto a clipped second line of the
      logo link) instead of the header breaking in two or the address being
      cut; the mark stays, and Telegram's title bar already names the app. */
-  .app-topbar { flex-wrap: nowrap; }
+  .app-topbar { flex-wrap: nowrap; gap: 12px; }
   .app-topbar > a:first-child {
     flex: 0 1 auto;
     flex-wrap: wrap;
@@ -2104,7 +2094,7 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
     overflow: clip;
     gap: 0 8px;
   }
-  .app-topbar-actions { flex: 0 0 auto; }
+  .app-topbar-actions { flex: 0 0 auto; gap: 6px; }
   .app-topbar > a > svg { width: 28px; height: 28px; margin-block: 8px; }
   /* The logo lockup keeps its own size; it is a mark, not running text. */
   .brand-wordmark { font-size: 20px; line-height: 44px; }
@@ -2275,3 +2265,8 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
   .text-gradient { color: CanvasText; background: none; }
   .status-dot { border: 2px solid CanvasText; }
 }
+
+.wallet-provider-handoff-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+.wallet-provider-handoff-tools > :is(button, a) { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 12px; font-weight: 550; color: var(--text); background: var(--surface-2); }
+.wallet-provider-handoff-tools > :is(button, a):hover { background: var(--surface-3); }
+.wallet-provider-handoff-tools p, .wallet-provider-handoff-tools code { width: 100%; font-size: 12px; line-height: 1.5; color: var(--mut); overflow-wrap: anywhere; user-select: text; }

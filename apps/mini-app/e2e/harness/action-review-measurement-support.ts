@@ -16,9 +16,12 @@ const entry = resolve(root, 'apps/mini-app/e2e/harness/action-review-entry.tsx')
 const src = resolve(root, 'apps/mini-app/src');
 
 const mocks: Record<string, string> = {
+  '@/components/PriceProvider': `export const useUsdPrices = () => ({ prices: {}, status: 'unavailable', updatedAt: null });`,
+  // This harness has synthetic pools; the real Trade/RPC harness checks risk prices.
+  '@/lib/fx/liquidationQuote': `export const LIQUIDATION_QUOTE_TTL_MS = 30000; export const projectedLiquidationPrice = () => undefined; export const projectedRebalancePrice = () => undefined;`,
   '@/lib/fx': `
     const H = () => globalThis.__actionReviewHarness;
-    export const FX_TOKENS = { fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
+    export const FX_TOKENS = { USDC: { key: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
     // The real fee copy, so the review's max and its shortfall notice are checked together.
     export { formatRouteGasCost } from '@/lib/fx/gasCost';
     export const useRouteGasCost = () => H().gasCost;
@@ -106,7 +109,7 @@ const mocks: Record<string, string> = {
       const rate = Number(quote.gasPriceWei) / 1000000000;
       return label + ' · ' + rate + ' Gwei';
     }
-    export function formatGasPriceGwei(value) { return Number(value) / 1000000000 + ' Gwei'; }
+    export function formatGasPriceGwei(value) { return String(Number(value) / 1000000000); }
   `,
   '@/lib/wallet': `
     export function usePrivyWallet() {
@@ -184,7 +187,8 @@ export const useInvalidateWalletData = () => async () => {
   '@/components/review/executionResult': `export const resultPresentation = (result) => { const approvalOnly = result.status === 'partial' && result.steps.some((step) => step.transaction.kind === 'approval' && step.status === 'confirmed') && !result.steps.some((step) => step.transaction.kind === 'action' && (step.status === 'confirmed' || step.hash)); if (approvalOnly) return { title: 'Approval confirmed', body: 'Action not submitted. The approval is on-chain; review each step before continuing.', tone: 'warning', icon: () => null }; return result.status === 'partial' ? ({ title: 'Partially completed', body: 'An earlier step confirmed before the action stopped.', tone: 'warning', icon: () => null }) : result.status === 'failed' ? ({ title: 'Not completed', body: result.error ?? 'Mock failed.', tone: 'danger', icon: () => null }) : ({ title: 'Confirmed', body: 'Mock confirmed.', tone: 'success', icon: () => null }); }; export const resultBodyDuringRefresh = ({ status, refreshing, positionAction, body }) => status === 'confirmed' && refreshing && positionAction ? 'Transaction confirmed. Position details are refreshing.' : body;`,
   '@/lib/fx/reviewFormatting': `
     export const rawQuoteReviewFacts = () => [];
-    export const routeFinancialReviewFacts = () => [];
+    import { routeFinancialReviewFacts as acceptedFacts } from './src/lib/fx/reviewFormatting';
+    export const routeFinancialReviewFacts = (route) => route.policy?.reviewedAction?.kind?.startsWith('fxsave-') ? acceptedFacts(route) : [];
     // This isolated harness measures orchestration; exact token formatting is
     // covered by review-formatting.test.ts and the fork browser review.
     export const tokenAmountReviewFact = (label, value) => ({ label, value: String(value), title: String(value) });
@@ -195,11 +199,11 @@ export const useInvalidateWalletData = () => async () => {
   // ActionReview uses router.push for its completion links. This harness
   // mounts into an existing document rather than Next's App Router tree.
   'next/navigation': `export const useRouter = () => ({ push: () => {}, replace: () => {}, prefetch: () => {} });`,
-  '@/lib/fx/tokens': `export const FX_TOKENS = { fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
+  '@/lib/fx/tokens': `export const FX_TOKENS = { WETH: { key: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
   'lucide-react': `
     import React from 'react';
     const Icon = ({ size = 24, ...props }) => <svg width={size} height={size} {...props} />;
-    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon;
+    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
     export const Clock3 = Icon; export const LoaderCircle = Icon; export const ShieldCheck = Icon; export const ExternalLink = Icon;
     export const Circle = Icon; export const XCircle = Icon; export const ChevronDown = Icon; export const Check = Icon; export const Copy = Icon;
   `,
@@ -242,6 +246,9 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
 let cachedBundle: { script: string; css: string } | undefined;
 
 export async function openHarness(page: Page, options: { initialPreviewMode?: 'auto' | 'deferred'; previewDelayMs?: number; refreshDelayMs?: number; presentationMode?: boolean } = {}): Promise<number> {
+  const errors: string[] = [];
+  const collectError = (error: Error) => errors.push(error.message);
+  page.on('pageerror', collectError);
   if (!cachedBundle) cachedBundle = await buildHarness();
   const startedAt = performance.now();
   const initialOptions = { mode: options.initialPreviewMode, previewDelayMs: options.previewDelayMs ?? 0, refreshDelayMs: options.refreshDelayMs ?? 0, presentationMode: options.presentationMode ?? false };
@@ -260,7 +267,9 @@ export async function openHarness(page: Page, options: { initialPreviewMode?: 'a
     document.body.append(script);
   }, { bundle: cachedBundle.script, options: initialOptions });
   if (cachedBundle.css) await page.addStyleTag({ content: cachedBundle.css });
-  await expect(page.locator('[data-harness-ready="true"]')).toHaveCount(1);
+  try {
+    await expect.poll(async () => errors.length ? errors.join('\n') : await page.locator('[data-harness-ready="true"]').count(), { message: 'Review harness should mount without runtime errors' }).toBe(1);
+  } finally { page.off('pageerror', collectError); }
   return startedAt;
 }
 

@@ -1,7 +1,8 @@
 import { createRequire } from 'node:module';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { debtShare } from '../../src/lib/leverageShare';
+import { leverageTrackPosition } from '../../src/lib/leverageShare';
 
 // The real Trade ticket (LeverageField, the warmed route and its outcome
 // preview, ActionReview) over the offline RPC fixture used by the review
@@ -24,6 +25,12 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
   const fixture = createFixture({ delayMs: options.delayMs ?? 20, ethBalance: 400000000000000n });
   await page.route('**/*', async (route) => {
     const url = route.request().url();
+    if (url.startsWith('http://long-review.test/token-icons/') || url.startsWith('http://long-review.test/chain-icons/')) {
+      const publicRoot = resolve(__dirname, '../../public');
+      const asset = resolve(publicRoot, `.${new URL(url).pathname}`);
+      if (asset.startsWith(publicRoot) && existsSync(asset)) return route.fulfill({ contentType: asset.endsWith('.svg') ? 'image/svg+xml' : 'image/png', body: readFileSync(asset) });
+      return route.fulfill({ status: 404, body: '' });
+    }
     if (url.includes('/api/gas')) return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ source: 'etherscan', chainId: 1, gasPriceWei: '3000000000', baseFeePerGasWei: '1000000000', tiers: { standard: '3000000000', fast: '4000000000', rapid: '5000000000' }, fetchedAt: Date.now(), stale: false }) });
     if (url.includes('fake-controlled-fixture')) {
       const body = route.request().postDataJSON();
@@ -59,7 +66,7 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
 const planCount = (page: Page) => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition').length);
 const outcome = (page: Page) => page.getByRole('group', { name: 'Estimated position' });
 const fact = (page: Page, label: string) => outcome(page).locator(`[data-outcome-fact="${label}"] dd`);
-/** A preview row's figure, without the USD line that may follow it. */
+/** A preview row's estimate, as displayed on the ticket. */
 const figure = async (page: Page, label: string) => (await fact(page, label).locator('span').first().textContent()) ?? '';
 /** The review's summary row for a fact (its Details disclosure repeats some facts exactly, further down). */
 const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"]`).first().locator('> span').last();
@@ -74,23 +81,28 @@ test.describe('the ticket’s outcome preview', () => {
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     const preview = {
-      collateral: await figure(page, 'Estimated collateral'),
-      debt: await figure(page, 'Estimated debt'),
-      fee: await figure(page, 'Protocol fee rate'),
+      executionPrice: await figure(page, 'Execution price'),
+      executionPriceExact: await fact(page, 'Execution price').locator('span').first().getAttribute('title'),
+      liquidationPrice: await figure(page, 'Liquidation price'),
+      fee: await figure(page, 'f(x) fee'),
     };
-    // An ETH long's collateral is the pool's stETH accounting: the quote's wstETH at the rate read with it.
-    expect(preview.collateral).toMatch(/^≈ [\d,]+(?:\.\d+)? stETH$/);
-    expect(preview.debt).toMatch(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
+    // The SDK execution quote is already expressed in fxUSD per stETH.
+    expect(preview.executionPrice).toMatch(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
+    await expect(fact(page, 'Estimated collateral')).toHaveCount(0);
+    await expect(fact(page, 'Estimated debt')).toHaveCount(0);
+    expect(preview.liquidationPrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     expect(preview.fee).toMatch(/%/);
     const plansBeforeReview = await planCount(page);
 
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
-    // The same digits, units and labels; only the ticket marks every amount as an estimate.
-    const sameFigure = (value: string) => new RegExp(`^(?:≈ )?${value.replace(/^≈ /, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
-    await expect(reviewFact(page, 'Estimated collateral')).toHaveText(sameFigure(preview.collateral));
-    await expect(reviewFact(page, 'Estimated debt')).toHaveText(sameFigure(preview.debt));
-    await expect(reviewFact(page, 'Protocol fee rate')).toHaveText(preview.fee);
+    // Quote details retain every source digit; the compact ticket carries that same exact quote in its title.
+    expect(preview.executionPriceExact).toBeTruthy();
+    await expect(reviewFact(page, 'Execution price')).toHaveText(preview.executionPrice);
+    await expect(reviewFact(page, 'Execution price')).toHaveAttribute('title', preview.executionPriceExact!);
+    await expect(reviewFact(page, 'Estimated collateral')).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
+    await expect(reviewFact(page, 'Estimated debt')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
+    await expect(reviewFact(page, 'f(x) fee')).toHaveText(preview.fee);
     // The signed floor stays exact in wstETH, with its stETH equivalent muted beneath it.
     const floor = reviewFact(page, 'Minimum converted input');
     await expect(floor).toHaveText(/^[\d,]+(?:\.\d+)? wstETH≈ [\d,]+(?:\.\d+)? stETH$/);
@@ -104,7 +116,7 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    const debtAt28 = await figure(page, 'Estimated debt');
+    const liquidationAt28 = await figure(page, 'Liquidation price');
     const box = (await outcome(page).boundingBox())!;
 
     await slider(page).fill('3.5');
@@ -112,14 +124,14 @@ test.describe('the ticket’s outcome preview', () => {
     expect(await page.evaluate(() => {
       const group = document.querySelector('[data-trade-outcome]');
       return { state: group?.getAttribute('data-trade-outcome'), text: group?.textContent ?? '' };
-    })).toEqual({ state: 'pending', text: 'Estimated collateralEstimated debtProtocol fee rate' });
+    })).toEqual({ state: 'pending', text: 'Execution priceLiquidation pricef(x) fee' });
     // The placeholder keeps the rows where they were.
     const pending = (await outcome(page).boundingBox())!;
     expect(Math.abs(pending.y - box.y)).toBeLessThanOrEqual(1);
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    const debtAt35 = await figure(page, 'Estimated debt');
+    const liquidationAt35 = await figure(page, 'Liquidation price');
     const amount = (text: string) => Number(text.replace(/[^\d.]/g, ''));
-    expect(amount(debtAt35)).toBeGreaterThan(amount(debtAt28));
+    expect(amount(liquidationAt35)).toBeGreaterThan(amount(liquidationAt28));
 
     // Clearing the amount leaves nothing to estimate.
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('');
@@ -147,17 +159,50 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    const debt = await figure(page, 'Estimated debt');
+    const liquidationPrice = await figure(page, 'Liquidation price');
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
     expect(await planCount(page)).toBe(1);
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     // Same inputs, same figures, never a placeholder flash; a fresh warm-up runs behind them.
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    await expect(fact(page, 'Estimated debt')).toHaveText(debt);
+    await expect(fact(page, 'Liquidation price')).toHaveText(liquidationPrice);
     await expect.poll(() => planCount(page)).toBe(2);
     await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition').every((event) => event.end !== undefined))).toBe(true);
-    await expect(fact(page, 'Estimated debt')).toHaveText(debt);
+    await expect(fact(page, 'Liquidation price')).toHaveText(liquidationPrice);
+  });
+
+  test('an untouched ticket stops showing a liquidation estimate once its pool threshold expires', async ({ page }) => {
+    await page.clock.install();
+    await mount(page);
+    await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
+    await slider(page).fill('2.8');
+    await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+    await expect(fact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    const plans = await planCount(page);
+    await page.clock.fastForward(30_001);
+    await expect(fact(page, 'Liquidation price')).toHaveText('Unavailable');
+    expect(await planCount(page)).toBe(plans);
+    await expect(fact(page, 'Execution price')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
+  });
+
+  test('quoted execution and liquidation prices remain readable on narrow dark tickets', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mount(page);
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
+    await slider(page).fill('2.8');
+    await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+    await expect(fact(page, 'Execution price')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
+    await expect(fact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    const artifacts = resolve(__dirname, '../../../../artifacts/home-hierarchy');
+    mkdirSync(artifacts, { recursive: true });
+    await page.screenshot({ path: resolve(artifacts, 'trade-prices-dark-390.png'), animations: 'disabled', fullPage: true });
+    await page.setViewportSize({ width: 320, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(fact(page, 'Execution price')).toBeVisible();
+    await expect(fact(page, 'Liquidation price')).toBeVisible();
+    await page.screenshot({ path: resolve(artifacts, 'trade-prices-dark-320.png'), animations: 'disabled', fullPage: true });
   });
 });
 
@@ -200,7 +245,25 @@ async function thumbCentre(thumb: Locator) {
   return box.x + box.width / 2;
 }
 
-test.describe('the leverage slider is the debt/your-share split', () => {
+async function expectThumbAtLeverage(page: Page, leverage: number) {
+  await expect(slider(page)).toHaveValue(String(leverage));
+  // A side change starts another live-bounds read. Measure the thumb, range,
+  // and bar in one browser turn so they belong to the same committed scale.
+  await expect.poll(async () => {
+    await nextFrames(page);
+    const geometry = await slider(page).evaluate(input => {
+      const range = input as HTMLInputElement;
+      const root = range.parentElement!;
+      const bar = root.querySelector(':scope > div[aria-hidden="true"]')!.getBoundingClientRect();
+      const thumb = root.querySelector(':scope > span[aria-hidden="true"]')!.getBoundingClientRect();
+      return { min: Number(range.min), max: Number(range.max), value: Number(range.value), left: bar.left, width: bar.width, centre: thumb.left + thumb.width / 2 };
+    });
+    if (geometry.value !== leverage) return Infinity;
+    return Math.abs(geometry.centre - geometry.left - leverageTrackPosition(leverage, geometry.min, geometry.max) * geometry.width);
+  }, { message: `the ${leverage}× thumb follows the currently committed live range` }).toBeLessThanOrEqual(1);
+}
+
+test.describe('the leverage slider uses its live minimum and maximum', () => {
   test('keeps a full-width 44px target at phone and desktop widths, without overflow', async ({ page }) => {
     await mount(page);
     for (const [side, width] of [['Long', 320], ['Long', 390], ['Long', 480], ['Long', 1280], ['Short', 320], ['Short', 390]] as const) {
@@ -232,21 +295,19 @@ test.describe('the leverage slider is the debt/your-share split', () => {
     }
   });
 
-  test('its thumb sits at the debt share, and the split it draws follows every move', async ({ page }) => {
+  test('its thumb follows the live leverage scale while the caption explains the debt split', async ({ page }) => {
     await mount(page);
     for (const leverage of ['2', '3.5', '1.5']) {
       await leverageField(page).fill(leverage);
-      const { at, thumb } = await track(page);
-      expect(Math.abs(await thumbCentre(thumb) - at(debtShare('long', Number(leverage))))).toBeLessThanOrEqual(1);
+      await expectThumbAtLeverage(page, Number(leverage));
     }
     await page.getByRole('radio', { name: 'Short' }).click();
     await leverageField(page).fill('3');
-    const short = await track(page);
-    expect(Math.abs(await thumbCentre(short.thumb) - short.at(debtShare('short', 3)))).toBeLessThanOrEqual(1);
+    await expectThumbAtLeverage(page, 3);
     await expect(slider(page)).toHaveAttribute('aria-valuetext', '3.0×, 75% borrowed wstETH');
   });
 
-  test('a mouse drag maps x to the share drawn under it, snapped to 0.1×, and the ends clamp to the range', async ({ page }) => {
+  test('a mouse drag maps x to live leverage, snapped to 0.1×, and the ends clamp to the range', async ({ page }) => {
     await mount(page);
     const min = Number(await slider(page).getAttribute('min'));
     const max = Number(await slider(page).getAttribute('max'));
@@ -255,15 +316,15 @@ test.describe('the leverage slider is the debt/your-share split', () => {
     await page.mouse.move(await thumbCentre(thumb) + 5, y);
     await page.mouse.down();
     await expect(leverageField(page)).toHaveValue('2');
-    await page.mouse.move(at(debtShare('long', 3.5)) + 5, y, { steps: 6 });
+    await page.mouse.move(at(leverageTrackPosition(3.5, min, max)) + 5, y, { steps: 6 });
     await expect(leverageField(page)).toHaveValue('3.5');
-    await page.mouse.move(at(0.995), y, { steps: 4 });
+    await page.mouse.move(at(1) + 5, y, { steps: 4 });
     await expect(leverageField(page)).toHaveValue(String(max));
     await page.mouse.move(at(0.005), y, { steps: 8 });
     await expect(leverageField(page)).toHaveValue(String(min));
     await page.mouse.up();
     // A click on the track moves the thumb there, as on a native slider.
-    await page.mouse.click(at(debtShare('long', 4)), y);
+    await page.mouse.click(at(leverageTrackPosition(4, min, max)), y);
     await expect(leverageField(page)).toHaveValue('4');
     await expect(slider(page)).toHaveValue('4');
     await expect(slider(page)).toBeFocused();
@@ -310,20 +371,22 @@ test.describe('the leverage slider is the debt/your-share split', () => {
       await mount(page);
       await leverageField(page).fill('2');
       const touch = await page.context().newCDPSession(page);
+      const min = Number(await slider(page).getAttribute('min'));
+      const max = Number(await slider(page).getAttribute('max'));
       const { at, y, thumb } = await track(page);
       const start = await thumbCentre(thumb);
       await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: start, y }] });
-      for (const share of [0.55, 0.6, debtShare('long', 3)]) {
+      for (const share of [0.55, 0.6, leverageTrackPosition(3, min, max)]) {
         await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: at(share), y }] });
       }
       await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       await expect(leverageField(page)).toHaveValue('3');
 
-      await page.touchscreen.tap(at(debtShare('long', 1.5)), y);
+      await page.touchscreen.tap(at(leverageTrackPosition(1.5, min, max)), y);
       await expect(leverageField(page)).toHaveValue('1.5');
 
       // Scrolling past the ticket is not a leverage change.
-      const target = at(debtShare('long', 4));
+      const target = at(leverageTrackPosition(4, min, max));
       await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: target, y }] });
       for (const dy of [12, 30, 60]) await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: target + 2, y: y - dy }] });
       await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

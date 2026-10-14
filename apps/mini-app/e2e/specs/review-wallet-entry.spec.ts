@@ -166,9 +166,15 @@ test.describe('transaction review wallet entry', () => {
       expect(await connectionRequests(), 'opening the picker must not request accounts').toBe(0);
 
       await page.evaluate(() => (window as unknown as { __wallet: { inject: () => void } }).__wallet.inject());
-      await expect(picker.getByRole('button', { name: 'Test wallet', exact: true })).toHaveCount(0);
+      // Unique detected providers are promoted into the main picker, including
+      // arbitrary EIP-6963 wallets; discovery still grants no account authority.
+      const detectedWallet = picker.getByRole('button', { name: 'Test wallet', exact: true });
+      await expect(detectedWallet).toBeVisible();
+      await expect(detectedWallet.locator('.wallet-provider-detected')).toHaveText('Detected');
+      await expect(picker.locator('[data-wallet-id]').first()).toHaveAttribute('aria-label', 'Test wallet');
       await picker.getByRole('button', { name: 'Other wallets', exact: true }).click();
       const lateWallet = page.getByRole('button', { name: 'Test wallet', exact: true });
+      await expect(lateWallet).toHaveCount(1);
       await expect(lateWallet).toBeVisible();
       await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toHaveCount(0);
       expect(await connectionRequests(), 'late discovery must not choose a wallet automatically').toBe(0);

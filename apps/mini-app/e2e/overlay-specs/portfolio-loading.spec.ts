@@ -139,6 +139,26 @@ test('screenshots of Portfolio’s positions in every theme', async ({ page }) =
   }
 });
 
+test('captures connected, empty, and one-cent home states for visual review', async ({ page }) => {
+  const directory = process.env.PORTFOLIO_HOME_SCREENSHOTS_DIR;
+  test.skip(!directory, 'set PORTFOLIO_HOME_SCREENSHOTS_DIR to keep the screenshots');
+  mkdirSync(directory!, { recursive: true });
+  for (const theme of ['official', 'dark'] as const) {
+    for (const [name, stage] of [['connected', 'loaded'], ['empty', 'empty'], ['dust', 'dust']] as const) {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await open(page, stage, { theme });
+      await page.addStyleTag({ content: `
+        .app-shell { height: auto !important; max-height: none !important; overflow: visible !important; }
+        .app-workspace { min-height: auto !important; overflow: visible !important; }
+        .app-content-tabs { flex: none !important; min-height: auto !important; overflow: visible !important; }
+        nav.mobile-tabbar { position: static !important; margin-top: 12px !important; }
+      ` });
+      await page.screenshot({ path: resolve(directory!, `portfolio-${name}-${theme}.png`), fullPage: true, animations: 'disabled' });
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+    }
+  }
+});
+
 test('the live page takes over the first paint without fading in a second time', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await open(page, 'handoff');
@@ -183,6 +203,50 @@ test('an empty wallet is told what is missing and how to start, never shown a pl
   await expect(page.getByText('0 fxSAVE on Ethereum', { exact: true })).toBeVisible();
   await expect(page.getByText('No activity yet', { exact: true })).toBeVisible();
   await expect(page.locator('main .missing-value-bar, main .skeleton')).toHaveCount(0);
+});
+
+test('a settled empty Positions section is compact while loading and read failures stay visible', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 900 });
+  const positions = async (stage: string) => {
+    await open(page, stage);
+    return page.getByRole('region', { name: 'Positions', exact: true });
+  };
+
+  const empty = await positions('empty');
+  await expect(empty).toContainText('No open positions');
+  await expect(empty.locator('details')).toHaveCount(0);
+  expect((await empty.boundingBox())!.height, 'empty Positions stays compressed').toBeLessThanOrEqual(90);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+  const loading = await positions('reads');
+  await expect(loading.getByRole('status', { name: 'Loading open positions' })).toBeVisible();
+  await expect(loading.locator('details')).not.toHaveAttribute('open');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+  const unavailable = await positions('unavailable');
+  await expect(unavailable.getByRole('status', { name: 'Positions unavailable' })).toBeVisible();
+  await expect(unavailable.locator('details')).not.toHaveAttribute('open');
+});
+
+test('the Portfolio network select filters seeded rows and the header balance preserves one cent', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 1400 });
+  await open(page, 'loaded');
+  const assets = page.getByRole('region', { name: 'Assets', exact: true });
+  const network = assets.getByRole('combobox', { name: 'Portfolio network', exact: true });
+  const rows = assets.locator('ul > li');
+  await expect(rows).toHaveCount(4);
+  await network.selectOption('8453');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first().getByRole('button', { name: 'View ETH on Base', exact: true })).toBeVisible();
+  await network.selectOption('1');
+  await expect(rows).toHaveCount(3);
+  await network.selectOption('all');
+  await expect(rows).toHaveCount(4);
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+
+  await open(page, 'dust');
+  await expect(page.locator('[data-portfolio-value]')).toContainText('$0.01');
+  await expect(page.locator('[data-portfolio-value]')).not.toContainText('Total unavailable');
 });
 
 test('reduced motion leaves placeholders still and the hero light in place', async ({ page }) => {

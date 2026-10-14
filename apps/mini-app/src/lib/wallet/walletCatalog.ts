@@ -1,6 +1,6 @@
 import type { DiscoveredEip6963Provider, Eip6963Provider } from './eip6963';
 import { walletIdentityRdns } from './walletIdentity';
-import { groupWalletProviderClaims } from './walletProviderSnapshot';
+import { groupWalletProviderClaims, type LegacyWalletProvider } from './walletProviderSnapshot';
 
 /** Display metadata is not connector authority. Announced identities are
  * self-attested; connection always retains the exact selected provider object.
@@ -36,10 +36,18 @@ export type WalletChoice = {
   readonly provider?: Eip6963Provider;
 };
 
+const legacyIds = new WeakMap<Eip6963Provider, number>();
+let nextLegacyId = 1;
+function legacyId(provider: Eip6963Provider) {
+  let id = legacyIds.get(provider);
+  if (!id) { id = nextLegacyId++; legacyIds.set(provider, id); }
+  return id;
+}
+
 /** No browser reads, provider requests, device detection, or navigation. */
 export function buildWalletChoices(
   providers: readonly DiscoveredEip6963Provider[],
-  legacyProvider?: Eip6963Provider,
+  legacyProvider?: Eip6963Provider | readonly LegacyWalletProvider[],
 ): WalletChoice[] {
   const { byRdns, conflictingProviders, providers: seen } = groupWalletProviderClaims(providers);
 
@@ -102,15 +110,28 @@ export function buildWalletChoices(
 
   // An unannounced global provider has no trustworthy brand. It may be offered
   // only as its own neutral, exact-object selection, never as a named fallback.
-  if (legacyProvider && typeof legacyProvider.request === 'function' && !seen.has(legacyProvider)) {
+  const legacyCollection: readonly LegacyWalletProvider[] = Array.isArray(legacyProvider)
+    ? legacyProvider : legacyProvider ? [{ provider: legacyProvider as Eip6963Provider }] : [];
+  const legacySeen = new Set(seen);
+  const availableLegacy = legacyCollection.filter(item => {
+    try {
+      if (!item.provider || typeof item.provider.request !== 'function' || legacySeen.has(item.provider)) return false;
+      legacySeen.add(item.provider); return true;
+    } catch { return false; }
+  });
+  for (const item of availableLegacy) {
+    const provider = item.provider;
+    let name = item.name || (availableLegacy.length === 1 ? 'Wallet' : `Wallet ${legacyId(provider)}`);
+    let suffix = legacyId(provider);
+    while (choices.some(choice => nameKey(choice.name) === nameKey(name))) name = `${item.name || 'Wallet'} ${suffix++}`;
     choices.push({
-      id: 'legacy:browser',
-      name: 'Wallet',
+      id: Array.isArray(legacyProvider) ? `legacy:provider:${legacyId(provider)}` : 'legacy:browser',
+      name,
       primary: false,
       rdns: null,
       source: 'legacy',
       injected: 'available',
-      provider: legacyProvider,
+      provider,
     });
   }
   return choices;

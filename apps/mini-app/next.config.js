@@ -8,10 +8,8 @@ if (configuredDistDir && !/^[a-zA-Z0-9_-]+$/.test(configuredDistDir)) {
 
 const nextConfig = {
   output: 'export',
-  // `pnpm lint` is an explicit release gate. Skipping Next's duplicate build
-  // lint keeps static export output deterministic and avoids the framework's
-  // legacy Pages-router plugin discovery warning with flat ESLint config.
-  eslint: { ignoreDuringBuilds: true },
+  // `pnpm lint` is an explicit release gate. Next 16 no longer accepts the
+  // legacy `eslint` build configuration; the CLI runs lint independently.
   // `pnpm typecheck` is an explicit release gate. Running it once after the
   // export is generated avoids a duplicate check and prevents Next's cleanup
   // of `.next/types` from racing the standalone TypeScript process.

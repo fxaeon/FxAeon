@@ -69,49 +69,88 @@ test('while the warm-up runs, the same rows hold their place with announced-off 
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'ETH', side: 'long', route: null }));
   assert.match(html, /^<div class="test-outcome" role="group" aria-label="Estimated position" aria-busy="true" data-trade-outcome="pending">/);
-  assert.deepEqual(rows(html).map(([label]) => label), ['Estimated collateral', 'Estimated debt', 'Protocol fee rate']);
-  for (const label of ['Loading estimated collateral', 'Loading estimated debt', 'Loading protocol fee rate']) {
-    assert.match(html, new RegExp(`role="status" aria-live="off" aria-label="${label}"`));
+  assert.deepEqual(rows(html).map(([label]) => label), ['Execution price', 'Liquidation price', 'f(x) fee']);
+  for (const label of ['Loading execution price', 'Loading liquidation price', 'Loading f(x) fee']) {
+    assert.ok(html.includes(`role="status" aria-live="off" aria-label="${label}"`));
   }
-  // No price snapshot in this render: no USD line is reserved, so none can appear and push the rows.
+  // Execution price has no external USD valuation line.
   assert.doesNotMatch(html, /Loading USD value/);
 });
 
 test('a settled route shows the review’s figures, each marked as an estimate, with the exact value on hover', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const route = opened('ETH', 'long', {
-    colls: '1500000000000000000', debts: '1010218412345678901234',
+    colls: '1500000000000000000', debts: '1010218412345678901234', executionPrice: '2500.123456789',
     protocolFeeQuote: { poolAddress: positionPoolAddress('ETH', 'long'), routerAddress: ROUTER, ratios: ['3000000', '0', '0', '0'] },
   });
   const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'ETH', side: 'long', route }));
   assert.match(html, /data-trade-outcome="ready"/);
   assert.doesNotMatch(html, /aria-busy/);
-  // "1.5 wstETH" is exact in the review; the ticket still marks it as an estimate. The rate is the pool's quoted rate.
-  // Without a wstETH rate read beside the quote, the collateral keeps its native unit.
+  // The SDK execution price already divides out the wstETH rate.
   assert.deepEqual(rows(html), [
-    ['Estimated collateral', '≈ 1.5 wstETH'],
-    ['Estimated debt', '≈ 1,010.21841234 fxUSD'],
-    ['Protocol fee rate', '0.3%'],
+    ['Execution price', '≈ 2,500.1234 fxUSD / stETH'],
+    ['Liquidation price', 'Unavailable'],
+    ['f(x) fee', '0.3%'],
   ]);
-  assert.match(html, /title="1010\.218412345678901234 fxUSD"/);
-  // With it (as every planned ETH long carries), the position's own stETH accounting.
+  assert.match(html, /title="2500\.123456789 fxUSD \/ stETH"/);
+  assert.doesNotMatch(html, /Estimated collateral|Estimated debt|Loading USD value/);
+  // A separate collateral accounting rate must never convert that price again.
   const converted = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
     market: 'ETH', side: 'long', route: { ...route, details: { ...route.details, stEthPerWstEth: '1200000000000000000' } },
   }));
-  assert.deepEqual(rows(converted)[0], ['Estimated collateral', '≈ 1.8 stETH']);
-  assert.match(converted, /title="1\.8 stETH \(1\.5 wstETH at 1\.2 stETH per wstETH\)"/);
+  assert.deepEqual(rows(converted)[0], ['Execution price', '≈ 2,500.1234 fxUSD / stETH']);
 });
 
-test('a short previews fxUSD collateral and the borrowed derivative, and an unreadable fee says so as the review does', async () => {
+test('a short previews its quoted execution price and borrowed derivative, and an unreadable fee says so', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
-    market: 'BTC', side: 'short', route: opened('BTC', 'short', { colls: '1234500000000000000000', debts: '123456780000000000' }),
+    market: 'BTC', side: 'short', route: opened('BTC', 'short', { colls: '1234500000000000000000', debts: '123456780000000000', executionPrice: '65000.25' }),
   }));
   assert.deepEqual(rows(html), [
-    ['Estimated collateral', '≈ 1,234.5 fxUSD'],
-    ['Estimated debt', '≈ 0.12345678 WBTC'],
-    ['Protocol fee rate', 'Unavailable'],
+    ['Execution price', '≈ 65,000.25 fxUSD / WBTC'],
+    ['Liquidation price', 'Unavailable'],
+    ['f(x) fee', 'Unavailable'],
   ]);
+});
+
+test('absent or invalid execution prices say unavailable without deriving a price from collateral or debt', async () => {
+  const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
+  for (const executionPrice of [undefined, '', '0', '-2500', 'NaN', 'Infinity', '1e18']) {
+    const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
+      market: 'ETH', side: 'long', route: opened('ETH', 'long', { colls: '1500000000000000000', debts: '1000000000000000000000', executionPrice }),
+    }));
+    assert.deepEqual(rows(html)[0], ['Execution price', 'Unavailable']);
+    assert.doesNotMatch(html, /Loading execution price|Estimated collateral/);
+  }
+});
+
+test('fresh pool liquidation quotes render the native USD price for all four market and side combinations', async () => {
+  const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
+  for (const [market, side, expected] of [
+    ['ETH', 'long', '≈ $500.00 / stETH'], ['BTC', 'long', '≈ $625.00 / WBTC'],
+    ['ETH', 'short', '≈ $2,560.00 / stETH'], ['BTC', 'short', '≈ $3,200.00 / WBTC'],
+  ] as const) {
+    const route = opened(market, side, {
+      colls: side === 'long' ? '2000000000000000000' : '1000000000000000000000',
+      debts: side === 'long' ? '1000000000000000000000' : '250000000000000000',
+      stEthPerWstEth: market === 'ETH' ? '1250000000000000000' : undefined,
+      liquidationQuote: { poolAddress: positionPoolAddress(market, side), liquidateRatio: '800000000000000000', readAt: Date.now(),
+        ...(market === 'ETH' ? { stEthPerWstEth: '1250000000000000000' } : {}) },
+    });
+    const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market, side, route }));
+    assert.deepEqual(rows(html)[1], ['Liquidation price', expected]);
+    assert.doesNotMatch(html, /Estimated collateral|Estimated debt/);
+  }
+});
+
+test('expired, malformed or mismatched pool thresholds show liquidation unavailable', async () => {
+  const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
+  const quote = { poolAddress: positionPoolAddress('BTC', 'long'), liquidateRatio: '800000000000000000', readAt: Date.now() };
+  for (const liquidationQuote of [undefined, { ...quote, readAt: Date.now() - 30_001 }, { ...quote, liquidateRatio: '0' }, { ...quote, poolAddress: positionPoolAddress('BTC', 'short') }]) {
+    const route = opened('BTC', 'long', { colls: '2000000000000000000', debts: '1000000000000000000000', liquidationQuote });
+    const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'BTC', side: 'long', route }));
+    assert.deepEqual(rows(html)[1], ['Liquidation price', 'Unavailable']);
+  }
 });
 
 test('a route the review could not describe shows nothing at all', async () => {

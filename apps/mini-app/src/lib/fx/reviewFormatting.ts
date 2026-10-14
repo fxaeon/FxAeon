@@ -5,6 +5,8 @@ import { tokenSymbol } from './tokenPresentation';
 import type { OfficialFxMethod, PlannedRoute, ReviewedActionIntent } from './types';
 import { calculateProtocolFee } from './protocolFee';
 import { parseStEthPerWstEth, stEthForWstEth } from './wstEthRate';
+import { projectedLiquidationPrice } from './liquidationQuote';
+import { acceptedFxSaveQuote } from './fxSaveReviewQuote';
 
 /**
  * `equivalent` is the same amount in another unit, shown muted beside the
@@ -232,6 +234,15 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
 
   if (pool) {
     add(protocolFeeReviewFact(route, intent));
+    if (intent.kind === 'deposit-and-mint' && intent.mintAmount > 0n) {
+      const fee = protocolFeeReviewFact(route, intent);
+      const quote = route.details?.protocolFeeQuote;
+      if (fee && quote) {
+        const amount = intent.mintAmount - calculateProtocolFee(intent.mintAmount, BigInt(quote.ratios[2]));
+        const fact = amountFact('Estimated fxUSD received', amount.toString(), tokenUnit(FX_TOKENS.fxUSD))!;
+        add({ ...fact, title: `${fact.title}; ${formatUnits(intent.mintAmount, 18)} fxUSD gross debt added, less the accepted quote's borrowing fee. Excludes gas.` });
+      } else add({ label: 'Estimated fxUSD received', value: 'Unavailable', title: 'The accepted route has no validated borrowing fee schedule.' });
+    }
     const price = details?.executionPrice;
     if ('positionType' in intent && price && /^\d+(?:\.\d+)?$/.test(price) && /[1-9]/.test(price)) {
       // curPrice is already a decimal fxUSD/underlying ratio, not wei and
@@ -241,8 +252,34 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
     }
     // Borrow/repay expose an oracle price under the same SDK field name,
     // not a swap execution price. Keep that value in advanced details.
-    add(collateralQuote(route, intent, pool)?.fact);
+    const collateral = collateralQuote(route, intent, pool)?.fact;
+    if (intent.kind === 'deposit-and-mint' && intent.depositAmount > 0n) {
+      const fee = protocolFeeReviewFact(route, intent);
+      const ratio = route.details?.protocolFeeQuote?.ratios[0];
+      add(fee && ratio !== undefined && BigInt(ratio) === 0n && collateral
+        ? { ...collateral, title: `${collateral.title}; accepted f(x) supply fee is 0%, so this quote needs no supply fee deduction.` }
+        : { label: 'Estimated collateral', value: 'Unavailable', title: 'The SDK collateral quote does not deduct supply fees. A validated zero supply fee is required to show the post-fee estimate.' });
+    } else add(collateral);
     add(amountFact('Estimated debt', details?.debts, debtUnit(pool)));
+  }
+
+  if (intent.kind === 'fxsave-deposit' || intent.kind === 'fxsave-withdraw') {
+    const quote = acceptedFxSaveQuote(route);
+    const outputLabel = intent.kind === 'fxsave-deposit' ? 'Estimated fxSAVE received' : 'Estimated received';
+    if (quote) {
+      add(quote.estimatedOutput === undefined ? { label: outputLabel, value: 'Unavailable' }
+        : amountFact(outputLabel, quote.estimatedOutput,
+          intent.kind === 'fxsave-deposit' ? tokenUnit(FX_TOKENS.fxSAVE) : unitForAddress(intent.tokenOutAddress)));
+      if (quote.kind === 'instant-withdraw') {
+        add({ label: 'f(x) fee', value: `${formatUnits(BigInt(quote.instantFeeRatio!), 16)}%`,
+          title: 'Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.' });
+        add(amountFact('Instant fee (fxUSD leg)', (BigInt(quote.grossFxUSD!) - BigInt(quote.netFxUSD!)).toString(), tokenUnit(FX_TOKENS.fxUSD)));
+        add(amountFact('Instant fee (USDC leg)', (BigInt(quote.grossUSDC!) - BigInt(quote.netUSDC!)).toString(), tokenUnit(FX_TOKENS.USDC)));
+      }
+    } else if (intent.kind === 'fxsave-deposit' || intent.directBasePool || intent.instant) {
+      add({ label: outputLabel, value: 'Unavailable', title: 'No fresh output estimate is bound to the accepted action.' });
+      if (intent.kind === 'fxsave-withdraw' && intent.instant) add({ label: 'f(x) fee', value: 'Unavailable' });
+    }
   }
 
   let unsupportedLimits = 0;
@@ -286,6 +323,9 @@ export type PositionOutcomeFacts = {
    */
   collateral: ReviewFact & { exact: string; symbol: string };
   debt: ReviewFact;
+  /** SDK quote's expected swap price, in fxUSD per stETH or WBTC. */
+  executionPrice?: ReviewFact;
+  liquidationPrice?: ReviewFact;
   fee?: ReviewFact;
 };
 
@@ -304,10 +344,13 @@ export function positionOutcomeFacts(route: PlannedRoute): PositionOutcomeFacts 
   const debt = facts.find((fact) => fact.label === 'Estimated debt');
   const quote = pool ? collateralQuote(route, intent, pool) : undefined;
   if (!collateral || !debt || !quote) return null;
+  const liquidationPrice = projectedLiquidationPrice(route);
   return {
     collateral: { ...collateral, ...quote.native },
     debt,
-    fee: facts.find((fact) => fact.label === 'Protocol fee rate' || fact.label === 'Protocol fee'),
+    executionPrice: facts.find((fact) => fact.label === 'Execution price'),
+    liquidationPrice: liquidationPrice ? { label: 'Liquidation price', ...liquidationPrice } : undefined,
+    fee: facts.find((fact) => fact.label === 'f(x) fee'),
   };
 }
 
@@ -345,11 +388,11 @@ function protocolFeeReviewFact(route: PlannedRoute, intent: ReviewedActionIntent
   // and flash-loan routes cannot safely use the user's input as the fee base.
   if (intent.kind === 'deposit-and-mint' && charged.length === 1 && charged[0].index === 2) {
     const feeAmount = calculateProtocolFee(intent.mintAmount, BigInt(quote.ratios[2]));
-    const fact = amountFact('Protocol fee', feeAmount.toString(), tokenUnit(FX_TOKENS.fxUSD))!;
+    const fact = amountFact('f(x) fee', feeAmount.toString(), tokenUnit(FX_TOKENS.fxUSD))!;
     return { ...fact, value: `${fact.value} (${formatUnits(BigInt(quote.ratios[2]), 7)}%)`, title: `${fact.title}; ${describe(charged[0])}. Deducted from the borrowed amount. Excludes network gas and conversion costs.` };
   }
   return {
-    label: 'Protocol fee rate',
+    label: 'f(x) fee',
     value: charged.length === 0 ? '0%' : charged.length === 1
       ? `${formatUnits(BigInt(quote.ratios[charged[0].index]), 7)}%`
       : charged.map(describe).join(' + '),

@@ -7,7 +7,7 @@ const FEE_PRECISION = 1_000_000_000n;
  */
 export function calculateProtocolFee(grossAmount: bigint, feeRatio: bigint): bigint {
   if (grossAmount < 0n || feeRatio < 0n || feeRatio > FEE_PRECISION) {
-    throw new RangeError('Protocol fee inputs are outside the supported range');
+    throw new RangeError('f(x) fee inputs are outside the supported range');
   }
   return grossAmount * feeRatio / FEE_PRECISION;
 }

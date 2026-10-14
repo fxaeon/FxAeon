@@ -76,6 +76,7 @@ export default function TradePage() {
   const [amount, setAmount] = useState('');
   const [leverage, setLeverage] = useState(2);
   const [slippage, setSlippage] = useState(String(DEFAULT_SLIPPAGE_PERCENT));
+  const savedSlippageRef = useRef(DEFAULT_SLIPPAGE_PERCENT);
   const [leverageBounds, setLeverageBounds] = useState<LeverageBounds>(() => leverageBoundsFor('ETH', 'long'));
   const [highlightedPositionKey, setHighlightedPositionKey] = useState('');
   const [reviewRevision, setReviewRevision] = useState(0);
@@ -224,6 +225,11 @@ export default function TradePage() {
     };
   }, []);
 
+  useEffect(() => {
+    savedSlippageRef.current = readSlippagePercent();
+    setSlippage(String(savedSlippageRef.current));
+  }, []);
+
   // History links carry only an opaque local-draft id. Restore the validated
   // primitive ticket after the wallet is known, then consume that id so a
   // refresh cannot repeatedly replay an old signature-required draft. The
@@ -279,12 +285,11 @@ export default function TradePage() {
   }, [reviewStage, wallet.address, wallet.chainId]);
 
   useEffect(() => {
-    setSlippage(String(readSlippagePercent()));
-  }, []);
-  useEffect(() => {
     const onSettingsUpdated = (event: Event) => {
       if (event.type === 'storage' && (event as StorageEvent).key !== SETTINGS_KEY) return;
-      setSlippage(String(readSlippagePercent()));
+      const savedSlippage = readSlippagePercent();
+      if (savedSlippage !== savedSlippageRef.current) setSlippage(String(savedSlippage));
+      savedSlippageRef.current = savedSlippage;
     };
     window.addEventListener(SETTINGS_UPDATED_EVENT, onSettingsUpdated);
     window.addEventListener('storage', onSettingsUpdated);
@@ -627,7 +632,7 @@ export default function TradePage() {
           <div className={`${styles.tradePageActions} trade-page-actions`}>
             <Link href="/positions" className={`${styles.positionsShortcut} glass-press inline-flex min-h-11 items-center gap-2 border text-[13px] font-semibold`}><Layers2 className="h-4 w-4" aria-hidden="true" />Positions</Link>
             {/* The ticket's settings live with the route's other controls, so the form starts at its first decision. */}
-            {reviewStage === 'input' && <TransactionSettings slippage />}
+            {reviewStage === 'input' && <TransactionSettings scope="Trade" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />}
           </div>
         </header>
 

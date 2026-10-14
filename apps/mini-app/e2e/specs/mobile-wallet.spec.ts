@@ -30,7 +30,7 @@ const mocks: Record<string, string> = {
     export const assertInfuraRpcUrl = (url) => url;
     export const assertSupportedChainId = (chainId) => { if (chainId !== 1 && chainId !== 8453) throw new Error('Unsupported chain'); };
   `,
-  '@/lib/telegram': `export const isTelegramLaunchContext = () => false;`,
+  '@/lib/telegram': `export const isTelegramLaunchContext = () => false; export const openExternalLink = () => false;`,
 };
 type Build = {
   onResolve: (options: { filter: RegExp }, callback: (args: { path: string }) => unknown) => void;
@@ -98,6 +98,40 @@ async function showOtherWallets(page: Page) {
   await expect(page.getByRole('dialog')).toHaveAttribute('data-wallet-view', 'all');
 }
 
+test('wallet picker is a centered grouped dialog in light and dark at phone and desktop widths', async ({ page }) => {
+  await openHarness(page);
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const theme of ['official', 'dark']) {
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      await expect(dialog.locator('[data-wallet-id]')).toHaveCount(4);
+      await expect(dialog.locator('.wallet-provider-detected')).toHaveCount(0);
+      const geometry = await dialog.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, center: rect.left + rect.width / 2,
+          width: rect.width, bottom: rect.bottom,
+          overflow: element.scrollWidth - element.clientWidth,
+          rows: [...element.querySelectorAll('.wallet-provider-option')].map(row => row.getBoundingClientRect().height),
+          imagesLoaded: [...element.querySelectorAll('img')].every(image => image.complete && image.naturalWidth > 0),
+        };
+      });
+      expect(geometry.left).toBeGreaterThanOrEqual(11);
+      expect(geometry.right).toBeLessThanOrEqual(width - 11);
+      expect(Math.abs(geometry.center - width / 2)).toBeLessThanOrEqual(1);
+      expect(geometry.width).toBeLessThanOrEqual(380);
+      expect(geometry.bottom).toBeLessThanOrEqual(844 - 11);
+      expect(geometry.overflow).toBeLessThanOrEqual(1);
+      expect(geometry.imagesLoaded).toBe(true);
+      for (const height of geometry.rows) expect(height).toBeGreaterThanOrEqual(44);
+    }
+  }
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeFocused();
+});
+
 async function connect(page: Page, choice = 0, legacy = false) {
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
@@ -110,6 +144,177 @@ async function snapshot(page: Page) {
     return { calls: h.wallets.map((wallet) => wallet.calls), cancellations: h.cancellations, errors: h.errors, connectionOutcomes: h.connectionOutcomes };
   });
 }
+
+test('delayed legacy array discovery deduplicates namespaces and preserves exact-provider retry after EIP promotion', async ({ page }) => {
+  const observation = await openHarness(page, 'none');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await page.evaluate(() => {
+    const h = globalThis.__mobileWalletHarness;
+    h.wallets[1].holdPrompt = true;
+    Object.assign(window, { bitkeep: { ethereum: h.wallets[1].provider } });
+    window.ethereum = Object.assign({}, h.wallets[0].provider, { providers: [h.wallets[1].provider, h.wallets[2].provider, h.wallets[1].provider] });
+  });
+  await expect(page.getByRole('button', { name: 'Bitget Wallet', exact: true })).toBeVisible();
+  await showOtherWallets(page);
+  await expect(page.getByRole('button', { name: /^Wallet \d+$/, exact: true })).toHaveCount(1);
+  expect((await snapshot(page)).calls.flat()).toEqual([]);
+  await page.getByRole('button', { name: 'Bitget Wallet', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].promptsWaiting)).toBe(1);
+  await page.evaluate(() => {
+    const h = globalThis.__mobileWalletHarness;
+    h.announceAs(1, 'Independent EVM wallet', 'org.independent.wallet');
+    h.wallets[1].rejectPrompt();
+  });
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toHaveAttribute('data-wallet-view', 'error');
+  await dialog.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].promptsWaiting)).toBe(2);
+  await page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].settlePrompt());
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountB);
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].listenerCount('accountsChanged'))).toBe(1);
+  await page.evaluate((address) => globalThis.__mobileWalletHarness.wallets[1].emit('accountsChanged', [address]), accountA);
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  await page.getByRole('button', { name: 'Send test transaction' }).click();
+  await expect(page.getByTestId('transaction-hash')).toHaveText(`0x${'b'.repeat(64)}`);
+  await page.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  await page.evaluate((address) => globalThis.__mobileWalletHarness.wallets[1].emit('accountsChanged', [address]), accountB);
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  const result = await snapshot(page);
+  expect(result.calls[0]).toEqual([]);
+  expect(result.calls[2]).toEqual([]);
+  expect(result.calls[1].filter((call) => call.method === 'eth_requestAccounts')).toHaveLength(2);
+  expect(observation.errors).toEqual([]);
+});
+
+test('remembered neutral legacy account never restores through an aggregate or replacement wallet', async ({ page }) => {
+  await page.addInitScript((address) => {
+    localStorage.setItem('fxaeon:browser-wallet-address', address);
+    localStorage.removeItem('fxaeon:wallet-provider-rdns');
+    window.addEventListener('eip6963:requestProvider', () => {
+      const h = globalThis.__mobileWalletHarness;
+      if (!h) return;
+      h.wallets.forEach(wallet => wallet.setAccountsSilently([address]));
+      window.ethereum = Object.assign({}, h.wallets[0].provider, { providers: [h.wallets[1].provider, h.wallets[2].provider] });
+    });
+  }, accountA);
+  await openHarness(page, 'none');
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await showOtherWallets(page);
+  await expect(page.getByRole('button', { name: /^Wallet \d+$/, exact: true })).toHaveCount(2);
+  expect((await snapshot(page)).calls.flat()).toEqual([]);
+});
+
+for (const wallet of [
+  { name: 'Base Wallet', rdns: 'com.coinbase.wallet', namespace: 'coinbaseWalletExtension' },
+  { name: 'OKX', rdns: 'com.okex.wallet', namespace: 'okxwallet' },
+  { name: 'Phantom', rdns: 'app.phantom', namespace: 'phantom' },
+  { name: 'Trust Wallet', rdns: 'com.trustwallet.app', namespace: 'trustwallet' },
+] as const) {
+  test(`${wallet.name}: delayed compatibility injection silently restores the remembered account without focus or announcement`, async ({ page }) => {
+    await page.addInitScript(({ rdns, address }) => {
+      localStorage.setItem('fxaeon:wallet-provider-rdns', rdns);
+      localStorage.setItem('fxaeon:browser-wallet-address', address);
+    }, { rdns: wallet.rdns, address: accountA });
+    const observation = await openHarness(page, 'none', '/', '&authorized=1');
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+    // Deliberately arrive after the existing 200ms initialization pass.
+    await page.waitForTimeout(300);
+    await page.evaluate((namespace) => {
+      const provider = globalThis.__mobileWalletHarness.wallets[0].provider;
+      Object.assign(window, { [namespace]: namespace === 'phantom' || namespace === 'trustwallet' ? { ethereum: provider } : provider });
+    }, wallet.namespace);
+    await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+    await expect(page.getByTestId('second-wallet-consumer')).toHaveAttribute('data-address', accountA);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
+    expect((await snapshot(page)).calls[1]).toEqual([]);
+    expect(observation.errors).toEqual([]);
+  });
+}
+
+test('focus retires a replaced passive namespace and restores only the newly validated exact remembered account', async ({ page }) => {
+  await page.addInitScript((address) => {
+    localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
+    localStorage.setItem('fxaeon:browser-wallet-address', address);
+    window.addEventListener('eip6963:requestProvider', () => {
+      Object.assign(window, { okxwallet: globalThis.__mobileWalletHarness.wallets[0].provider });
+    });
+  }, accountA);
+  const observation = await openHarness(page, 'none', '/', '&authorized=1');
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].listenerCount('accountsChanged'))).toBe(1);
+  await page.evaluate((address) => {
+    const h = globalThis.__mobileWalletHarness;
+    h.wallets[1].setAccountsSilently([address]);
+    Object.assign(window, { okxwallet: h.wallets[1].provider });
+    window.dispatchEvent(new Event('focus'));
+  }, accountA);
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].listenerCount('accountsChanged'))).toBe(0);
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].listenerCount('accountsChanged'))).toBe(1);
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
+  expect(observation.errors).toEqual([]);
+});
+
+test('a namespace replacement cancels a held passive restore and validates the new object without waiting for old RPC', async ({ page }) => {
+  await page.addInitScript((address) => {
+    localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
+    localStorage.setItem('fxaeon:browser-wallet-address', address);
+    window.addEventListener('eip6963:requestProvider', () => {
+      const h = globalThis.__mobileWalletHarness;
+      h.wallets[0].holdAccounts = true;
+      Object.assign(window, { okxwallet: h.wallets[0].provider });
+    });
+  }, accountA);
+  const observation = await openHarness(page, 'none', '/', '&authorized=1');
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBeGreaterThan(0);
+  await page.evaluate((address) => {
+    const h = globalThis.__mobileWalletHarness;
+    h.wallets[1].setAccountsSilently([address]);
+    Object.assign(window, { okxwallet: h.wallets[1].provider });
+    window.dispatchEvent(new Event('ethereum#initialized'));
+  }, accountA);
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].listenerCount('accountsChanged'))).toBe(0);
+  await page.evaluate(async () => {
+    const wallet = globalThis.__mobileWalletHarness.wallets[0];
+    wallet.holdAccounts = false; wallet.settleAccounts();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+  });
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].listenerCount('accountsChanged'))).toBe(1);
+  expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
+  expect(observation.errors).toEqual([]);
+});
+
+test('initialization after startup observation still restores silently, while manual disconnect blocks later initialization', async ({ page }) => {
+  await page.addInitScript((address) => {
+    localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
+    localStorage.setItem('fxaeon:browser-wallet-address', address);
+  }, accountA);
+  const observation = await openHarness(page, 'none', '/', '&authorized=1');
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+  await page.waitForTimeout(5_100);
+  await page.evaluate(() => {
+    Object.assign(window, { okxwallet: globalThis.__mobileWalletHarness.wallets[0].provider });
+    window.dispatchEvent(new Event('ethereum#initialized'));
+  });
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  await page.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  const before = (await snapshot(page)).calls.flat();
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('ethereum#initialized'));
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.locator('main')).toHaveAttribute('data-address', '');
+  expect((await snapshot(page)).calls.flat()).toEqual(before);
+  expect(before.filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
+  expect(observation.errors).toEqual([]);
+});
 
 test('selected legacy provider stays pinned after window.ethereum replacement and late discovery', async ({ page }) => {
   const observation = await openHarness(page, 'legacy');
@@ -381,7 +586,7 @@ test('the picker has one logo-and-name row per wallet with no route categories o
 });
 
 for (const [name, rdns] of [['Trust Wallet', 'com.trustwallet.app'], ['Phantom', 'app.phantom']] as const) {
-  test(`detected ${name} and unknown wallets stay deduplicated under Other`, async ({ page }) => {
+  test(`detected ${name} and unknown wallets appear first and stay deduplicated under Other`, async ({ page }) => {
     const observation = await openHarness(page);
     await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
     const primary = page.getByRole('dialog', { name: 'Connect your wallet', exact: true });
@@ -393,12 +598,14 @@ for (const [name, rdns] of [['Trust Wallet', 'com.trustwallet.app'], ['Phantom',
         }));
       }
     }, { name, rdns });
-    await expect(primary.locator('[data-wallet-id]')).toHaveCount(4);
-    await expect(primary.locator('.wallet-provider-option-name').filter({ hasNotText: 'Other wallets' })).toHaveText(primaryNames);
+    await expect(primary.locator('[data-wallet-id]')).toHaveCount(6);
+    await expect(primary.locator('.wallet-provider-option-name').filter({ hasNotText: 'Other wallets' })).toHaveText([name, 'Wallet 1', ...primaryNames]);
+    await expect(primary.locator('.wallet-provider-detected')).toHaveCount(2);
     await expect(primary.getByRole('button', { name: 'Base Wallet', exact: true })).toBeFocused();
-    await expect(primary.getByRole('button', { name, exact: true })).toHaveCount(0);
+    await expect(primary.getByRole('button', { name, exact: true })).toHaveCount(1);
     await showOtherWallets(page);
     const all = page.getByRole('dialog', { name: 'Other wallets', exact: true });
+    await expect(all.locator('[data-wallet-id]').first()).toHaveAttribute('data-wallet-id', name === 'Trust Wallet' ? 'trust' : 'phantom');
     await expect(all.locator('[data-wallet-id]')).toHaveCount(9);
     for (const brand of [...primaryNames, 'Trust Wallet', 'Phantom', 'Rainbow', 'Zerion']) {
       await expect(all.getByRole('button', { name: brand, exact: true })).toHaveCount(1);
@@ -480,36 +687,30 @@ const appDestinations = [
   ['Zerion', 'https://zerion.io/download/'],
   ['OKX', 'https://web3.okx.com/download'],
 ] as const;
-const browserNames = ['MetaMask', 'Trust Wallet', 'Phantom', 'Rabby', 'Rainbow'] as const;
+const browserNames = ['MetaMask', 'Base Wallet', 'OKX', 'Trust Wallet', 'Phantom', 'Rabby', 'Rainbow', 'Zerion'] as const;
 function browserDestinations(path: string): Record<(typeof browserNames)[number], string> {
-  const appUrl = `https://fxaeon.com${path}`;
+  const appUrl = new URL(path, origin).href;
+  const target = new URL(appUrl);
   return {
-    MetaMask: `https://link.metamask.io/dapp/fxaeon.com${path}`,
+    MetaMask: `https://link.metamask.io/dapp/${target.host}${target.pathname}${target.search}${target.hash}`,
+    'Base Wallet': `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(appUrl)}`,
+    OKX: `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(appUrl)}`,
     'Trust Wallet': `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(appUrl)}`,
-    Phantom: `https://phantom.com/ul/browse/${encodeURIComponent(appUrl)}?ref=${encodeURIComponent('https://fxaeon.com')}`,
-    Rabby: `https://go.rabby.io/mobile/?_cmd=open-dapp&dapp=${encodeURIComponent(appUrl)}`,
+    Phantom: `https://phantom.com/ul/browse/${encodeURIComponent(appUrl)}?ref=${encodeURIComponent(target.origin)}`,
+    Rabby: `rabbygo://go.rabby.io/mobile/?_cmd=open-dapp&dapp=${encodeURIComponent(appUrl)}`,
     Rainbow: `https://rnbwapp.com/dapp?url=${encodeURIComponent(appUrl)}`,
+    Zerion: `https://link.zerion.io/?url=${encodeURIComponent(appUrl)}`,
   };
 }
 
 async function interceptExternalNavigation(page: Page) {
   const attempts: Array<{ href: string; sameTab: boolean; userActivated: boolean; connected: boolean }> = [];
   const popups: Page[] = [];
-  const navigationStates = new Map<string, Array<{ userActivated: boolean; connected: boolean }>>();
-  const navigationStateWaiters = new Map<string, Array<(state: { userActivated: boolean; connected: boolean }) => void>>();
   page.on('popup', (popup) => popups.push(popup));
-  await page.exposeBinding('__captureWalletNavigation', (_source, state: {
+  await page.exposeBinding('__captureWalletNavigation', (source, state: {
     href: string; userActivated: boolean; connected: boolean;
   }) => {
-    const captured = { userActivated: state.userActivated, connected: state.connected };
-    const waiters = navigationStateWaiters.get(state.href);
-    const resolve = waiters?.shift();
-    if (resolve) {
-      resolve(captured);
-      if (!waiters?.length) navigationStateWaiters.delete(state.href);
-    } else {
-      navigationStates.set(state.href, [...(navigationStates.get(state.href) ?? []), captured]);
-    }
+    attempts.push({ ...state, sameTab: source.frame === page.mainFrame() });
   });
   await page.addInitScript(() => {
     // Observe activation during the real navigation event. Reading it through
@@ -517,35 +718,30 @@ async function interceptExternalNavigation(page: Page) {
     const navigation = (window as Window & { navigation?: EventTarget }).navigation;
     navigation?.addEventListener('navigate', (event) => {
       const destination = (event as Event & { destination?: { url?: string } }).destination?.url;
+      if (!destination || new URL(destination).origin === location.origin) return;
       const capture = (window as Window & { __captureWalletNavigation?: (state: {
         href: string; userActivated: boolean; connected: boolean;
       }) => Promise<void> }).__captureWalletNavigation;
-      if (destination && capture) void capture({
+      if (capture) void capture({
         href: destination,
         userActivated: navigator.userActivation.isActive,
         connected: document.querySelector('main')?.getAttribute('data-connected') === 'true',
       });
+      // Cancel both native schemes and HTTPS universal links at the actual
+      // navigation boundary. A routed 204 can leave newer Playwright versions
+      // waiting for a document navigation that never commits.
+      event.preventDefault();
     });
   });
-  // Intercept every external request, including a wrong destination, before it
-  // reaches a wallet site. A 204 leaves this document available for retry/back.
+  // Safety net for regressed popups/resources or a non-cancelable navigation.
+  // Expected same-tab handoffs above must produce no external HTTP request.
   await page.context().route('**/*', async (route) => {
     const request = route.request();
     if (new URL(request.url()).origin === origin) { await route.continue(); return; }
     let sameTab = false;
     try { sameTab = request.isNavigationRequest() && request.frame() === page.mainFrame(); }
     catch { /* A regressed popup may request before its frame exists; still intercept it. */ }
-    let state = { userActivated: false, connected: false };
-    if (sameTab) {
-      const queued = navigationStates.get(request.url());
-      state = queued?.shift() ?? await new Promise<{ userActivated: boolean; connected: boolean }>((resolve) => {
-        const waiters = navigationStateWaiters.get(request.url()) ?? [];
-        waiters.push(resolve);
-        navigationStateWaiters.set(request.url(), waiters);
-      });
-      if (!queued?.length) navigationStates.delete(request.url());
-    }
-    attempts.push({ href: request.url(), sameTab, ...state });
+    attempts.push({ href: request.url(), sameTab, userActivated: false, connected: false });
     await route.fulfill({ status: 204 });
   });
   return { attempts, popups };
@@ -580,29 +776,37 @@ for (const environment of ['mobile', 'unknown'] as const) {
     await trigger.click();
     await page.getByRole('button', { name: 'Other wallets', exact: true }).click();
     for (const [name, appHref] of appDestinations) {
+      const safeDappUrl = new URL(originalUrl); safeDappUrl.searchParams.delete('tgWebAppData');
       const browserHref = environment === 'mobile' && browserNames.some((candidate) => candidate === name)
-        ? browserDestinations('/earn')[name as (typeof browserNames)[number]] : undefined;
+        ? browserDestinations(safeDappUrl.href)[name as (typeof browserNames)[number]] : undefined;
       const href = browserHref ?? appHref;
       const before = navigation.attempts.length;
       await page.getByRole('button', { name, exact: true }).click({ noWaitAfter: true });
-      await expect.poll(() => navigation.attempts.length).toBe(before + 1);
+      if (browserHref) await expect.poll(() => navigation.attempts.length).toBe(before + 1);
+      else expect(navigation.attempts).toHaveLength(before);
       const dialog = page.getByRole('dialog', { name, exact: true });
       await expect(dialog).toHaveAttribute('data-wallet-view', 'handoff');
-      await expect(dialog.getByRole('status')).toHaveText(browserHref ? `Opening ${name}…` : `Opening ${name}’s official app page.`);
+      await expect(dialog.getByRole('status')).toHaveText(browserHref ? `Opening ${name}…` : `Open FxAeon in ${name}’s browser to connect. Use the app guide or install the wallet below.`);
       await expect(dialog.getByRole('alert')).toHaveCount(0);
-      await expect(dialog.locator('a')).toHaveCount(0);
-      await expect(dialog.getByText(/install|extension|walletconnect|QR code|manually|copy|paste|reopen/i)).toHaveCount(0);
       const back = dialog.getByRole('button', { name: 'Back to Other wallets', exact: true });
       await expect(back).toBeFocused();
-      const retry = dialog.getByRole('button', { name: `Open ${name}`, exact: true });
-      await retry.click({ noWaitAfter: true });
-      await expect.poll(() => navigation.attempts.length).toBe(before + 2);
-      await expect(retry).toBeFocused();
-      expect(navigation.attempts.slice(before)).toEqual([
-        { href, sameTab: true, userActivated: true, connected: false },
-        { href, sameTab: true, userActivated: true, connected: false },
-      ]);
-      expect(decodeURIComponent(href)).not.toMatch(/private-query|private-hash|tgWebAppData|browser-extension|\/extension(?:[/?#]|$)/);
+      await dialog.getByText('Connection help', { exact: true }).click();
+      await expect(dialog.getByRole('link', { name: `Install ${name}`, exact: true })).toHaveAttribute('href', name === 'Rabby' ? 'https://rabby.io/?platform=mobile' : appHref);
+      await expect(dialog.getByRole('link', { name: 'Wallet guide', exact: true })).toBeVisible();
+      await expect(dialog.getByRole('button', { name: 'Copy FxAeon link', exact: true })).toBeVisible();
+      if (browserHref) {
+        const retry = dialog.getByRole('button', { name: `Open ${name}`, exact: true });
+        await retry.click({ noWaitAfter: true });
+        await expect.poll(() => navigation.attempts.length).toBe(before + 2);
+        await expect(retry).toBeFocused();
+        expect(navigation.attempts.slice(before)).toEqual([
+          { href, sameTab: true, userActivated: true, connected: false },
+          { href, sameTab: true, userActivated: true, connected: false },
+        ]);
+      } else {
+        await expect(dialog.getByRole('button', { name: `Open ${name}`, exact: true })).toHaveCount(0);
+      }
+      expect(decodeURIComponent(href)).not.toMatch(/private-query|tgWebAppData|browser-extension|\/extension(?:[/?#]|$)/);
       await expectNoNavigationSession(page);
       await page.evaluate(async () => {
         globalThis.__mobileWalletHarness.rerender?.();
@@ -610,14 +814,14 @@ for (const environment of ['mobile', 'unknown'] as const) {
         document.dispatchEvent(new Event('visibilitychange'));
         await new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
       });
-      expect(navigation.attempts).toHaveLength(before + 2);
+      expect(navigation.attempts).toHaveLength(before + (browserHref ? 2 : 0));
       await back.click();
       await expect(page.getByRole('button', { name, exact: true })).toBeFocused();
       expect(page.url()).toBe(originalUrl);
     }
     await expectNoNavigationSession(page);
     expect(navigation.popups).toHaveLength(0);
-    expect(observation.requests.filter((url) => new URL(url).origin !== origin)).toEqual(navigation.attempts.map(({ href }) => href));
+    expect(observation.requests.filter((url) => new URL(url).origin !== origin)).toEqual([]);
     expect(observation.errors).toEqual([]);
     await page.getByRole('button', { name: 'Close wallet selection', exact: true }).click();
     await expect(trigger).toBeFocused();
@@ -659,13 +863,18 @@ test('desktop absent-wallet selection opens only its official installation page 
     const dialog = page.getByRole('dialog', { name, exact: true });
     await expect(dialog).toHaveAttribute('data-wallet-view', 'handoff');
     await expect(dialog.getByRole('status')).toHaveText(`Opening ${name}’s official download page.`);
-    await expect(dialog.locator('a')).toHaveCount(0);
+    await dialog.getByText('Connection help', { exact: true }).click();
+    const install = dialog.getByRole('link', { name: `Install ${name}`, exact: true });
+    await expect(install).toHaveAttribute('href', href);
+    await expect(dialog.getByRole('link', { name: 'Wallet guide', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: `Open ${name}`, exact: true })).toHaveCount(0);
     const retryPopup = page.waitForEvent('popup');
-    await dialog.getByRole('button', { name: `Open ${name}`, exact: true }).click();
+    await install.click();
     const retryPage = await retryPopup;
     await expect(retryPage).toHaveURL(href);
     expect(await retryPage.evaluate(() => window.opener === null)).toBe(true);
     await retryPage.close();
+    await expect(install).toBeFocused();
     await expectNoNavigationSession(page);
     expect(page.url()).toBe(route);
     await dialog.getByRole('button', { name: 'Back to Other wallets', exact: true }).click();
@@ -680,8 +889,9 @@ for (const path of ['/', '/earn', '/unsupported']) {
     test(`${name} mobile handoff selects one verified safe destination from ${path} without claiming a connection`, async ({ page }) => {
       const navigation = await interceptExternalNavigation(page);
       const observation = await openHarness(page, 'multiple', path, '&tgWebAppData=private-query#private-hash', 'mobile');
-      const destinationPath = path === '/earn' ? '/earn' : '/';
-      const href = browserDestinations(destinationPath)[name];
+      const currentUrl = page.url();
+      const safeDappUrl = new URL(currentUrl); safeDappUrl.searchParams.delete('tgWebAppData');
+      const href = browserDestinations(safeDappUrl.href)[name];
       await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
       if (!primaryNames.includes(name)) await page.getByRole('button', { name: 'Other wallets', exact: true }).click();
       await page.getByRole('button', { name, exact: true }).click({ noWaitAfter: true });
@@ -690,7 +900,8 @@ for (const path of ['/', '/earn', '/unsupported']) {
       await expect(page.getByRole('dialog', { name, exact: true })).toHaveAttribute('data-wallet-view', 'handoff');
       await expectNoNavigationSession(page);
       expect(navigation.popups).toHaveLength(0);
-      expect(decodeURIComponent(navigation.attempts[0].href)).not.toMatch(/private-query|private-hash|tgWebAppData/);
+      expect(decodeURIComponent(navigation.attempts[0].href)).not.toMatch(/tgWebAppData|private-query/);
+      if (name === 'Rabby') expect(new URL(navigation.attempts[0].href).searchParams.get('dapp')).toBe(safeDappUrl.href);
       expect(observation.errors).toEqual([]);
     });
   }
@@ -708,18 +919,61 @@ for (const profile of ['Pixel 7', 'iPhone 13'] as const) {
       await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
       await page.getByRole('button', { name: 'Rabby', exact: true }).click({ noWaitAfter: true });
       await expect.poll(() => navigation.attempts.length).toBe(1);
-      expect(navigation.attempts[0]).toEqual({ href: browserDestinations('/trade').Rabby, sameTab: true, userActivated: true, connected: false });
+      expect(navigation.attempts[0]).toEqual({ href: browserDestinations(page.url()).Rabby, sameTab: true, userActivated: true, connected: false });
       await page.getByRole('button', { name: 'Back to wallets', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Rabby', exact: true })).toBeFocused();
       await page.getByRole('button', { name: 'Base Wallet', exact: true }).click({ noWaitAfter: true });
       await expect.poll(() => navigation.attempts.length).toBe(2);
-      expect(navigation.attempts[1]).toEqual({ href: 'https://wallet.coinbase.com/download', sameTab: true, userActivated: true, connected: false });
+      expect(navigation.attempts[1]).toEqual({ href: browserDestinations(page.url())['Base Wallet'], sameTab: true, userActivated: true, connected: false });
       await expectNoNavigationSession(page);
       expect(navigation.popups).toHaveLength(0);
       expect(observation.errors).toEqual([]);
     });
   });
 }
+
+for (const name of ['Base Wallet', 'OKX', 'Zerion']) {
+  test(`${name} mobile tap opens the current FxAeon route in its wallet browser without claiming a connection`, async ({ page }) => {
+    const navigation = await interceptExternalNavigation(page);
+    await openHarness(page, 'none', '/positions', '&position=ETH%3Along%3A2033#review', 'mobile');
+    await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    if (!primaryNames.includes(name)) await showOtherWallets(page);
+    await page.getByRole('button', { name, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name, exact: true });
+    await expect(dialog).toHaveAttribute('data-wallet-view', 'handoff');
+    await expect(dialog).toContainText(`Opening ${name}…`);
+    await expect.poll(() => navigation.attempts.length).toBe(1);
+    expect(navigation.attempts[0]).toEqual({ href: browserDestinations(page.url())[name as (typeof browserNames)[number]], sameTab: true, userActivated: true, connected: false });
+    expect(navigation.popups).toHaveLength(0);
+    await expectNoNavigationSession(page);
+  });
+}
+
+test('wallet guidance copies the safe current FxAeon route and shows a selectable URL when clipboard access fails', async ({ page }) => {
+  await openHarness(page, 'none', '/positions', '&position=ETH%3Along%3A2033&tgWebAppData=launch-proof&access_token=auth-secret#review?tgWebAppVersion=8&tab=details', 'unknown');
+  const expected = `${origin}/positions?wallets=none&position=ETH%3Along%3A2033#review?tab=details`;
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      writeText: async (value: string) => { (window as Window & { __copiedDapp?: string }).__copiedDapp = value; },
+    } });
+  });
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await page.getByRole('button', { name: 'OKX', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'OKX', exact: true });
+  await dialog.getByText('Connection help', { exact: true }).click();
+  await dialog.getByRole('button', { name: 'Copy FxAeon link', exact: true }).click();
+  await expect(dialog.getByText('FxAeon link copied.', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as Window & { __copiedDapp?: string }).__copiedDapp)).toBe(expected);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Permission denied'); } } });
+    document.execCommand = () => false;
+  });
+  await dialog.getByRole('button', { name: 'Copy FxAeon link', exact: true }).click();
+  await expect(dialog.getByText('Copy was blocked. Select the link below to copy it.', { exact: true })).toBeVisible();
+  await expect(dialog.locator('code')).toHaveText(expected);
+  expect(await dialog.locator('code').evaluate(element => getComputedStyle(element).userSelect)).not.toBe('none');
+  await expectNoNavigationSession(page);
+});
 
 for (const rdns of ['io.metamask', 'io.metamask.mobile']) {
   test(`handoff retry resolves fresh ${rdns} injection without automatically connecting or reopening a link`, async ({ page }) => {
@@ -755,7 +1009,8 @@ for (const identities of [['io.metamask', 'io.metamask'], ['io.metamask', 'io.me
       }));
     }, identities);
     await expect(page.getByRole('button', { name: 'MetaMask', exact: true })).toHaveCount(1);
-    await expect(page.getByRole('dialog').locator('[data-wallet-id]')).toHaveCount(4);
+    await expect(page.getByRole('button', { name: 'MetaMask', exact: true }).locator('.wallet-provider-detected')).toHaveCount(0);
+    await expect(page.getByRole('dialog').locator('[data-wallet-id]')).toHaveCount(5);
     await page.getByRole('button', { name: 'MetaMask', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveAttribute('data-wallet-view', 'error');
     await expect(page.getByRole('alert')).toBeVisible();
@@ -940,6 +1195,37 @@ test('late discovery in Other wallets requires an explicit selection', async ({ 
   await expect(page.locator('main')).toHaveAttribute('data-address', accountB);
 });
 
+test('recovery focus trap excludes closed help controls and follows the disclosure when opened', async ({ page }) => {
+  const observation = await openHarness(page, 'none', '/', '', 'unknown');
+  const trigger = page.getByRole('button', { name: 'Connect wallet', exact: true });
+  await trigger.click();
+  await page.getByRole('button', { name: 'MetaMask', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'MetaMask', exact: true });
+  const back = dialog.getByRole('button', { name: 'Back to wallets', exact: true });
+  const summary = dialog.locator('.wallet-provider-recovery > summary');
+  await expect(dialog.locator('details')).not.toHaveAttribute('open');
+  await back.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(summary).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(back).toBeFocused();
+  await summary.click();
+  const guide = dialog.getByRole('link', { name: 'Wallet guide', exact: true });
+  await back.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(guide).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(back).toBeFocused();
+  await summary.click();
+  await back.focus();
+  await page.keyboard.press('Shift+Tab');
+  await expect(summary).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(observation.errors).toEqual([]);
+});
+
 test('keyboard focus wraps and Escape quietly cancels the whole picker', async ({ page }) => {
   await openHarness(page, 'multiple');
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
@@ -979,8 +1265,8 @@ for (const theme of ['official', 'dark', 'light'] as const) {
       expect(geometry.right).toBeLessThanOrEqual(viewport.width);
       expect(geometry.bottom).toBeLessThanOrEqual(viewport.height);
       expect(geometry.overflows).toBe(false);
-      expect(geometry.width).toBe(viewport.width <= 600 ? viewport.width : 440);
-      if (viewport.width <= 600) expect(geometry.bottom).toBe(viewport.height);
+      expect(geometry.width).toBe(Math.min(380, viewport.width - (viewport.width <= 600 ? 24 : 40)));
+      expect(Math.abs((geometry.left + geometry.right) / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
       for (const control of geometry.controls) { expect(control.width).toBeGreaterThanOrEqual(44); expect(control.height).toBeGreaterThanOrEqual(44); }
       expect(observation.requests.every((url) => new URL(url).origin === origin)).toBe(true);
       expect(observation.errors).toEqual([]);
@@ -1029,11 +1315,15 @@ for (const enlarged of [false, true]) {
       for (const control of await dialog.locator('button, input').all()) {
         await control.scrollIntoViewIfNeeded();
         await expect(control).toBeInViewport();
-        expect(await control.evaluate((element) => {
+        const measurement = await control.evaluate((element) => {
           const rect = element.getBoundingClientRect();
           const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + Math.min(rect.height / 2, 22));
-          return rect.width >= 44 && rect.height >= 44 && Boolean(hit && element.contains(hit));
-        })).toBe(true);
+          return { name: element.getAttribute('aria-label') || element.textContent?.trim(),
+            width: rect.width, height: rect.height, top: rect.top,
+            touchTarget: rect.width >= 44 && rect.height >= 44,
+            hittable: Boolean(hit && element.contains(hit)), hitTag: hit?.tagName };
+        });
+        expect(measurement, JSON.stringify(measurement)).toMatchObject({ touchTarget: true, hittable: true });
       }
       expect(await dialog.evaluate((element) => {
         const content = element.querySelector('.wallet-provider-chooser-content')!;

@@ -12,6 +12,7 @@ import { usePrivyWallet } from '@/lib/wallet';
 import styles from '@/components/UtilitySurfaces.module.css';
 import WalletConnectCTA from '@/components/WalletConnectCTA';
 import { StickyAction } from '@/components/StickyAction';
+import { PageHeading } from '@/components/ProductUI';
 
 /**
  * Receive screen. The address is read from the selected Privy wallet only;
@@ -20,7 +21,8 @@ import { StickyAction } from '@/components/StickyAction';
  */
 export default function QRPage() {
   return (
-    <AppShell title="Receive" subtitle="Receive tokens to your wallet">
+    <AppShell>
+      <PageHeading title="Receive" backHref="/more" visible />
       <WalletQr />
     </AppShell>
   );

@@ -6,7 +6,7 @@ import { isTelegramLaunchContext } from '@/lib/telegram';
 import type { Client } from 'viem';
 import { getPublicClient } from '@/lib/fx/clients';
 import { createBrowserWagmiSessionOwner, type Candidate, type DisplayProjection } from './browserWagmiSessionOwner';
-import { readWalletProviderSnapshot } from './walletProviderSnapshot';
+import { readWalletProviderSnapshot, readLegacyWalletProviderSnapshot } from './walletProviderSnapshot';
 import { walletIdentityRdns } from './walletIdentity';
 import { getDiscoveredEip6963Providers, recordEip6963Announcement, type Eip6963Announcement } from './eip6963';
 import { buildWalletChoices, type WalletChoice } from './walletCatalog';
@@ -52,6 +52,10 @@ function legacyBrowserProvider(): Eip1193Provider | undefined {
     const candidate = typeof window === 'undefined' ? undefined : window.ethereum;
     return typeof candidate?.request === 'function' ? candidate : undefined;
   } catch { return undefined; }
+}
+
+function legacyBrowserProviders() {
+  return readLegacyWalletProviderSnapshot(providerSnapshot(), typeof window === 'undefined' ? undefined : window);
 }
 
 const BROWSER_ADDRESS_KEY = 'fxaeon:browser-wallet-address';
@@ -133,6 +137,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
   const [session, setSession] = useState<DisplayProjection>();
   const [connectionVersion, setConnectionVersion] = useState(0);
   const connectAttemptRef = useRef(0);
+  const chosenWalletRef = useRef<WalletChoice | null>(null);
   const restoreAbortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
   const ownerRef = useRef<SessionOwner | null>(null);
@@ -178,8 +183,10 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     if (!allowTelegramHost && isTelegramLaunchContext()) { setReady(true); return; }
     let mounted = true;
     let restoring = false;
+    let restoringProvider: Eip1193Provider | undefined;
+    let restoreAgain = false;
     const restore = async () => {
-      if (!mounted || restoring || owner.getActiveConfig() || connection.getState().status !== 'closed'
+      if (!mounted || owner.getActiveConfig() || connection.getState().status !== 'closed'
         || readPreference(BROWSER_DISCONNECTED_KEY) === '1') return;
       const preferred = readPreference(BROWSER_PROVIDER_KEY);
       const screenshot = configuredScreenshotProvider();
@@ -188,8 +195,18 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       if (!preferredAddress) return;
       const choice = savedWalletChoice(preferred);
       const target = screenshot ?? choice?.provider;
+      if (restoring) {
+        // A delayed read from an obsolete namespace must not block a new
+        // exact provider indefinitely. Its facade consumes the old RPC result.
+        if (target !== restoringProvider) {
+          restoreAgain = true;
+          restoreAbortRef.current?.abort();
+        }
+        return;
+      }
       if (!target) return;
       restoring = true;
+      restoringProvider = target;
       const controller = new AbortController();
       restoreAbortRef.current = controller;
       const attempt = connectAttemptRef.current;
@@ -206,12 +223,18 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       } catch { if (candidate) owner.discard(candidate); }
       finally {
         restoring = false;
+        restoringProvider = undefined;
         if (restoreAbortRef.current === controller) restoreAbortRef.current = null;
         if (mounted) setReady(true);
+        if (restoreAgain) { restoreAgain = false; void restore(); }
       }
     };
     const reconcile = () => {
       if (!mounted || document.visibilityState === 'hidden' || connection.getState().status !== 'closed') return;
+      // Compatibility namespaces can change without an EIP-6963 announcement.
+      // Retire a stale passive owner before attempting fresh saved discovery;
+      // explicit selections retain their accepted exact-object authority.
+      if (owner.getActiveConfig() && !owner.hasCurrentIdentity()) owner.invalidateForDiscovery();
       if (owner.getActiveConfig()) void owner.reconcile().catch(() => undefined);
       else void restore();
     };
@@ -223,13 +246,29 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       void restore();
     });
     const initial = window.setTimeout(() => { if (mounted) setReady(true); void restore(); }, 200);
+    // Mobile wallet bridges can assign their documented namespace after the
+    // shell becomes ready, without an announcement or initialization event.
+    // Observe startup changes for a bounded window; never repeatedly retry a
+    // present but unauthorized provider, or prompt from saved preferences.
+    let startupProvider = savedWalletChoice(readPreference(BROWSER_PROVIDER_KEY))?.provider;
+    const startupPoll = window.setInterval(() => {
+      const next = savedWalletChoice(readPreference(BROWSER_PROVIDER_KEY))?.provider;
+      if (next === startupProvider) return;
+      startupProvider = next;
+      if (!owner.getActiveConfig() || !owner.hasCurrentIdentity()) reconcile();
+    }, 200);
+    const stopStartupPoll = window.setTimeout(() => window.clearInterval(startupPoll), 5_000);
     window.addEventListener('focus', reconcile);
+    window.addEventListener('ethereum#initialized', reconcile);
     document.addEventListener('visibilitychange', reconcile);
     return () => {
       mounted = false;
       window.clearTimeout(initial);
+      window.clearInterval(startupPoll);
+      window.clearTimeout(stopStartupPoll);
       stopDiscovery();
       window.removeEventListener('focus', reconcile);
+      window.removeEventListener('ethereum#initialized', reconcile);
       document.removeEventListener('visibilitychange', reconcile);
       restoreAbortRef.current?.abort();
       restoreAbortRef.current = null;
@@ -242,11 +281,12 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     // Namespace/global assignments have no standard event. Observe identities
     // only while the picker is visible; selection always takes a fresh read.
     let previous = providerSnapshot();
-    let legacy = legacyBrowserProvider();
+    let legacy = legacyBrowserProviders();
     const timer = window.setInterval(() => {
       const next = providerSnapshot();
-      const nextLegacy = legacyBrowserProvider();
-      if (nextLegacy === legacy && next.length === previous.length
+      const nextLegacy = legacyBrowserProviders();
+      if (nextLegacy.length === legacy.length && nextLegacy.every((item, index) => item.provider === legacy[index].provider && item.name === legacy[index].name)
+        && next.length === previous.length
         && next.every((item, index) => item.provider === previous[index].provider && item.rdns === previous[index].rdns)) return;
       previous = next; legacy = nextLegacy;
       if (owner.getActiveConfig() && !owner.hasCurrentIdentity()) owner.invalidateForDiscovery();
@@ -308,6 +348,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     sendTransaction,
   }), [session, connectionState, connect, connectionVersion, disconnect, ready, selectedWallet, sendTransaction, switchChain]);
   const chooseWallet = useCallback((choice: WalletChoice) => {
+    chosenWalletRef.current = choice;
     const environment = resolveWalletEnvironment({
       userAgent: navigator.userAgent, platform: navigator.platform,
       maxTouchPoints: navigator.maxTouchPoints,
@@ -319,18 +360,21 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       // An explicitly chosen legacy object remains pinned after promotion;
       // a different global must neither replace it nor become its signer.
       legacyProvider: accepted && choice.source === 'legacy' ? choice.provider : legacyBrowserProvider(),
+      legacyProviders: accepted && choice.source === 'legacy' && choice.provider ? [choice.provider] : legacyBrowserProviders().map(item => item.provider),
       environment, pathname: window.location.pathname,
+      location: { href: window.location.href, origin: window.location.origin },
     });
     const route = resolve();
     if (route.kind === 'browser' || route.kind === 'install' || route.kind === 'download') {
       connection.handoff(choice, route.message, () => {
+        if (route.kind === 'download' && route.canReopen === false) return;
         if (route.kind !== 'install') window.location.assign(route.href);
         else {
           const link = document.createElement('a');
           link.href = route.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
           link.click();
         }
-      });
+      }, { fallbackHref: route.fallbackHref, guideHref: route.guideHref, dappHref: route.dappHref, canReopen: route.canReopen ?? false });
       return;
     }
     connection.select(choice, async (signal) => {
@@ -360,8 +404,14 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     if (owner.cancelDisconnectedSession()) savePreference(BROWSER_DISCONNECTED_KEY, '1');
     connection.back();
   }, [connection, owner]);
-  const choices = buildWalletChoices(providerSnapshot(), legacyBrowserProvider());
-  const pending = connectionState.status === 'pending' || connectionState.status === 'error' || connectionState.status === 'handoff' ? connectionState : null;
+  const choices = buildWalletChoices(providerSnapshot(), legacyBrowserProviders());
+  const pendingState = connectionState.status === 'pending' || connectionState.status === 'error' || connectionState.status === 'handoff' ? connectionState : null;
+  // A legacy object may announce EIP-6963 while approval is pending. Its
+  // canonical row replaces the neutral row, but retry still selects only that
+  // same object; a replacement provider cannot inherit the previous choice.
+  const promotedChoice = pendingState && chosenWalletRef.current?.source === 'legacy' && chosenWalletRef.current.provider
+    ? choices.find(choice => choice.provider === chosenWalletRef.current?.provider) : undefined;
+  const pending = pendingState && promotedChoice ? { ...pendingState, walletId: promotedChoice.id, name: promotedChoice.name } : pendingState;
   return createElement(
     FxWalletContext.Provider,
     { value: wallet },

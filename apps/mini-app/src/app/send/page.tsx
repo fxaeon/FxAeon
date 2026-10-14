@@ -66,19 +66,52 @@ function SendForm() {
   const [tier, setTier] = useState<GasTier>(readGasTier);
   const [quote, setQuote] = useState<SendQuote | null>(null);
   const [busy, setBusy] = useState(false);
+  const [awaitingSignature, setAwaitingSignature] = useState(false);
   const [error, setError] = useState('');
   const [amountEntryError, setAmountEntryError] = useState('');
   const [hash, setHash] = useState<string | null>(null);
+  const [quoteExpired, setQuoteExpired] = useState(false);
   const recipientHintId = useId();
   const mounted = useRef(true);
   const identity = `${wallet.address?.toLowerCase()}:${wallet.connectionVersion}`;
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
   const lock = useRef(false);
+  const attempt = useRef(0);
+  const signing = useRef(false);
+  const requestedNetwork = useRef<{ walletKey: string; chainId: number } | null>(null);
+  const walletKey = `${identity}:${wallet.isEmbedded}:${wallet.isEmbedded ? tier : ''}`;
+  const context = `${identity}:${wallet.chainId}:${wallet.isEmbedded}:${wallet.isEmbedded ? tier : ''}`;
+  const liveContext = useRef(context);
+  liveContext.current = context;
+  const previousContext = useRef(context);
+  const acceptedContext = useRef<string | null>(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
+    if (previousContext.current === context) return;
+    previousContext.current = context;
+    const requested = requestedNetwork.current;
+    requestedNetwork.current = null;
+    if (requested?.walletKey === walletKey && requested.chainId === wallet.chainId) return;
+    // The send adapter may deliberately switch chains inside its wallet request.
+    // Before that boundary, changed wallet/network/fee terms require a new review.
+    if (signing.current || hash || !quote && !lock.current) return;
+    attempt.current += 1;
+    lock.current = false;
+    setBusy(false);
+    acceptedContext.current = null;
+    setQuote(null);
+    setError('Wallet, network, or fee preference changed. Review the transfer again.');
+  }, [context, hash, quote, wallet.chainId, walletKey]);
+  useEffect(() => {
+    setQuoteExpired(false);
+    if (!quote) return;
+    const timer = window.setTimeout(() => setQuoteExpired(true), Math.max(0, quote.validUntil - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [quote]);
+  useEffect(() => {
     const sync = (event: Event) => {
-      if (event.type === 'storage' && (event as StorageEvent).key !== SETTINGS_KEY) return;
+      if (event.type === 'storage' && (event as StorageEvent).key !== null && (event as StorageEvent).key !== SETTINGS_KEY) return;
       setTier(readGasTier());
     };
     window.addEventListener(SETTINGS_UPDATED_EVENT, sync);
@@ -107,27 +140,36 @@ function SendForm() {
               : !trimmedRecipient ? 'Enter a recipient'
                 : !recipientValid ? 'Enter a valid address'
                   : null;
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: (isCurrent: () => boolean) => Promise<void>) => {
     if (lock.current) return;
-    lock.current = true; setBusy(true); setError('');
-    try { await action(); } catch (cause) { if (current()) setError(userSafeError(cause, 'Transfer could not be prepared. Try again.')); }
-    finally { lock.current = false; if (current()) setBusy(false); }
+    const generation = ++attempt.current;
+    requestedNetwork.current = null;
+    const isCurrent = () => current() && attempt.current === generation && liveContext.current === context
+      && (!wallet.isEmbedded || readGasTier() === tier);
+    lock.current = true; setBusy(true); setAwaitingSignature(false); setError('');
+    try { await action(isCurrent); } catch (cause) {
+      if (current() && attempt.current === generation) {
+        setError(userSafeError(cause, 'Transfer could not be prepared. Try again.'));
+        if (signing.current) setQuoteExpired(true);
+      }
+    }
+    finally { if (attempt.current === generation) { lock.current = false; signing.current = false; if (current()) { setBusy(false); setAwaitingSignature(false); } } }
   };
-  const maximum = () => void run(async () => {
+  const maximum = () => void run(async (isCurrent) => {
     setAmountEntryError('');
     if (!asset) return;
     if (asset.tokenAddress || !wallet.address) { setAmount(asset.balance); return; }
     // Until a recipient is entered, cost a transfer back to this wallet. A plain ETH
     // transfer costs the same, and review re-quotes the real recipient before signing.
     const estimate = await prepareWalletSend(input('0.000000000000000001', recipientValid ? trimmedRecipient : wallet.address));
-    if (!current()) return;
+    if (!isCurrent()) return;
     const reserve = estimate.requiredNative - 1n;
     if (asset.balanceWei <= reserve) throw new Error('Not enough ETH for network cost.');
     setAmount(formatUnits(asset.balanceWei - reserve, asset.decimals));
   });
-  const review = () => void run(async () => {
-    const result = await prepareWalletSend(input());
-    if (current()) setQuote(result);
+  const review = () => void run(async (isCurrent) => {
+    const result = await prepareWalletSend(quote ? { ...quote.input, tier: wallet.isEmbedded ? tier : 'standard' } : input());
+    if (isCurrent()) { acceptedContext.current = context; setQuote(result); }
   });
   // No form element wraps the card, so Enter in either field asks for the review, as a submit would.
   const reviewOnEnter = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -135,17 +177,28 @@ function SendForm() {
     event.preventDefault();
     if (!busy && blocker === null) review();
   };
-  const confirm = () => void run(async () => {
-    if (!quote || !current()) return;
+  const confirm = () => void run(async (isCurrent) => {
+    if (!quote || !isCurrent()) return;
+    if (acceptedContext.current !== context) {
+      setQuote(null);
+      setError('Wallet, network, or fee preference changed. Review the transfer again.');
+      return;
+    }
+    if (quote.validUntil <= Date.now()) { setQuoteExpired(true); return; }
     await withWalletChainLock({ walletAddress: quote.input.walletAddress, chainId: quote.input.chainId, requireWebLocks: true, run: async (assertOwned) => {
-    if (!current()) return;
+    if (!isCurrent()) return;
     // Rebuild only from the immutable reviewed input. A changed account cannot sign it.
     const fresh = await prepareWalletSend(quote.input);
-    if (!current()) return;
-    if (fresh.requiredNative > quote.requiredNative) {
+    if (!isCurrent()) return;
+    if (fresh.validUntil <= Date.now()) throw new Error('Network fee quote expired. Review the transfer again.');
+    if (fresh.requiredNative > quote.requiredNative || fresh.estimatedFee > quote.estimatedFee
+      || wallet.isEmbedded && (fresh.maxFeePerGas > quote.maxFeePerGas || fresh.maxPriorityFeePerGas > quote.maxPriorityFeePerGas)) {
       setQuote(fresh); throw new Error('Network cost changed. Review the updated amount.');
     }
     assertOwned();
+    signing.current = true;
+    requestedNetwork.current = { walletKey, chainId: quote.input.chainId };
+    setAwaitingSignature(true);
     const result = await wallet.sendTransaction({ from: quote.input.walletAddress, chainId: quote.input.chainId, to: fresh.to, data: fresh.data, value: fresh.value, nonce: fresh.nonce,
       ...(wallet.isEmbedded ? { nonce: fresh.nonce, gasLimit: fresh.gas, maxFeePerGas: fresh.maxFeePerGas, maxPriorityFeePerGas: fresh.maxPriorityFeePerGas } : {}) },
     { description: `Send ${quote.input.amount} ${quote.symbol} to ${quote.input.recipient}`, action: 'Send', buttonText: 'Confirm' });
@@ -188,7 +241,7 @@ function SendForm() {
         <div><dt>Network cost</dt><dd>≈ {formatSignificantDecimalUp(formatEther(quote.estimatedFee), 3)} ETH</dd></div>
       </dl>
     </> : <>
-      <div className={styles.cardHead}><h2>Send to a wallet</h2><TransactionSettings /></div>
+      <div className={styles.cardHead}><h2>Send to a wallet</h2><TransactionSettings scope="Send" chainId={asset?.chainId ?? 1} /></div>
       <div className={styles.amountPanel}>
         <div className={styles.panelHead}>
           <label htmlFor="send-amount">Amount</label>
@@ -217,6 +270,7 @@ function SendForm() {
       </div>
     </>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    <StickyAction><button type="button" className={`button button-primary ${styles.action}`} aria-busy={busy || undefined} disabled={busy || !quote && blocker !== null} onClick={quote ? confirm : review}>{busy ? quote ? 'Confirm in wallet' : 'Preparing' : quote ? 'Confirm' : blocker ?? <>Review<ChevronRight aria-hidden="true" /></>}</button></StickyAction>
+    {quote && quoteExpired && <p role="status" className={styles.hint}>{quote.validUntil <= Date.now() ? 'Network fee quote expired. ' : ''}Review an updated fee before confirming.</p>}
+    <StickyAction><button type="button" className={`button button-primary ${styles.action}`} aria-busy={busy || undefined} disabled={busy || !quote && blocker !== null} onClick={quote && !quoteExpired ? confirm : review}>{busy ? awaitingSignature ? 'Confirm in wallet' : 'Preparing' : quote ? quoteExpired ? 'Review updated fee' : 'Confirm' : blocker ?? <>Review<ChevronRight aria-hidden="true" /></>}</button></StickyAction>
   </section>;
 }

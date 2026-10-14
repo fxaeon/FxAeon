@@ -18,10 +18,11 @@ function declarations(css: string, selector: string): Map<string, string> {
 }
 
 const rootTokens = declarations(globalsCss, ':root');
+const lightTokens = new Map([...rootTokens, ...declarations(globalsCss, ":root:is([data-theme='official'], [data-theme='light'])")]);
 const themes = {
-  official: rootTokens,
+  official: lightTokens,
   dark: new Map([...rootTokens, ...declarations(globalsCss, ":root[data-theme='dark']")]),
-  light: new Map([...rootTokens, ...declarations(globalsCss, ":root[data-theme='light']")]),
+  light: lightTokens,
 };
 const privy = declarations(privyCss, 'html:root');
 

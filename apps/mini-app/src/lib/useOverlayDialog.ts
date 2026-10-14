@@ -146,9 +146,16 @@ function visibleFocusableElements(dialog: HTMLElement): HTMLElement[] {
     'a[href],button:not([disabled]),summary:not([tabindex="-1"]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
   )].filter((element) => {
     if (element.closest('[hidden],[aria-hidden="true"],[inert]')) return false;
+    if (element.getClientRects().length === 0) return false;
     for (let node: HTMLElement | null = element; node && node !== dialog; node = node.parentElement) {
       const style = window.getComputedStyle(node);
       if (style.display === 'none' || style.visibility === 'hidden') return false;
+      // Some browsers retain layout boxes for display-locked details content.
+      // Only its first summary participates in focus while it is closed.
+      if (node.tagName === 'DETAILS' && !node.hasAttribute('open')) {
+        const summary = [...node.children].find(child => child.tagName === 'SUMMARY');
+        if (!summary?.contains(element)) return false;
+      }
     }
     return true;
   });

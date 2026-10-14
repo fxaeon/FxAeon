@@ -4,6 +4,71 @@ import { readReviewedTransactions } from '../fork/reviewedTransactions';
 async function harnessMetrics(page: import('@playwright/test').Page): Promise<Record<string, unknown>> {
   return page.locator('[data-metrics]').evaluate((node) => JSON.parse(node.textContent || '{}') as Record<string, unknown>);
 }
+
+for (const change of ['reconnect', 'network', 'wallet mode'] as const) test(`a ${change} change committed immediately before Confirm cannot adopt an old accepted session`, async ({ page }) => {
+  await openHarness(page);
+  await page.getByRole('button', { name: 'Review position', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+  await page.evaluate((change) => {
+    const h = (globalThis as typeof globalThis & { __actionReviewHarness: { wallet: { connectionVersion: number; chainId: number; isEmbedded: boolean }; confirmDuringCommit: boolean; rerender: () => void } }).__actionReviewHarness;
+    h.wallet = { ...h.wallet, ...(change === 'reconnect' ? { connectionVersion: h.wallet.connectionVersion + 1 }
+      : change === 'network' ? { chainId: 8453 } : { isEmbedded: true }) };
+    h.confirmDuringCommit = true;
+    h.rerender();
+  }, change);
+  expect(await metric(page, 'runner')).toBe(0);
+  expect(await metric(page, 'send')).toBe(0);
+  await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
+});
+
+for (const width of [320, 1280]) for (const theme of ['official', 'dark']) for (const declined of [false, true]) {
+  test(`review, wallet signature and ${declined ? 'declined' : 'result'} polish at ${width}px in ${theme}`, async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 900 });
+    await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+    await openHarness(page, { presentationMode: true });
+    await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+    const screenshot = async (state: string) => {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+      await page.screenshot({ path: testInfo.outputPath(`${state}.png`), fullPage: true, animations: 'disabled' });
+    };
+    await screenshot('input');
+    await page.getByRole('button', { name: 'Review position', exact: true }).click();
+    const confirm = page.getByRole('button', { name: 'Confirm', exact: true });
+    await expect(confirm).toBeEnabled();
+    await confirm.scrollIntoViewIfNeeded();
+    await expect(confirm).toBeInViewport();
+    await screenshot('review');
+    await page.evaluate(() => {
+      const h = (globalThis as typeof globalThis & { __actionReviewHarness: { deferWalletResponse: boolean } }).__actionReviewHarness;
+      h.deferWalletResponse = true;
+    });
+    await confirm.click();
+    const waiting = page.getByRole('button', { name: 'Confirm in wallet', exact: true });
+    await expect(waiting).toBeDisabled();
+    await waiting.scrollIntoViewIfNeeded();
+    await expect(waiting).toBeInViewport();
+    await screenshot('signature');
+    await page.evaluate(reject => {
+      const h = (globalThis as typeof globalThis & { __actionReviewHarness: { walletResolvers: Array<(reject?: boolean) => void> } }).__actionReviewHarness;
+      h.walletResolvers.shift()?.(reject);
+    }, declined);
+    if (declined) {
+      const retry = page.getByRole('button', { name: 'Try again', exact: true });
+      await expect(retry).toBeVisible();
+      await retry.scrollIntoViewIfNeeded();
+      await expect(retry).toBeInViewport();
+      await screenshot('declined');
+      return;
+    }
+    await expect(page.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible();
+    const management = page.getByRole('button', { name: 'View position', exact: true });
+    await management.scrollIntoViewIfNeeded();
+    await expect(management).toBeInViewport();
+    expect((await management.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await screenshot('result');
+  });
+}
 type PreviewRequestSnapshot = {
   id: number;
   routeVersion: number;
@@ -47,6 +112,92 @@ async function expectReviewInside(review: import('@playwright/test').Locator) {
   expect(fit.escaped, 'every label and value stays inside the card').toEqual([]);
 }
 
+for (const estimateKind of ['fxSAVE', 'Move'] as const) {
+test(`${estimateKind} planning and refresh delays cannot extend the accepted quote signing window`, async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+  await openHarness(page);
+  await page.evaluate((estimateKind) => {
+    const h = (window as typeof window & { __actionReviewHarness: { reviewRoute?: unknown; previewDelayMs: number; rerender?: () => void } }).__actionReviewHarness;
+    const wallet = '0x00000000000000000000000000000000000000aa';
+    const router = '0x33636D49FbefBE798e15e7F356E8DBef543CC708';
+    const usdc = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+    h.previewDelayMs = 10_000;
+    h.reviewRoute = {
+      operation: 'withdrawFxSave', chainId: 1, walletAddress: wallet,
+      transactions: [{ chainId: 1, from: wallet, to: router, data: '0x6d701088', value: 0n, kind: 'action', type: 'instantRedeem', operation: 'withdrawFxSave' }],
+      policy: { walletAddress: wallet, chainId: 1, reviewedAction: { kind: 'fxsave-withdraw', tokenOutAddress: usdc, amount: 100n * 10n ** 18n, receiver: wallet, directBasePool: false, instant: true, slippagePercent: 0.5 } },
+      details: { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: (100n * 10n ** 18n).toString(), tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } },
+    };
+    if (estimateKind === 'Move') {
+      const route = h.reviewRoute as { operation: string; details?: unknown; policy?: unknown; quote?: unknown };
+      route.operation = 'buildBridgeTx';
+      delete route.details;
+      delete route.policy;
+      route.quote = { nativeFee: 0n, bridgeToken: 'fxUSD', bridgeAmount: 100n * 10n ** 18n, estimatedReceived: 100n * 10n ** 18n, receiptReadAt: Date.now() };
+    }
+    h.rerender?.();
+  }, estimateKind);
+  await page.getByRole('button', { name: 'Review position', exact: true }).click();
+  const confirm = page.getByRole('button', { name: 'Confirm', exact: true });
+  const refresh = page.getByRole('button', { name: 'Review updated quote', exact: true });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await expect.poll(() => metric(page, 'prepare')).toBe(attempt + 1);
+    await page.clock.runFor(10_001);
+    await expect(confirm).toBeEnabled();
+    await page.clock.runFor(20_001);
+    await expect(confirm).toHaveCount(0);
+    await expect(refresh).toBeEnabled();
+    expect(await metric(page, 'runner')).toBe(0);
+    expect(await metric(page, 'send')).toBe(0);
+    if (attempt === 0) {
+      await page.evaluate((estimateKind) => {
+        const h = (window as typeof window & { __actionReviewHarness: { reviewRoute: { details?: { fxSaveQuote: { readAt: number } }; quote?: { receiptReadAt: number } } } }).__actionReviewHarness;
+        if (estimateKind === 'Move') h.reviewRoute.quote!.receiptReadAt = Date.now();
+        else h.reviewRoute.details!.fxSaveQuote.readAt = Date.now();
+      }, estimateKind);
+      await refresh.click();
+    }
+  }
+});
+}
+
+test('fxSAVE review keeps net proceeds, its accepted fee and availability visible; stale estimates expire', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+  await page.clock.install();
+  await openHarness(page);
+  await page.evaluate(() => {
+    const h = (window as typeof window & { __actionReviewHarness: { reviewRoute?: unknown; reviewOperationLabel?: string; rerender?: () => void } }).__actionReviewHarness;
+    const wallet = '0x00000000000000000000000000000000000000aa';
+    const router = '0x33636D49FbefBE798e15e7F356E8DBef543CC708';
+    const usdc = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+    h.reviewOperationLabel = 'Review withdrawal';
+    h.reviewRoute = {
+      operation: 'withdrawFxSave', chainId: 1, walletAddress: wallet,
+      transactions: [{ chainId: 1, from: wallet, to: router, data: '0x6d701088', value: 0n, kind: 'action', type: 'instantRedeem', operation: 'withdrawFxSave' }],
+      policy: { walletAddress: wallet, chainId: 1, reviewedAction: { kind: 'fxsave-withdraw', tokenOutAddress: usdc, amount: 100n * 10n ** 18n, receiver: wallet, directBasePool: false, instant: true, slippagePercent: 0.5 } },
+      details: { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: (100n * 10n ** 18n).toString(), tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } },
+    };
+    h.rerender?.();
+  });
+  await page.getByRole('button', { name: 'Review position', exact: true }).click();
+  const review = page.locator('.reviewInlineContent');
+  await expect(review.locator('[data-review-fact="Estimated received"]')).toHaveText('Estimated received99 USDC');
+  await expect(review.locator('[data-review-fact="f(x) fee"]')).toHaveText('f(x) fee1%');
+  await expect(review.locator('[data-review-fact="Availability"]')).toContainText('After confirmation');
+  await expect(review.getByText('More details', { exact: true })).toBeVisible();
+  await expect(review.locator('[data-review-fact="Mode"]')).toBeHidden();
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expectReviewInside(review);
+    if (width === 390) await review.screenshot({ path: testInfo.outputPath('fxsave-review-mobile.png') });
+  }
+  expect(await metric(page, 'send')).toBe(0);
+  await page.clock.fastForward(30_001);
+  await expect(review.locator('[data-review-fact="Estimated received"]')).toContainText('Unavailable');
+  await expect(review.locator('[data-review-fact="f(x) fee"]')).toContainText('Unavailable');
+});
+
 async function resolvePreviewRequest(page: import('@playwright/test').Page, requestId: number): Promise<void> {
   const resolved = await page.evaluate((id) => {
     const harness = (window as typeof window & {
@@ -74,7 +225,7 @@ test.describe('ActionReview isolated orchestration', () => {
     const stepsSummary = review.getByText('Steps · 3', { exact: true });
     await expect(stepsSummary).toBeHidden();
     await expect(review.locator('details[aria-label="Review details"]')).toHaveJSProperty('open', false);
-    const advanced = review.locator('details').filter({ has: review.getByText('Advanced details', { exact: true }) });
+    const advanced = review.locator('details').filter({ has: review.getByText('Technical information', { exact: true }) });
     await expect(advanced).toHaveCount(0);
     await expect(review.getByText('Prepared transactions', { exact: true })).toHaveCount(0);
     const reviewed = await readReviewedTransactions(review, { collapseAfterRead: false });
@@ -133,6 +284,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(approval).toBeVisible();
 
     const rapid = page.locator('input[name="review-gas-tier"][value="rapid"]');
+    await page.getByText('Network speed', { exact: true }).click();
     await rapid.scrollIntoViewIfNeeded();
     await rapid.check({ force: true });
     await expect(rapid).toBeChecked();
@@ -141,6 +293,26 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'send')).toBe(2);
     const sent = await page.evaluate(() => (globalThis as typeof globalThis & { __actionReviewHarness?: { sentTransactions?: Array<{ maxFeePerGas?: string; maxPriorityFeePerGas?: string }> } }).__actionReviewHarness?.sentTransactions);
     expect(sent?.[0]).toEqual({ maxFeePerGas: '60000000000', maxPriorityFeePerGas: '20000000000' });
+  });
+
+  test('approval sequence advances only after the first receipt and keeps wallet waiting distinct', async ({ page }) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Use approval route', exact: true }).click();
+    await page.getByRole('button', { name: 'Defer wallet response', exact: true }).click();
+    await page.getByRole('button', { name: 'Review position', exact: true }).click();
+    const sequence = page.getByRole('list', { name: 'Transaction sequence' });
+    await expect(sequence.locator('li[aria-current="step"]')).toContainText('Approve fxUSD');
+    await page.getByRole('button', { name: 'Approve fxUSD', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Confirm in wallet', exact: true })).toBeDisabled();
+    expect(await metric(page, 'send')).toBe(1);
+    await page.getByRole('button', { name: 'Defer wallet response', exact: true }).click();
+    await page.getByRole('button', { name: 'Resolve wallet response', exact: true }).click();
+    await expect(sequence.locator('li[data-complete]')).toContainText('Approve fxUSD');
+    await expect(sequence.locator('li[aria-current="step"]')).toContainText('Confirm');
+    await expect(page.getByRole('button', { name: 'Confirm in wallet', exact: true })).toBeDisabled();
+    expect(await metric(page, 'send')).toBe(2);
+    await page.getByRole('button', { name: 'Resolve wallet response', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible();
   });
 
   test('external wallets see estimated gas without fee tiers and receive no app fee caps', async ({ page }) => {
@@ -178,7 +350,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect((await harnessMetrics(page)).hasFeeSelection).toBe(false);
   });
 
-  test('Confirm stays visible in the 393×852 mobile review viewport', async ({ page }, testInfo) => {
+  test('compact review fits mobile and expanded confirmation stays in document flow', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 393, height: 852 });
     // The harness mounts into the current document; seed a real viewport meta
     // so mobile emulation does not retain the blank page's 980px layout width.
@@ -215,17 +387,17 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(details).toHaveJSProperty('open', true);
     await page.keyboard.press('Enter');
     await expect(details).toHaveJSProperty('open', false);
-    // Even the worst-case expanded metadata must not displace confirmation.
+    // Expanded metadata grows the card; the action follows it in document flow.
     await review.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = true; }));
     const scrollBody = page.getByRole('region', { name: 'Review information', exact: true });
-    await expect.poll(() => scrollBody.evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
-    const expandedConfirm = await confirm.boundingBox();
-    expect(expandedConfirm!.y + expandedConfirm!.height).toBeLessThanOrEqual(navBox!.y);
-    await scrollBody.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+    expect(await scrollBody.evaluate((node) => getComputedStyle(node).overflowY)).not.toBe('auto');
+    expect((await confirm.boundingBox())!.y).toBeGreaterThan(box!.y);
+    await confirm.scrollIntoViewIfNeeded();
     await expect(confirm).toBeInViewport();
-    await page.screenshot({ path: testInfo.outputPath('action-review-expanded-bounded.png') });
+    await page.screenshot({ path: testInfo.outputPath('action-review-expanded-flow.png') });
     for (const size of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(size);
+      await confirm.scrollIntoViewIfNeeded();
       await expect.poll(async () => {
         const action = await confirm.boundingBox();
         const bottom = await page.locator('[data-fixed-navigation="true"]').evaluate((node) => {
@@ -237,6 +409,7 @@ test.describe('ActionReview isolated orchestration', () => {
     }
     await page.setViewportSize({ width: 393, height: 852 });
     await review.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = false; }));
+    await review.scrollIntoViewIfNeeded();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const duration = await details.locator(':scope > summary svg').evaluate((node) => getComputedStyle(node).transitionDuration);
     // The global reduced-motion reset uses 0.01ms to preserve end events.
@@ -435,7 +608,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Gas estimate loading', exact: true }).click();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const review = page.locator('.reviewInlineContent');
-    await expect(review.getByText('Gas fee', { exact: true })).toBeVisible();
+    await expect(review.getByText('Network fee', { exact: true })).toBeVisible();
     await expect(page.locator('.missing-value[aria-label="Loading gas fee"]')).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Checking network fees…', exact: true })).toBeDisabled();
 
@@ -453,22 +626,22 @@ test.describe('ActionReview isolated orchestration', () => {
     const originalFacts = { Amount: '0.25 fxUSD', 'Target leverage': '3×', Position: '#42', Slippage: '0.5%' };
     const expectOriginalFacts = async () => {
       for (const [label, value] of Object.entries(originalFacts)) {
-        await expect(review.locator(`[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === "Amount" ? `[data-review-fact="Amount"] summary > span` : label === "Target leverage" ? `[data-review-fact="Target leverage"]` : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
     };
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
     await expectOriginalFacts();
     // Parent presentation updates alone must not rewrite the accepted quote.
     await page.getByRole('button', { name: 'Change preparation facts', exact: true }).click();
     await expectOriginalFacts();
 
     await page.getByRole('button', { name: 'Defer wallet response', exact: true }).click();
-    await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await page.getByRole('button', { name: 'Open position', exact: true }).click();
     await expect(page.getByText('Wallet approval', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Change terms', exact: true }).click();
     await page.getByRole('button', { name: 'Switch account', exact: true }).click();
     await expectOriginalFacts();
-    await expect(page.getByRole('heading', { name: 'Open position v1', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Review position v1', exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('selected wallet changed during this action');
     expect(await metric(page, 'send')).toBe(1);
     await page.getByRole('button', { name: 'Resolve wallet response', exact: true }).click();
@@ -482,15 +655,15 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Use stable Trade review', exact: true }).click();
     await page.getByRole('button', { name: 'Omit reviewed leverage', exact: true }).click();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    const leverage = page.locator('[data-review-fact="Target leverage"] > span').last();
+    const leverage = page.locator('[data-review-fact="Target leverage"]').last();
     await expect(leverage).toHaveText('3×');
     await expect.poll(() => metric(page, 'prepare')).toBe(1);
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
     await expect(leverage).toHaveText('Unavailable');
     await page.getByRole('button', { name: 'Change preparation facts', exact: true }).click();
     await expect(leverage).toHaveText('Unavailable');
-    await expect(page.locator('[data-review-fact="Amount"] > span').last()).toHaveText('0.25 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.25 fxUSD');
     expect(await metric(page, 'send')).toBe(0);
   });
 
@@ -501,7 +674,8 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Toggle embedded wallet mode', exact: true }).click();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const review = page.locator('[data-review-viewport]');
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+    await review.getByText('Network speed', { exact: true }).click();
     await expect(review.getByText('25 Gwei', { exact: true })).toBeVisible();
     await page.clock.runFor(31_001);
     await page.getByRole('button', { name: 'Change quote terms to v2', exact: true }).click();
@@ -509,13 +683,13 @@ test.describe('ActionReview isolated orchestration', () => {
     const changes = review.getByRole('region', { name: 'Updated transaction consequences' });
     await expect(changes).toContainText('Terms 1 → Terms 2');
     await page.clock.runFor(31_001);
-    await expect(review).toContainText('This reviewed quote expired.');
+    await expect(review).toContainText('Quote expired.');
     await page.getByRole('button', { name: 'Change terms', exact: true }).click();
     await page.getByRole('button', { name: 'Defer preview', exact: true }).click();
     await page.getByRole('button', { name: 'Review updated quote', exact: true }).click();
     await expect.poll(() => metric(page, 'prepare')).toBe(3);
     await expect(review).toHaveAttribute('aria-busy', 'true');
-    await expect(review.getByText('This reviewed quote expired.', { exact: false })).toHaveCount(0);
+    await expect(review.getByText('Quote expired.', { exact: false })).toHaveCount(0);
     await expect(changes).toHaveCount(0);
     await expect(review.getByText(/^(25|30|40) Gwei$/)).toHaveCount(0);
     for (const tier of ['standard', 'fast', 'rapid']) {
@@ -523,7 +697,7 @@ test.describe('ActionReview isolated orchestration', () => {
     }
     await expect(page.getByRole('button', { name: 'Checking transaction…', exact: true })).toBeDisabled();
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
     await expect(review).toHaveAttribute('aria-busy', 'false');
     expect(await metric(page, 'send')).toBe(0);
   });
@@ -536,7 +710,7 @@ test.describe('ActionReview isolated orchestration', () => {
     const review = page.locator('[data-review-viewport]');
     await expect(page.getByRole('alert')).toHaveText('Pool leverage limits changed to 4.0x-10.0x. The target was updated; review it again.');
     await expect(page.getByText('The inputs changed. Check the action again before signing.', { exact: true })).toHaveCount(0);
-    await expect(review.locator('[data-review-fact="Target leverage"] > span').last()).toHaveText('4×');
+    await expect(review.locator('[data-review-fact="Target leverage"]').last()).toHaveText('4×');
     await expect(review).toHaveAttribute('aria-busy', 'false');
     expect(await metric(page, 'plan')).toBe(1);
     expect(await metric(page, 'prepare')).toBe(0);
@@ -544,7 +718,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Defer preview', exact: true }).click();
     await page.getByRole('button', { name: 'Retry review', exact: true }).focus();
     await page.keyboard.press('Enter');
-    await expect(review.getByRole('heading', { name: 'Open position v2', exact: true })).toBeFocused();
+    await expect(review.getByRole('heading', { name: 'Review position v2', exact: true })).toBeFocused();
     await expect(review).toHaveAttribute('aria-busy', 'true');
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Checking transaction…', exact: true })).toBeDisabled();
@@ -552,7 +726,7 @@ test.describe('ActionReview isolated orchestration', () => {
     const pending = (await previewRequests(page))[0]!;
     expect(pending.routeVersion).toBe(2);
     await resolvePreviewRequest(page, pending.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
     await expect(review).toHaveAttribute('aria-busy', 'false');
     expect(await metric(page, 'plan')).toBe(2);
     expect(await metric(page, 'send')).toBe(0);
@@ -562,7 +736,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await openHarness(page);
     await page.getByRole('button', { name: 'Use stable Trade review', exact: true }).click();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
     await page.locator('details[aria-label="Review details"] > summary').click();
     const announcement = page.locator('[data-review-viewport] [role="status"][aria-live="polite"]');
     await expect(announcement).toHaveCount(1);
@@ -584,7 +758,7 @@ test.describe('ActionReview isolated orchestration', () => {
       // not create or change an announcement on each poll.
       expect(await liveStatuses.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent))).toEqual(baselineStatuses);
       await page.getByRole('button', { name: 'Gas estimate current', exact: true }).click();
-      await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+      await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
       await expect(announcement).toHaveText(readyAnnouncement!);
     }
     expect(await page.evaluate(() => (window as typeof window & { __reviewAnnouncementChanges?: number }).__reviewAnnouncementChanges)).toBe(0);
@@ -613,10 +787,10 @@ test.describe('ActionReview isolated orchestration', () => {
     });
     const expectCheckedRoute = async () => {
       for (const [label, value] of Object.entries({ Amount: '0.25 fxUSD', 'Target leverage': '3×', Position: '#42', Slippage: '0.5%' })) {
-        await expect(review.locator(`[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === "Amount" ? `[data-review-fact="Amount"] summary > span` : label === "Target leverage" ? `[data-review-fact="Target leverage"]` : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       expect(await liveStatuses.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent))).toEqual(baselineStatuses);
-      await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
     };
     for (let refresh = 0; refresh < 2; refresh += 1) {
       await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
@@ -682,21 +856,22 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await page.locator('[role="toolbar"]').evaluate((node) => { (node as HTMLElement).style.display = 'none'; });
     const review = page.locator('[data-review-viewport]');
-    const amount = review.locator('[data-review-fact="Amount"] > span').last();
+    const amount = review.locator('[data-review-fact="Amount"] summary > span').last();
     const expectFits = async () => {
       await expectReviewInside(review);
-      await expect(amount).toHaveText('0.00024443113696627 fxUSD');
-      for (const [label, value] of [['Target leverage', '3×'], ['Position', '#42'], ['Slippage', '0.5%']]) {
-        await expect(review.locator(`[data-review-fact="${label}"] > span`).last()).toHaveText(value);
-        await expect(review.locator(`[data-review-fact="${label}"] > span`).last()).toBeInViewport();
+      await expect(amount).toHaveText('≈ 0.000244431 fxUSD');
+      await expect(review.locator('[data-review-fact="Amount"] summary')).toHaveAttribute('aria-label', 'Show exact amount: 0.00024443113696627 fxUSD');
+      for (const [label, value] of [['Target leverage', '3×']]) {
+        await expect(review.locator(label === "Amount" ? `[data-review-fact="Amount"] summary > span` : label === "Target leverage" ? `[data-review-fact="Target leverage"]` : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === "Amount" ? `[data-review-fact="Amount"] summary > span` : label === "Target leverage" ? `[data-review-fact="Target leverage"]` : `[data-review-fact="${label}"] > span`).last()).toBeInViewport();
       }
     };
     await expect(page.getByRole('button', { name: 'Checking transaction…', exact: true })).toBeDisabled();
     await expectFits();
     await expect.poll(() => metric(page, 'prepare')).toBe(1);
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
-    // Verification keeps the exact figure the user entered: no "≈", no rounding.
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+    // Verification preserves the compact display and the exact amount behind its disclosure.
     await expectFits();
     expect(await metric(page, 'send')).toBe(0);
   });
@@ -762,7 +937,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await openHarness(page);
     await page.getByRole('button', { name: 'Use stable Trade review', exact: true }).click();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
     await page.clock.runFor(31_001);
     await page.getByRole('button', { name: 'Clamp next preparation', exact: true }).click();
     await page.getByRole('button', { name: 'Review updated quote', exact: true }).click();
@@ -771,8 +946,8 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'plan')).toBe(2);
     expect(await metric(page, 'prepare')).toBe(1);
     // Failed refresh keeps the previously reviewed terms visible but expired.
-    await expect(page.locator('[data-review-fact="Target leverage"] > span').last()).toHaveText('3×');
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-review-fact="Target leverage"]').last()).toHaveText('3×');
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Defer preview', exact: true }).click();
     await page.getByRole('button', { name: 'Review updated quote', exact: true }).click();
@@ -780,8 +955,8 @@ test.describe('ActionReview isolated orchestration', () => {
     const updated = (await previewRequests(page))[0]!;
     expect(updated.routeVersion).toBe(2);
     await resolvePreviewRequest(page, updated.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
-    await expect(page.locator('[data-review-fact="Target leverage"] > span').last()).toHaveText('4×');
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+    await expect(page.locator('[data-review-fact="Target leverage"]').last()).toHaveText('4×');
     expect(await metric(page, 'plan')).toBe(3);
     expect(await metric(page, 'send')).toBe(0);
   });
@@ -794,15 +969,15 @@ test.describe('ActionReview isolated orchestration', () => {
     const original = (await previewRequests(page))[0]!;
     await page.getByRole('button', { name: 'Change terms', exact: true }).click();
     await resolvePreviewRequest(page, original.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
     await expect(page.getByText('Editor terms v2', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Review updated quote', exact: true }).click();
     await expect.poll(() => metric(page, 'prepare')).toBe(2);
     const updated = (await previewRequests(page))[1]!;
     expect(updated.routeVersion).toBe(2);
     await resolvePreviewRequest(page, updated.id);
-    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
-    await expect(page.locator('[data-review-fact="Amount"] > span').last()).toHaveText('0.5 fxUSD');
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+    await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.5 fxUSD');
     expect(await metric(page, 'send')).toBe(0);
   });
 
@@ -870,6 +1045,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const confirm = page.getByRole('button', { name: 'Confirm', exact: true });
     await expect(confirm).toBeVisible();
+    await page.getByText('Network speed', { exact: true }).click();
     const fastTier = page.locator('input[name="review-gas-tier"][value="fast"]');
     const rapidTier = page.locator('input[name="review-gas-tier"][value="rapid"]');
     await expect(fastTier).toBeChecked();

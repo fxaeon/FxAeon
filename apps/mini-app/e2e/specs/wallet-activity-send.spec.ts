@@ -16,11 +16,13 @@ const mocks: Record<string, string> = {
   '@/lib/fx/drafts': `export const cancelSignatureRequiredDraft=()=>{}; export const signatureDraftResumePath=()=>'/trade';`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
   '@/lib/wallet': `export const usePrivyWallet=()=>window.H.wallet;`,
+  '@/lib/wallet/providerMode': `export const useWalletProviderMode=()=> window.H.providerMode ?? 'privy';`,
+  '@/lib/fx/gasFeePolicy': `export async function fetchGasTierQuotes(chainId) { window.H.settingsChains ??= []; window.H.settingsChains.push(chainId); const tiers = Object.fromEntries(['standard','fast','rapid'].map(tier=>[tier,{tier,gasPriceWei:chainId===8453?1000000n:20000000000n,maxFeePerGas:40000000000n,maxPriorityFeePerGas:1000000000n}])); return {chainId,tiers,fetchedAt:Date.now(),validUntil:Date.now()+30000}; }`,
   '@/components/WalletDataProvider': `export const useWalletAssets=()=>window.H.assets;`,
   '@/components/WalletDemandProvider': `export const useWalletDemand=()=>{};`,
   '@/lib/walletAssets': `export const canonicalAsset=()=>({key:'ETH',decimals:18});`,
   '@/components/WalletConnectCTA': `import React from 'react'; export default ()=> <button>Connect wallet</button>;`,
-  '@/lib/walletSend': `export async function prepareWalletSend(input) { window.H.prepares++; window.H.preparedInputs.push(input); await new Promise(r=>setTimeout(r,30)); return {input,symbol:'ETH',decimals:18,amountRaw:100000000000000000n,to:input.recipient,data:'0x',value:100000000000000000n,gas:25200n,nonce:7,estimatedFee:window.H.fee??252000000000000n,requiredNative:100600000000000000n,maxFeePerGas:20000000000n,maxPriorityFeePerGas:1000000000n,validUntil:Date.now()+30000}; }`,
+  '@/lib/walletSend': `export async function prepareWalletSend(input) { window.H.prepares++; window.H.preparedInputs.push(input); if(window.H.deferPrepare) await new Promise(r=>(window.H.prepareResolvers??=[]).push(r)); else await new Promise(r=>setTimeout(r,30)); return {input,symbol:'ETH',decimals:18,amountRaw:100000000000000000n,to:input.recipient,data:'0x',value:100000000000000000n,gas:25200n,nonce:7,estimatedFee:window.H.fee??252000000000000n,requiredNative:window.H.requiredNative??100600000000000000n,maxFeePerGas:window.H.maxFee??20000000000n,maxPriorityFeePerGas:window.H.priorityFee??1000000000n,validUntil:Date.now()+(window.H.quoteLifetime??30000)}; }`,
   '@/lib/fx/journal': `export const recordPendingHash=(record)=>{window.H.records.push(record);};`,
   './fx/tokens': `export const FX_TOKENS={ ETH:{key:'ETH',address:'0x0000000000000000000000000000000000000000',decimals:18,native:true}, fxUSD:{key:'fxUSD',address:'0x3333333333333333333333333333333333333333',decimals:18,native:false}};`,
 };
@@ -30,7 +32,7 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
 const address='0x1111111111111111111111111111111111111111', other='0x2222222222222222222222222222222222222222';
 const hash='0x'+'a'.repeat(64);
 window.H={prepares:0,sends:[],records:[],mode:'history',activity:{isPending:false,isFetching:false,hasMore:false,data:{views:[],protocol:{items:[]},drafts:[],partial:false,transfers:[{id:'incoming',chainId:1,hash,timestamp:1791000000000,from:other,to:address,amountRaw:123000000000000000n,symbol:'ETH',decimals:18,tokenAddress:null}]}},wallet:{address,ready:true,authenticated:true,connectionVersion:1,isEmbedded:true,sendTransaction:async(req)=>{window.H.sends.push(req);await new Promise(r=>setTimeout(r,100));return {hash};}},assets:{status:'ready',refresh:async()=>{},data:{assets:[{id:'eth',chainId:1,tokenAddress:null,symbol:'ETH',decimals:18,balanceWei:1000000000000000000n,balance:'1'}]}}};
-function App(){const[,update]=React.useReducer(x=>x+1,0);window.H.render=update;return <div style={{maxWidth:900,margin:'auto',padding:16}}><button onClick={()=>{window.H.mode='send';update();}}>Test send</button>{window.H.mode==='history'?<Activity walletAddress={window.H.wallet.address}/>:<Send/>}</div>}; createRoot(document.getElementById('root')).render(<App/>);`;
+function App(){const[,update]=React.useReducer(x=>x+1,0);window.H.render=update;React.useLayoutEffect(()=>{if(!window.H.confirmDuringCommit)return;window.H.confirmDuringCommit=false;[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Confirm')?.click();});return <div style={{maxWidth:900,margin:'auto',padding:16}}><button onClick={()=>{window.H.mode='send';update();}}>Test send</button>{window.H.mode==='history'?<Activity walletAddress={window.H.wallet.address}/>:<Send/>}</div>}; createRoot(document.getElementById('root')).render(<App/>);`;
 let bundle: { js: string; css: string };
 test.beforeAll(async () => {
   const result = await esbuild.build({ stdin: { contents: entry, resolveDir: app, loader: 'tsx' }, bundle: true, write: false, outdir: 'harness', format:'iife', jsx:'automatic', platform:'browser', target:'es2020', loader:{'.module.css':'local-css'},
@@ -77,7 +79,17 @@ type SendHarness = {
   refreshes: number;
   finishRefresh?: () => void;
   render: () => void;
-  wallet: { address: string; connectionVersion: number };
+  wallet: { address: string; connectionVersion: number; chainId?: number; isEmbedded: boolean; sendTransaction: (request: unknown) => Promise<{ hash: string }> };
+  sends: unknown[];
+  records: unknown[];
+  fee?: bigint;
+  requiredNative?: bigint;
+  maxFee?: bigint;
+  priorityFee?: bigint;
+  quoteLifetime?: number;
+  deferPrepare?: boolean;
+  confirmDuringCommit?: boolean;
+  prepareResolvers?: Array<() => void>;
   assets: {
     status: string;
     isFetching: boolean;
@@ -88,6 +100,174 @@ type SendHarness = {
     } | null;
   };
 };
+
+async function openSendReview(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Test send', exact: true }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('0.1');
+  await page.getByLabel('Recipient address').fill('0x2222222222222222222222222222222222222222');
+  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toBeVisible();
+}
+
+for (const change of ['network', 'wallet mode'] as const) test(`Send cannot adopt a ${change} change committed immediately before confirmation`, async ({ page }) => {
+  await mount(page);
+  await openSendReview(page);
+  await page.evaluate(change => {
+    const h = (window as unknown as { H: SendHarness }).H;
+    if (change === 'network') h.wallet.chainId = 8453;
+    else h.wallet.isEmbedded = false;
+    h.confirmDuringCommit = true; h.render();
+  }, change);
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('0.1');
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.prepares)).toBe(1);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(0);
+});
+
+for (const change of ['network', 'wallet mode', 'fee preference'] as const) {
+  test(`Send invalidates accepted terms after a ${change} change and preserves editable inputs`, async ({ page }) => {
+    await mount(page);
+    await page.setViewportSize(change === 'wallet mode' ? { width: 1280, height: 800 } : { width: 320, height: 568 });
+    await openSendReview(page);
+    await page.evaluate((change) => {
+      const h = (window as unknown as { H: SendHarness }).H;
+      if (change === 'network') h.wallet.chainId = 8453;
+      else if (change === 'wallet mode') h.wallet.isEmbedded = false;
+      else {
+        localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ gasTier: 'rapid' }));
+        window.dispatchEvent(new Event('fxaeon:settings-updated'));
+      }
+      h.render();
+    }, change);
+    await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('0.1');
+    await expect(page.getByLabel('Recipient address')).toHaveValue('0x2222222222222222222222222222222222222222');
+    expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(0);
+    await page.getByRole('button', { name: 'Review', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toBeVisible();
+  });
+}
+
+test('Send ignores a late preparation after a network change and keeps the newer review usable', async ({ page }) => {
+  await mount(page);
+  await page.getByRole('button', { name: 'Test send', exact: true }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('0.1');
+  await page.getByLabel('Recipient address').fill('0x2222222222222222222222222222222222222222');
+  await page.evaluate(() => { (window as unknown as { H: SendHarness }).H.deferPrepare = true; });
+  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.prepareResolvers?.length)).toBe(1);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness }).H;
+    h.wallet.chainId = 8453; h.deferPrepare = false; h.render();
+  });
+  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toBeVisible();
+  await page.evaluate(() => (window as unknown as { H: SendHarness }).H.prepareResolvers?.shift()?.());
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(1);
+});
+
+test('Send expiration requires an explicit updated fee review before any wallet request', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => { (window as unknown as { H: SendHarness }).H.quoteLifetime = 150; });
+  await openSendReview(page);
+  await expect(page.getByRole('button', { name: 'Review updated fee', exact: true })).toBeVisible();
+  await page.evaluate(() => { (window as unknown as { H: SendHarness }).H.quoteLifetime = 30000; });
+  await page.getByRole('button', { name: 'Review updated fee', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(0);
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+});
+
+for (const increased of ['estimated fee', 'priority ceiling', 'maximum ceiling'] as const) {
+  test(`Send requires updated review when ${increased} increases despite a smaller native reserve`, async ({ page }) => {
+    await mount(page);
+    await openSendReview(page);
+    await page.evaluate((increased) => {
+      const h = (window as unknown as { H: SendHarness }).H;
+      h.requiredNative = 100500000000000000n;
+      if (increased === 'estimated fee') h.fee = 300000000000000n;
+      else if (increased === 'priority ceiling') h.priorityFee = 2000000000n;
+      else h.maxFee = 30000000000n;
+    }, increased);
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Network cost changed');
+    expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(0);
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  });
+}
+
+test('Send keeps a deliberate adapter chain switch latched and requires fresh review after rejected signing', async ({ page }) => {
+  await mount(page);
+  await openSendReview(page);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness }).H;
+    h.wallet.sendTransaction = async (request) => {
+      h.sends.push(request); h.wallet.chainId = 1; h.render();
+      throw new Error('User rejected the request.');
+    };
+  });
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Review updated fee', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.records.length)).toBe(0);
+  await page.getByRole('button', { name: 'Edit transfer', exact: true }).click();
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('0.1');
+  await expect(page.getByLabel('Recipient address')).toHaveValue('0x2222222222222222222222222222222222222222');
+});
+
+test('Send latches repeated confirmation through a delayed signature and publishes its reviewed-network result once', async ({ page }) => {
+  await mount(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openSendReview(page);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness & { finishSend?: () => void } }).H;
+    h.wallet.sendTransaction = async (request) => {
+      h.sends.push(request); h.wallet.chainId = 1; h.render();
+      await new Promise<void>(resolve => { h.finishSend = resolve; });
+      return { hash: `0x${'a'.repeat(64)}` };
+    };
+  });
+  await page.getByRole('button', { name: 'Confirm', exact: true }).evaluate(element => { (element as HTMLButtonElement).click(); (element as HTMLButtonElement).click(); });
+  await expect(page.getByRole('button', { name: 'Confirm in wallet', exact: true })).toBeDisabled();
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(1);
+  await page.evaluate(() => (window as unknown as { H: { finishSend?: () => void } }).H.finishSend?.());
+  await expect(page.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View history', exact: true })).toHaveAttribute('href', '/history');
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.records.length)).toBe(1);
+});
+
+test('Send settings price the selected Base asset network instead of the connected Ethereum network', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness }).H;
+    const asset = h.assets.data!.assets[0];
+    h.assets.data!.assets = [{ ...asset, id: 'base-eth', chainId: 8453 }];
+    h.render();
+  });
+  await page.getByRole('button', { name: 'Test send', exact: true }).click();
+  await page.getByRole('button', { name: /Transaction settings/ }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: { settingsChains?: number[] } }).H.settingsChains)).toEqual([8453]);
+  await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('0.1');
+  await page.getByLabel('Recipient address').fill('0x2222222222222222222222222222222222222222');
+  await page.getByRole('button', { name: 'Review', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Review send' })).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.preparedInputs[0]?.chainId)).toBe(8453);
+});
+
+test('Send omits the gas-only settings gear in the webapp', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness & { providerMode: string } }).H;
+    h.providerMode = 'browser';
+    h.render();
+  });
+  await page.getByRole('button', { name: 'Test send', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Transaction settings/ })).toHaveCount(0);
+  await expect(page.getByText('Confirm the network fee in your wallet before signing.', { exact: true })).toHaveCount(0);
+});
 
 test('send keeps its chosen token and network when live holdings reorder, then requires explicit reselection after depletion', async ({ page }) => {
   await mount(page);

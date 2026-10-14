@@ -51,7 +51,7 @@ function positionRoute(direction: 'increase' | 'reduce', side: 'long' | 'short' 
     : { ...common, kind: 'position-reduce', outputTokenAddress: common.collateralTokenAddress, isClosePosition: true } };
   return route;
 }
-const fee = (route: PlannedRoute) => routeFinancialReviewFacts(route).find((fact) => fact.label.startsWith('Protocol fee'));
+const fee = (route: PlannedRoute) => routeFinancialReviewFacts(route).find((fact) => fact.label.startsWith('f(x) fee'));
 
 test('long/short open and close select only applicable live rates, preserving sub-basis-point precision', () => {
   for (const side of ['long', 'short'] as const) {
@@ -83,7 +83,12 @@ test('borrow uses the mint-router fee schedule and excludes an absent deposit le
   route.policy = { walletAddress: WALLET, chainId: 1, reviewedAction: { kind: 'deposit-and-mint', poolAddress, positionId: 1, depositTokenAddress: positionCollateralTokenAddress('BTC', 'long'), depositAmount: 0n, nativeInput: false, mintAmount: 100n * 10n ** 18n } };
   assert.equal(fee(route)?.value, '0.5 fxUSD (0.5%)');
   assert.match(fee(route)!.title!, /borrowed debt/);
-  assert.equal(fee(route)?.label, 'Protocol fee');
+  assert.equal(fee(route)?.label, 'f(x) fee');
+  assert.equal(routeFinancialReviewFacts(route).find(fact => fact.label === 'Estimated fxUSD received')?.value, '99.5 fxUSD');
+  route.details!.protocolFeeQuote!.ratios = ['0', '0', '0', '0'];
+  assert.equal(routeFinancialReviewFacts(route).find(fact => fact.label === 'Estimated fxUSD received')?.value, '100 fxUSD');
+  route.details!.protocolFeeQuote = undefined;
+  assert.equal(routeFinancialReviewFacts(route).find(fact => fact.label === 'Estimated fxUSD received')?.value, 'Unavailable');
 });
 
 test('protocol fee math floors in token units and does not lose large-integer precision', () => {
@@ -96,6 +101,24 @@ test('protocol fee math floors in token units and does not lose large-integer pr
   assert.throws(() => calculateProtocolFee(-1n, 0n), RangeError);
   assert.throws(() => calculateProtocolFee(1n, -1n), RangeError);
   assert.throws(() => calculateProtocolFee(1n, 1_000_000_001n), RangeError);
+});
+
+test('Borrow collateral requires a validated zero supply fee before claiming post-fee holdings', () => {
+  const poolAddress = positionPoolAddress('BTC', 'long');
+  const route = normalizeTxResult('depositAndMint', {
+    txs: [{ to: MINT, data: '0x216d5108', type: 'action' }], colls: '100000000000000000', debts: '100000000000000000000',
+    protocolFeeQuote: { poolAddress, routerAddress: MINT, ratios: ['0', '0', '5000000', '0'] },
+  }, WALLET);
+  route.policy = { walletAddress: WALLET, chainId: 1, reviewedAction: { kind: 'deposit-and-mint', poolAddress, positionId: 0,
+    depositTokenAddress: positionCollateralTokenAddress('BTC', 'long'), depositAmount: 10_000_000n, nativeInput: false, mintAmount: 100n * 10n ** 18n } };
+  const collateral = () => routeFinancialReviewFacts(route).find(f => f.label === 'Estimated collateral');
+  assert.equal(collateral()?.value, '0.1 WBTC');
+  assert.match(collateral()!.title!, /supply fee is 0%/);
+  route.details!.protocolFeeQuote!.ratios = ['3000000', '0', '5000000', '0'];
+  assert.equal(collateral()?.value, 'Unavailable');
+  assert.equal(routeFinancialReviewFacts(route).find(f => f.label === 'Estimated fxUSD received')?.value, '99.5 fxUSD', 'net mint proceeds are independently known');
+  route.details!.protocolFeeQuote = undefined;
+  assert.equal(collateral()?.value, 'Unavailable');
 });
 
 test('unbound, malformed or missing fee data never becomes a zero-fee claim', () => {

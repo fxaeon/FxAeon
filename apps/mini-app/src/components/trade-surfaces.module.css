@@ -551,7 +551,7 @@
   /* The chart begins level with the first ticket decision (Position side). */
   .marketColumn :global(.market-chart-panel) { position: sticky; top: 24px; }
   .positionManagerGrid { grid-template-columns: minmax(0, 1fr) minmax(380px, 420px); align-items: start; gap: 24px; }
-  .positionManageColumn { max-width: 420px; position: sticky; top: 24px; }
+  .positionManageColumn { max-width: 420px; }
   .positionsWorkspace { max-width: 1040px; margin-inline: auto; }
 }
 
@@ -654,13 +654,61 @@
    phones while keeping every interactive target at least 44px tall. */
 .positionsCompactRoot .positionsWorkspace { gap: 10px; }
 .positionsCompactRoot .positionEditor { min-width: 0; }
+.positionsCompactRoot .positionActions { margin-top: 0; padding-top: 0; border-top: 0; }
+.positionActionLabel { margin: 0 0 8px; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; }
+.positionsCompactRoot .borrowAgainst { margin-top: 0; border-top: 1px solid var(--line); border-bottom: 0; color: var(--mut); }
+.positionsCompactRoot .borrowAgainst:hover { color: var(--mint); }
+.positionsCompactRoot .positionSectionHeader > span { padding: 4px 8px; border-radius: var(--radius-full); background: var(--surface-2); white-space: nowrap; font-size: var(--fs-caption); }
+.positionReadState { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 18px; border: 1px solid color-mix(in srgb, var(--warn) 24%, var(--line)); border-radius: var(--radius-lg); background: var(--warn-dim); }
+.positionReadState > div { flex: 1; min-width: 0; }
+.positionReadState strong { color: var(--text); font-size: var(--fs-small); font-weight: 650; }
+.positionReadState p { margin: 5px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.positionReadState button { display: inline-flex; flex: 0 0 auto; min-height: 44px; align-items: center; gap: 6px; border-radius: var(--radius-sm); padding: 0 10px; color: var(--mint); font-size: var(--fs-caption); font-weight: 600; }
+.positionReadState button:disabled { color: var(--mut); }
+.positionsCompactRoot .closeNotice { grid-template-columns: minmax(0, 1fr); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+.positionsCompactRoot .closeNotice span { text-align: left; }
+@media (min-width: 840px) {
+  .positionsCompactRoot .positionManageColumn:not([aria-label]) { padding-left: 24px; border-left: 1px solid var(--line); }
+}
+@media (max-width: 359px) {
+  .positionReadState { flex-wrap: wrap; gap: 8px; padding: 14px; }
+  .positionReadState > div { flex-basis: 100%; }
+}
 .positionsCompactRoot .positionActionCard { min-width: 0; }
+.positionsCompactRoot .positionActionCard:not(.positionActionCardReview) { gap: 8px; }
+.positionsCompactRoot .positionEditor :global([data-amount-field]) { --amount-max-size: 36px; }
+.positionsCompactRoot .positionEditor :global([data-amount-field]) :global(.amount-control) { padding-block: 8px; }
+.positionsCompactRoot .tradeCompactLeverageHeader { gap: 8px; }
+.positionsCompactRoot .tradeCompactLeverageValue { min-height: 44px; padding: 0 10px; }
+.positionsCompactRoot .tradeCompactLeverageValue .leverageInput { min-height: 44px; font-size: 22px; }
+.positionsCompactRoot .tradeCompactLeverageSlider { margin-top: -4px; }
+.positionsCompactRoot .tradeCompactLeverageSlider > [data-leverage-bounds] { margin-top: -5px; }
+.positionsCompactRoot .positionManageColumn { gap: 6px; }
+.positionsCompactRoot .positionViewBar { margin-bottom: -4px; }
+.positionsCompactRoot .positionEditor .fieldStack { gap: 6px; }
+.positionsCompactRoot .positionReductionControl :global(.range-control) { position: relative; padding: 8px 12px 2px; }
+.positionsCompactRoot .positionReductionControl :global(.range-control) > :first-child { margin-bottom: 0; }
+.positionsCompactRoot .positionReductionControl :global(.range-control) > :first-child > span { font-size: 22px; line-height: 26px; }
+.positionsCompactRoot .positionReductionControl :global(.lever) { min-height: 44px; margin: 0; }
+.positionsCompactRoot .positionEditor .rangeField { padding: 8px 10px; }
+.positionsCompactRoot .positionEditor .rangeField .leverageInput {
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.positionsCompactRoot .positionEditor .rangeField > :last-child { margin-top: 4px; padding-top: 4px; }
+.positionsCompactRoot .closeNotice { padding: 10px 12px; gap: 4px 8px; }
+.positionsCompactRoot .closeNotice span { min-width: 0; }
 
 @media (max-width: 640px) {
   .positionsCompactRoot .positionsWorkspace { gap: 8px; }
   .positionsCompactRoot .positionManagerGrid { gap: 10px; }
   .positionsCompactRoot .positionSectionHeader { margin-bottom: 4px; }
-  .positionsCompactRoot .positionManageColumn { gap: 12px; }
+  .positionsCompactRoot .positionManageColumn { gap: 6px; }
   .positionsCompactRoot .actionPanel { padding: 0 !important; }
   .positionsCompactRoot .fieldStack { gap: 8px; }
   .positionsCompactRoot :global(.field-control) { min-height: 48px; padding-inline: 10px; }
@@ -673,7 +721,6 @@
   .positionsCompactRoot .positionActions :global(.segmented-option) { min-height: 44px; }
   .positionsCompactRoot .reviewInlineCard { padding: 0 !important; border-radius: var(--radius-md); box-shadow: none; }
   .positionsCompactRoot .reviewInlineContent { padding: 0; }
-  .positionsCompactRoot .reviewInlineActions { position: sticky; bottom: var(--tabbar-reserve, 84px); z-index: 12; margin-inline: -2px; padding: 8px 2px 4px; background: linear-gradient(to top, var(--surface) 72%, transparent); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -686,12 +733,12 @@
 
 /* Short viewports (a Telegram Mini App under its own header): the same parts
    in the same order, a little tighter, so the leverage slider clears the
-   riding action on the first screen. Every target keeps 44px. */
+   action on the first screen. Every target keeps 44px. */
 @media (max-width: 640px) and (max-height: 720px) {
   .tradeRoot :global([data-product-layout='action']).tradeWorkspace, .tradeLayout { gap: 8px; }
   .tradeRoot .sideControl :global(.segmented) { padding: 2px; }
   .tradeRoot .sideControl :global(.segmented-option) { min-height: 44px; padding-block: 2px; }
-  .tradeRoot .marketColumn :global(.market-chart-market-switch) { padding: 0 6px 4px 12px; }
+  .tradeRoot .marketColumn :global(.market-chart-market-switch) { padding: 0 6px 0 12px; }
   .tradeRoot .marketColumn :global(.market-chart-market-switch .segmented) { padding: 2px; }
 }
 
@@ -725,18 +772,23 @@
 .tradeTicket:not(.tradeTicketReview) .sideControl :global(.segmented-option) { border-radius: 999px; }
 .tradeCompactLeverageValue { border-radius: 999px; background: var(--surface); }
 @media (max-width: 640px) {
-  .marketColumn :global(.market-chart-panel) { border-radius: 20px; background: var(--surface); padding: 12px; }
-  .marketColumn :global(.market-chart-header) { padding: 8px 4px 14px; flex-direction: row; align-items: center; gap: 10px; }
+  .marketColumn :global(.market-chart-panel) { border-radius: 20px; background: var(--surface); padding: 8px; }
+  .marketColumn :global(.market-chart-header) { padding: 4px 4px 6px; flex-direction: row; align-items: center; gap: 10px; }
   .marketColumn :global(.market-chart-header > div:last-child) { text-align: right; }
   .marketColumn :global(.market-chart-header .text-display) { font-size: clamp(27px, 8vw, 34px); }
   .marketColumn :global(.market-chart-header h2) { font-size: 15px; }
-  .marketColumn :global(.market-chart-market-switch) { padding: 0 0 8px; }
-  .marketColumn :global(.market-chart-toggle) { align-self: start; margin: 0 0 8px; border-radius: 999px; background: var(--surface); }
+  .marketColumn :global(.market-chart-market-switch) { padding: 0; }
+  .marketColumn :global(.market-chart-market-switch .segmented) { padding: 2px; }
+  .marketColumn :global(.market-chart-toggle) { align-self: start; margin: 0; border-radius: 999px; background: var(--surface); }
+  /* Keep the editable value and slider at 44px; trim only the surrounding
+     air so the estimate rows sit higher in the existing ticket. */
+  .tradeRoot .tradeCompactLeverage { padding-block: 4px 0; gap: 0; }
   .tradeTicket:not(.tradeTicketReview) { padding: 16px !important; gap: 12px; }
   .tradeLayout { gap: 16px; }
 }
 @media (max-width: 640px) and (max-height: 720px) {
-  .marketColumn :global(.market-chart-header) { padding: 4px 2px 8px; }
+  .marketColumn :global(.market-chart-panel) { padding-block: 6px; }
+  .marketColumn :global(.market-chart-header) { padding: 4px 2px 6px; }
   .marketColumn :global(.market-chart-header .text-display) { font-size: 26px; }
   .tradeTicket:not(.tradeTicketReview) { padding: 12px !important; gap: 8px; }
   .tradeLayout { gap: 8px; }

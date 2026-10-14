@@ -16,7 +16,7 @@ after(() => {
 });
 
 const unexpected = () => { throw new Error('Rendering a picker must not navigate, select or request accounts'); };
-const router: AppRouterInstance = { back: unexpected, forward: unexpected, refresh: unexpected, push: unexpected, replace: unexpected, prefetch: unexpected };
+const router: AppRouterInstance = { bfcacheId: 'wallet-picker-test', back: unexpected, forward: unexpected, refresh: unexpected, push: unexpected, replace: unexpected, prefetch: unexpected };
 const provider = (): Eip6963Provider => ({ request: async () => unexpected() });
 function render(providers: readonly DiscoveredEip6963Provider[] = [], legacy?: Eip6963Provider, pending?: WalletDialogAttempt) {
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: router },
@@ -27,7 +27,7 @@ function render(providers: readonly DiscoveredEip6963Provider[] = [], legacy?: E
 }
 
 for (const state of ['none', 'all installed', 'secondary and unknown installed'] as const) {
-  test(`initial picker renders exactly the same four brands with ${state}`, () => {
+  test(`initial picker promotes detected wallets with ${state}`, () => {
     const providers: DiscoveredEip6963Provider[] = state === 'none' ? []
       : state === 'all installed' ? WALLET_CATALOG.map((wallet) => ({ rdns: wallet.rdns, name: wallet.name, provider: provider() }))
         : [
@@ -35,15 +35,17 @@ for (const state of ['none', 'all installed', 'secondary and unknown installed']
           { rdns: 'app.phantom', name: 'Phantom', provider: provider() },
           { rdns: 'test.unknown', name: 'Coinbase Wallet', provider: provider() },
         ];
-    const html = render(providers, state === 'none' ? undefined : provider());
-    assert.deepEqual([...html.matchAll(/data-wallet-id="([^"]+)"/g)].map((match) => match[1]), ['metamask', 'coinbase', 'okx', 'rabby']);
-    assert.deepEqual([...html.matchAll(/class="wallet-provider-option-name">([^<]+)<\/span>/g)].map((match) => match[1]), ['MetaMask', 'Base Wallet', 'OKX', 'Rabby', 'Other wallets']);
-    assert.equal((html.match(/<img /g) ?? []).length, 4);
+    const html = render(providers);
+    const expectedIds = state === 'none' ? ['metamask', 'coinbase', 'okx', 'rabby']
+      : state === 'all installed' ? WALLET_CATALOG.map(wallet => wallet.id)
+      : ['trust', 'phantom', 'injected:test.unknown', 'metamask', 'coinbase', 'okx', 'rabby'];
+    assert.deepEqual([...html.matchAll(/data-wallet-id="([^"]+)"/g)].map((match) => match[1]), expectedIds);
+    assert.equal((html.match(/<img /g) ?? []).length, state === 'all installed' ? 8 : state === 'none' ? 4 : 6);
     assert.match(html, /src="\/wallets\/base\.svg"/);
     assert.doesNotMatch(html, /src="\/wallets\/coinbase\.svg"/);
     assert.match(html, /role="dialog"[^>]+aria-modal="true"/);
     assert.match(html, /aria-label="Close wallet selection"/);
-    assert.doesNotMatch(html, /Trust Wallet|Phantom|Coinbase Wallet|Wallet 1|Test wallet/);
+    assert.doesNotMatch(html, /Coinbase Wallet/);
   });
 }
 
@@ -53,4 +55,41 @@ test('the stable coinbase selection presents the requested Base Wallet label in 
   assert.match(html, /data-wallet-view="handoff"/);
   assert.match(html, /Open Base Wallet<\/button>/);
   assert.doesNotMatch(html, /Coinbase Wallet|Wallet connected|passkey/i);
+});
+
+test('Detected marks unique providers and ambiguity never earns a badge or promotion', () => {
+  const unique = render([{ rdns: 'io.metamask', name: 'MetaMask', provider: provider() }]);
+  assert.equal((unique.match(/class="wallet-provider-detected"/g) ?? []).length, 1);
+  assert.match(unique, /aria-label="MetaMask"/);
+  assert.match(unique, /Detected/);
+  const ambiguous = render([
+    { rdns: 'io.metamask', name: 'MetaMask', provider: provider() },
+    { rdns: 'io.metamask', name: 'MetaMask', provider: provider() },
+  ]);
+  assert.doesNotMatch(ambiguous, /wallet-provider-detected/);
+  assert.match(render([], provider()), /wallet-provider-detected/);
+  const secondaryAmbiguous = render([
+    { rdns: 'com.trustwallet.app', name: 'Trust Wallet', provider: provider() },
+    { rdns: 'com.trustwallet.app', name: 'Trust Wallet', provider: provider() },
+  ]);
+  assert.doesNotMatch(secondaryAmbiguous, /data-wallet-id="trust"|wallet-provider-detected/);
+});
+
+test('unique unknown and legacy providers appear first without catalog branding', () => {
+  const html = render([{ rdns: 'org.example.testwallet', name: 'Test wallet', provider: provider() }], provider());
+  assert.deepEqual([...html.matchAll(/data-wallet-id="([^"]+)"/g)].map(match => match[1]),
+    ['injected:org.example.testwallet', 'legacy:browser', 'metamask', 'coinbase', 'okx', 'rabby']);
+  assert.equal((html.match(/class="wallet-provider-detected"/g) ?? []).length, 2);
+  assert.equal((html.match(/<img /g) ?? []).length, 4, 'unknown identities keep the neutral mark');
+});
+
+test('handoff recovery is an optional disclosure and preserves retry, copy, install and guide controls', () => {
+  const html = render([], undefined, { walletId: 'metamask', name: 'MetaMask', status: 'handoff',
+    dappHref: 'https://fxaeon.xyz/move', fallbackHref: 'https://metamask.io/download', guideHref: 'https://metamask.io/help' });
+  assert.match(html, /Open MetaMask<\/button>/);
+  assert.match(html, /<details class="wallet-provider-recovery"><summary>Connection help<\/summary>/);
+  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
+  assert.match(html, /Copy FxAeon link/);
+  assert.match(html, /Install MetaMask/);
+  assert.match(html, /Wallet guide/);
 });

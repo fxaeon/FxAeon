@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeftRight, ChevronDown, Code2, UserRound } from 'lucide-react';
 import { formatUnits, isAddress, type Address } from 'viem';
 import { amountBlocker } from '@/lib/formBlockers';
@@ -34,6 +34,7 @@ import {
 } from '@/lib/fx';
 import { configuredRpcUrls } from '@/lib/fx/config';
 import { getRpcTransport } from '@/lib/fx/clients';
+import { BRIDGE_PREVIEW_TTL, fetchBridgePreview, isFreshBridgePreview, readBridgeReceiptEstimate, type BridgePreview } from '@/lib/fx/bridgePreview';
 import { usePrivyWallet } from '@/lib/wallet';
 import { parseAmount } from '@/app/trade/fxUi';
 import { resetTransactionAmounts } from '@/lib/transactionState';
@@ -140,6 +141,8 @@ export default function MovePage() {
   const [resumeReview, setResumeReview] = useState(0);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
   const [advancedBalance, setAdvancedBalance] = useState<TokenBalanceView | undefined>(undefined);
+  const [previewState, setPreviewState] = useState<{ key: string; status: 'loading' | 'ready' | 'unavailable' | 'expired'; data?: BridgePreview }>();
+  const [previewRevision, setPreviewRevision] = useState(0);
   const previousWalletContextRef = useRef<string | null>(null);
   // A review-rail connection is part of the current move action. Do not
   // clear its amount/recipient while the first wallet is hydrating; changes
@@ -165,6 +168,29 @@ export default function MovePage() {
   const amountWei = parseAmount(amount, 'fxUSD');
   const advanced = mode === 'advanced';
   const recipientValue = customRecipient ? recipientInput.trim() : wallet.address || '';
+  const recipientError = customRecipient && recipientInput.trim()
+    ? (!isAddress(recipientInput.trim()) || /^0x0{40}$/i.test(recipientInput.trim()) ? 'Enter a valid, non-zero destination address.' : undefined)
+    : undefined;
+  const previewKey = `${wallet.address}:${sourceChainId}:${token}:${amountWei}:${recipientValue}:${advanced}:${previewRevision}`;
+  const preview = previewState?.key === previewKey && previewState.status === 'ready' && isFreshBridgePreview(previewState.data) ? previewState.data : undefined;
+  const previewStatus = previewState?.key === previewKey ? previewState.status : undefined;
+  const nativeShortfall = preview?.nativeBalance !== undefined && preview.nativeBalance < preview.nativeFee + (preview.sourceGas ?? 0n);
+  useEffect(() => {
+    if (advanced || !wallet.address || !amountWei || !isAddress(recipientValue) || /^0x0{40}$/i.test(recipientValue) || reviewStage !== 'input') return;
+    let active = true;
+    let expires: ReturnType<typeof setTimeout> | undefined;
+    setPreviewState({ key: previewKey, status: 'loading' });
+    const debounce = setTimeout(() => {
+      void fetchBridgePreview({ sourceChainId, destinationChainId, token, amount: amountWei, wallet: wallet.address as Address, recipient: recipientValue as Address })
+        .then(data => {
+          if (!active) return;
+          if (!isFreshBridgePreview(data)) { setPreviewState({ key: previewKey, status: 'expired' }); return; }
+          setPreviewState({ key: previewKey, status: 'ready', data });
+          expires = setTimeout(() => { if (active) setPreviewState({ key: previewKey, status: 'expired' }); }, Math.max(0, data.readAt + BRIDGE_PREVIEW_TTL - Date.now()));
+        }).catch(() => { if (active) setPreviewState({ key: previewKey, status: 'unavailable' }); });
+    }, 400);
+    return () => { active = false; clearTimeout(debounce); if (expires) clearTimeout(expires); };
+  }, [advanced, amountWei, destinationChainId, previewKey, recipientValue, reviewStage, sourceChainId, token, wallet.address]);
   const draftState = useMemo(() => ({
     direction,
     mode,
@@ -341,7 +367,8 @@ export default function MovePage() {
   const reviewBlocker = !wallet.address ? null
     : amountBlocker(amount, 18, advanced ? 'tokens' : token, moveBalanceState, { emptyLabel: advanced ? undefined : `No ${token} on ${sourceName}` })
       ?? (customRecipient && !recipientInput.trim() ? `Enter a recipient on ${destinationName}` : null)
-      ?? (customRecipient && !isAddress(recipientInput.trim()) ? 'Enter a valid address' : null);
+      ?? (recipientError ? 'Enter a valid address' : null)
+      ?? (nativeShortfall ? `Add ETH on ${sourceName} for fees` : null);
 
   const planBuilder = useMemo(() => {
     if (!wallet.address || !amountWei) return null;
@@ -431,6 +458,8 @@ export default function MovePage() {
         : undefined;
       const route = await planBridgeRoute({ sourceChainId, destChainId: destinationChainId, token: sourceToken, amount: amountWei, recipient, refundAddress: signer, walletAddress: signer, sourceRpcUrl: requireRpcUrl(sourceChainId), includeApproval: advanced ? sourceApprovalRequired : true, approvalAllowance, approvalTokenAddress, destinationOftAddress, destinationBaselineBlock });
       assertBridgeActionTarget(route, reviewedSourceOft.to);
+      const receiptReadAt = Date.now();
+      const estimatedReceived = advanced ? undefined : await readBridgeReceiptEstimate(route);
       reviewedBridgeRef.current = {
         sourceChainId,
         destinationChainId,
@@ -458,6 +487,8 @@ export default function MovePage() {
           destinationTokenAddress,
           destinationBaselineBlock,
           recipient,
+          estimatedReceived,
+          receiptReadAt,
         },
       };
     };
@@ -489,18 +520,34 @@ export default function MovePage() {
           data-flow-stage={reviewStage}
           className={`${styles.focusCard} ${styles.moveCard} ${moveStyles.moveCard} p-5`}
         >
+          {reviewStage === 'input' && <>
+          <div className={moveStyles.cardHead}><span>Bridge{advanced && <small className={moveStyles.modeBadge}>Custom route</small>}</span>
+            <TransactionSettings scope="Move" chainId={sourceChainId}>
+              <section className={moveStyles.expertSettings} aria-label="Custom bridge contracts">
+                <label className={moveStyles.expertToggle}><Code2 size={16} aria-hidden="true" /><span>Expert mode · custom contracts</span>
+                  <input type="checkbox" checked={advanced} onChange={event => changeMode(event.target.checked ? 'advanced' : 'canonical')} />
+                </label>
+                {advanced && <>
+                  <AdvancedAddressFields sourceName={sourceName} destinationName={destinationName} sourceChainId={sourceChainId}
+                    sourceOft={sourceOft} destinationOft={destinationOft} approvalToken={approvalToken}
+                    onSourceOftChange={setSourceOft} onDestinationOftChange={setDestinationOft} onApprovalTokenChange={setApprovalToken} />
+                  <AdvancedRiskSummary />
+                </>}
+              </section>
+            </TransactionSettings>
+          </div>
+          </>}
           <ActionReview
             key={reviewRevision}
             surface="content"
             editor={<>
-          <div className={moveStyles.cardHead}><span>Bridge</span><TransactionSettings /></div>
           <div className={`${styles.moveFormFields} ${moveStyles.moveFormFields}`}>
-            <div className={moveStyles.sourcePanel}>
-            <NetworkField label="From" name={sourceName} chainId={sourceChainId} />
-              <AmountField label="Amount" symbol={advanced ? 'OFT' : token} value={amount} onChange={setAmount}
+            <section className={moveStyles.sourcePanel} aria-label="Send assets">
+            <NetworkField label="Send" name={sourceName} chainId={sourceChainId} />
+              <AmountField compact label="Amount" symbol={advanced ? 'OFT' : token} value={amount} onChange={setAmount}
                 maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false}
                 tokenSelector={!advanced ? <TokenSelect compact label="Asset" value={token} options={['fxUSD', 'fxSAVE'] as const} onChange={changeToken} balances={moveBalances} balanceStatus={wallet.address ? moveBalanceStatusForPicker : 'disconnected'} /> : undefined} />
-            </div>
+            </section>
             <button
               type="button"
               aria-label={`Reverse route to ${sourceName}`}
@@ -510,23 +557,51 @@ export default function MovePage() {
             >
               <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
             </button>
-            <div className={moveStyles.destinationPanel}>
-            <NetworkField label="To" name={destinationName} chainId={destinationChainId} />
-              <div className={moveStyles.receiveAsset}>
-                {!advanced && <TokenIcon symbol={token} size={28} />}
-                <strong>{advanced ? 'Custom token' : token}</strong>
+            <section className={moveStyles.destinationPanel} aria-label="Receive assets">
+            <NetworkField label="Receive" name={destinationName} chainId={destinationChainId} />
+              <div className={moveStyles.receiveLine}>
+                <strong className={moveStyles.receiveAmount} title={preview?.estimatedReceived !== undefined ? formatUnits(preview.estimatedReceived, 18) : undefined}>
+                  {!amountWei ? '0.00' : preview?.estimatedReceived !== undefined ? displayBridgeAmount(preview.estimatedReceived) : '—'}
+                </strong>
+                <span className={moveStyles.receiveAsset}>{!advanced && <TokenIcon symbol={token} size={24} />}<strong>{advanced ? 'Custom token' : token}</strong></span>
               </div>
-            </div>
+              <p className={moveStyles.receiveCaption} role="status">
+                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? 'Estimated amount received'
+                  : advanced ? 'Custom route checked at review' : !wallet.address ? 'Connect to preview this route'
+                  : recipientError ? 'Check the destination address' : previewStatus === 'loading' ? 'Getting a live quote…'
+                  : previewStatus === 'expired' ? 'Quote expired — refresh below' : 'Receipt estimate unavailable'}
+              </p>
+            </section>
+            {amountWei && !advanced && wallet.address && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
+              <div className={moveStyles.quoteHeading}><span>Via LayerZero</span>
+                <button type="button" disabled={previewStatus === 'loading'} onClick={() => setPreviewRevision(value => value + 1)}>{previewStatus === 'loading' ? 'Updating…' : 'Refresh quote'}</button>
+              </div>
+              <dl>
+                <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : 'Unavailable'} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} />
+                <QuoteRow label="Bridge fee" value={preview ? `${displayBridgeAmount(preview.nativeFee)} ETH` : 'Unavailable'} title={preview ? `${formatUnits(preview.nativeFee, 18)} ETH` : undefined} />
+                <QuoteRow label="Estimated source gas" value={preview?.sourceGas !== undefined ? `${displayBridgeAmount(preview.sourceGas)} ETH` : 'Calculated at review'} title={preview?.sourceGas !== undefined ? `${formatUnits(preview.sourceGas, 18)} ETH` : undefined} />
+                <QuoteRow label="Delivery estimate" value="Not provided by bridge" />
+              </dl>
+              <p className={moveStyles.quoteNote}>Final fees and amounts are checked again at review.</p>
+            </section>}
+            {Boolean(amountWei) && <p className={moveStyles.gasNote} data-shortfall={nativeShortfall || undefined} role={nativeShortfall ? 'alert' : undefined}>
+              {nativeShortfall ? preview?.sourceGas !== undefined
+                ? `Add ETH on ${sourceName}. Your balance does not cover the bridge fee and estimated transaction gas.`
+                : `Add ETH on ${sourceName}. Your balance does not cover the bridge fee; transaction gas is also required.`
+                : `Keep ETH on ${sourceName} for the bridge fee and gas. Max uses your token balance only.`}
+            </p>}
 
             <div className={moveStyles.recipientSection}>
               <div className={moveStyles.recipientHeading}>
-                <span className="text-[13px] text-mut">Recipient</span>
+                <div className={moveStyles.recipientIdentity}><UserRound size={15} aria-hidden="true" /><span>{customRecipient ? 'Recipient' : 'Your wallet'}</span>
+                  {!customRecipient && <span className={moveStyles.recipientAddress} title={wallet.address ?? undefined}>{wallet.address ? `${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : 'Not connected'}</span>}
+                </div>
                 <button
                   type="button"
                   onClick={changeRecipientMode}
                   className="min-h-11 rounded-lg px-2 text-[12px] font-medium text-mint transition-colors hover:bg-[var(--mint-dim)]"
                 >
-                  {customRecipient ? 'Use connected wallet' : 'Use another wallet'}
+                  {customRecipient ? 'Use your wallet' : 'Change'}
                 </button>
               </div>
               {customRecipient ? (
@@ -535,46 +610,12 @@ export default function MovePage() {
                   value={recipientInput}
                   onChange={setRecipientInput}
                   placeholder="0x… destination wallet"
+                  error={recipientError}
                 />
-              ) : (
-                <div className={moveStyles.recipientWallet}>
-                  <span className={moveStyles.recipientMark}><UserRound className="h-4 w-4" aria-hidden="true" /></span>
-                  {/* A status, not a control: the form's own action connects a wallet. */}
-                  <span className={`${moveStyles.recipientLabel} mr-auto text-[13px] font-medium text-[var(--text)]`}>Your wallet</span>
-                  {wallet.address ? (
-                    <span className={`${moveStyles.recipientAddress} font-mono text-[12px] text-mut`}>
-                      {`${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}`}
-                    </span>
-                  ) : <span className={`${moveStyles.recipientAddress} text-[12px] text-mut`}>Not connected</span>}
-                </div>
-              )}
+              ) : null}
             </div>
 
-            <details
-              open={advanced}
-              onToggle={(event) => changeMode(event.currentTarget.open ? 'advanced' : 'canonical')}
-              className={`${styles.advancedPanel} ${moveStyles.expertDisclosure}`}
-            >
-              <summary className={`${moveStyles.expertSummary} group flex cursor-pointer list-none items-center justify-between gap-3 px-3 text-[12px] font-semibold text-mut [&::-webkit-details-marker]:hidden`}>
-                {/* Named as the expert path it is (the questions below call it expert mode): fxUSD and fxSAVE never need it. */}
-                <span className="flex min-w-0 items-center gap-2"><Code2 aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--mut-2)]" /><span className="min-w-0">Expert mode<span className="font-medium text-[var(--mut-2)]"> · custom contracts</span></span></span>
-                <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-[var(--mut-2)] disclosure-chevron" />
-              </summary>
-              <div className="border-t border-[var(--line)] p-3">
-                <AdvancedAddressFields
-                  sourceName={sourceName}
-                  destinationName={destinationName}
-                  sourceChainId={sourceChainId}
-                  sourceOft={sourceOft}
-                  destinationOft={destinationOft}
-                  approvalToken={approvalToken}
-                  onSourceOftChange={setSourceOft}
-                  onDestinationOftChange={setDestinationOft}
-                  onApprovalTokenChange={setApprovalToken}
-                />
-                <AdvancedRiskSummary />
-              </div>
-            </details>
+
 
           </div>
             </>}
@@ -660,7 +701,8 @@ function AdvancedRiskSummary() {
   );
 }
 
-function AddressField({ label, hint, value, onChange, placeholder }: { label: string; hint?: string; value: string; onChange: (value: string) => void; placeholder: string }) {
+function AddressField({ label, hint, value, onChange, placeholder, error }: { label: string; hint?: string; value: string; onChange: (value: string) => void; placeholder: string; error?: string }) {
+  const errorId = useId();
   return (
     <label className="block">
       <span className="mb-2 flex items-center justify-between gap-3 text-[12px] font-medium text-mut">
@@ -668,16 +710,28 @@ function AddressField({ label, hint, value, onChange, placeholder }: { label: st
         {hint && <span className="text-[11px] text-[var(--mut-2)]">{hint}</span>}
       </span>
       {/* Phones must not capitalise or correct a hex address while it is typed or pasted. */}
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="text" className="min-h-[56px] w-full rounded-2xl border border-[var(--line)] bg-[var(--input)] px-3 font-mono text-[16px] outline-none focus:border-mint" />
+      <input aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="text" className="min-h-[56px] w-full rounded-2xl border border-[var(--line)] bg-[var(--input)] px-3 font-mono text-[16px] outline-none focus:border-mint" />
+      {error && <span id={errorId} role="alert" className={moveStyles.fieldError}>{error}</span>}
     </label>
   );
 }
 
-function NetworkField({ label, name, chainId }: { label: 'From' | 'To'; name: string; chainId: FxChainId }) {
+function NetworkField({ label, name, chainId }: { label: 'Send' | 'Receive'; name: string; chainId: FxChainId }) {
   return (
     <div className={`${styles.networkNode} ${moveStyles.routeNode}`}>
       <span className="block text-[12px] font-medium text-mut">{label}</span>
       <span className={`${moveStyles.routeIdentity} mt-1.5 flex items-center text-[15px] font-semibold`}><ChainIcon chainId={chainId} size={26} className={moveStyles.chainLogo} /><span className={moveStyles.routeName}>{name}</span></span>
     </div>
   );
+}
+
+function displayBridgeAmount(value: bigint): string {
+  if (value > 0n && value < 10n ** 10n) return '<0.00000001';
+  const [whole, fraction = ''] = formatUnits(value, 18).split('.');
+  const shown = fraction.slice(0, 8).replace(/0+$/, '');
+  const omitted = /[1-9]/.test(fraction.slice(8));
+  return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
+}
+function QuoteRow({ label, value, title }: { label: string; value: string; title?: string }) {
+  return <div><dt>{label}</dt><dd title={title}>{value}</dd></div>;
 }

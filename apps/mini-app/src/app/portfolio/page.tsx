@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowDownToLine,
-  ArrowLeftRight,
   CandlestickChart,
   ChevronRight,
   CircleAlert,
@@ -61,6 +60,7 @@ import { providerFallbackOnScreen } from '@/components/ProviderLoadingState';
 import { SplitFigure } from '@/components/SplitFigure';
 import { SplitHorizon } from '@/components/SplitHorizon';
 import { useRefreshAction } from '@/lib/useRefreshAction';
+import { fetchFxSaveApy, type FxSaveApyResponse } from '@/lib/fxSaveApy';
 
 const EMPTY_FX_SAVE: FxSaveSnapshot = {
   status: 'idle',
@@ -251,7 +251,7 @@ function PortfolioWallet() {
       </StatusNotice>)}
       <PortfolioAssets snapshot={displayAssets} loading={loading || liveLoading}
         network={network} onNetworkChange={setNetwork} onRefresh={refreshAll} refreshing={manualRefresh.refreshing} />
-      <PositionsSection summary={positionsSummary(positionState.status, positionState.positions.length)}>
+      <PositionsSection summary={positionsSummary(positionState.status, positionState.positions.length)} empty={positionState.status === 'ready' && positionState.positions.length === 0 && positionState.pendingPositions.length === 0}>
           <div className={presentation.disclosureActions}>{positionState.positions.length > 0 && <Link href="/positions">Manage all <ChevronRight size={15} aria-hidden="true" /></Link>}</div>
           <ProtocolPositionNotice status={positionState.status} failedGroups={positionState.failedGroups}
             hasPositions={positionState.positions.length + positionState.pendingPositions.length > 0} refreshing={positionState.refreshing}
@@ -279,9 +279,10 @@ function BorrowShortcut() {
   return <RowGroup title="Borrow"><ActionRow icon={CircleDollarSign} title="Borrow fxUSD" description="Manage collateral and debt" href="/borrow" /></RowGroup>;
 }
 
-function PositionsSection({ summary, children }: { summary: React.ReactNode; children: React.ReactNode }) {
+function PositionsSection({ summary, children, empty = false }: { summary: React.ReactNode; children: React.ReactNode; empty?: boolean }) {
   return <section aria-label="Positions" className={presentation.positionsSection}>
-    <Disclosure title="Positions" summary={summary}>{children}</Disclosure>
+    {empty ? <div className={presentation.emptyPositions}><h2>Positions</h2><span>No open positions</span></div>
+      : <Disclosure title="Positions" summary={summary}>{children}</Disclosure>}
   </section>;
 }
 
@@ -346,7 +347,7 @@ const WELCOME_MARKS = ['ETH', 'WBTC', 'fxUSD', 'fxSAVE', 'USDC'] as const;
 function DisconnectedPortfolio() {
   return (
     <div id="overview" className={`${styles.overview} ${styles.disconnectedOverview}`}>
-      <div className={`${styles.primaryColumn} col-span-full`}>
+      <div className={`${styles.primaryColumn} ${presentation.disconnectedPrimary} col-span-full`}>
         {/* Signed out, Portfolio opens as the landing does: the product in one confident line, over the f(x) split in motion. */}
         <div className={presentation.welcome}>
           <SplitHorizon className={presentation.welcomeHorizon} />
@@ -355,11 +356,86 @@ function DisconnectedPortfolio() {
           </span>
           <h2 className={presentation.welcomeTitle}>Leverage, savings, and credit.</h2>
         </div>
-        <QuickActions />
+        <QuickActions disconnected />
         <MarketOverview />
+        <ProductOverview />
       </div>
     </div>
   );
+}
+
+/** Public, display-only APY; a failed or expired read never becomes a promised yield. */
+function ProductOverview() {
+  const [apy, setApy] = useState<FxSaveApyResponse | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  useEffect(() => {
+    const maxAge = 5 * 60_000;
+    let active = true;
+    let controller: AbortController | null = null;
+    let observedAt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = () => {
+      if (active && observedAt > 0 && Date.now() - observedAt >= maxAge) {
+        observedAt = 0;
+        setApy(null);
+        setStatus('unavailable');
+      }
+      if (!active || controller || document.visibilityState !== 'visible' || !navigator.onLine) return;
+      clearTimeout(timer);
+      const request = new AbortController();
+      controller = request;
+      setApy(null);
+      setStatus('loading');
+      void fetchFxSaveApy(request.signal).then((snapshot) => {
+        if (!active || request.signal.aborted) return;
+        observedAt = snapshot.observedAt;
+        setApy(snapshot);
+        setStatus('ready');
+      }).catch(() => {
+        if (!active) return;
+        observedAt = 0;
+        setApy(null);
+        setStatus('unavailable');
+      }).finally(() => {
+        controller = null;
+        if (active) {
+          const recovered = request.signal.aborted && navigator.onLine && document.visibilityState === 'visible';
+          timer = setTimeout(load, recovered ? 0 : observedAt > 0 ? Math.max(1, maxAge - (Date.now() - observedAt)) : maxAge);
+        }
+      });
+    };
+    const recover = () => {
+      if (!navigator.onLine) {
+        controller?.abort();
+        observedAt = 0;
+        setApy(null);
+        setStatus('unavailable');
+      } else if (Date.now() - observedAt >= maxAge) load();
+    };
+    recover();
+    document.addEventListener('visibilitychange', recover);
+    window.addEventListener('online', recover);
+    window.addEventListener('offline', recover);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      controller?.abort();
+      document.removeEventListener('visibilitychange', recover);
+      window.removeEventListener('online', recover);
+      window.removeEventListener('offline', recover);
+    };
+  }, []);
+  return <section className={presentation.productOverview} aria-label="Savings and borrowing">
+    <Link href="/earn" className={presentation.productCard}>
+      <div><TokenIcon symbol="fxSAVE" size={28} /><strong>Earn with fxSAVE</strong><ChevronRight size={15} aria-hidden="true" /></div>
+      <p>{apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> APY</>
+        : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading fxSAVE APY" /> : <span>APY unavailable</span>}</p>
+    </Link>
+    <Link href="/borrow" className={presentation.productCard}>
+      <div><TokenIcon symbol="fxUSD" size={28} /><strong>Borrow fxUSD</strong><ChevronRight size={15} aria-hidden="true" /></div>
+      <p>ETH, WETH, stETH, wstETH or WBTC collateral</p>
+    </Link>
+  </section>;
 }
 
 /**
@@ -424,7 +500,7 @@ function SupportedValueCard({ displayTotalUsd, loading, refreshing, onRefresh,
       </button>
     </div>
     <p className={`${presentation.valueNumber} ${balancePresentation.value}`} data-portfolio-value>{displayTotalUsd !== null
-      ? <SplitFigure value={formatUsd(displayTotalUsd)} />
+      ? <SplitFigure value={formatUsd(displayTotalUsd)} fractionClassName={balancePresentation.fraction} />
       : loading ? <MissingValue width="xl" status="loading" label="Loading portfolio value" />
         : <span className={presentation.valueUnavailable}>
           <span role="status" aria-label="Portfolio value unavailable"><CircleAlert size={16} aria-hidden="true" />Total unavailable</span>
@@ -441,17 +517,21 @@ function SupportedValueCard({ displayTotalUsd, loading, refreshing, onRefresh,
   </section>;
 }
 
-function QuickActions() {
-  const actions: { href: string; label: string; icon: LucideIcon }[] = [
+function QuickActions({ disconnected = false }: { disconnected?: boolean }) {
+  const actions: { href: string; label: string; icon: LucideIcon }[] = disconnected ? [
+    { href: '/trade', label: 'Trade', icon: CandlestickChart },
+    { href: '/earn', label: 'Earn', icon: PiggyBank },
+    { href: '/borrow', label: 'Borrow', icon: CircleDollarSign },
+  ] : [
     { href: '/qr', label: 'Receive', icon: ArrowDownToLine },
     { href: '/trade', label: 'Trade', icon: CandlestickChart },
-    { href: '/move', label: 'Move', icon: ArrowLeftRight },
+    { href: '/borrow', label: 'Borrow', icon: CircleDollarSign },
     { href: '/earn', label: 'Earn', icon: PiggyBank },
   ];
   return (
     <section aria-labelledby="portfolio-actions-title">
       <h2 id="portfolio-actions-title" className="sr-only">Actions</h2>
-      <div className={presentation.quickActions}>
+      <div className={`${presentation.quickActions} ${disconnected ? presentation.productActions : ''}`}>
         {actions.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} onClick={() => haptic('light')} className={presentation.quickAction}>
             <span><Icon className="h-5 w-5" aria-hidden="true" /></span>
@@ -466,7 +546,7 @@ function QuickActions() {
 function MarketOverview() {
   return (
     <section aria-labelledby="market-overview-title">
-      <SectionTitle right={<Link href="/trade" className="glass-press flex min-h-11 items-center gap-0.5 px-1.5 text-[13px] font-semibold text-mint">Open trade<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}>
+      <SectionTitle right={<span className={presentation.marketTimeframe}>24h change</span>}>
         <span id="market-overview-title">Markets</span>
       </SectionTitle>
       <div className={`${styles.market} grid grid-cols-2 gap-2.5`}>

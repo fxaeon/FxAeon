@@ -7,7 +7,7 @@ import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { useExitPresence } from '@/lib/useExitPresence';
 import styles from './SettingsPopover.module.css';
 
-export function SettingsPopover({ summary, chip, children }: { summary: string; chip?: string | null; children: ReactNode }) {
+export function SettingsPopover({ summary, chip, children, title = 'Transaction settings' }: { summary: string; chip?: string | null; children: ReactNode; title?: string }) {
   const [open, setOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
@@ -26,8 +26,15 @@ export function SettingsPopover({ summary, chip, children }: { summary: string; 
       const minY = (viewport?.offsetTop ?? 0) + 12;
       const nav = document.querySelector<HTMLElement>('[data-fixed-navigation="true"]')?.getBoundingClientRect();
       const viewportBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
+      // Phones use a sheet above their keyboard and bottom navigation; the
+      // same dialog stays anchored to its gear on wider screens.
+      if ((viewport?.width ?? window.innerWidth) <= 640) {
+        setPosition({ width: viewport?.width ?? window.innerWidth, left: viewport?.offsetLeft ?? 0,
+          bottom: Math.max(0, window.innerHeight - viewportBottom), maxHeight: Math.max(80, viewportBottom - minY) });
+        return;
+      }
       const maxY = Math.min(viewportBottom, nav && nav.height > 0 ? nav.top : viewportBottom) - 12;
-      const width = Math.min(340, (viewport?.width ?? window.innerWidth) - 24);
+      const width = Math.min(380, (viewport?.width ?? window.innerWidth) - 24);
       const minX = (viewport?.offsetLeft ?? 0) + 12;
       const left = Math.max(minX, Math.min(anchor.right - width, minX + (viewport?.width ?? window.innerWidth) - width - 24));
       const available = Math.max(0, maxY - minY);
@@ -63,8 +70,10 @@ export function SettingsPopover({ summary, chip, children }: { summary: string; 
     </button>
     {present && typeof document !== 'undefined' && createPortal(<div className={styles.backdrop} data-state={open ? 'open' : 'closed'} inert={!open} aria-hidden={!open || undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Transaction settings" className={styles.panel} style={position}>
-        <header><strong>Settings</strong><button ref={closeRef} type="button" aria-label="Close transaction settings" onClick={() => setOpen(false)}><X size={18} aria-hidden="true" /></button></header>
+        <span className={styles.handle} aria-hidden="true" />
+        <header><strong>{title}</strong><button ref={closeRef} type="button" aria-label="Close transaction settings" onClick={() => setOpen(false)}><X size={20} aria-hidden="true" /></button></header>
         <div className={styles.body}>{children}</div>
+        <footer className={styles.footer}><button type="button" onClick={() => setOpen(false)}>Done</button></footer>
       </div>
     </div>, document.body)}
   </>;

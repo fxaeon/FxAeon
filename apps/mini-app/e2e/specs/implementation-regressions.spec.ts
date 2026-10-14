@@ -37,7 +37,7 @@ test.describe('implementation regressions', () => {
           await expect(action).toBeVisible();
           await expectReachable(action, viewport.height);
           const href = await action.getAttribute('href');
-          expect(href).toMatch(/^\/(?:qr|trade|move|earn)$/);
+          expect(href).toMatch(/^\/(?:qr|trade|borrow|earn)$/);
           await action.click();
           await expect(page).toHaveURL(new RegExp(`${href!.replace('/', '\\/')}(?:\\/)?$`));
           await page.goBack({ waitUntil: 'domcontentloaded' });
