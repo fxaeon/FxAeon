@@ -39,6 +39,7 @@ coverage/
 *.lcov
 /artifacts/
 /output/
+/apps/mini-app/output/
 
 # OS
 .DS_Store
