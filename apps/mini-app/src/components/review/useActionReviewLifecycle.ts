@@ -21,6 +21,18 @@ import { tokenSymbol } from '@/lib/fx/tokenPresentation';
 
 const REVIEW_FRESHNESS_MS = 30_000;
 
+/** A bridge receipt estimate ages from its read, including time spent preparing. */
+function routeEstimateReadAt(route: PlannedRoute): number {
+  const quote = route.operation === 'buildBridgeTx' && route.quote && typeof route.quote === 'object'
+    ? route.quote as { receiptReadAt?: unknown } : undefined;
+  const receiptReadAt = quote?.receiptReadAt;
+  return Math.min(
+    route.details?.fxSaveQuote?.readAt ?? Infinity,
+    typeof receiptReadAt === 'number' && Number.isSafeInteger(receiptReadAt) && receiptReadAt > 0
+      ? receiptReadAt : Infinity,
+  );
+}
+
 function asRoutes(value: PlannedRoute | readonly PlannedRoute[]): PlannedRoute[] {
   const routes = Array.isArray(value) ? [...value] : [value];
   if (!routes.length) throw new Error('No executable transaction route was returned.');
@@ -142,6 +154,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
   const liveIntentKeyRef = useRef<typeof intentKey>(intentKey);
   liveIntentKeyRef.current = intentKey;
   const previousWalletMode = useRef(wallet.isEmbedded);
+  const acceptedWalletModeRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (stage !== 'review' || preparedAt === null) return undefined;
@@ -189,6 +202,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     setRefreshing(false);
     setReviewTitle(null);
     clearAcceptedRoute();
+    acceptedWalletModeRef.current = null;
     clearSession();
     setResumeAfterConnect(false);
     setStatus('planning');
@@ -242,6 +256,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     setReviewTitle(null);
     expireQuote();
     clearSession();
+    acceptedWalletModeRef.current = null;
     setResumeAfterConnect(false);
     setStatus('planning');
     setStatusDetail('');
@@ -359,6 +374,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     transition('prepare');
     // A new attempt must not display or accept any previous review metadata.
     clearAcceptedRoute();
+    acceptedWalletModeRef.current = null;
     setRoutes([]);
     setSelectedRoute(0);
     setFeeSelection(null);
@@ -406,12 +422,17 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       // Snapshot the action with its calldata so later form changes cannot
       // rename the route the user reviewed.
       setReviewTitle(operationLabel ?? viable[0].operation);
+      acceptedWalletModeRef.current = reviewIsEmbedded;
       bindSession({ walletAddress, chainId: wallet.chainId, connectionVersion: wallet.connectionVersion });
       setStatus('reviewing');
       setStatusDetail('Route ready.');
       // Align the ordinary review freshness window with the earlier of route
       // quote and gas quote expiry; neither can silently outlive the other.
-      const preparedAt = feeSnapshot ? Math.min(Date.now(), feeSnapshot.validUntil - REVIEW_FRESHNESS_MS) : Date.now();
+      const preparedAt = Math.min(
+        Date.now(),
+        feeSnapshot ? feeSnapshot.validUntil - REVIEW_FRESHNESS_MS : Infinity,
+        ...viable.map(routeEstimateReadAt),
+      );
       acceptRoute(viable[0], intentKey);
       setQuoteChanges([]);
       preparedAtRef.current = preparedAt;
@@ -514,9 +535,14 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       setStepResults([]);
       executionStepsRef.current = [];
       setReviewTitle(operationLabel ?? next.operation);
+      acceptedWalletModeRef.current = reviewIsEmbedded;
       bindSession({ walletAddress, chainId: sessionChainId, connectionVersion });
       acceptRoute(next, intentKey);
-      const updatedPreparedAt = feeSnapshot ? Math.min(Date.now(), feeSnapshot.validUntil - REVIEW_FRESHNESS_MS) : Date.now();
+      const updatedPreparedAt = Math.min(
+        Date.now(),
+        feeSnapshot ? feeSnapshot.validUntil - REVIEW_FRESHNESS_MS : Infinity,
+        ...viable.map(routeEstimateReadAt),
+      );
       setPreparedAt(updatedPreparedAt);
       preparedAtRef.current = updatedPreparedAt;
       if (termsChanged && factChanges.length === 0) {
@@ -561,6 +587,16 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
   const execute = useCallback(async () => {
     const startingRoute = route;
     if (disabled || !planBuilder || !startingRoute || gasCost.checking || loading || busyRef.current || stage !== 'review' || status === 'failed' || stepResults.some(hasTransactionHash)) return;
+    // A click can arrive after wallet context commits and before passive
+    // invalidation runs. Bind execution only to the session already reviewed.
+    const live = liveWalletRef.current;
+    if (!reviewSession || sessionMismatch({
+      walletAddress: live.address?.toLowerCase() ?? '', authenticated: live.authenticated,
+      chainId: live.chainId, connectionVersion: live.connectionVersion,
+    }) || live.isEmbedded !== acceptedWalletModeRef.current) {
+      invalidatePreparedRoute('The wallet connection changed. Check the action again before signing.');
+      return;
+    }
     if (wallet.isEmbedded && (!feeSelection
       || feeSelection.snapshot.chainId !== startingRoute.chainId
       || feeSelection.tier !== readGasTier()
@@ -831,7 +867,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
         setLoading(false);
       }
     }
-  }, [bindSession, disabled, gasCost.checking, draftActionKey, draftResumePath, draftState, expireQuote, feeSelection, invalidateWalletData, isCurrentGeneration, loading, matchesAcceptedRoute, onComplete, planBuilder, intentKey, quoteExpired, reviewTitle, route, stage, status, stepResults, transition, wallet]);
+  }, [bindSession, disabled, gasCost.checking, draftActionKey, draftResumePath, draftState, expireQuote, feeSelection, invalidatePreparedRoute, invalidateWalletData, isCurrentGeneration, loading, matchesAcceptedRoute, onComplete, planBuilder, intentKey, quoteExpired, reviewSession, reviewTitle, route, sessionMismatch, stage, status, stepResults, transition, wallet]);
 
   // Connecting leaves the editor in place without preparing a transaction. The user
   // must click the action again after the wallet is connected.

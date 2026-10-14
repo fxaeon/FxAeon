@@ -40,3 +40,13 @@ export function fxSaveUsdValue(
     ? usdValueForUnits(value, FX_TOKENS[priceKey].decimals, prices[priceKey])
     : usdValueForDecimal(value, prices[priceKey]);
 }
+
+/** Prefer valued onchain holdings; accept a recent address-verified official TVL when unavailable. */
+export function fxSaveVaultUsdValue(totalAssetsWei: bigint | undefined, prices: UsdPriceMap,
+  reported: { tvlUsd?: number; observedAt: number } | null, now = Date.now()): number | null {
+  const valued = fxSaveUsdValue('totalAssetsWei', totalAssetsWei, prices);
+  if (valued !== null) return valued;
+  const tvl = reported?.tvlUsd;
+  return typeof tvl === 'number' && Number.isFinite(tvl) && tvl >= 0
+    && typeof reported?.observedAt === 'number' && reported.observedAt <= now && now - reported.observedAt < 300_000 ? tvl : null;
+}

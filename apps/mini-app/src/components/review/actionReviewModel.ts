@@ -76,7 +76,8 @@ export function acceptedRouteTerms(route: PlannedRoute): string {
 /** Consequence copy only uses facts already validated by the route adapter. */
 export function consequenceSummary(facts: readonly ReviewFact[]): ReviewFact[] {
   const consequenceLabels = new Set([
-    'Amount', 'Input amount', 'Deposit', 'Borrow', 'Repay', 'Withdraw', 'fxSAVE', 'Receive',
+    'Amount', 'Input amount', 'Deposit', 'Borrow', 'Debt added', 'Repay', 'Withdraw', 'fxSAVE', 'Receive',
+    'Estimated fxSAVE received', 'Estimated received', 'Estimated fxUSD received', 'f(x) fee', 'f(x) fee rate', 'Availability',
     'Minimum received', 'Quoted minimum received', 'Position', 'Target leverage', 'Leverage',
     'Source network', 'Destination network', 'Asset', 'Recipient', 'Bridge fee', 'Mode', 'Collateral', 'Debt',
     'Current collateral', 'Expected collateral', 'Current debt', 'Expected debt', 'Expected receive',

@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -28,7 +28,6 @@ const mocks: Record<string, string> = {
   '@/components/NetworkSelector': `import React from 'react'; export default function NetworkSelector() { return <button type="button" aria-label="Network: Ethereum" className="glass-press" style={{ width: 44, height: 44 }} />; }`,
   '@/components/WalletConnectCTA': `import React from 'react'; export default ({body}) => <section>{body}</section>;`,
   '@/components/ProtocolPositionProvider': `export const useProtocolPositions = () => globalThis.__positionsScreens.shared;`,
-  '@/components/ConfirmedPositionCards': `export const ConfirmedPositionCards = () => null;`,
   '@/components/PositionBrakeContext': `export function usePositionBrake(position) {
   if (position.info.rawDebts <= 0n) return { status: 'none' };
   const reading = globalThis.__positionsScreens.brakes[position.market + ':' + position.side + ':' + position.info.positionId];
@@ -81,16 +80,16 @@ export const useFxSaveClaimable = () => ({ data: null, status: 'idle', isFetchin
   // CommonJS behind a Proxy: the planners the page calls are live; every
   // other name the graph imports resolves to an inert stub.
   '@/lib/fx': `const { tokens: t } = require('@aladdindao/fx-sdk');
+const drafts = require('@/lib/fx/drafts');
 const FX_TOKENS = {ETH:{address:t.eth,decimals:18,key:'ETH'},WETH:{address:t.weth,decimals:18,key:'WETH'},wstETH:{address:t.wstETH,decimals:18,key:'wstETH'},stETH:{address:t.stETH,decimals:18,key:'stETH'},WBTC:{address:t.WBTC,decimals:8,key:'WBTC'},USDC:{address:t.usdc,decimals:6,key:'USDC'},USDT:{address:t.usdt,decimals:6,key:'USDT'},fxUSD:{address:t.fxUSD,decimals:18,key:'fxUSD'},fxUSDBasePool:{address:t.fxUSDBasePool,decimals:18,key:'fxUSDBasePool'},fxSAVE:{address:'0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39',decimals:18,key:'fxSAVE'}};
 const bounds = { min: 1.1, max: 7, source: 'fixture' };
 const known = { FX_TOKENS, MAX_FX_SLIPPAGE_PERCENT: 2, clampLeverage: (v) => Math.min(bounds.max, Math.max(bounds.min, v)), leverageBoundsFor: () => bounds,
-  formatRouteGasCost: () => ({ gasFee: '0.0024 ETH', totalCost: '0.0024 ETH' }), planAdjustPositionLeverage: async () => null, planIncreasePosition: async () => null, planReducePosition: async () => null,
-  prepareLeverageReview: async ({ leverage }) => ({ leverage, bounds, plan: null, adjusted: false }), readLeverageBounds: async () => bounds,
-  readSignatureRequiredDraft: () => null, restoreSignatureRequiredDraftFromSearch: () => null, signatureDraftIdFromSearch: () => null };
+  formatRouteGasCost: () => ({ gasFee: '0.0024 ETH', totalCost: '0.0024 ETH' }), planAdjustPositionLeverage: async () => null, planIncreasePosition: async (input) => { globalThis.__positionsScreens.lastIncreaseInput = input; return null; }, planReducePosition: async () => null,
+  prepareLeverageReview: async ({ leverage, buildPlan }) => ({ leverage, bounds, plan: await buildPlan(), adjusted: false }), readLeverageBounds: async () => bounds,
+  readSignatureRequiredDraft: drafts.readSignatureRequiredDraft, restoreSignatureRequiredDraftFromSearch: drafts.restoreSignatureRequiredDraftFromSearch, signatureDraftIdFromSearch: drafts.signatureDraftIdFromSearch };
 module.exports = new Proxy(known, { get: (target, key) => key in target ? target[key] : key === '__esModule' ? false : () => undefined });`,
   '@/lib/fx/policy': `import {FX_TOKENS} from '@/lib/fx'; const pools={long:['0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8','0xAB709e26Fa6B0A30c119D8c55B887DeD24952473'],short:['0x25707b9e6690B52C60aE6744d711cf9C1dFC1876','0xA0cC8162c523998856D59065fAa254F87D20A5b0']}; export const positionPoolAddress=(market,type)=>pools[type][market==='ETH'?0:1]; export const positionCollateralTokenAddress=(market,type)=>type==='short'?FX_TOKENS.fxUSD.address:market==='ETH'?FX_TOKENS.wstETH.address:FX_TOKENS.WBTC.address; export const positionDebtTokenAddress=(market,type)=>type==='long'?FX_TOKENS.fxUSD.address:market==='ETH'?FX_TOKENS.wstETH.address:FX_TOKENS.WBTC.address;`,
   '@/lib/wallet': `export const usePrivyWallet=()=>({...globalThis.__positionsScreens.wallet,sendTransaction:async()=>{globalThis.__positionsScreens.walletRequests+=1;}}); export const isWalletConnectCancellation=()=>false; export const useWalletReadyTimeout=()=>false;`,
-  '@/lib/settings': `export const DEFAULT_SLIPPAGE_PERCENT=1; export const GAS_TIERS=['standard','fast','rapid']; export const readSlippagePercent=()=>1; export const SETTINGS_KEY='settings'; export const SETTINGS_UPDATED_EVENT='settings-updated'; export const readGasTier=()=>'standard'; export const DEFAULT_GAS_TIER='standard'; export const MIN_SLIPPAGE_BPS=10; export const MAX_SLIPPAGE_BPS=200; export const SLIPPAGE_PRESETS_BPS=[10,50,100,200]; export const isSlippageBps=(v)=>Number.isInteger(v)&&v>=10&&v<=200; export const writeTransactionSettings=()=>true;`,
   '@/lib/fx/gasFeePolicy': `export const formatGasPriceGwei=value=>Number(value)/1000000000+' Gwei'; export const formatGasTierQuote=quote=>quote.tier+' · '+Number(quote.gasPriceWei)/1000000000+' Gwei'; export const fetchGasTierQuotes=async()=>{ throw new Error('Gas quotes are unavailable in the harness'); };`,
   '@/lib/receiptPresentation': `export const buildReceiptPresentation=()=>({movements:[],technicalMovements:[],executionFee:null,feeLabel:'Network fee',feeCaveat:null,nativeValue:null}); export const receiptTransfersFromLogs=()=>[]; export const shouldShowReceiptMovementFallback=receipts=>receipts.length>0&&receipts.some(receipt=>receipt.transactionKind!=='approval'); export const receiptMovementLines=receipts=>{const tokenMovements=receipts.flatMap(receipt=>receipt.movements); if(tokenMovements.length) return {movements:tokenMovements,nativeValueIsMovement:false}; const nativeSends=receipts.flatMap(receipt=>receipt.nativeValue&&receipt.nativeValueLabel==='Native value sent'?['sent '+receipt.nativeValue]:[]); return {movements:nativeSends,nativeValueIsMovement:nativeSends.length>0};};`,
   '@/lib/transactionState': `export const resetTransactionAmounts=()=>({amount:'',fraction:25,leverage:2});`,
@@ -102,8 +101,10 @@ export const positionTokenDecimals = (position, field) => field === 'collateral'
 export const positionIsStale = (position, failedGroups) => failedGroups.some((group) => group.market === position.market && group.side === position.side);
 export const getSdkReductionAmountWei = async () => 1n; export const parseAmount = () => 1n;
 export const positionCollateralDecimals = () => 18; export const positionDebtDecimals = () => 18;
-export const positionInputTokenOptions = (market) => market === 'BTC' ? ['WBTC', 'USDC', 'USDT', 'fxUSD'] : ['ETH', 'WETH', 'stETH', 'wstETH', 'USDC', 'USDT', 'fxUSD'];
-export const positionOutputTokenOptions = (market) => market === 'BTC' ? ['WBTC', 'USDC', 'USDT', 'fxUSD'] : ['ETH', 'WETH', 'wstETH', 'USDC', 'USDT', 'fxUSD'];
+const inputs = { BTC: ['WBTC', 'USDC', 'USDT', 'fxUSD'], ETH: ['ETH', 'WETH', 'stETH', 'wstETH', 'USDC', 'USDT', 'fxUSD'] };
+const outputs = { BTC: ['WBTC', 'USDC', 'USDT', 'fxUSD'], ETH: ['ETH', 'WETH', 'wstETH', 'USDC', 'USDT', 'fxUSD'] };
+export const positionInputTokenOptions = (market) => inputs[market];
+export const positionOutputTokenOptions = (market) => outputs[market];
 export const positionTargetLeverage = (position) => Number(Math.max(0.1, position.side === 'short' ? position.info.lsdLeverage : position.info.currentLeverage).toFixed(2));
 export const tokenAddress = () => '0x0000000000000000000000000000000000000001';
 export const tokenDecimals = (token) => token === 'USDC' || token === 'USDT' ? 6 : token === 'WBTC' ? 8 : 18;`,
@@ -125,6 +126,7 @@ test.beforeAll(async () => {
     banner: { js: "var process = { env: { NODE_ENV: 'production' } };" },
     plugins: [{ name: 'positions-screens', setup(build: { onResolve: (options: { filter: RegExp; namespace?: string }, callback: (args: { path: string }) => unknown) => void; onLoad: (options: { filter: RegExp; namespace?: string }, callback: (args: { path: string }) => unknown) => void }) {
       build.onResolve({ filter: /^next\/(link|navigation)$/ }, (args) => ({ path: args.path, namespace: 'mock' }));
+      build.onResolve({ filter: /^\.\/ProtocolPositionProvider$/ }, () => ({ path: '@/components/ProtocolPositionProvider', namespace: 'mock' }));
       build.onResolve({ filter: /^@\// }, (args) => mocks[args.path] ? { path: args.path, namespace: 'mock' } : { path: resolveSource(args.path) });
       build.onLoad({ filter: /.*/, namespace: 'mock' }, (args) => ({ contents: mocks[args.path], loader: 'tsx', resolveDir: appRoot }));
     } }],
@@ -158,6 +160,134 @@ const list = (page: Page) => page.locator('section[aria-labelledby="open-positio
 const actions = (page: Page) => page.getByRole('radiogroup', { name: 'Position action', exact: true });
 const scrollTop = (page: Page) => page.evaluate(() => document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop);
 
+test('management viewport captures keep controls and the primary action above the navigation', async ({ page }) => {
+  test.setTimeout(120_000);
+  const measurements: unknown[] = [];
+  const directory = resolve(appRoot, '../../artifacts/position-flow-compact');
+  mkdirSync(directory, { recursive: true });
+  for (const theme of ['dark', 'light'] as const) for (const [width, height] of [[390, 844], [1280, 800], [320, 568]] as const) {
+    await page.setViewportSize({ width, height });
+    await open(page, { theme, positions: ['long'], path: '/positions?position=ETH%3Along%3A2033' });
+    for (const action of ['Add', 'Reduce', 'Leverage', 'Close']) {
+      await actions(page).getByRole('radio', { name: action, exact: true }).click();
+      const measure = async (state: string) => {
+      await page.evaluate(() => document.querySelector<HTMLElement>('[data-shell-content]')?.scrollTo({ top: 0 }));
+      const primary = page.getByRole('button', { name: /^Review / });
+      const metrics = await primary.evaluate(button => {
+        const box = button.getBoundingClientRect();
+        const nav = document.querySelector<HTMLElement>('[data-fixed-navigation="true"]')?.getBoundingClientRect();
+        const details = document.querySelector<HTMLElement>('[data-position-details]')!;
+        const manager = details.parentElement!.getBoundingClientRect();
+        const cx = box.left + box.width / 2;
+        const cy = box.top + box.height / 2;
+        return { ctaTop: box.top, ctaBottom: box.bottom, managerHeight: manager.height, detailsHeight: details.getBoundingClientRect().height, dockTop: nav && nav.height > 0 ? nav.top : innerHeight, centerHit: button.contains(document.elementFromPoint(cx, cy)) };
+      });
+      measurements.push({ theme, width, height, action, state, ...metrics });
+      writeFileSync(resolve(directory, 'after.json'), JSON.stringify(measurements, null, 2));
+      if (width !== 320) {
+        expect(metrics.ctaTop).toBeGreaterThanOrEqual(0);
+        expect(metrics.ctaBottom).toBeLessThanOrEqual(metrics.dockTop - 4);
+        expect(metrics.centerHit).toBe(true);
+      } else {
+        await primary.evaluate(button => button.scrollIntoView({ block: 'center' }));
+        await expect(primary).toBeInViewport();
+        expect(await primary.evaluate(button => { const box = button.getBoundingClientRect(); return button.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)); })).toBe(true);
+      }
+      await page.screenshot({ path: resolve(directory, `positions-${theme}-${width}x${height}-${action.toLowerCase()}-${state}${width === 320 ? '-scrolled' : ''}.png`), fullPage: false, animations: 'disabled' });
+      };
+      await measure('default');
+      if (action === 'Add') {
+        await page.getByRole('textbox', { name: /^Amount to add/ }).fill('0.1');
+        await measure('valid');
+      }
+    }
+  }
+  writeFileSync(resolve(directory, 'after.json'), JSON.stringify(measurements, null, 2));
+});
+
+test('Positions leverage uses its live range and blocks an oversized manual target until commit', async ({ page }) => {
+  await open(page, { positions: ['long'], path: '/positions?position=ETH%3Along%3A2033' });
+  const leverage = page.getByRole('textbox', { name: 'Target leverage', exact: true });
+  const slider = page.getByRole('slider', { name: 'Target leverage slider', exact: true });
+  await leverage.fill('2');
+  await expect(slider).toHaveValue('2');
+  const bounds = { min: Number(await slider.getAttribute('min')), max: Number(await slider.getAttribute('max')) };
+  expect(await slider.evaluate(input => Number(input.parentElement!.style.getPropertyValue('--share')))).toBeCloseTo((2 - bounds.min) / (bounds.max - bounds.min), 8);
+  await page.getByRole('textbox', { name: /^Amount to add/ }).fill('0.1');
+  await leverage.fill('10000');
+  await expect(leverage).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('button', { name: /^Review / })).toBeDisabled();
+  await leverage.blur();
+  await expect(leverage).toHaveValue(String(bounds.max));
+  await expect(page.getByRole('button', { name: /^Review / })).toBeEnabled();
+  await leverage.fill('');
+  await leverage.blur();
+  await expect(leverage).toHaveValue('');
+  await expect(leverage).toHaveAttribute('aria-invalid', 'true');
+  expect(await page.evaluate(() => globalThis.__positionsScreens.walletRequests)).toBe(0);
+});
+
+test('position discovery and receipt syncing preserve honest states with visible retry actions', async ({ page }) => {
+  await open(page, { positions: [] });
+  await expect(page.getByText('No open positions', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const h = globalThis.__positionsScreens;
+    h.shared = { ...h.shared, status: 'unavailable', refreshing: false, refresh: async () => {
+      h.shared = { ...h.shared, status: 'loading', refreshing: true };
+      h.rerender?.();
+    } };
+    h.rerender?.();
+  });
+  await expect(page.getByText('Positions unavailable', { exact: true })).toBeVisible();
+  if (screenshotDir) {
+    mkdirSync(screenshotDir, { recursive: true });
+    await page.screenshot({ path: resolve(screenshotDir, 'positions-unavailable-mobile.png'), animations: 'disabled' });
+  }
+  await page.getByRole('button', { name: 'Retry positions', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Loading positions', exact: true })).toBeVisible();
+  await expect(page.getByText('No open positions', { exact: true })).toHaveCount(0);
+  await page.evaluate(() => {
+    const h = globalThis.__positionsScreens;
+    h.shared = { ...h.shared, status: 'ready', refreshing: false, checkingConfirmedPositions: false,
+      pendingPositions: [{ walletAddress: h.wallet.address, market: 'ETH', side: 'long', positionId: 9001, transactionHash: '0x' + 'a'.repeat(64) }],
+      refreshConfirmedPositions: async () => { h.shared = { ...h.shared, checkingConfirmedPositions: true }; h.rerender?.(); },
+    };
+    h.rerender?.();
+  });
+  const pending = page.locator('[data-confirmed-position-status="pending"]');
+  await expect(pending.getByText('Confirmed', { exact: true })).toBeVisible();
+  await expect(pending).toContainText('Waiting for position details to sync.');
+  if (screenshotDir) await page.screenshot({ path: resolve(screenshotDir, 'positions-confirmed-syncing-mobile.png'), animations: 'disabled' });
+  await expect(page.getByRole('radiogroup', { name: 'Position action', exact: true })).toHaveCount(0);
+  await pending.getByRole('button', { name: 'Retry position details', exact: true }).click();
+  await expect(page.locator('[data-confirmed-position-status="checking"]')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.getByRole('button', { name: 'Retry position details', exact: true })).toBeDisabled();
+  expect(await page.evaluate(() => globalThis.__positionsScreens.walletRequests)).toBe(0);
+});
+
+test('Positions settings preserve restored planner slippage through a gas-only preference change', async ({ page }) => {
+  await open(page, { positions: ['long'], path: '/positions?position=ETH%3Along%3A2033' });
+  await page.evaluate(() => {
+    const now = Date.now();
+    const id = '1:0x930f0000000000000000000000000000000098b9:increasePosition:' + encodeURIComponent('position:2033:manage') + ':' + encodeURIComponent('/positions');
+    localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ slippageBps: 50, gasTier: 'standard' }));
+    localStorage.setItem('fxaeon:signature-drafts:v1', JSON.stringify([{ id, walletAddress: '0x930f0000000000000000000000000000000098b9', chainId: 1, operation: 'increasePosition', actionKey: 'position:2033:manage', resumePath: '/positions', formState: { positionKey: 'ETH:long:2033', action: 'increase', token: 'ETH', amount: '0.1', leverage: '2.8', slippage: '0.101' }, createdAt: now, updatedAt: now, status: 'signature-required' }]));
+    history.replaceState(null, '', '/positions?fxDraft=' + encodeURIComponent(id));
+    globalThis.__positionsScreens.shared.positions = [...globalThis.__positionsScreens.shared.positions as unknown[]];
+    globalThis.__positionsScreens.rerender?.();
+  });
+  const gear = page.getByRole('button', { name: /Transaction settings/ });
+  await expect(gear).toHaveAccessibleName(/0\.101%/);
+  await page.evaluate(() => {
+    localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ slippageBps: 50, gasTier: 'fast' }));
+    window.dispatchEvent(new CustomEvent('fxaeon:settings-updated', { detail: { slippageBps: 50, gasTier: 'fast' } }));
+  });
+  await expect(gear).toHaveAccessibleName(/0\.101%/);
+  await page.getByRole('button', { name: /^Review / }).click();
+  await expect.poll(() => page.evaluate(() => (globalThis.__positionsScreens as typeof globalThis.__positionsScreens & { lastIncreaseInput?: { slippage: number } }).lastIncreaseInput?.slippage)).toBe(0.101);
+  expect(await page.evaluate(() => globalThis.__positionsScreens.walletRequests)).toBe(0);
+});
+
 test('a phone opens one position from its row and returns to the list where it was left', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 640 });
   await open(page, { positions: ['long', 'short', 'rebalance', 'ethShort', 'btcLong'] });
@@ -170,19 +300,28 @@ test('a phone opens one position from its row and returns to the list where it w
   await page.evaluate(() => { document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 220; });
   const listScrollTop = await scrollTop(page);
   expect(listScrollTop).toBeGreaterThan(0);
-  await page.locator('[data-position-key="ETH:short:174"]').click();
+  const chosenRow = page.locator('[data-position-key="ETH:short:174"]');
+  await chosenRow.evaluate(row => row.addEventListener('click', () => {
+    (row as HTMLElement).dataset.scrollAtOpen = String(document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop);
+  }, { capture: true, once: true }));
+  await chosenRow.click();
+  const openedListScrollTop = Number(await chosenRow.getAttribute('data-scroll-at-open'));
   await expect(page).toHaveURL(/\/positions\?position=ETH%3Ashort%3A174$/);
   await expect(list(page)).toBeHidden();
   const details = page.locator('[data-position-details="ETH:short:174"]');
   await expect(details).toBeVisible();
-  // Every figure the row leaves out is in the position's details.
-  for (const label of ['Collateral', 'Debt', 'Market price', 'Debt / collateral']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  expect(await scrollTop(page)).toBe(0);
+  // Collateral, debt and the brake stay visible; secondary metrics are optional.
+  for (const label of ['Collateral', 'Debt']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  await expect(details.getByText('Market price', { exact: true })).toBeHidden();
+  await details.locator('summary').click();
+  for (const label of ['Market price', 'Debt / collateral']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  await details.locator('summary').click();
   await expect(details.locator('[data-position-brake="clear"]')).toContainText('Rebalances if ETH rises ≈ 47%');
   // The actions and the form follow the position directly, starting at the top.
   await expect(actions(page)).toBeVisible();
   await expect(actions(page).getByRole('radio')).toHaveText(['Add', 'Reduce', 'Leverage', 'Close']);
-  await expect(page.getByRole('textbox', { name: 'Amount to add' })).toBeVisible();
-  expect(await scrollTop(page)).toBe(0);
+  await expect(page.getByRole('textbox', { name: /^Amount to add/ })).toBeVisible();
   const detailsBox = (await details.boundingBox())!;
   const actionsBox = (await actions(page).boundingBox())!;
   expect(actionsBox.y).toBeGreaterThan(detailsBox.y + detailsBox.height - 1);
@@ -193,7 +332,10 @@ test('a phone opens one position from its row and returns to the list where it w
   await page.getByRole('button', { name: 'All positions', exact: true }).click();
   await expect(list(page)).toBeVisible();
   await expect(page).toHaveURL(/\/positions$/);
-  await expect.poll(() => scrollTop(page)).toBe(listScrollTop);
+  await expect.poll(() => page.evaluate(saved => {
+    const root = document.querySelector<HTMLElement>('[data-shell-content]')!;
+    return Math.abs(root.scrollTop - Math.min(saved, root.scrollHeight - root.clientHeight));
+  }, openedListScrollTop)).toBeLessThanOrEqual(1);
 
   // Browser Back and Forward move between the same two views.
   await page.locator('[data-position-key="ETH:long:2033"]').click();
@@ -226,7 +368,7 @@ test('a link to a position opens it, and its back control stays on this page', a
   await open(page, { path: '/positions?position=BTC%3Ashort%3A109&action=close' });
   await expect(page.locator('[data-position-details="BTC:short:109"]')).toBeVisible();
   await expect(actions(page).getByRole('radio', { name: 'Close', exact: true })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByText('Close the full position', { exact: true })).toBeVisible();
+  await expect(page.getByText('Full close', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'All positions', exact: true }).click();
   await expect(list(page)).toBeVisible();
   await expect(page).toHaveURL(/\/positions$/);
@@ -284,6 +426,7 @@ test('four or more positions read calmly at every phone width', async ({ page })
 });
 
 test('screenshots: the list, a position for Add and for Close, and the wide view in every theme', async ({ page }) => {
+  test.setTimeout(120_000);
   test.skip(!screenshotDir, 'set POSITIONS_SCREENS_DIR to keep the screenshots');
   mkdirSync(screenshotDir!, { recursive: true });
   for (const theme of ['official', 'dark', 'light'] as const) {
@@ -297,7 +440,7 @@ test('screenshots: the list, a position for Add and for Close, and the wide view
       await page.waitForTimeout(1_100);
       await page.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-${width}-add.png`), animations: 'disabled' });
       await actions(page).getByRole('radio', { name: 'Close', exact: true }).click();
-      await expect(page.getByText('Close the full position', { exact: true })).toBeVisible();
+      await expect(page.getByText('Full close', { exact: true })).toBeVisible();
       await page.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-${width}-close.png`), animations: 'disabled' });
     }
     await page.setViewportSize({ width: 1280, height: 900 });

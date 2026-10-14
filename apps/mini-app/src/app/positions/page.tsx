@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { ArrowDownRight, ArrowLeft, ArrowUpRight, ChevronRight, Gauge, Layers2, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Layers2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { AppShell, Card, EmptyState } from '@/components/ui';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
@@ -97,14 +97,15 @@ function scrollRoot(): HTMLElement | null {
  * tapped row into the position's details where supported and motion is
  * welcome; otherwise the views simply swap.
  */
-function swapPositionView(update: () => void, finish?: () => void): void {
+function swapPositionView(update: () => void, finish?: () => void, afterCommit?: () => void): void {
   const doc = document as Document & { startViewTransition?: (callback: () => void) => { finished: Promise<void> } };
+  const commit = () => { flushSync(update); afterCommit?.(); };
   if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    update();
+    commit();
     finish?.();
     return;
   }
-  const transition = doc.startViewTransition(() => { flushSync(update); });
+  const transition = doc.startViewTransition(commit);
   void transition.finished.catch(() => undefined).finally(() => finish?.());
 }
 
@@ -123,6 +124,7 @@ export default function PositionsPage() {
   const [fraction, setFraction] = useState(25);
   const [leverage, setLeverage] = useState(2);
   const [slippage, setSlippage] = useState(String(DEFAULT_SLIPPAGE_PERCENT));
+  const savedSlippageRef = useRef(DEFAULT_SLIPPAGE_PERCENT);
   const [leverageBounds, setLeverageBounds] = useState<LeverageBounds>(() => leverageBoundsFor('ETH', 'long'));
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
@@ -216,8 +218,10 @@ export default function PositionsPage() {
       setPositionViewOpen(false);
       row = fromKey ? positionRow(fromKey) : null;
       if (row) row.style.viewTransitionName = 'position-focus';
+    }, () => { if (row) row.style.viewTransitionName = ''; }, () => {
+      // Restore against the list's committed height, not the shorter editor.
       scrollRoot()?.scrollTo({ top: restore });
-    }, () => { if (row) row.style.viewTransitionName = ''; });
+    });
   }, []);
 
   const closePosition = useCallback(() => {
@@ -270,7 +274,9 @@ export default function PositionsPage() {
   useEffect(() => {
     const onSettingsUpdated = (event: Event) => {
       if (event.type === 'storage' && (event as StorageEvent).key !== SETTINGS_KEY) return;
-      setSlippage(String(readSlippagePercent()));
+      const savedSlippage = readSlippagePercent();
+      if (savedSlippage !== savedSlippageRef.current) setSlippage(String(savedSlippage));
+      savedSlippageRef.current = savedSlippage;
     };
     window.addEventListener(SETTINGS_UPDATED_EVENT, onSettingsUpdated);
     window.addEventListener('storage', onSettingsUpdated);
@@ -278,7 +284,8 @@ export default function PositionsPage() {
   }, []);
 
   useEffect(() => {
-    setSlippage(String(readSlippagePercent()));
+    savedSlippageRef.current = readSlippagePercent();
+    setSlippage(String(savedSlippageRef.current));
   }, []);
   useEffect(() => {
     setSelectedKey((current) => current && positions.some((position) => positionKey(position) === current)
@@ -623,9 +630,9 @@ export default function PositionsPage() {
         {wallet.address && positionState.status === 'loading' && !positions.length && !positionState.pendingPositions.length && reviewStage === 'input' ? (
           <ProtocolPositionList label="Loading positions"><ProtocolPositionSkeleton /><ProtocolPositionSkeleton /></ProtocolPositionList>
         ) : wallet.address && positionState.status === 'unavailable' && !positions.length && !positionState.pendingPositions.length && reviewStage === 'input' ? (
-          <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-2xl bg-[var(--warn-dim)] py-2 pl-4 pr-2"><span className="text-[13px] text-warn">Position data is unavailable.</span><button type="button" aria-label="Retry positions" onClick={() => void positionState.refresh()} className="glass-press ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-xl text-mut"><RefreshCw className="h-4 w-4" aria-hidden="true" /></button></div>
+          <div role="status" aria-live="polite" className={styles.positionReadState}><div><strong>Positions unavailable</strong><p>Position data is unavailable. Retry to check your wallet’s positions.</p></div><button type="button" aria-label="Retry positions" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className="glass-press"><RefreshCw className={`h-4 w-4 ${positionState.refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />{positionState.refreshing ? 'Checking' : 'Retry'}</button></div>
         ) : wallet.address && positionState.status === 'partial' && !positions.length && !positionState.pendingPositions.length && reviewStage === 'input' ? (
-          <div role="status" aria-live="polite" className="rounded-2xl bg-[var(--warn-dim)] px-4 py-3 text-[13px] text-warn">Some position data couldn’t load, so results may be incomplete.<button type="button" onClick={() => void positionState.refresh()} className="mt-2 min-h-11 rounded-lg px-2 font-semibold text-mint">Retry positions</button></div>
+          <div role="status" aria-live="polite" className={styles.positionReadState}><div><strong>Positions could not be fully checked</strong><p>Some position data couldn’t load, so results may be incomplete.</p></div><button type="button" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className="glass-press"><RefreshCw className={`h-4 w-4 ${positionState.refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />{positionState.refreshing ? 'Checking' : 'Retry positions'}</button></div>
         ) : wallet.address && positionState.status === 'ready' && !positions.length && !positionState.pendingPositions.length && reviewStage === 'input' ? (
           <div className={styles.positionsEmpty}>
             <EmptyState icon={Layers2} title="No open positions" body="Your ETH and BTC positions will appear here." action={<Link href="/trade" className="button button-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 font-medium">Open a position</Link>} />
@@ -649,10 +656,9 @@ export default function PositionsPage() {
             <section ref={managerRef} className={styles.positionManageColumn} aria-label={reviewStage === 'input' ? undefined : `${operationLabel} review`} aria-labelledby={reviewStage === 'input' ? 'manage-position-heading' : undefined}>
               {reviewStage === 'input' && <div className={styles.positionViewBar}>
                 <button type="button" onClick={closePosition} className={`${styles.positionBack} glass-press`}><ArrowLeft aria-hidden="true" />All positions</button>
-                <TransactionSettings slippage />
+                <TransactionSettings scope="Positions" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />
               </div>}
-              {reviewStage === 'input' && selected && <ProtocolPositionDetails position={selected} headingId="manage-position-heading" className={styles.positionFocus} />}
-              {reviewStage === 'input' && selected?.side === 'long' && <Link href={`/borrow?market=${selected.market}&position=${selected.info.positionId}`} className={`${styles.borrowAgainst} glass-press`}>Borrow against this position<ChevronRight aria-hidden="true" /></Link>}
+              {reviewStage === 'input' && selected && <ProtocolPositionDetails compact position={selected} headingId="manage-position-heading" className={styles.positionFocus} />}
               {reviewStage === 'input' && selectedStale && <span role="status" aria-label="Refreshing selected position" className="skeleton block h-8 rounded-xl" />}
 
               <Card className={`${styles.actionPanel} ${styles.positionActionCard} ${reviewStage === 'input' ? '' : styles.positionActionCardReview}`}>
@@ -672,10 +678,10 @@ export default function PositionsPage() {
                   decisionBefore={decisionBefore}
                   editor={(
                     <div className={styles.positionEditor}>
-                      {action === 'increase' && <div className={styles.fieldStack}><Header icon={ArrowUpRight} title="Increase exposure" body="Add collateral and choose the target leverage for this position." /><AmountField label="Amount to add" symbol={token} value={amount} onChange={setAmount} maxDecimals={tokenDecimals(token)} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} />} /><LeverageField label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
-                      {action === 'reduce' && <div className={styles.fieldStack}><Header icon={ArrowDownRight} title="Reduce exposure" body="Choose how much of this position to reduce and what asset to receive." /><RangeField label="Position reduction" value={fraction} onChange={setFraction} min={1} max={99} step={1} suffix="%" /><div className="grid grid-cols-3 gap-2">{[25, 50, 75].map((value) => <button key={value} type="button" aria-pressed={fraction === value} onClick={() => setFraction(value)} className={`glass-press min-h-11 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${fraction === value ? 'bg-[var(--mint-dim)] text-mint' : 'bg-[var(--surface-2)] text-mut hover:text-[var(--text)]'}`}>{value}%</button>)}</div><TokenSelect label="Receive asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} /></div>}
-                      {action === 'close' && <div className={styles.fieldStack}><Header icon={X} title="Close the full position" body="Close 100% of this position and choose the asset returned to your wallet." /><div className={styles.closeNotice}><strong>Full close</strong><span>All remaining collateral and debt</span><small>Review the route, limits, approvals, and transaction count before signing.</small></div><TokenSelect label="Receive asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} /></div>}
-                      {action === 'leverage' && <div className={styles.fieldStack}><Header icon={Gauge} title="Adjust leverage" body="Set the target leverage for this position." /><LeverageField label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
+                      {action === 'increase' && <div className={styles.fieldStack}><AmountField compact label="Amount to add" symbol={token} value={amount} onChange={setAmount} maxDecimals={tokenDecimals(token)} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} />} /><LeverageField compact label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
+                      {action === 'reduce' && <div className={styles.fieldStack}><div className={styles.positionReductionControl}><RangeField label="Position reduction" value={fraction} onChange={setFraction} min={1} max={99} step={1} suffix="%" /></div><div className="grid grid-cols-3 gap-2">{[25, 50, 75].map((value) => <button key={value} type="button" aria-pressed={fraction === value} onClick={() => setFraction(value)} className={`glass-press min-h-11 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${fraction === value ? 'bg-[var(--mint-dim)] text-mint' : 'bg-[var(--surface-2)] text-mut hover:text-[var(--text)]'}`}>{value}%</button>)}</div><TokenSelect label="Receive asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} /></div>}
+                      {action === 'close' && <div className={styles.fieldStack}><div className={styles.closeNotice}><strong>Full close</strong><span>All remaining collateral and debt</span><small>Review the route, limits, approvals, and transaction count before signing.</small></div><TokenSelect label="Receive asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} /></div>}
+                      {action === 'leverage' && <div className={styles.fieldStack}><LeverageField compact label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
                     </div>
                   )}
                   onComplete={async (_execution, confirmedRoute) => {
@@ -687,6 +693,7 @@ export default function PositionsPage() {
                   }}
                 />
               </Card>
+              {reviewStage === 'input' && selected?.side === 'long' && <Link href={`/borrow?market=${selected.market}&position=${selected.info.positionId}`} className={`${styles.borrowAgainst} glass-press`}>Borrow against this position<ChevronRight aria-hidden="true" /></Link>}
             </section>
           </div>
         ) : null}
@@ -695,5 +702,3 @@ export default function PositionsPage() {
     </AppShell>
   );
 }
-
-function Header({ icon: Icon, title, body }: { icon: typeof ArrowUpRight; title: string; body: string }) { return <div><div className="flex items-center gap-2"><Icon className="h-4 w-4 text-mint" aria-hidden="true" /><h2 className="text-[15px] font-semibold">{title}</h2></div><p className="mt-1 text-[12px] text-mut">{body}</p></div>; }

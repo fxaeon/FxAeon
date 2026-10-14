@@ -204,10 +204,10 @@ test.describe("single-viewport route contract", () => {
         if (CTA_ROUTES.has(route)) {
           if (route === "/" || route === "/portfolio") {
             // The disconnected portfolio is the landing. Its real next
-            // actions are the four links in the named QuickActions section;
+            // actions are the three product links in the named QuickActions section;
             // the Connect wallet control remains covered by the topbar check.
             const actions = page.getByRole("region", { name: "Actions" });
-            for (const label of ["Receive", "Trade", "Move", "Earn"]) {
+            for (const label of ["Trade", "Earn", "Borrow"]) {
               await assertReachableAction(page, route, viewport, actions.getByRole("link", { name: label, exact: true }));
             }
           } else if (route === "/settings") {
@@ -235,8 +235,8 @@ test.describe("single-viewport route contract", () => {
     const main = page.locator("main:visible");
     await expect(main.getByRole("heading", { name: "Move", exact: true })).toBeVisible();
     await expect(page.getByLabel("Amount in fxUSD")).toBeVisible();
-    await expect(page.getByText("Recipient", { exact: true })).toBeVisible();
-    await expect(page.locator('summary').filter({ hasText: 'Custom contracts' })).toBeVisible();
+    await expect(page.getByText("Your wallet", { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Transaction settings/ })).toBeVisible();
     const action = page.locator(".button-primary:visible").first();
     await expect(action).toBeVisible();
 

@@ -59,11 +59,13 @@ function PositionBody({
   position,
   interactive,
   details = false,
+  compact = false,
   headingId,
 }: {
   position: UiPosition;
   interactive: boolean;
   details?: boolean;
+  compact?: boolean;
   headingId?: string;
 }) {
   const priceSnapshot = useUsdPrices();
@@ -154,18 +156,22 @@ function PositionBody({
           </>}
         </span>
       </span>}
-      {details && <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} />}
+      {details && <>
+        <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} section={compact ? 'primary' : 'all'} />
+        {compact && <details className={styles.metricDisclosure}><summary>Position details<ChevronRight aria-hidden="true" /></summary><PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} section="secondary" /></details>}
+      </>}
     </Block>
   );
 }
 
 /** Collateral, debt, market price and debt / collateral as a plain two-column list. */
-function PositionFacts({ position, prices, valuation, missingStatus, liveQuote }: {
+function PositionFacts({ position, prices, valuation, missingStatus, liveQuote, section = 'all' }: {
   position: UiPosition;
   prices: ReturnType<typeof freshDisplayPrices>;
   valuation: ReturnType<typeof positionValuation>;
   missingStatus: 'loading' | 'unavailable';
   liveQuote: number | undefined;
+  section?: 'primary' | 'secondary' | 'all';
 }) {
   const collateralKey = priceKeyForSymbol(position.info.rawCollsToken);
   const debtKey = priceKeyForSymbol(position.info.rawDebtsToken);
@@ -181,7 +187,7 @@ function PositionFacts({ position, prices, valuation, missingStatus, liveQuote }
   });
   return (
     <dl className={styles.facts}>
-      <div className={styles.fact}>
+      {section !== 'secondary' && <><div className={styles.fact}>
         <dt>Collateral</dt>
         <dd>{groupDigits(formatAmount(position.info.rawColls, positionTokenDecimals(position, 'collateral')))} {positionCollateralSymbol(position)}<small>{usd(valuation.collateralUsdCents)}</small></dd>
       </div>
@@ -189,7 +195,12 @@ function PositionFacts({ position, prices, valuation, missingStatus, liveQuote }
         <dt>Debt</dt>
         <dd>{groupDigits(formatAmount(position.info.rawDebts, positionTokenDecimals(position, 'debt')))} {position.info.rawDebtsToken}<small>{usd(valuation.debtUsdCents)}</small></dd>
       </div>
-      <div className={styles.fact}>
+      </>}
+      {section === 'secondary' && <>
+        <div className={styles.fact}><dt>Collateral value</dt><dd>{usd(valuation.collateralUsdCents)}</dd></div>
+        <div className={styles.fact}><dt>Debt value</dt><dd>{usd(valuation.debtUsdCents)}</dd></div>
+      </>}
+      {section !== 'primary' && <><div className={styles.fact}>
         <dt>Market price</dt>
         <dd>{marketPrice === undefined || !Number.isFinite(marketPrice) ? <MissingValue width="lg" status={missingStatus} /> : formatUsdPrice(marketPrice)}</dd>
       </div>
@@ -197,6 +208,7 @@ function PositionFacts({ position, prices, valuation, missingStatus, liveQuote }
         <dt>Debt / collateral</dt>
         <dd>{ratio ?? <MissingValue width="md" status={missingStatus} />}</dd>
       </div>
+      </>}
     </dl>
   );
 }
@@ -240,10 +252,10 @@ export function ProtocolPositionCard({
 }
 
 /** One position in full, as its manager shows it: the row, then its four figures. */
-export function ProtocolPositionDetails({ position, headingId, className = '' }: { position: UiPosition; headingId?: string; className?: string }) {
+export function ProtocolPositionDetails({ position, headingId, className = '', compact = false }: { position: UiPosition; headingId?: string; className?: string; compact?: boolean }) {
   return (
-    <section className={`${styles.details} ${className}`} data-position-details={positionKey(position)} aria-labelledby={headingId}>
-      <PositionBody position={position} interactive={false} details headingId={headingId} />
+    <section className={`${styles.details}${compact ? ` ${styles.compactDetails}` : ''} ${className}`} data-position-details={positionKey(position)} aria-labelledby={headingId}>
+      <PositionBody position={position} interactive={false} details compact={compact} headingId={headingId} />
     </section>
   );
 }

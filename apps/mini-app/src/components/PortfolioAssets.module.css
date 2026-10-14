@@ -1,13 +1,17 @@
 /* Network filter: equal segments with a thumb that travels on a spring. */
 .networkTabs { position: relative; isolation: isolate; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: fit-content; max-width: 100%; margin: 0 0 0 auto; padding: 3px; border-radius: 999px; background: var(--surface-2); }
 .networkTabs::before { content: ''; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--seg-count, 3)); border-radius: 999px; background: var(--surface-3); box-shadow: var(--ring-inset), 0 1px 3px rgba(0, 0, 0, 0.16); transform: translateX(calc(var(--seg-index, 0) * 100%)); transition: transform var(--dur-slow) var(--ease-spring); }
-:root[data-theme='light'] .networkTabs::before { background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent), 0 2px 8px color-mix(in srgb, var(--text) 6%, transparent); }
+:root:is([data-theme='official'], [data-theme='light']) .networkTabs::before { background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent), 0 2px 8px color-mix(in srgb, var(--text) 6%, transparent); }
 .networkTabs button { min-width: 72px; min-height: 44px; border-radius: 999px; padding: 6px 12px; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; transition: color var(--dur-base) ease; }
 .networkTabs button:hover { color: var(--text); }
 .networkTabs button[aria-pressed='true'] { color: var(--text); }
 .assets { min-width: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; scrollbar-color: color-mix(in srgb, var(--mut-2) 52%, transparent) transparent; }
 .ledgerSurface { border: 0; border-radius: 0; background: transparent; padding: 0; }
-.sectionHeading { display: flex; flex-wrap: wrap; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.sectionHeading { display: flex; flex-wrap: wrap; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 0; }
+.networkSelect { position: relative; display: inline-flex; min-width: 0; max-width: 100%; align-items: center; color: var(--text); }
+.networkSelect select { appearance: none; min-height: 44px; max-width: 100%; border: 0; border-radius: 12px; background: var(--surface); color: var(--text); padding: 8px 32px 8px 12px; font-size: var(--fs-caption); font-weight: 500; cursor: pointer; }
+.networkSelect select:focus-visible { outline: 2px solid #2973ff; outline-offset: 2px; }
+.networkSelect > svg { position: absolute; right: 10px; pointer-events: none; color: var(--mut); }
 .sectionHeading h2 { font-size: var(--fs-title); font-weight: 650; letter-spacing: -.02em; }
 .sectionHeading > span { color: var(--mut); font-size: 12px; }
 .search { display: flex; min-height: 48px; align-items: center; gap: 10px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--surface-2); margin: 0 0 6px; padding: 0 14px; color: var(--mut); transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, background-color var(--dur-base) ease; }

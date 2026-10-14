@@ -3,7 +3,7 @@ import type { Eip6963Provider } from './eip6963';
 
 export type ExternalWalletAttemptState =
   | { status: 'closed' | 'choosing' }
-  | { status: 'pending' | 'error' | 'handoff'; walletId: string; name: string; message?: string };
+  | { status: 'pending' | 'error' | 'handoff'; walletId: string; name: string; message?: string; fallbackHref?: string; guideHref?: string; dappHref?: string; canReopen?: boolean };
 
 /** One owner for every CTA. UI dismissal invalidates publication, not wallet permissions. */
 export function createExternalWalletConnection<T>(options: {
@@ -64,12 +64,12 @@ export function createExternalWalletConnection<T>(options: {
             : cause instanceof Error ? cause.message : 'Could not connect. Please try again.' });
       });
     },
-    handoff(wallet: { id: string; name: string }, message: string, launch: () => void): void {
+    handoff(wallet: { id: string; name: string }, message: string, launch: () => void, help: { fallbackHref?: string; guideHref?: string; dappHref?: string; canReopen?: boolean } = {}): void {
       if (!request) return;
       invalidate();
-      publish({ status: 'handoff', walletId: wallet.id, name: wallet.name, message });
+      publish({ status: 'handoff', walletId: wallet.id, name: wallet.name, message, ...help });
       try { launch(); }
-      catch { publish({ status: 'error', walletId: wallet.id, name: wallet.name, message: 'Could not open the wallet. Please try again.' }); }
+      catch { publish({ status: 'error', walletId: wallet.id, name: wallet.name, message: 'Could not open the wallet. Please try again.', ...help }); }
     },
     back(): void {
       if (!request) return;

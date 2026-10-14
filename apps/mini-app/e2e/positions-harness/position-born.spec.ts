@@ -301,7 +301,7 @@ test.describe('a position opened on Trade', () => {
     await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242/);
     // The receipt's row, without invented figures.
     const syncing = page.locator(`[data-confirmed-position-key="${KEY}"]`);
-    await expect(syncing).toContainText('Syncing position details');
+    await expect(syncing).toContainText('Checking confirmed position details…');
     await expect(syncing.locator('[data-position-split]')).toHaveCount(0);
     expect((await probe(page))!.calls).toHaveLength(0);
     // Once the chain returns it, the link opens the position with its confirmed split.

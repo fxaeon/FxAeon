@@ -13,10 +13,9 @@
 }
 
 .surfaceEnter { animation: review-enter var(--dur-slow) var(--ease-out) both; }
-.reviewViewport { display: flex; flex-direction: column; min-height: 0; max-height: var(--review-available-height, calc(100dvh - 160px)); }
-.reviewViewport > header, .reviewViewport > :last-child:not(.reviewScrollBody) { flex-shrink: 0; }
-.reviewViewport > .actualProgress { flex-shrink: 0; max-height: calc(var(--review-available-height, 70dvh) * .6); overflow-y: auto; }
-.reviewScrollBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.reviewViewport { display: flex; flex-direction: column; min-width: 0; }
+/* The shell scrolls the entire card, including its decision and disclosures. */
+.reviewScrollBody { min-width: 0; overflow: visible; }
 .reviewScrollBody:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 8px; }
 @keyframes review-enter { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .surfaceEnter { animation: none; } }
@@ -49,41 +48,11 @@
 .previewFacts {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 4px;
+  gap: 6px;
   padding-block: 1px;
 }
 
-/* The amount at stake leads the review on its own tone, without a border.
- * The figure is exact, so it fits by size instead of by rounding: like the
- * amount field, each extra digit steps the type down against the tile's own
- * width, and a figure past the floor wraps rather than widening the card. */
-.primaryAmount {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  margin: 2px 0 8px;
-  padding: 14px 16px;
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  container-type: inline-size;
-  animation: hero-in var(--dur-slow) var(--ease-out) both;
-}
-.primaryAmount > span:first-child { color: var(--mut); font-size: var(--fs-small); line-height: 1.4; }
-.primaryAmount > span:last-child {
-  max-width: 100%;
-  min-width: 0;
-  font-size: 22px;
-  font-size: clamp(16px, calc(100cqi / (var(--review-amount-length, 8) * 0.62 + 0.4)), 30px);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: var(--tracking-figure);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-.amountUnit { color: var(--mut); font-size: max(0.6em, var(--fs-small)); letter-spacing: 0; }
-@keyframes hero-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.amountUnit { color: var(--mut); font-size: .7em; letter-spacing: 0; }
 
 .previewFactRow {
   flex-direction: row;
@@ -91,12 +60,14 @@
   justify-content: space-between;
   gap: 12px;
 }
+.previewFactRow > span:first-child { min-width: 0; color: var(--mut); line-height: 1.4; }
 
 .previewFactRow > span:last-child {
   max-width: 68%;
   text-align: right;
   font-size: var(--fs-small);
   line-height: 1.4;
+  font-variant-numeric: tabular-nums;
 }
 
 .actualProgress {
@@ -118,11 +89,11 @@
   .quoteMetric { padding-inline: 4px; }
 }
 
-.reviewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.reviewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
 .reviewHeader > div { min-width: 0; }
 .reviewHeader h3 { margin: 0; font-size: 20px; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; overflow-wrap: anywhere; }
 /* The network is a plain caption with its mark, never a pill or a status dot. */
-.reviewNetwork { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; line-height: 1.3; }
+.reviewNetwork { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; line-height: 1.3; }
 .reviewNetwork > span { display: inline-flex; flex: 0 0 auto; }
 .planningBar { display: flex; justify-content: flex-end; }
 .planningStep { min-height: 1.45em; margin: 6px 0 0; color: var(--mut); font-size: var(--fs-small); line-height: 1.45; }
@@ -134,7 +105,7 @@
 .editButton:active:not(:disabled) { transform: scale(0.96); transition-duration: var(--dur-press); }
 .editButton:disabled { opacity: .45; }
 .reviewDetails { margin-top: 8px; border-top: 1px solid var(--line); }
-.reviewDetails > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; cursor: pointer; color: var(--mut); font-size: var(--fs-small); list-style: none; transition: color var(--dur-fast) ease; }
+.reviewDetails > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; color: var(--mut); font-size: var(--fs-small); list-style: none; transition: color var(--dur-fast) ease; }
 .reviewDetails > summary:hover { color: var(--text); }
 .reviewDetails > summary::-webkit-details-marker { display: none; }
 .reviewDetails > summary > span:last-child { display: inline-flex; align-items: center; gap: 8px; }
@@ -247,7 +218,9 @@
 @media (prefers-reduced-motion: reduce) { .hashLink, .inlineError { animation: none; } }
 
 /* Result: one mark, one sentence, receipts, and the next step. */
-.result { display: flex; width: 100%; max-width: 480px; margin-inline: auto; flex-direction: column; align-items: stretch; padding: clamp(20px, 4vw, 28px); border: 1px solid var(--line); border-radius: 24px; background: var(--surface); text-align: left; }
+.result { display: flex; width: 100%; min-width: 0; max-width: 480px; margin-inline: auto; flex-direction: column; align-items: stretch; padding: 4px; border: 0; background: transparent; text-align: left; }
+.result > h3 { line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.result > button { min-height: 48px; width: 100%; }
 .resultMark {
   position: relative;
   display: grid;
@@ -276,15 +249,17 @@
 .resultSuccess .resultMark svg { width: 26px; height: 26px; }
 .resultSuccess .resultMark::after { display: none; }
 .resultSuccess > h3 { margin-top: 12px; font-size: 22px; }
-.receiptOutcome { width: 100%; margin-top: 24px; }
-.receiptOutcome dl { display: grid; gap: 18px; margin: 0; }
+.receiptOutcome { width: 100%; margin-top: 18px; }
+.receiptOutcome dl { display: grid; gap: 14px; margin: 0; }
 .receiptOutcome dt { color: var(--mut); font-size: var(--fs-small); margin-bottom: 6px; }
 .receiptOutcome dd { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 20px; line-height: 1.3; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .receiptOutcome dd > svg, .receiptOutcome dd > img { flex-shrink: 0; }
 .receiptOutcome dd > span { min-width: 0; }
 .receiptOutcome dd > span > span { font-size: .7em; color: var(--mut); font-weight: 500; }
 .receiptOutcome [data-direction='received']:first-child dd { font-size: clamp(24px, 4vw, 32px); letter-spacing: -.025em; }
-.receiptOutcome [data-direction='sent'] { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.receiptOutcome [data-direction='sent'] { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.receiptOutcome [data-direction='sent'] dt { margin-bottom: 0; }
+.receiptOutcome [data-direction='sent'] dd { min-width: 0; max-width: 68%; justify-content: flex-end; }
 .receiptOutcome [data-direction='sent'] dd { font-size: 15px; text-align: right; }
 .receiptOutcome [data-direction='sent'] dd > :first-child:not(span) { display: none; }
 .receiptCaveat { color: var(--mut); font-size: var(--fs-small) !important; font-weight: 400 !important; line-height: 1.5; }
@@ -313,21 +288,61 @@
 /* The same amount in another unit, beneath a value that stays exact in its own. */
 .factEquivalent { display: block; margin-top: 1px; color: var(--mut); font-size: var(--fs-caption); font-weight: 500; }
 
+/* Readable amounts retain their accepted precision behind a touch disclosure. */
+.amountSummary { min-width: 0; margin: 0 0 4px; padding: 8px 0; }
+.amountCaption { color: var(--mut); font-size: var(--fs-small); }
+.amountLine { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.amountLine > img, .amountLine > svg { flex-shrink: 0; margin-top: 5px; }
+.amountValue { min-width: 0; flex: 1; }
+.exactAmount > summary { display: flex; align-items: center; min-height: 44px; gap: 6px; cursor: pointer; list-style: none; font-size: clamp(22px, 5.8vw, 30px); font-weight: 600; line-height: 1.25; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.exactAmount > summary > span { min-width: 0; }
+.exactAmount > summary > svg { flex-shrink: 0; color: var(--mut); }
+.exactAmount > summary::-webkit-details-marker { display: none; }
+.exactAmount > summary:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; border-radius: 4px; }
+.exactAmount[open] > summary > svg { transform: rotate(180deg); }
+.exactAmount p { margin: 4px 0 8px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; overflow-wrap: anywhere; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.exactAmount p > span { display: block; color: var(--mut); margin-bottom: 2px; font-size: var(--fs-caption); }
+.amountUsd { display: block; color: var(--mut); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.positionSummary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 34px; padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.positionSummary > span:last-child { font-variant-numeric: tabular-nums; color: var(--mut); }
+.riskPrices { display: grid; gap: 8px; padding: 2px 0; }
+.riskPrices > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--fs-small); }
+.riskPrices > div > span:first-child { color: var(--mut); }
+.riskPrices > div > span:last-child { max-width: 60%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.riskExplanation { color: var(--mut); font-size: var(--fs-caption); }
+.riskExplanation > summary { display: flex; align-items: center; gap: 5px; min-height: 44px; cursor: pointer; list-style: none; }
+.riskExplanation p { margin: 0 0 8px; line-height: 1.5; }
+.feeDisclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; color: var(--mut); font-size: var(--fs-small); }
+.feeDisclosure > summary > span:last-child { display: flex; align-items: center; gap: 6px; text-transform: capitalize; color: var(--text); }
+.feeDisclosure > summary::-webkit-details-marker, .riskExplanation > summary::-webkit-details-marker { display: none; }
+.feeDisclosure > summary:focus-visible, .riskExplanation > summary:focus-visible, .technicalDetails > summary:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 4px; }
+.feeDisclosure[open] > summary svg { transform: rotate(180deg); }
+.moreFacts { display: grid; gap: 10px; padding: 14px 0; }
+.technicalDetails { margin-top: 2px; color: var(--mut); }
+.technicalDetails > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-size: var(--fs-caption); cursor: pointer; list-style: none; }
+.technicalDetails > summary::-webkit-details-marker { display: none; }
+.stepSequence { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 8px 0 12px; padding: 10px 0; border-block: 1px solid var(--line); list-style: none; font-size: var(--fs-caption); }
+.stepSequence li { display: flex; align-items: center; gap: 6px; color: var(--mut); }
+.stepSequence li > span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); font-variant-numeric: tabular-nums; }
+.stepSequence li[aria-current='step'] { color: var(--text); font-weight: 600; }
+.stepSequence li[aria-current='step'] > span { color: var(--mint); background: var(--mint-dim); }
+.stepSequence li[data-complete] { color: var(--success); }
+
 /* Keep one Trade card and reserve unknown values only during preparation. */
-/* Fit the verified content; the shared max-height keeps the action in view. */
+/* Fit the verified content without reserving empty space in the card. */
 .stableFacts > [data-review-fact] { min-height: 20px; }
-.preparingFacts > [data-review-fact="Protocol fee rate"] { min-height: 38px; }
-/* An ETH long's wstETH floor lands with its stETH equivalent beneath it. */
-.preparingFacts > [data-review-fact="Minimum converted input"] { min-height: 38px; }
 .stableReviewStatus { margin: 0 0 8px; font-size: var(--fs-small); line-height: 1.45; }
 
 .preparingReviewStatus { min-height: 2.9em; }
 .stableReviewViewport { overflow-anchor: none; }
-.stableFacts .primaryAmount { animation: none; }
 
-@media (max-width: 380px) {
-  .preparingFacts > [data-review-fact="Estimated collateral"],
-  .preparingFacts > [data-review-fact="Estimated debt"] { min-height: 40px; }
-  .preparingFacts > [data-review-fact="Protocol fee rate"],
-  .preparingFacts > [data-review-fact="Minimum converted input"] { min-height: 60px; }
+@media (max-width: 380px), (max-height: 620px) {
+  .reviewHeader h3 { font-size: 18px; }
+  .amountLine { gap: 8px; }
+  .amountSummary { padding-block: 4px; }
+  .reviewDetails { margin-top: 6px; }
 }
+
+
+
+.reviewExplanation { margin: 12px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }

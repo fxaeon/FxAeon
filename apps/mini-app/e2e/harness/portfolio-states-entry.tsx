@@ -14,10 +14,10 @@ import { ProviderLoadingState } from '../../src/components/ProviderLoadingState'
  *   loading) when `__portfolioStates.handoff()` is called
  * - wallet: the real shell while the wallet provider initialises
  * - reads: wallet ready, every read still in flight
- * - loaded / empty / unavailable: settled reads
+ * - loaded / empty / unavailable / dust: settled reads
  * - positions: settled reads with two open positions and their brake reads
  */
-export type PortfolioStage = 'provider' | 'handoff' | 'wallet' | 'timeout' | 'reads' | 'loaded' | 'empty' | 'unavailable' | 'positions';
+export type PortfolioStage = 'provider' | 'handoff' | 'wallet' | 'timeout' | 'reads' | 'loaded' | 'empty' | 'unavailable' | 'positions' | 'dust';
 type HarnessState = { stage: PortfolioStage; route: string; theme: 'official' | 'dark' | 'light'; handoff?: () => void };
 
 const state = ((globalThis as { __portfolioStates?: Partial<HarnessState> }).__portfolioStates ?? {}) as HarnessState;

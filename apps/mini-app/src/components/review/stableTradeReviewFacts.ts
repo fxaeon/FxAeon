@@ -1,7 +1,7 @@
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { exactAmountValue } from './actionReviewPresentation';
 
-const ROWS = ['Amount', 'Target leverage', 'Position', 'Slippage', 'Estimated collateral', 'Estimated debt', 'Protocol fee rate', 'Minimum converted input', 'Gas fee', 'Total cost'] as const;
+const ROWS = ['Amount', 'Target leverage', 'Position', 'Slippage', 'Estimated collateral', 'Estimated debt', 'f(x) fee', 'Minimum converted input', 'Gas fee', 'Total cost'] as const;
 const ENTERED = new Set(['Amount', 'Target leverage', 'Position', 'Slippage']);
 
 /** Presentation only: reserve unknown values without manufacturing a route. */

@@ -32,7 +32,7 @@
   outline-offset: -2px;
 }
 .selected,
-.selected:hover { background: color-mix(in srgb, var(--mint) 9%, transparent); box-shadow: inset 3px 0 0 var(--mint); }
+.selected:hover { background: color-mix(in srgb, var(--mint) 8%, var(--surface)); box-shadow: inset 3px 0 0 var(--mint); border-radius: var(--radius-md); }
 .highlighted { background: color-mix(in srgb, var(--success) 9%, transparent); box-shadow: inset 3px 0 0 var(--success); }
 
 /* One position in full: the same lines, then its figures. It sits in the
@@ -178,30 +178,61 @@
 .brake a svg { width: 12px; height: 12px; }
 .brakeSkeleton { display: block; width: min(76%, 280px); height: 10px; margin: 3px 0; border-radius: var(--radius-full); }
 
-/* The figures behind the row, one quiet line each between hairlines. */
-.facts { margin: 14px 0 0; border-bottom: 1px solid var(--line); }
+/* Paired metrics keep the position summary close to its management actions. */
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0 0; border-bottom: 1px solid var(--line); }
 .fact {
-  display: flex;
+  display: grid;
   min-width: 0;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 8px 0;
+  gap: 4px;
+  padding: 10px 0;
   border-top: 1px solid var(--line);
 }
-.fact dt { flex: 0 0 auto; color: var(--mut); font-size: var(--fs-small); line-height: 1.35; }
+.fact:nth-child(odd) { padding-right: 12px; }
+.fact:nth-child(even) { padding-left: 12px; border-left: 1px solid var(--line); }
+.fact dt { flex: 0 0 auto; color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
 .fact dd {
   min-width: 0;
   margin: 0;
   color: var(--text);
-  font-size: var(--fs-small);
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.35;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 .fact dd small { display: block; margin-top: 1px; color: var(--mut); font-size: var(--fs-caption); font-weight: 500; }
+.details .positionValueNumber { font-size: clamp(24px, 6vw, 28px); line-height: 32px; }
+.details .identityLine:first-child { min-height: 32px; }
+.details .market { font-size: 22px; }
+.details .split { height: 7px; margin-top: 16px; }
+.details .brake { line-height: 1.5; }
+.details .facts { margin-top: 16px; }
+.details { container-type: inline-size; }
+.compactDetails .positionValueNumber { font-size: 22px; line-height: 28px; }
+.compactDetails .identityLine:first-child { min-height: 28px; }
+.compactDetails .market { font-size: 20px; }
+.compactDetails .split { height: 6px; margin-top: 8px; }
+.compactDetails .brake { margin-top: 6px; }
+.compactDetails .facts { margin-top: 8px; }
+.compactDetails .fact { padding-block: 7px; gap: 2px; }
+.compactDetails .fact dd { font-size: 15px; }
+.compactDetails .fact dd small { display: none; }
+.metricDisclosure > summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; color: var(--mut); font-size: var(--fs-caption); cursor: pointer; list-style: none; }
+.metricDisclosure > summary::-webkit-details-marker { display: none; }
+.metricDisclosure > summary svg { width: 15px; height: 15px; transition: transform var(--dur-fast) var(--ease-out); }
+.metricDisclosure[open] > summary svg { transform: rotate(90deg); }
+.metricDisclosure > summary:focus-visible { outline: 2px solid var(--mint-bright); outline-offset: -2px; border-radius: var(--radius-sm); }
+.compactDetails .metricDisclosure .facts { margin-top: 0; }
+@container (max-width: 300px) {
+  .identityLine:first-child { flex-wrap: wrap; }
+  .positionValueNumber { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+}
+@container (max-width: 240px) {
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .fact:nth-child(n) { padding-inline: 0; border-left: 0; }
+}
 
 /* A list is a ruled stack: full-width hairlines between rows, whitespace for
    the grouping. */
@@ -240,6 +271,23 @@
 .notice > button:hover:not(:disabled) { background: color-mix(in srgb, var(--warn) 14%, transparent); }
 .notice > button:disabled { opacity: .6; }
 .notice > button svg { width: 15px; height: 15px; }
+
+.confirmedList { display: grid; min-width: 0; gap: 8px; }
+.confirmedRow { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.confirmedIdentity { display: flex; align-items: center; min-width: 0; gap: 10px; }
+.confirmedIdentity > div { flex: 1; min-width: 0; }
+.confirmedIdentity p { margin: 0; font-size: var(--fs-small); font-weight: 650; }
+.confirmedIdentity small { color: var(--mut); font-size: var(--fs-caption); }
+.confirmedBadge { flex: 0 0 auto; padding: 4px 8px; border-radius: var(--radius-full); background: var(--success-dim); color: var(--success); font-size: var(--fs-micro); font-weight: 650; }
+.confirmedStatus { display: flex; align-items: flex-start; min-width: 0; gap: 7px; margin-top: 12px; color: var(--mut); }
+.confirmedStatus p { margin: 0; font-size: var(--fs-caption); line-height: 1.5; }
+.confirmedStatus > svg { flex: 0 0 15px; margin-top: 2px; }
+.confirmedActions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 8px; border-top: 1px solid var(--line); }
+.confirmedActions a, .confirmedActions button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; font-size: var(--fs-caption); font-weight: 600; }
+.confirmedActions a { color: var(--mint); }
+.confirmedActions button { color: var(--text); }
+.confirmedActions button:disabled { color: var(--mut); }
+.confirmedActions svg { width: 15px; height: 15px; }
 
 /* The loading row: each placeholder sits in the line it stands in for, inside
    the same fixed line heights, so the row arrives at the same height. */

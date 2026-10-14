@@ -45,8 +45,8 @@ const TABS: { href: string; labelKey: string; icon: LucideIcon; also?: string[] 
   { href: '/', labelKey: 'nav.home', icon: Home, also: ['/portfolio'] },
   { href: '/trade', labelKey: 'nav.trade', icon: CandlestickChart, also: ['/positions'] },
   { href: '/earn', labelKey: 'nav.earn', icon: PiggyBank, also: ['/borrow'] },
-  { href: '/move', labelKey: 'nav.move', icon: ArrowLeftRight, also: ['/qr'] },
-  { href: '/more', labelKey: 'nav.more', icon: LayoutGrid, also: ['/settings', '/history', '/docs'] },
+  { href: '/move', labelKey: 'nav.move', icon: ArrowLeftRight },
+  { href: '/more', labelKey: 'nav.more', icon: LayoutGrid, also: ['/settings', '/history', '/qr', '/send', '/docs'] },
 ];
 
 const UTILITY_ROUTES = ['/more', '/settings', '/history', '/qr', '/send'];
@@ -134,7 +134,7 @@ function ShellTopBar({ pathname }: { pathname: string }) {
           <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
-      <button type="button" tabIndex={-1} className="glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[var(--surface)] text-mut">
+      <button type="button" tabIndex={-1} className="theme-toggle glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full text-mut">
         <span className={`skeleton ${styles.themeMark}`} />
       </button>
     </span>
@@ -162,14 +162,14 @@ function ShellDock({ pathname }: { pathname: string }) {
 const QUICK_ACTIONS: { label: string; icon: LucideIcon }[] = [
   { label: 'Receive', icon: ArrowDownToLine },
   { label: 'Trade', icon: CandlestickChart },
-  { label: 'Move', icon: ArrowLeftRight },
+  { label: 'Borrow', icon: CircleDollarSign },
   { label: 'Earn', icon: PiggyBank },
 ];
 
 /**
  * Portfolio as the connected page draws it while its reads are in flight,
  * built from the same classes: the hero (label, figure placeholder, four
- * round actions, Value breakdown), Assets with network tabs and three rows,
+ * round actions, Value breakdown), Assets with a network filter and three rows,
  * the Positions and fxSAVE cards, History, Markets and Borrow.
  */
 function PortfolioSilhouette() {
@@ -193,9 +193,13 @@ function PortfolioSilhouette() {
         <section className={`${assets.assets} ${assets.ledgerSurface}`}>
           <div className={assets.sectionHeading}>
             <h2>Assets</h2>
-            <div className={assets.networkTabs} style={{ '--seg-index': 0, '--seg-count': 3 } as CSSProperties}>
-              <button type="button" tabIndex={-1} aria-pressed="true">All</button><button type="button" tabIndex={-1}>Ethereum</button><button type="button" tabIndex={-1}>Base</button>
-            </div>
+            <label className={assets.networkSelect}>
+              <span className="sr-only">Portfolio network</span>
+              <select disabled tabIndex={-1} defaultValue="all">
+                <option value="all">All networks</option><option value="1">Ethereum</option><option value="8453">Base</option>
+              </select>
+              <ChevronDown size={15} aria-hidden="true" />
+            </label>
           </div>
           <div className={assetRows.loadingList}>
             {[0, 1, 2].map((row) => <div key={row} className={assetRows.loadingRow}>
@@ -223,7 +227,7 @@ function PortfolioSilhouette() {
         <section>
           <div className="section-heading mb-2 flex items-center justify-between">
             <h2 className="text-[length:var(--fs-title)] font-semibold tracking-tight text-[var(--text)]">Markets</h2>
-            <a className="glass-press flex min-h-11 items-center gap-0.5 px-1.5 text-[13px] font-semibold text-mint">Open trade<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></a>
+            <span className={portfolio.marketTimeframe}>24h change</span>
           </div>
           <div className={`${account.market} grid grid-cols-2 gap-2.5`}>
             {(['ETH', 'BTC'] as const).map((market) => <a key={market} className={styles.marketCard}>

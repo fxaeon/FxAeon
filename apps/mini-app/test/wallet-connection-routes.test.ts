@@ -28,7 +28,7 @@ const unavailable = (route: WalletConnectionRoute, reason: WalletRouteUnavailabl
   assert.doesNotMatch(route.message, /https?:|install|download|extension/i);
 };
 const environments: readonly WalletEnvironment[] = ['desktop', 'mobile', 'unknown'];
-const browserIds = ['metamask', 'trust', 'phantom', 'rabby', 'rainbow'] as const;
+const browserIds = ['metamask', 'coinbase', 'okx', 'trust', 'phantom', 'rabby', 'rainbow', 'zerion'] as const;
 const officialAppDestinations = {
   metamask: 'https://metamask.io/download',
   trust: 'https://trustwallet.com/download',
@@ -171,10 +171,10 @@ test('mobile absent wallets expose verified browser links or official app pages 
       assert.equal(route.kind, 'download');
       if (route.kind !== 'download') assert.fail();
       assert.equal(route.href, officialAppDestinations[wallet.id]);
-      assert.equal(route.message, `Opening ${wallet.name}’s official app page.`);
+      assert.match(route.message, /Open FxAeon.*browser to connect/);
     }
     assert.equal('provider' in route, false);
-    assert.doesNotMatch(route.message, /extension|install|manually|reopen|copy|paste/i);
+    assert.doesNotMatch(route.message, /extension|manually|reopen/i);
     assert.doesNotMatch(route.href, /browser-extension|\/extension(?:[/?#]|$)|chromewebstore|addons\.mozilla/i);
   }
 });
@@ -185,23 +185,28 @@ test('unknown environment uses every brand’s official mobile-safe app page', (
     assert.equal(route.kind, 'download');
     if (route.kind !== 'download') assert.fail();
     assert.equal(route.href, officialAppDestinations[wallet.id]);
-    assert.equal(route.message, `Opening ${wallet.name}’s official app page.`);
+    assert.match(route.message, /Open FxAeon.*browser to connect/);
     assert.equal('provider' in route, false);
     assert.doesNotMatch(route.href, /browser-extension|\/extension(?:[/?#]|$)|chromewebstore|addons\.mozilla/i);
   }
 });
 
-test('Base Wallet and OKX branding does not introduce an unverified mobile launch or SDK route', () => {
+test('Base Wallet and OKX mobile routes open a dapp browser without adding a relay or signer', () => {
   for (const [id, name] of [['coinbase', 'Base Wallet'], ['okx', 'OKX']] as const) {
     const choice = choose(id);
     assert.equal(choice.name, name);
     for (const environment of ['mobile', 'unknown'] as const) {
       const route = resolveWalletConnectionRoute(choice, { providers: [], environment });
-      assert.deepEqual(route, {
-        kind: 'download',
-        href: officialAppDestinations[id],
-        message: `Opening ${name}’s official app page.`,
-      });
+      if (environment === 'mobile') {
+        assert.equal(route.kind, 'browser');
+        if (route.kind !== 'browser') assert.fail();
+        assert.equal(route.canReopen, true);
+        assert.equal(route.message, `Opening ${name}…`);
+        assert.doesNotMatch(route.href, /wc\?|wsegue|relay|wallet\/connect/);
+        assert.equal('provider' in route, false);
+        continue;
+      }
+      assert.equal(route.kind, 'download');
     }
     const exact = announced(choice.rdns!);
     assert.deepEqual(resolveWalletConnectionRoute(choice, { providers: [exact], environment: 'mobile' }), {
@@ -214,10 +219,13 @@ for (const pathname of ['/', '/earn', '/trade', '/borrow', '/positions', '/move'
   test(`mobile wallet browsers preserve the fixed public ${pathname} path`, () => {
     const expected = {
       metamask: `https://link.metamask.io/dapp/fxaeon.com${pathname}`,
+      coinbase: `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
+      okx: `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
       trust: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
       phantom: `https://phantom.com/ul/browse/${encodeURIComponent(`https://fxaeon.com${pathname}`)}?ref=${encodeURIComponent('https://fxaeon.com')}`,
-      rabby: `https://go.rabby.io/mobile/?_cmd=open-dapp&dapp=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
+      rabby: `rabbygo://go.rabby.io/mobile/?_cmd=open-dapp&dapp=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
       rainbow: `https://rnbwapp.com/dapp?url=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
+      zerion: `https://link.zerion.io/?url=${encodeURIComponent(`https://fxaeon.com${pathname}`)}`,
     };
     for (const id of browserIds) {
       for (const input of [pathname, pathname === '/' ? pathname : `${pathname}/`]) {

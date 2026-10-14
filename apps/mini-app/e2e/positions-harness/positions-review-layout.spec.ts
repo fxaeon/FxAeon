@@ -91,6 +91,47 @@ async function buildHarness(): Promise<{ script: string; css: string }> {
 let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
+for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
+  test(`review decisions follow expanded content at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
+    await page.setViewportSize(viewport);
+    await page.goto('http://positions.test/positions');
+    await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+    await page.addStyleTag({ content: harness.css });
+    await page.addScriptTag({ content: harness.script });
+    await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
+    await page.locator('[data-position-key="ETH:long:11"]').click();
+    await page.getByRole('radio', { name: 'Close', exact: true }).click();
+    const trigger = page.getByRole('button', { name: 'Review Close ETH long position', exact: true });
+    await trigger.scrollIntoViewIfNeeded();
+    await expect(trigger.locator('xpath=ancestor::*[contains(@class,"sticky-action")][1]')).toHaveCSS('position', 'static');
+    await trigger.click();
+    const decision = page.getByRole('button', { name: 'Approve position', exact: true });
+    await expect(decision).toBeVisible();
+    await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
+    await page.getByText('Steps · 2', { exact: true }).click();
+    const information = page.getByRole('region', { name: 'Review information', exact: true });
+    await expect(information).toHaveCSS('overflow-y', 'visible');
+    await expect.poll(() => information.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+    const order = await decision.evaluate(button => {
+      const information = button.closest('[data-review-viewport]')!.querySelector('[aria-label="Review information"]')!;
+      return button.getBoundingClientRect().top >= information.getBoundingClientRect().bottom;
+    });
+    expect(order).toBe(true);
+    await decision.scrollIntoViewIfNeeded();
+    await page.locator('[data-shell-content]').evaluate(node => { node.scrollTop = node.scrollHeight; });
+    const action = await decision.boundingBox();
+    expect(action).not.toBeNull();
+    expect(action!.height).toBeGreaterThanOrEqual(44);
+    expect(action!.y).toBeGreaterThanOrEqual(0);
+    const navigation = page.locator('[data-app-navigation]');
+    const visibleBottom = await navigation.isVisible() ? (await navigation.boundingBox())!.y : viewport.height;
+    expect(action!.y + action!.height).toBeLessThanOrEqual(visibleBottom);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/review-flow-${viewport.width}x${viewport.height}.png`), fullPage: false });
+  });
+}
+
 test('four-position Close review hides siblings, keeps its action above navigation, and Edit returns to the position', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   await page.goto('http://positions.test/positions');
@@ -122,7 +163,7 @@ test('four-position Close review hides siblings, keeps its action above navigati
   await expect(page.locator('[data-review="true"] .reviewInlineContent')).toHaveCSS('padding', '12px');
   await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(0);
   await expect(page.getByText('Gas tier', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Gas fee', { exact: true })).toBeVisible();
+  await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   await expect(page.getByText('Minimum received', { exact: true })).toBeVisible();
   await page.evaluate(() => { document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 0; });
   const confirmFitsAboveNavigation = async () => confirm.evaluate((button) => {
@@ -166,7 +207,7 @@ test('four-position Close review hides siblings, keeps its action above navigati
   const embeddedConfirm = page.getByRole('button', { name: 'Approve position', exact: true });
   await expect(embeddedConfirm).toBeVisible();
   await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(3);
-  await expect(page.getByText('Gas fee', { exact: true })).toBeVisible();
+  await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const embeddedBox = await embeddedConfirm.boundingBox();
   const embeddedNavBox = await page.locator('[data-app-navigation]').boundingBox();
   expect(embeddedBox).not.toBeNull();
@@ -179,20 +220,31 @@ test('four-position Close review hides siblings, keeps its action above navigati
   // Expand the disclosure panels to exercise the actual scroll path, rather
   // than relying on this short fixture to overflow by default.
   await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
-  for (const label of ['Quote details', 'Advanced details', 'Steps · 2']) {
+  for (const label of ['Technical information', 'Steps · 2']) {
     await page.getByText(label, { exact: true }).click();
   }
   await embeddedConfirm.scrollIntoViewIfNeeded();
-  // The review owns an internal scroll area so its confirmation footer stays
-  // visible even when the expanded details exceed the available viewport.
+  // Expanded details and the decision share the shell's scroll path. The
+  // action stays after the content and can scroll clear of the navigation.
   const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
-  await reviewInformation.evaluate((node) => { node.scrollTop = node.scrollHeight; });
+  await expect(reviewInformation).toHaveCSS('overflow-y', 'visible');
+  await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+  await page.evaluate(() => {
+    const content = document.querySelector<HTMLElement>('[data-shell-content]')!;
+    content.scrollTop = content.scrollHeight;
+  });
   await expect.poll(async () => {
-    const contentScrollTop = await reviewInformation.evaluate((node) => node.scrollTop);
+    const contentScrollTop = await page.locator('[data-shell-content]').evaluate((node) => node.scrollTop);
     const action = await embeddedConfirm.boundingBox();
     const nav = await page.locator('[data-app-navigation]').boundingBox();
     return contentScrollTop > 0 && Boolean(action && nav && action.y >= 0 && action.y + action.height <= nav.y);
   }).toBe(true);
+  expect(await embeddedConfirm.evaluate((button) => {
+    for (let node: Element | null = button; node && !node.matches('[data-shell-content]'); node = node.parentElement) {
+      if (['sticky', 'fixed'].includes(getComputedStyle(node).position)) return false;
+    }
+    return true;
+  })).toBe(true);
   const clipping = await page.locator('[data-review="true"] .reviewInlineContent').evaluate((node) => ({
     clientWidth: (node as HTMLElement).clientWidth,
     scrollWidth: (node as HTMLElement).scrollWidth,
@@ -285,7 +337,7 @@ test('Add, Reduce, Close, and Leverage use one review column; context changes re
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 });
 
-test('submitted transaction status and explorer link stay above navigation while review details scroll', async ({ page }) => {
+test('submitted transaction status and explorer link scroll with the card and clear navigation', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   const hash = `0x${'a'.repeat(64)}`;
   for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
@@ -304,12 +356,11 @@ test('submitted transaction status and explorer link stay above navigation while
 
     const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
     await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
-    for (const label of ['Quote details', 'Advanced details', 'Steps · 2']) {
+    for (const label of ['Technical information', 'Steps · 2']) {
       await page.getByText(label, { exact: true }).click();
     }
-    await reviewInformation.evaluate((node) => { node.scrollTop = node.scrollHeight; });
-    await expect.poll(() => reviewInformation.evaluate((node) => node.scrollTop > 0)).toBe(true);
-    const reviewBodyOverflowed = await reviewInformation.evaluate((node) => node.scrollHeight > node.clientHeight + 1);
+    await expect(reviewInformation).toHaveCSS('overflow-y', 'visible');
+    await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
 
     await page.evaluate((submittedHash) => {
       const h = (globalThis as typeof globalThis & {
@@ -333,6 +384,7 @@ test('submitted transaction status and explorer link stay above navigation while
     await expect(receipt).toBeVisible();
     await expect(receipt).toHaveAttribute('href', `https://etherscan.io/tx/${hash}`);
     await expect(receipt).toContainText(hash.slice(0, 8));
+    await progress.scrollIntoViewIfNeeded();
     const fitsAboveNavigation = async () => {
       const [submittedBox, receiptBox, navigationBox] = await Promise.all([
         progress.boundingBox(), receipt.boundingBox(), page.locator('[data-app-navigation]').boundingBox(),
@@ -344,9 +396,10 @@ test('submitted transaction status and explorer link stay above navigation while
         && receiptBox.y + receiptBox.height <= navigationBox.y);
     };
     await expect.poll(fitsAboveNavigation).toBe(true);
-    if (reviewBodyOverflowed) {
-      await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight > node.clientHeight + 1)).toBe(true);
-    }
+    const beforeScroll = await progress.boundingBox();
+    await page.locator('[data-shell-content]').evaluate((node) => { node.scrollTop += 80; });
+    await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
+    await progress.scrollIntoViewIfNeeded();
     await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/submitted-progress-${viewport.width}x${viewport.height}.png`), fullPage: false });
   }
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);

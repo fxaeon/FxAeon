@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import { expect, test, type Page } from '@playwright/test';
 import { buildWalletWagmiBoundaryHarness, type WalletWagmiBoundaryBundle } from '../harness/wallet-wagmi-boundary-build';
 import { BROWSER_ADDRESS, EMBEDDED_ADDRESS, EMBEDDED_BALANCE, type BoundaryMode } from '../harness/wallet-wagmi-boundary-state';
+import { WALLET_CATALOG } from '../../src/lib/wallet/walletCatalog';
 
 let bundle: WalletWagmiBoundaryBundle;
 let server: Server;
@@ -100,6 +101,64 @@ test('Telegram keeps its funded embedded owner and never instantiates real brows
   expect(await snapshot(page)).toMatchObject({ privyMounts: 1, privyUnmounts: 0 });
   expect(observation.errors).toEqual([]);
 });
+
+test('OKX announcement takes precedence over its distinct namespace wrapper without preselection requests', async ({ page }) => {
+  await page.goto(`${origin}/?mode=web&okxAlias=1`);
+  await expect(owner(page)).toHaveAttribute('data-ready', 'true');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const picker = page.getByRole('dialog', { name: 'Connect your wallet', exact: true });
+  await expect(picker).toBeVisible();
+  expect(await snapshot(page)).toMatchObject({ configCreates: 0, connectorCreates: 0, browserCalls: [], decoyCalls: [] });
+  await picker.getByRole('button', { name: 'OKX', exact: true }).click();
+  await expect(owner(page)).toHaveAttribute('data-address', BROWSER_ADDRESS);
+  await expect(picker).toHaveCount(0);
+  const state = await snapshot(page);
+  expect(state.browserCalls.filter(call => call.method === 'eth_requestAccounts')).toHaveLength(1);
+  expect(state.decoyCalls).toEqual([]);
+  expect(state.wagmiConnections).toEqual([{ status: 'connected', accounts: [BROWSER_ADDRESS], connectorId: 'okx' }]);
+  expect(state.errors).toEqual([]);
+});
+
+for (const wallet of WALLET_CATALOG) {
+  test(`${wallet.name}: distinct announced providers stay ambiguous before any account request`, async ({ page }) => {
+    await page.goto(`${origin}/?mode=web&wallet=${wallet.id}`);
+    await expect(owner(page)).toHaveAttribute('data-ready', 'true');
+    await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    const picker = page.getByRole('dialog');
+    await page.evaluate(({ rdns, name }) => {
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: {
+        info: { rdns, name, uuid: '00000000-0000-4000-8000-000000000002', icon: 'data:image/svg+xml,<svg/>' },
+        provider: { request: async () => { throw new Error('An ambiguous competitor must never receive an RPC.'); } },
+      } }));
+    }, wallet);
+    if (!wallet.primary) await picker.getByRole('button', { name: 'Other wallets', exact: true }).click();
+    await picker.getByRole('button', { name: wallet.name, exact: true }).click();
+    await expect(picker.getByRole('alert')).toContainText('Multiple wallets report the same identity.');
+    expect(await snapshot(page)).toMatchObject({ configCreates: 0, connectorCreates: 0, browserCalls: [], decoyCalls: [] });
+    await expect(owner(page)).toHaveAttribute('data-authenticated', 'false');
+  });
+
+  test(`${wallet.name}: explicit rejection can retry its exact announced provider without using another wallet`, async ({ page }) => {
+    await page.goto(`${origin}/?mode=web&wallet=${wallet.id}&rejectFirst=1`);
+    await expect(owner(page)).toHaveAttribute('data-ready', 'true');
+    await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    const picker = page.getByRole('dialog');
+    if (!wallet.primary) await picker.getByRole('button', { name: 'Other wallets', exact: true }).click();
+    expect(await snapshot(page)).toMatchObject({ configCreates: 0, connectorCreates: 0, browserCalls: [], decoyCalls: [] });
+    await picker.getByRole('button', { name: wallet.name, exact: true }).click();
+    await expect(picker.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+    await expect(owner(page)).toHaveAttribute('data-authenticated', 'false');
+    expect((await snapshot(page)).browserCalls.filter(call => call.method === 'eth_requestAccounts')).toHaveLength(1);
+    await picker.getByRole('button', { name: 'Try again', exact: true }).click();
+    await expect(owner(page)).toHaveAttribute('data-address', BROWSER_ADDRESS);
+    await expect(picker).toHaveCount(0);
+    const state = await snapshot(page);
+    expect(state.browserCalls.filter(call => call.method === 'eth_requestAccounts')).toHaveLength(2);
+    expect(state.wagmiConnections.at(-1)).toEqual({ status: 'connected', accounts: [BROWSER_ADDRESS], connectorId: wallet.id });
+    expect(state.decoyCalls).toEqual([]);
+    expect(state.errors).toEqual([]);
+  });
+}
 
 test('ordinary web connects the exact injected object through the actual picker and Wagmi without loading Privy', async ({ page }) => {
   const observation = await open(page, 'web');

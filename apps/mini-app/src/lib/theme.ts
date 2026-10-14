@@ -19,7 +19,7 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
     id: 'official',
     name: 'Light',
     accent: '#2973ff',
-    colors: { '--bg': '#f7f7f8', '--surface': '#ffffff', '--surface-2': '#f0f0f2' },
+    colors: { '--bg': '#f3f6fb', '--surface': '#ffffff', '--surface-2': '#eaf0f8' },
   },
   dark: {
     id: 'dark',

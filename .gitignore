@@ -38,6 +38,7 @@ coverage/
 .nyc_output/
 *.lcov
 /artifacts/
+/output/
 
 # OS
 .DS_Store

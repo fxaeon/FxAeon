@@ -19,10 +19,10 @@ export default function MorePage() {
       <PageHeading title="More" />
       {wallet.ready && wallet.authenticated && wallet.address && <AccountSummary />}
       <div className={styles.directory} data-utility-directory>
-        <div className={styles.quickActions}>
+        {wallet.ready && wallet.authenticated && wallet.address && <div className={styles.quickActions}>
           <ActionRow icon={History} title="History" href="/history" />
           <ActionRow icon={QrCode} title="Receive" href="/qr" />
-        </div>
+        </div>}
         <div className={styles.links}>
           <ActionRow icon={Settings} title="Settings" href="/settings" />
           <ActionRow icon={Sparkles} title="Appearance" value={ready ? THEMES[theme].name : '—'} href="/settings#appearance" />

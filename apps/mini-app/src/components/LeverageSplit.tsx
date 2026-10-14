@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { debtShare, leverageAtShare, splitPercents, splitTicksOnTrack, stepLeverage, type LeverageSide } from '@/lib/leverageShare';
+import { debtShare, leverageAtTrackPosition, leverageTrackPosition, leverageTicksOnTrack, splitPercents, stepLeverage, type LeverageSide } from '@/lib/leverageShare';
 import { haptic } from '@/lib/telegram';
 import styles from './LeverageSplit.module.css';
 
@@ -84,29 +84,10 @@ function crossesWholeLeverage(from: number, to: number): boolean {
   return to > from ? Math.floor(to) > Math.floor(from) : to < from && Math.ceil(to) < Math.ceil(from);
 }
 
-/**
- * The ticket's leverage slider is the split itself: the track's full width is
- * the position's value, the debt (quiet) left of the thumb and the trader's
- * share (the accent) right of it, so the thumb sits where the debt ends, at
- * debtShare(side, L). Leverage outside the live range lies on thinned, dimmed
- * ends the thumb cannot enter. Faint hairline ticks stand on the bar's upper
- * edge at each whole × (never cutting the split), showing why every extra ×
- * moves the boundary less: they keep at least 14px apart on the measured track
- * and step aside near the thumb. The range ends are labelled where they sit.
- *
- * Semantics and keys come from a native range input in leverage units, laid
- * transparently over the drawing. Assistive technology gets a real slider
- * whose value, minimum and maximum are leverage (iOS VoiceOver and TalkBack
- * adjust a native slider reliably, a custom role="slider" far less so; a native
- * input in share space would announce shares, not leverage). Arrow keys step
- * 0.1× and Home/End reach the bounds natively; only PageUp/PageDown are taken
- * over, to move a whole ×. The input ignores the pointer, because its own
- * mapping is linear in leverage and would leave the thumb away from the finger:
- * pointer input is mapped here instead, x to share to the nearest 0.1× step. A
- * touch waits to see whether it is a drag along the track or a scroll of the
- * page (touch-action keeps vertical panning native), so scrolling past the
- * ticket never changes the leverage.
- */
+/** The full track spans the live leverage minimum and maximum linearly.
+ * The native input, pointer, thumb and ticks share that leverage scale.
+ * The educational debt/equity split stays in the separate caption.
+ * Touch gestures preserve vertical scrolling; keys use leverage units. */
 export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage, min, max, describedBy, captionId, onChange }: {
   id: string;
   label: string;
@@ -148,19 +129,19 @@ export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage
     observer.observe(bar);
     return () => observer.disconnect();
   }, []);
-  const ticks = track ? splitTicksOnTrack(side, min, max, value, track.width, track.thumbRadius) : [];
+  const ticks = track ? leverageTicksOnTrack(min, max, value, track.width, track.thumbRadius) : [];
   const { debt } = splitPercents(side, value);
   const shares = {
-    '--share': debtShare(side, value),
-    '--min-share': debtShare(side, min),
-    '--max-share': debtShare(side, max),
+    '--share': leverageTrackPosition(value, min, max),
+    '--min-share': 0,
+    '--max-share': 1,
   } as CSSProperties;
 
   const choose = (clientX: number, grab: number) => {
     const bar = barRef.current?.getBoundingClientRect();
     if (!bar || bar.width <= 0) return;
     const previous = valueRef.current;
-    const next = leverageAtShare(side, (clientX - grab - bar.left) / bar.width, min, max);
+    const next = leverageAtTrackPosition((clientX - grab - bar.left) / bar.width, min, max);
     if (next === previous) return;
     valueRef.current = next;
     onChange(next);
@@ -191,7 +172,7 @@ export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage
     if (!event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
     const bar = barRef.current?.getBoundingClientRect();
     if (!bar || bar.width <= 0) return;
-    const thumbX = bar.left + debtShare(side, valueRef.current) * bar.width;
+    const thumbX = bar.left + leverageTrackPosition(valueRef.current, min, max) * bar.width;
     const thumbRadius = (thumbRef.current?.getBoundingClientRect().width ?? 0) / 2;
     const gesture: SliderGesture = {
       pointerId: event.pointerId,

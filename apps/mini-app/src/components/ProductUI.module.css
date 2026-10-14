@@ -138,3 +138,5 @@
 .rowIcon { border-radius: 50%; background: var(--feature-surface); }
 .actionRow, :global([data-utility-directory]) .actionRow { min-height: 72px; padding: 16px 20px; }
 .rowCopy strong { font-weight: 500; }
+
+.visibleTitle { font-size: 26px; font-weight: 550; letter-spacing: -.035em; line-height: 1.2; }

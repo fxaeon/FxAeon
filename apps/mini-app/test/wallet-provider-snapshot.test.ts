@@ -27,12 +27,23 @@ for (const { id, rdns, host } of hosts) {
     }
     assert.equal(snapshot[0].rdns, rdns);
   });
-  test(`${id} identical namespace/announcement collapses, distinct objects are ambiguous`, () => {
+  test(`${id} announcement owns discovery even when its namespace exposes another wrapper`, () => {
     const raw = provider();
     const same = readWalletProviderSnapshot([announcement(rdns, raw)], host(raw));
     assert.equal(same.length, 1);
     assert.equal(buildWalletChoices(same).find((item) => item.id === id)?.provider, raw);
-    const distinct = readWalletProviderSnapshot([announcement(rdns, provider())], host(raw));
+    const announcedProvider = provider();
+    const distinct = readWalletProviderSnapshot([announcement(rdns, announcedProvider)], host(raw));
+    assert.equal(distinct.length, 1);
+    const choice = buildWalletChoices(distinct).find((item) => item.id === id)!;
+    assert.equal(choice.injected, 'available');
+    assert.equal(choice.provider, announcedProvider);
+    assert.deepEqual(resolveWalletConnectionRoute(choice, { providers: distinct, environment: 'mobile' }), { kind: 'injected', provider: announcedProvider, rdns });
+  });
+  test(`${id} two distinct announcements stay ambiguous despite its namespace fallback`, () => {
+    const raw = provider();
+    const distinct = readWalletProviderSnapshot([announcement(rdns, raw), announcement(rdns, provider())], host(raw));
+    assert.equal(distinct.length, 2);
     const choice = buildWalletChoices(distinct).find((item) => item.id === id)!;
     assert.equal(choice.injected, 'ambiguous');
     assert.equal(choice.provider, undefined);
@@ -95,6 +106,19 @@ test('known aliases on one object are not conflicting identities', () => {
   assert.equal(byRdns.size, 1);
   assert.equal(byRdns.get('io.metamask')?.length, 1);
   assert.equal(conflictingProviders.size, 0);
+});
+
+test('a matching announcement cannot hide another announced raw object with conflicting namespace branding', () => {
+  const okx = provider();
+  const conflicting = provider();
+  const claims = readWalletProviderSnapshot([announcement('com.okex.wallet', okx), announcement('io.rabby', conflicting)], { okxwallet: conflicting });
+  assert.equal(claims.length, 3);
+  assert.ok(groupWalletProviderClaims(claims).conflictingProviders.has(conflicting));
+  for (const id of ['okx', 'rabby']) {
+    const choice = buildWalletChoices(claims).find((item) => item.id === id)!;
+    assert.equal(choice.injected, 'ambiguous');
+    assert.equal(resolveWalletConnectionRoute(choice, { providers: claims, environment: 'mobile' }).kind, 'unavailable');
+  }
 });
 
 

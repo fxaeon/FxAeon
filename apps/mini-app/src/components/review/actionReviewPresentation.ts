@@ -6,9 +6,10 @@ import { routeFinancialReviewFacts, type ReviewFact } from '@/lib/fx/reviewForma
 import type { UseGasCostResult } from '@/lib/fx/useGasCost';
 import { formatNativeShortfall, nativeShortfallWei, routeNetworkFeeDisplay, type RouteGasCostEstimate } from '@/lib/fx/gasCost';
 import { formatGasTierQuote, type GasTierQuote } from '@/lib/fx/gasFeePolicy';
+import { ROUTE_PREFETCH_TTL_MS } from '@/lib/fx/routePrefetch';
 
 export interface ExecutionCost { estimatedGas?: string; gasFee?: string; protocolFee?: string; totalCost?: string }
-type BridgeReviewQuote = { nativeFee: bigint; destinationChainId?: number; bridgeToken?: string; bridgeAmount?: bigint; minAmountLD?: bigint; recipient?: string };
+type BridgeReviewQuote = { nativeFee: bigint; destinationChainId?: number; bridgeToken?: string; bridgeAmount?: bigint; minAmountLD?: bigint; recipient?: string; estimatedReceived?: bigint; receiptReadAt?: number };
 function isBridgeQuote(value: unknown): value is BridgeReviewQuote {
   return Boolean(value && typeof value === 'object' && 'nativeFee' in value && typeof (value as { nativeFee?: unknown }).nativeFee === 'bigint');
 }
@@ -152,7 +153,7 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
         break;
       case 'deposit-and-mint':
         addTokenAmountFact(facts, 'Deposit', intent.depositAmount, intent.depositTokenAddress);
-        addTokenAmountFact(facts, 'Borrow', intent.mintAmount, FX_TOKENS.fxUSD.address);
+        addTokenAmountFact(facts, 'Debt added', intent.mintAmount, FX_TOKENS.fxUSD.address);
         addFact(facts, 'Position', intent.positionId === 0 ? 'New position' : `#${intent.positionId}`);
         break;
       case 'repay-and-withdraw':
@@ -173,6 +174,7 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
         ? 'fxUSD and/or USDC (later claim)'
           : tokenSymbolForAddress(intent.tokenOutAddress) ?? compactAddress(intent.tokenOutAddress));
         addFact(facts, 'Mode', intent.directBasePool ? 'Direct' : intent.instant ? 'Instant' : 'Queued');
+        addFact(facts, 'Availability', intent.directBasePool || intent.instant ? 'After confirmation' : 'After cooldown · claim required');
         if (intent.slippagePercent !== undefined) addFact(facts, 'Slippage', `${intent.slippagePercent}%`);
         break;
       case 'fxsave-claim':
@@ -202,11 +204,20 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
     if (route.quote.bridgeAmount !== undefined) {
       addWadAmountFact(facts, 'Amount', route.quote.bridgeAmount, route.quote.bridgeToken ?? 'tokens');
     }
+    const { estimatedReceived, receiptReadAt, bridgeAmount, minAmountLD } = route.quote;
+    if (typeof estimatedReceived === 'bigint' && typeof receiptReadAt === 'number'
+      && Number.isSafeInteger(receiptReadAt) && receiptReadAt <= Date.now()
+      && Date.now() - receiptReadAt < ROUTE_PREFETCH_TTL_MS
+      && typeof bridgeAmount === 'bigint' && typeof minAmountLD === 'bigint'
+      && estimatedReceived >= minAmountLD && estimatedReceived <= bridgeAmount) {
+      addWadAmountFact(facts, 'Estimated received', estimatedReceived, route.quote.bridgeToken ?? 'tokens');
+    }
     if (route.quote.minAmountLD !== undefined) {
       addWadAmountFact(facts, 'Minimum received', route.quote.minAmountLD, route.quote.bridgeToken ?? 'tokens');
     }
     if (route.quote.recipient) addFact(facts, 'Recipient', route.quote.recipient);
     addWadAmountFact(facts, 'Bridge fee', route.quote.nativeFee, 'ETH');
+    addFact(facts, 'Delivery estimate', 'Not provided by bridge');
   }
 
   return facts;
@@ -233,7 +244,7 @@ export function routeFacts(route: PlannedRoute, gasCost: Pick<UseGasCostResult, 
     && shownFees.totalWei === shownFees.feeWei;
   if (currentGasCost?.totalCost && !totalIsOnlyTheGasFee) addNativeCostFact(facts, 'Total cost', currentGasCost.totalCost);
   if (executionCost?.gasFee) addNativeCostFact(facts, 'Gas fee', executionCost.gasFee);
-  if (executionCost?.protocolFee) addFact(facts, 'Protocol fee', executionCost.protocolFee);
+  if (executionCost?.protocolFee) addFact(facts, 'f(x) fee', executionCost.protocolFee);
   if (executionCost?.totalCost) addNativeCostFact(facts, 'Total cost', executionCost.totalCost);
   return facts;
 }

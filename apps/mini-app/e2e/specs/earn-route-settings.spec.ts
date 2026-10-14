@@ -3,6 +3,20 @@ import { test, expect, assertNoBackendRequests } from '../fixtures/test';
 test.describe('Earn route-specific settings', () => {
   test.use({ telegram: false });
 
+  test('existing vault holdings show validated USD value without adding another TVL tile', async ({ page, requests }, testInfo) => {
+    await page.route('https://api.aladdin.club/api1/concentrator_aToken_tvl_apy', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ code: 200, data: { fxSave: { address: '0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39', apy: '6.25', tvl: '12500000' } } }),
+    }));
+    await page.goto('/earn', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByText('Vault holdings', { exact: true })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: '$12.5M', exact: true })).toBeVisible();
+    await expect(page.getByText('6.25%', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Transaction settings,/ })).toHaveCount(0);
+    await testInfo.attach('existing-vault-holdings-usd-fixture', { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+    assertNoBackendRequests(requests);
+  });
+
   for (const width of [320, 393]) {
     test(`only instant stable withdrawals offer slippage at ${width}px`, async ({ page, requests }, testInfo) => {
       await page.setViewportSize({ width, height: 852 });
@@ -14,7 +28,7 @@ test.describe('Earn route-specific settings', () => {
         const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
         await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(hasSlippage ? 1 : 0);
         await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toHaveCount(0);
-        await expect(dialog.getByText('Confirm the network fee in your wallet before signing.')).toBeVisible();
+        await expect(dialog.getByText('Confirm the network fee in your wallet before signing.')).toHaveCount(0);
         const box = await dialog.boundingBox();
         expect(box!.x).toBeGreaterThanOrEqual(0);
         expect(box!.x + box!.width).toBeLessThanOrEqual(width);
@@ -66,6 +80,27 @@ test.describe('Earn route-specific settings', () => {
 
 test.describe('Earn unavailable reads', () => {
   test.use({ telegram: false, browserWallet: { address: '0x930f0000000000000000000000000000000098b9', initiallyConnected: true } });
+
+  test('connected Earn keeps vault holdings beside the balance overview', async ({ page, requests }, testInfo) => {
+    await page.route('https://api.aladdin.club/api1/concentrator_aToken_tvl_apy', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ code: 200, data: { fxSave: { address: '0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39', apy: '6.25', tvl: '12500000' } } }),
+    }));
+    for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/earn', { waitUntil: 'domcontentloaded' });
+      await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
+      const holdings = page.getByText('Vault holdings', { exact: true });
+      await expect(holdings).toHaveCount(1);
+      await expect(holdings.locator('..').getByText('$12.5M', { exact: true })).toBeVisible();
+      await expect(page.getByText('Total fxSAVE vault value', { exact: true })).toHaveCount(0);
+      await expect(page.locator('details').getByText('Vault holdings', { exact: true })).toHaveCount(0);
+      const bounds = await holdings.boundingBox();
+      expect(bounds!.y + bounds!.height).toBeLessThan(viewport.height / 2);
+      await testInfo.attach(`connected-earn-${viewport.width}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+    }
+    assertNoBackendRequests(requests);
+  });
 
   test('route settings cannot bypass unavailable balance or vault reads', async ({ page, requests }) => {
     for (const mode of ['deposit', 'withdraw']) {

@@ -562,6 +562,14 @@ export function LeverageField({
       setLeverageInputError('');
     }
   }, [leverageFocused, value]);
+  useEffect(() => {
+    if (!leverageFocused || !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(leverageDraft)) return;
+    const parsed = Number(leverageDraft);
+    if (Number.isFinite(parsed) && parsed > 0 && (parsed < min || parsed > max)) {
+      setLeverageInputError(`Enter leverage from ${min}× to ${max}×.`);
+      onChange(Number.NaN);
+    }
+  }, [min, max, leverageFocused, leverageDraft, onChange]);
   const numberInput = (
     <DecimalInput
       id={inputId}
@@ -580,13 +588,16 @@ export function LeverageField({
           onChange(Number.NaN);
           return;
         }
-        // Preserve the existing upper-bound behavior; values below the live
-        // minimum remain visible and are normalized on blur.
-        const bounded = Math.min(max, parsed);
+        if (parsed < min || parsed > max) {
+          setLeverageInputError(`Enter leverage from ${min}× to ${max}×.`);
+          onChange(Number.NaN);
+          return;
+        }
         setLeverageInputError('');
-        onChange(bounded);
+        onChange(parsed);
       }}
       onFocus={() => setLeverageFocused(true)}
+      onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); } }}
       onBlur={() => {
         haptic('selection');
         setLeverageFocused(false);
@@ -611,7 +622,7 @@ export function LeverageField({
       className={`${styles.leverageInput} field-control min-h-[52px] min-w-0 flex-1 px-4 text-[20px] font-semibold outline-none`}
     />
   );
-  // With a split to draw, the slider's track is that split (see LeverageSplitRange).
+  // Both slider variants use live leverage bounds; the split adds a caption.
   const slider = split ? (
     <LeverageSplitRange
       id={sliderId}

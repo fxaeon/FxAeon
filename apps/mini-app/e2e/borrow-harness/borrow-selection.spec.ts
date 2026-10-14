@@ -16,7 +16,7 @@ const mocks: Record<string, string> = {
   'next/link': `import React from 'react'; export default ({ href, children, prefetch, scroll, replace, ...props }) => <a href={typeof href === 'string' ? href : '#'} {...props}>{children}</a>;`,
   'next/navigation': `export const useRouter = () => ({ push: () => {}, replace: () => {}, back: () => {}, prefetch: () => {} }); export const usePathname = () => '/borrow'; export const useSearchParams = () => new URLSearchParams();`,
   '@/components/ui': `import React from 'react'; export const AppShell = ({children}) => <main>{children}</main>;`,
-  '@/components/TokenIcon': `import React from 'react'; export default () => <span />;`,
+  '@/components/TokenIcon': `import React from 'react'; export default () => <span />; export const ChainIcon = () => <span aria-hidden="true" />;`,
   '@/components/ConnectWalletButton': `import React from 'react'; export default ({children}) => <button>{children}</button>;`,
   '@/components/ProductUI': `import React from 'react'; export const MetricRows = ({rows}) => <div>{rows.map((row) => <div key={row.label}>{row.label}: {row.value}</div>)}</div>; export const PageHeading = ({title}) => <h1>{title}</h1>; export const ProductNav = ({current}) => <nav aria-label="Borrow product navigation"><button type="button" aria-current={current === 'save' ? 'page' : undefined}>fxSAVE</button><button type="button" aria-current={current === 'borrow' ? 'page' : undefined}>Borrow fxUSD</button></nav>; export const ProductSurface = ({children, ...props}) => <section {...props}>{children}</section>; export const StatusNotice = ({title, children}) => <div role="status">{title} {children}</div>;`,
   '@/lib/displayPrices': `export const freshDisplayPrices = () => globalThis.__borrowHarness.prices ?? {};`,
@@ -328,7 +328,7 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   // 800 of 1,200 is 66.67%: shown as 66.7%; the 83.79% limit is shown as 83.7%.
   await borrow.fill('800');
   await expect(page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' })).toHaveAttribute('aria-valuetext', '66.7% of a 83.7% limit');
-  await expect(page.getByText('66.7% of 83.7% limit', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('0.0% → 66.7%');
 });
 
 test('the withdrawal field names how much collateral can leave before review', async ({ page }) => {
@@ -393,4 +393,30 @@ test('a new position still requires positive starting collateral', async ({ page
   await expect(review).toBeDisabled();
   await page.getByLabel('Collateral', { exact: true }).fill('1');
   await expect(review).toBeEnabled();
+});
+
+test('borrowing previews debt separately from net proceeds and clears invalid or unpriced risk estimates', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
+  await page.getByLabel('Collateral', { exact: true }).fill('0.5');
+  await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
+  const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome' });
+  await expect(outcome).toContainText('Total debt0 → 800 fxUSD');
+  await expect(outcome).toContainText('Before conversion and fees');
+  await expect(page.getByText('The amount borrowed is added to your debt. You receive fxUSD after the f(x) fee.')).toHaveCount(0);
+  await expect(page.getByText('Collateral can be liquidated. Keep room below the borrowing limit.')).toHaveCount(0);
+  await changeSnapshot(page, (harness) => { harness.prices = {}; });
+  await expect(outcome).toContainText('800 fxUSD');
+  await expect(outcome.getByRole('meter')).toHaveCount(0);
+  await page.getByLabel('fxUSD to borrow', { exact: true }).fill('1.2.3');
+  await expect(outcome).toHaveCount(0);
+});
+
+test('empty collateral guidance leads to receiving funds only for a verified zero balance', async ({ page }) => {
+  await mount(page);
+  const receive = page.getByRole('link', { name: 'Receive ETH', exact: true });
+  await changeSnapshot(page, (harness) => { harness.balances = { ETH: { status: 'ready', amount: '0' } }; });
+  await expect(receive).toHaveAttribute('href', '/qr');
+  await changeSnapshot(page, (harness) => { harness.balances = { ETH: { status: 'loading', amount: '0' } }; });
+  await expect(receive).toHaveCount(0);
 });

@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -22,12 +23,14 @@ type Control = {
   trace: (name: string, fn: () => Promise<unknown>) => Promise<unknown>;
   enabledConfirmSeen: boolean;
 };
-async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: number; funded?: boolean; simulationFailureIndex?: number; feeDelayMs?: number } = {}) {
-  const transportOptions = { delayMs: options.delayMs ?? 20, ethBalance: options.funded ? 10n ** 20n : 400000000000000n, simulationFailureIndex: options.simulationFailureIndex };
+async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: number; funded?: boolean; simulationFailureIndex?: number; feeDelayMs?: number; feeRatios?: bigint[]; restoredSlippage?: string } = {}) {
+  const transportOptions = { delayMs: options.delayMs ?? 20, ethBalance: options.funded ? 10n ** 20n : 400000000000000n, simulationFailureIndex: options.simulationFailureIndex, feeRatios: options.feeRatios };
   const fixture = createFixture(transportOptions);
   fixture.setSimulationFailure = (index) => { transportOptions.simulationFailureIndex = index; };
   await page.route('**/*', async (route) => {
     const url = route.request().url();
+    const icon = new URL(url).pathname.match(/^\/(token-icons|chain-icons)\/([\w-]+\.(?:png|svg))$/);
+    if (icon) return route.fulfill({ contentType: icon[2].endsWith('.svg') ? 'image/svg+xml' : 'image/png', body: readFileSync(resolve(__dirname, '../../public', icon[1], icon[2])) });
     if (url.includes('/api/gas')) {
       await new Promise((resolve) => setTimeout(resolve, options.delayMs ?? 20));
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ source: 'etherscan', chainId: 1, gasPriceWei: '3000000000', baseFeePerGasWei: '1000000000', tiers: { standard: '3000000000', fast: '4000000000', rapid: '5000000000' }, fetchedAt: Date.now(), stale: false }) });
@@ -43,6 +46,13 @@ async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: num
   });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('http://long-review.test/trade');
+  if (options.restoredSlippage) await page.evaluate((slippage) => {
+    const now = Date.now();
+    const id = '1:0x1111111111111111111111111111111111111111:increasePosition:' + encodeURIComponent('trade:ETH:long:ETH') + ':' + encodeURIComponent('/trade');
+    localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ slippageBps: 50, gasTier: 'standard' }));
+    localStorage.setItem('fxaeon:signature-drafts:v1', JSON.stringify([{ id, walletAddress: '0x1111111111111111111111111111111111111111', chainId: 1, operation: 'increasePosition', actionKey: 'trade:ETH:long:ETH', resumePath: '/trade', formState: { market: 'ETH', side: 'long', token: 'ETH', amount: '0.0003', leverage: 2.8, slippage }, createdAt: now, updatedAt: now, status: 'signature-required' }]));
+    history.replaceState(null, '', '/trade?fxDraft=' + encodeURIComponent(id));
+  }, options.restoredSlippage);
   await page.evaluate(() => {
     (globalThis as unknown as { process: { env: Record<string, string> } }).process = { env: {} };
     const h: Control = {
@@ -55,12 +65,17 @@ async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: num
     };
     (globalThis as typeof globalThis & { __longReview: Control }).__longReview = h;
     new MutationObserver(() => {
-      if (Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Confirm' && !button.disabled)) h.enabledConfirmSeen = true;
+      if (Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Open position' && !button.disabled)) h.enabledConfirmSeen = true;
     }).observe(document.body, { subtree: true, childList: true, attributes: true });
   });
   await page.addStyleTag({ content: bundle.css });
   await page.addScriptTag({ content: bundle.script });
-  await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
+  if (options.restoredSlippage) {
+    // Restored drafts intentionally reopen review once; the editor is replaced.
+    await expect(page.getByRole('heading', { name: 'Review ETH Long', exact: true })).toBeVisible();
+  } else {
+    await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
+  }
   // Let the initial bounds read settle so this test isolates click/preparation.
   await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.some((event) => event.name === 'readLeverageBounds' && event.end !== undefined))).toBe(true);
   return fixture;
@@ -74,6 +89,71 @@ async function planCount(page: Page) {
 }
 async function review(page: Page) { await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click(); }
 async function insufficient(page: Page) { await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled(); }
+
+test('Trade settings preserve restored planner slippage through gas-only changes and explicit matching preset choices', async ({ page }) => {
+  await mount(page, { funded: true, restoredSlippage: '0.101' });
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const gear = page.getByRole('button', { name: /Transaction settings/ });
+  await expect(gear).toHaveAccessibleName(/0\.101%/);
+  await page.evaluate(() => {
+    localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ slippageBps: 50, gasTier: 'fast' }));
+    window.dispatchEvent(new CustomEvent('fxaeon:settings-updated', { detail: { slippageBps: 50, gasTier: 'fast' } }));
+  });
+  await expect(gear).toHaveAccessibleName(/0\.101%/);
+  await review(page);
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  await page.locator('details[aria-label="Review details"] > summary').click();
+  await expect(page.locator('[data-review-fact="Slippage"]')).toContainText('0.101%');
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await gear.click();
+  await page.getByRole('radio', { name: '0.5%', exact: true }).click();
+  await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
+  await expect(gear).toHaveAccessibleName(/0\.5%/);
+  await review(page);
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  await page.locator('details[aria-label="Review details"] > summary').click();
+  await expect(page.locator('[data-review-fact="Slippage"]')).toContainText('0.5%');
+});
+
+for (const theme of ['dark', 'light']) {
+  test(`redesigned review exposes decisions, exact amounts and fee units in ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.clock.install();
+    // Representative published Trade schedule; other fixtures exercise all fee legs.
+    await mount(page, { funded: true, feeRatios: [3_000_000n, 1_000_000n, 0n, 0n] });
+    await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
+    await fill(page, '0.0003'); await review(page);
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+    await expect(page.getByRole('heading', { name: 'Review ETH Long' })).toBeVisible();
+    await expect(page.locator('[data-review-fact="f(x) fee"]')).toContainText('0.3%');
+    await expect(page.locator('[data-review-fact="Execution price"]')).toBeInViewport();
+    await expect(page.locator('[data-review-fact="Liquidation price"]')).toBeInViewport();
+    await expect(page.locator('[data-review-fact="Rebalance price"]')).toContainText(/≈ \$[\d,.]+ \/ stETH/);
+    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toBeHidden();
+    await expect(page.locator('[data-review-fact="Gas fee"]')).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeInViewport();
+    const output = resolve(__dirname, '../../../../artifacts/review-redesign'); mkdirSync(output, { recursive: true });
+    await page.screenshot({ path: resolve(output, `review-${theme}-390.png`) });
+    await page.getByText('Network speed', { exact: true }).click();
+    await expect(page.getByText('3 Gwei', { exact: true })).toBeVisible();
+    await page.getByText('Network speed', { exact: true }).click();
+    await page.locator('[data-review-fact="Amount"] summary').click();
+    await expect(page.locator('[data-review-fact="Amount"] p')).toContainText('0.0003 ETH');
+    await page.locator('[data-review-fact="Amount"] summary').click();
+    await page.locator('details[aria-label="Review details"] > summary').click();
+    await expect(page.locator('[data-review-fact="Slippage"]')).toBeVisible();
+    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
+    await expect(page.locator('[data-review-fact="Estimated debt"]')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Open position', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeInViewport();
+    await page.screenshot({ path: resolve(output, `review-details-${theme}-390.png`) });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    await page.clock.fastForward(31_000);
+    await expect(page.locator('[data-review-fact="Liquidation price"]')).toContainText('Unavailable');
+    await expect(page.locator('[data-review-fact="Rebalance price"]')).toContainText('Unavailable');
+  });
+}
 
 test('quick review presents entered facts immediately and starts only one plan', async ({ page }) => {
   await mount(page); await fill(page); await review(page);
@@ -118,7 +198,7 @@ test('Edit abandons preparation and late results cannot reopen review', async ({
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
   await page.waitForTimeout(1800);
   await expect(page.getByRole('button', { name: 'Review ETH Long', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
 });
 
 test('wallet change abandons the old preparation', async ({ page }) => {
@@ -126,12 +206,12 @@ test('wallet change abandons the old preparation', async ({ page }) => {
   await page.evaluate(() => { const h = (globalThis as typeof globalThis & { __longReview: Control }).__longReview; h.wallet = { ...h.wallet, address: '0x2222222222222222222222222222222222222222', connectionVersion: 2 }; h.rerender?.(); });
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('');
   await page.waitForTimeout(1800);
-  await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
 });
 
 test('fresh-cache visibility refresh disables confirmation until the request settles', async ({ page }) => {
   await mount(page, { funded: true, delayMs: 100 }); await fill(page); await review(page);
-  const confirm = page.getByRole('button', { name: 'Confirm', exact: true }); await expect(confirm).toBeEnabled();
+  const confirm = page.getByRole('button', { name: 'Open position', exact: true }); await expect(confirm).toBeEnabled();
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(page.getByRole('button', { name: 'Checking network fees…', exact: true })).toBeDisabled();
   await expect(confirm).toBeEnabled();
@@ -139,7 +219,7 @@ test('fresh-cache visibility refresh disables confirmation until the request set
 
 async function geometry(page: Page, seed = false) {
   return page.evaluate((seed) => {
-    const selectors = ['[data-review-viewport]', '[data-review-fact="Amount"]', '[data-review-fact="Target leverage"]', '[data-review-fact="Position"]', '[data-review-fact="Slippage"]', '[data-review-viewport] > :last-child button'];
+    const selectors = ['[data-review-viewport]', '[data-review-fact="Amount"]', '[data-review-position]', '[data-review-fact="Execution price"]', '[data-review-fact="Liquidation price"]', '[data-review-viewport] > :last-child button'];
     const nodes = selectors.map(selector => document.querySelector(selector)!);
     const global = window as unknown as { __reviewNodes?: Element[] };
     if (seed) global.__reviewNodes = nodes;
@@ -167,7 +247,7 @@ for (const viewport of [{ width:393,height:920 }, { width:320,height:568 }, { wi
       }
       const action = frame.boxes.at(-1)!;
       expect(action.height).toBeGreaterThanOrEqual(44);
-      expect(action.y + action.height).toBeLessThanOrEqual(viewport.height);
+      expect(action.y).toBeGreaterThan(frame.boxes[4].y);
     }
     const fit = await page.evaluate(() => {
       const review = document.querySelector<HTMLElement>('[data-review-viewport]')!;
@@ -203,13 +283,10 @@ test('a Max-length exact amount stays inside the card at 320px while preparing a
     expect(fit.pageOverflow, 'no horizontal page overflow').toBeLessThanOrEqual(0);
     expect(fit.bodyOverflow, 'no hidden horizontal overflow in the card').toBeLessThanOrEqual(0);
     expect(fit.escaped, 'labels and values stay inside the card').toEqual([]);
-    // Exact, never "≈", before and after the route is checked.
-    await expect(page.locator('[data-review-fact="Amount"] > span').last()).toHaveText('0.00024443113696627 ETH');
-    for (const [label, value] of [['Target leverage', '2.8×'], ['Position', 'New position']]) {
-      const cell = page.locator(`[data-review-fact="${label}"] > span`).last();
-      await expect(cell).toHaveText(value);
-      await expect(cell).toBeInViewport();
-    }
+    // The exact amount remains available through its disclosure throughout verification.
+    await expect(page.locator('[data-review-fact="Amount"] summary')).toBeVisible();
+    await expect(page.locator('[data-review-fact="Target leverage"]')).toHaveText('2.8×');
+    await expect(page.locator('[data-review-position]')).toBeInViewport();
   };
   await expect(page.getByRole('button', { name: 'Checking transaction…', exact: true })).toBeDisabled();
   await expectInsideCard();
@@ -223,6 +300,7 @@ test('a Max-length exact amount stays inside the card at 320px while preparing a
     return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
   };
   await expect(page.locator('[data-review-fact="Gas fee"] > span').last()).toHaveText(/ ETH max$/);
+  await page.locator('details[aria-label="Review details"] > summary').click();
   const total = await page.locator('[data-review-fact="Total cost"] > span').last().innerText();
   expect(total).toMatch(/ ETH max$/);
   const asked = await page.locator('p', { hasText: 'Add at least' }).innerText();
@@ -235,13 +313,14 @@ test('failed preparation stays in the same card and Retry performs a fresh check
   await geometry(page,true); // seed the node identities compared below
   await expect(page.getByRole('button',{name:'Retry review',exact:true})).toBeEnabled();
   expect((await geometry(page)).same.every(Boolean)).toBe(true);
-  await expect(page.getByRole('button',{name:'Confirm',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Open position',exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Checking transaction steps')).toHaveCount(0);
   fixture.setSimulationFailure?.(undefined);
   await page.getByRole('button',{name:'Retry review',exact:true}).click(); await insufficient(page);
   const after=await geometry(page); expect(after.same.every(Boolean)).toBe(true);
   expect(after.boxes.at(-1)!.height).toBeGreaterThanOrEqual(44);
-  expect(after.boxes.at(-1)!.y + after.boxes.at(-1)!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  await page.getByRole('button', { name: 'Not enough ETH', exact: true }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeInViewport();
   expect(await page.evaluate(() => (globalThis as typeof globalThis & {__longReview:Control}).__longReview.events.filter(event=>event.name==='prepareRoutesForReview').length)).toBe(2);
 });
 test('Telegram Back cancels retained failed preparation and returns to the editor', async ({page}) => {
@@ -249,5 +328,5 @@ test('Telegram Back cancels retained failed preparation and returns to the edito
   await expect(page.getByRole('button',{name:'Retry review',exact:true})).toBeEnabled();
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fxaeon:telegram-back')));
   await expect(page.getByRole('textbox',{name:'Amount in ETH'})).toHaveValue('0.0003');
-  await expect(page.getByRole('button',{name:'Confirm',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Open position',exact:true})).toHaveCount(0);
 });

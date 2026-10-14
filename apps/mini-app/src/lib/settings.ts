@@ -48,7 +48,10 @@ export function writeTransactionSettings(patch: { slippageBps?: number; gasTier?
   if (slippageBps === undefined && gasTier === undefined) return false;
   try {
     let previous: Record<string, unknown> = {};
-    try { previous = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}') as Record<string, unknown>; } catch { previous = {}; }
+    try {
+      const parsed: unknown = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) previous = parsed as Record<string, unknown>;
+    } catch { previous = {}; }
     const next = { ...previous, ...(slippageBps !== undefined ? { slippageBps } : {}), ...(gasTier ? { gasTier } : {}) };
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
     announceSettingsUpdated(isSlippageBps(next.slippageBps) ? next.slippageBps : Math.round(DEFAULT_SLIPPAGE_PERCENT * 100), gasTier);

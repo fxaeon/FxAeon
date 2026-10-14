@@ -6,6 +6,6 @@ import styles from './SplitFigure.module.css';
  * whose digits roll when it changes. The text content stays the exact
  * formatted string.
  */
-export function SplitFigure({ value }: { value: string }) {
-  return <RollingFigure value={value} fractionClassName={styles.fraction} />;
+export function SplitFigure({ value, fractionClassName = styles.fraction }: { value: string; fractionClassName?: string }) {
+  return <RollingFigure value={value} fractionClassName={fractionClassName} />;
 }

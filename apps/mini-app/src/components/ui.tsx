@@ -114,10 +114,7 @@ export function AppShell({
             </Link>
             <DesktopNavigation />
             <span className="app-topbar-actions">
-              <span className={headerWalletControl.control} data-header-wallet-control="true" role="group" aria-label="Wallet and network controls">
-                <HeaderNetwork />
-                <HeaderWallet />
-              </span>
+              <HeaderWalletControl />
               <ThemeToggle />
             </span>
           </header>
@@ -146,9 +143,15 @@ export function AppShell({
 /* Until the wallet provider is ready, hold a compact entry placeholder.
    It stops shimmering once the provider has timed out;
    the page itself names the problem and offers a retry. */
-function HeaderNetwork() {
+function HeaderWalletControl() {
   const wallet = usePrivyWallet();
-  return wallet.ready && wallet.authenticated && wallet.address ? <NetworkSelector /> : null;
+  const connected = Boolean(wallet.ready && wallet.authenticated && wallet.address);
+  return (
+    <span className={headerWalletControl.control} data-header-wallet-control="true" data-connected={connected || undefined} role="group" aria-label="Wallet and network controls">
+      {connected && <NetworkSelector />}
+      <HeaderWallet />
+    </span>
+  );
 }
 
 function HeaderWallet() {
@@ -167,8 +170,8 @@ const TABS: { href: string; labelKey: string; icon: LucideIcon; also?: string[] 
   { href: '/', labelKey: 'nav.home', icon: Home, also: ['/portfolio'] },
   { href: '/trade', labelKey: 'nav.trade', icon: CandlestickChart, also: ['/positions'] },
   { href: '/earn', labelKey: 'nav.earn', icon: PiggyBank, also: ['/borrow'] },
-  { href: '/move', labelKey: 'nav.move', icon: ArrowLeftRight, also: ['/qr'] },
-  { href: '/more', labelKey: 'nav.more', icon: LayoutGrid, also: ['/settings', '/history', '/docs'] },
+  { href: '/move', labelKey: 'nav.move', icon: ArrowLeftRight },
+  { href: '/more', labelKey: 'nav.more', icon: LayoutGrid, also: ['/settings', '/history', '/qr', '/send', '/docs'] },
 ];
 
 function isTabActive(pathname: string | null, href: string, also?: string[]) {

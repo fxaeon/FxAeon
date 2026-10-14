@@ -39,7 +39,7 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
       aria-label={label}
       title={label}
       data-switched={switched || undefined}
-      className={`theme-toggle glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[var(--surface)] text-mut hover:text-mint ${className}`}
+      className={`theme-toggle glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full text-mut ${className}`}
     >
       {ORDER.map((id) => {
         const Icon = ICONS[id];

@@ -144,6 +144,28 @@ function protocolFeeQuote(value: unknown): RouteDetails['protocolFeeQuote'] {
   };
 }
 
+function fxSaveQuote(value: unknown): RouteDetails['fxSaveQuote'] {
+  if (!value || typeof value !== 'object') return undefined;
+  const quote = value as Record<string, unknown>;
+  if (!['deposit', 'direct-withdraw', 'instant-withdraw'].includes(String(quote.kind))
+    || typeof quote.tokenAddress !== 'string' || !isAddress(quote.tokenAddress)
+    || typeof quote.actionTo !== 'string' || !isAddress(quote.actionTo)
+    || typeof quote.actionData !== 'string' || !/^0x(?:[a-f0-9]{2})+$/i.test(quote.actionData)
+    || !Number.isSafeInteger(quote.readAt) || Number(quote.readAt) <= 0) return undefined;
+  const fields = ['inputAmount', 'estimatedOutput', 'instantFeeRatio', 'grossFxUSD', 'grossUSDC', 'netFxUSD', 'netUSDC'] as const;
+  const amounts: Record<string, string> = {};
+  for (const field of fields) {
+    if (quote[field] === undefined && field !== 'inputAmount') continue;
+    const raw = quote[field];
+    if (typeof raw !== 'string' || !/^\d{1,78}$/.test(raw) || BigInt(raw) >= 1n << 256n) return undefined;
+    amounts[field] = raw;
+  }
+  return { ...amounts, inputAmount: amounts.inputAmount,
+    kind: quote.kind as NonNullable<RouteDetails['fxSaveQuote']>['kind'],
+    tokenAddress: getAddress(quote.tokenAddress), actionTo: getAddress(quote.actionTo),
+    actionData: quote.actionData as Hex, readAt: Number(quote.readAt) };
+}
+
 /** Normalize increase/reduce/adjust route results without reimplementing SDK logic. */
 export function normalizeRouteResult(
   operation: "increasePosition" | "reducePosition" | "adjustPositionLeverage",
@@ -207,6 +229,7 @@ export function normalizeTxResult(
     }),
     details: {
       protocolFeeQuote: protocolFeeQuote(root.protocolFeeQuote),
+      fxSaveQuote: fxSaveQuote(root.fxSaveQuote),
       positionId: numberField(root.positionId, "position ID"),
       leverage: numberField(root.leverage, "leverage"),
       executionPrice: stringField(root.executionPrice, "execution price"),

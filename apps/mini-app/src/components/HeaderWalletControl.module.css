@@ -7,7 +7,7 @@
   flex: 0 0 auto;
   min-width: 0;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -17,13 +17,18 @@
   -webkit-touch-callout: none;
 }
 
+.control[data-connected] {
+  background: transparent;
+}
+
 .control :global(.network-selector-wrap) {
   flex: 0 0 auto;
+  position: relative;
 }
 
 .control :global(.network-selector) {
   display: inline-flex;
-  width: auto;
+  width: 44px;
   max-width: none;
   min-width: 44px;
   min-height: 44px;
@@ -31,16 +36,13 @@
   justify-content: center;
   gap: 7px;
   padding: 0 10px;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
 }
 
 .control :global(.network-selector-visual-label) {
-  color: var(--text);
-  font-size: var(--fs-micro);
-  font-weight: 650;
-  white-space: nowrap;
+  display: none;
 }
 
 /* Without a wallet the two supported networks stand in for the current one. */
@@ -79,19 +81,25 @@
   min-width: 92px;
   padding-inline: 12px;
   border-radius: 999px;
-  color: var(--text);
-  background: var(--surface-2);
+  color: var(--on-accent);
+  background: var(--mint);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 650;
   letter-spacing: -.01em;
 }
 
 @media (hover: hover) {
-  .control .connectTrigger:hover:not(:disabled) { color: var(--text); background: var(--surface-3); }
+  .control .connectTrigger:hover:not(:disabled) { color: var(--on-accent); background: color-mix(in srgb, var(--mint) 90%, white); }
 }
 
 .identityTrigger {
   max-width: 174px;
+}
+
+.control[data-connected] .identityTrigger {
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .identityAvatar {
@@ -155,6 +163,7 @@
 /* Touch screens keep :hover after a tap; only a real pointer gets the tint. */
 @media (hover: hover) {
   .control :global(.network-selector):hover:not(:disabled),
+  .control[data-connected] .identityTrigger:hover:not(:disabled),
   .trigger:hover:not(:disabled) {
     background: var(--mint-dim);
     color: var(--mint-text);
@@ -177,7 +186,7 @@
 }
 
 @media (max-width: 359px) {
-  .control { --chip-pad: 7px; }
+  .control { --chip-pad: 7px; gap: 6px; }
   .control :global(.network-selector) { gap: 4px; padding-inline: 6px; }
 }
 

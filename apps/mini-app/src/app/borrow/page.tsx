@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AppShell } from '@/components/ui';
 import { formatUnits } from 'viem';
+import Link from 'next/link';
 import TokenIcon from '@/components/TokenIcon';
 import ConnectWalletButton from '@/components/ConnectWalletButton';
 import { MetricRows, PageHeading, ProductNav, ProductSurface, StatusNotice } from '@/components/ProductUI';
@@ -596,28 +597,41 @@ export default function BorrowPage() {
   const picker = activeTokenOptions.length > 1 ? <TokenSelect compact label={mode === 'manage' ? 'Receive collateral as' : 'Collateral asset'} value={token}
     options={activeTokenOptions} onChange={changeToken} balances={wallet.address ? balanceSnapshot.balances : undefined}
     balanceStatus={wallet.address ? balanceStatus : 'disconnected'} /> : undefined;
+  const collateralBalance = balanceStateFor(token);
+  const emptyCollateral = wallet.address && showDeposit && collateralBalance?.status === 'ready' && Number(collateralBalance.amount) === 0;
+  const showPositionEstimate = mode === 'mint' && mintWei !== null && depositWei !== null && !selectedStale && (newPosition || Boolean(selected)) && (mintWei > 0n || depositWei > 0n);
+  const previousLtv = newPosition ? '0.0%' : existingCollateralUsd !== null && existingCollateralUsd > 0n
+    ? formatTenths(loanToValueTenthsUp(existingDebt, existingCollateralUsd)) : null;
   const actionEditor = <div className={presentation.editor}>
     {!newPosition && <h2 className={presentation.formTitle}>{mode === 'mint' ? 'Add collateral or borrow' : 'Repay or withdraw'}</h2>}
     {/* Collateral first: the borrowing limit below is computed from it. */}
-    {showDeposit && <AmountField label={newPosition ? 'Collateral' : 'Collateral to add'} symbol={token} value={deposit}
+    {showDeposit && <AmountField compact label={newPosition ? 'Collateral' : 'Collateral to add'} symbol={token} value={deposit}
       onChange={(value) => { setNativeMaxError(null); setDeposit(value); }} allowZero maxDecimals={tokenDecimals(token)}
       balanceState={balanceStateFor(token)} tokenSelector={picker}
       maxAmount={token === 'ETH' ? null : undefined} onMax={token === 'ETH' ? resolveNativeMax : undefined}
       maxPending={token === 'ETH' && nativeMaxPending} constraintError={token === 'ETH' ? nativeMaxError : undefined} />}
-    {showMint && <AmountField label={newPosition ? 'fxUSD to borrow' : 'Additional fxUSD to borrow'} symbol="fxUSD" value={mint}
+    {showMint && <AmountField compact label={newPosition ? 'fxUSD to borrow' : 'Additional fxUSD to borrow'} symbol="fxUSD" value={mint}
       onChange={setMint} allowZero maxDecimals={18} showPercentages={false} showMax={Boolean(capacity && capacity.maxAdditional > 0n)}
       maxAmount={capacity && capacity.maxAdditional > 0n ? formatUnits(capacity.maxAdditional, 18) : null}
       hint={capacity ? (capacity.maxAdditional > 0n ? `Up to ${fxUsdLimit(capacity.maxAdditional)} fxUSD with this collateral` : 'This collateral cannot borrow more')
         : collateralEntered ? 'Your limit shows once prices are available'
         : newPosition ? 'Enter collateral above to see your limit' : undefined} />}
-    {showRepay && <AmountField label="Repay amount" symbol="fxUSD" value={repay} onChange={setRepay} allowAll allowZero maxDecimals={18}
+    {showRepay && <AmountField compact label="Repay amount" symbol="fxUSD" value={repay} onChange={setRepay} allowAll allowZero maxDecimals={18}
       balanceState={balanceStateFor('fxUSD')} hint={selected ? `Debt: ${formatPositionDebt(selected)}` : undefined} />}
-    {showWithdraw && <AmountField label="Collateral to withdraw" symbol={token} value={withdraw} onChange={setWithdraw}
+    {showWithdraw && <AmountField compact label="Collateral to withdraw" symbol={token} value={withdraw} onChange={setWithdraw}
       allowZero maxDecimals={tokenDecimals(token)} showMax={false} showPercentages={false} tokenSelector={picker}
       hint={withdrawLimitWei === null ? 'Your limit shows once prices are available'
         : withdrawLimitWei > 0n ? `Up to ${formatSignificantDecimal(formatUnits(withdrawLimitWei, tokenDecimals(token)), 4)} ${symbol} at current prices`
         : 'Repay debt to withdraw collateral'} />}
-    {mode === 'mint' && ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} />}
+    {showPositionEstimate && <section className={presentation.outcome} aria-label="Estimated borrowing outcome">
+      <div className={presentation.outcomeHeading}><span>Estimated position</span><span>Before → after</span></div>
+      <dl className={presentation.outcomeRows}>
+        <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(debtAfter, 18))} fxUSD</strong></dd></div>
+      </dl>
+      {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange.source === 'live' && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
+      <p className={presentation.estimateNote}>Before conversion and fees. Review shows the final estimate.</p>
+    </section>}
+    {emptyCollateral && <p className={presentation.fundingHint}>Add {symbol} to your wallet to supply collateral. <Link href="/qr">Receive {symbol}</Link></p>}
     {withdrawalRequested && <p className={presentation.helper}>Withdrawing collateral can increase liquidation risk.</p>}
     {!newPosition && managementAction !== 'combined' && <button type="button" className={presentation.combined} onClick={() => setManagementAction('combined')}>
       {mode === 'mint' ? 'Add collateral and borrow together' : 'Repay and withdraw together'}
@@ -636,20 +650,19 @@ export default function BorrowPage() {
       {reviewStage === 'input' && <section className={presentation.overview} aria-label="fxUSD borrowing overview">
         <div className={presentation.vaultIdentity}>
           <TokenIcon symbol="fxUSD" size={36} />
-          <div><h2>fxUSD</h2><p>Ethereum</p></div>
+          <div><h2>Borrow fxUSD</h2><p>Against your ETH or BTC · Ethereum</p></div>
         </div>
         <dl className={presentation.metrics}>
           <div><dt>Maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd><small>{debtRange.source === 'live' ? 'Pool limit' : 'Live limit unavailable'}</small></div>
-          <div><dt>Annual interest</dt><dd>0%</dd><small>Normal conditions · fees apply</small></div>
+          <div><dt>Base annual interest</dt><dd>0%</dd><small>Temporary funding charges can apply</small></div>
         </dl>
-        <p className={presentation.riskNote}>Collateral can be liquidated. Keep room below the borrowing limit.</p>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
       {reviewStage === 'input' && <div className={presentation.viewTabs}>
         <Segmented value={view} onChange={chooseView} ariaLabel="Borrow workspace" options={[
           { value: 'new', label: 'New position' }, { value: 'positions', label: 'Your positions' },
         ]} />
-        <TransactionSettings />
+        <TransactionSettings scope="Borrow" />
       </div>}
       {view === 'positions' && wallet.address && initialRead && <StatusNotice>Reading your collateral positions…</StatusNotice>}
       {view === 'positions' && wallet.address && !initialRead && positionReadUnavailable && <ProtocolPositionNotice status="unavailable"
@@ -691,7 +704,7 @@ function loanToValueTenthsUp(debt: bigint, collateralUsd: bigint): bigint { retu
 function formatTenths(tenths: bigint): string { return `${(Number(tenths) / 10).toFixed(1)}%`; }
 
 /** Loan-to-value against the borrowing limit, filling toward it as the borrow grows. */
-function BorrowLimitMeter({ debt, collateralUsd, limitBps }: { debt: bigint; collateralUsd: bigint; limitBps: bigint }) {
+function BorrowLimitMeter({ debt, collateralUsd, limitBps, before }: { debt: bigint; collateralUsd: bigint; limitBps: bigint; before?: string | null }) {
   const ltvBps = debt * 10_000n / collateralUsd;
   const used = Number(ltvBps * 1000n / limitBps) / 10;
   const tone = used > 100 ? 'over' : used >= 85 ? 'near' : 'ok';
@@ -703,8 +716,9 @@ function BorrowLimitMeter({ debt, collateralUsd, limitBps }: { debt: bigint; col
   return <div className={presentation.limitMeter} data-tone={tone}>
     <div className={presentation.limitMeterRow}>
       <span>Loan-to-value</span>
-      <strong>{percent(ltvTenths)}<small> of {percent(limitTenths)} limit</small></strong>
+      <strong>{before && <><small>{before}</small><span aria-hidden="true"> → </span></>}{percent(ltvTenths)}</strong>
     </div>
+    <div className={presentation.limitCaption}><span>Borrowing limit</span><span>{percent(limitTenths)}</span></div>
     <div className={presentation.limitTrack} role="meter" aria-label="Loan-to-value against the borrowing limit"
       aria-valuemin={0} aria-valuemax={Number(limitBps) / 100} aria-valuenow={Math.min(Number(ltvBps), Number(limitBps)) / 100} aria-valuetext={`${percent(ltvTenths)} of a ${percent(limitTenths)} limit`}>
       <span style={{ '--fill': `${Math.min(used, 100)}%` } as CSSProperties} />

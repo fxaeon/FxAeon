@@ -2,9 +2,13 @@ import {
   BROWSER_ADDRESS, DECOY_ADDRESS, EMBEDDED_ADDRESS, EMBEDDED_BALANCE,
   type BoundaryMode, type BoundaryProvider, type WagmiBoundaryState,
 } from './wallet-wagmi-boundary-state';
+import { WALLET_CATALOG } from '../../src/lib/wallet/walletCatalog';
 
 // Runs as a classic script before importing any real wallet or Telegram module.
 const requested = new URLSearchParams(location.search).get('mode');
+const okxAliasFixture = new URLSearchParams(location.search).has('okxAlias');
+const selectedWallet = WALLET_CATALOG.find(wallet => wallet.id === (okxAliasFixture ? 'okx' : new URLSearchParams(location.search).get('wallet'))) ?? WALLET_CATALOG.find(wallet => wallet.id === 'rabby')!;
+let rejectFirstApproval = new URLSearchParams(location.search).has('rejectFirst');
 const mode: BoundaryMode = requested === 'telegram' || requested === 'late-host' || requested === 'bridge-wait' ? requested : 'web';
 const h: WagmiBoundaryState = globalThis.__wagmiBoundaryHarness = {
   mode, discoveryRequests: 0, configCreates: 0, connectorCreates: 0, wagmiConnections: [],
@@ -31,6 +35,10 @@ function provider(address: string, kind: 'browser' | 'decoy' | 'embedded'): Boun
   return {
     async request(request) {
       h[`${kind}Calls`].push(request);
+      if (kind === 'browser' && request.method === 'eth_requestAccounts' && rejectFirstApproval) {
+        rejectFirstApproval = false;
+        throw Object.assign(new Error('Synthetic user rejected the request.'), { code: 4001 });
+      }
       if (request.method === 'eth_accounts' || request.method === 'eth_requestAccounts') return [address];
       if (request.method === 'eth_chainId') return '0x1';
       if (kind === 'embedded' && request.method === 'eth_getBalance') {
@@ -52,8 +60,9 @@ h.embeddedProvider = provider(EMBEDDED_ADDRESS, 'embedded');
 const exactBrowser = provider(BROWSER_ADDRESS, 'browser');
 // The default global deliberately differs from the selected EIP-6963 object.
 window.ethereum = provider(DECOY_ADDRESS, 'decoy');
+if (okxAliasFixture) (window as unknown as { okxwallet: BoundaryProvider }).okxwallet = window.ethereum as BoundaryProvider;
 h.announceBrowser = () => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
-  detail: { info: { name: 'Rabby', rdns: 'io.rabby', uuid: '00000000-0000-4000-8000-000000000001', icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }, provider: exactBrowser },
+  detail: { info: { name: selectedWallet.name, rdns: selectedWallet.rdns, uuid: '00000000-0000-4000-8000-000000000001', icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>' }, provider: exactBrowser },
 }));
 window.addEventListener('eip6963:requestProvider', () => { h.discoveryRequests += 1; h.announceBrowser(); });
 
@@ -64,11 +73,11 @@ if (mode === 'telegram') h.installTelegram();
 else if (mode === 'bridge-wait') (window as unknown as { TelegramWebviewProxy: unknown }).TelegramWebviewProxy = { postEvent() {} };
 else (window as unknown as { Telegram: unknown }).Telegram = { WebApp: { platform: 'unknown', initData: '' } };
 
-// Safety for manual QA: only the injected fake Rabby can be selected. Other
+// Safety for manual QA: only the fixture's injected wallet can be selected. Other
 // catalog choices retain their real markup but must never open a live site.
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target.closest('[data-wallet-id]') : null;
-  if (target && target.getAttribute('data-wallet-id') !== 'rabby') {
+  if (target && target.getAttribute('data-wallet-id') !== selectedWallet.id) {
     event.preventDefault(); event.stopImmediatePropagation();
     h.errors.push('QA safety: only the synthetic Rabby selection is enabled.');
   }

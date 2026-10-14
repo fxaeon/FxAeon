@@ -3,9 +3,9 @@
 // Static export: small allowlisted token logos use native lazy loading and a
 // local fallback, without an image-optimization server.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Coins, Search } from 'lucide-react';
+import { ChevronDown, Coins, Search } from 'lucide-react';
 import { AssetListSkeleton, AssetRowContent, displayAssetSymbol, networkLabel } from '@/components/AssetPresentation';
 export { AssetIcon, AssetNetworkIcon, AssetQuantity, displayAssetSymbol, networkLabel } from '@/components/AssetPresentation';
 import { filterSupportedWalletAssets, summarizeWalletAssets, type WalletAssetSnapshot } from '@/lib/walletAssets';
@@ -15,10 +15,18 @@ import styles from './PortfolioAssets.module.css';
 export type PortfolioNetwork = 'all' | 1 | 8453;
 
 export function PortfolioNetworkTabs({ value, onChange }: { value: PortfolioNetwork; onChange: (value: PortfolioNetwork) => void }) {
-  const options = ['all', 1, 8453] as const;
-  return <div className={styles.networkTabs} role="group" aria-label="Portfolio network" style={{ '--seg-index': Math.max(0, options.indexOf(value)), '--seg-count': options.length } as CSSProperties}>
-    {options.map((network) => <button key={network} type="button" aria-pressed={value === network} onClick={() => onChange(network)}>{network === 'all' ? 'All' : networkLabel(network)}</button>)}
-  </div>;
+  // Native controls can accept input before hydration attaches onChange.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => setInteractive(true), []);
+  return <label className={styles.networkSelect}>
+    <span className="sr-only">Portfolio network</span>
+    <select disabled={!interactive} value={value} onChange={(event) => onChange(event.target.value === 'all' ? 'all' : event.target.value === '8453' ? 8453 : 1)}>
+      <option value="all">All networks</option>
+      <option value={1}>{networkLabel(1)}</option>
+      <option value={8453}>{networkLabel(8453)}</option>
+    </select>
+    <ChevronDown size={15} aria-hidden="true" />
+  </label>;
 }
 
 export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkChange, onRefresh, refreshing = false }: {

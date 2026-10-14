@@ -540,11 +540,12 @@ test.describe("market price context", () => {
       await expect(main.getByText("Portfolio value", { exact: true })).toHaveCount(0);
       const actions = main.getByRole("region", { name: "Actions", exact: true });
       await expect(actions).toBeVisible();
-      for (const label of ["Receive", "Trade", "Move", "Earn"]) {
+      for (const label of ["Trade", "Earn", "Borrow"]) {
         await expect(actions.getByRole("link", { name: label, exact: true })).toBeVisible();
       }
       const markets = main.getByRole("region", { name: "Markets", exact: true });
       await expect(markets).toBeVisible();
+      await expect(markets.getByText("24h change", { exact: true })).toBeVisible();
       await expect(markets.getByText("ETH", { exact: true })).toBeVisible();
       await expect(markets.getByText("BTC", { exact: true })).toBeVisible();
       assertNoBackendRequests(requests);
@@ -559,7 +560,9 @@ test.describe("market price context", () => {
     await expect(disclosure).not.toHaveAttribute("open");
     await disclosure.locator("summary").click();
     await expect(disclosure).toHaveAttribute("open", "");
-    await expect(page.getByRole("link", { name: "Open trade", exact: true }).first()).toHaveAttribute("href", "/trade");
+    const actions = page.getByRole("region", { name: "Actions", exact: true });
+    await expect(actions.getByRole("link", { name: "Trade", exact: true })).toHaveAttribute("href", "/trade");
+    await expect(page.getByRole("region", { name: "Markets" }).getByText("24h change", { exact: true })).toBeVisible();
     const earnSection = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
     if (await earnSection.count()) {
       const earnDisclosure = earnSection.locator("details");
@@ -662,7 +665,7 @@ test.describe("browser wallet connection", () => {
 
   test("Move keeps recipient editable and centralizes wallet connection in review", async ({ page, requests }) => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
-    const recipient = page.getByText("Recipient", { exact: true }).locator("xpath=../..");
+    const recipient = page.getByText("Your wallet", { exact: true }).locator("xpath=../../..");
     // The recipient row is a status, not a second connect control.
     await expect(recipient.getByText("Not connected", { exact: true })).toBeVisible();
     await expect(recipient.getByText("Connect wallet", { exact: true })).toHaveCount(0);
@@ -708,7 +711,8 @@ test.describe("theme control", () => {
     // Portfolio's sole header entry uses the text token. Check the contrasting
     // primary CTA on Earn now that Portfolio no longer duplicates it in main.
     await page.goto("/earn", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(11, 12, 14)");
+    await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe('#f3f6fb');
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Light theme. Switch to dark theme" }).click();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -727,8 +731,8 @@ test.describe("Move and More compact surfaces", () => {
 
   test("More exposes wallet/account destinations, docs, and appearance choices", async ({ page, requests }) => {
     await page.goto("/more", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("link", { name: /History/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Receive/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /History/ })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /Receive/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Settings/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Appearance/ })).toBeVisible();
     for (const redundantGroupTitle of ["Account", "Preferences", "f(x) Protocol", "Resources"]) {
@@ -746,8 +750,8 @@ test.describe("Move and More compact surfaces", () => {
       await page.goto("/more", { waitUntil: "domcontentloaded" });
       const more = page.getByRole("main");
       await expect(more.getByRole("heading", { name: "More", exact: true })).toBeVisible();
-      await expect(more.getByRole("link", { name: /History/ })).toBeVisible();
-      await expect(more.getByRole("link", { name: /Receive/ })).toBeVisible();
+      await expect(more.getByRole("link", { name: /History/ })).toHaveCount(0);
+      await expect(more.getByRole("link", { name: /Receive/ })).toHaveCount(0);
       await expect(more.getByRole("link", { name: /Settings/ })).toBeVisible();
       expect(await more.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
 
@@ -762,11 +766,14 @@ test.describe("Move and More compact surfaces", () => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main").getByRole("heading", { name: "Move", exact: true, level: 1 })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Transfer", exact: true })).toHaveCount(0);
-    const advanced = page.locator("details").filter({ hasText: "Custom contracts" }).locator("summary").first();
-    await expect(advanced).toBeVisible();
-    await advanced.click();
-    await expect(page.getByLabel(/Ethereum OFT|Base OFT/).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Move .* to / }).or(page.getByRole("button", { name: "Connect wallet", exact: true })).first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Send assets' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Receive assets' })).toBeVisible();
+    await page.getByRole('button', { name: /Transaction settings/ }).click();
+    const settings = page.getByRole('dialog', { name: 'Transaction settings' });
+    await settings.getByRole('checkbox', { name: /Expert mode/ }).check();
+    await expect(settings.getByLabel(/Ethereum OFT|Base OFT/).first()).toBeVisible();
+    await settings.getByRole('button', { name: 'Close transaction settings' }).click();
+    await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
     assertNoBackendRequests(requests);
   });
 

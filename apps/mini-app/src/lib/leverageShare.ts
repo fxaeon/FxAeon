@@ -59,6 +59,33 @@ export function stepLeverage(value: number, delta: number, min: number, max: num
   return at(Math.round((current - min) / step) + Math.round(delta / step));
 }
 
+/** Position on the selectable leverage scale, independent of the debt split. */
+export function leverageTrackPosition(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value) || max <= min) return 0;
+  return Math.min(1, Math.max(0, (value - min) / (max - min)));
+}
+
+/** A pointer chooses the nearest leverage step on the live min/max scale. */
+export function leverageAtTrackPosition(position: number, min: number, max: number, step = 0.1): number {
+  if (Number.isNaN(position)) return min;
+  const bounded = Math.min(1, Math.max(0, position));
+  if (bounded === 1) return max;
+  return Math.min(max, stepLeverage(min + bounded * (max - min), 0, min, max, step));
+}
+
+/** Whole-leverage ticks on the same linear scale as the pointer and thumb. */
+export function leverageTicksOnTrack(min: number, max: number, value: number, trackPx: number, thumbRadiusPx: number) {
+  if (!Number.isFinite(trackPx) || trackPx <= 0) return [];
+  const thumb = leverageTrackPosition(value, min, max);
+  let previous = 0;
+  return wholeLeverageTicks(min, max).flatMap(leverage => {
+    const share = leverageTrackPosition(leverage, min, max);
+    if ((share - previous) * trackPx < SPLIT_TICK_MIN_GAP_PX || (1 - share) * trackPx < SPLIT_TICK_MIN_GAP_PX / 2) return [];
+    previous = share;
+    return [{ leverage, share, nearThumb: Math.abs(share - thumb) * trackPx < thumbRadiusPx + SPLIT_TICK_THUMB_CLEARANCE_PX }];
+  });
+}
+
 /** Whole leverages strictly inside the live range. */
 export function wholeLeverageTicks(min: number, max: number): number[] {
   const ticks: number[] = [];

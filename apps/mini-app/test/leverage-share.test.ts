@@ -1,9 +1,23 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { debtShare, leverageAtShare, leverageDebtLabel, leverageForShare, SPLIT_TICK_MIN_GAP_PX, SPLIT_TICK_THUMB_CLEARANCE_PX, splitPercents, splitTicks, splitTicksOnTrack, stepLeverage, wholeLeverageTicks } from '../src/lib/leverageShare';
+import { leverageTrackPosition, leverageAtTrackPosition, leverageTicksOnTrack } from '../src/lib/leverageShare';
 
 const BOUNDS = { long: { min: 1.1, max: 6.1 }, short: { min: 0.1, max: 6 } } as const;
 const tenthsBetween = (min: number, max: number) => Array.from({ length: Math.round((max - min) * 10) + 1 }, (_, index) => Number((min + index / 10).toFixed(1)));
+
+test('slider leverage scale spans the live bounds independently of its debt share', () => {
+  assert.equal(leverageTrackPosition(2, 1.1, 6.1), 0.18);
+  assert.equal(leverageTrackPosition(1.1, 1.1, 6.1), 0);
+  assert.equal(leverageTrackPosition(6.1, 1.1, 6.1), 1);
+  for (const { min, max } of Object.values(BOUNDS)) {
+    for (const leverage of tenthsBetween(min, max)) assert.equal(leverageAtTrackPosition(leverageTrackPosition(leverage, min, max), min, max), leverage);
+    assert.equal(leverageAtTrackPosition(-1, min, max), min);
+    assert.equal(leverageAtTrackPosition(2, min, max), max);
+    const ticks = leverageTicksOnTrack(min, max, 2, 400, 13);
+    for (const tick of ticks) assert.equal(tick.share, leverageTrackPosition(tick.leverage, min, max));
+  }
+});
 
 test('a long is debt over collateral, (L − 1) / L', () => {
   assert.equal(debtShare('long', 1), 0);

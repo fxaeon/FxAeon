@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ActionReview } from '@/components/ActionReview';
 import { AppShell } from '@/components/ui';
@@ -21,6 +21,7 @@ type HarnessGasEstimate = {
   nativeBalanceWei?: bigint; requiredNativeCostWei?: bigint; insufficientNativeBalance?: boolean;
 };
 type HarnessState = {
+  reviewRoute?: PlannedRoute; reviewOperationLabel?: string;
   wallet: WalletState; version: number; mode: 'auto' | 'deferred'; failNextPrepare: boolean; executeVersion?: number; partialResult: boolean;
   deferRunner: boolean; failRunner: boolean; executionResolvers: Array<() => void>; deferWalletResponse: boolean; walletResolvers: Array<(reject?: boolean) => void>; lastExecutedRouteVersion?: number;
   multiStepExecution: boolean; nonzeroTransactionValues: boolean; gasCost: { status: 'refreshing' | 'unavailable' | 'current'; checking: boolean; current?: HarnessGasEstimate; previous?: HarnessGasEstimate; estimate?: HarnessGasEstimate; estimateIsCurrent: boolean; error?: string };
@@ -37,6 +38,7 @@ type HarnessState = {
   baseRoute: boolean;
   /** Move's summary shows the whole recipient address, an unbreakable 42 characters. */
   bridgeRecipient: boolean;
+  confirmDuringCommit?: boolean;
 };
 
 const LONG_AMOUNT = '0.00024443113696627';
@@ -95,6 +97,15 @@ function Harness() {
   // the readiness marker is rendered before effects flush, and the reconnect
   // controls must never lose their first state transition in that window.
   H.rerender = () => redraw((value) => value + 1);
+  useLayoutEffect(() => {
+    if (!H.confirmDuringCommit) return;
+    H.confirmDuringCommit = false;
+    // Exercise a hardware/programmatic click after wallet context commits,
+    // before the passive review invalidation effect has had a turn.
+    const confirm = [...document.querySelectorAll<HTMLButtonElement>('button')]
+      .find(button => button.textContent?.trim() === 'Confirm');
+    confirm?.click();
+  });
   useEffect(() => () => { H.rerender = undefined; }, []);
   const planBuilder = useCallback(async () => {
     H.planCount += 1;
@@ -107,7 +118,7 @@ function Harness() {
       setPreparationVersion(version + 1);
       throw new RangeError('Pool leverage limits changed to 4.0x-10.0x. The target was updated; review it again.');
     }
-    const route = routeFor(H.executeVersion ?? version);
+    const route = H.reviewRoute ? { ...H.reviewRoute, harnessRouteVersion: version, harnessConnectionVersion: H.wallet.connectionVersion } : routeFor(H.executeVersion ?? version);
     return route;
   }, [builderRevision, version]);
   const setTerms = () => { H.version = version + 1; setVersion((value) => value + 1); setPreparationVersion(version + 1); };
@@ -182,7 +193,7 @@ function Harness() {
     {reviewMounted && <ActionReview
       planBuilder={builderAvailable ? planBuilder : null}
       label="Review position"
-      operationLabel={presentationMode ? 'Increase ETH Long' : `Open position v${version}`}
+      operationLabel={H.reviewOperationLabel ?? (presentationMode ? 'Increase ETH Long' : `Open position v${version}`)}
       surface={presentationMode ? 'card' : 'content'}
       resumeReview={resumeReview}
       draftState={draftState}

@@ -40,7 +40,7 @@
 .totalUnavailable > :is(span, button) { font-size: var(--fs-body); font-weight: 500; letter-spacing: 0; line-height: 1.3; }
 .totalUnavailable button { display: inline-flex; min-height: 44px; align-items: center; padding: 0 4px; color: var(--mint); font-weight: 600; }
 .totalUnavailable button:disabled { opacity: .7; }
-:root[data-theme='light'] .totalUnavailable button { color: var(--mint-bright); }
+:root:is([data-theme='official'], [data-theme='light']) .totalUnavailable button { color: var(--mint-bright); }
 .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
 .actions > a { display: flex; min-width: 0; min-height: 52px; align-items: center; justify-content: center; gap: 8px; padding: 10px; border: 0; border-radius: var(--radius-md); background: var(--surface-2); color: var(--text); font-size: var(--fs-body); font-weight: 600; text-align: center; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .actions > a:hover { background: var(--surface-3); }
@@ -48,11 +48,11 @@
 .actions .primaryAction > svg { box-sizing: content-box; padding: 6px; border-radius: 50%; background: var(--surface-2); color: var(--text); }
 .portfolioLink { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; margin-top: 8px; border: 0; border-radius: 999px; color: var(--mint); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease; }
 .portfolioLink:hover { background: var(--mint-dim); }
-:root[data-theme='light'] .portfolioLink { color: var(--mint-bright); }
+:root:is([data-theme='official'], [data-theme='light']) .portfolioLink { color: var(--mint-bright); }
 /* Portfolio's own "View all" for the sheet's shortened asset list. */
 .moreAssets { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; border-radius: 12px; color: var(--mint); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease; }
 .moreAssets:hover { background: var(--mint-dim); }
-:root[data-theme='light'] .moreAssets { color: var(--mint-bright); }
+:root:is([data-theme='official'], [data-theme='light']) .moreAssets { color: var(--mint-bright); }
 /* Like Portfolio, the wallet total is the drawer's headline rather than a box:
  * the figure sits on the sheet with a soft light behind it, actions beneath.
  * The light stays inside the summary (the sheet's scrolling body clips at its

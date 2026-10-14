@@ -516,7 +516,7 @@
   background: #fff;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
-:root[data-theme='light'] .qrTile { box-shadow: 0 0 0 1px var(--line), 0 10px 28px rgba(54, 34, 79, 0.08); }
+:root:is([data-theme='official'], [data-theme='light']) .qrTile { box-shadow: 0 0 0 1px var(--line), 0 10px 28px rgba(54, 34, 79, 0.08); }
 .qrTile > svg { display: block; width: min(208px, 56vw); height: auto; }
 .addressValue {
   font-size: 15px;

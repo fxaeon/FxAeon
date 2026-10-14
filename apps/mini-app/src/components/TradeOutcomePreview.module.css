@@ -33,9 +33,6 @@
   text-align: right;
   overflow-wrap: anywhere;
 }
-/* The collateral's dollar value sits under its amount, as on a position card. */
-.usd { display: block; color: var(--mut); font-weight: 500; }
-
 @media (max-width: 640px) {
   .outcome { padding-inline: 14px; }
 }

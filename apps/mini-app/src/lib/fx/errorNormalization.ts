@@ -45,9 +45,9 @@ function debtRatioErrorMessage(data: Hex, context: DebtRatioContext): string | u
 }
 
 /**
- * Map only the two verified protocol debt-ratio ABI errors. Revert data is
- * read from viem's structured error/cause fields; arbitrary messages are
- * never searched for selector-looking substrings.
+ * Map verified protocol debt-ratio ABI errors and typed native-funds/RPC
+ * failures. Structured errors retain actionable reasons without exposing
+ * provider URLs or request bodies; raw text is never used as ABI evidence.
  */
 export function normalizeFxProtocolError(
   cause: unknown,
@@ -65,6 +65,20 @@ export function normalizeFxProtocolError(
     visited.add(current.value);
 
     const record = current.value as Record<string, unknown>;
+    if (record.name === 'InsufficientFundsError') {
+      return operation === 'buildBridgeTx'
+        ? 'Not enough ETH on the source network to pay the bridge fee and transaction gas.'
+        : 'Not enough ETH to pay the transaction value and network fees.';
+    }
+    if (record.name === 'MethodNotFoundRpcError' || record.name === 'MethodNotSupportedRpcError'
+      || record.code === -32601 || record.code === -32004) {
+      return /simulat/i.test(fallback)
+        ? 'The RPC provider does not support transaction simulation. Try again later.'
+        : 'The RPC provider does not support this request. Try again later.';
+    }
+    if (record.name === 'TimeoutError' || record.name === 'AbortError') {
+      return 'The request timed out or was interrupted. Try again.';
+    }
     for (const key of ERROR_DATA_KEYS) {
       const data = record[key];
       if (isErrorData(data)) {

@@ -13,6 +13,8 @@ export const FX_SAVE_TOKEN_ADDRESS = '0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39
 export type FxSaveApyResponse = {
   apy: number;
   observedAt: number;
+  /** USD TVL reported by the same official feed for the verified fxSAVE address. */
+  tvlUsd?: number;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -38,7 +40,9 @@ export function parseFxSaveApyResponse(payload: unknown, observedAt = Date.now()
     throw new Error('official fxSAVE APY value is invalid');
   }
 
-  return { apy, observedAt };
+  const rawTvl = fxSave.tvl;
+  const tvl = typeof rawTvl === 'number' ? rawTvl : typeof rawTvl === 'string' && /^\d+(?:\.\d+)?$/.test(rawTvl) ? Number(rawTvl) : Number.NaN;
+  return { apy, observedAt, ...(Number.isFinite(tvl) && tvl >= 0 && tvl <= 1e13 ? { tvlUsd: tvl } : {}) };
 }
 
 /** Fetch one bounded, abortable, display-only APY snapshot. */

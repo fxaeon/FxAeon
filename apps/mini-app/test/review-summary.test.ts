@@ -24,7 +24,7 @@ test('keeps action essentials visible while suppressing duplicate route and leve
 
 test('keeps distinct transaction costs and multiple limits visible', () => {
   const result = splitReviewFacts([
-    { label: 'Protocol fee', value: '0.1 fxUSD' },
+    { label: 'f(x) fee', value: '0.1 fxUSD' },
     { label: 'Total cost', value: '0.0005 ETH' },
     { label: 'Minimum received', value: '10 fxUSD' },
     { label: 'Minimum received', value: '0.02 WBTC' },
@@ -32,4 +32,16 @@ test('keeps distinct transaction costs and multiple limits visible', () => {
 
   assert.equal(result.summary.length, 4);
   assert.equal(result.details.length, 0);
+});
+
+test('bridge review keeps destination and recipient visible beside receipt and costs', () => {
+  const facts = [
+    { label: 'Source network', value: 'Base' },
+    { label: 'Destination network', value: 'Ethereum' },
+    { label: 'Recipient', value: '0x1234' },
+    { label: 'Estimated received', value: '1 fxSAVE' },
+    { label: 'Bridge fee', value: '0.0001 ETH' },
+    { label: 'Delivery estimate', value: 'Not provided by bridge' },
+  ];
+  assert.deepEqual(splitReviewFacts(facts), { summary: facts, details: [] });
 });

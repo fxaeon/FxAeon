@@ -20,7 +20,7 @@ const mocks: Record<string, string> = {
   '@/components/ActionReview': `import React from 'react'; export const ActionReview = ({editor, label, blocker}) => <>{editor}<div className="reviewTrigger"><button type="button" disabled={Boolean(blocker)} onClick={() => { globalThis.__tradeMaxHarness.reviews = (globalThis.__tradeMaxHarness.reviews ?? 0) + 1; }}>{label}</button></div></>;`,
   '@/components/MarketChart': `import React from 'react'; export const TradeMarketChart = ({market,onMarketChange}) => <select aria-label="Market" value={market} onChange={e=>onMarketChange(e.target.value)}><option>ETH</option><option>BTC</option></select>;`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({status:'unavailable',prices:{}}); export const useLiveMarketQuote = () => ({ quote: null, status: 'unavailable', isFresh: false });`,
-  '@/components/TokenIcon': `import React from 'react'; export default () => <span />;`,
+  '@/components/TokenIcon': `import React from 'react'; export const ChainIcon = () => <span />; export default () => <span />;`,
   '@/components/MissingValue': `import React from 'react'; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@/components/ProtocolPositionCard': `export const ProtocolPositionCard = () => null; export const ProtocolPositionList = () => null; export const ProtocolPositionNotice = () => null;`,
   '@/components/ProtocolPositionProvider': `export const useProtocolPositions = () => ({positions:[],pendingPositions:[],status:'ready',failedGroups:[],refresh:async()=>({positions:[],failedGroups:[],successfulGroups:[],status:'ready',newPositions:[]})});`,
@@ -31,7 +31,7 @@ const mocks: Record<string, string> = {
   '@/lib/confirmedPositionStorage': `export const confirmedPositionHintKey = () => '';`,
   '@/components/WalletDataProvider': `export const useWalletBalances = () => ({status:'ready',data:null});`,
   '@/components/ProtocolForm': `import React from 'react'; export { AmountFieldView as AmountField } from '@/components/AmountField'; export { Segmented, LeverageField } from '${src.replaceAll('\\', '/')}/components/ProtocolForm.tsx'; export const SlippageField = () => null; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>; export const tokenBalanceFor = (balances,token) => balances[token]; export const useWalletTokenBalances = () => ({balances:{ETH:{status:'ready',amount:globalThis.__tradeMaxHarness.balance}},status:'ready',refresh:async()=>{}});`,
-  '@/lib/fx': `export const MAX_FX_SLIPPAGE_PERCENT=5; export const clampLeverage=(v)=>v; export const estimatePlannedRouteCost=async()=>({}); export const getEthereumClient=()=>({getBlockNumber:async()=>1n}); export const leverageBoundsFor=(market,side)=>({min:side==='long'?1.1:0.1,max:market==='ETH'?(side==='long'?10:6):(side==='long'?8:5)}); export const planIncreasePosition=async(input)=>({input}); export const prepareLeverageReview=async()=>({}); export const readLeverageBounds=async(market,side)=>leverageBoundsFor(market,side); export const readSignatureRequiredDraft=()=>null; export const restoreSignatureRequiredDraft=()=>null; export const signatureDraftIdFromSearch=()=>null;`,
+  '@/lib/fx': `export const MAX_FX_SLIPPAGE_PERCENT=5; export const clampLeverage=(v)=>v; export const estimatePlannedRouteCost=async()=>({}); export const getEthereumClient=()=>({getBlockNumber:async()=>1n}); export const leverageBoundsFor=(market,side)=>({min:side==='long'?1.1:0.1,max:market==='ETH'?(side==='long'?10:6):(side==='long'?8:5)}); export const planIncreasePosition=async(input)=>({input}); export const prepareLeverageReview=async()=>({}); export const readLeverageBounds=async(market,side)=>globalThis.__tradeMaxHarness.nextBounds??leverageBoundsFor(market,side); export const readSignatureRequiredDraft=()=>null; export const restoreSignatureRequiredDraft=()=>null; export const signatureDraftIdFromSearch=()=>null;`,
   '@/lib/fx/nativeMax': `export const nativeMaxErrorMessage=()=> 'Current gas fees are unavailable. Try again shortly.'; export const calculateNativeMax = (input) => new Promise((resolve,reject) => globalThis.__tradeMaxHarness.requests.push({balanceWei:input.balanceWei,resolve,reject}));`,
   '@/lib/fx/routePrefetch': `export class RoutePrefetchStore { invalidate(){} prime(){return Promise.resolve();} get(){return null;} }`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({ready:true,authenticated:true,address:globalThis.__tradeMaxHarness.address,chainId:globalThis.__tradeMaxHarness.chainId,connectionVersion:1,isEmbedded:true,wallets:[],sendTransaction:async()=>({})});`,
@@ -40,7 +40,7 @@ const mocks: Record<string, string> = {
   '@/lib/fx/tokenPresentation': `export const tokenSymbol=(value)=>value; export const tokenName=(value)=>value; export const tokenPresentation=(value)=>({symbol:value});`,
   '@/lib/telegram': `export const haptic=()=>{}; export const openExternalLink=()=>false;`,
   '@/lib/walletAssets': `export const ASSET_PRICE_MAX_AGE_MS=60000;`,
-  '@/lib/settings': `export const DEFAULT_SLIPPAGE_PERCENT=0.5; export const readSlippagePercent=()=>0.5; export const readGasTier=()=> 'standard'; export const SETTINGS_KEY='settings'; export const SETTINGS_UPDATED_EVENT='settings-updated'; export const GAS_TIERS=['standard','fast','rapid']; export const DEFAULT_GAS_TIER='standard'; export const MIN_SLIPPAGE_BPS=10; export const MAX_SLIPPAGE_BPS=200; export const SLIPPAGE_PRESETS_BPS=[10,50,100,200]; export const isSlippageBps=(v)=>Number.isInteger(v)&&v>=10&&v<=200; export const writeTransactionSettings=()=>true;`,
+  '@/lib/settings': `export const DEFAULT_SLIPPAGE_PERCENT=0.5; export const readSlippagePercent=()=>globalThis.__tradeMaxHarness.slippage??0.5; export const readGasTier=()=> 'standard'; export const SETTINGS_KEY='settings'; export const SETTINGS_UPDATED_EVENT='settings-updated'; export const GAS_TIERS=['standard','fast','rapid']; export const DEFAULT_GAS_TIER='standard'; export const MIN_SLIPPAGE_BPS=10; export const MAX_SLIPPAGE_BPS=200; export const SLIPPAGE_PRESETS_BPS=[10,50,100,200]; export const isSlippageBps=(v)=>Number.isInteger(v)&&v>=10&&v<=200; export const writeTransactionSettings=()=>true;`,
   '@/lib/transactionState': `export const readTradeDeepLinkContext=()=>null; export const resetTransactionAmounts=()=>({amount:'',leverage:2});`,
   '@/app/trade/fxUi': `export const parseAmount=(value)=>value ? BigInt(Math.round(Number(value)*1e18)) : null; export const positionInputTokenOptions=(market)=>market==='ETH'?['ETH','WETH','stETH','wstETH']:['WBTC']; export const positionKey=()=>''; export const tokenAddress=()=> '0x0000000000000000000000000000000000000001'; export const tokenDecimals=()=>18;`,
 };
@@ -227,6 +227,49 @@ for (const market of ['ETH', 'BTC']) {
     await expect(rows.nth(1)).toContainText(`75% borrowed ${nextMarket === 'ETH' ? 'wstETH' : 'WBTC'} · 25% yours`);
   });
 }
+
+test('a focused target becomes invalid when a later slippage-bound read lowers its live maximum', async ({ page }) => {
+  await mount(page);
+  const leverage = page.getByRole('textbox', { name: 'Target leverage' });
+  const slider = page.getByRole('slider', { name: 'Target leverage slider' });
+  const review = page.getByRole('button', { name: 'Open ETH Long', exact: true });
+  await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.1');
+  await leverage.fill('5');
+  await expect(review).toBeEnabled();
+  await page.evaluate(() => {
+    const h = (globalThis as typeof globalThis & { __tradeMaxHarness: Control & { nextBounds: { min: number; max: number; source: string }; slippage: number } }).__tradeMaxHarness;
+    h.nextBounds = { min: 1.1, max: 3, source: 'onchain' };
+    h.slippage = 1;
+    window.dispatchEvent(new CustomEvent('settings-updated', { detail: { slippageBps: 100 } }));
+  });
+  await expect(slider).toHaveAttribute('max', '3');
+  await expect(leverage).toHaveValue('5');
+  await expect(leverage).toHaveAttribute('aria-invalid', 'true');
+  await expect(review).toBeDisabled();
+  await leverage.blur();
+  await expect(leverage).toHaveValue('3');
+  await expect(review).toBeEnabled();
+});
+
+test('out-of-range leverage blocks review while typing and clamps only when committed', async ({ page }) => {
+  await mount(page);
+  const amount = page.getByRole('textbox', { name: 'Amount in ETH' });
+  const leverage = page.getByRole('textbox', { name: 'Target leverage' });
+  const slider = page.getByRole('slider', { name: 'Target leverage slider' });
+  const review = page.getByRole('button', { name: 'Open ETH Long', exact: true });
+  await amount.fill('0.1');
+  await leverage.fill('10000');
+  await expect(leverage).toHaveAttribute('aria-invalid', 'true');
+  await expect(review).toBeDisabled();
+  await leverage.press('Enter');
+  await expect(leverage).toHaveValue((await slider.getAttribute('max'))!);
+  await expect(review).toBeEnabled();
+  await leverage.fill('0.5');
+  await expect(review).toBeDisabled();
+  await leverage.blur();
+  await expect(leverage).toHaveValue((await slider.getAttribute('min'))!);
+  await expect(review).toBeEnabled();
+});
 
 test('empty leverage cannot review a valid amount before or after blur', async ({ page }) => {
   await mount(page);

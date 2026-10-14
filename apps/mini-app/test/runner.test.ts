@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   CallExecutionError,
+  BaseError,
+  InsufficientFundsError,
+  MethodNotFoundRpcError,
   encodeFunctionData,
   parseAbi,
   RawContractError,
@@ -1071,9 +1074,35 @@ test("simulation hides unknown provider diagnostics behind a safe fallback", asy
   } as unknown as FxPublicClient);
   assert.deepEqual(result, {
     success: false,
-    error: "Simulation is unavailable. Check your connection and try again.",
+    error: "Transaction simulation is unavailable. Try again.",
   });
   assert.doesNotMatch(result.error ?? "", /rpc\.example|private-key/);
+});
+
+test('Base bridge simulation retains a typed ETH shortfall without leaking RPC diagnostics', async () => {
+  const planned = route(1, 'buildBridgeTx');
+  planned.chainId = 8453;
+  planned.transactions[0] = { ...planned.transactions[0], chainId: 8453, value: 1n };
+  const insufficient = new InsufficientFundsError({ cause: new BaseError('request failed at https://rpc.example/v2/private-key') });
+  const result = await simulatePlannedRoute(planned, {
+    chain: { id: 8453 }, simulateCalls: async () => { throw insufficient; },
+  } as unknown as FxPublicClient);
+  assert.deepEqual(result, { success: false, error: 'Not enough ETH on the source network to pay the bridge fee and transaction gas.' });
+  assert.doesNotMatch(result.error ?? '', /rpc\.example|private-key/);
+});
+
+test('simulation distinguishes unsupported RPC requests and nested timeouts from a protocol rejection', async () => {
+  for (const [cause, expected] of [
+    [new MethodNotFoundRpcError(new Error('https://rpc.example/private'), { method: 'eth_simulateV1' }), 'The RPC provider does not support transaction simulation. Try again later.'],
+    [new DOMException('private request details', 'TimeoutError'), 'The request timed out or was interrupted. Try again.'],
+  ] as const) {
+    const wrapped = new CallExecutionError(new BaseError('wrapped request', { cause }), { account: WALLET, to: DESTINATION });
+    const result = await simulatePlannedRoute(route(1), {
+      chain: { id: 1 }, simulateCalls: async () => { throw wrapped; },
+    } as unknown as FxPublicClient);
+    assert.deepEqual(result, { success: false, error: expected });
+    assert.doesNotMatch(result.error ?? '', /rpc\.example|private|request body/i);
+  }
 });
 
 test("an explicitly requested post-confirm block wait can skip a read when unavailable", async () => {

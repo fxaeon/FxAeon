@@ -126,6 +126,24 @@ test('a position row leads with identity and value; its details keep every figur
   });
 });
 
+test('compact management keeps balances and risk outside its closed secondary-metric disclosure', async () => {
+  await withCardModule(({ card: { ProtocolPositionDetails }, brake: { PositionBrakeContext } }) => {
+    const html = renderToStaticMarkup(React.createElement(PositionBrakeContext.Provider, {
+      value: brakeStore({ 'ETH:long:42': readyEntry(ethLong, 90n * E18 / 100n) }),
+    }, React.createElement(ProtocolPositionDetails, { position: ethLong, compact: true })));
+    const primary = html.split('<details')[0];
+    assert.match(primary, /<dt>Collateral<\/dt><dd>1 stETH/);
+    assert.match(primary, /<dt>Debt<\/dt><dd>0\.5 fxUSD/);
+    assert.match(primary, /At the rebalance point/);
+    assert.doesNotMatch(primary, /<dt>Market price|<dt>Debt \/ collateral/);
+    assert.match(html, /<details class="test-metricDisclosure"><summary>Position details/);
+    assert.match(html, /<dt>Market price/);
+    assert.match(html, /<dt>Debt \/ collateral/);
+    assert.match(html, /<dt>Collateral value/);
+    assert.match(html, /<dt>Debt value/);
+  });
+});
+
 test('every pool names its collateral and debt units in the details the way its review does', async () => {
   await withCardModule(({ card: { ProtocolPositionDetails } }) => {
     const symbols = { ETH: { long: ['ETH', 'fxUSD'], short: ['fxUSD', 'wstETH'] }, BTC: { long: ['WBTC', 'fxUSD'], short: ['fxUSD', 'WBTC'] } } as const;

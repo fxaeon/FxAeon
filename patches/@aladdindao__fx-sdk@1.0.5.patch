@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cddbddd312e 100644
+index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f8773cfff97 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -15,6 +15,12 @@ var axios__default = /*#__PURE__*/_interopDefault(axios);
@@ -234,7 +234,62 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cdd
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16566,7 +16619,7 @@ async function withdrawFxSave(request) {
+@@ -16310,6 +16363,8 @@ function getDepositSpender(tokenIn) {
+   return contracts.FxSave_fxSAVE;
+ }
+ async function depositFxSave(request) {
++  // Accepted fxSAVE review quote: estimates never change transaction terms.
++  const quoteReadAt = Date.now();
+   const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
+   if (!viem.isAddress(userAddress)) {
+     throw new Error("User address must be a valid Ethereum address");
+@@ -16350,7 +16405,8 @@ async function depositFxSave(request) {
+       nonce: nonce++,
+       chainId
+     });
+-    return { txs };
++    const estimatedOutput = await client.readContract({ address: contracts.FxSave_fxSAVE, abi: SavingFxUSD_default, functionName: "previewDeposit", args: [amount] }).catch(() => undefined);
++    return { txs, fxSaveQuote: { kind: "deposit", inputAmount: amount.toString(), tokenAddress: tokenInAddress, actionTo: contracts.FxSave_fxSAVE, actionData: data2, readAt: quoteReadAt, ...(typeof estimatedOutput === "bigint" && estimatedOutput >= 0n ? { estimatedOutput: estimatedOutput.toString() } : {}) } };
+   }
+   const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
+     const fxRoute = new FxRoute();
+@@ -16418,9 +16474,11 @@ async function depositFxSave(request) {
+     nonce: nonce++,
+     chainId
+   });
+-  return { txs };
++  const estimatedOutput = await client.readContract({ address: contracts.FxSave_fxSAVE, abi: SavingFxUSD_default, functionName: "previewDeposit", args: [basePoolSharesOut] }).catch(() => undefined);
++  return { txs, fxSaveQuote: { kind: "deposit", inputAmount: amount.toString(), tokenAddress: tokenInAddress, actionTo: contracts.Router_Diamond, actionData: data, readAt: quoteReadAt, ...(typeof estimatedOutput === "bigint" && estimatedOutput >= 0n ? { estimatedOutput: estimatedOutput.toString() } : {}) } };
+ }
+ async function withdrawFxSave(request) {
++  const quoteReadAt = Date.now();
+   const { userAddress, tokenOut, amount, instant = false, slippage } = request;
+   if (!viem.isAddress(userAddress)) {
+     throw new Error("User address must be a valid Ethereum address");
+@@ -16448,7 +16506,8 @@ async function withdrawFxSave(request) {
+       nonce,
+       chainId
+     });
+-    return { txs };
++    const estimatedOutput = await client.readContract({ address: contracts.FxSave_fxSAVE, abi: SavingFxUSD_default, functionName: "previewRedeem", args: [amount] }).catch(() => undefined);
++    return { txs, fxSaveQuote: { kind: "direct-withdraw", inputAmount: amount.toString(), tokenAddress: tokenOutAddress, actionTo: contracts.FxSave_fxSAVE, actionData: data2, readAt: quoteReadAt, ...(typeof estimatedOutput === "bigint" && estimatedOutput >= 0n ? { estimatedOutput: estimatedOutput.toString() } : {}) } };
+   }
+   if (!instant) {
+     const data2 = viem.encodeFunctionData({
+@@ -16560,13 +16619,19 @@ async function withdrawFxSave(request) {
+     nonce: instantNonce,
+     chainId
+   });
+-  return { txs };
++  return { txs, fxSaveQuote: {
++    kind: "instant-withdraw", inputAmount: amount.toString(), tokenAddress: tokenOutAddress,
++    actionTo: contracts.Router_Diamond, actionData: data, readAt: quoteReadAt,
++    estimatedOutput: (tokenXOut + tokenYOut).toString(), instantFeeRatio: instantRedeemFeeRatioRes.toString(),
++    grossFxUSD: amountYieldOut.toString(), grossUSDC: amountStableOut.toString(),
++    netFxUSD: fxUSDAfterFee.toString(), netUSDC: usdcAfterFee.toString()
++  } };
+ }
+ 
  // src/core/index.ts
  var FxSdk = class {
    constructor(config) {
@@ -243,7 +298,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cdd
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16660,10 +16713,10 @@ var FxSdk = class {
+@@ -16660,10 +16725,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -256,7 +311,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cdd
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16731,10 +16784,10 @@ var FxSdk = class {
+@@ -16731,10 +16796,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -269,7 +324,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cdd
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16783,7 +16836,7 @@ var FxSdk = class {
+@@ -16783,7 +16848,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -278,7 +333,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cdd
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16843,10 +16896,10 @@ var FxSdk = class {
+@@ -16843,10 +16908,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -291,7 +346,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..0af112cd7809a31a6aca783883308cdd
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16906,10 +16959,10 @@ var FxSdk = class {
+@@ -16906,10 +16971,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -367,7 +422,7 @@ index 2a628882c348c5a6e3d20e64a3b82a946e226986..5bed88becc9ef6fff845c387c6522dc1
  export { type AdjustPositionLeverageRequest, BRIDGE_OFT_BY_TOKEN, type BridgeQuoteRequest, type BridgeQuoteResult, type BridgeTokenId, type BridgeTxPayload, type BuildBridgeTxRequest, type BuildBridgeTxResult, CHAIN_ID_BASE, CHAIN_ID_ETHEREUM, type ConvertData, DEFAULT_RPC_BY_CHAIN, type DepositAndMintRequest, EID_BASE, EID_ETHEREUM, type FxSaveClaimPreviewReceive, type FxSaveDepositRequest, type FxSaveDepositResult, type FxSaveTokenIn, type FxSaveTx, type FxSaveWithdrawRequest, type FxSaveWithdrawResult, FxSdk, type FxSdkConfig, type GetFxSaveBalanceRequest, type GetFxSaveBalanceResult, type GetFxSaveClaimableRequest, type GetFxSaveClaimableResult, type GetFxSaveRedeemStatusRequest, type GetFxSaveRedeemStatusResult, type GetRedeemTxRequest, type GetRedeemTxResult, type IncreasePositionRequest, LZ_ENDPOINT_ADDRESS, type Market, type PoolConfig, type PoolInfo, PoolName, type PositionInfo, type PositionRequest, type PositionType, type PriceOracle, type ReducePositionRequest, type RepayAndWithdrawRequest, SUPPORTED_BRIDGE_CHAIN_IDS, type SupportedBridgeChainId, type TokenSymbol, getEidByChainId, tokens };
 +import type { Transport } from 'viem';
 diff --git a/dist/index.js b/dist/index.js
-index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d8d385765 100644
+index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f45710a40 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -8,6 +8,12 @@ import axios from 'axios';
@@ -602,7 +657,62 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16559,7 +16612,7 @@ async function withdrawFxSave(request) {
+@@ -16303,6 +16356,8 @@ function getDepositSpender(tokenIn) {
+   return contracts.FxSave_fxSAVE;
+ }
+ async function depositFxSave(request) {
++  // Accepted fxSAVE review quote: estimates never change transaction terms.
++  const quoteReadAt = Date.now();
+   const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
+   if (!isAddress(userAddress)) {
+     throw new Error("User address must be a valid Ethereum address");
+@@ -16343,7 +16398,8 @@ async function depositFxSave(request) {
+       nonce: nonce++,
+       chainId
+     });
+-    return { txs };
++    const estimatedOutput = await client.readContract({ address: contracts.FxSave_fxSAVE, abi: SavingFxUSD_default, functionName: "previewDeposit", args: [amount] }).catch(() => undefined);
++    return { txs, fxSaveQuote: { kind: "deposit", inputAmount: amount.toString(), tokenAddress: tokenInAddress, actionTo: contracts.FxSave_fxSAVE, actionData: data2, readAt: quoteReadAt, ...(typeof estimatedOutput === "bigint" && estimatedOutput >= 0n ? { estimatedOutput: estimatedOutput.toString() } : {}) } };
+   }
+   const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
+     const fxRoute = new FxRoute();
+@@ -16411,9 +16467,11 @@ async function depositFxSave(request) {
+     nonce: nonce++,
+     chainId
+   });
+-  return { txs };
++  const estimatedOutput = await client.readContract({ address: contracts.FxSave_fxSAVE, abi: SavingFxUSD_default, functionName: "previewDeposit", args: [basePoolSharesOut] }).catch(() => undefined);
++  return { txs, fxSaveQuote: { kind: "deposit", inputAmount: amount.toString(), tokenAddress: tokenInAddress, actionTo: contracts.Router_Diamond, actionData: data, readAt: quoteReadAt, ...(typeof estimatedOutput === "bigint" && estimatedOutput >= 0n ? { estimatedOutput: estimatedOutput.toString() } : {}) } };
+ }
+ async function withdrawFxSave(request) {
++  const quoteReadAt = Date.now();
+   const { userAddress, tokenOut, amount, instant = false, slippage } = request;
+   if (!isAddress(userAddress)) {
+     throw new Error("User address must be a valid Ethereum address");
+@@ -16441,7 +16499,8 @@ async function withdrawFxSave(request) {
+       nonce,
+       chainId
+     });
+-    return { txs };
++    const estimatedOutput = await client.readContract({ address: contracts.FxSave_fxSAVE, abi: SavingFxUSD_default, functionName: "previewRedeem", args: [amount] }).catch(() => undefined);
++    return { txs, fxSaveQuote: { kind: "direct-withdraw", inputAmount: amount.toString(), tokenAddress: tokenOutAddress, actionTo: contracts.FxSave_fxSAVE, actionData: data2, readAt: quoteReadAt, ...(typeof estimatedOutput === "bigint" && estimatedOutput >= 0n ? { estimatedOutput: estimatedOutput.toString() } : {}) } };
+   }
+   if (!instant) {
+     const data2 = encodeFunctionData({
+@@ -16553,13 +16612,19 @@ async function withdrawFxSave(request) {
+     nonce: instantNonce,
+     chainId
+   });
+-  return { txs };
++  return { txs, fxSaveQuote: {
++    kind: "instant-withdraw", inputAmount: amount.toString(), tokenAddress: tokenOutAddress,
++    actionTo: contracts.Router_Diamond, actionData: data, readAt: quoteReadAt,
++    estimatedOutput: (tokenXOut + tokenYOut).toString(), instantFeeRatio: instantRedeemFeeRatioRes.toString(),
++    grossFxUSD: amountYieldOut.toString(), grossUSDC: amountStableOut.toString(),
++    netFxUSD: fxUSDAfterFee.toString(), netUSDC: usdcAfterFee.toString()
++  } };
+ }
+ 
  // src/core/index.ts
  var FxSdk = class {
    constructor(config) {
@@ -611,7 +721,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16653,10 +16706,10 @@ var FxSdk = class {
+@@ -16653,10 +16718,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -624,7 +734,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16724,10 +16777,10 @@ var FxSdk = class {
+@@ -16724,10 +16789,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -637,7 +747,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16776,7 +16829,7 @@ var FxSdk = class {
+@@ -16776,7 +16841,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -646,7 +756,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16836,10 +16889,10 @@ var FxSdk = class {
+@@ -16836,10 +16901,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -659,7 +769,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1193dab0f12e0b6fa14f45e2c0ccef0d
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16899,10 +16952,10 @@ var FxSdk = class {
+@@ -16899,10 +16964,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
