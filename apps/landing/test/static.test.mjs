@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, appendFile, cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -348,6 +348,28 @@ test('the standalone build needs no node_modules and ships only referenced asset
       if (/LICENSE\.txt$/.test(file)) continue;
       assert.ok(site.some((source) => source.includes(file)), `${file} ships but no page, style, script, or metadata references it`);
     }
+
+    const assetVersion = (markup) => {
+      const urls = [...markup.matchAll(/(?:src|href)="([^"\s]+\.(?:css|js|mjs)(?:\?[^"\s]+)?)"/g)].map(([, url]) => url);
+      assert.equal(urls.length, 4);
+      for (const url of urls) assert.match(url, /\?v=[a-f0-9]{16}$/);
+      const versions = new Set(urls.map(url => new URL(url, 'https://fxaeon.xyz').searchParams.get('v')));
+      assert.equal(versions.size, 1);
+      return [...versions][0];
+    };
+    const firstVersion = assetVersion(built);
+    execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
+    assert.equal(assetVersion(await readFile(resolve(tempLanding, 'dist/index.html'), 'utf8')), firstVersion, 'unchanged builds keep cached asset URLs');
+    // A leaf-module change must invalidate cached parent modules as well.
+    await appendFile(resolve(tempLanding, 'market-data.mjs'), '\n// New market-data release.\n');
+    execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
+    const nextVersion = assetVersion(await readFile(resolve(tempLanding, 'dist/index.html'), 'utf8'));
+    assert.notEqual(nextVersion, firstVersion);
+    for (const [entry, dependency] of [['dollar-outcomes.js', 'market-data-client.mjs'], ['market-data-client.mjs', 'market-data.mjs']]) {
+      assert.ok((await readFile(resolve(tempLanding, 'dist', entry), 'utf8')).includes(`'./${dependency}?v=${nextVersion}'`));
+      await access(resolve(tempLanding, 'dist', dependency));
+    }
+    assert.ok((await readFile(resolve(tempLanding, 'dist/404.html'), 'utf8')).includes(`document.css?v=${nextVersion}`));
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
