@@ -408,7 +408,7 @@ main.utility-stage {
 .wallet-provider-attempt-copy p { margin: 0; }
 .wallet-provider-attempt-title { margin: 0; max-width: 100%; color: var(--text); font-size: 20px; line-height: 1.35; font-weight: 600; overflow-wrap: anywhere; }
 .wallet-provider-pending-icon { flex-shrink: 0; animation: wallet-approval-spin 1.2s linear infinite; }
-.wallet-provider-retry { display: inline-flex; max-width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; padding: 10px 20px; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--text); background: var(--surface-2); font-size: 14px; font-weight: 600; overflow-wrap: anywhere; transition: background-color var(--dur-fast) ease; }
+.wallet-provider-retry { display: inline-flex; max-width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 8px; margin-top: 8px; padding: 10px 20px; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--text); background: var(--surface-2); font-size: 14px; font-weight: 600; text-decoration: none; overflow-wrap: anywhere; transition: background-color var(--dur-fast) ease; }
 .wallet-provider-retry svg { flex-shrink: 0; }
 .wallet-provider-copy-link { width: 100%; min-width: 0; }
 .wallet-provider-copy-link button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border-radius: 10px; color: var(--mut); font-size: 13px; font-weight: 500; }

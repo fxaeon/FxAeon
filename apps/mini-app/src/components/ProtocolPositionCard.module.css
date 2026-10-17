@@ -85,7 +85,7 @@
 /* In a narrow column the value's label gives its line to leverage and ID;
    screen readers still hear it. */
 .row { container-type: inline-size; }
-@container (max-width: 265px) {
+@container (max-width: 300px) {
   .valueBasis {
     position: absolute;
     width: 1px;

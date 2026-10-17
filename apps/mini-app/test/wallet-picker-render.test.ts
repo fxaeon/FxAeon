@@ -96,3 +96,35 @@ test('handoff recovery is an optional disclosure and preserves retry, copy, inst
   assert.match(html, /Install MetaMask/);
   assert.match(html, /Wallet guide/);
 });
+
+test('desktop install handoff keeps Get wallet visible instead of hiding the recovery action', () => {
+  const html = render([], undefined, { walletId: 'rabby', name: 'Rabby', status: 'handoff', canReopen: false,
+    message: 'Install Rabby in your browser, then return here to connect.',
+    dappHref: 'https://fxaeon.xyz/move', fallbackHref: 'https://rabby.io/', guideHref: 'https://support.rabby.io/' });
+  assert.match(html, /Install Rabby in your browser, then return here to connect\./);
+  assert.match(html, /<a class="wallet-provider-retry" href="https:\/\/rabby\.io\/"[^>]*>.*?Get Rabby<\/a>/);
+  const recovery = html.match(/<details class="wallet-provider-recovery">([\s\S]*?)<\/details>/)?.[1] ?? '';
+  assert.doesNotMatch(recovery, /Install Rabby/);
+  assert.match(recovery, /Wallet guide/);
+  assert.match(html, /Copy FxAeon link/);
+});
+
+test('desktop install handoff omits empty Connection help when only Get wallet is available', () => {
+  const html = render([], undefined, { walletId: 'rabby', name: 'Rabby', status: 'handoff', canReopen: false,
+    message: 'Install Rabby in your browser, then return here to connect.',
+    fallbackHref: 'https://rabby.io/' });
+  assert.match(html, /Get Rabby/);
+  assert.doesNotMatch(html, /<details class="wallet-provider-recovery">/);
+});
+
+test('an installed wallet detected during desktop handoff gets a stable ready state and direct connect', () => {
+  const html = render([{ rdns: 'io.rabby', name: 'Rabby', provider: provider() }], undefined, {
+    walletId: 'rabby', name: 'Rabby', status: 'handoff', canReopen: false,
+    message: 'Install Rabby in your browser, then return here to connect.',
+    dappHref: 'https://fxaeon.xyz/move', fallbackHref: 'https://rabby.io/', guideHref: 'https://support.rabby.io/',
+  });
+  assert.match(html, /<h3 class="wallet-provider-attempt-title">Wallet ready<\/h3>/);
+  assert.match(html, /Rabby is ready\. Connect to continue\./);
+  assert.match(html, /Connect Rabby<\/button>/);
+  assert.doesNotMatch(html, /Get Rabby|Opening Rabby/);
+});

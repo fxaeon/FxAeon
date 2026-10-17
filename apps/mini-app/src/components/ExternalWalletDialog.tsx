@@ -77,6 +77,10 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
     },
   });
   const selectedWallet = choices.find((choice) => choice.id === pending?.walletId);
+  const walletReady = pending?.status === 'handoff' && pending.canReopen === false && selectedWallet?.injected === 'available';
+  const showInstallHelp = Boolean(safeHelpLink(pending?.fallbackHref)
+    && !(pending?.status === 'handoff' && pending.canReopen === false));
+  const showGuideHelp = safeHelpLink(pending?.guideHref);
   const search = showAll ? query.trim().toLocaleLowerCase() : '';
   const visibleChoices = choices.filter((choice) => (
     showAll || choice.primary || choice.injected === 'available'
@@ -133,7 +137,8 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
   };
   const backLabel = pending && showAll ? 'Back to Other wallets' : 'Back to wallets';
   const title = showHelp ? 'What is a wallet?' : pending?.name ?? (showAll ? 'Other wallets' : 'Connect your wallet');
-  const attemptTitle = pending?.status === 'pending' ? 'Waiting for approval'
+  const attemptTitle = walletReady ? 'Wallet ready'
+    : pending?.status === 'pending' ? 'Waiting for approval'
     : pending?.status === 'error' ? 'Connection not completed'
       : pending?.canReopen === false && selectedWallet?.injected !== 'available' ? 'Wallet not detected' : pending ? `Continue in ${pending.name}` : '';
 
@@ -157,24 +162,26 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
           <div className="wallet-provider-hero" data-pending={pending.status === 'pending' || undefined}><WalletMark icon={selectedWallet?.icon} />{pending.status === 'pending' && <LoaderCircle size={88} className="wallet-provider-pending-icon" aria-hidden="true" />}</div>
           <h3 className="wallet-provider-attempt-title">{attemptTitle}</h3>
           <div className="wallet-provider-attempt-copy" role={pending.status === 'error' ? 'alert' : 'status'}>
-            <p id="wallet-provider-attempt-message">{pending.message ?? (pending.status === 'pending'
+            <p id="wallet-provider-attempt-message">{walletReady ? `${pending.name} is ready. Connect to continue.` : pending.message ?? (pending.status === 'pending'
               ? `Approve the connection request in ${pending.name}. You can go back or close this window to stop waiting.`
               : pending.status === 'handoff'
                 ? `Opening ${pending.name}…`
                 : `Couldn’t connect to ${pending.name}. Try again or choose another wallet.`)}</p>
           </div>
           {pending.status === 'error' && selectedWallet && <button type="button" className="wallet-provider-retry" onClick={() => onChoose(selectedWallet)}>Try again</button>}
+          {pending.status === 'handoff' && selectedWallet && walletReady && <button type="button" className="wallet-provider-retry" onClick={() => onChoose(selectedWallet)}><Wallet size={17} aria-hidden="true" />Connect {pending.name}</button>}
           {pending.status === 'handoff' && selectedWallet && pending.canReopen !== false && <button type="button" className="wallet-provider-retry" onClick={() => onChoose(selectedWallet)}><ExternalLink size={17} aria-hidden="true" />Open {pending.name}</button>}
+          {pending.status === 'handoff' && pending.canReopen === false && !walletReady && pending.fallbackHref && safeHelpLink(pending.fallbackHref) && <a className="wallet-provider-retry" href={pending.fallbackHref} target="_blank" rel="noopener noreferrer" onClick={event => { if (openExternalLink(pending.fallbackHref!)) event.preventDefault(); }}><ExternalLink size={17} aria-hidden="true" />Get {pending.name}</a>}
           {(pending.status === 'handoff' || pending.status === 'error') && pending.dappHref && <div className="wallet-provider-copy-link">
             <button type="button" disabled={copying} onClick={() => void copyDapp()}><Copy size={15} aria-hidden="true" />{copying ? 'Copying…' : 'Copy FxAeon link'}</button>
             {copyMessage && <p role="status">{copyMessage}</p>}
             {copyMessage.startsWith('Copy was blocked') && <code>{pending.dappHref}</code>}
           </div>}
-          {(pending.status === 'handoff' || pending.status === 'error') && (safeHelpLink(pending.fallbackHref) || safeHelpLink(pending.guideHref)) && <details className="wallet-provider-recovery">
+          {(pending.status === 'handoff' || pending.status === 'error') && (showInstallHelp || showGuideHelp) && <details className="wallet-provider-recovery">
             <summary>Connection help</summary>
             <div className="wallet-provider-handoff-tools">
-            {safeHelpLink(pending.fallbackHref) && <a href={pending.fallbackHref} target="_blank" rel="noopener noreferrer" onClick={event => { if (openExternalLink(pending.fallbackHref!)) event.preventDefault(); }}>Install {pending.name}</a>}
-            {safeHelpLink(pending.guideHref) && <a href={pending.guideHref} target="_blank" rel="noopener noreferrer" onClick={event => { if (openExternalLink(pending.guideHref!)) event.preventDefault(); }}>Wallet guide</a>}
+            {showInstallHelp && <a href={pending.fallbackHref} target="_blank" rel="noopener noreferrer" onClick={event => { if (openExternalLink(pending.fallbackHref!)) event.preventDefault(); }}>Install {pending.name}</a>}
+            {showGuideHelp && <a href={pending.guideHref} target="_blank" rel="noopener noreferrer" onClick={event => { if (openExternalLink(pending.guideHref!)) event.preventDefault(); }}>Wallet guide</a>}
             </div>
           </details>}
         </div> : <>
