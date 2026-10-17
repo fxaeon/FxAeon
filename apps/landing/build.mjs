@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { escapeAttribute, telegramLauncher, telegramStartLink } from './config.mjs';
 import { qrSvg } from './qr.mjs';
@@ -18,6 +19,21 @@ for (const file of ['index.html', 'styles.css', 'script.js', 'hero-field.js', 'd
   }
 }
 await cp(resolve(root, '_headers'), resolve(dist, '_headers'));
+// HTML revalidates on each visit, while Pages can cache scripts and styles for
+// hours. Version the whole browser module graph so changes to an imported
+// module also refresh its entry point for returning visitors.
+const browserFiles = ['styles.css', 'document.css', 'script.js', 'hero-field.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs'];
+const digest = createHash('sha256');
+for (const file of browserFiles) {
+  digest.update(file).update('\0').update(await readFile(resolve(dist, file))).update('\0');
+}
+const version = digest.digest('hex').slice(0, 16);
+const browserReference = new RegExp(`(['"])((?:\\./|/)?)(?:${browserFiles.map(file => file.replaceAll('.', '\\.')).join('|')})\\1`, 'g');
+for (const file of ['index.html', '404.html', ...browserFiles]) {
+  const source = await readFile(resolve(dist, file), 'utf8');
+  await writeFile(resolve(dist, file), source.replace(browserReference,
+    reference => `${reference.slice(0, -1)}?v=${version}${reference.at(-1)}`));
+}
 // Ship only assets used by the current page; retired concept artwork stays out
 // of the download. Font licenses remain alongside their referenced fonts.
 const sources = await Promise.all(['index.html', 'styles.css', 'script.js', 'dollar-outcomes.js', '404.html', 'document.css']
