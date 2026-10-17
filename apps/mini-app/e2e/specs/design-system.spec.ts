@@ -3,28 +3,21 @@ import { expect, test, assertNoBackendRequests } from '../fixtures/test';
 test.describe('cohesive responsive design', () => {
   test.use({ telegram: false });
 
-  test('Appearance theme choices persist and all route surfaces inherit the selected palette', async ({ page, requests }) => {
+  test('all route surfaces inherit the dark palette without appearance controls', async ({ page, requests }) => {
     test.setTimeout(120_000);
-    await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    for (const theme of ['official', 'dark'] as const) {
-      const choices = page.getByRole('radiogroup', { name: 'Appearance theme' });
-      const choice = choices.getByRole('radio', { name: theme === 'official' ? 'Light' : 'Dark', exact: true });
-      await expect(choice).toBeEnabled();
-      await choice.click();
-      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-      for (const route of ['/trade', '/positions', '/portfolio', '/earn', '/borrow', '/move', '/history', '/settings', '/qr', '/docs']) {
-        await page.goto(route, { waitUntil: 'domcontentloaded' });
-        await expect(page.locator('main:visible')).toBeVisible();
-        await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-        await expect.poll(async () => page.locator('main:visible').evaluate((main) => {
-          const root = getComputedStyle(document.documentElement);
-          return [main, ...main.querySelectorAll('.ui-card, .amount-control, .market-chart-panel')].flatMap((element) => {
-            const style = getComputedStyle(element);
-            return ['--mint', '--text', '--bg'].filter((token) => style.getPropertyValue(token).trim() !== root.getPropertyValue(token).trim());
-          });
-        }), { message: `${route} must not replace the selected theme with a private palette` }).toEqual([]);
-      }
-      await page.goto('/settings', { waitUntil: 'domcontentloaded' });
+    for (const route of ['/trade', '/positions', '/portfolio', '/earn', '/borrow', '/move', '/history', '/settings', '/qr', '/docs']) {
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      await expect(page.locator('main:visible')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+      await expect(page.getByRole('button', { name: /Switch to .* theme/ })).toHaveCount(0);
+      await expect(page.getByRole('radiogroup', { name: 'Appearance theme' })).toHaveCount(0);
+      await expect.poll(async () => page.locator('main:visible').evaluate((main) => {
+        const root = getComputedStyle(document.documentElement);
+        return [main, ...main.querySelectorAll('.ui-card, .amount-control, .market-chart-panel')].flatMap((element) => {
+          const style = getComputedStyle(element);
+          return ['--mint', '--text', '--bg'].filter((token) => style.getPropertyValue(token).trim() !== root.getPropertyValue(token).trim());
+        });
+      }), { message: `${route} must inherit the shared dark palette` }).toEqual([]);
     }
     assertNoBackendRequests(requests);
   });
@@ -286,14 +279,13 @@ test.describe('cohesive responsive design', () => {
   });
 });
 
-test.describe('light theme overlays', () => {
+test.describe('dark overlays', () => {
   test.use({ telegram: false, browserWallet: { address: '0x930f0000000000000000000000000000000098b9', initiallyConnected: true } });
 
-  test('wallet and token portals use the light palette and restore focus', async ({ page, requests }) => {
+  test('wallet and token portals use the dark palette and restore focus', async ({ page, requests }) => {
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible();
-    await page.getByRole('button', { name: 'Switch to dark theme' }).click();
-    await page.getByRole('button', { name: 'Switch to light theme' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await page.getByRole('button', { name: 'Open wallet profile' }).click();
     const wallet = page.getByRole('dialog');
     await expect(wallet).toBeVisible();

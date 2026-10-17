@@ -49,30 +49,30 @@ function splitRows(html: string) {
 
 test('long illustrations preserve collateral-based leverage and rounded labels', async () => {
   const { LeverageSplit } = await import('../src/components/LeverageSplit');
-  const html = renderToStaticMarkup(React.createElement(LeverageSplit, { side: 'long', debtLabel: 'minted fxUSD' }));
+  const html = renderToStaticMarkup(React.createElement(LeverageSplit, { side: 'long' }));
   const rows = splitRows(html);
   assert.equal(rows.length, 2);
   assert.equal(rows[0].borrowed, 1 / 2);
-  assert.equal(rows[0].text, '2×50% minted fxUSD · 50% yours');
+  assert.equal(rows[0].text, '2×50% debt · 50% equity');
   assert.equal(rows[1].borrowed, 2 / 3);
-  assert.equal(rows[1].text, '3×67% minted fxUSD · 33% yours');
+  assert.equal(rows[1].text, '3×67% debt · 33% equity');
 });
 
 test('short illustrations use borrowed exposure over equity for 2× and 3×', async () => {
   const { LeverageSplit } = await import('../src/components/LeverageSplit');
-  const html = renderToStaticMarkup(React.createElement(LeverageSplit, { side: 'short', debtLabel: 'borrowed wstETH' }));
-  assert.match(html, /aria-label="Share of a position that is borrowed wstETH, by leverage, before fees"/);
+  const html = renderToStaticMarkup(React.createElement(LeverageSplit, { side: 'short' }));
+  assert.match(html, /aria-label="Debt and equity share of a position by leverage, before fees"/);
   const rows = splitRows(html);
   assert.equal(rows.length, 2);
   assert.equal(rows[0].borrowed, 2 / 3);
-  assert.equal(rows[0].text, '2×67% borrowed wstETH · 33% yours');
+  assert.equal(rows[0].text, '2×67% debt · 33% equity');
   assert.equal(rows[1].borrowed, 3 / 4);
-  assert.equal(rows[1].text, '3×75% borrowed wstETH · 25% yours');
+  assert.equal(rows[1].text, '3×75% debt · 25% equity');
 });
 
 test('both directions show the same leverages, so comparing them never changes the layout', async () => {
   const { LeverageSplit } = await import('../src/components/LeverageSplit');
-  const leverages = (side: 'long' | 'short') => splitRows(renderToStaticMarkup(React.createElement(LeverageSplit, { side, debtLabel: 'debt' })))
+  const leverages = (side: 'long' | 'short') => splitRows(renderToStaticMarkup(React.createElement(LeverageSplit, { side })))
     .map((row) => row.text.slice(0, row.text.indexOf('×') + 1));
   assert.deepEqual(leverages('long'), ['2×', '3×']);
   assert.deepEqual(leverages('short'), leverages('long'));
@@ -91,15 +91,15 @@ test('Trade education follows the ticket side and keeps its copy consistent with
       // offer no Long/Short switch of their own: they show the ticket's side.
       assert.doesNotMatch(html, /role="radiogroup"|role="radio"/);
       assert.doesNotMatch(html, />Example</);
-      assert.match(html, new RegExp(`aria-label="Share of a position that is ${side === 'long' ? 'minted fxUSD' : `borrowed ${market === 'ETH' ? 'wstETH' : 'WBTC'}`}, by leverage, before fees"`));
+      assert.match(html, /aria-label="Debt and equity share of a position by leverage, before fees"/);
       assert.equal(rows.length, 2);
       assert.equal(rows[1].borrowed, side === 'long' ? 2 / 3 : 3 / 4);
       if (side === 'long') {
-        assert.match(html, /a 3× long is two thirds minted fxUSD and one third yours/);
-        assert.equal(rows[1].text, '3×67% minted fxUSD · 33% yours');
+        assert.match(html, /a 3× long carries 67% debt and 33% equity/);
+        assert.equal(rows[1].text, '3×67% debt · 33% equity');
       } else {
-        assert.match(html, /a 3× short is three quarters borrowed and one quarter yours/);
-        assert.equal(rows[1].text, `3×75% borrowed ${market === 'ETH' ? 'wstETH' : 'WBTC'} · 25% yours`);
+        assert.match(html, /a 3× short carries 75% debt and 25% equity/);
+        assert.equal(rows[1].text, '3×75% debt · 25% equity');
       }
     }
   }
@@ -109,7 +109,7 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
   const { BorrowSections, EarnSections, MoveSections, TradeSections } = await import('../src/components/ProductSections');
   const pages = [
     { docs: 'trade', html: renderToStaticMarkup(React.createElement(TradeSections, { market: 'ETH', side: 'long', leverage: { min: 1.1, max: 6.1 }, openPositions: 2, positionsStatus: 'ready' })),
-      keeps: ['Market details', '24h low', 'Live market feed', 'How leverage works', 'Share of a position', 'A brake before liquidation'] },
+      keeps: ['Market details', '24h low', 'Live market feed', 'How leverage works', 'Debt and equity share of a position', 'A brake before liquidation'] },
     { docs: 'earn', html: renderToStaticMarkup(React.createElement(EarnSections, { cooldown: '1h', instantFee: '1%', vaultStatus: 'unavailable' })),
       keeps: ['Withdrawal terms', '1h', 'Instant withdrawal fee', 'How fxSAVE earns yield', 'Sources of stability pool rewards'] },
     { docs: 'borrow', html: renderToStaticMarkup(React.createElement(BorrowSections, { ltvLimit: '85.4%' })),
@@ -120,7 +120,7 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
     // Visible copy, or an accessible name such as the split's list label.
     for (const copy of keeps) assert.ok(textOf(html).includes(copy) || html.includes(copy), `${docs} keeps "${copy}"`);
     // The generic step lists and question accordions now live in Docs.
-    assert.doesNotMatch(html, /<ol(?![^>]*aria-label="Share of a position)/, `${docs} has no steps or questions`);
+    assert.doesNotMatch(html, /<ol(?![^>]*aria-label="Debt and equity share of a position)/, `${docs} has no steps or questions`);
     assert.doesNotMatch(textOf(html), /in three steps|Before you (?:trade|deposit|move)\b/);
     const docsLinks = [...html.matchAll(/href="\/docs[^"]*"/g)].map((match) => match[0]);
     assert.deepEqual(docsLinks, [`href="/docs/guide/${docs}"`], `${docs} has one in-app link to its Docs guide`);
@@ -128,63 +128,38 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
   }
 });
 
-test('the ticket caption states the split at the chosen leverage, with the same figures as the examples', async () => {
-  const { LeverageSplit, LeverageSplitCaption } = await import('../src/components/LeverageSplit');
-  const caption = (side: 'long' | 'short', leverage: number, debtLabel: string) => renderToStaticMarkup(React.createElement(LeverageSplitCaption, {
-    id: 'leverage-split', side, debtLabel, leverage, min: 1.1, max: 6.1,
-  }));
-  assert.equal(textOf(caption('long', 3, 'minted fxUSD')), '67% minted fxUSD · 33% yours at 3.0×, before fees');
-  assert.equal(textOf(caption('short', 3, 'borrowed WBTC')), '75% borrowed WBTC · 25% yours at 3.0×, before fees');
-  assert.match(caption('long', 3, 'minted fxUSD'), /<span class="sr-only"> at 3\.0×, before fees<\/span>/);
-  // The caption and the examples come from one calculation, so they can never disagree.
-  for (const side of ['long', 'short'] as const) {
-    const examples = splitRows(renderToStaticMarkup(React.createElement(LeverageSplit, { side, debtLabel: 'debt' })));
-    for (const [index, leverage] of [2, 3].entries()) {
-      const figures = textOf(caption(side, leverage, 'debt')).replace(/ at .*$/, '');
-      assert.equal(`${leverage}×${figures}`, examples[index].text);
-    }
-  }
-});
-
-test('the leverage slider uses the live leverage scale and keeps the debt split in its caption', async () => {
+test('the leverage slider uses live bounds and an accessible value with the position split', async () => {
   const { LeverageSplitRange } = await import('../src/components/LeverageSplit');
   const { leverageTrackPosition } = await import('../src/lib/leverageShare');
-  const render = (side: 'long' | 'short', value: number, min: number, max: number, debtLabel: string) => renderToStaticMarkup(React.createElement(LeverageSplitRange, {
-    id: 'lever', label: 'Target leverage slider', side, debtLabel, value, leverage: value, min, max, describedBy: 'split', captionId: 'split', onChange: () => undefined,
+  const render = (side: 'long' | 'short', value: number, min: number, max: number) => renderToStaticMarkup(React.createElement(LeverageSplitRange, {
+    id: 'lever', label: 'Target leverage slider', side, value, min, max, onChange: () => undefined,
   }));
-  const long = render('long', 2.8, 1.1, 6.1, 'minted fxUSD');
-  // Value, bounds and step are leverage; the spoken value adds the split it draws.
+  const long = render('long', 2.8, 1.1, 6.1);
+  // Value, limits and step are leverage; the spoken value includes debt and equity.
   const input = /<input[^>]*>/.exec(long)![0];
-  for (const attribute of ['type="range"', 'id="lever"', 'min="1.1"', 'max="6.1"', 'step="0.1"', 'value="2.8"', 'aria-label="Target leverage slider"', 'aria-valuetext="2.8×, 64% minted fxUSD"', 'aria-describedby="split"']) {
+  for (const attribute of ['type="range"', 'id="lever"', 'min="1.1"', 'max="6.1"', 'step="0.1"', 'value="2.8"', 'aria-label="Target leverage slider"', 'aria-valuetext="2.8×, 64% debt, 36% equity"']) {
     assert.ok(input.includes(attribute), `${attribute} in ${input}`);
   }
-  assert.match(render('short', 2.8, 0.1, 6, 'borrowed wstETH'), /aria-valuetext="2\.8×, 74% borrowed wstETH"/);
-  // The thumb sits at the debt share, and the range's ends where their leverages fall on the split.
+  assert.match(render('short', 2.8, 0.1, 6), /aria-valuetext="2\.8×, 74% debt, 26% equity"/);
+  // The thumb and ticks share the linear leverage scale across the verified live bounds.
   const style = /class="test-slider"[^>]*style="([^"]+)"/.exec(long)![1];
-  assert.equal(style, `--share:${leverageTrackPosition(2.8, 1.1, 6.1)};--min-share:0;--max-share:1`);
-  // The bar is the split alone: nothing is ever cut into it. Ticks live on their own layer, drawing
-  // only, and need the measured track for their spacing, so none is drawn before layout.
-  assert.match(long, /<div class="test-sliderBar" aria-hidden="true"><i class="test-sliderDebt"><\/i><i class="test-sliderYours"><\/i><i class="test-sliderOff" data-end="min"><\/i><i class="test-sliderOff" data-end="max"><\/i><\/div>/);
+  assert.equal(style, `--share:${leverageTrackPosition(2.8, 1.1, 6.1)}`);
+  // The selected range is drawn independently from the decorative ticks. Ticks need the measured
+  // track for their spacing, so none is drawn before layout.
+  assert.match(long, /<div class="test-sliderBar" aria-hidden="true"><i class="test-sliderSelected"><\/i><i class="test-sliderRemaining"><\/i><\/div>/);
   assert.match(long, /<div class="test-sliderTicks" aria-hidden="true"><\/div>/);
   assert.doesNotMatch(long, /class="test-sliderTick"/);
   assert.match(long, /<span class="test-sliderThumb" aria-hidden="true"><\/span>/);
-  // The range ends and the caption keep their row under the track.
-  assert.equal(textOf(/<div class="test-bounds"[^>]*>(.*)<\/div>/.exec(long)![1]), '1.1×64% minted fxUSD · 36% yours at 2.8×, before fees6.1×');
+  // The quiet footer keeps only the live minimum and maximum.
+  assert.equal(textOf(/<div class="test-bounds"[^>]*>(.*)<\/div>/.exec(long)![1]), '1.1×6.1×');
 });
 
-test('the slider keeps its value inside the range while the caption follows the typed leverage', async () => {
+test('the slider keeps its chosen value inside the live range', async () => {
   const { LeverageSplitRange } = await import('../src/components/LeverageSplit');
   const html = renderToStaticMarkup(React.createElement(LeverageSplitRange, {
-    id: 'lever', label: 'Target leverage slider', side: 'long', debtLabel: 'minted fxUSD', value: 1.1, leverage: 0.5, min: 1.1, max: 6.1, captionId: 'split', onChange: () => undefined,
+    id: 'lever', label: 'Target leverage slider', side: 'long', value: 1.1, min: 1.1, max: 6.1, onChange: () => undefined,
   }));
-  assert.match(html, /value="1\.1"/);
-  assert.match(html, /<span id="split" class="test-caption" data-empty="true"><\/span>/);
-});
-
-test('outside the live range, while typing, the caption keeps its slot but says nothing', async () => {
-  const { LeverageSplitCaption } = await import('../src/components/LeverageSplit');
-  for (const leverage of [0, 0.5, 1, 6.2, Number.NaN]) {
-    const html = renderToStaticMarkup(React.createElement(LeverageSplitCaption, { id: 'split', side: 'long', debtLabel: 'minted fxUSD', leverage, min: 1.1, max: 6.1 }));
-    assert.match(html, /^<span id="split" class="[^"]+" data-empty="true"><\/span>$/, `${leverage}×`);
-  }
+  assert.match(html, /min="1\.1" max="6\.1" step="0\.1"[^>]*value="1\.1"/);
+  assert.match(html, /aria-valuetext="1\.1×, 9% debt, 91% equity"/);
+  assert.match(html, /class="test-bounds"[^>]*><span aria-hidden="true">1\.1×<\/span><span aria-hidden="true">6\.1×<\/span>/);
 });

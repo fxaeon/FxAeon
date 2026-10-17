@@ -17,7 +17,7 @@ import { MissingValue } from '@/components/MissingValue';
 import TokenIcon from '@/components/TokenIcon';
 import { formatUsdPrice, priceKeyForSymbol } from '@/lib/prices';
 import { freshDisplayPrices } from '@/lib/displayPrices';
-import { positionBrakeCopy, positionBrakeView } from '@/lib/positionBrake';
+import { formatWholeUsd, positionBrakeCopy, positionBrakeView } from '@/lib/positionBrake';
 import { calculatePositionUsdValuation, debtCollateralRatioPercent, formatUsdCents } from '@/lib/positionValuation';
 import { groupDigits } from '@/lib/amount';
 import { positionName, positionSideLabel } from '@/lib/positionNaming';
@@ -101,6 +101,14 @@ function PositionBody({
   const brakeCopy = brakeView ? positionBrakeCopy(brakeView, position.market, position.side) : null;
   const splitFill = brakeView?.fill ?? debtShare;
   const Block = details ? 'div' : 'span';
+  const thresholdValue = (kind: 'rebalance' | 'liquidation') => {
+    if (position.info.rawDebts === 0n) return 'No debt';
+    const reached = brakeView && (kind === 'rebalance' ? brakeView.state !== 'clear' : brakeView.state === 'liquidation');
+    if (reached) return <span data-threshold-reached>Reached</span>;
+    const price = kind === 'rebalance' ? brakeView?.rebalancePrice : brakeView?.liquidatePrice;
+    if (price !== undefined && price !== null) return `≈\u00a0${formatWholeUsd(price)}`;
+    return <span title={`Estimated ${kind} price unavailable`}><span aria-hidden="true">—</span><span className="sr-only">Estimated {kind} price unavailable</span></span>;
+  };
 
   return (
     <Block className={styles.content}>
@@ -156,6 +164,10 @@ function PositionBody({
           </>}
         </span>
       </span>}
+      <span className={styles.cardMetrics}>
+        <span><span className={styles.cardMetricLabel}>Est. rebalance</span><span className={styles.cardMetricValue} data-position-price="rebalance">{thresholdValue('rebalance')}</span></span>
+        <span><span className={styles.cardMetricLabel}>Est. liquidation</span><span className={styles.cardMetricValue} data-position-price="liquidation">{thresholdValue('liquidation')}</span></span>
+      </span>
       {details && <>
         <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} section={compact ? 'primary' : 'all'} />
         {compact && <details className={styles.metricDisclosure}><summary>Position details<ChevronRight aria-hidden="true" /></summary><PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} section="secondary" /></details>}
@@ -189,11 +201,11 @@ function PositionFacts({ position, prices, valuation, missingStatus, liveQuote, 
     <dl className={styles.facts}>
       {section !== 'secondary' && <><div className={styles.fact}>
         <dt>Collateral</dt>
-        <dd>{groupDigits(formatAmount(position.info.rawColls, positionTokenDecimals(position, 'collateral')))} {positionCollateralSymbol(position)}<small>{usd(valuation.collateralUsdCents)}</small></dd>
+        <dd>{groupDigits(formatAmount(position.info.rawColls, positionTokenDecimals(position, 'collateral')))} <span className={styles.factUnit}>{positionCollateralSymbol(position)}</span><small>{usd(valuation.collateralUsdCents)}</small></dd>
       </div>
       <div className={styles.fact}>
         <dt>Debt</dt>
-        <dd>{groupDigits(formatAmount(position.info.rawDebts, positionTokenDecimals(position, 'debt')))} {position.info.rawDebtsToken}<small>{usd(valuation.debtUsdCents)}</small></dd>
+        <dd>{groupDigits(formatAmount(position.info.rawDebts, positionTokenDecimals(position, 'debt')))} <span className={styles.factUnit}>{position.info.rawDebtsToken}</span><small>{usd(valuation.debtUsdCents)}</small></dd>
       </div>
       </>}
       {section === 'secondary' && <>
@@ -260,7 +272,7 @@ export function ProtocolPositionDetails({ position, headingId, className = '', c
   );
 }
 
-/** Positions as a ruled stack: full-width hairlines between rows, no boxes. */
+/** Position cards remain one selection target each. */
 export function ProtocolPositionList({ label, children, className = '' }: { label?: string; children?: React.ReactNode; className?: string }) {
   return (
     <div role="list" aria-label={label} className={`${styles.list} ${className}`}>
@@ -323,6 +335,7 @@ export function ProtocolPositionSkeleton() {
         </span>
         <Skeleton className={styles.skeletonSplit} />
         <span className={styles.brake}><Skeleton className={styles.brakeSkeleton} /></span>
+        <span className={styles.cardMetrics}>{[0, 1].map(index => <span key={index}><span className={styles.cardMetricLabel}><Skeleton className={styles.skeletonMetricLabel} /></span><span className={styles.cardMetricValue}><Skeleton className={styles.skeletonMetricValue} /></span></span>)}</span>
       </span>
     </div>
   );

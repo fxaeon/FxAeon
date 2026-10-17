@@ -1,0 +1,54 @@
+/* One owned surface contains the selected position and its next action. */
+.root { min-width: 0; }
+.manager.manager.manager {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--surface);
+  gap: 8px;
+}
+.desktopSlot { min-width: 0; }
+.actionSelection { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0; padding: 0; border: 0; }
+.actionSelection > :first-child { min-width: 0; flex: 1; }
+.manager.manager[aria-label] { width: 100%; max-width: 440px; margin-inline: auto; }
+.manager :global(.amount-control), .manager :global(.range-control), .manager :global(.segmented) { border-radius: 12px; }
+.manager :global(.amount-control) { background: var(--surface-2); }
+@media (min-width: 840px) {
+  .manager.manager.manager { padding: 20px; gap: 4px; }
+  .viewBar { display: none; }
+}
+@media (max-width: 640px) {
+  .manager.manager.manager { padding: 14px; gap: 6px; }
+}
+@media (max-width: 359px) {
+  .manager.manager.manager { padding: 12px; }
+}
+
+.backdrop { position: fixed; inset: 0; z-index: var(--z-modal, 100); display: flex; align-items: flex-end; justify-content: center; padding: 8px; background: var(--scrim); backdrop-filter: blur(4px); animation: position-scrim-in 180ms ease both; }
+.sheet { position: relative; display: flex; width: min(100%, 440px); min-height: 0; max-height: 92dvh; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--text); box-shadow: var(--elevation-2); animation: position-sheet-in 260ms var(--ease-out) both; }
+.sheetControls { position: relative; min-height: 64px; flex: 0 0 auto; }
+.handle { position: absolute; top: 9px; left: calc(50% - 18px); width: 36px; height: 4px; border-radius: 3px; background: var(--line-strong); }
+.close { position: absolute; top: 14px; right: 12px; display: grid; min-width: 44px; min-height: 44px; place-items: center; border-radius: 12px; color: var(--mut); }
+.close:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.close:disabled { opacity: .45; }
+.sheet :where(button, a, input, select, summary):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.sheetBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px calc(20px + env(safe-area-inset-bottom, 0px)); }
+.sheetBody .manager.manager.manager { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.sheetBody .back { display: none; }
+.portalHost :global(.sticky-action) { position: static; }
+.portalHost :global(.sticky-action)::before { display: none; }
+.sheetBody .viewBar { position: absolute; top: 14px; right: 64px; margin: 0; }
+.sheetBody :global(.reviewInlineContent) { padding: 0; }
+.backdrop[data-state='closed'] { pointer-events: none; animation: position-scrim-out 180ms ease both; }
+.backdrop[data-state='closed'] .sheet { animation: position-sheet-out 180ms ease both; }
+@keyframes position-scrim-in { from { opacity: 0; } }
+@keyframes position-scrim-out { to { opacity: 0; } }
+@keyframes position-sheet-in { from { transform: translateY(32px); opacity: 0; } }
+@keyframes position-sheet-out { to { transform: translateY(32px); opacity: 0; } }
+@media (max-width: 600px) {
+  .desktopSlot { display: none; }
+  .root :global([data-position-key][aria-current='true']) { background: var(--surface); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .backdrop, .sheet, .backdrop[data-state='closed'], .backdrop[data-state='closed'] .sheet { animation: none; }
+}

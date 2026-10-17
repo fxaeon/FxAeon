@@ -1,7 +1,7 @@
 /* Wallet activity: rows that say what happened, amount-first outcomes, one detail sheet. */
 .section { min-width: 0; }
 .toolbar { display: flex; align-items: center; gap: 4px; }
-.toolbar a { display: inline-flex; min-height: 44px; align-items: center; gap: 2px; padding: 0 6px; color: var(--mint); font-size: var(--fs-small); font-weight: 600; }
+.toolbar a { display: inline-flex; min-height: 44px; align-items: center; gap: 2px; padding: 0 6px; color: var(--mint-text); font-size: var(--fs-small); font-weight: 600; }
 .refresh, .drafts button { min-width: 44px; min-height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--mut); transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .refresh:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 
@@ -82,15 +82,15 @@
 .empty { display: grid; justify-items: center; gap: 4px; padding: 28px 16px; text-align: center; font-size: var(--fs-small); line-height: 1.45; color: var(--mut); }
 .empty strong { color: var(--text); font-size: var(--fs-body); font-weight: 600; }
 .empty span { max-width: 34ch; }
-.empty a, .empty button { display: inline-flex; min-height: 44px; align-items: center; margin-top: 4px; color: var(--mint); font-weight: 600; }
+.empty a, .empty button { display: inline-flex; min-height: 44px; align-items: center; margin-top: 4px; color: var(--mint-text); font-weight: 600; }
 /* The preview's empty line sits where its rows would, left-aligned under the heading. */
 .empty[data-compact] { justify-items: start; padding: 4px 0 6px; text-align: left; }
-.more { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; width: 100%; margin-top: 8px; border-radius: 999px; color: var(--mint); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease; }
+.more { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; width: 100%; margin-top: 8px; border-radius: 999px; color: var(--mint-text); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease; }
 .more:hover:not(:disabled) { background: var(--surface-2); }
 .loadMoreError { margin: 8px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.45; text-align: center; }
 .notice { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0 4px 0 14px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
 .notice span { flex: 1; min-width: 0; }
-.notice button, .unavailable button { min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--mint); font-weight: 600; transition: background-color var(--dur-fast) ease; }
+.notice button, .unavailable button { min-height: 44px; padding: 0 14px; border-radius: 999px; color: var(--mint-text); font-weight: 600; transition: background-color var(--dur-fast) ease; }
 .notice button:hover:not(:disabled), .unavailable button:hover:not(:disabled) { background: var(--mint-dim); }
 .unverifiedToggle { display: flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; border-radius: 999px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .unverifiedToggle:hover { background: var(--surface-2); color: var(--text); }
@@ -104,7 +104,7 @@
 .drafts > div { display: flex; gap: 10px; align-items: center; min-height: 48px; border-top: 1px solid var(--line); }
 .drafts > div > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .drafts small { color: var(--warn); font-size: var(--fs-caption); font-weight: 600; }
-.drafts a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 6px; color: var(--mint); font-weight: 600; }
+.drafts a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 6px; color: var(--mint-text); font-weight: 600; }
 .unavailable { display: flex; align-items: center; gap: 12px; margin-top: 4px; padding: 12px 6px 12px 14px; border-radius: var(--radius-md); background: var(--surface-2); font-size: var(--fs-caption); color: var(--mut); line-height: 1.45; }
 .unavailable span { flex: 1; min-width: 0; }
 
@@ -136,7 +136,7 @@
 .facts dt { flex-shrink: 0; color: var(--mut); }
 .facts dd, .facts a { display: flex; align-items: center; gap: 6px; text-align: right; font-weight: 600; }
 .facts dd { min-width: 0; justify-content: flex-end; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.facts a { min-height: 44px; margin: -12px 0; color: var(--mint); }
+.facts a { min-height: 44px; margin: -12px 0; color: var(--mint-text); }
 .facts [data-status='failed'] { color: var(--danger); }
 .facts [data-status='pending'] { color: var(--warn); }
 .party { flex-wrap: wrap; column-gap: 8px; row-gap: 0; }
@@ -181,4 +181,3 @@
 }
 
 /* Light theme: the chevron stroke follows --mut so it stays legible on a pale field. */
-:global(:root:is([data-theme='official'], [data-theme='light'])) .filters select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23675c77' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }

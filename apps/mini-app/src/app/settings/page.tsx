@@ -6,7 +6,6 @@ import { Check } from 'lucide-react';
 import { formatUnits } from 'viem';
 import { AppShell, Button, Skeleton } from '@/components/ui';
 import { AccountSummary, SessionControl } from '@/components/AccountControls';
-import AppearancePreference from '@/components/AppearancePreference';
 import { Disclosure, PageHeading, ProductSurface } from '@/components/ProductUI';
 import { MissingValue } from '@/components/MissingValue';
 import { usePrivyWallet } from '@/lib/wallet';
@@ -123,7 +122,7 @@ export default function SettingsPage() {
                 select(PRESETS[next]); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
               }}>{bps / 100}%</button>)}
           </div>
-          {!PRESETS.includes(slippageBps) && <p className={styles.scope}>Custom {slippageBps / 100}% is set from a form’s settings. Choose a preset to replace it.</p>}
+          {!PRESETS.includes(slippageBps) && <p className={styles.scope}>Custom tolerance: {slippageBps / 100}%</p>}
           <p className={styles.scope}>Applies to Trade, Positions and eligible fxSAVE actions, on this device.</p>
           {showGasSettings && <div className={styles.gasPreference}>
             <div className={styles.preferenceHeading}>
@@ -148,7 +147,6 @@ export default function SettingsPage() {
           {error && <p role="alert" className={styles.error}>{error}</p>}
         </ProductSurface>
       </section>
-      <AppearancePreference />
       <div className={styles.disconnect}><SessionControl /></div>
     </AccountWorkspace>
   </AppShell>;

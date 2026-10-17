@@ -9,7 +9,6 @@ import type { MarketSymbol } from '@/lib/marketData';
 import { Callout, PageSections, Section, StatGrid } from '@/components/PageSections';
 import { YieldFlow } from '@/components/YieldFlow';
 import { LeverageSplit } from '@/components/LeverageSplit';
-import { leverageDebtLabel } from '@/lib/leverageShare';
 import styles from '@/components/PageSections.module.css';
 
 // Reviewed f(x) Protocol references, the same ones the landing page links.
@@ -55,9 +54,9 @@ export function TradeSections({ market, side, leverage, openPositions, positions
     <Section id="trade-leverage" title="How leverage works" expandable action={howItWorks('trade')}>
       {/* The ticket's slider states the chosen leverage live; these examples follow its side. */}
       <p className={styles.lede}>{side === 'long'
-        ? 'On f(x) Protocol, a long’s leverage is fxUSD minted against its collateral. Before fees, a 3× long is two thirds minted fxUSD and one third yours.'
-        : `A short deposits fxUSD and borrows ${market === 'ETH' ? 'wstETH' : 'WBTC'} from f(x) Protocol’s long-side reserve. Before fees, a 3× short is three quarters borrowed and one quarter yours.`}</p>
-      <LeverageSplit side={side} debtLabel={leverageDebtLabel(side, market)} />
+        ? 'On f(x) Protocol, a long borrows fxUSD against its collateral. Before fees, a 3× long carries 67% debt and 33% equity.'
+        : `A short deposits fxUSD and borrows ${market === 'ETH' ? 'wstETH' : 'WBTC'} from f(x) Protocol’s long-side reserve. Before fees, a 3× short carries 75% debt and 25% equity.`}</p>
+      <LeverageSplit side={side} />
       {rebalancingNote}
     </Section>
   </PageSections>;

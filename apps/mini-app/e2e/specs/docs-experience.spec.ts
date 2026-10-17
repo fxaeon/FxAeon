@@ -129,11 +129,8 @@ test.describe('documentation experience', () => {
     await expect(options.getByRole('link', { name: /^Website/ })).toHaveAttribute('href', 'https://fxaeon.xyz/');
     await expect(options.getByRole('link', { name: /^Support/ })).toHaveAttribute('href', 'https://x.com/FxAeonxyz');
 
-    const themeToggle = options.getByRole('button', { name: /Switch to .* theme/ });
-    const beforeTheme = await page.locator('html').getAttribute('data-theme');
-    await themeToggle.click();
-    await expect.poll(() => page.locator('html').getAttribute('data-theme')).not.toBe(beforeTheme);
-    await expect(themeToggle).toBeVisible();
+    await expect(options.getByRole('button', { name: /Switch to .* theme/ })).toHaveCount(0);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
     await searchToggle.click();
     await expect(searchToggle).toHaveAttribute('aria-expanded', 'true');
@@ -271,14 +268,12 @@ test.describe('documentation experience', () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('getFxReadFacade()');
   });
 
-  test('desktop docs keeps themes, search, copying and Back/Forward navigation usable', async ({ page, context }) => {
+  test('desktop docs keeps search, copying and Back/Forward navigation usable in dark appearance', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/docs/guide');
-    for (const theme of ['dark', 'official']) {
-      await page.getByRole('button', { name: /Switch to .* theme/ }).click();
-      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-    }
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByRole('button', { name: /Switch to .* theme/ })).toHaveCount(0);
     const nav = page.getByRole('navigation', { name: 'Documentation sections' });
     await page.getByRole('searchbox', { name: 'Search docs' }).fill('getfxsavebalance');
     await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);

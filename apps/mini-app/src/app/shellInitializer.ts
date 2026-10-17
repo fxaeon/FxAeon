@@ -5,9 +5,8 @@
  * element; every part guards its own storage access.
  */
 
-/** Theme: the saved palette. Earlier releases used "dark" for today's
- * Official, so the legacy key only keeps an explicit light choice. */
-const THEME = "try{const t=localStorage.getItem('fxaeon_theme_id_v2')==='dark'?'dark':'official';r.dataset.theme=t;r.style.colorScheme=t==='dark'?'dark':'light';}catch{}";
+/** Dark from the first paint, including saved light choices and blocked storage. */
+const THEME = "r.dataset.theme='dark';r.style.colorScheme='dark';try{localStorage.setItem('fxaeon_theme_id_v2','dark');}catch{}";
 
 /** Route headings arrive lit once per session (globals.css, heading-light):
  * when the first sweep ends the root is marked, and later pages and reloads

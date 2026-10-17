@@ -9,6 +9,18 @@ export function reviewGenerationIsCurrent(mounted: boolean, activeGeneration: nu
   return mounted && activeGeneration === candidateGeneration;
 }
 
+/** Completion reads belong to the signed wallet session, not the result view's lifetime. */
+export function reviewCompletionSessionIsCurrent(
+  sessionInvalidated: boolean,
+  expected: { walletAddress: string; connectionVersion: number; isEmbedded: boolean },
+  live: { authenticated: boolean; address?: string | null; connectionVersion: number; isEmbedded: boolean },
+): boolean {
+  return !sessionInvalidated && live.authenticated
+    && live.address?.toLowerCase() === expected.walletAddress.toLowerCase()
+    && live.connectionVersion === expected.connectionVersion
+    && live.isEmbedded === expected.isEmbedded;
+}
+
 const transitions: Record<ReviewTransition, readonly ReviewStage[]> = {
   prepare: ['input'],
   prepared: ['planning'],

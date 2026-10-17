@@ -1,5 +1,7 @@
 'use client';
 
+import { isReviewInputStage } from '@/components/review/actionReviewTypes';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -21,7 +23,6 @@ import { deriveConfirmedPositionHint } from '@/lib/confirmedPositions';
 import { confirmedPositionHintKey } from '@/lib/confirmedPositionStorage';
 import { carryNewPosition } from '@/lib/positionBorn';
 import { AmountField, LeverageField, Segmented, TokenSelect, tokenBalanceFor, useWalletTokenBalances, type TokenBalanceView } from '@/components/ProtocolForm';
-import { leverageDebtLabel } from '@/lib/leverageShare';
 import { MAX_FX_SLIPPAGE_PERCENT, clampLeverage, estimatePlannedRouteCost, getEthereumClient, leverageBoundsFor, planIncreasePosition, prepareLeverageReview, readLeverageBounds, readSignatureRequiredDraft, restoreSignatureRequiredDraft, signatureDraftIdFromSearch, type LeverageBounds, type PlannedRoute, type TransactionExecutionResult } from '@/lib/fx';
 import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
@@ -632,18 +633,18 @@ export default function TradePage() {
           <div className={`${styles.tradePageActions} trade-page-actions`}>
             <Link href="/positions" className={`${styles.positionsShortcut} glass-press inline-flex min-h-11 items-center gap-2 border text-[13px] font-semibold`}><Layers2 className="h-4 w-4" aria-hidden="true" />Positions</Link>
             {/* The ticket's settings live with the route's other controls, so the form starts at its first decision. */}
-            {reviewStage === 'input' && <TransactionSettings scope="Trade" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />}
+            {isReviewInputStage(reviewStage) && <TransactionSettings scope="Trade" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />}
           </div>
         </header>
 
-        <div className={styles.tradeLayout} data-trade-layout data-review={reviewStage !== 'input' || undefined}>
-        {reviewStage === 'input' && <div className={styles.marketColumn} data-trade-market>
+        <div className={styles.tradeLayout} data-trade-layout data-review={!isReviewInputStage(reviewStage) || undefined}>
+        {isReviewInputStage(reviewStage) && <div className={styles.marketColumn} data-trade-market>
           <TradeMarketChart market={market} onMarketChange={changeMarket} />
         </div>}
         <div className={styles.ticketColumn} data-trade-ticket>
           {/* The editor and review deliberately share one card. ActionReview
               replaces this content in place, keeping the user's exact draft stable while the wallet is opened. */}
-          <Card data-result-container className={`${styles.tradeTicket} trade-ticket ${reviewStage === 'input' ? '' : styles.tradeTicketReview}`}>
+          <Card data-result-container className={`${styles.tradeTicket} trade-ticket ${isReviewInputStage(reviewStage) ? '' : styles.tradeTicketReview}`}>
             <ActionReview
               key={reviewRevision}
               surface="content"
@@ -670,7 +671,7 @@ export default function TradePage() {
 
                   <div className={styles.fieldStack}>
                     <AmountField compact label="Amount" symbol={token} value={amount} onChange={changeAmount} maxDecimals={tokenDecimals(token)} showMax showUnitPrice={false} constraintError={token === 'ETH' ? nativeMaxError : undefined} maxAmount={token === 'ETH' ? nativeMaxAmount : undefined} onMax={token === 'ETH' ? resolveNativeMax : undefined} maxPending={token === 'ETH' && nativeMaxPending} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={tokenOptions} onChange={changeToken} balances={wallet.address ? walletBalances.balances : undefined} balanceStatus={wallet.address ? (walletBalances.status !== 'idle' ? walletBalances.status : undefined) : 'disconnected'} />} />
-                    <LeverageField label="Target leverage" value={leverage} onChange={changeLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} compact split={{ side, debtLabel: leverageDebtLabel(side, market) }} />
+                    <LeverageField label="Target leverage" value={leverage} onChange={changeLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} compact split={{ side }} />
                     {/* Only a connected, complete ticket is warmed; a failed warm-up shows nothing. */}
                     {shownOutcome && shownOutcome.status !== 'failed' && <TradeOutcomePreview market={market} side={side} route={shownOutcome.status === 'ready' ? shownOutcome.route : null} />}
                   </div>
@@ -683,7 +684,7 @@ export default function TradePage() {
         </div>
         </div>
 
-        {reviewStage === 'input' && showPositionSection && (
+        {isReviewInputStage(reviewStage) && showPositionSection && (
           <section aria-labelledby="trade-open-positions-title" className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between gap-3">
               <h2 id="trade-open-positions-title" className="text-[15px] font-semibold">Your positions</h2>
@@ -702,7 +703,7 @@ export default function TradePage() {
             )}
           </section>
         )}
-        {reviewStage === 'input' && <TradeSections market={market} side={side} leverage={leverageBounds}
+        {isReviewInputStage(reviewStage) && <TradeSections market={market} side={side} leverage={leverageBounds}
           openPositions={wallet.address && positionState.status === 'ready' ? marketPositions.length : null}
           positionsStatus={!wallet.address ? 'disconnected' : positionState.status === 'ready' ? 'ready' : positionState.status === 'idle' || positionState.status === 'loading' ? 'loading' : 'unavailable'} />}
       </ActionWorkspace>

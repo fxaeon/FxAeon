@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FX_TOKENS, prepareRoutesForReview, runTransactionRoute, type PlannedRoute, type PlanStatus, type TransactionExecutionResult, type TransactionStepResult } from '@/lib/fx';
 import { cancelSignatureRequiredDraft, removeSignatureRequiredDraft, saveSignatureRequiredDraft, shouldRemoveSignatureDraft } from '@/lib/fx';
-import { useRouteGasCost } from '@/lib/fx';
+import { routeGasCostCache, useRouteGasCost } from '@/lib/fx';
 import { usePrivyWallet } from '@/lib/wallet';
 import { useInvalidateWalletData } from '@/components/WalletDataProvider';
 import { createRouteWalletRefresh } from '@/lib/walletDataRefresh';
@@ -14,10 +14,11 @@ import { chainName } from '@/components/review/ReviewProgress';
 import { primaryReviewFacts } from '@/components/review/actionReviewPresentation';
 import { fetchGasTierQuotes, formatGasTierQuote, selectedGasTierQuote, type GasFeeSelection } from '@/lib/fx/gasFeePolicy';
 import { announceSettingsUpdated, readGasTier, readSlippagePercent, SETTINGS_KEY, SETTINGS_UPDATED_EVENT, type GasTier } from '@/lib/settings';
-import { changedConsequenceFacts, reviewGenerationIsCurrent, updatedRouteTermsRequired, type ChangedReviewFact, type ReviewTransition } from '@/components/review/actionReviewModel';
+import { changedConsequenceFacts, reviewCompletionSessionIsCurrent, reviewGenerationIsCurrent, updatedRouteTermsRequired, type ChangedReviewFact, type ReviewTransition } from '@/components/review/actionReviewModel';
 import { useActionReviewController } from '@/components/review/useActionReviewController';
 import type { ActionReviewProps } from './actionReviewTypes';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
+import { createReviewPreparationScope } from './reviewPreparationScope';
 
 const REVIEW_FRESHNESS_MS = 30_000;
 
@@ -86,6 +87,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
   // repeated clicks in the same frame cannot start a second execution.
   const busyRef = useRef(false);
   const changingFeeRef = useRef(false);
+  const preparationScopeRef = useRef<ReturnType<typeof createReviewPreparationScope> | null>(null);
   const executionStepsRef = useRef<TransactionStepResult[]>([]);
   // A submitted execution keeps its route and progress visible if the active
   // wallet changes. The latch still blocks every later wallet request.
@@ -119,6 +121,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     return () => {
       mountedRef.current = false;
       generationRef.current += 1;
+      preparationScopeRef.current?.cancel();
     };
   }, []);
 
@@ -155,6 +158,8 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
   liveIntentKeyRef.current = intentKey;
   const previousWalletMode = useRef(wallet.isEmbedded);
   const acceptedWalletModeRef = useRef<boolean | null>(null);
+  const liveActionRef = useRef({ disabled, available: Boolean(planBuilder) });
+  liveActionRef.current = { disabled, available: Boolean(planBuilder) };
 
   useEffect(() => {
     if (stage !== 'review' || preparedAt === null) return undefined;
@@ -167,24 +172,27 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
 
   const previousStageRef = useRef(stage);
   useEffect(() => {
-    const stableTrade = Boolean(props.preparationFacts?.length);
     const previous = previousStageRef.current;
     previousStageRef.current = stage;
     // Each view that replaces the editor takes focus at its heading, so focus
     // never falls back to the page when the Review button unmounts. A failed
     // preparation returns focus to the action that tries again.
-    if (stage === 'result' || stage === 'planning' || (!stableTrade && stage === 'review')) {
+    if (stage === 'result' || stage === 'review') {
       headingRef.current?.focus({ preventScroll: true });
     } else if (stage === 'input' && previous === 'planning') {
       triggerRef.current?.focus({ preventScroll: true });
     }
-  }, [props.preparationFacts?.length, stage]);
+  }, [stage]);
 
   const reset = useCallback(() => {
-    if (busyRef.current && stage !== 'planning') return;
+    // A confirmed result is already safe to leave while its captured cache and
+    // position refreshes finish. Invalidating the generation below suppresses
+    // their late view updates without cancelling those completion side effects.
+    if (busyRef.current && stage !== 'planning' && stage !== 'result') return;
     busyRef.current = false;
     setLoading(false);
     generationRef.current += 1;
+    preparationScopeRef.current?.cancel();
     if (signatureDraftIdRef.current) {
       cancelSignatureRequiredDraft(signatureDraftIdRef.current);
       signatureDraftIdRef.current = null;
@@ -231,7 +239,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
 
   useEffect(() => {
     const onTelegramBack = (event: Event) => {
-      if (stage !== 'review' && stage !== 'result' && !(stage === 'planning' && props.preparationFacts?.length)) return;
+      if (stage !== 'review' && stage !== 'result' && stage !== 'planning') return;
       const detail = (event as CustomEvent<{ consume?: () => void; isConsumed?: () => boolean }>).detail;
       if (detail?.isConsumed?.()) return;
       reset();
@@ -239,10 +247,11 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     };
     window.addEventListener('fxaeon:telegram-back', onTelegramBack);
     return () => window.removeEventListener('fxaeon:telegram-back', onTelegramBack);
-  }, [props.preparationFacts?.length, reset, stage]);
+  }, [reset, stage]);
 
   const invalidatePreparedRoute = useCallback((message: string) => {
     generationRef.current += 1;
+    preparationScopeRef.current?.cancel();
     if (signatureDraftIdRef.current) {
       cancelSignatureRequiredDraft(signatureDraftIdRef.current);
       signatureDraftIdRef.current = null;
@@ -279,6 +288,12 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     }
   }, [invalidatePreparedRoute, stage, wallet.isEmbedded]);
 
+  useEffect(() => {
+    if (stage === 'planning' && (disabled || !planBuilder)) {
+      invalidatePreparedRoute('This action is no longer available. Check the inputs and try again.');
+    }
+  }, [disabled, invalidatePreparedRoute, planBuilder, stage]);
+
   // Bind the reviewed route to logical form intent. Callers with a primitive
   // draft snapshot may recreate planners during claim/balance polling without
   // changing what the user accepted.
@@ -308,7 +323,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
   useEffect(() => {
     // Results are non-signable historical evidence. Retain their original
     // wallet and chain when the active wallet or form changes.
-    if (!reviewSession || (stage !== 'review' && stage !== 'executing')) return;
+    if (!reviewSession || (stage !== 'planning' && stage !== 'review' && stage !== 'executing')) return;
     const currentWallet = wallet.address?.toLowerCase();
     const mismatch = sessionMismatch({
       walletAddress: currentWallet ?? '', authenticated: wallet.authenticated,
@@ -336,14 +351,15 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
   }, [invalidatePreparedRoute, reviewSession, sessionMismatch, stage, wallet.address, wallet.authenticated, wallet.chainId, wallet.connectionVersion]);
 
   const review = useCallback(async () => {
-    const retryingPreparation = Boolean(props.preparationFacts?.length) && stage === 'planning' && status === 'failed';
-    if (!planBuilder || disabled || loading || busyRef.current || (stage !== 'input' && !retryingPreparation)) return;
+    if (!planBuilder || disabled || loading || busyRef.current || stage !== 'input') return;
     if (!wallet.authenticated || !wallet.address) {
       setError('Connect a wallet before preparing a transaction.');
       return;
     }
     const generation = generationRef.current + 1;
     generationRef.current = generation;
+    const preparation = createReviewPreparationScope();
+    preparationScopeRef.current = preparation;
     const reviewWalletAddress = wallet.address.toLowerCase();
     const reviewChainId = wallet.chainId;
     const requestedGasTier = wallet.isEmbedded ? readGasTier() : undefined;
@@ -352,6 +368,10 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     const reviewSessionSnapshot = { walletAddress: reviewWalletAddress, chainId: reviewChainId, connectionVersion: reviewConnectionVersion };
     const assertReviewSession = () => {
       if (!isCurrentGeneration(generation)) return false;
+      if (liveActionRef.current.disabled || !liveActionRef.current.available) {
+        invalidatePreparedRoute('This action is no longer available. Check the inputs and try again.');
+        return false;
+      }
       if (liveIntentKeyRef.current !== intentKey) {
         invalidatePreparedRoute('The inputs changed. Check the action again before signing.');
         return false;
@@ -374,6 +394,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     transition('prepare');
     // A new attempt must not display or accept any previous review metadata.
     clearAcceptedRoute();
+    bindSession(reviewSessionSnapshot);
     acceptedWalletModeRef.current = null;
     setRoutes([]);
     setSelectedRoute(0);
@@ -382,35 +403,46 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     setPreparedAt(null);
     preparedAtRef.current = null;
     setError(null);
-    // Retry retains the same mounted card and stage, so the stage effect does
-    // not run again. Move focus before its action becomes disabled.
-    headingRef.current?.focus({ preventScroll: true });
     setStatus('planning');
     setStatusDetail('Preparing a fresh route.');
     try {
-      const prefetched = await prefetchedPlan?.();
+      const prefetched = await preparation.wait(prefetchedPlan?.());
       if (!assertReviewSession()) return;
-      const planned = asRoutes(prefetched ?? await planBuilder());
+      const planned = asRoutes(prefetched ?? await preparation.wait(planBuilder()));
       if (!assertReviewSession()) return;
       setStatus('reviewing');
       setStatusDetail('Verifying the route.');
       const walletAddress = reviewWalletAddress;
       // Alternatives are independent; checking them concurrently removes one
       // RPC round trip per extra route from the review's critical path.
-      const [{ viable, failures }, feeSnapshot] = await Promise.all([
+      const [{ viable, failures }, initialFeeSnapshot] = await preparation.wait(Promise.all([
         prepareRoutesForReview(planned, walletAddress),
         wallet.isEmbedded ? fetchGasTierQuotes(planned[0].chainId) : Promise.resolve(undefined),
-      ]);
+      ]));
       if (!assertReviewSession()) return;
       if (!viable.length) {
         throw new Error(`The transaction could not be simulated: ${failures.join('; ')}`);
       }
+      if (!assertReviewSession()) return;
+      const feeSnapshot = wallet.isEmbedded && initialFeeSnapshot?.chainId !== viable[0].chainId
+        ? await preparation.wait(fetchGasTierQuotes(viable[0].chainId)) : initialFeeSnapshot;
       if (!assertReviewSession()) return;
       if (wallet.isEmbedded) {
         if (!feeSnapshot || requestedGasTier === undefined) throw new Error('Selected network fee is unavailable. Review the action again.');
         selectedGasTierQuote(feeSnapshot, requestedGasTier);
         if (readGasTier() !== requestedGasTier) throw new Error('Network fee preference changed while preparing the review. Try reviewing again.');
       }
+      setStatusDetail('Checking network fees and available ETH.');
+      if (wallet.isEmbedded && viable.some(candidate => feeSnapshot?.chainId !== candidate.chainId)) throw new Error('Alternative route network fees are unavailable. Review the action again.');
+      const feeQuote = feeSnapshot && requestedGasTier ? selectedGasTierQuote(feeSnapshot, requestedGasTier) : undefined;
+      const gasEstimates = await preparation.wait(Promise.all(viable.map(candidate => routeGasCostCache.refresh(candidate, { feeTierQuote: feeQuote }))));
+      if (!assertReviewSession()) return;
+      if (gasEstimates.some(estimate => estimate.validUntil <= Date.now())) throw new Error('Network fee estimates expired while preparing the review. Try again.');
+      if (wallet.isEmbedded && feeSnapshot && requestedGasTier) {
+        selectedGasTierQuote(feeSnapshot, requestedGasTier);
+        if (readGasTier() !== requestedGasTier) throw new Error('Network fee preference changed while preparing the review. Try reviewing again.');
+      }
+      if (viable.some(candidate => Date.now() - routeEstimateReadAt(candidate) >= REVIEW_FRESHNESS_MS)) throw new Error('The quote expired while preparing the review. Try again.');
       setRoutes(viable);
       setSelectedRoute(0);
       setStepResults([]);
@@ -441,9 +473,9 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       haptic('selection');
     } catch (cause) {
       if (!isCurrentGeneration(generation)) return;
-      // Keep Trade's existing card mounted on a failed check; Retry starts a
-      // fresh planning generation and can never execute this unfinished route.
-      if (!props.preparationFacts?.length) transition('prepare-failed');
+      // Preparation never opens a review surface. All failures return to the
+      // editor, including Trade's former stable preparation presentation.
+      transition('prepare-failed');
       // The planner may update its own clamped input before rejecting. An
       // already-scheduled input effect must not replace that failure message.
       failedPreparationGenerationRef.current = generation;
@@ -451,12 +483,14 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       setError(userSafeError(cause, 'The transaction could not be prepared. Check the inputs and network, then try again.'));
       haptic('error');
     } finally {
+      if (preparationScopeRef.current === preparation) preparationScopeRef.current = null;
+      preparation.cancel();
       if (isCurrentGeneration(generation)) {
         busyRef.current = false;
         setLoading(false);
       }
     }
-  }, [acceptRoute, bindSession, checkSession, clearAcceptedRoute, disabled, invalidatePreparedRoute, isCurrentGeneration, loading, operationLabel, planBuilder, prefetchedPlan, intentKey, props.preparationFacts?.length, setQuoteChanges, stage, status, transition, wallet.address, wallet.authenticated, wallet.chainId, wallet.connectionVersion, wallet.isEmbedded]);
+  }, [acceptRoute, bindSession, checkSession, clearAcceptedRoute, disabled, invalidatePreparedRoute, isCurrentGeneration, loading, operationLabel, planBuilder, prefetchedPlan, intentKey, setQuoteChanges, stage, transition, wallet.address, wallet.authenticated, wallet.chainId, wallet.connectionVersion, wallet.isEmbedded]);
 
   const refreshReviewedQuote = useCallback(async () => {
     if (stage !== 'review' || !quoteExpired || !planBuilder || disabled || busyRef.current) return;
@@ -464,6 +498,8 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     if (!reviewed) return;
     const generation = generationRef.current + 1;
     generationRef.current = generation;
+    const preparation = createReviewPreparationScope();
+    preparationScopeRef.current = preparation;
     const walletAddress = reviewed.walletAddress.toLowerCase();
     const sessionChainId = wallet.chainId;
     const connectionVersion = wallet.connectionVersion;
@@ -488,13 +524,13 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     setStatus('planning');
     setStatusDetail('Preparing an updated quote.');
     try {
-      const planned = asRoutes(await planBuilder());
+      const planned = asRoutes(await preparation.wait(planBuilder()));
       if (!sessionMatches()) return;
       setStatus('reviewing');
-      const [preparedRoutes, preparedFeeSnapshot] = await Promise.all([
+      const [preparedRoutes, preparedFeeSnapshot] = await preparation.wait(Promise.all([
         prepareRoutesForReview(planned, walletAddress),
         wallet.isEmbedded ? fetchGasTierQuotes(reviewed.chainId) : Promise.resolve(undefined),
-      ]);
+      ]));
       if (!sessionMatches()) return;
       const { viable, failures } = preparedRoutes;
       if (!viable.length) throw new Error(`The updated transaction could not be simulated: ${failures.join('; ')}`);
@@ -503,7 +539,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       if (wallet.isEmbedded) {
         feeSnapshot = preparedFeeSnapshot?.chainId === next.chainId
           ? preparedFeeSnapshot
-          : await fetchGasTierQuotes(next.chainId);
+          : await preparation.wait(fetchGasTierQuotes(next.chainId));
       }
       if (wallet.isEmbedded && (!feeSnapshot || requestedGasTier === undefined)) {
         throw new Error('Selected network fee is unavailable. Review the action again.');
@@ -511,6 +547,14 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       const nextFeeQuote = feeSnapshot && requestedGasTier ? selectedGasTierQuote(feeSnapshot, requestedGasTier) : undefined;
       if (!sessionMatches()) return;
       if (wallet.isEmbedded && requestedGasTier && readGasTier() !== requestedGasTier) throw new Error('Network fee preference changed while preparing the updated review. Try again.');
+      setStatusDetail('Checking updated network fees and available ETH.');
+      if (wallet.isEmbedded && viable.some(candidate => feeSnapshot?.chainId !== candidate.chainId)) throw new Error('Alternative route network fees are unavailable. Review the action again.');
+      const gasEstimates = await preparation.wait(Promise.all(viable.map(candidate => routeGasCostCache.refresh(candidate, { feeTierQuote: nextFeeQuote }))));
+      if (!sessionMatches()) return;
+      if (gasEstimates.some(estimate => estimate.validUntil <= Date.now())) throw new Error('Network fee estimates expired while updating the review. Try again.');
+      if (feeSnapshot && requestedGasTier) selectedGasTierQuote(feeSnapshot, requestedGasTier);
+      if (wallet.isEmbedded && requestedGasTier && readGasTier() !== requestedGasTier) throw new Error('Network fee preference changed while preparing the updated review. Try again.');
+      if (viable.some(candidate => Date.now() - routeEstimateReadAt(candidate) >= REVIEW_FRESHNESS_MS)) throw new Error('The updated quote expired while preparing the review. Try again.');
       const termsChanged = updatedRouteTermsRequired(acceptedTerms, next);
       const previousFacts = primaryReviewFacts(reviewed);
       const nextFacts = primaryReviewFacts(next);
@@ -560,6 +604,8 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
         setStatus('failed');
       }
     } finally {
+      if (preparationScopeRef.current === preparation) preparationScopeRef.current = null;
+      preparation.cancel();
       if (isCurrentGeneration(generation)) {
         busyRef.current = false;
         setLoading(false);
@@ -620,13 +666,13 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     const executionConnectionVersion = wallet.connectionVersion;
     const executionIsEmbedded = wallet.isEmbedded;
     const isMountedExecution = () => isCurrentGeneration(generation);
+    const isCurrentCompletionSession = () => reviewCompletionSessionIsCurrent(
+      executionSessionInvalidatedRef.current,
+      { walletAddress: executionWalletAddress, connectionVersion: executionConnectionVersion, isEmbedded: executionIsEmbedded },
+      liveWalletRef.current,
+    );
     const isCurrentExecution = () => {
-      if (!isMountedExecution() || executionSessionInvalidatedRef.current) return false;
-      const liveWallet = liveWalletRef.current;
-      return liveWallet.authenticated
-        && liveWallet.address?.toLowerCase() === executionWalletAddress
-        && liveWallet.connectionVersion === executionConnectionVersion
-        && liveWallet.isEmbedded === executionIsEmbedded;
+      return isMountedExecution() && isCurrentCompletionSession();
     };
     busyRef.current = true;
     setLoading(true);
@@ -775,15 +821,15 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
               // Each task is scoped before it starts; the owning callbacks
               // retain their own account/session guards for late results.
               const refreshPromise = Promise.resolve().then(() => {
-                if (!isCurrentExecution()) return;
+                if (!isCurrentCompletionSession()) return;
                 return refreshWallet(confirmedRoute, execution);
               });
               const completePromise = Promise.resolve().then(() => {
-                if (!isCurrentExecution()) return;
+                if (!isCurrentCompletionSession()) return;
                 return onComplete?.(execution, confirmedRoute);
               });
               const outcomes = await Promise.allSettled([refreshPromise, completePromise]);
-              if (!isCurrentExecution()) return;
+              if (!isMountedExecution()) return;
               const rejected = outcomes.find((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
               if (rejected) throw rejected.reason;
             } finally {
@@ -792,6 +838,9 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
           },
         },
       });
+      // A confirmed result may close while its cache refresh is still pending.
+      // Its completion must not clear a newer action's signature recovery draft.
+      if (!isMountedExecution()) return;
       if (signatureDraftIdRef.current) {
         const actionSubmitted = execution.steps.some((step) => step.transaction.kind === 'action' && hasTransactionHash(step));
         if (shouldRemoveSignatureDraft({ actionSubmitted, routeCompleted: execution.status === 'confirmed' })) {
@@ -799,7 +848,6 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
           signatureDraftIdRef.current = null;
         }
       }
-      if (!isMountedExecution()) return;
       // A finality/confirmation timeout can skip postConfirmRead despite
       // inclusion. Mark wallet data stale for gas/approvals/reverts without
       // duplicating the refresh already running behind the result view.
@@ -902,6 +950,9 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     setLoading(true);
     try {
       const snapshot = await fetchGasTierQuotes(route.chainId);
+      if (!isCurrentGeneration(generation)) return;
+      const quote = selectedGasTierQuote(snapshot, tier);
+      await routeGasCostCache.refresh(route, { feeTierQuote: quote });
       if (!isCurrentGeneration(generation)) return;
       selectedGasTierQuote(snapshot, tier);
       const previous = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');

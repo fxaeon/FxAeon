@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePauseAutomaticPositionRefresh } from './PositionRefreshActivity';
@@ -46,6 +46,7 @@ import { buildStatusPresentation } from '@/components/review/actionReviewStatusM
 import { PositionOutcomeSummary, TransactionProgressPresentation, UpdatedQuoteSummary } from '@/components/review/ActionReviewSummary';
 import { TransactionResultView } from '@/components/review/TransactionResultView';
 import { ReviewViewport } from '@/components/review/ReviewViewport';
+import { MobileFlowSheet } from '@/components/MobileFlowSheet';
 import { positionPoolAddress } from '@/lib/fx/policy';
 import { stableTradeReviewFacts } from './review/stableTradeReviewFacts';
 import { reviewHierarchy } from './review/reviewHierarchy';
@@ -166,7 +167,8 @@ export function ActionReview(props: ActionReviewProps) {
   // This review shows its own progress and result; the header notice stays for steps settling elsewhere.
   usePresentedTransactions([...stepResults, ...(result?.steps ?? [])].map((step) => step.hash));
 
-  if (stage === 'input') {
+  if (stage === 'input' || stage === 'planning') {
+    const preparing = stage === 'planning';
     const progress = statusPresentation({ stage, status, detail: statusDetail, stepResults, stepCount: 0 });
     const disconnected = !wallet.authenticated || !wallet.address;
     const reviewLabel = quoteExpired ? 'Review updated quote' : reviewActionLabel(label, operationLabel);
@@ -187,36 +189,21 @@ export function ActionReview(props: ActionReviewProps) {
             Connect wallet
           </ConnectWalletButton>
         ) : (
-          <Button ref={triggerRef} variant={destructive ? 'danger' : 'primary'} className={styles.primaryAction} data-blocked={blocker ? true : undefined} disabled={Boolean(blocker) || !planBuilder || disabled || !wallet.ready} loading={loading} onClick={() => void review()}>
-            {blocker || reviewLabel}
+          <Button ref={triggerRef} data-review-trigger variant={destructive ? 'danger' : 'primary'} className={styles.primaryAction} data-blocked={blocker ? true : undefined} disabled={preparing || Boolean(blocker) || !planBuilder || disabled || !wallet.ready} loading={loading} onClick={() => void review()}>
+            {preparing ? 'Preparing review…' : blocker || reviewLabel}
           </Button>
         )}
-        {loading && <StatusNotice {...progress} />}
+        {preparing ? <div className={presentationStyles.inputPreparation}>
+          <p role="status" aria-live="polite">{preparationStep(status)}</p>
+          <button type="button" onClick={reset}>Cancel</button>
+        </div> : loading && <StatusNotice {...progress} />}
       </div>
       </StickyAction>
     );
     if (editor) {
-      return <>{editor}{trigger}</>;
+      return <><fieldset disabled={preparing} aria-busy={preparing} className={presentationStyles.preparationEditor}>{editor}</fieldset>{trigger}</>;
     }
     return trigger;
-  }
-
-  if (stage === 'planning' && !props.preparationFacts?.length) {
-    return (
-      <ReviewSurface surface={surface} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
-          {/* Edit keeps the review header's place, so it does not jump when the review lands. */}
-          <div className={presentationStyles.planningBar}>
-            <button type="button" onClick={reset} className={presentationStyles.editButton}><ArrowLeft aria-hidden="true" className="h-4 w-4" /> Edit</button>
-          </div>
-          <div className="flex min-h-44 flex-col items-center justify-center text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--mint-dim)] text-mint">
-              <LoaderCircle className="h-6 w-6 animate-spin" aria-hidden="true" />
-            </span>
-            <h3 ref={headingRef} data-review-focus tabIndex={-1} className="text-display mt-4 text-[21px] font-semibold outline-none">Preparing review</h3>
-            <p role="status" aria-live="polite" className={presentationStyles.planningStep}><span key={status}>{preparationStep(status)}</span></p>
-          </div>
-      </ReviewSurface>
-    );
   }
 
   if (stage === 'result' && result) {
@@ -282,9 +269,13 @@ export function ActionReview(props: ActionReviewProps) {
         targetLeverage: opened.targetLeverage,
       }
       : undefined;
-    const approvalSubmittedWithoutAction = result.status === 'partial'
-      && result.steps.some((step) => step.transaction.kind === 'approval' && hasTransactionHash(step))
+    const approvalConfirmedWithoutAction = result.status === 'partial'
+      && result.steps.some((step) => step.transaction.kind === 'approval' && step.status === 'confirmed')
+      && result.steps.filter(hasTransactionHash).every((step) => step.status === 'confirmed')
       && !result.steps.some((step) => step.transaction.kind === 'action' && hasTransactionHash(step));
+    const requiresTracking = result.status !== 'confirmed' && result.steps.some((step) =>
+      hasTransactionHash(step) && step.receipt?.status !== 'reverted'
+      && (step.status !== 'confirmed' || step.transaction.kind === 'action'));
     const receiptFacts = result.steps.flatMap((step) => {
       if (!hasTransactionHash(step) || !step.receipt) return [];
       const receiptStatus = step.receipt.status === 'success' ? 'success' : 'reverted';
@@ -304,7 +295,7 @@ export function ActionReview(props: ActionReviewProps) {
       })];
     });
     return (
-      <ReviewSurface surface={surface} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
+      <ReviewSurface surface={surface} mobileSheet={{ title: presentation.title, onClose: reset, triggerRef }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
         <TransactionResultView
           result={result}
           presentation={presentation}
@@ -332,10 +323,11 @@ export function ActionReview(props: ActionReviewProps) {
               destinationBaselineBlock={bridgeQuote.destinationBaselineBlock}
             />
           ) : undefined}
-          nextLabel={transactionTask ? 'View transaction progress' : approvalSubmittedWithoutAction ? 'Continue action' : bridge ? 'Back to Move' : closedPosition ? 'View positions' : positionAction ? 'View position' : result.status === 'confirmed' ? 'Done' : 'Try again'}
+          nextLabel={approvalConfirmedWithoutAction ? 'Continue action' : transactionTask ? 'View transaction progress' : requiresTracking ? 'View history' : bridge ? 'Back to Move' : closedPosition ? 'View positions' : positionAction ? 'View position' : result.status === 'confirmed' ? 'Done' : 'Try again'}
           onNext={() => {
-            if (approvalSubmittedWithoutAction) { reset(); return; }
+            if (approvalConfirmedWithoutAction) { reset(); return; }
             if (transactionTask) { router.push(transactionTask.href); return; }
+            if (requiresTracking) { router.push('/history'); return; }
             if (positionAction) {
               // A position this review just opened can open in place, carrying its split.
               if (newPosition && positionHref && onViewNewPosition) { onViewNewPosition({ key: newPosition.key, href: positionHref }); return; }
@@ -351,8 +343,7 @@ export function ActionReview(props: ActionReviewProps) {
   }
 
   const stablePreparation = Boolean(props.preparationFacts?.length);
-  const preparing = stage === 'planning';
-  if (!route && !stablePreparation) return null;
+  if (!route) return null;
   const reviewChainId = route?.chainId ?? 1; // Trade's inputs are Ethereum-only.
   const stepCount = route?.transactions.length ?? 0;
   // A wallet that cannot pay the network fee would only reach a failed or
@@ -363,7 +354,7 @@ export function ActionReview(props: ActionReviewProps) {
   const feeNetwork = reviewChainId === 8453 ? 'Base' : 'Ethereum';
   const fundsNotice = fundsShort && !quoteExpired ? nativeFundsNotice(gasCost.current, feeNetwork) : undefined;
   const requestsNotice = stage === 'review' && !quoteExpired && route ? walletRequestsNotice(route.transactions) : undefined;
-  const visibleFeeSelection = preparing ? null : feeSelection;
+  const visibleFeeSelection = feeSelection;
   const feeTierQuote = wallet.isEmbedded && visibleFeeSelection?.snapshot.chainId === reviewChainId
     ? visibleFeeSelection.snapshot.tiers[visibleFeeSelection.tier]
     : undefined;
@@ -384,9 +375,10 @@ export function ActionReview(props: ActionReviewProps) {
   const remainingSummaryFacts = factsOutsideConsequenceSummary(reviewFacts.summary, actionConsequences);
   const verifiedSummaryFacts = [...actionConsequences, ...remainingSummaryFacts].filter((fact) => !['Gas tier', 'Action'].includes(fact.label));
   const summaryFacts = stablePreparation
-    ? stableTradeReviewFacts(props.preparationFacts ?? [], verifiedSummaryFacts, { preparing, failed: status === 'failed', checkingGas, hasVerifiedRoute: Boolean(route), totalIsGasOnly: Boolean(route && gasCost.estimateIsCurrent && gasCost.estimate?.nativeValueWei === 0n && gasCost.estimate.totalNativeCostWei !== undefined) })
+    ? stableTradeReviewFacts(props.preparationFacts ?? [], verifiedSummaryFacts, { preparing: false, failed: status === 'failed', checkingGas, hasVerifiedRoute: true, totalIsGasOnly: Boolean(gasCost.estimateIsCurrent && gasCost.estimate?.nativeValueWei === 0n && gasCost.estimate.totalNativeCostWei !== undefined) })
     : verifiedSummaryFacts;
-  const primaryAmount = summaryFacts.find((fact) => ['Amount', 'Input amount', 'Deposit', 'Repay', 'fxSAVE'].includes(fact.label));
+  const primaryAmount = summaryFacts.find((fact) => ['Amount', 'Input amount', 'Deposit', 'Repay', 'fxSAVE'].includes(fact.label))
+    ?? summaryFacts.find((fact) => ['Minimum received', 'Estimated received', 'Receive', 'Withdraw', 'Borrow'].includes(fact.label));
   const intent = route?.policy?.reviewedAction;
   const tradeReview = stablePreparation || (intent?.kind === 'position-increase' && intent.positionId === 0);
   const newBorrowReview = intent?.kind === 'deposit-and-mint' && intent.positionId === 0;
@@ -394,7 +386,11 @@ export function ActionReview(props: ActionReviewProps) {
   const executionPrice = hierarchy.primary.find(fact => fact.label === 'Execution price');
   const fxFee = [...hierarchy.primary, ...hierarchy.more].find(fact => fact.label === 'f(x) fee');
   const actionName = reviewTitle ?? operationLabel ?? route?.operation ?? label;
-  const positionName = tradeReview ? actionName.replace(/^(?:Review|Open)\s+/i, '') : undefined;
+  const positionName = tradeReview ? actionName.replace(/^(?:Review|Open|Increase)\s+/i, '') : undefined;
+  const headingLeverage = hierarchy.leverage && /^\d+(?:\.\d+)?[×x]$/.test(hierarchy.leverage.value) ? hierarchy.leverage.value : undefined;
+  const actionHeading = tradeReview
+    ? `${positionName?.replace(/^(.+)\s+(Long|Short)$/i, '$2 $1')}${headingLeverage ? ` ${headingLeverage}` : ''}`
+    : actionName;
   const approvals = (route?.transactions ?? [])
     .map((transaction) => {
       const approval = approvalFacts(transaction);
@@ -412,17 +408,21 @@ export function ActionReview(props: ActionReviewProps) {
   const activeStep = route?.transactions.findIndex((_, index) => stepResults[index]?.status !== 'confirmed') ?? 0;
   const nextTransaction = route?.transactions[activeStep];
   const confirmLabel = nextTransaction?.kind === 'approval' ? stepTitle(nextTransaction) : tradeReview ? 'Open position' : 'Confirm';
+  const networkCaption = <p className={presentationStyles.reviewNetwork}><span aria-hidden="true"><ChainIcon chainId={reviewChainId} size={16} /></span>{chainName(reviewChainId)}</p>;
+  const actionNotice = error ?? (fundsNotice ? <>{fundsNotice} <ReceiveLink /></>
+    : checkingGas ? 'Checking network fees and available ETH.'
+      : quoteExpired ? 'Quote expired. Review fresh terms to continue.' : requestsNotice);
   return (
-    <ReviewSurface stable={stablePreparation} surface={surface} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
-      <ReviewViewport stable={stablePreparation} busy={preparing && status !== 'failed'}>
-      <header className={presentationStyles.reviewHeader}>
+    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: actionHeading, subtitle: networkCaption, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing' }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
+      <ReviewViewport stable={stablePreparation}>
+      <header data-review-header className={presentationStyles.reviewHeader}>
         <div>
           <h3 ref={headingRef} data-review-focus tabIndex={-1} className="text-display outline-none">
-            {tradeReview ? `Review ${positionName}` : actionName}
+            {actionHeading}
           </h3>
-          <p className={presentationStyles.reviewNetwork}><span aria-hidden="true"><ChainIcon chainId={reviewChainId} size={16} /></span>{chainName(reviewChainId)}</p>
+          {networkCaption}
         </div>
-        <button type="button" disabled={loading && !preparing} onClick={reset} className={presentationStyles.editButton}>
+        <button data-review-edit type="button" disabled={loading} onClick={reset} className={presentationStyles.editButton}>
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Edit
         </button>
       </header>
@@ -467,12 +467,9 @@ export function ActionReview(props: ActionReviewProps) {
         </div>
       )}
 
-      <div className={`${styles.reviewFacts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
+      <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
         {primaryAmount && <ReviewAmount key={primaryAmount.label} fact={primaryAmount} trade={tradeReview} />}
-        {tradeReview && <div className={presentationStyles.positionSummary} data-review-position>
-          <span>{positionName}</span><span data-review-fact="Target leverage">{hierarchy.leverage?.value ?? '—'}</span>
-        </div>}
-        {(tradeReview || newBorrowReview) && <ReviewRiskPrices route={route} execution={executionPrice} showExecution={tradeReview} pending={preparing && status !== 'failed'} />}
+        {(tradeReview || newBorrowReview) && <ReviewRiskPrices route={route} execution={executionPrice} showExecution={tradeReview} pending={false} />}
         {hierarchy.primary.filter(fact => fact !== primaryAmount && !(tradeReview && fact.label === 'Execution price')).map(fact =>
           <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Gas fee' ? 'Network fee' : undefined} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
      </div>
@@ -495,7 +492,7 @@ export function ActionReview(props: ActionReviewProps) {
       </ol>}
 
       {/* Trade's card says this in its status line, and an error already says why the route must be reviewed again. */}
-      {!preparing && quoteExpired && !stablePreparation && !error && <p role="status" className={presentationStyles.reviewNotice}>This reviewed quote expired. Refresh and review the updated terms before signing.</p>}
+      {quoteExpired && !stablePreparation && !error && <p role="status" className={presentationStyles.reviewNotice}>Quote expired. Review updated terms before signing.</p>}
       {stage === 'review' && <UpdatedQuoteSummary changes={quoteChanges} />}
 
       {route && wrongNetwork && <p role="status" className={presentationStyles.reviewNotice}>Wallet is on {chainName(wallet.chainId!)}. Confirmation will switch to {chainName(reviewChainId)} before signing.</p>}
@@ -547,7 +544,7 @@ export function ActionReview(props: ActionReviewProps) {
         </section>
       </details>
 
-      </> : <p className="py-3 text-[12px] text-mut">Transaction details will appear after verification.</p>}
+      </> : null}
       {route && <AdvancedReviewDetails route={route} />}
       </div>
       </details>
@@ -556,27 +553,21 @@ export function ActionReview(props: ActionReviewProps) {
       {!stablePreparation && !showExecutionProgress && !(stage === 'review' && status === 'reviewing') && !(stage === 'review' && status === 'failed' && error) && <div className="mt-4"><StatusNotice {...progress} /></div>}
       {(!stablePreparation || stage === 'executing') && error && <div className="mt-3"><InlineError message={error} /></div>}
       </div>
-      {(stage === 'review' || preparing) && (
-        <div className={styles.reviewInlineActions}>
-          {stablePreparation && <><span className="sr-only" role="status" aria-live="polite">{preparing ? status === 'failed' ? 'Review preparation failed.' : 'Preparing review.' : quoteExpired ? 'Review expired.' : 'Transaction route checked.'}</span><p role={error ? 'alert' : undefined} aria-live={error ? 'assertive' : 'off'} className={`${presentationStyles.stableReviewStatus} ${preparing && status !== 'failed' ? presentationStyles.preparingReviewStatus : ''} ${error || fundsNotice || (quoteExpired && !preparing) ? 'text-warn' : 'text-mut'}`}>
-            {error ?? (fundsNotice
-              ? <>{fundsNotice} <ReceiveLink /></>
-              : preparing ? <span key={status} className={presentationStyles.stepText}>{preparationStep(status)}</span>
-                : checkingGas ? 'Checking network fees and available ETH.'
-                  : quoteExpired ? 'Quote expired. Review fresh terms to continue.' : requestsNotice ?? 'Confirm the terms, then continue in your wallet.')}
-          </p></>}
+      {stage === 'review' && (
+        <div className={`${styles.reviewInlineActions} ${presentationStyles.actions}`}>
+          {stablePreparation && <><span className="sr-only" role="status" aria-live="polite">{quoteExpired ? 'Review expired.' : 'Transaction route checked.'}</span>{actionNotice && <p role={error ? 'alert' : undefined} aria-live={error ? 'assertive' : 'off'} className={`${presentationStyles.stableReviewStatus} ${error || fundsNotice || quoteExpired ? 'text-warn' : 'text-mut'}`}>{actionNotice}</p>}</>}
           {!stablePreparation && fundsNotice && <p className={styles.fundsNote} role="status">
             {fundsNotice} <ReceiveLink />
           </p>}
           {!stablePreparation && !fundsNotice && requestsNotice && <p className={styles.requestsNote}>{requestsNotice}</p>}
           <Button variant={destructive ? 'danger' : 'primary'} data-blocked={fundsNotice ? true : undefined}
-            disabled={disabled || !planBuilder || loading || (preparing && status !== 'failed') || (!preparing && !quoteExpired && (status === 'failed' || fundsShort || checkingGas))} loading={loading && !preparing} className={styles.primaryAction}
-            onClick={() => preparing ? void review() : quoteExpired ? void refreshReviewedQuote() : void execute()}>
-            {preparing ? status === 'failed' ? 'Retry review' : 'Checking transaction…' : quoteExpired ? 'Review updated quote' : fundsShort ? 'Not enough ETH' : checkingGas ? 'Checking network fees…' : confirmLabel}
+            disabled={disabled || !planBuilder || loading || (!quoteExpired && (status === 'failed' || fundsShort || checkingGas))} loading={loading} className={styles.primaryAction}
+            onClick={() => quoteExpired ? void refreshReviewedQuote() : void execute()}>
+            {quoteExpired ? 'Review updated quote' : fundsShort ? 'Not enough ETH' : checkingGas ? 'Checking network fees…' : confirmLabel}
           </Button>
         </div>
       )}
-      {stage === 'executing' && <div className={styles.reviewInlineActions}>
+      {stage === 'executing' && <div className={`${styles.reviewInlineActions} ${presentationStyles.actions}`}>
         <Button disabled loading className={styles.primaryAction}>
           {networkSwitching ? 'Switching network…' : status === 'awaiting-user' ? 'Confirm in wallet' : status === 'submitted' || status === 'included' || status === 'confirming' ? 'Waiting for confirmation…' : 'Preparing next step…'}
         </Button>
@@ -587,9 +578,11 @@ export function ActionReview(props: ActionReviewProps) {
 
 }
 
-function ReviewSurface({ surface, className, children, stable = false }: { surface: 'card' | 'content'; className: string; children: ReactNode; stable?: boolean }) {
-  if (surface === 'content') return <div className={`${styles.reviewInlineContent} reviewInlineContent ${stable ? '' : presentationStyles.surfaceEnter}`}>{children}</div>;
-  return <Card className={`${className} ${stable ? '' : presentationStyles.surfaceEnter}`}>{children}</Card>;
+function ReviewSurface({ surface, className, children, stable = false, mobileSheet }: { surface: 'card' | 'content'; className: string; children: ReactNode; stable?: boolean; mobileSheet: { title: string; subtitle?: ReactNode; onClose: () => void; triggerRef: RefObject<HTMLElement | null>; dismissible?: boolean } }) {
+  const content = surface === 'content'
+    ? <div data-review-surface className={`${styles.reviewInlineContent} reviewInlineContent ${stable ? '' : presentationStyles.surfaceEnter}`}>{children}</div>
+    : <Card data-review-surface className={`${className} ${stable ? '' : presentationStyles.surfaceEnter}`}>{children}</Card>;
+  return <MobileFlowSheet {...mobileSheet}>{content}</MobileFlowSheet>;
 }
 
 /** `equivalent` reads muted beneath the value: the same amount in another unit, never the signed figure. */

@@ -1,5 +1,5 @@
 .icon { flex: 0 0 auto; border-radius: 50%; object-fit: contain; }
-.fallback { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; background: var(--mint-dim); border: 0; border-radius: 50%; color: var(--mint); font-size: var(--fs-caption); font-weight: 650; }
+.fallback { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; background: var(--mint-dim); border: 0; border-radius: 50%; color: var(--mint-text); font-size: var(--fs-caption); font-weight: 650; }
 .networkIcon { display: inline-flex; position: relative; flex: 0 0 auto; }
 .chainBadge { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; width: 19px; height: 19px; border: 2px solid var(--surface); border-radius: 50%; background: var(--surface); }
 .chainBadge img { border-radius: 50%; }

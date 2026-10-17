@@ -1,38 +1,13 @@
 (() => {
   const root = document.documentElement;
-  let saved;
+  root.dataset.theme = "dark";
   try {
-    saved = localStorage.getItem("fxaeon-theme");
+    localStorage.removeItem("fxaeon-theme");
   } catch {
     /* Storage is optional. */
   }
-  root.dataset.theme = saved === "light" ? "light" : "dark";
   root.dataset.js = "true";
   const init = () => {
-    const toggle = document.querySelector(".theme-toggle");
-    const applyTheme = () => {
-      const dark = root.dataset.theme === "dark";
-      toggle.setAttribute(
-        "aria-label",
-        dark ? "Switch to light theme" : "Switch to dark theme",
-      );
-      toggle.querySelector("[data-theme-label]").textContent = dark
-        ? "Light mode"
-        : "Dark mode";
-      document.querySelector('meta[name="theme-color"]').content = dark
-        ? "#11151e"
-        : "#ffffff";
-    };
-    applyTheme();
-    toggle.addEventListener("click", () => {
-      root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
-      try {
-        localStorage.setItem("fxaeon-theme", root.dataset.theme);
-      } catch {
-        /* Storage is optional. */
-      }
-      applyTheme();
-    });
     const menu = document.querySelector(".site-menu");
     const opener = document.querySelector(".menu-toggle");
     opener.addEventListener("click", () => {
@@ -91,7 +66,7 @@
         { threshold: 0.12 },
       );
       document
-        .querySelectorAll(".section-head, .protocol-flow, .principles article, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .footer-invite")
+        .querySelectorAll(".section-head, .protocol-steps li, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .footer-invite")
         .forEach((element) => reveals.observe(element));
     }
   };

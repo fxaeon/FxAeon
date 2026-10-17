@@ -1,5 +1,7 @@
 'use client';
 
+import { isReviewInputStage } from '@/components/review/actionReviewTypes';
+
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeftRight, ChevronDown, Code2, UserRound } from 'lucide-react';
 import { formatUnits, isAddress, type Address } from 'viem';
@@ -520,7 +522,7 @@ export default function MovePage() {
           data-flow-stage={reviewStage}
           className={`${styles.focusCard} ${styles.moveCard} ${moveStyles.moveCard} p-5`}
         >
-          {reviewStage === 'input' && <>
+          {isReviewInputStage(reviewStage) && <>
           <div className={moveStyles.cardHead}><span>Bridge{advanced && <small className={moveStyles.modeBadge}>Custom route</small>}</span>
             <TransactionSettings scope="Move" chainId={sourceChainId}>
               <section className={moveStyles.expertSettings} aria-label="Custom bridge contracts">
@@ -582,7 +584,6 @@ export default function MovePage() {
                 <QuoteRow label="Estimated source gas" value={preview?.sourceGas !== undefined ? `${displayBridgeAmount(preview.sourceGas)} ETH` : 'Calculated at review'} title={preview?.sourceGas !== undefined ? `${formatUnits(preview.sourceGas, 18)} ETH` : undefined} />
                 <QuoteRow label="Delivery estimate" value="Not provided by bridge" />
               </dl>
-              <p className={moveStyles.quoteNote}>Final fees and amounts are checked again at review.</p>
             </section>}
             {Boolean(amountWei) && <p className={moveStyles.gasNote} data-shortfall={nativeShortfall || undefined} role={nativeShortfall ? 'alert' : undefined}>
               {nativeShortfall ? preview?.sourceGas !== undefined
@@ -637,7 +638,7 @@ export default function MovePage() {
           />
         </Card>
         </div>
-        {reviewStage === 'input' && <MoveSections />}
+        {isReviewInputStage(reviewStage) && <MoveSections />}
       </ActionWorkspace>
     </AppShell>
   );

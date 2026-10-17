@@ -86,6 +86,12 @@ async function checkNoOverflow(page, width) {
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,
     body: document.body.scrollWidth,
+    overflowing: [...document.body.querySelectorAll('*')].map((element) => ({
+      name: `${element.tagName.toLowerCase()}${element.className && typeof element.className === 'string' ? `.${element.className.trim().replace(/\s+/g, '.')}` : ''}`,
+      left: Math.round(element.getBoundingClientRect().left),
+      right: Math.round(element.getBoundingClientRect().right),
+      width: Math.round(element.getBoundingClientRect().width),
+    })).filter((element) => element.right > document.documentElement.clientWidth || element.left < 0).slice(0, 12),
   }));
   assert.ok(dimensions.document <= dimensions.viewport && dimensions.body <= dimensions.viewport,
     `Horizontal overflow at ${width}px: ${JSON.stringify(dimensions)}`);
@@ -127,7 +133,7 @@ try {
       `https://t.me/FxAeonBot?startapp=${route}`,
     ], `${route} opens the matching Telegram screen on a phone`);
   }
-  await assertTextContrast(page, 'main h1, .product-card p, summary, footer .theme-toggle', 'dark theme');
+  await assertTextContrast(page, 'main h1, .product-card p, summary, footer .footer-invite h2', 'dark theme');
   await checkNoOverflow(page, 390);
 
   // The native dialog contains focus and closes on Escape, restoring the opener.
@@ -166,19 +172,14 @@ try {
   await page.waitForFunction((hash) => !document.querySelector('dialog').open && location.hash === hash, destination);
   await checkNoOverflow(page, 390);
 
-  // Theme choice is accessible, changes the browser chrome, and survives reload.
-  const theme = page.locator('footer .theme-toggle');
-  assert.ok(await theme.getAttribute('aria-label'));
-  await theme.click();
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
-  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#ffffff');
-  assert.ok(await theme.getAttribute('aria-label'));
-  await assertTextContrast(page, 'main h1, .product-card p, summary, footer .theme-toggle', 'light theme');
-  await checkNoOverflow(page, 390);
+  // Old light-theme preferences are cleared and the landing stays dark-only.
+  assert.equal(await page.locator('.theme-toggle').count(), 0);
+  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#101214');
+  await page.evaluate(() => localStorage.setItem('fxaeon-theme', 'light'));
   await page.reload({ waitUntil: 'networkidle' });
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light', 'Theme persists across reload');
-  await page.locator('footer .theme-toggle').click();
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark', 'The landing remains dark-only after reload');
+  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#101214');
+  assert.equal(await page.evaluate(() => localStorage.getItem('fxaeon-theme')), null, 'Legacy theme preference is removed');
 
   // Device routing depends on CSS capability, and narrow screens remain usable.
   for (const width of [320, 360, 390, 430, 760, 860, 861, 1024, 1440]) {
@@ -215,10 +216,82 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'off', 'Motion preference persists');
   await page.getByRole('button', { name: 'Resume animations', exact: true }).click();
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
+
+  // An initially paused preference must not touch WebGL, then must start it
+  // when both the page and system settings allow motion.
+  const motionContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await motionContext.addInitScript(() => {
+    localStorage.setItem('fxaeon-motion', 'off');
+    window.__landingProbe = { webglAttempts: 0, pendingFrames: new Set() };
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
+      if (kind === 'webgl2') window.__landingProbe.webglAttempts += 1;
+      return getContext.call(this, kind, ...args);
+    };
+    const request = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) => {
+      let id;
+      id = request((time) => {
+        window.__landingProbe.pendingFrames.delete(id);
+        callback(time);
+      });
+      window.__landingProbe.pendingFrames.add(id);
+      return id;
+    };
+    const cancel = window.cancelAnimationFrame.bind(window);
+    window.cancelAnimationFrame = (id) => {
+      window.__landingProbe.pendingFrames.delete(id);
+      cancel(id);
+    };
+  });
+  const motionPage = await motionContext.newPage();
+  await motionPage.goto(origin, { waitUntil: 'networkidle' });
+  assert.equal(await motionPage.locator('html').getAttribute('data-motion'), 'off');
+  assert.equal(await motionPage.evaluate(() => window.__landingProbe.webglAttempts), 0, 'Motion-off preference avoids WebGL initialization');
+  await motionPage.emulateMedia({ reducedMotion: 'no-preference' });
+  await motionPage.getByRole('button', { name: 'Resume animations', exact: true }).click();
+  assert.equal(await motionPage.locator('html').getAttribute('data-motion'), 'on');
+  await motionPage.waitForFunction(() => window.__landingProbe.webglAttempts === 1);
+  await motionPage.waitForTimeout(100);
+  await motionPage.emulateMedia({ reducedMotion: 'reduce' });
+  await motionPage.waitForFunction(() => document.documentElement.dataset.motion === 'off');
+  await motionPage.waitForTimeout(80);
+  assert.equal(await motionPage.evaluate(() => window.__landingProbe.pendingFrames.size), 0, 'System reduced-motion preference stops hero frames');
+  await motionPage.emulateMedia({ reducedMotion: 'no-preference' });
+  await motionPage.waitForFunction(() => document.documentElement.dataset.motion === 'on');
+  await motionPage.waitForTimeout(80);
+  await motionPage.getByRole('button', { name: 'Pause animations', exact: true }).click();
+  await motionPage.waitForTimeout(80);
+  assert.equal(await motionPage.evaluate(() => window.__landingProbe.pendingFrames.size), 0, 'Pausing cancels any scheduled hero frame');
+  await motionContext.close();
+
+  // Simulate a browser without WebGL2; the static contour artwork remains
+  // visible and the shader failure does not produce runtime errors.
+  const fallbackContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference' });
+  await fallbackContext.addInitScript(() => {
+    window.__landingProbe = { webglAttempts: 0 };
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
+      if (kind === 'webgl2') {
+        window.__landingProbe.webglAttempts += 1;
+        return null;
+      }
+      return getContext.call(this, kind, ...args);
+    };
+  });
+  const fallbackPage = await fallbackContext.newPage();
+  const fallbackErrors = [];
+  fallbackPage.on('pageerror', (error) => fallbackErrors.push(error.message));
+  await fallbackPage.goto(origin, { waitUntil: 'networkidle' });
+  assert.equal(await fallbackPage.evaluate(() => window.__landingProbe.webglAttempts), 1);
+  assert.equal(await fallbackPage.locator('.hero-contours').evaluate((element) => getComputedStyle(element).display !== 'none' && getComputedStyle(element).opacity !== '0'), true, 'Static contour fallback remains visible without WebGL2');
+  assert.deepEqual(fallbackErrors, [], 'Missing WebGL2 does not throw');
+  await fallbackContext.close();
+
   assert.deepEqual(errors, [], 'Landing threw browser errors');
   assert.deepEqual(externalRequests, [], 'Landing requested no external services');
 
-  console.log('Landing browser checks passed: product coverage and links, keyboard menu behavior, theme and motion preferences, text contrast in both themes, reduced motion, responsive device routing, no horizontal overflow, and no external requests.');
+console.log('Landing browser checks passed: product coverage and links, keyboard menu behavior, dark-only theme, motion preferences, text contrast, reduced motion, responsive device routing, no horizontal overflow, and no external requests.');
 } finally {
   await browser?.close();
   server.kill();

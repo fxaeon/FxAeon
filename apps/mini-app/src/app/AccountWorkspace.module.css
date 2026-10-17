@@ -41,21 +41,21 @@
 .actions { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
 .actions::-webkit-scrollbar { display: none; }
 .action { display: flex; min-width: 112px; min-height: 68px; flex: 1 0 112px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); padding: 12px; color: var(--text); font-size: 13px; font-weight: 650; transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease; }
-.action span { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--mint) 16%, transparent); color: var(--mint); }
+.action span { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--mint) 16%, transparent); color: var(--mint-text); }
 .action:hover { border-color: color-mix(in srgb, var(--mint) 46%, var(--line)); background: var(--surface-3); transform: translateY(-1px); }
 
 .walletTrigger, .walletConnect, .walletIconAction { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
 .walletTrigger, .walletConnect { min-height: 44px; border-radius: 14px; padding: 0 13px; }
 .walletConnect { display: inline-flex; align-items: center; gap: 8px; color: var(--mint-text); font-size: 12px; font-weight: 650; }
 .walletIconAction { display: inline-flex; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; border-radius: 14px; color: var(--mut); }
-.walletIconAction:hover { color: var(--mint); }
+.walletIconAction:hover { color: var(--mint-text); }
 
 .market, .protocolTools { display: flex; min-width: 0; gap: 10px; }
 .market > *, .protocolTools > * { min-width: 0; flex: 1 1 0; }
 .market > * { border-radius: 20px !important; }
 .protocolCard { display: flex; min-height: 112px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; padding: 18px !important; color: var(--text); transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease; }
 .protocolCard > span { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
-.protocolCard > span:first-child { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 14px; background: color-mix(in srgb, var(--mint) 14%, transparent); color: var(--mint); }
+.protocolCard > span:first-child { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 14px; background: color-mix(in srgb, var(--mint) 14%, transparent); color: var(--mint-text); }
 .protocolCard small { color: var(--mut); font-size: 12px; }
 .protocolCard strong { font-size: 16px; font-weight: 650; }
 .protocolCard em { color: var(--mut); font-size: 12px; font-style: normal; }

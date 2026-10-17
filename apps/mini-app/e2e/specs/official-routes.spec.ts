@@ -689,39 +689,31 @@ test.describe("browser wallet connection", () => {
   });
 });
 
-test.describe("theme control", () => {
+test.describe("dark appearance", () => {
   test.use({ telegram: false });
 
-  test("switches between light and dark themes, supports radio-key navigation, and persists the choice", async ({ page, requests }) => {
-    await page.goto("/settings", { waitUntil: "domcontentloaded" });
-    const appearance = page.getByRole("radiogroup", { name: "Appearance theme", exact: true });
-    await expect(appearance.getByRole("radio")).toHaveCount(2);
-    const officialTheme = appearance.getByRole("radio", { name: /^Light/ });
-    await expect(officialTheme).toHaveAttribute("aria-checked", "true");
-    await officialTheme.focus();
-    await officialTheme.press("ArrowRight");
+  test("renders dark before hydration and migrates saved light preferences", async ({ page, requests }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("fxaeon_theme_id_v2", "official");
+      window.localStorage.setItem("fxaeon_theme_id", "light");
+    });
+    const response = await page.goto("/settings", { waitUntil: "domcontentloaded" });
+    expect(await response!.text()).toMatch(/<html[^>]*data-theme="dark"/);
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(appearance.getByRole("radio", { name: /^Dark/ })).toHaveAttribute("aria-checked", "true");
+    await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem("fxaeon_theme_id_v2"))).toBe("dark");
+    await expect(page.getByRole("radiogroup", { name: "Appearance theme", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Switch to .* theme/ })).toHaveCount(0);
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Dark theme. Switch to light theme" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "official");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     // Portfolio's sole header entry uses the text token. Check the contrasting
     // primary CTA on Earn now that Portfolio no longer duplicates it in main.
     await page.goto("/earn", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("main").getByRole("button", { name: "Connect wallet", exact: true })).toHaveCSS("color", "rgb(255, 255, 255)");
-    await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())).toBe('#f3f6fb');
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Light theme. Switch to dark theme" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await page.evaluate(() => {
-      window.localStorage.removeItem("fxaeon_theme_id_v2");
-      window.localStorage.setItem("fxaeon_theme_id", "dark");
-    });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "official");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     assertNoBackendRequests(requests);
   });
 });
@@ -729,18 +721,19 @@ test.describe("theme control", () => {
 test.describe("Move and More compact surfaces", () => {
   test.use({ telegram: false });
 
-  test("More exposes wallet/account destinations, docs, and appearance choices", async ({ page, requests }) => {
+  test("More exposes wallet/account destinations and docs without appearance choices", async ({ page, requests }) => {
     await page.goto("/more", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("link", { name: /History/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Receive/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Settings/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Appearance/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Appearance/ })).toHaveCount(0);
     for (const redundantGroupTitle of ["Account", "Preferences", "f(x) Protocol", "Resources"]) {
       await expect(page.getByRole("heading", { name: redundantGroupTitle, exact: true })).toHaveCount(0);
     }
     await expect(page.getByRole("link", { name: "FxAeon docs", exact: true })).toHaveAttribute("href", "/docs");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("radiogroup", { name: "Appearance theme", exact: true })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Appearance theme", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: "Slippage tolerance" })).toBeVisible();
     assertNoBackendRequests(requests);
   });
 
@@ -757,7 +750,7 @@ test.describe("Move and More compact surfaces", () => {
 
       await page.goto("/settings", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("radiogroup", { name: "Slippage tolerance" })).toBeVisible();
-      await expect(page.getByRole("radiogroup", { name: "Appearance theme" })).toBeVisible();
+      await expect(page.getByRole("radiogroup", { name: "Appearance theme" })).toHaveCount(0);
       expect(await page.getByRole("main").evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
     }
   });

@@ -19,45 +19,41 @@
   .rows[data-shown] .row:nth-child(3) .borrowed { transition-delay: 240ms; }
   .rows[data-shown] .row:nth-child(3) .share { transition-delay: 760ms; }
 }
-/* The ticket's live split, centred between the slider's range ends: figures
-   in text colour, words muted, tabular so the row holds still while dragging. */
-.caption { min-width: 0; color: var(--mut); text-align: center; font-variant-numeric: tabular-nums; }
-.caption b { color: var(--text); font-weight: 650; }
-
 /* The leverage slider spans the live min/max range. The filled part ends at
-   the chosen leverage; the educational debt split is stated below the track. */
+   the chosen leverage; the debt/equity split stays in the expanded explainer. */
 .slider {
   position: relative;
+  display: grid;
+  grid-template-columns: 13px minmax(0, 1fr) 13px;
   height: 44px;
+  align-items: center;
   cursor: pointer;
   touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
 }
 .sliderBar {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  left: 0;
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
-  height: 8px;
+  width: 100%;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
-  background: var(--surface-2);
-  transform: translateY(-50%);
+  background: var(--surface-3);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
+  transform: none;
   pointer-events: none;
 }
-.sliderDebt, .sliderYours { display: block; height: 100%; }
-.sliderDebt { flex: 0 0 calc(var(--share) * 100%); background: linear-gradient(90deg, var(--mint), var(--brand-coral)); }
-.sliderYours { flex: 1 1 auto; background: color-mix(in srgb, var(--text) 24%, transparent); }
-/* Whole-× ticks are hairlines standing on the bar's upper edge, in an ink
-   mixed from the text and the ground: they mark the scale without ever
-   cutting the split, and step aside near the thumb (see LeverageSplitRange). */
+.sliderSelected, .sliderRemaining { display: block; height: 100%; }
+.sliderSelected { flex: 0 0 calc(var(--share) * 100%); background: linear-gradient(90deg, color-mix(in srgb, var(--mint) 78%, var(--surface)), var(--mint-bright)); }
+.sliderRemaining { flex: 1 1 auto; background: transparent; }
+/* Whole-× ticks mark the leverage scale without competing with the thumb. */
 .sliderTicks {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  left: 0;
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
   height: 0;
   pointer-events: none;
 }
@@ -71,15 +67,6 @@
   background: color-mix(in srgb, var(--text) 40%, var(--lever-ground, var(--surface)));
 }
 .sliderTick[data-near-thumb] { opacity: 0; }
-.sliderOff {
-  --ground: var(--lever-ground, var(--surface));
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: linear-gradient(var(--ground) 0 25%, color-mix(in srgb, var(--ground) 52%, transparent) 25% 75%, var(--ground) 75%);
-}
-.sliderOff[data-end='min'] { left: 0; width: calc(var(--min-share) * 100%); }
-.sliderOff[data-end='max'] { right: 0; left: calc(var(--max-share) * 100%); }
 /* Transparent and pointer-free: it carries the slider's semantics and keys, the drawing carries the pointer. */
 .sliderInput {
   position: absolute;
@@ -95,51 +82,51 @@
   appearance: none;
 }
 .sliderThumb {
-  position: absolute;
-  top: 50%;
-  left: calc(var(--share) * 100%);
-  width: 26px;
-  height: 26px;
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  justify-self: start;
+  align-self: center;
+  margin-left: calc(var(--share) * 100%);
+  border: 3px solid var(--surface);
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 2px var(--mint), 0 1px 2px rgba(10, 6, 24, 0.3), 0 4px 12px rgba(10, 6, 24, 0.24), 0 0 0 6px color-mix(in srgb, var(--mint) 18%, transparent);
-  transform: translate(-50%, -50%);
+  background: var(--mint-bright);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mint-bright) 90%, white), 0 2px 5px rgba(10, 6, 24, 0.34), 0 4px 12px rgba(10, 6, 24, 0.2), 0 0 0 5px color-mix(in srgb, var(--mint) 14%, transparent);
+  transform: translateX(-50%);
   pointer-events: none;
 }
-.slider[data-dragging] .sliderThumb { box-shadow: 0 0 0 2px var(--mint), 0 1px 2px rgba(10, 6, 24, 0.3), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 9px color-mix(in srgb, var(--mint) 18%, transparent); }
+.slider[data-dragging] .sliderThumb { box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 5px rgba(10, 6, 24, 0.34), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 8px color-mix(in srgb, var(--mint) 18%, transparent); }
 /* Touch screens keep :hover after a tap, so only a real hover grows the halo. */
 @media (hover: hover) {
-  .slider:hover .sliderThumb { box-shadow: 0 0 0 2px var(--mint), 0 1px 2px rgba(10, 6, 24, 0.3), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 9px color-mix(in srgb, var(--mint) 18%, transparent); }
+  .slider:hover .sliderThumb { box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 5px rgba(10, 6, 24, 0.34), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 8px color-mix(in srgb, var(--mint) 18%, transparent); }
 }
 .slider[data-dragging] { cursor: grabbing; }
 .slider:not([data-pointer-focus]) .sliderInput:focus-visible ~ .sliderThumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--mint-bright); }
-/* The boundary glides to a typed or keyed leverage, and to the other side's
-   split; under the finger it follows at once. */
+/* Typed and keyed values animate; dragging follows the pointer immediately. */
 @media (prefers-reduced-motion: no-preference) {
   .sliderThumb { transition: box-shadow var(--dur-base) var(--ease-out); }
-  .slider:not([data-dragging]) .sliderThumb { transition: left var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out); }
-  .slider:not([data-dragging]) .sliderDebt { transition: flex-basis var(--dur-base) var(--ease-out); }
-  .slider:not([data-dragging]) .sliderOff { transition: left var(--dur-base) var(--ease-out), width var(--dur-base) var(--ease-out); }
-  /* A tick fades out as the thumb nears and back as it leaves, and glides to the other side's split. */
+  .slider:not([data-dragging]) .sliderThumb { transition: margin-left var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out); }
+  .slider:not([data-dragging]) .sliderSelected { transition: flex-basis var(--dur-base) var(--ease-out); }
+  /* A tick fades as the thumb nears and follows changes to the available range. */
   .sliderTick { transition: opacity var(--dur-fast) var(--ease-out), left var(--dur-base) var(--ease-out); }
 }
 @media (forced-colors: active) {
   .sliderBar { border: 1px solid CanvasText; }
-  .sliderDebt { background: GrayText; forced-color-adjust: none; }
-  .sliderYours { background: Highlight; forced-color-adjust: none; }
-  .sliderOff { background: Canvas; forced-color-adjust: none; opacity: 0.6; }
+  .sliderSelected { background: Highlight; forced-color-adjust: none; }
+  .sliderRemaining { background: Canvas; forced-color-adjust: none; }
   .sliderTick { background: CanvasText; forced-color-adjust: none; }
   .sliderThumb { border: 2px solid CanvasText; background: Canvas; box-shadow: none; forced-color-adjust: none; }
   .slider:not([data-pointer-focus]) .sliderInput:focus-visible ~ .sliderThumb { outline: 2px solid Highlight; outline-offset: 2px; }
 }
 
-/* The range ends sit under the track where they lie: the minimum ends at the
-   boundary of the left dimmed end, the maximum starts at the right one, and the
-   split caption is centred between them. A label wider than its dimmed end
-   simply keeps its own width at the edge. */
+/* Range labels line up with the ends of the track. */
 .bounds {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  padding-inline: 13px;
+  grid-template-columns: 1fr 1fr;
   align-items: baseline;
   color: var(--mut);
   font-size: var(--fs-micro);
@@ -148,18 +135,3 @@
 }
 .bounds > :first-child { justify-self: start; }
 .bounds > :last-child { justify-self: end; }
-/* The row measures itself: below about 310px the caption runs within a few
-   pixels of wrapping, and platforms whose glyphs set a little wider (Linux,
-   Android) wrap it. There the asset name steps out of sight, still read
-   aloud, and the slider's own value text names it in full. */
-.bounds { container-type: inline-size; }
-@container (max-width: 309px) {
-  .captionAsset {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-}

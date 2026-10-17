@@ -14,7 +14,7 @@ const PrivyWalletControls = dynamic(() => import('./PrivyWalletSection'), { ssr:
 function ActionRow({ icon: Icon, title, detail, label, onClick, loading = false, disabled = false, variant = 'ghost' }: {
   icon: LucideIcon;
   title: string;
-  detail: string;
+  detail?: string;
   label: string;
   onClick: () => void;
   loading?: boolean;
@@ -23,7 +23,7 @@ function ActionRow({ icon: Icon, title, detail, label, onClick, loading = false,
 }) {
   return <div className={styles.actionRow}>
     <span className={styles.icon}><Icon size={18} aria-hidden="true" /></span>
-    <span className={styles.copy}><strong>{title}</strong><small>{detail}</small></span>
+    <span className={styles.copy}><strong>{title}</strong>{detail && <small>{detail}</small>}</span>
     <Button variant={variant} aria-label={label} className={styles.actionButton} onClick={onClick} loading={loading} disabled={disabled}>{loading ? 'Working' : label.replace(/^(Create|Connect|Export) (?:Privy |external )?wallet$/i, '$1')}</Button>
   </div>;
 }
@@ -45,7 +45,7 @@ function BrowserWalletControls() {
   if (!wallet.ready) return <div className={`${styles.panel} ${styles.loading}`} role="status" aria-live="polite"><span className="sr-only">Loading wallet provider</span></div>;
   return <div className={styles.panel}>
     <ActionRow icon={Wallet} title={wallet.authenticated && wallet.selectedWallet ? 'Browser wallet connected' : 'Connect a browser wallet'}
-      detail={wallet.authenticated && wallet.selectedWallet ? 'Reconnect your wallet.' : 'Use a browser extension or open fxaeon.com in your wallet’s mobile browser.'}
+      detail={wallet.authenticated && wallet.selectedWallet ? undefined : 'Use a browser extension or open fxaeon.com in your wallet’s mobile browser.'}
       label={wallet.authenticated && wallet.selectedWallet ? 'Reconnect wallet' : 'Connect wallet'}
       onClick={() => void connect()} loading={busy} variant={wallet.authenticated && wallet.selectedWallet ? 'ghost' : 'primary'} />
     {error && <p role="alert" className={styles.errorCopy}>{error}</p>}

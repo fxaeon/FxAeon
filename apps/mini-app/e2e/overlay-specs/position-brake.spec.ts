@@ -71,7 +71,9 @@ test('Long and Short cards say how far the market can move, with markers at the 
   await shown(short).toBe('Rebalances if BTC rises ≈ 17% (≈ $95,724)');
   await shown(card(page, 'near')).toBe('Rebalances if ETH falls ≈ 1% (≈ $2,407)');
   // Screen readers also hear where liquidation could follow.
-  await expect(long.locator('.sr-only')).toHaveText('If rebalancing can’t keep up, liquidation becomes possible once ETH falls ≈ 40% (≈ $1,459).');
+  await expect(line(long).locator('.sr-only')).toHaveText('If rebalancing can’t keep up, liquidation becomes possible once ETH falls ≈ 40% (≈ $1,459).');
+  await expect(long.locator('[data-position-price="rebalance"]')).toHaveText('≈ $1,575');
+  await expect(long.locator('[data-position-price="liquidation"]')).toHaveText('≈ $1,459');
 
   // Let the draw-in finish before measuring the bars.
   await page.waitForTimeout(1_300);
@@ -89,9 +91,11 @@ test('Long and Short cards say how far the market can move, with markers at the 
   await expect(line(rebalance)).toContainText('At the rebalance point. The protocol may rebalance part of this position.');
   await expect(rebalance.getByRole('link', { name: 'How rebalancing works' })).toHaveAttribute('href', 'https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/rebalancing-the-position-liquidation-brake');
   expect((await barGeometry(rebalance)).state).toBe('rebalance');
+  await expect(rebalance.locator('[data-position-price="rebalance"]')).toHaveText('Reached');
 
   // A failed read omits the line and markers; the split falls back to the valuation.
   const failed = card(page, 'failed');
+  await expect(failed.locator('[data-position-price="rebalance"]')).toContainText('Estimated rebalance price unavailable');
   await expect(failed.locator('[data-position-brake], [data-brake-marker], [aria-label="Loading rebalance point"]')).toHaveCount(0);
   const failedBar = await barGeometry(failed);
   expect(failedBar.state).toBeNull();
@@ -201,8 +205,8 @@ test('cards fit every phone width, and interactive cards never nest a link', asy
   }
 });
 
-test('the side is plain text in its colour, with AA contrast in every theme', async ({ page }) => {
-  for (const theme of ['official', 'dark', 'light'] as const) {
+test('the side is plain text in its colour, with AA contrast in dark appearance', async ({ page }) => {
+  for (const theme of ['dark'] as const) {
     await page.setViewportSize({ width: 390, height: 1200 });
     await open(page, { quotes: QUOTES, theme, scenarios: ['long', 'short', 'rebalance'] });
     const sides = await page.evaluate(() => {
@@ -255,10 +259,10 @@ test('reduced motion keeps the split still', async ({ page }) => {
   }
 });
 
-test('screenshots of each state at phone widths in every theme', async ({ page }) => {
+test('screenshots of each state at phone widths in dark appearance', async ({ page }) => {
   test.skip(!screenshotDir, 'set BRAKE_SCREENSHOT_DIR to keep the screenshots');
   mkdirSync(screenshotDir!, { recursive: true });
-  for (const theme of ['official', 'dark', 'light'] as const) {
+  for (const theme of ['dark'] as const) {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 2200 });
       await open(page, { quotes: QUOTES, theme, scenarios: ['long', 'short', 'near', 'rebalance', 'failed'], skeleton: true, details: 'rebalance' });

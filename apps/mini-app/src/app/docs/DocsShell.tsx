@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, CircleHelp, Copy, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
 import FxLogo from '@/components/FxLogo';
-import ThemeToggle from '@/components/ThemeToggle';
 import { searchDocs, searchExcerpt, type DocsEntry } from './docsSearch';
 import styles from './Docs.module.css';
 import { productHref, productNavigation } from './productNavigation';
@@ -201,12 +200,11 @@ export default function DocsShell({ page, entries, children, home = false, artic
               <ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink>
               <span className={styles.supportLink}><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink></span>
               <Link href="/" className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
-              <ThemeToggle className={styles.docsTheme} />
             </nav>
             <div className={styles.mobileActions}>
               <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); if (mobileSearchOpen) { setQuery(''); setContentsOpen(false); } }}><Search size={20} /></button>
               <button ref={mobileOptionsRef} type="button" aria-label="More documentation options" aria-expanded={mobileLinksOpen} onClick={() => { setMobileLinksOpen(!mobileLinksOpen); setMobileSearchOpen(false); setContentsOpen(false); setQuery(''); }}><EllipsisVertical size={20} /></button>
-              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link><ThemeToggle className={styles.docsTheme} /></nav>}
+              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link></nav>}
             </div>
           </div>
 
@@ -248,7 +246,6 @@ export default function DocsShell({ page, entries, children, home = false, artic
                 </>}
               </div>
             </details>
-            <div className={styles.sidebarTheme}><ThemeToggle className={styles.docsTheme} /></div>
           </nav>
           <main id="main-content" tabIndex={-1} className={styles.docsContent}>
           <article className={styles.readingArticle}>

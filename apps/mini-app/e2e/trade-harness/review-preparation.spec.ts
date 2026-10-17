@@ -72,7 +72,7 @@ async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: num
   await page.addScriptTag({ content: bundle.script });
   if (options.restoredSlippage) {
     // Restored drafts intentionally reopen review once; the editor is replaced.
-    await expect(page.getByRole('heading', { name: 'Review ETH Long', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Long ETH .*×$/ })).toBeVisible();
   } else {
     await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
   }
@@ -116,7 +116,7 @@ test('Trade settings preserve restored planner slippage through gas-only changes
   await expect(page.locator('[data-review-fact="Slippage"]')).toContainText('0.5%');
 });
 
-for (const theme of ['dark', 'light']) {
+for (const theme of ['dark']) {
   test(`redesigned review exposes decisions, exact amounts and fee units in ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.clock.install();
@@ -125,7 +125,10 @@ for (const theme of ['dark', 'light']) {
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
     await fill(page, '0.0003'); await review(page);
     await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
-    await expect(page.getByRole('heading', { name: 'Review ETH Long' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Long ETH 2.8×', exact: true })).toBeVisible();
+    const sheet = page.getByRole('dialog', { name: 'Long ETH 2.8×' });
+    expect((await sheet.boundingBox())!.height).toBeLessThan(560);
+    await expect(page.getByText('Confirm the terms, then continue in your wallet.', { exact: true })).toHaveCount(0);
     await expect(page.locator('[data-review-fact="f(x) fee"]')).toContainText('0.3%');
     await expect(page.locator('[data-review-fact="Execution price"]')).toBeInViewport();
     await expect(page.locator('[data-review-fact="Liquidation price"]')).toBeInViewport();
@@ -155,10 +158,12 @@ for (const theme of ['dark', 'light']) {
   });
 }
 
-test('quick review presents entered facts immediately and starts only one plan', async ({ page }) => {
-  await mount(page); await fill(page); await review(page);
-  await expect(page.getByRole('button', { name: 'Checking transaction…', exact: true })).toBeDisabled();
-  await expect(page.getByText('0.0003 ETH', { exact: true })).toBeVisible();
+test('quick review keeps the input visible until ready and starts only one plan', async ({ page }) => {
+  await mount(page, { feeDelayMs: 650 }); await fill(page); await review(page);
+  await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
+  await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeDisabled();
+  await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
   await page.waitForTimeout(400); expect(await planCount(page)).toBe(1);
   await insufficient(page);
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.enabledConfirmSeen)).toBe(false);
@@ -192,13 +197,37 @@ test('a new block reuses the warmed plan but still validates and simulates it', 
   expect(checks.filter(name => name === 'readLeverageBounds').length).toBeGreaterThanOrEqual(2);
 });
 
-test('Edit abandons preparation and late results cannot reopen review', async ({ page }) => {
-  await mount(page); await fill(page); await review(page);
-  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+test('Cancel abandons preparation and late results cannot reopen review', async ({ page }) => {
+  await mount(page, { feeDelayMs: 650 }); await fill(page); await review(page);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
   await page.waitForTimeout(1800);
   await expect(page.getByRole('button', { name: 'Review ETH Long', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
+});
+
+test('mobile review traps focus, survives a desktop resize, and closes back to the input', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mount(page, { funded: true }); await fill(page); await review(page);
+  const dialog = page.getByRole('dialog', { name: 'Long ETH 2.8×' });
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Close transaction review' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  expect(await planCount(page)).toBe(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('[data-review-fact="Amount"]')).toContainText('0.0003 ETH');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
+  await expect(page.getByRole('button', { name: 'Review ETH Long', exact: true })).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe('hidden');
 });
 
 test('wallet change abandons the old preparation', async ({ page }) => {
@@ -219,43 +248,37 @@ test('fresh-cache visibility refresh disables confirmation until the request set
 
 async function geometry(page: Page, seed = false) {
   return page.evaluate((seed) => {
-    const selectors = ['[data-review-viewport]', '[data-review-fact="Amount"]', '[data-review-position]', '[data-review-fact="Execution price"]', '[data-review-fact="Liquidation price"]', '[data-review-viewport] > :last-child button'];
+    const selectors = ['[data-review-viewport]', '[data-review-fact="Amount"]', '[data-mobile-review-sheet] h2, [data-review-header] h3', '[data-review-fact="Execution price"]', '[data-review-fact="Liquidation price"]', '[data-review-viewport] > :last-child button'];
     const nodes = selectors.map(selector => document.querySelector(selector)!);
     const global = window as unknown as { __reviewNodes?: Element[] };
     if (seed) global.__reviewNodes = nodes;
     return { same: nodes.map((node,index) => node === global.__reviewNodes?.[index]), boxes: nodes.map(node => { const r=node.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height }; }), facts: nodes.map(node => ({ text: node.textContent, font: getComputedStyle(node).font, children: Array.from(node.children, child => ({ text: child.textContent, width: child.getBoundingClientRect().width, height: child.getBoundingClientRect().height })) })) };
   }, seed);
 }
-// Fallback font metrics vary by platform. Wider glyphs must not make an
-// arriving quote wrap a previously stable label; the one-pixel check stays exact.
+// Complete reviews must fit at narrow widths and with wider fallback fonts.
 const stabilityViewports: Array<{ width: number; height: number; font?: string }> = [{ width:393,height:920 }, { width:320,height:568 }, { width:320,height:568,font:'Arial' }, { width:320,height:568,font:'Verdana' }, { width:768,height:1024 }, { width:1100,height:1200 }];
 for (const viewport of stabilityViewports) {
-  test(`one review card keeps known fields stable and its action reachable at ${viewport.width}px${viewport.font ? ` in ${viewport.font}` : ''}`, async ({ page }, testInfo) => {
+  test(`ready review fits and keeps its action reachable at ${viewport.width}px${viewport.font ? ` in ${viewport.font}` : ''}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport); await mount(page,{feeDelayMs:650});
     if (viewport.font) await page.addStyleTag({ content: `:root { --font-sans: ${viewport.font}, sans-serif; }` });
     await fill(page); await review(page);
-    await expect(page.getByRole('button',{name:'Checking transaction…',exact:true})).toBeDisabled();
-    await page.waitForTimeout(120); const before = await geometry(page,true);
-    await expect(page.getByRole('button',{name:'Checking network fees…',exact:true})).toBeDisabled();
-    const during = await geometry(page); await insufficient(page); const after = await geometry(page);
-    writeFileSync(testInfo.outputPath('review-geometry.json'), JSON.stringify({ before, during, after }, null, 2));
-    await testInfo.attach('review-geometry', { body: JSON.stringify({ before, during, after }, null, 2), contentType: 'application/json' });
-    for (const frame of [during, after]) {
-      expect(frame.same.every(Boolean)).toBe(true);
-      // Content may now fit more closely after preparation. Keep the known
-      // fields mounted and anchored, without reserving a fixed-height card.
-      for (let i = 1; i < 5; i++) for (const key of ['x', 'y', 'width', 'height'] as const) {
-        // On a short screen, fitting content can clamp the outer scroll a few
-        // pixels. The card's own known-field arrangement must remain stable.
-        const relative = key === 'x' || key === 'y';
-        const previous = before.boxes[i][key] - (relative ? before.boxes[0][key] : 0);
-        const current = frame.boxes[i][key] - (relative ? frame.boxes[0][key] : 0);
-        expect(Math.abs(current - previous), `known row ${i} ${key}`).toBeLessThanOrEqual(1);
-      }
-      const action = frame.boxes.at(-1)!;
-      expect(action.height).toBeGreaterThanOrEqual(44);
-      expect(action.y).toBeGreaterThan(frame.boxes[4].y);
-    }
+    await expect(page.getByRole('button',{name:'Preparing review…',exact:true})).toBeDisabled();
+    await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await insufficient(page);
+    const ready = await geometry(page, true);
+    writeFileSync(testInfo.outputPath('review-geometry.json'), JSON.stringify(ready, null, 2));
+    await testInfo.attach('review-geometry', { body: JSON.stringify(ready, null, 2), contentType: 'application/json' });
+    expect(ready.boxes.at(-1)!.height).toBeGreaterThanOrEqual(44);
+    expect(ready.boxes.at(-1)!.y).toBeGreaterThan(ready.boxes[4].y);
+    await expect(page.locator('[data-review-viewport] .skeleton')).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Checking network fees…',exact:true})).toHaveCount(0);
+    if (viewport.width <= 600) {
+      await expect(page.getByRole('dialog', { name: 'Long ETH 2.8×' })).toBeVisible();
+      expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+    } else await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Not enough ETH', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeInViewport();
     const fit = await page.evaluate(() => {
       const review = document.querySelector<HTMLElement>('[data-review-viewport]')!;
       const body = review.querySelector<HTMLElement>('[aria-label="Review information"]')!;
@@ -268,12 +291,12 @@ for (const viewport of stabilityViewports) {
     expect(fit.statusHeight).toBeLessThanOrEqual(fit.lineHeight * 2 + 1);
   });
 }
-test('a Max-length exact amount stays inside the card at 320px while preparing and once checked', async ({ page }) => {
+test('a Max-length amount remains in the input then fits the complete review at 320px', async ({ page }) => {
   // The owner's phone report (9.jpg): light theme, preparing, and a 17-decimal
   // amount pushed the value column out of the card ("New position" read "Nev").
   await page.setViewportSize({ width: 320, height: 640 });
   await mount(page, { feeDelayMs: 650 });
-  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
   await fill(page, '0.00024443113696627'); await review(page);
   const expectInsideCard = async () => {
     const fit = await page.evaluate(() => {
@@ -292,11 +315,11 @@ test('a Max-length exact amount stays inside the card at 320px while preparing a
     expect(fit.escaped, 'labels and values stay inside the card').toEqual([]);
     // The exact amount remains available through its disclosure throughout verification.
     await expect(page.locator('[data-review-fact="Amount"] summary')).toBeVisible();
-    await expect(page.locator('[data-review-fact="Target leverage"]')).toHaveText('2.8×');
-    await expect(page.locator('[data-review-position]')).toBeInViewport();
+    await expect(page.getByRole('heading', { name: 'Long ETH 2.8×' })).toBeInViewport();
   };
-  await expect(page.getByRole('button', { name: 'Checking transaction…', exact: true })).toBeDisabled();
-  await expectInsideCard();
+  await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.00024443113696627');
+  await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
   await insufficient(page);
   await expectInsideCard();
   await expect(page.locator('p', { hasText: 'Add at least' })).toHaveText(/^Add at least \d[\d,]*(?:\.\d+)? ETH on Ethereum to cover network fees\. Receive ETH$/);
@@ -314,26 +337,27 @@ test('a Max-length exact amount stays inside the card at 320px while preparing a
   expect(toWei(asked)).toBe(toWei(total) - 400000000000000n);
 });
 
-test('failed preparation stays in the same card and Retry performs a fresh check', async ({page}) => {
+test('failed preparation stays beside the input and Review performs a fresh check', async ({page}) => {
   const fixture=await mount(page,{simulationFailureIndex:0}); await fill(page); await review(page);
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-  await geometry(page,true); // seed the node identities compared below
-  await expect(page.getByRole('button',{name:'Retry review',exact:true})).toBeEnabled();
-  expect((await geometry(page)).same.every(Boolean)).toBe(true);
+  await expect(page.getByRole('button',{name:'Review ETH Long',exact:true})).toBeEnabled();
+  await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
+  await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.getByRole('button',{name:'Open position',exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Checking transaction steps')).toHaveCount(0);
   fixture.setSimulationFailure?.(undefined);
-  await page.getByRole('button',{name:'Retry review',exact:true}).click(); await insufficient(page);
-  const after=await geometry(page); expect(after.same.every(Boolean)).toBe(true);
+  await review(page); await insufficient(page);
+  const after=await geometry(page);
   expect(after.boxes.at(-1)!.height).toBeGreaterThanOrEqual(44);
   await page.getByRole('button', { name: 'Not enough ETH', exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeInViewport();
   expect(await page.evaluate(() => (globalThis as typeof globalThis & {__longReview:Control}).__longReview.events.filter(event=>event.name==='prepareRoutesForReview').length)).toBe(2);
 });
-test('Telegram Back cancels retained failed preparation and returns to the editor', async ({page}) => {
-  await mount(page,{simulationFailureIndex:0}); await fill(page); await review(page);
-  await expect(page.getByRole('button',{name:'Retry review',exact:true})).toBeEnabled();
+test('Telegram Back cancels pending preparation and preserves the editor', async ({page}) => {
+  await mount(page,{feeDelayMs:650}); await fill(page); await review(page);
+  await expect(page.getByRole('button',{name:'Preparing review…',exact:true})).toBeDisabled();
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fxaeon:telegram-back')));
   await expect(page.getByRole('textbox',{name:'Amount in ETH'})).toHaveValue('0.0003');
+  await expect(page.getByRole('textbox',{name:'Amount in ETH'})).toBeEnabled();
   await expect(page.getByRole('button',{name:'Open position',exact:true})).toHaveCount(0);
 });

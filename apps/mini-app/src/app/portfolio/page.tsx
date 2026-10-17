@@ -262,7 +262,7 @@ function PortfolioWallet() {
             : positionState.positions.length > 0 ? <ProtocolPositionList label="Open positions">{positionState.positions.slice(0, 2).map((position) => {
             const key = encodeURIComponent(`${position.market}:${position.side}:${position.info.positionId}`);
             return <ProtocolPositionCard key={key} position={position} href={`/positions?position=${key}`} />;
-            })}</ProtocolPositionList> : positionState.status === 'ready' && !positionState.pendingPositions.length ? <div className={presentation.emptyState}><span className={presentation.emptyIcon}><Layers2 size={22} aria-hidden="true" /></span><p><span>No open positions</span><small>Your leveraged ETH and BTC positions appear here.</small></p><Link href="/trade">Open trade <ChevronRight size={14} aria-hidden="true" /></Link></div> : null}
+            })}</ProtocolPositionList> : positionState.status === 'ready' && !positionState.pendingPositions.length ? <div className={presentation.emptyState}><span className={presentation.emptyIcon}><Layers2 size={22} aria-hidden="true" /></span><p><span>No open positions</span></p><Link href="/trade">Open trade <ChevronRight size={14} aria-hidden="true" /></Link></div> : null}
       </PositionsSection>
       <EarnPositionCard protocol={protocol} loading={fxSaveLoading} prices={displayPrices}
         pricesLoading={priceSnapshot.status === 'loading'} onRetry={() => void loadProtocol()} />

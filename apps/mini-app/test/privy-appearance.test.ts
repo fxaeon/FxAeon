@@ -4,11 +4,10 @@ import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import type { ReactElement } from 'react';
-import { THEMES, type ThemeId } from '../src/lib/theme';
+import { APP_THEME } from '../src/lib/theme';
 import { FXAEON_MARK_PATH, privyAppearance } from '../src/lib/wallet/privyAppearance';
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const themes: readonly ThemeId[] = ['official', 'dark'];
 
 /** WCAG relative luminance; Privy's tinycolor getLuminance() uses the same formula. */
 function luminance(hex: string): number {
@@ -18,39 +17,30 @@ function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-test('each theme hands Privy its own background and accent', () => {
-  for (const id of themes) {
-    const appearance = privyAppearance(id);
-    assert.equal(appearance.theme, THEMES[id].colors['--bg'], id);
-    assert.equal(appearance.accentColor, THEMES[id].accent, id);
-  }
-  assert.deepEqual(themes.map((id) => privyAppearance(id).theme), ['#f3f6fb', '#111113']);
-  assert.deepEqual(themes.map((id) => privyAppearance(id).accentColor), ['#2973ff', '#2973ff']);
+test('Privy uses the app dark background and accent', () => {
+  const appearance = privyAppearance();
+  assert.equal(appearance.theme, APP_THEME.background);
+  assert.equal(appearance.accentColor, APP_THEME.accent);
 });
 
-test("each background selects Privy's matching palette", () => {
+test("the background selects Privy's dark palette", () => {
   // Privy 3.45 uses its dark tokens when the theme hex is at or below 50%
   // luminance, and asks for under 20% or over 80% for accessible contrast.
-  assert.ok(luminance(String(privyAppearance('dark').theme)) < 0.2);
-  for (const id of ['official'] as const) {
-    assert.ok(luminance(String(privyAppearance(id).theme)) > 0.8, id);
-  }
+  assert.ok(luminance(String(privyAppearance().theme)) < 0.2);
 });
 
 test("the modal shows FxAeon's own mark from this origin at a set size", () => {
-  for (const id of themes) {
-    const logo = privyAppearance(id).logo as ReactElement<{ src: string; width: number; height: number }>;
-    assert.equal(logo.type, 'img', 'Privy accepts only a URL or an img/svg element');
-    assert.equal(logo.props.src, FXAEON_MARK_PATH);
-    assert.equal(logo.props.width, 48);
-    assert.equal(logo.props.height, 48);
-  }
+  const logo = privyAppearance().logo as ReactElement<{ src: string; width: number; height: number }>;
+  assert.equal(logo.type, 'img', 'Privy accepts only a URL or an img/svg element');
+  assert.equal(logo.props.src, FXAEON_MARK_PATH);
+  assert.equal(logo.props.width, 48);
+  assert.equal(logo.props.height, 48);
   assert.match(FXAEON_MARK_PATH, /^\/[^/]/, 'a same-origin path, never a third-party or protocol-relative URL');
   assert.ok(existsSync(resolve(appRoot, 'public', FXAEON_MARK_PATH.slice(1))), 'the mark is served from public/');
 });
 
 test("sign-in copy fits Privy's limits", () => {
-  const { landingHeader, loginMessage } = privyAppearance('official');
+  const { landingHeader, loginMessage } = privyAppearance();
   assert.equal(landingHeader, 'Sign in to FxAeon');
   assert.equal(loginMessage, 'Trade, earn, and borrow on f(x) Protocol.');
   assert.ok((landingHeader ?? '').length <= 35, 'Privy ellipsizes longer landing headers');
@@ -58,7 +48,7 @@ test("sign-in copy fits Privy's limits", () => {
 });
 
 test('the wallet list leads with detected wallets and survives the installed SDK filter', () => {
-  const { walletList } = privyAppearance('official');
+  const { walletList } = privyAppearance();
   assert.deepEqual(walletList, ['detected_ethereum_wallets', 'metamask', 'coinbase_wallet', 'rainbow', 'wallet_connect']);
   // Privy silently drops ids missing from its runtime allow-list, which is
   // what happens to the deprecated 'detected_wallets'.
@@ -75,5 +65,5 @@ test('the wallet list leads with detected wallets and survives the installed SDK
 });
 
 test('every call returns its own wallet list', () => {
-  assert.notEqual(privyAppearance('official').walletList, privyAppearance('official').walletList);
+  assert.notEqual(privyAppearance().walletList, privyAppearance().walletList);
 });

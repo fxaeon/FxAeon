@@ -304,7 +304,7 @@ test.describe('the leverage slider uses its live minimum and maximum', () => {
     await page.getByRole('radio', { name: 'Short' }).click();
     await leverageField(page).fill('3');
     await expectThumbAtLeverage(page, 3);
-    await expect(slider(page)).toHaveAttribute('aria-valuetext', '3.0×, 75% borrowed wstETH');
+    await expect(slider(page)).toHaveAttribute('aria-valuetext', '3.0×, 75% debt, 25% equity');
   });
 
   test('a mouse drag maps x to live leverage, snapped to 0.1×, and the ends clamp to the range', async ({ page }) => {
@@ -357,10 +357,10 @@ test.describe('the leverage slider uses its live minimum and maximum', () => {
     expect(properties.valuemin).toBeCloseTo(Number(await slider(page).getAttribute('min')), 5);
     expect(properties.valuemax).toBeCloseTo(Number(await slider(page).getAttribute('max')), 5);
     // CDP's tree does not carry aria-valuetext (it reads empty even on a role="slider"); the attribute is what screen readers speak.
-    await expect(slider(page)).toHaveAttribute('aria-valuetext', '2.8×, 64% minted fxUSD');
+    await expect(slider(page)).toHaveAttribute('aria-valuetext', '2.8×, 64% debt, 36% equity');
     await page.getByRole('radio', { name: 'Short' }).click();
     await leverageField(page).fill('3');
-    await expect(slider(page)).toHaveAttribute('aria-valuetext', '3.0×, 75% borrowed wstETH');
+    await expect(slider(page)).toHaveAttribute('aria-valuetext', '3.0×, 75% debt, 25% equity');
   });
 
   test.describe('on a touch screen', () => {

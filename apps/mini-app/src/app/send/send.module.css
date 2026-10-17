@@ -170,7 +170,7 @@
   margin-bottom: 4px;
   border-radius: 50%;
   background: var(--mint-dim);
-  color: var(--mint);
+  color: var(--mint-text);
   animation: done-enter var(--dur-slow) var(--ease-spring) both;
 }
 .doneMark svg { width: 28px; height: 28px; }

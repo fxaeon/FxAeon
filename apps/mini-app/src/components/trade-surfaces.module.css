@@ -53,7 +53,7 @@
 .slippageHelp { position: relative; display: inline-flex; flex: 0 0 24px; align-items: center; justify-content: center; }
 .slippageHelpButton { display: inline-flex; width: 44px; height: 44px; margin: -10px; align-items: center; justify-content: center; border-radius: 999px; color: var(--mut-2); transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease; }
 .slippageHelpButton:hover,
-.slippageHelpButton:focus-visible { color: var(--mint); background: var(--mint-dim); }
+.slippageHelpButton:focus-visible { color: var(--mint-text); background: var(--mint-dim); }
 .slippageHelpPopup { position: absolute; right: -4px; bottom: calc(100% + 8px); z-index: 20; width: max-content; max-width: min(280px, calc(100vw - 32px)); padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--text); font-size: var(--fs-caption); font-weight: 500; line-height: 1.45; box-shadow: var(--elevation-2); animation: tooltipIn var(--dur-base) var(--ease-out) both; }
 .slippageHelpInline { margin: 12px 0; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--mut); font-size: var(--fs-caption); line-height: 1.45; animation: tooltipIn var(--dur-base) var(--ease-out) both; }
 @keyframes tooltipIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -338,7 +338,7 @@
 .tradePageActions > :global(button) { min-width: 44px; flex: 0 1 auto; overflow: hidden; }
 .tradePageActions > :global(button) > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .positionsShortcut:hover { border-color: color-mix(in srgb, var(--mint) 34%, var(--line)); }
-.positionsShortcut svg { color: var(--mint); }
+.positionsShortcut svg { color: var(--mint-text); }
 
 .positionActions { border: 0; background: transparent; padding: 0; }
 .positionActions :global(.segmented) {
@@ -474,7 +474,7 @@
   margin-left: -6px;
   border-radius: var(--radius-sm);
   padding: 0 10px 0 6px;
-  color: var(--mint);
+  color: var(--mint-text);
   font-size: var(--fs-small);
   font-weight: 600;
 }
@@ -491,7 +491,7 @@
   gap: 8px;
   margin-top: -12px;
   border-bottom: 1px solid var(--line);
-  color: var(--mint);
+  color: var(--mint-text);
   font-size: var(--fs-small);
   font-weight: 600;
 }
@@ -657,13 +657,13 @@
 .positionsCompactRoot .positionActions { margin-top: 0; padding-top: 0; border-top: 0; }
 .positionActionLabel { margin: 0 0 8px; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; }
 .positionsCompactRoot .borrowAgainst { margin-top: 0; border-top: 1px solid var(--line); border-bottom: 0; color: var(--mut); }
-.positionsCompactRoot .borrowAgainst:hover { color: var(--mint); }
+.positionsCompactRoot .borrowAgainst:hover { color: var(--mint-text); }
 .positionsCompactRoot .positionSectionHeader > span { padding: 4px 8px; border-radius: var(--radius-full); background: var(--surface-2); white-space: nowrap; font-size: var(--fs-caption); }
 .positionReadState { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 18px; border: 1px solid color-mix(in srgb, var(--warn) 24%, var(--line)); border-radius: var(--radius-lg); background: var(--warn-dim); }
 .positionReadState > div { flex: 1; min-width: 0; }
 .positionReadState strong { color: var(--text); font-size: var(--fs-small); font-weight: 650; }
 .positionReadState p { margin: 5px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
-.positionReadState button { display: inline-flex; flex: 0 0 auto; min-height: 44px; align-items: center; gap: 6px; border-radius: var(--radius-sm); padding: 0 10px; color: var(--mint); font-size: var(--fs-caption); font-weight: 600; }
+.positionReadState button { display: inline-flex; flex: 0 0 auto; min-height: 44px; align-items: center; gap: 6px; border-radius: var(--radius-sm); padding: 0 10px; color: var(--mint-text); font-size: var(--fs-caption); font-weight: 600; }
 .positionReadState button:disabled { color: var(--mut); }
 .positionsCompactRoot .closeNotice { grid-template-columns: minmax(0, 1fr); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
 .positionsCompactRoot .closeNotice span { text-align: left; }

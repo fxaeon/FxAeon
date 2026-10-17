@@ -8,7 +8,7 @@ const telegramUrl = telegramLauncher(process.env.NEXT_PUBLIC_TELEGRAM_APP_URL ||
 const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const file of ['index.html', 'styles.css', 'script.js', '404.html', 'robots.txt', 'sitemap.xml', 'document.css']) {
+for (const file of ['index.html', 'styles.css', 'script.js', 'hero-field.js', '404.html', 'robots.txt', 'sitemap.xml', 'document.css']) {
   await cp(resolve(root, file), resolve(dist, file));
   if (file === 'index.html') {
     // The source links the default bot; section links add the screen to open.
@@ -18,7 +18,12 @@ for (const file of ['index.html', 'styles.css', 'script.js', '404.html', 'robots
   }
 }
 await cp(resolve(root, '_headers'), resolve(dist, '_headers'));
-await cp(resolve(root, 'assets'), resolve(dist, 'assets'), { recursive: true });
+await cp(resolve(root, 'assets'), resolve(dist, 'assets'), {
+  recursive: true,
+  filter(source) {
+    return !/[\\/](?:poppins-(?:regular|medium)\.ttf|Poppins-LICENSE\.txt|usdc\.png)$/i.test(source);
+  },
+});
 await cp(resolve(root, '../mini-app/public/brand/fx-official-mark.svg'), resolve(dist, 'assets/fx-protocol.svg'));
 // The Telegram section's code for opening the bot on a phone encodes the same launcher.
 await writeFile(resolve(dist, 'assets/telegram-qr.svg'), qrSvg(telegramUrl));

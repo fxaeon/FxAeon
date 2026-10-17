@@ -20,7 +20,7 @@
 .choices.gasChoices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .choices.gasChoices button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 68px; padding: 8px 4px; font-size: var(--fs-small); }
 .gasRate { display: flex; justify-content: center; color: var(--mut); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
-.gasChoices button[aria-checked='true'] .gasRate { color: var(--mint); }
+.gasChoices button[aria-checked='true'] .gasRate { color: var(--mint-text); }
 .help { color: var(--mut); font-size: var(--fs-caption); line-height: 1.6; margin: 6px 0 8px; }
 .scope { color: var(--mut); font-size: var(--fs-caption); line-height: 1.55; margin: 8px 0 12px; }
 .choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }

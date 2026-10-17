@@ -38,9 +38,10 @@
       name="twitter:image"
       content="https://fxaeon.xyz/assets/fxaeon-banner.png"
     />
-    <meta name="theme-color" content="#11151e" />
+    <meta name="theme-color" content="#101214" />
     <title>FxAeon — Your crypto. In its next era.</title>
     <script src="script.js"></script>
+    <script src="hero-field.js" defer></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
     <link
       rel="preload"
@@ -140,6 +141,7 @@
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
+          <p class="hero-kicker"><span aria-hidden="true"></span> The f(x) Protocol, with a clearer view</p>
           <h1 id="hero-title">
             Your crypto. <br /><span>In its next era.</span>
           </h1>
@@ -147,7 +149,7 @@
             Trade, save, borrow, and bridge with f(x) Protocol.<br
               class="desktop-break"
             />
-            On the web and in Telegram.
+            Check the route, fees, and slippage before approving.
           </p>
           <div class="actions">
             <a
@@ -165,10 +167,19 @@
         <figure
           class="hero-stage"
           role="img"
-          aria-label="Illustrative FxAeon portfolio with ETH, fxSAVE, and a BTC position. Balances shown are examples."
+          aria-label="Illustrative FxAeon portfolio with ETH, fxSAVE, and a BTC position. Sample balances are examples, not live account data."
         >
-          <div class="hero-watermark" aria-hidden="true">
-            <span></span><span></span>
+          <div class="hero-field" aria-hidden="true">
+            <svg class="hero-contours" viewBox="0 0 720 640" fill="none" preserveAspectRatio="xMidYMid meet">
+              <path d="M95 320c0-131 106-237 237-237s237 106 237 237-106 237-237 237S95 451 95 320Z" />
+              <path d="M126 320c0-114 92-206 206-206s206 92 206 206-92 206-206 206-206-92-206-206Z" />
+              <path d="M157 320c0-97 78-175 175-175s175 78 175 175-78 175-175 175-175-78-175-175Z" />
+              <path d="M188 320c0-80 64-144 144-144s144 64 144 144-64 144-144 144-144-64-144-144Z" />
+              <path d="M221 320c0-61 50-111 111-111s111 50 111 111-50 111-111 111-111-50-111-111Z" />
+              <path d="M254 320c0-43 35-78 78-78s78 35 78 78-35 78-78 78-78-35-78-78Z" />
+            </svg>
+            <canvas class="hero-shader" aria-hidden="true"></canvas>
+            <span class="field-label">f(x) Protocol <i></i> Ethereum + Base</span>
           </div>
           <div class="hero-device" aria-hidden="true">
             <div class="phone" data-screen="portfolio">
@@ -221,13 +232,15 @@
                       height="22"
                       alt=""
                     />FxAeon</span
-                  ><span class="app-account"
-                    ><img
-                      src="assets/chains/ethereum.png"
-                      width="14"
-                      height="14"
-                      alt=""
-                    />0xf39f…2266</span
+                  ><span class="app-identity"
+                    ><span class="app-network"
+                      ><img
+                        src="assets/chains/ethereum.png"
+                        width="14"
+                        height="14"
+                        alt=""
+                      />Ethereum</span
+                    ><span class="app-wallet">0xf39f…2266</span></span
                   >
                 </div>
                 <p class="screen-label">Total value</p>
@@ -248,12 +261,11 @@
                       alt=""
                     />Trade</span
                   ><span
-                    ><img
-                      src="assets/icons/move.svg"
-                      width="18"
-                      height="18"
-                      alt=""
-                    />Move</span
+                    ><svg class="borrow-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 2v7m-3-3 3 3 3-3"></path>
+                      <path d="M4 10h16v10H4z"></path>
+                      <path d="M8 14h4"></path>
+                    </svg>Borrow</span
                   ><span
                     ><img
                       src="assets/icons/earn.svg"
@@ -287,6 +299,7 @@
                     ><b>$1,557.33</b><small>1,512.6 fxSAVE</small></span
                   >
                 </div>
+                <p class="screen-section-label">Open positions</p>
                 <div class="screen-row">
                   <span class="row-token"
                     ><img
@@ -344,56 +357,7 @@
               </div>
             </div>
           </div>
-          <span class="hero-coin coin-eth" aria-hidden="true"
-            ><span class="coin-edge"></span
-            ><span class="coin-face"
-              ><img
-                src="assets/tokens/eth.png"
-                width="80"
-                height="80"
-                alt="" /></span></span
-          ><span class="hero-coin coin-btc" aria-hidden="true"
-            ><span class="coin-edge"></span
-            ><span class="coin-face"
-              ><img
-                src="assets/tokens/wbtc.png"
-                width="80"
-                height="80"
-                alt="" /></span></span
-          ><span class="hero-coin coin-save" aria-hidden="true"
-            ><span class="coin-edge"></span
-            ><span class="coin-face"
-              ><img
-                src="assets/tokens/fxsave.svg"
-                width="80"
-                height="80"
-                alt="" /></span></span
-          ><span class="hero-coin coin-usdc" aria-hidden="true"
-            ><span class="coin-edge"></span
-            ><span class="coin-face"
-              ><img
-                src="assets/tokens/usdc.png"
-                width="80"
-                height="80"
-                alt="" /></span></span
-          ><span class="hero-coin coin-usd" aria-hidden="true"
-            ><span class="coin-edge"></span
-            ><span class="coin-face"
-              ><img
-                src="assets/tokens/fxusd.svg"
-                width="80"
-                height="80"
-                alt="" /></span></span
-          ><span class="hero-coin coin-base" aria-hidden="true"
-            ><span class="coin-edge"></span
-            ><span class="coin-face"
-              ><img
-                src="assets/chains/base.png"
-                width="80"
-                height="80"
-                alt="" /></span
-          ></span>
-          <figcaption>Illustrative app view</figcaption>
+                    <figcaption>Balances shown are examples · not live account data</figcaption>
         </figure>
       </section>
       <div class="built-on">
@@ -431,51 +395,20 @@
             Connect, choose an action, and review it before signing.
           </p>
         </div>
-        <div
-          class="protocol-flow"
-          role="img"
-          aria-label="Your wallet connects to FxAeon, which lets you Trade, Earn, Borrow, and Move."
-        >
-          <span class="flow-node flow-wallet"
-            ><img
-              src="assets/fxaeon-mark.svg"
-              width="36"
-              height="36"
-              alt=""
-            /><b>Your wallet</b></span
-          ><span class="flow-line"></span
-          ><span class="flow-center"
-            ><img
-              src="assets/fxaeon-mark.svg"
-              width="36"
-              height="36"
-              alt=""
-            /><b>FxAeon</b><small>Powered by f(x) Protocol</small></span
-          ><span class="flow-line"></span
-          ><span class="flow-options"
-            ><i>Trade</i><i>Earn</i><i>Borrow</i><i>Move</i></span
-          >
-        </div>
-        <div class="principles">
-          <article>
-            <h3>Connect your wallet</h3>
-            <p>
-              Use your wallet on the web or inside Telegram.
-            </p>
-          </article>
-          <article>
-            <h3>Find your next move</h3>
-            <p>
-              Trade ETH or BTC, save with fxSAVE, borrow fxUSD, or bridge supported assets.
-            </p>
-          </article>
-          <article>
-            <h3>Review. Then confirm.</h3>
-            <p>
-              Check the route, fees, and slippage before approving in your wallet.
-            </p>
-          </article>
-        </div>
+        <ol class="protocol-steps" aria-label="How FxAeon works">
+          <li>
+            <span class="step-index">01</span>
+            <div><p class="step-label">Connect</p><h3>Your wallet</h3><p>Use your wallet on the web or inside Telegram.</p></div>
+          </li>
+          <li>
+            <span class="step-index">02</span>
+            <div><p class="step-label">Choose</p><h3>Your next move</h3><p>Trade ETH or BTC, save with fxSAVE, borrow fxUSD, or bridge supported assets.</p></div>
+          </li>
+          <li>
+            <span class="step-index">03</span>
+            <div><p class="step-label">Review</p><h3>Then confirm</h3><p>Check the route, fees, and slippage before approving in your wallet.</p></div>
+          </li>
+        </ol>
       </section>
       <section
         class="products section"
@@ -935,17 +868,6 @@
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M9 5v14M15 5v14" />
             </svg></button
-          ><button
-            class="theme-toggle"
-            type="button"
-            aria-label="Switch to light theme"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M20 15.2A8.5 8.5 0 0 1 8.8 4 8.5 8.5 0 1 0 20 15.2Z"
-              ></path></svg
-            ><span data-theme-label="">Light mode</span>
-          </button>
         </div>
       </footer>
     </div>

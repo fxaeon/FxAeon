@@ -20,7 +20,6 @@ import {
 import { haptic } from '@/lib/telegram';
 import { useT } from '@/lib/i18n';
 import FxLogo from '@/components/FxLogo';
-import ThemeToggle from '@/components/ThemeToggle';
 import WalletProfile from '@/components/WalletProfile';
 import NetworkSelector from '@/components/NetworkSelector';
 import { ValueOrSkeleton } from '@/components/MissingValue';
@@ -115,7 +114,6 @@ export function AppShell({
             <DesktopNavigation />
             <span className="app-topbar-actions">
               <HeaderWalletControl />
-              <ThemeToggle />
             </span>
           </header>
         )}

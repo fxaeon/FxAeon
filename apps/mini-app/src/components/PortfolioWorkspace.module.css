@@ -33,7 +33,6 @@
   pointer-events: none;
   animation: hero-light 11s var(--ease-in-out) infinite alternate;
 }
-:root:is([data-theme='official'], [data-theme='light']) .valueCard::before { background: radial-gradient(closest-side, color-mix(in srgb, var(--mint) 11%, transparent), transparent); }
 @keyframes hero-light {
   from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.75; }
   to { transform: translate3d(6%, 12px, 0) scale(1.1); opacity: 1; }
@@ -57,14 +56,14 @@
 .valueUnavailable > span { display: inline-flex; align-items: center; gap: 8px; }
 .valueUnavailable > span > svg { flex: 0 0 auto; }
 .valueUnavailable > :is(span, button) { font-size: var(--fs-body); font-weight: 500; letter-spacing: 0; line-height: 1.3; }
-.valueUnavailable button { display: inline-flex; min-height: 44px; align-items: center; padding: 0 4px; color: var(--mint); font-weight: 600; }
+.valueUnavailable button { display: inline-flex; min-height: 44px; align-items: center; padding: 0 4px; color: var(--mint-text); font-weight: 600; }
 .valueUnavailable button:disabled { opacity: .7; }
 /* A disclosure summary names a failed read instead of showing a lone mark. */
 .summaryUnavailable { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); font-size: var(--fs-small); font-weight: 500; }
 .helper { color: var(--mut); font-size: var(--fs-caption); line-height: 1.6; margin: 12px 0 0; }
 .sectionTitle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .sectionTitle h2 { font-size: var(--fs-title); font-weight: 650; letter-spacing: -.02em; margin: 0; }
-.sectionTitle a { display: flex; min-height: 44px; align-items: center; gap: 3px; font-size: var(--fs-small); color: var(--mint); }
+.sectionTitle a { display: flex; min-height: 44px; align-items: center; gap: 3px; font-size: var(--fs-small); color: var(--mint-text); }
 /* Empty and unavailable rows inside the Positions and fxSAVE cards: a mark, a
  * plain sentence with one line of context, and the next step as a button
  * shaped like the cards' other actions. */
@@ -73,10 +72,10 @@
 .emptyState p, .emptyEarn > p > span { display: grid; min-width: 0; flex: 1 1 150px; gap: 2px; margin: 0; }
 .emptyState p > span, .emptyEarn > p strong { color: var(--text); font-weight: 600; }
 .emptyState p small, .emptyEarn > p small { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
-.emptyIcon { display: grid; flex: 0 0 auto; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--mint-dim); color: var(--mint); }
+.emptyIcon { display: grid; flex: 0 0 auto; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--mint-dim); color: var(--mint-text); }
 .emptyState a, .emptyEarn > p > :is(a, button) { display: inline-flex; flex: 0 0 auto; min-height: 44px; margin-left: auto; align-items: center; gap: 2px; padding: 0 14px; border: 0; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease; }
 .emptyState a:hover, .emptyEarn > p > :is(a, button):hover { background: var(--surface-3); }
-.emptyEarn > p > a { background: var(--mint-dim); color: var(--mint); }
+.emptyEarn > p > a { background: var(--mint-dim); color: var(--mint-text); }
 .emptyEarn > p > a:hover { background: color-mix(in srgb, var(--mint) 20%, transparent); }
 /* fxSAVE while its read is in flight: the mark, its two lines and the value. */
 .earnLoading { display: flex; align-items: center; gap: 12px; padding: 6px 0 4px; }
@@ -86,7 +85,7 @@
 .earnLoading > span:nth-child(2) > span + span { width: 34%; height: 9px; }
 .earnLoading > span:last-child { flex: 0 0 72px; height: 32px; border-radius: var(--radius-sm); }
 .disclosureActions { display: flex; justify-content: flex-end; min-height: 0; }
-.disclosureActions a { display: inline-flex; min-height: 44px; align-items: center; gap: 3px; color: var(--mint); font-size: var(--fs-small); font-weight: 600; }
+.disclosureActions a { display: inline-flex; min-height: 44px; align-items: center; gap: 3px; color: var(--mint-text); font-size: var(--fs-small); font-weight: 600; }
 .earnCard { padding: 4px 0 4px; }
 .earnTop { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .earnTop > div { min-width: 0; flex: 1; }
@@ -130,7 +129,6 @@
 .quickActions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 8px 0 4px; }
 .quickAction { display: flex; min-width: 0; min-height: 72px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; border-radius: var(--radius-md); padding: 4px 2px; color: var(--text); font-size: var(--fs-caption); transition: color var(--dur-fast) ease; }
 .quickAction > span { display: grid; flex: 0 0 auto; width: 52px; height: 52px; place-items: center; border: 1px solid var(--hairline); border-radius: 17px; background: var(--surface-2); color: var(--mint-bright); box-shadow: none; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
-:root:is([data-theme='official'], [data-theme='light']) .quickAction > span { color: var(--mint-text); background: var(--mint-dim); }
 .quickAction > strong { font-weight: 600; }
 .quickAction:hover > span { transform: translateY(-2px); border-color: color-mix(in srgb, var(--mint) 45%, var(--line)); background: color-mix(in srgb, var(--mint) 20%, var(--surface-2)); }
 .quickAction:active > span { transform: scale(0.92); transition-duration: var(--dur-press); }
@@ -177,12 +175,12 @@
   background: transparent; justify-items: start; text-align: left; gap: 12px; padding: 8px 4px 4px;
 }
 .welcomeTitle { max-width: 15ch; font-size: clamp(36px, 7vw, 54px); font-weight: 500; letter-spacing: -.06em; line-height: 1.08; }
-.welcomeTitle span { color: var(--mint); }
+.welcomeTitle span { color: var(--mint-text); }
 .welcomeHorizon { display: none; }
 .valueCard { padding: 6px 4px 0; border: 0; border-radius: 0; background: transparent; }
 .valueCard::before { display: none; }
 .quickAction > span { border: 0; border-radius: 50%; background: var(--surface-2); color: var(--text); }
-.positionsSection, .earnSection { border: 0; border-radius: 16px; background: var(--surface); padding-inline: 16px; }
+.positionsSection, .earnSection { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: none; padding-inline: 16px; }
 .welcomeMarks > * { animation: none; box-shadow: 0 0 0 3px var(--bg); }
 .disconnectedPrimary { gap: 12px; }
 .productActions { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-top: 0; }
@@ -191,14 +189,14 @@
 .emptyPositions h2 { margin: 0; font-size: var(--fs-body); font-weight: 600; }
 .emptyPositions > span { color: var(--mut); font-size: var(--fs-small); }
 .productOverview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.productCard { display: flex; min-width: 0; flex-direction: column; gap: 8px; border-radius: 16px; background: var(--surface); padding: 14px; transition: background-color var(--dur-fast) ease; }
+.productCard { display: flex; min-width: 0; flex-direction: column; gap: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 14px; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
 .productCard > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .productCard > div strong { flex: 1; font-size: var(--fs-small); font-weight: 600; }
 .productCard > div > svg { flex: 0 0 auto; color: var(--mut); }
 .productCard p { margin: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .productCard p strong { color: var(--text); font-size: var(--fs-body); font-weight: 650; }
-.productCard:hover { background: var(--surface-2); }
-.productCard:focus-visible { outline: 2px solid #2973ff; outline-offset: 2px; }
+.productCard:hover { background: var(--surface-2); border-color: var(--line-strong); }
+.productCard:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (max-width: 380px) {
   .welcome { padding-top: 4px; }
   .quickAction > span { width: 44px; height: 44px; }

@@ -56,13 +56,9 @@ test('catalogs deterministic data states through the real provider-independent a
   await expect(receipt).toContainText('9 base units');
 });
 
-test('exposes transaction stage fixtures, themes, long values, and keyboard focus', async ({ page }) => {
+test('exposes transaction stage fixtures, long values, and keyboard focus in dark appearance', async ({ page }) => {
   await openLab(page);
-  const themes = page.getByLabel('Theme');
-  for (const theme of ['official', 'dark', 'light']) {
-    await themes.selectOption(theme);
-    await expect(page.locator('.lab')).toHaveAttribute('data-theme', theme);
-  }
+  await expect(page.locator('.lab')).toHaveAttribute('data-theme', 'dark');
   const stages = page.getByLabel('Transaction stage', { exact: true });
   for (const stage of ['Editing', 'Preparing', 'Review', 'Wallet request', 'Submitted', 'Partial completion', 'Confirmed', 'Uncertain']) {
     await stages.selectOption({ label: stage });
@@ -141,7 +137,7 @@ test('captures focused components and compares approved Windows references when 
   const artifacts = resolve(root, 'apps/mini-app/e2e/state-lab/captures');
   const snapshotNames = [
     'amount-loading', 'amount-zero', 'amount-partial', 'amount-positive', 'amount-long-value',
-    'amount-theme-official', 'amount-theme-light', 'amount-narrow',
+    'amount-theme-dark', 'amount-narrow',
     'progress-review', 'review-consequences', 'progress-wallet-request', 'progress-submitted', 'progress-partial', 'progress-confirmed', 'progress-uncertain',
     'receipt-known-usdc', 'receipt-base-technical',
   ];
@@ -177,11 +173,7 @@ test('captures focused components and compares approved Windows references when 
   await compareOrCapture('amount-long-value', field);
   await amount.fill('1234.56789');
   await amount.evaluate((element: HTMLInputElement) => element.blur());
-  await page.getByLabel('Theme', { exact: true }).selectOption('official');
-  await compareOrCapture('amount-theme-official', field);
-  await page.getByLabel('Theme', { exact: true }).selectOption('light');
-  await compareOrCapture('amount-theme-light', field);
-  await page.getByLabel('Theme', { exact: true }).selectOption('official');
+  await compareOrCapture('amount-theme-dark', field);
   await page.setViewportSize({ width: 320, height: 568 });
   await compareOrCapture('amount-narrow', field);
   await page.setViewportSize({ width: 390, height: 844 });

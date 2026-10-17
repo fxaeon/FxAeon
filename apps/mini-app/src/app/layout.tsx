@@ -49,8 +49,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: 'cover',
-  themeColor: '#f7f7f8',
-  colorScheme: 'light',
+  themeColor: '#101214',
+  colorScheme: 'dark',
 };
 
 export default function RootLayout({
@@ -59,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" data-theme="dark" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: SHELL_INITIALIZER }} />
         {/* Telegram requires its host bridge in <head> before application

@@ -186,7 +186,7 @@ for (const market of ['ETH', 'BTC']) {
     await page.getByText('Market details', { exact: true }).click();
     const explanation = page.getByRole('region', { name: 'How leverage works' });
     const glance = page.getByRole('region', { name: 'Market details', exact: true });
-    const split = explanation.getByRole('list', { name: /Share of a position/ });
+    const split = explanation.getByRole('list', { name: /Debt and equity share of a position/ });
     const rows = split.getByRole('listitem');
     const splitHeight = async () => (await split.boundingBox())!.height;
     await amount.fill('0.125');
@@ -198,8 +198,8 @@ for (const market of ['ETH', 'BTC']) {
     await expect(explanation.getByRole('button')).toHaveCount(0);
     await expect(explanation.getByRole('link', { name: 'How it works', exact: true })).toHaveAttribute('href', '/docs/guide/trade');
     await expect(rows).toHaveCount(2);
-    await expect(explanation).toContainText('a 3× long is two thirds minted fxUSD and one third yours');
-    await expect(rows.nth(1)).toContainText('67% minted fxUSD · 33% yours');
+    await expect(explanation).toContainText('a 3× long carries 67% debt and 33% equity');
+    await expect(rows.nth(1)).toContainText('67% debt · 33% equity');
     await expect(explanation).not.toContainText('pool maximum');
     await expect(glance).toContainText(`–${market === 'ETH' ? '10.0' : '8.0'}×`);
     const longHeight = await splitHeight();
@@ -207,15 +207,15 @@ for (const market of ['ETH', 'BTC']) {
     // Choosing Short in the ticket moves the examples, the debt asset and the live limit with it.
     await ticket.getByRole('radio', { name: 'Short' }).click();
     await expect(page.getByRole('button', { name: `Open ${market} Short` })).toBeVisible();
-    await expect(explanation).toContainText('a 3× short is three quarters borrowed and one quarter yours');
+    await expect(explanation).toContainText('a 3× short carries 75% debt and 25% equity');
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(1)).toContainText(`75% borrowed ${market === 'ETH' ? 'wstETH' : 'WBTC'} · 25% yours`);
+    await expect(rows.nth(1)).toContainText('75% debt · 25% equity');
     expect(await rows.nth(1).evaluate((row) => (row as HTMLElement).style.getPropertyValue('--borrowed'))).toBe('0.75');
     expect(await splitHeight(), 'switching sides must not move the content below').toBe(longHeight);
     await expect(glance).toContainText(`–${market === 'ETH' ? '6.0' : '5.0'}×`);
 
     await ticket.getByRole('radio', { name: 'Long' }).click();
-    await expect(rows.nth(1)).toContainText('67% minted fxUSD · 33% yours');
+    await expect(rows.nth(1)).toContainText('67% debt · 33% equity');
     expect(await rows.nth(1).evaluate((row) => (row as HTMLElement).style.getPropertyValue('--borrowed'))).toBe(String(2 / 3));
 
     // A new market keeps the selected trade side, with its own debt asset and live limit.
@@ -224,7 +224,7 @@ for (const market of ['ETH', 'BTC']) {
     await page.getByRole('combobox', { name: 'Market', exact: true }).selectOption(nextMarket);
     await expect(ticket.getByRole('radio', { name: 'Short' })).toBeChecked();
     await expect(page.getByRole('region', { name: 'Market details', exact: true })).toContainText(`–${nextMarket === 'ETH' ? '6.0' : '5.0'}×`);
-    await expect(rows.nth(1)).toContainText(`75% borrowed ${nextMarket === 'ETH' ? 'wstETH' : 'WBTC'} · 25% yours`);
+    await expect(rows.nth(1)).toContainText('75% debt · 25% equity');
   });
 }
 

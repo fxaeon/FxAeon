@@ -12,6 +12,7 @@ const root = resolve(import.meta.dirname, '..');
 const html = await readFile(resolve(root, 'index.html'), 'utf8');
 const css = await readFile(resolve(root, 'styles.css'), 'utf8');
 const script = await readFile(resolve(root, 'script.js'), 'utf8');
+const heroField = await readFile(resolve(root, 'hero-field.js'), 'utf8');
 const cssCompact = css.replace(/\s+/g, '');
 const scriptCompact = script.replace(/\s+/g, '');
 const builtHtml = await readFile(resolve(root, 'dist/index.html'), 'utf8');
@@ -60,7 +61,7 @@ function referenceQr(value, level, boostLevel) {
 }
 
 test('brand metadata and the official protocol mark stay in sync', async () => {
-  for (const asset of ['assets/fxaeon-mark.svg', 'assets/fxaeon-banner.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt']) {
+  for (const asset of ['assets/fxaeon-mark.svg', 'assets/fxaeon-banner.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt']) {
     await access(resolve(root, asset));
   }
   assert.match(html, /<html lang="en" data-theme="dark">/);
@@ -68,11 +69,11 @@ test('brand metadata and the official protocol mark stay in sync', async () => {
   assert.match(html, /property="og:image"/);
   assert.match(html, /name="twitter:image"/);
   assert.match(html, /assets\/manrope-variable\.ttf/);
-  assert.match(css, /font-family:\s*Poppins;[\s\S]*?src:\s*url\("assets\/poppins-regular\.ttf"\)/);
-  assert.match(css, /font-family:\s*Poppins;[\s\S]*?src:\s*url\("assets\/poppins-medium\.ttf"\)/);
+  assert.match(css, /font-family:\s*Inter;[\s\S]*?src:\s*url\("assets\/inter-latin\.woff2"\)/);
   assert.match(css, /font-family:\s*Manrope;[\s\S]*?src:\s*url\("assets\/manrope-variable\.ttf"\)/);
-  assert.match(await readFile(resolve(root, 'assets/Poppins-LICENSE.txt'), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
   assert.match(await readFile(resolve(root, 'assets/Manrope-LICENSE.txt'), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
+  assert.doesNotMatch(css, /font-family:\s*Poppins|poppins-(?:regular|medium)\.ttf/);
+  assert.match(html, /<script src="hero-field\.js" defer><\/script>/);
   assert.deepEqual(
     await readFile(resolve(root, '../mini-app/public/brand/fx-official-mark.svg')),
     await readFile(resolve(root, 'dist/assets/fx-protocol.svg')),
@@ -111,6 +112,18 @@ test('the page presents all four products and routes Telegram launches to matchi
   assert.match(html, /id="faq"/);
 });
 
+test('the illustrative portfolio reflects the current connected portfolio structure', () => {
+  const phone = elementSource(html, /<div class="screen screen-portfolio"/, 'div');
+  assert.match(phone, /class="app-network"[\s\S]*?Ethereum/);
+  assert.match(phone, /class="app-wallet">0xf39f…2266/);
+  const actions = elementSource(phone, /<div class="screen-actions"/, 'div');
+  assert.match(textOf(actions), /\bBorrow\b/);
+  assert.doesNotMatch(textOf(actions), /\bMove\b/);
+  assert.ok(phone.indexOf('class="screen-section-label"') < phone.indexOf('<b>BTC long</b>'), 'Positions are separated from wallet assets');
+  assert.match(phone, /class="screen-section-label">Open positions/);
+  assert.match(html, /Balances shown are examples/);
+});
+
 test('device actions use the reviewed CSS capability query and safe destinations', () => {
   const actions = links(html).filter(({ device }) => device !== 'all');
   assert.ok(actions.some(({ href, device }) => href === 'https://fxaeon.com/' && device === 'desktop'));
@@ -123,7 +136,7 @@ test('device actions use the reviewed CSS capability query and safe destinations
   for (const tag of html.match(/<a\b[^>]*target="_blank"[^>]*>/g) ?? []) assert.match(tag, /rel="noreferrer"/);
 });
 
-test('the menu and theme controls preserve native keyboard and reduced-motion behavior', () => {
+test('the menu stays keyboard accessible and the page enforces its single dark theme', () => {
   assert.equal(html.match(/<dialog\b/g)?.length, 1);
   const menu = elementSource(html, /<dialog\b/, 'dialog');
   assert.match(menu, /aria-label="[^"]+"/);
@@ -137,14 +150,30 @@ test('the menu and theme controls preserve native keyboard and reduced-motion be
   assert.ok(scriptCompact.includes('menu.querySelectorAll("a").forEach((link)=>link.addEventListener("click",close))'));
   assert.ok(scriptCompact.includes('menu.addEventListener("close",()=>'));
   assert.ok(scriptCompact.includes('opener.setAttribute("aria-expanded","false")'));
-  assert.ok(html.includes('class="theme-toggle"'), 'The footer includes a theme control');
-  assert.match(html, /aria-label="[^"]+theme"/);
-  assert.ok(scriptCompact.includes('localStorage.getItem("fxaeon-theme")'));
-  assert.ok(scriptCompact.includes('localStorage.setItem("fxaeon-theme",root.dataset.theme)'));
-  assert.match(script, /theme-color/);
+  assert.match(html, /<html lang="en" data-theme="dark">/);
+  assert.doesNotMatch(html, /theme-toggle|data-theme-label|Light mode|Dark mode/);
+  assert.doesNotMatch(css, /data-theme\s*=\s*["']light["']/);
+  assert.match(html, /name="theme-color" content="#101214"/);
+  assert.ok(scriptCompact.includes('root.dataset.theme="dark"'));
+  assert.ok(scriptCompact.includes('localStorage.removeItem("fxaeon-theme")'));
+  assert.doesNotMatch(script, /setItem\("fxaeon-theme"|data-theme="light"/);
   assert.ok(cssCompact.includes('@media(prefers-reduced-motion:reduce)'));
   assert.ok(cssCompact.includes('scroll-behavior:auto'));
   assert.ok(cssCompact.includes('transition:none!important'));
+  assert.match(css, /\.protocol-steps/);
+  assert.match(html, /class="protocol-steps"/);
+  assert.match(heroField, /webgl2/);
+  assert.match(heroField, /1000\s*\/\s*30/);
+  assert.match(heroField, /saveData/);
+  assert.match(heroField, /IntersectionObserver/);
+  assert.match(heroField, /ResizeObserver/);
+  assert.match(heroField, /prefers-reduced-motion/);
+  assert.match(heroField, /retryWhenEnabled/);
+  assert.match(heroField, /const dispose = \(contextLost = false\)/);
+  assert.match(heroField, /resizeObserver\.disconnect\(\)/);
+  assert.match(heroField, /settingsObserver\.disconnect\(\)/);
+  assert.ok(Buffer.byteLength(heroField) < 12 * 1024, 'The hero field runtime stays within a 12 KB source budget');
+  assert.doesNotMatch(heroField, /fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts|eval\(|new Function/);
 });
 
 test('markup, local assets, and built headers meet accessibility and CSP requirements', async () => {
@@ -161,8 +190,9 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.doesNotMatch(html, /\sstyle=/);
   assert.doesNotMatch(html, /<style\b/);
   assert.doesNotMatch(html, /\son[a-z]+=/i);
-  assert.equal(html.toLowerCase().split('<script').length - 1, 1);
+  assert.equal(html.toLowerCase().split('<script').length - 1, 2);
   assert.match(html, /<script src="script\.js"><\/script>/);
+  assert.match(html, /<script src="hero-field\.js" defer><\/script>/);
   assert.doesNotMatch(html, /aurora\.js/);
   assert.doesNotMatch(script, /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b|\bimport\(|\beval\(|new Function/);
 
@@ -183,8 +213,12 @@ test('built output includes safe Telegram routes, the exact QR, font licenses, c
   assert.ok(builtHtml.includes(`href="${escapeAttribute(launcher)}"`));
   for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="${escapeAttribute(telegramStartLink(launcher, route))}"`), `${route} start link`);
   assert.equal(await readFile(resolve(root, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
-  for (const file of ['script.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/Inter-LICENSE.txt']) await access(resolve(root, 'dist', file));
-  for (const license of ['Inter-LICENSE.txt', 'Manrope-LICENSE.txt', 'Poppins-LICENSE.txt']) assert.deepEqual(await readFile(resolve(root, 'assets', license)), await readFile(resolve(root, 'dist/assets', license)));
+  for (const file of ['script.js', 'hero-field.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt']) await access(resolve(root, 'dist', file));
+  assert.ok((await readFile(resolve(root, 'dist/hero-field.js'))).byteLength < 12 * 1024);
+  for (const license of ['Inter-LICENSE.txt', 'Manrope-LICENSE.txt']) assert.deepEqual(await readFile(resolve(root, 'assets', license)), await readFile(resolve(root, 'dist/assets', license)));
+  await assert.rejects(access(resolve(root, 'dist/assets/poppins-regular.ttf')));
+  await assert.rejects(access(resolve(root, 'dist/assets/poppins-medium.ttf')));
+  await assert.rejects(access(resolve(root, 'dist/assets/tokens/usdc.png')));
   const robots = await readFile(resolve(root, 'dist/robots.txt'), 'utf8');
   const sitemap = await readFile(resolve(root, 'dist/sitemap.xml'), 'utf8');
   assert.match(robots, /Sitemap: https:\/\/fxaeon\.xyz\/sitemap\.xml/);
@@ -248,7 +282,10 @@ test('the standalone build needs no node_modules and ships only referenced asset
     execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
     await assert.rejects(access(resolve(tempRoot, 'node_modules')));
     await assert.rejects(access(resolve(tempLanding, 'node_modules')));
-    for (const file of ['script.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/telegram-qr.svg']) await access(resolve(tempLanding, 'dist', file));
+    for (const file of ['script.js', 'hero-field.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/telegram-qr.svg']) await access(resolve(tempLanding, 'dist', file));
+    await assert.rejects(access(resolve(tempLanding, 'dist/assets/poppins-regular.ttf')));
+    await assert.rejects(access(resolve(tempLanding, 'dist/assets/poppins-medium.ttf')));
+    await assert.rejects(access(resolve(tempLanding, 'dist/assets/tokens/usdc.png')));
     await assert.rejects(access(resolve(tempLanding, 'dist/aurora.js')));
     const built = await readFile(resolve(tempLanding, 'dist/index.html'), 'utf8');
     const destinations = [...built.matchAll(/href="(https:\/\/t\.me\/[^\"]*)"/g)].map(([, href]) => href);
@@ -274,7 +311,7 @@ test('checked-in icons match the app renderer and preserve their license', async
   const { renderToStaticMarkup } = appRequire('react-dom/server');
   const lucide = appRequire('lucide-react');
   const licensePath = appRequire.resolve('lucide-react/package.json');
-  const icons = { receive: lucide.ArrowDownToLine, trade: lucide.CandlestickChart, move: lucide.ArrowLeftRight, earn: lucide.PiggyBank };
+  const icons = { receive: lucide.ArrowDownToLine, trade: lucide.CandlestickChart, earn: lucide.PiggyBank };
   for (const [name, Icon] of Object.entries(icons)) {
     const rendered = renderToStaticMarkup(react.createElement(Icon, { size: 24, color: '#2973ff', strokeWidth: 2 }));
     assert.equal(await readFile(resolve(root, 'assets/icons', `${name}.svg`), 'utf8'), rendered);

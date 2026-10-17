@@ -81,8 +81,8 @@ export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkC
       : showAssetLoading ? <AssetListSkeleton />
       : assets.length === 0 && incomplete && !search ? unavailableState
         : assets.length === 0 ? <div className={styles.empty}><Coins size={24} aria-hidden="true" />
-          {search ? <><p><strong>No matching assets</strong>Nothing{where} matches “{search.trim()}”.</p><button type="button" onClick={() => setSearch('')}>Clear search</button></>
-            : <><p><strong>No assets{where} yet</strong>Receive tokens to this wallet to see them here.</p><Link href="/qr">Receive assets</Link></>}</div>
+          {search ? <><p><strong>No matching assets{where}</strong></p><button type="button" onClick={() => setSearch('')}>Clear search</button></>
+            : <><p><strong>No assets{where} yet</strong></p><Link href="/qr">Receive assets</Link></>}</div>
       : <ul className={styles.assetList}>{visibleAssets.map((asset) => <li key={asset.id}><button type="button" className={styles.assetRow} onClick={() => setSelection({ wallet: snapshot.walletAddress, id: asset.id })} aria-label={`View ${displayAssetSymbol(asset.symbol)} on ${networkLabel(asset.chainId)}`}>
         <AssetRowContent asset={asset} loading={loading} />
       </button></li>)}</ul>}

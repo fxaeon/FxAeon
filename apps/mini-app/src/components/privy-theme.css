@@ -9,9 +9,8 @@
  * document.documentElement and passes them to Privy's iframe as URL
  * parameters, so those resolve to plain token colors.
  *
- * Each value names an Aeon token, and html[data-theme] redefines the tokens,
- * so the modal follows the active theme (Official, Dark, Light) without
- * per-theme copies. When Privy is absent nothing here applies: the
+ * Each value names an Aeon token and follows the fixed dark palette without
+ * a second set of modal colors. When Privy is absent nothing here applies: the
  * properties go unused and the #privy-* elements never mount.
  */
 html:root {

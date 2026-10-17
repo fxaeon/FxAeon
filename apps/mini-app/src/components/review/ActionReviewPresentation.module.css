@@ -14,6 +14,11 @@
 
 .surfaceEnter { animation: review-enter var(--dur-slow) var(--ease-out) both; }
 .reviewViewport { display: flex; flex-direction: column; min-width: 0; }
+.preparationEditor { display: contents; border: 0; min-width: 0; padding: 0; margin: 0; }
+.inputPreparation { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
+.inputPreparation p { margin: 0; }
+.inputPreparation button { flex: 0 0 auto; min-height: 44px; padding: 0 10px; color: var(--mint-text); border-radius: 10px; }
+.inputPreparation button:hover { background: var(--surface-2); }
 /* The shell scrolls the entire card, including its decision and disclosures. */
 .reviewScrollBody { min-width: 0; overflow: visible; }
 .reviewScrollBody:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 8px; }
@@ -89,7 +94,7 @@
   .quoteMetric { padding-inline: 4px; }
 }
 
-.reviewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.reviewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .reviewHeader > div { min-width: 0; }
 .reviewHeader h3 { margin: 0; font-size: 20px; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; overflow-wrap: anywhere; }
 /* The network is a plain caption with its mark, never a pill or a status dot. */
@@ -104,7 +109,7 @@
 .editButton:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .editButton:active:not(:disabled) { transform: scale(0.96); transition-duration: var(--dur-press); }
 .editButton:disabled { opacity: .45; }
-.reviewDetails { margin-top: 8px; border-top: 1px solid var(--line); }
+.reviewDetails { margin-top: 4px; border-top: 1px solid var(--line); }
 .reviewDetails > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; color: var(--mut); font-size: var(--fs-small); list-style: none; transition: color var(--dur-fast) ease; }
 .reviewDetails > summary:hover { color: var(--text); }
 .reviewDetails > summary::-webkit-details-marker { display: none; }
@@ -200,7 +205,7 @@
 .hashLink > span:first-child { min-width: 0; }
 .hashLink > span:first-child > span:first-child { display: block; font-variant-numeric: tabular-nums; }
 .hashLink > span:first-child > span:last-child { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: var(--fs-caption); font-weight: 600; }
-.hashLink > span:last-child { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: var(--mint); font-size: var(--fs-caption); }
+.hashLink > span:last-child { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; color: var(--mint-text); font-size: var(--fs-caption); }
 
 .inlineError {
   display: flex;
@@ -289,7 +294,7 @@
 .factEquivalent { display: block; margin-top: 1px; color: var(--mut); font-size: var(--fs-caption); font-weight: 500; }
 
 /* Readable amounts retain their accepted precision behind a touch disclosure. */
-.amountSummary { min-width: 0; margin: 0 0 4px; padding: 8px 0; }
+.amountSummary { min-width: 0; margin: 0 0 8px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
 .amountCaption { color: var(--mut); font-size: var(--fs-small); }
 .amountLine { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
 .amountLine > img, .amountLine > svg { flex-shrink: 0; margin-top: 5px; }
@@ -303,9 +308,12 @@
 .exactAmount p { margin: 4px 0 8px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; overflow-wrap: anywhere; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 .exactAmount p > span { display: block; color: var(--mut); margin-bottom: 2px; font-size: var(--fs-caption); }
 .amountUsd { display: block; color: var(--mut); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
-.positionSummary { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 34px; padding-bottom: 8px; margin-bottom: 2px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
-.positionSummary > span:last-child { font-variant-numeric: tabular-nums; color: var(--mut); }
-.riskPrices { display: grid; gap: 8px; padding: 2px 0; container: review-risk-prices / inline-size; }
+.facts { gap: 0; padding-bottom: 4px; }
+.facts > [data-review-fact]:not(.amountSummary) { padding-block: 8px; }
+.facts > [data-review-fact]:not(.amountSummary) + [data-review-fact]:not(.amountSummary) { border-top: 1px solid var(--line); }
+.actions.actions { margin-top: 6px; padding-top: 10px; padding-bottom: 0; }
+.actions > button { border-radius: 12px; }
+.riskPrices { display: grid; gap: 6px; padding: 2px 0; container: review-risk-prices / inline-size; }
 .riskPrices > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--fs-small); }
 .riskPrices > div > span:first-child { color: var(--mut); }
 .riskPrices > div > span:last-child { max-width: 60%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -332,7 +340,7 @@
 .stepSequence li { display: flex; align-items: center; gap: 6px; color: var(--mut); }
 .stepSequence li > span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); font-variant-numeric: tabular-nums; }
 .stepSequence li[aria-current='step'] { color: var(--text); font-weight: 600; }
-.stepSequence li[aria-current='step'] > span { color: var(--mint); background: var(--mint-dim); }
+.stepSequence li[aria-current='step'] > span { color: var(--mint-text); background: var(--mint-dim); }
 .stepSequence li[data-complete] { color: var(--success); }
 
 /* Keep one Trade card and reserve unknown values only during preparation. */
@@ -340,13 +348,12 @@
 .stableFacts > [data-review-fact] { min-height: 20px; }
 .stableReviewStatus { margin: 0 0 8px; font-size: var(--fs-small); line-height: 1.45; }
 
-.preparingReviewStatus { min-height: 2.9em; }
 .stableReviewViewport { overflow-anchor: none; }
 
 @media (max-width: 380px), (max-height: 620px) {
   .reviewHeader h3 { font-size: 18px; }
   .amountLine { gap: 8px; }
-  .amountSummary { padding-block: 4px; }
+  .amountSummary { padding: 10px 12px; }
   .reviewDetails { margin-top: 6px; }
 }
 

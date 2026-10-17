@@ -36,7 +36,7 @@ export function AccountSummary() {
   </div>;
   if (!activeAddress) return <div className={styles.account}>
     <span className={styles.accountIcon}><Wallet size={22} aria-hidden="true" /></span>
-    <span className={styles.copy}><strong>{wallet.authenticated ? 'Choose a wallet' : 'No wallet connected'}</strong><small>Connect to view your account</small></span>
+    <span className={styles.copy}><strong>{wallet.authenticated ? 'Choose a wallet' : 'No wallet connected'}</strong></span>
     <ConnectWalletButton className={styles.connect}>{wallet.authenticated ? 'Choose' : 'Connect'}</ConnectWalletButton>
   </div>;
   return <button type="button" className={styles.account} aria-label="View connected account" onClick={() => { haptic('light'); setWalletProfileAddress(activeAddress.toLowerCase()); }}>

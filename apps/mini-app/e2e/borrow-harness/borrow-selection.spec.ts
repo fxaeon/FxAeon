@@ -336,7 +336,7 @@ test('the withdrawal field names how much collateral can leave before review', a
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   await page.getByRole('button', { name: 'Your positions' }).click();
   await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Withdraw collateral', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Repay or withdraw', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Withdraw collateral', exact: true })).toBeVisible();
   // 2 ETH at $2,400 holding 100 fxUSD of debt under the 83.79% limit: 1.9502… ETH can leave, shown rounded down.
   const hint = page.locator('[data-hint="Collateral to withdraw"]');
   await expect(hint).toHaveText('Up to 1.95 ETH at current prices');
@@ -419,4 +419,21 @@ test('empty collateral guidance leads to receiving funds only for a verified zer
   await expect(receive).toHaveAttribute('href', '/qr');
   await changeSnapshot(page, (harness) => { harness.balances = { ETH: { status: 'loading', amount: '0' } }; });
   await expect(receive).toHaveCount(0);
+});
+
+test('repayment outcomes use the selected position debt and clear invalid input', async ({ page }) => {
+  await mount(page);
+  await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Repay debt', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Repay debt', exact: true })).toBeVisible();
+  const outcome = page.getByRole('region', { name: 'Estimated position changes' });
+  await page.getByLabel('Repay amount', { exact: true }).fill('40');
+  await expect(outcome).toContainText('Total debt100 → 60 fxUSD');
+  await expect(outcome).toContainText('Before conversion and fees');
+  await page.getByLabel('Repay amount', { exact: true }).fill('all');
+  await expect(outcome).toContainText('Total debt100 → 0 fxUSD');
+  await page.getByLabel('Repay amount', { exact: true }).fill('101');
+  await expect(outcome).toHaveCount(0);
+  await page.getByLabel('Repay amount', { exact: true }).fill('bad');
+  await expect(outcome).toHaveCount(0);
 });

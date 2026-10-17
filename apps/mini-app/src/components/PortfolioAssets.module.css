@@ -1,7 +1,6 @@
 /* Network filter: equal segments with a thumb that travels on a spring. */
 .networkTabs { position: relative; isolation: isolate; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: fit-content; max-width: 100%; margin: 0 0 0 auto; padding: 3px; border-radius: 999px; background: var(--surface-2); }
 .networkTabs::before { content: ''; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--seg-count, 3)); border-radius: 999px; background: var(--surface-3); box-shadow: var(--ring-inset), 0 1px 3px rgba(0, 0, 0, 0.16); transform: translateX(calc(var(--seg-index, 0) * 100%)); transition: transform var(--dur-slow) var(--ease-spring); }
-:root:is([data-theme='official'], [data-theme='light']) .networkTabs::before { background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent), 0 2px 8px color-mix(in srgb, var(--text) 6%, transparent); }
 .networkTabs button { min-width: 72px; min-height: 44px; border-radius: 999px; padding: 6px 12px; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; transition: color var(--dur-base) ease; }
 .networkTabs button:hover { color: var(--text); }
 .networkTabs button[aria-pressed='true'] { color: var(--text); }
@@ -37,12 +36,12 @@
 .networkNote { margin: 0; padding: 12px 0; color: var(--warn); border-bottom: 1px solid var(--line); background: transparent; font-size: 12px; line-height: 1.5; }
 .status { margin: 0; padding: 0 0 8px; color: var(--mut); font-size: 12px; line-height: 1.45; }
 .empty { display: grid; justify-items: center; gap: 10px; padding: 20px 16px; text-align: center; color: var(--mut); font-size: 13px; }
-.empty > svg { box-sizing: content-box; padding: 14px; border: 0; border-radius: 50%; background: var(--mint-dim); color: var(--mint); }
+.empty > svg { box-sizing: content-box; padding: 14px; border: 0; border-radius: 50%; background: var(--mint-dim); color: var(--mint-text); }
 .empty p { display: grid; max-width: 34ch; gap: 3px; margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
 .empty p strong { color: var(--text); font-size: var(--fs-body); font-weight: 600; }
-.empty a, .empty button { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint); font-weight: 600; }
+.empty a, .empty button { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint-text); font-weight: 600; }
 .changedValue { animation: value-change 500ms ease-out; }
-@keyframes value-change { from { color: var(--mint); } to { color: var(--text); } }
+@keyframes value-change { from { color: var(--mint-text); } to { color: var(--text); } }
 .dialog { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid color-mix(in srgb, var(--line) 78%, var(--mint) 22%); border-radius: 22px; background-color: var(--surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 42%, var(--surface)), var(--surface) 260px); padding: 0; color: var(--text); box-shadow: 0 18px 44px color-mix(in srgb, var(--surface-shadow) 76%, transparent); }
 .dialog::backdrop { background: rgb(0 0 0 / 60%); }
 .sheet { padding: 24px; }

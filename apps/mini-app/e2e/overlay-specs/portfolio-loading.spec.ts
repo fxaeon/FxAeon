@@ -14,7 +14,7 @@ let lab: PortfolioStatesLab;
 
 test.beforeAll(async () => { lab = await buildPortfolioStatesLab(); });
 
-async function open(page: Page, stage: string, { route = '/portfolio', theme = 'official' } = {}) {
+async function open(page: Page, stage: string, { route = '/portfolio', theme = 'dark' } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
     + `<body><div id="root"></div><script>window.__portfolioStates = ${JSON.stringify({ stage, route, theme })};</script><script src="/lab.js"></script></body></html>`;
   await page.route('http://lab.test/**', async (request) => {
@@ -122,11 +122,11 @@ test('a position card lands at its placeholder’s height, with its brake line a
   }
 });
 
-test('screenshots of Portfolio’s positions in every theme', async ({ page }) => {
+test('screenshots of Portfolio’s positions in dark appearance', async ({ page }) => {
   const directory = process.env.PORTFOLIO_SCREENS_DIR;
   test.skip(!directory, 'set PORTFOLIO_SCREENS_DIR to keep the screenshots');
   mkdirSync(directory!, { recursive: true });
-  for (const theme of ['official', 'dark', 'light'] as const) {
+  for (const theme of ['dark'] as const) {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 1600 });
       await open(page, 'positions', { theme });
@@ -143,7 +143,7 @@ test('captures connected, empty, and one-cent home states for visual review', as
   const directory = process.env.PORTFOLIO_HOME_SCREENSHOTS_DIR;
   test.skip(!directory, 'set PORTFOLIO_HOME_SCREENSHOTS_DIR to keep the screenshots');
   mkdirSync(directory!, { recursive: true });
-  for (const theme of ['official', 'dark'] as const) {
+  for (const theme of ['dark'] as const) {
     for (const [name, stage] of [['connected', 'loaded'], ['empty', 'empty'], ['dust', 'dust']] as const) {
       await page.setViewportSize({ width: 390, height: 844 });
       await open(page, stage, { theme });
@@ -262,36 +262,6 @@ test('reduced motion leaves placeholders still and the hero light in place', asy
   const light = await page.evaluate(() => getComputedStyle(document.querySelector('section[aria-label="Portfolio balance"]')!, '::before').animationName);
   expect(light).toBe('none');
 });
-
-for (const theme of ['official', 'light'] as const) {
-  test(`the hero light stays inside its card through its drift (${theme})`, async ({ page }) => {
-    for (const width of [320, 393, 480, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await open(page, 'loaded', { theme });
-      for (const phase of [0, 0.5, 1]) {
-        await page.addStyleTag({ content: `section[aria-label="Portfolio balance"]::before { animation-delay: ${-11 * phase}s !important; animation-play-state: paused !important; }` });
-        const bounds = await page.evaluate(() => {
-          const card = document.querySelector('section[aria-label="Portfolio balance"]')!;
-          const style = getComputedStyle(card, '::before');
-          const rect = card.getBoundingClientRect();
-          const left = parseFloat(style.left); const top = parseFloat(style.top);
-          const width = parseFloat(style.width); const height = parseFloat(style.height);
-          const matrix = new DOMMatrix(style.transform === 'none' ? undefined : style.transform);
-          // Transform origin is the box centre.
-          const cx = left + width / 2; const cy = top + height / 2;
-          const corners = [[left, top], [left + width, top], [left, top + height], [left + width, top + height]]
-            .map(([x, y]) => matrix.transformPoint(new DOMPoint(x - cx, y - cy)))
-            .map((point) => [point.x + cx, point.y + cy]);
-          return { minX: Math.min(...corners.map(([x]) => x)), maxX: Math.max(...corners.map(([x]) => x)), minY: Math.min(...corners.map(([, y]) => y)), cardWidth: rect.width };
-        });
-        expect(bounds.minX, `left edge at ${width}px, phase ${phase}`).toBeGreaterThanOrEqual(-0.5);
-        expect(bounds.maxX, `right edge at ${width}px, phase ${phase}`).toBeLessThanOrEqual(bounds.cardWidth + 0.5);
-        expect(bounds.minY, `top edge at ${width}px, phase ${phase}`).toBeGreaterThanOrEqual(-46.5);
-      }
-      await page.unrouteAll({ behavior: 'ignoreErrors' });
-    }
-  });
-}
 
 test('History paints its feed in place before the wallet loads', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 900 });

@@ -121,7 +121,7 @@ function isActive(pathname: string, href: string, also?: string[]) {
   return pathname === href || Boolean(also?.some((prefix) => pathname.startsWith(prefix)));
 }
 
-/** The real top bar's geometry: mark and wordmark, the network and wallet control, the theme button. */
+/** The real top bar's geometry: mark, wordmark, and wallet control. */
 function ShellTopBar({ pathname }: { pathname: string }) {
   const t = useT();
   return <div className="app-topbar">
@@ -135,9 +135,6 @@ function ShellTopBar({ pathname }: { pathname: string }) {
           <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
-      <button type="button" tabIndex={-1} className="theme-toggle glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full text-mut">
-        <span className={`skeleton ${styles.themeMark}`} />
-      </button>
     </span>
   </div>;
 }

@@ -15,7 +15,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PrivyProvider, type PrivyClientConfig } from '@privy-io/react-auth';
 import { base, mainnet } from 'viem/chains';
 import { PRIVY_APP_ID } from '@/lib/privyConfig';
-import { getSavedTheme, type ThemeId } from '@/lib/theme';
 import { getWebApp, isTelegramLaunchContext, restoreTelegramLaunchHash, waitForTelegramWebApp } from '@/lib/telegram';
 import { UnavailableWalletProvider } from '@/lib/wallet';
 import { PrivyWalletBridge } from '@/lib/wallet/PrivyWalletBridge';
@@ -35,29 +34,13 @@ export default function PrivyClientProvider({ children }: { children: React.Reac
     }
     setTelegramSession((session) => session + 1);
   }, []);
-  // Keep the first client render identical to the server. Reading localStorage
-  // in the state initializer can change Privy's provider tree before hydration
-  // (for example, when a visitor has saved the light palette), which shifts
-  // every descendant useId. Apply the saved palette immediately after mount.
-  const [theme, setTheme] = useState<ThemeId>('official');
-  useEffect(() => {
-    setTheme(getSavedTheme());
-    const syncTheme = (event: Event) => {
-      const next = (event as CustomEvent<ThemeId>).detail;
-      if (next === 'official' || next === 'dark' || next === 'light') setTheme(next);
-    };
-    window.addEventListener('fxaeon:theme', syncTheme);
-    return () => window.removeEventListener('fxaeon:theme', syncTheme);
-  }, []);
   // Privy rebuilds its app configuration whenever this object changes, so it
-  // changes only with the theme, not on every route change.
+  // remains stable across route changes and matches the first server render.
   const privyConfig = useMemo<PrivyClientConfig>(() => ({
     appearance: {
-      // The active theme's Aeon background, accent, mark, and sign-in copy.
-      // Privy takes a background hex as its theme (a dark hex selects its
-      // dark palette), so Official, Dark, and Light each carry through;
-      // privy-theme.css maps the rest of its palette to Aeon tokens.
-      ...privyAppearance(theme),
+      // A dark background selects Privy's dark palette; the stylesheet maps
+      // its remaining colors to the app's tokens.
+      ...privyAppearance(),
       // FxAeon is EVM-only. Do not expose Solana wallet choices.
       walletChainType: 'ethereum-only',
       // Keep email and other enabled account methods reachable before the
@@ -78,7 +61,7 @@ export default function PrivyClientProvider({ children }: { children: React.Reac
       // repeat this per request; the provider-level setting is fail-safe.
       showWalletUIs: true,
     },
-  }), [theme]);
+  }), []);
   // P0 login fix: Privy's seamless Telegram Mini-App login triggers at SDK
   // mount IF `#tgWebAppData=…` is still on the URL. Our entry router drops
   // it, so restore it from WebApp.initData BEFORE the provider mounts. A

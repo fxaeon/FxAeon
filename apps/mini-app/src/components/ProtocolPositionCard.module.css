@@ -1,15 +1,13 @@
-/* A position as a compact row: identity and value, then the f(x) split with
- * its brake. Rows have no box: a list rules them apart with hairlines, and a
- * selected row takes a tint with an accent edge. Long and short are the only
- * colors in a row. */
+/* A position card: identity and value, the debt split, and two verified
+ * threshold estimates. Selection adds a quiet tint and an accent edge. */
 .row {
   display: block;
   width: 100%;
   min-width: 0;
-  border: 0;
-  border-radius: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   padding: 14px 10px;
-  background: transparent;
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   text-align: left;
@@ -104,7 +102,7 @@
   transition: color var(--dur-fast) var(--ease-out), transform var(--dur-slow) var(--ease-spring);
 }
 @media (hover: hover) {
-  .interactive:hover .navigateIcon { color: var(--mint); transform: translateX(2px); }
+  .interactive:hover .navigateIcon { color: var(--mint-text); transform: translateX(2px); }
 }
 
 /* The f(x) split of this position: debt (quiet) then the holder's share (the
@@ -171,12 +169,20 @@
   align-items: center;
   gap: 2px;
   margin: -14px 0;
-  color: var(--mint);
+  color: var(--mint-text);
   font-weight: 600;
   white-space: nowrap;
 }
 .brake a svg { width: 12px; height: 12px; }
 .brakeSkeleton { display: block; width: min(76%, 280px); height: 10px; margin: 3px 0; border-radius: var(--radius-full); }
+.cardMetrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.cardMetrics > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.cardMetricLabel { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
+.cardMetricValue { color: var(--text); font-size: var(--fs-small); font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cardMetricValue [data-threshold-reached] { color: var(--warn); }
+.skeletonMetricLabel, .skeletonMetricValue { display: inline-block; max-width: 100%; border-radius: 4px; vertical-align: middle; }
+.skeletonMetricLabel { width: 70px; height: 10px; }
+.skeletonMetricValue { width: 60px; height: 12px; }
 
 /* Paired metrics keep the position summary close to its management actions. */
 .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 12px 0 0; border-bottom: 1px solid var(--line); }
@@ -217,7 +223,8 @@
 .compactDetails .brake { margin-top: 6px; }
 .compactDetails .facts { margin-top: 8px; }
 .compactDetails .fact { padding-block: 7px; gap: 2px; }
-.compactDetails .fact dd { font-size: 15px; }
+.compactDetails .fact dd { font-size: 14px; }
+.compactDetails .factUnit { color: var(--mut); font-size: .93em; font-weight: 500; white-space: nowrap; }
 .compactDetails .fact dd small { display: none; }
 .metricDisclosure > summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; color: var(--mut); font-size: var(--fs-caption); cursor: pointer; list-style: none; }
 .metricDisclosure > summary::-webkit-details-marker { display: none; }
@@ -234,11 +241,10 @@
   .fact:nth-child(n) { padding-inline: 0; border-left: 0; }
 }
 
-/* A list is a ruled stack: full-width hairlines between rows, whitespace for
-   the grouping. */
-.list { display: flex; min-width: 0; flex-direction: column; }
+/* Each card remains one selection target in a spaced list. */
+.list { display: flex; min-width: 0; flex-direction: column; gap: 10px; }
 .listItem { min-width: 0; }
-.listItem + .listItem { border-top: 1px solid var(--line); }
+.listItem + .listItem { border-top: 0; }
 
 /* Discovery notices say what happened and offer the retry beside it. */
 .notice {
@@ -284,7 +290,7 @@
 .confirmedStatus > svg { flex: 0 0 15px; margin-top: 2px; }
 .confirmedActions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 8px; border-top: 1px solid var(--line); }
 .confirmedActions a, .confirmedActions button { display: inline-flex; min-height: 44px; align-items: center; gap: 6px; font-size: var(--fs-caption); font-weight: 600; }
-.confirmedActions a { color: var(--mint); }
+.confirmedActions a { color: var(--mint-text); }
 .confirmedActions button { color: var(--text); }
 .confirmedActions button:disabled { color: var(--mut); }
 .confirmedActions svg { width: 15px; height: 15px; }

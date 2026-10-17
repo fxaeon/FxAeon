@@ -27,12 +27,12 @@ async function setLab(page: Page, patch: Record<string, unknown>) {
   await page.evaluate((value) => (globalThis as typeof globalThis & { __shellLab: { set: (patch: unknown) => void } }).__shellLab.set(value), patch);
 }
 
-test('network and wallet have separate surfaces and stay within the topbar in both themes', async ({ page }) => {
+test('network and wallet have separate surfaces and stay within the dark topbar', async ({ page }) => {
   await open(page);
   await setLab(page, { wallet: STATES[2][1] });
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    for (const theme of ['official', 'dark']) {
+    for (const theme of ['dark']) {
       await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
       const geometry = await page.locator('[data-header-wallet-control]').evaluate(element => {
         const network = element.querySelector('.network-selector')!;
@@ -132,37 +132,18 @@ test('loading shows placeholders, not a globe or an empty pill, and they settle 
   await expect(group.locator('.network-selector')).toHaveAttribute('aria-label', 'Change network, current Ethereum');
 });
 
-test('the theme control shows the theme in use and names the one it switches to', async ({ page }) => {
-  await open(page);
-  await setLab(page, { wallet: STATES[2][1] });
-  await expect(page.locator('.theme-toggle [data-theme-icon]')).toHaveCount(2);
-  const expectations = [
-    { theme: 'official', name: 'Light theme. Switch to dark theme' },
-    { theme: 'dark', name: 'Dark theme. Switch to light theme' },
-    { theme: 'official', name: 'Light theme. Switch to dark theme' },
-  ];
-  for (const [index, { theme, name }] of expectations.entries()) {
-    const toggle = page.getByRole('button', { name, exact: true });
-    await expect(toggle).toBeEnabled();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-    const visible = await toggle.locator('[data-theme-icon]').evaluateAll((icons) => icons
-      .filter((icon) => getComputedStyle(icon).display !== 'none')
-      .map((icon) => icon.getAttribute('data-theme-icon')));
-    expect(visible).toEqual([theme]);
-    if (index < expectations.length - 1) await toggle.click();
+test('dark is the sole appearance and earlier light preferences migrate before hydration', async ({ page }) => {
+  for (const saved of ['official', 'light', 'dark']) {
+    await open(page, { initScript: `localStorage.setItem('fxaeon_theme_id_v2','${saved}')` });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe('dark');
+    expect(await page.evaluate(() => localStorage.getItem('fxaeon_theme_id_v2'))).toBe('dark');
+    await expect(page.locator('.theme-toggle')).toHaveCount(0);
+    await setLab(page, { path: '/more' });
+    await expect(page.getByRole('link', { name: /Appearance/ })).toHaveCount(0);
+    await setLab(page, { path: '/settings' });
+    await expect(page.getByRole('radiogroup', { name: 'Appearance theme' })).toHaveCount(0);
   }
-});
-
-test('the theme icon follows the pre-hydration theme, so a saved theme never flashes the default icon', async ({ page }) => {
-  await open(page, { initScript: "localStorage.setItem('fxaeon_theme_id_v2','dark')" });
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  const visibleIcons = () => page.locator('.theme-toggle [data-theme-icon]').evaluateAll((elements) => elements
-    .filter((icon) => getComputedStyle(icon).display !== 'none')
-    .map((icon) => icon.getAttribute('data-theme-icon')));
-  expect(await visibleIcons()).toEqual(['dark']);
-  // Server HTML renders React's default state; the root attribute alone must pick the icon.
-  await page.evaluate(() => { document.documentElement.dataset.theme = 'official'; });
-  expect(await visibleIcons()).toEqual(['official']);
 });
 
 /** How blue the heading's ink is: the largest blue-over-green excess among
@@ -337,9 +318,9 @@ test('More directory exposes its quick actions and marks only external links', a
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
   const directory = page.locator('[data-utility-directory]');
   const links = directory.getByRole('link');
-  await expect(links).toHaveCount(7);
+  await expect(links).toHaveCount(6);
   const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
-  expect(hrefs).toEqual(['/history', '/qr', '/settings', '/settings#appearance', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  expect(hrefs).toEqual(['/history', '/qr', '/settings', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
   expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
   for (const link of await links.all()) {
     await expect(link).toHaveAccessibleName(/\S/);
@@ -469,11 +450,11 @@ async function settle(page: Page) {
     .map((animation) => animation.finished.catch(() => undefined))));
 }
 
-test('disabled and busy actions stay readable (AA) and look unavailable, in every theme', async ({ page }) => {
+test('disabled and busy actions stay readable (AA) and look unavailable in dark mode', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/controls', wallet: STATES[1][1] });
   await expect(page.getByRole('button', { name: 'Not enough ETH for network fees' })).toBeDisabled();
-  for (const theme of ['official', 'dark', 'light']) {
+  for (const theme of ['dark']) {
     await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
     await settle(page);
     const results = await contrasts(page, 'main .button, main button:disabled strong, main label[data-disabled] strong, main label[data-disabled] small');
@@ -510,8 +491,8 @@ test('keyboard focus shows one accent ring on the header, dock, rows and choices
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
   await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible();
-  const targets = ['.network-selector', '.theme-toggle', 'nav.mobile-tabbar a[aria-current="page"]', 'main a[href="/history"]'];
-  for (const theme of ['official', 'dark', 'light']) {
+  const targets = ['.network-selector', '[aria-label="Open wallet profile"]', 'nav.mobile-tabbar a[aria-current="page"]', 'main a[href="/history"]'];
+  for (const theme of ['dark']) {
     await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
     await settle(page);
     for (const selector of targets) {
@@ -664,7 +645,7 @@ test('the dock names Portfolio and keeps compact 44px targets at 320px and 390px
       expect(Math.min(item.width, item.height), `${item.label} keeps a 44px touch target at ${width}px`).toBeGreaterThanOrEqual(44);
     }
   }
-  for (const theme of ['official', 'dark', 'light']) {
+  for (const theme of ['dark']) {
     await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
     const fits = await nav.locator('.nav-item-mobile').evaluateAll((items) => items.map((item) => {
       const label = item.querySelector<HTMLElement>('.nav-label')!;

@@ -57,7 +57,7 @@ test.beforeAll(async () => {
 });
 
 async function mount(page: Page) {
-  await page.setContent('<html data-theme="official"><body><div id="root"></div></body></html>');
+  await page.setContent('<html data-theme="dark"><body><div id="root"></div></body></html>');
   if (styles) await page.addStyleTag({ content: styles });
   await page.addScriptTag({ content: script });
   await expect.poll(() => page.evaluate(() => (window as Window & { __portfolioAssetsHarnessReady?: boolean }).__portfolioAssetsHarnessReady)).toBe(true);

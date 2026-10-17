@@ -1,0 +1,18 @@
+.backdrop { position: fixed; z-index: 60; inset: 0; display: flex; align-items: flex-end; background: var(--scrim); backdrop-filter: blur(12px) saturate(115%); animation: scrim-in var(--dur-base) var(--ease-out) both; }
+.sheet { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; max-height: 92dvh; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-xl) var(--radius-xl) 0 0; background: var(--surface); color: var(--text); box-shadow: var(--elevation-2); animation: sheet-up var(--dur-sheet) var(--ease-sheet) both; }
+.header { position: relative; display: flex; flex: 0 0 auto; align-items: center; gap: 12px; min-width: 0; padding: 20px 12px 12px 16px; }
+.heading { flex: 1; min-width: 0; }
+.header h2 { min-width: 0; margin: 0; outline: none; font-size: 20px; font-weight: 650; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.handle { position: absolute; top: 9px; left: calc(50% - 18px); width: 36px; height: 4px; border-radius: 3px; background: var(--line-strong); }
+.close { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 50%; color: var(--mut); transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease; }
+.close:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.close:disabled { opacity: .4; cursor: default; }
+.close:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.body { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+/* The sheet owns the title and dismiss action. Its child retains the network
+   caption and all of the same accepted transaction terms as desktop. */
+.body :global([data-review-header]),
+.body :global([data-result-heading]) { display: none; }
+.body :global([data-review-surface]) { padding: 0; border: 0; box-shadow: none; background: transparent; animation: none; }
+.body :global([data-review-viewport]) { animation: none; }
+@media (prefers-reduced-motion: reduce) { .backdrop, .sheet { animation: none; } }
