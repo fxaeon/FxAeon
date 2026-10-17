@@ -806,8 +806,10 @@ for (const environment of ['mobile', 'unknown'] as const) {
       const back = dialog.getByRole('button', { name: 'Back to Other wallets', exact: true });
       await expect(back).toBeFocused();
       if (environment === 'mobile' && name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-handoff-dark-390');
+      const install = dialog.getByRole('link', { name: `${browserHref ? 'Install' : 'Get'} ${name}`, exact: true });
+      if (!browserHref) await expect(install).toBeVisible();
       await dialog.getByText('Connection help', { exact: true }).click();
-      await expect(dialog.getByRole('link', { name: `Install ${name}`, exact: true })).toHaveAttribute('href', name === 'Rabby' ? 'https://rabby.io/?platform=mobile' : appHref);
+      await expect(install).toHaveAttribute('href', name === 'Rabby' ? 'https://rabby.io/?platform=mobile' : appHref);
       await expect(dialog.getByRole('link', { name: 'Wallet guide', exact: true })).toBeVisible();
       await expect(dialog.getByRole('button', { name: 'Copy FxAeon link', exact: true })).toBeVisible();
       if (environment === 'mobile' && name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-recovery-dark-390');
@@ -879,10 +881,11 @@ test('desktop absent-wallet selection opens only its official installation page 
     await installationPage.close();
     const dialog = page.getByRole('dialog', { name, exact: true });
     await expect(dialog).toHaveAttribute('data-wallet-view', 'handoff');
-    await expect(dialog.getByRole('status')).toHaveText(`Opening ${name}’s official download page.`);
+    await expect(dialog.getByRole('status')).toHaveText(`Install ${name} in your browser, then return here to connect.`);
+    const install = dialog.getByRole('link', { name: `Get ${name}`, exact: true });
+    await expect(install).toBeVisible();
     if (name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-not-detected-dark-1280');
     await dialog.getByText('Connection help', { exact: true }).click();
-    const install = dialog.getByRole('link', { name: `Install ${name}`, exact: true });
     await expect(install).toHaveAttribute('href', href);
     await expect(dialog.getByRole('link', { name: 'Wallet guide', exact: true })).toBeVisible();
     if (name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-recovery-dark-1280');
