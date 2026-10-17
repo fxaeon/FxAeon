@@ -28,7 +28,13 @@ async function open(page: Page, stage: string, { route = '/portfolio', theme = '
   });
   await page.goto('http://lab.test/');
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
-  await page.evaluate(() => document.fonts.ready);
+  // The harness flag follows root.render(), before React necessarily commits.
+  // Wait for its content to request the fonts before awaiting their readiness.
+  await expect(page.locator('.app-content')).toBeVisible();
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  });
 }
 
 /** Boxes of the landmarks a reader's eye holds onto while Portfolio loads. */
