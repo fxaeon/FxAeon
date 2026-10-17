@@ -108,7 +108,7 @@
   margin: -6px -4px;
   padding: 6px 4px;
   border-radius: var(--radius-xs);
-  color: var(--mint);
+  color: var(--mint-text);
   font-weight: 650;
   white-space: nowrap;
   text-decoration: underline;
@@ -147,7 +147,7 @@
 }
 
 .eyebrow {
-  color: var(--mint);
+  color: var(--mint-text);
   font-size: 12px;
   font-weight: 700;
 }

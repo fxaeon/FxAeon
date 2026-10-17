@@ -16,14 +16,14 @@ for (const width of [320, 390, 1280]) {
     // have no side switch of their own; they show the ticket's side.
     await expect(explanation.getByRole('radiogroup')).toHaveCount(0);
     await expect(explanation.getByText('Example', { exact: true })).toHaveCount(0);
-    await expect(explanation).toContainText('67% minted fxUSD · 33% yours');
-    const split = explanation.getByRole('list', { name: /Share of a position/ });
+    await expect(explanation).toContainText('67% debt · 33% equity');
+    const split = explanation.getByRole('list', { name: /Debt and equity share of a position/ });
     const longHeight = (await split.boundingBox())!.height;
     await explanation.screenshot({ path: testInfo.outputPath('long-example.png') });
 
     await ticketSide.getByRole('radio', { name: 'Short' }).click();
     await expect(ticketSide.getByRole('radio', { name: 'Short' })).toBeChecked();
-    await expect(explanation).toContainText('75% borrowed wstETH · 25% yours');
+    await expect(explanation).toContainText('75% debt · 25% equity');
     await expect(explanation).not.toContainText('pool maximum');
     expect((await split.boundingBox())!.height, 'switching sides must not move the content below').toBe(longHeight);
     await explanation.screenshot({ path: testInfo.outputPath('short-example.png') });

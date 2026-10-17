@@ -23,9 +23,9 @@ type HarnessState = { stage: PortfolioStage; route: string; theme: 'official' | 
 const state = ((globalThis as { __portfolioStates?: Partial<HarnessState> }).__portfolioStates ?? {}) as HarnessState;
 state.stage ??= 'loaded';
 state.route ??= '/portfolio';
-state.theme ??= 'official';
+state.theme = 'dark';
 document.documentElement.dataset.theme = state.theme;
-document.documentElement.style.colorScheme = state.theme === 'light' ? 'light' : 'dark';
+document.documentElement.style.colorScheme = 'dark';
 
 function Harness() {
   const [handedOff, setHandedOff] = useState(false);

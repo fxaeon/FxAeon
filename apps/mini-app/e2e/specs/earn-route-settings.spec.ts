@@ -54,7 +54,9 @@ test.describe('Earn route-specific settings', () => {
         await expect(methods.getByRole('radio', { name: /^Instant/ })).toBeChecked();
         await checkSettings(true);
         await methods.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
-        await expect(page.getByText(/A queued withdrawal is claimed later/)).toBeVisible();
+        await expect(methods.getByRole('radio', { name: /After cooldown/ })).toBeChecked();
+        await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('Claim later');
+        await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('fxUSD + USDC');
         await checkSettings(false);
         await page.locator('.sticky-action-sentinel').scrollIntoViewIfNeeded();
         await expect(page.locator('.sticky-action')).not.toHaveAttribute('data-riding', 'true');
@@ -66,7 +68,7 @@ test.describe('Earn route-specific settings', () => {
       await page.goto('/earn?mode=withdraw&token=fxUSDBasePool', { waitUntil: 'domcontentloaded' });
       await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
       await expect(page.getByText(/with no queued claim/)).toBeVisible();
-      await expect(page.getByText(/A queued withdrawal is claimed later/)).toHaveCount(0);
+      await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).not.toContainText('Claim later');
       await checkSettings(false);
       await page.screenshot({ path: testInfo.outputPath(`direct-base-pool-${width}.png`), fullPage: true, animations: 'disabled' });
       expect(await page.getByRole('main').evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);

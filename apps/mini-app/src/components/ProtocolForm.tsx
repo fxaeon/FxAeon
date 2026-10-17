@@ -543,13 +543,11 @@ export function LeverageField({
   max?: number;
   error?: string | null;
   compact?: boolean;
-  /** Names the debt so the slider can say what the chosen leverage means. */
-  split?: { side: LeverageSide; debtLabel: string };
+  split?: { side: LeverageSide };
 }) {
   const inputId = useId();
   const sliderId = `${inputId}-slider`;
   const errorId = `${inputId}-error`;
-  const splitId = `${inputId}-split`;
   const invalid = Boolean(error);
   const sliderValue = Math.min(max, Math.max(min, Number.isFinite(value) && value > 0 ? value : min));
   const fill = max === min ? 0 : ((sliderValue - min) / (max - min)) * 100;
@@ -618,23 +616,19 @@ export function LeverageField({
         onChange(normalized);
       }}
       aria-invalid={invalid || Boolean(leverageInputError)}
-      aria-describedby={[invalid || leverageInputError ? errorId : null, split ? splitId : null].filter(Boolean).join(' ') || undefined}
+      aria-describedby={invalid || leverageInputError ? errorId : undefined}
       className={`${styles.leverageInput} field-control min-h-[52px] min-w-0 flex-1 px-4 text-[20px] font-semibold outline-none`}
     />
   );
-  // Both slider variants use live leverage bounds; the split adds a caption.
+  // Both slider variants use the live leverage bounds from the selected pool.
   const slider = split ? (
     <LeverageSplitRange
       id={sliderId}
       label={`${label} slider`}
       side={split.side}
-      debtLabel={split.debtLabel}
       value={sliderValue}
-      leverage={value}
       min={min}
       max={max}
-      describedBy={splitId}
-      captionId={splitId}
       onChange={onChange}
     />
   ) : (

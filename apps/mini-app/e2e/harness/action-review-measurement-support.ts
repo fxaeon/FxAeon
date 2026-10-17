@@ -25,6 +25,14 @@ const mocks: Record<string, string> = {
     // The real fee copy, so the review's max and its shortfall notice are checked together.
     export { formatRouteGasCost } from '@/lib/fx/gasCost';
     export const useRouteGasCost = () => H().gasCost;
+    export const routeGasCostCache = { refresh: async (route) => {
+      const h = H(); h.gasPreflightCount = (h.gasPreflightCount ?? 0) + 1;
+      while (h.gasCost.checking) await new Promise(resolve => setTimeout(resolve, 10));
+      if (h.failNextGasPreflight) { h.failNextGasPreflight = false; throw new Error('Network fee check failed. Try again.'); }
+      const now = Date.now();
+      return { ...h.gasCost.estimate, routeKey: 'fixture', walletAddress: route.walletAddress, chainId: route.chainId,
+        operation: route.operation, status: h.gasCost.estimate?.status ?? 'unavailable', steps: [], fetchedAt: now, validUntil: now + 15000, nativeValueWei: h.gasCost.estimate?.nativeValueWei ?? 0n };
+    } };
     export async function prepareRoutesForReview(planned, walletAddress) {
       const h = H(); h.prepareCount += 1;
       if (h.previewDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, h.previewDelayMs));
@@ -70,9 +78,16 @@ const mocks: Record<string, string> = {
             ...(tier ? { maxFeePerGas: tier.maxFeePerGas, maxPriorityFeePerGas: tier.maxPriorityFeePerGas } : {}),
           };
           const hash = await callbacks.requestSignature(request, { ...transaction });
-          const step = { index, transaction, status: 'confirmed', hash };
+          const step = { index, transaction, status: 'confirmed', hash, receipt: { status: 'success', logs: [] } };
           steps.push(step);
           callbacks.onStep?.(step);
+          if (h.uncertainApproval && transaction.kind === 'approval') {
+            const pendingStep = { index, transaction, status: 'submitted', hash };
+            steps[steps.length - 1] = pendingStep;
+            callbacks.onStep?.(pendingStep);
+            callbacks.onStatus?.('submitted', 'approval receipt unavailable');
+            return { status: 'failed', operation: route.operation, chainId: route.chainId, walletAddress: route.walletAddress, steps, error: 'Approval confirmation could not be verified.' };
+          }
           callbacks.onStatus?.('confirmed', 'mock confirmed');
         } catch (cause) {
           const result = { status: steps.length ? 'partial' : 'failed', operation: route.operation, chainId: route.chainId, walletAddress: route.walletAddress, steps, error: cause instanceof Error ? cause.message : String(cause) };
@@ -133,7 +148,6 @@ export const useInvalidateWalletData = () => async () => {
     };
   `,
   '@/lib/walletDataRefresh': `export const createRouteWalletRefresh = (invalidate) => async (route) => invalidate(route.walletAddress, route.chainId);`,
-  '@/lib/taskState': `export const selectExecutionTask = () => null;`,
   '@/lib/receiptPresentation': `export const buildReceiptPresentation = () => ({ movements: [], technicalMovements: [], executionFee: null, feeLabel: 'Network fee', feeCaveat: null, nativeValue: null }); export const receiptTransfersFromLogs = () => []; export const shouldShowReceiptMovementFallback = (receipts) => receipts.length > 0 && receipts.some((receipt) => receipt.transactionKind !== 'approval'); export const receiptMovementLines = (receipts) => { const tokenMovements = receipts.flatMap((receipt) => receipt.movements); if (tokenMovements.length) return { movements: tokenMovements, nativeValueIsMovement: false }; const nativeSends = receipts.flatMap((receipt) => receipt.nativeValue && receipt.nativeValueLabel === 'Native value sent' ? ['sent ' + receipt.nativeValue] : []); return { movements: nativeSends, nativeValueIsMovement: nativeSends.length > 0 }; };`,
   '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
   '@/components/ui': `
@@ -205,7 +219,7 @@ export const useInvalidateWalletData = () => async () => {
     const Icon = ({ size = 24, ...props }) => <svg width={size} height={size} {...props} />;
     export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
     export const Clock3 = Icon; export const LoaderCircle = Icon; export const ShieldCheck = Icon; export const ExternalLink = Icon;
-    export const Circle = Icon; export const XCircle = Icon; export const ChevronDown = Icon; export const Check = Icon; export const Copy = Icon;
+    export const Circle = Icon; export const X = Icon; export const XCircle = Icon; export const ChevronDown = Icon; export const Check = Icon; export const Copy = Icon;
   `,
 };
 

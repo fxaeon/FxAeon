@@ -67,7 +67,7 @@ export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkC
     missingFreshValues ? 'Some prices unavailable.' : null,
   ].filter(Boolean).join(' ');
   const retryAction = onRefresh && <button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing}>{refreshing ? 'Refreshing…' : 'Try again'}</button>;
-  const unavailableState = <div className={styles.empty}><Coins size={24} aria-hidden="true" /><p><strong>Couldn’t load balances</strong>Your funds are unaffected.</p>{retryAction}</div>;
+  const unavailableState = <div className={styles.empty}><Coins size={24} aria-hidden="true" /><p><strong>Couldn’t load balances</strong></p>{retryAction}</div>;
   const where = network === 'all' ? '' : ` on ${networkLabel(network)}`;
   return <section className={`${styles.assets} ${styles.ledgerSurface}`} aria-labelledby="portfolio-assets-heading">
     <div className={styles.sectionHeading}>
@@ -75,18 +75,19 @@ export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkC
         {onNetworkChange && <PortfolioNetworkTabs value={network} onChange={onNetworkChange} />}
       </div>
     {showSearch && <label className={styles.search}><Search size={18} aria-hidden="true" /><span className="sr-only">Search assets</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search assets" autoComplete="off" /></label>}
-    {needsStatus && <p className="sr-only" role="status">{statusLabel}</p>}
+    {needsStatus && <div className={styles.status} role="status"><span>{statusLabel}</span>{!loading && assets.length > 0 && retryAction}</div>}
+    {assets.length > 0 && <div className={styles.columnLabels} aria-hidden="true"><span>Asset</span><span>Value</span></div>}
     {loading && !snapshot ? <AssetListSkeleton />
       : !snapshot ? unavailableState
       : showAssetLoading ? <AssetListSkeleton />
       : assets.length === 0 && incomplete && !search ? unavailableState
         : assets.length === 0 ? <div className={styles.empty}><Coins size={24} aria-hidden="true" />
-          {search ? <><p><strong>No matching assets</strong>Nothing{where} matches “{search.trim()}”.</p><button type="button" onClick={() => setSearch('')}>Clear search</button></>
-            : <><p><strong>No assets{where} yet</strong>Receive tokens to this wallet to see them here.</p><Link href="/qr">Receive assets</Link></>}</div>
+          {search ? <><p><strong>No matching assets{where}</strong></p><button type="button" onClick={() => setSearch('')}>Clear search</button></>
+            : <><p><strong>No assets{where} yet</strong></p><Link href="/qr">Receive assets</Link></>}</div>
       : <ul className={styles.assetList}>{visibleAssets.map((asset) => <li key={asset.id}><button type="button" className={styles.assetRow} onClick={() => setSelection({ wallet: snapshot.walletAddress, id: asset.id })} aria-label={`View ${displayAssetSymbol(asset.symbol)} on ${networkLabel(asset.chainId)}`}>
         <AssetRowContent asset={asset} loading={loading} />
       </button></li>)}</ul>}
-    {!query && assets.length > 6 && <button type="button" className="min-h-11 w-full rounded-xl px-3 text-[13px] font-semibold text-mint" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Show fewer assets' : `View all ${assets.length} assets`}</button>}
+    {!query && assets.length > 6 && <button type="button" className={styles.showAll} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Show fewer assets' : `View all ${assets.length} assets`}</button>}
     {selected && <WalletAssetModal asset={selected} walletAddress={displaySnapshot?.walletAddress} onClose={() => setSelection(null)} />}
   </section>;
 }

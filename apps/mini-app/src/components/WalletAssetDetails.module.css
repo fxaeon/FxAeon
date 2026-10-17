@@ -16,7 +16,7 @@
 .addressPanel h3 { margin: 0; color: var(--mut); font-size: 13px; font-weight: 500; }
 .address { margin: 0; color: var(--text); font-size: 14px; line-height: 1.4; user-select: all; }
 .copyStatus:empty { display: none; }
-.copyButton { display: inline-flex; min-height: 44px; width: fit-content; align-items: center; gap: 8px; border-radius: 10px; color: var(--mint); font-size: 13px; font-weight: 600; }
+.copyButton { display: inline-flex; min-height: 44px; width: fit-content; align-items: center; gap: 8px; border-radius: 10px; color: var(--mint-text); font-size: 13px; font-weight: 600; }
 .copyStatus { margin: -6px 0 0; color: var(--mut); font-size: 11px; }
 .facts { display: flex; min-width: 0; flex-direction: column; gap: 0; border-top: 1px solid var(--line); }
 .facts > div { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
@@ -28,7 +28,7 @@
 .actions a { display: inline-flex; flex: 1 0 42%; min-width: 0; min-height: 48px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: var(--radius-md); background: var(--surface-2); color: var(--text); padding: 10px; text-align: center; font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .actions a:hover { background: var(--surface-3); }
 .actions a:active { transform: scale(0.97); transition-duration: var(--dur-press); }
-.actions a > svg { flex: 0 0 auto; color: var(--mint); }
+.actions a > svg { flex: 0 0 auto; color: var(--mint-text); }
 .explorer { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border-radius: 11px; color: var(--mut); font-size: 12px; }
 .explorer:hover { background: var(--surface-2); color: var(--text); }
 .details :where(a,button):focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }

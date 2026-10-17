@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { buildPortfolioStatesLab, type PortfolioStatesLab } from '../harness/portfolio-states-build';
 
 /*
@@ -14,7 +14,7 @@ let lab: PortfolioStatesLab;
 
 test.beforeAll(async () => { lab = await buildPortfolioStatesLab(); });
 
-async function open(page: Page, stage: string, { route = '/portfolio', theme = 'official' } = {}) {
+async function open(page: Page, stage: string, { route = '/portfolio', theme = 'dark' } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
     + `<body><div id="root"></div><script>window.__portfolioStates = ${JSON.stringify({ stage, route, theme })};</script><script src="/lab.js"></script></body></html>`;
   await page.route('http://lab.test/**', async (request) => {
@@ -28,7 +28,13 @@ async function open(page: Page, stage: string, { route = '/portfolio', theme = '
   });
   await page.goto('http://lab.test/');
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
-  await page.evaluate(() => document.fonts.ready);
+  // The harness flag follows root.render(), before React necessarily commits.
+  // Wait for its content to request the fonts before awaiting their readiness.
+  await expect(page.locator('.app-content')).toBeVisible();
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  });
 }
 
 /** Boxes of the landmarks a reader's eye holds onto while Portfolio loads. */
@@ -47,7 +53,8 @@ async function portfolioLandmarks(page: Page) {
       actions: [...content.querySelectorAll('[class*="quickAction"] > span')].map(box),
       summaries: [...content.querySelectorAll('details > summary')].map(box),
       sectionHeadings: headings.map(box),
-      networkTabs: box(content.querySelector('[class*="networkTabs"]')),
+      networkFilter: box(content.querySelector('select')),
+      balanceBreakdown: box(content.querySelector('[class*="valueBreakdown"]')),
       assetRows: [...content.querySelectorAll('[class*="loadingRow"]')].map(box),
       historyRows: [...content.querySelectorAll('ul li')].map(box),
       marketCards: [...content.querySelectorAll('aside > section:first-child > div:last-child > a')].map(box),
@@ -101,19 +108,36 @@ test('placeholders hold the loaded figure line, so the page does not move when v
 });
 
 test('a position card lands at its placeholder’s height, with its brake line and side in words', async ({ page }) => {
-  const openPositions = async (stage: string) => {
+  const geometry = (card: Locator) => card.evaluate(element => {
+    const measure = (node: Element) => {
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return { width: rect.width, height: rect.height, font: `${style.fontWeight} ${style.fontSize}/${style.lineHeight} ${style.fontFamily}`, text: node.textContent?.trim() };
+    };
+    return {
+      card: measure(element),
+      rows: [...element.querySelectorAll('[class*="identityLine"], [class*="positionMeta"], [class*="brake"], [class*="cardMetric"]')].map(measure),
+      fonts: [...document.fonts].map(font => ({ family: font.family, status: font.status })),
+      interReady: document.fonts.check('12px Inter'),
+      viewport: { innerWidth, documentWidth: document.documentElement.clientWidth, contentWidth: document.querySelector('.app-content')?.clientWidth },
+      browser: navigator.userAgent,
+    };
+  });
+  const openPositions = async (stage: string, inset: number) => {
     await open(page, stage);
-    await page.getByRole('region', { name: 'Positions' }).locator('summary').click();
+    // Exercise the narrower column a non-overlay scrollbar can leave behind.
+    if (inset) await page.addStyleTag({ content: `.app-shell { width: calc(100% - ${inset}px); }` });
     const positions = page.getByRole('region', { name: 'Positions' });
     return positions.locator(stage === 'reads' ? '[aria-label="Loading positions"]' : '[data-position-key]').first();
   };
-  for (const width of [320, 393, 480]) {
+  for (const [width, inset] of [[320, 0], [320, 15], [393, 0], [480, 0]]) {
     await page.setViewportSize({ width, height: 1600 });
-    const placeholder = (await (await openPositions('reads')).boundingBox())!.height;
+    const placeholder = await geometry(await openPositions('reads', inset));
     await page.unrouteAll({ behavior: 'ignoreErrors' });
-    const first = await openPositions('positions');
+    const first = await openPositions('positions', inset);
     await expect(first.locator('[data-position-brake]')).toContainText('Rebalances if ETH falls ≈ 42% (≈ $1,383)');
-    expect(Math.abs((await first.boundingBox())!.height - placeholder), `card vs placeholder at ${width}px`).toBeLessThanOrEqual(0.5);
+    const loaded = await geometry(first);
+    expect(Math.abs(loaded.card.height - placeholder.card.height), `card vs placeholder at ${width}px, ${inset}px inset: ${JSON.stringify({ placeholder, loaded })}`).toBeLessThanOrEqual(0.5);
     const short = page.getByRole('region', { name: 'Positions' }).locator('[data-position-key="BTC:short:109"]');
     await expect(short.locator('[data-position-brake]')).toContainText('Rebalances if BTC rises ≈ 28% (≈ $133,714)');
     await expect(short.getByText('Short', { exact: true })).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -122,16 +146,15 @@ test('a position card lands at its placeholder’s height, with its brake line a
   }
 });
 
-test('screenshots of Portfolio’s positions in every theme', async ({ page }) => {
+test('screenshots of Portfolio’s positions in dark appearance', async ({ page }) => {
   const directory = process.env.PORTFOLIO_SCREENS_DIR;
   test.skip(!directory, 'set PORTFOLIO_SCREENS_DIR to keep the screenshots');
   mkdirSync(directory!, { recursive: true });
-  for (const theme of ['official', 'dark', 'light'] as const) {
+  for (const theme of ['dark'] as const) {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 1600 });
       await open(page, 'positions', { theme });
       const positions = page.getByRole('region', { name: 'Positions' });
-      await positions.locator('summary').click();
       await page.waitForTimeout(1_100);
       await positions.screenshot({ path: resolve(directory!, `portfolio-${theme}-${width}-positions.png`), animations: 'disabled' });
       await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -143,7 +166,7 @@ test('captures connected, empty, and one-cent home states for visual review', as
   const directory = process.env.PORTFOLIO_HOME_SCREENSHOTS_DIR;
   test.skip(!directory, 'set PORTFOLIO_HOME_SCREENSHOTS_DIR to keep the screenshots');
   mkdirSync(directory!, { recursive: true });
-  for (const theme of ['official', 'dark'] as const) {
+  for (const theme of ['dark'] as const) {
     for (const [name, stage] of [['connected', 'loaded'], ['empty', 'empty'], ['dust', 'dust']] as const) {
       await page.setViewportSize({ width: 390, height: 844 });
       await open(page, stage, { theme });
@@ -185,7 +208,7 @@ test('reads that fail end every placeholder: each section says so with a retry',
   await open(page, 'unavailable');
   await expect(page.getByText('Total unavailable', { exact: true })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Portfolio value unavailable', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(3);
   await expect(page.getByText('Couldn’t load balances', { exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Positions' }).getByText('Unavailable', { exact: true })).toBeVisible();
   await expect(page.locator('section[aria-labelledby="portfolio-earn-heading"]').getByText('Unavailable', { exact: true })).toBeVisible();
@@ -220,12 +243,12 @@ test('a settled empty Positions section is compact while loading and read failur
 
   const loading = await positions('reads');
   await expect(loading.getByRole('status', { name: 'Loading open positions' })).toBeVisible();
-  await expect(loading.locator('details')).not.toHaveAttribute('open');
+  await expect(loading.getByRole('status', { name: 'Loading positions', exact: true })).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 
   const unavailable = await positions('unavailable');
   await expect(unavailable.getByRole('status', { name: 'Positions unavailable' })).toBeVisible();
-  await expect(unavailable.locator('details')).not.toHaveAttribute('open');
+  await expect(unavailable.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
 });
 
 test('the Portfolio network select filters seeded rows and the header balance preserves one cent', async ({ page }) => {
@@ -249,7 +272,7 @@ test('the Portfolio network select filters seeded rows and the header balance pr
   await expect(page.locator('[data-portfolio-value]')).not.toContainText('Total unavailable');
 });
 
-test('reduced motion leaves placeholders still and the hero light in place', async ({ page }) => {
+test('reduced motion leaves Portfolio placeholders still', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 393, height: 1200 });
   await open(page, 'reads');
@@ -262,36 +285,6 @@ test('reduced motion leaves placeholders still and the hero light in place', asy
   const light = await page.evaluate(() => getComputedStyle(document.querySelector('section[aria-label="Portfolio balance"]')!, '::before').animationName);
   expect(light).toBe('none');
 });
-
-for (const theme of ['official', 'light'] as const) {
-  test(`the hero light stays inside its card through its drift (${theme})`, async ({ page }) => {
-    for (const width of [320, 393, 480, 1280]) {
-      await page.setViewportSize({ width, height: 900 });
-      await open(page, 'loaded', { theme });
-      for (const phase of [0, 0.5, 1]) {
-        await page.addStyleTag({ content: `section[aria-label="Portfolio balance"]::before { animation-delay: ${-11 * phase}s !important; animation-play-state: paused !important; }` });
-        const bounds = await page.evaluate(() => {
-          const card = document.querySelector('section[aria-label="Portfolio balance"]')!;
-          const style = getComputedStyle(card, '::before');
-          const rect = card.getBoundingClientRect();
-          const left = parseFloat(style.left); const top = parseFloat(style.top);
-          const width = parseFloat(style.width); const height = parseFloat(style.height);
-          const matrix = new DOMMatrix(style.transform === 'none' ? undefined : style.transform);
-          // Transform origin is the box centre.
-          const cx = left + width / 2; const cy = top + height / 2;
-          const corners = [[left, top], [left + width, top], [left, top + height], [left + width, top + height]]
-            .map(([x, y]) => matrix.transformPoint(new DOMPoint(x - cx, y - cy)))
-            .map((point) => [point.x + cx, point.y + cy]);
-          return { minX: Math.min(...corners.map(([x]) => x)), maxX: Math.max(...corners.map(([x]) => x)), minY: Math.min(...corners.map(([, y]) => y)), cardWidth: rect.width };
-        });
-        expect(bounds.minX, `left edge at ${width}px, phase ${phase}`).toBeGreaterThanOrEqual(-0.5);
-        expect(bounds.maxX, `right edge at ${width}px, phase ${phase}`).toBeLessThanOrEqual(bounds.cardWidth + 0.5);
-        expect(bounds.minY, `top edge at ${width}px, phase ${phase}`).toBeGreaterThanOrEqual(-46.5);
-      }
-      await page.unrouteAll({ behavior: 'ignoreErrors' });
-    }
-  });
-}
 
 test('History paints its feed in place before the wallet loads', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 900 });

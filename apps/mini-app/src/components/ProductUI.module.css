@@ -22,7 +22,7 @@
 
 .notice { display: flex; min-width: 0; align-items: flex-start; gap: 10px; border-radius: var(--radius-md); background: var(--surface-2); padding: 12px 14px; color: var(--mut); font-size: var(--fs-small); line-height: 1.5; animation: notice-in var(--dur-base) var(--ease-out) both; }
 @keyframes notice-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-.notice > svg { flex: 0 0 18px; margin-top: 1px; color: var(--mint); }
+.notice > svg { flex: 0 0 18px; margin-top: 1px; color: var(--mint-text); }
 .notice > div { min-width: 0; flex: 1; }
 .notice strong { display: block; color: var(--text); font-size: var(--fs-small); font-weight: 650; }
 .notice[data-tone='warning'] { background: var(--warn-dim); }
@@ -31,7 +31,7 @@
 .notice[data-tone='danger'] > svg, .notice[data-tone='danger'] strong { color: var(--danger); }
 .notice[data-tone='success'] { background: var(--success-dim); }
 .notice[data-tone='success'] > svg, .notice[data-tone='success'] strong { color: var(--success); }
-.noticeAction { flex: 0 0 auto; align-self: center; color: var(--mint); font-weight: 650; }
+.noticeAction { flex: 0 0 auto; align-self: center; color: var(--mint-text); font-weight: 650; }
 .noticeAction > button, .noticeAction > a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 10px; border-radius: 999px; transition: background-color var(--dur-fast) ease; }
 .noticeAction > button:hover, .noticeAction > a:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 
@@ -82,7 +82,7 @@
 .actionRow:active:not(:disabled) { background: var(--surface-3); }
 .actionRow:disabled { cursor: not-allowed; color: var(--mut); }
 .actionRow:disabled .rowIcon { background: var(--surface-2); color: var(--mut-2); }
-.rowIcon { display: block; box-sizing: content-box; flex: 0 0 18px; width: 18px; height: 18px; padding: 9px; border-radius: 12px; background: var(--mint-dim); color: var(--mint); }
+.rowIcon { display: block; box-sizing: content-box; flex: 0 0 18px; width: 18px; height: 18px; padding: 9px; border-radius: 12px; background: var(--mint-dim); color: var(--mint-text); }
 .rowCopy { min-width: 0; flex: 1; }
 .rowCopy strong { display: block; font-size: var(--fs-body); font-weight: 600; line-height: 1.4; }
 .rowCopy small { display: block; margin-top: 2px; color: var(--mut); font-size: var(--fs-caption); line-height: 1.45; }

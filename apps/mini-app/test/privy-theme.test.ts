@@ -18,12 +18,7 @@ function declarations(css: string, selector: string): Map<string, string> {
 }
 
 const rootTokens = declarations(globalsCss, ':root');
-const lightTokens = new Map([...rootTokens, ...declarations(globalsCss, ":root:is([data-theme='official'], [data-theme='light'])")]);
-const themes = {
-  official: lightTokens,
-  dark: new Map([...rootTokens, ...declarations(globalsCss, ":root[data-theme='dark']")]),
-  light: lightTokens,
-};
+const themes = { dark: rootTokens };
 const privy = declarations(privyCss, 'html:root');
 
 /** Resolve a Privy variable declared as a single var(--token) for one theme. */
@@ -55,7 +50,7 @@ test("the mapping outranks Privy's runtime :root palette", () => {
   assert.ok(privy.size > 40, 'the palette, radii, and shadows Privy reads are mapped');
 });
 
-test('values the export iframe reads resolve to plain colors in every theme', () => {
+test('values the export iframe reads resolve to plain colors in dark mode', () => {
   // EmbeddedWalletKeyExportScreen reads these from document.documentElement
   // and passes them to Privy's iframe as URL parameters.
   for (const name of [
@@ -73,7 +68,7 @@ test('values the export iframe reads resolve to plain colors in every theme', ()
   }
 });
 
-test('text on the accent keeps WCAG AA in every theme, at rest and pressed', () => {
+test('text on the dark accent keeps WCAG AA, at rest and pressed', () => {
   for (const [theme, tokens] of Object.entries(themes)) {
     const onAccent = tokenValue(tokens, '--privy-color-foreground-accent');
     for (const fill of ['--privy-color-accent', '--privy-color-accent-dark']) {
@@ -110,7 +105,7 @@ test('every Aeon token the stylesheet names exists', () => {
 });
 
 test('geometry follows the app: sheet-sized modal corners, 14px buttons, 12px inputs', () => {
-  assert.equal(tokenValue(rootTokens, '--privy-border-radius-lg'), '24px');
+  assert.equal(tokenValue(rootTokens, '--privy-border-radius-lg'), '20px');
   assert.equal(privy.get('--privy-border-radius-sm'), '14px');
   assert.equal(tokenValue(rootTokens, '--privy-border-radius-md'), '12px');
 });

@@ -370,9 +370,8 @@ test.describe("single-viewport route contract", () => {
     }));
     expect(topbarActionGeometry.scrollWidth, "App top bar actions must not overflow at 279px").toBeLessThanOrEqual(topbarActionGeometry.width + 1);
 
+    await expect(topbar.getByRole("button", { name: /Choose a network|Change network|Switch to / })).toHaveCount(0);
     const topbarControls = [
-      topbar.getByRole("button", { name: /Choose a network|Change network|Switch to / }).first(),
-      topbar.getByRole("button", { name: /Switch to (?:official|dark|light) theme/ }).first(),
       topbar.getByRole("button", { name: "Connect wallet", exact: true }).first(),
     ];
     for (const control of topbarControls) {

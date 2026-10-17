@@ -66,7 +66,7 @@ const dataFixtures: Record<DataState, { balanceState: { status: 'loading' | 'rea
 function Lab() {
   const [dataState, setDataState] = useState<DataState>('positive');
   const [amount, setAmount] = useState('1234.56789');
-  const [theme, setTheme] = useState<'official' | 'dark' | 'light'>('official');
+  const theme = 'dark';
   const [stage, setStage] = useState('Review');
   const fixture = dataFixtures[dataState];
   document.documentElement.dataset.theme = theme;
@@ -79,7 +79,6 @@ function Lab() {
     <h1>FxAeon UI state lab</h1>
     <p className="subtle">Development-only catalog · deterministic local fixtures · no wallet or network calls</p>
     <div className="toolbar" role="toolbar" aria-label="State lab controls">
-      <label>Theme <select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as typeof theme)}><option value="official">Official</option><option value="dark">Dark</option><option value="light">Light</option></select></label>
       <label>Transaction stage <select aria-label="Transaction stage" value={stage} onChange={(event) => setStage(event.target.value)}>{txStages.map((item) => <option key={item}>{item}</option>)}</select></label>
       <button type="button" onClick={() => document.querySelector<HTMLInputElement>('input[aria-label="Amount in ETH"]')?.focus()}>Focus amount</button>
       <button type="button" onClick={() => document.documentElement.style.setProperty('scroll-behavior', 'smooth')}>Motion sample</button>
@@ -97,7 +96,7 @@ function Lab() {
         <div className="consequence-example"><h3>Review consequence summary</h3><ActionConsequenceSummary facts={[{ label: 'Deposit', value: '1.23456789 ETH' }, { label: 'Borrow', value: '4,000 fxUSD' }, { label: 'Estimated debt', value: '4,000 fxUSD' }]} /></div><p className="access-note">No transaction controls are connected in this catalog.</p>
       </section>
       <section className="lab-panel"><h2>Layout stress</h2><p className="subtle">Resize the viewport to inspect narrow phone, short phone, tablet, and desktop layouts.</p><div className="amount-preview" aria-label="Long amount example">1234567890.123456789012345</div><p className="long-label">Long label fixture: Expected receipt after estimated route and network fee adjustments</p></section>
-      <section className="lab-panel"><h2>Appearance and access</h2><p>Use the theme selector above, keyboard Tab navigation, and the focus control. Reduced motion follows the browser’s prefers-reduced-motion setting.</p><p className="access-note">Try browser emulation with reduced motion enabled to inspect transitions.</p></section>
+      <section className="lab-panel"><h2>Appearance and access</h2><p>Use keyboard Tab navigation and the focus control. Reduced motion follows the browser’s prefers-reduced-motion setting.</p><p className="access-note">Try browser emulation with reduced motion enabled to inspect transitions.</p></section>
       <section className="lab-panel receipt-panel" aria-labelledby="receipt-heading"><h2 id="receipt-heading">Receipt detail fixtures</h2><p className="subtle">Deterministic receipt-derived display model; known and unknown assets stay distinguishable.</p>
         <article className="receipt-example"><h3>Ethereum · verified USDC movement</h3><ReceiptSummary receipts={[receiptExamples.ethereum]} /></article>
         <article className="receipt-example"><h3>Base · execution fee and unknown token</h3><ReceiptSummary receipts={[receiptExamples.base]} /></article>

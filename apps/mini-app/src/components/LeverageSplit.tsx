@@ -14,7 +14,7 @@ import styles from './LeverageSplit.module.css';
  */
 const EXAMPLE_LEVERAGES = [2, 3] as const;
 
-export function LeverageSplit({ side, debtLabel }: { side: LeverageSide; debtLabel: string }) {
+export function LeverageSplit({ side }: { side: LeverageSide }) {
   const ref = useRef<HTMLOListElement>(null);
   useEffect(() => {
     const node = ref.current;
@@ -28,35 +28,16 @@ export function LeverageSplit({ side, debtLabel }: { side: LeverageSide; debtLab
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-  return <ol ref={ref} className={styles.rows} aria-label={`Share of a position that is ${debtLabel}, by leverage, before fees`}>
+  return <ol ref={ref} className={styles.rows} aria-label="Debt and equity share of a position by leverage, before fees">
     {EXAMPLE_LEVERAGES.map((leverage) => {
       const { debt, yours } = splitPercents(side, leverage);
       return <li key={leverage} className={styles.row} style={{ '--borrowed': debtShare(side, leverage) } as CSSProperties}>
         <span className={styles.leverage}>{leverage}×</span>
         <span className={styles.bar} aria-hidden="true"><i className={styles.borrowed} /><i className={styles.share} /></span>
-        <span className={styles.figures}><b>{debt}%</b> {debtLabel} · <b>{yours}%</b> yours</span>
+        <span className={styles.figures}><b>{debt}%</b> debt · <b>{yours}%</b> equity</span>
       </li>;
     })}
   </ol>;
-}
-
-/**
- * The same split at the leverage being chosen, for the ticket's slider. It
- * answers every move of the thumb; outside the live range it stays empty so
- * the row never changes height.
- */
-export function LeverageSplitCaption({ id, side, debtLabel, leverage, min, max }: {
-  id: string; side: LeverageSide; debtLabel: string; leverage: number; min: number; max: number;
-}) {
-  const inRange = Number.isFinite(leverage) && leverage >= min && leverage <= max;
-  const { debt, yours } = splitPercents(side, leverage);
-  // "minted fxUSD" / "borrowed wstETH": on the narrowest rows the asset steps
-  // out of sight (still read aloud) so the caption keeps one line.
-  const [verb, ...assetWords] = debtLabel.split(' ');
-  const asset = assetWords.join(' ');
-  return <span id={id} className={styles.caption} data-empty={inRange ? undefined : true}>
-    {inRange && <><b>{debt}%</b> {verb}{asset && <span className={styles.captionAsset}> {asset}</span>} · <b>{yours}%</b> yours<span className="sr-only"> at {leverage.toFixed(1)}×, before fees</span></>}
-  </span>;
 }
 
 /** A press this close to the thumb holds it where it is instead of jumping it. */
@@ -86,21 +67,16 @@ function crossesWholeLeverage(from: number, to: number): boolean {
 
 /** The full track spans the live leverage minimum and maximum linearly.
  * The native input, pointer, thumb and ticks share that leverage scale.
- * The educational debt/equity split stays in the separate caption.
+ * The debt/equity explanation stays in the expanded details below the ticket.
  * Touch gestures preserve vertical scrolling; keys use leverage units. */
-export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage, min, max, describedBy, captionId, onChange }: {
+export function LeverageSplitRange({ id, label, side, value, min, max, onChange }: {
   id: string;
   label: string;
   side: LeverageSide;
-  debtLabel: string;
   /** The leverage the slider shows, already inside [min, max]. */
   value: number;
-  /** The field's own leverage, which the caption states; outside the live range the caption stays empty. */
-  leverage: number;
   min: number;
   max: number;
-  describedBy?: string;
-  captionId: string;
   onChange: (value: number) => void;
 }) {
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -133,8 +109,6 @@ export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage
   const { debt } = splitPercents(side, value);
   const shares = {
     '--share': leverageTrackPosition(value, min, max),
-    '--min-share': 0,
-    '--max-share': 1,
   } as CSSProperties;
 
   const choose = (clientX: number, grab: number) => {
@@ -229,8 +203,7 @@ export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage
       onLostPointerCapture={(event) => { if (gestureRef.current?.pointerId === event.pointerId) endGesture(); }}
     >
       <div ref={barRef} className={styles.sliderBar} aria-hidden="true">
-        <i className={styles.sliderDebt} /><i className={styles.sliderYours} />
-        <i className={styles.sliderOff} data-end="min" /><i className={styles.sliderOff} data-end="max" />
+        <i className={styles.sliderSelected} /><i className={styles.sliderRemaining} />
       </div>
       <div className={styles.sliderTicks} aria-hidden="true">
         {ticks.map((tick) => <i key={tick.leverage} className={styles.sliderTick} data-near-thumb={tick.nearThumb || undefined} style={{ '--at': tick.share } as CSSProperties} />)}
@@ -245,8 +218,7 @@ export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage
         step="0.1"
         value={value}
         aria-label={label}
-        aria-valuetext={`${value.toFixed(1)}×, ${debt}% ${debtLabel}`}
-        aria-describedby={describedBy}
+        aria-valuetext={`${value.toFixed(1)}×, ${debt}% debt, ${100 - debt}% equity`}
         onChange={(event) => onChange(Number(event.target.value))}
         onBlur={() => sliderRef.current?.removeAttribute('data-pointer-focus')}
         onKeyDown={(event) => {
@@ -259,10 +231,9 @@ export function LeverageSplitRange({ id, label, side, debtLabel, value, leverage
       />
       <span ref={thumbRef} className={styles.sliderThumb} aria-hidden="true" />
     </div>
-    {/* Each range end is labelled where it sits on the track, the split stated between them. */}
-    <div className={styles.bounds} style={shares} data-leverage-bounds>
+    {/* Keep the verified live limits visible at the ends of the scale. */}
+    <div className={styles.bounds} data-leverage-bounds>
       <span aria-hidden="true">{min.toFixed(1)}×</span>
-      <LeverageSplitCaption id={captionId} side={side} debtLabel={debtLabel} leverage={leverage} min={min} max={max} />
       <span aria-hidden="true">{max.toFixed(1)}×</span>
     </div>
   </>;

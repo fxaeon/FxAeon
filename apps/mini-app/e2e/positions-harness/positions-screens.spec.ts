@@ -8,7 +8,7 @@ import { expect, test, type Page } from '@playwright/test';
  * against mocked wallet, chain, prices and brake reads. It checks the list ->
  * position flow (row tap, back control, browser and Telegram Back, wide
  * selection in place) at phone and desktop widths. Set POSITIONS_SCREENS_DIR
- * to keep screenshots of each view in every theme.
+ * to keep screenshots of each view in dark appearance.
  */
 const appRoot = resolve(__dirname, '../..');
 const root = resolve(appRoot, '../..');
@@ -138,7 +138,7 @@ test.beforeAll(async () => {
   lab = { script, css: `${await buildLabGlobalCss()}\n${modules}` };
 });
 
-async function open(page: Page, { theme = 'official', positions, path = '/positions' }: { theme?: 'official' | 'dark' | 'light'; positions?: string[]; path?: string } = {}) {
+async function open(page: Page, { theme = 'dark', positions, path = '/positions' }: { theme?: 'official' | 'dark' | 'light'; positions?: string[]; path?: string } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
     + `<body><div id="root"></div><script>window.__positionsScreensConfig = ${JSON.stringify({ theme, positions })};</script><script src="/lab.js"></script></body></html>`;
   await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -165,7 +165,7 @@ test('management viewport captures keep controls and the primary action above th
   const measurements: unknown[] = [];
   const directory = resolve(appRoot, '../../artifacts/position-flow-compact');
   mkdirSync(directory, { recursive: true });
-  for (const theme of ['dark', 'light'] as const) for (const [width, height] of [[390, 844], [1280, 800], [320, 568]] as const) {
+  for (const theme of ['dark'] as const) for (const [width, height] of [[390, 844], [1280, 800], [320, 568]] as const) {
     await page.setViewportSize({ width, height });
     await open(page, { theme, positions: ['long'], path: '/positions?position=ETH%3Along%3A2033' });
     for (const action of ['Add', 'Reduce', 'Leverage', 'Close']) {
@@ -307,10 +307,11 @@ test('a phone opens one position from its row and returns to the list where it w
   await chosenRow.click();
   const openedListScrollTop = Number(await chosenRow.getAttribute('data-scroll-at-open'));
   await expect(page).toHaveURL(/\/positions\?position=ETH%3Ashort%3A174$/);
-  await expect(list(page)).toBeHidden();
+  await expect(list(page)).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toBeVisible();
   const details = page.locator('[data-position-details="ETH:short:174"]');
   await expect(details).toBeVisible();
-  expect(await scrollTop(page)).toBe(0);
+  expect(await scrollTop(page)).toBe(openedListScrollTop);
   // Collateral, debt and the brake stay visible; secondary metrics are optional.
   for (const label of ['Collateral', 'Debt']) await expect(details.getByText(label, { exact: true })).toBeVisible();
   await expect(details.getByText('Market price', { exact: true })).toBeHidden();
@@ -329,7 +330,7 @@ test('a phone opens one position from its row and returns to the list where it w
   // A short has no "Borrow against".
   await expect(page.getByRole('link', { name: 'Borrow against this position' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'All positions', exact: true }).click();
+  await page.getByRole('button', { name: 'Close position', exact: true }).click();
   await expect(list(page)).toBeVisible();
   await expect(page).toHaveURL(/\/positions$/);
   await expect.poll(() => page.evaluate(saved => {
@@ -369,8 +370,48 @@ test('a link to a position opens it, and its back control stays on this page', a
   await expect(page.locator('[data-position-details="BTC:short:109"]')).toBeVisible();
   await expect(actions(page).getByRole('radio', { name: 'Close', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByText('Full close', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'All positions', exact: true }).click();
+  await page.getByRole('button', { name: 'Close position', exact: true }).click();
   await expect(list(page)).toBeVisible();
+  await expect(page).toHaveURL(/\/positions$/);
+});
+
+test('phone management is one focus-contained sheet and keeps its form across desktop resizing', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page);
+  const row = page.locator('[data-position-key="ETH:long:2033"]');
+  await expect(row.locator('[data-position-price="rebalance"]')).toHaveText('≈ $1,575');
+  await expect(row.locator('[data-position-price="liquidation"]')).toHaveText('≈ $1,459');
+  await expect(page.locator('[data-position-key="ETH:long:2034"] [data-position-price="rebalance"]')).toHaveText('Reached');
+  await expect(row.getByText(/PnL/)).toHaveCount(0);
+  await row.click();
+  const sheet = page.getByRole('dialog', { name: 'Manage position', exact: true });
+  await expect(sheet).toBeVisible();
+  await expect(list(page)).toBeVisible();
+  await expect(page.locator('[data-position-details]')).toHaveCount(1);
+  expect(await sheet.evaluate(node => node.parentElement?.parentElement === document.body)).toBe(true);
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+  await expect(sheet.getByRole('button', { name: 'Close position', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  expect(await sheet.evaluate(node => node.contains(document.activeElement))).toBe(true);
+  const amount = sheet.getByRole('textbox', { name: /^Amount to add/ });
+  await amount.fill('0.1');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: /^Amount to add/ })).toHaveValue('0.1');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('textbox', { name: /^Amount to add/ })).toHaveValue('0.1');
+  await sheet.getByRole('button', { name: /^Transaction settings/ }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(2);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(sheet).toBeVisible();
+  const body = sheet.locator('[class*="sheetBody"]');
+  await expect(body).toHaveCSS('overflow-y', 'auto');
+  await page.screenshot({ path: testInfo.outputPath('positions-phone-sheet.png'), animations: 'disabled' });
+  await page.keyboard.press('Escape');
+  await expect(sheet).toHaveCount(0);
+  await expect(row).toBeFocused();
   await expect(page).toHaveURL(/\/positions$/);
 });
 
@@ -421,15 +462,16 @@ test('four or more positions read calmly at every phone width', async ({ page })
       expect(row.height, `row height at ${width}px`).toBeGreaterThanOrEqual(44);
     }
     // A clear row is about a third of the old card's 294px.
-    expect(rows[0].height, `compact row at ${width}px`).toBeLessThan(130);
+    expect(rows[0].height, `card with visible threshold prices at ${width}px`).toBeLessThan(190);
+    await expect(page.locator('[data-position-key]').first().locator('[data-position-price]')).toHaveCount(2);
   }
 });
 
-test('screenshots: the list, a position for Add and for Close, and the wide view in every theme', async ({ page }) => {
+test('screenshots: the list, a position for Add and for Close, and the wide view in dark appearance', async ({ page }) => {
   test.setTimeout(120_000);
   test.skip(!screenshotDir, 'set POSITIONS_SCREENS_DIR to keep the screenshots');
   mkdirSync(screenshotDir!, { recursive: true });
-  for (const theme of ['official', 'dark', 'light'] as const) {
+  for (const theme of ['dark'] as const) {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await open(page, { theme, positions: ['long', 'short', 'rebalance', 'ethShort'] });

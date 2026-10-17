@@ -195,7 +195,7 @@ const PROBE = `(() => {
   };
 })();`;
 
-async function open(page: Page, { theme = 'official', readable = true, api = true, closedPosition = false }: { theme?: 'official' | 'dark' | 'light'; readable?: boolean; api?: boolean; closedPosition?: boolean } = {}) {
+async function open(page: Page, { theme = 'dark', readable = true, api = true, closedPosition = false }: { theme?: 'official' | 'dark' | 'light'; readable?: boolean; api?: boolean; closedPosition?: boolean } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
     + `<body><div id="root"></div><script>${api ? PROBE : 'delete Document.prototype.startViewTransition;'}window.__positionBornConfig = ${JSON.stringify({ theme, readable, closedPosition })};</script><script src="/lab.js"></script></body></html>`;
   await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -331,14 +331,14 @@ test.describe('a position opened on Trade', () => {
   });
 });
 
-test('screenshots: the transition as a filmstrip, and the result and the landed position in every theme', async ({ page }) => {
+test('screenshots: the transition as a filmstrip, and the result and the landed position in dark appearance', async ({ page }) => {
   test.skip(!shotsDir, 'set BORN_SHOTS_DIR to keep the filmstrip and screenshots');
   mkdirSync(shotsDir!, { recursive: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
 
   // The filmstrip: the transition's animations held at each frame's time.
-  await open(page, { theme: 'official' });
+  await open(page, { theme: 'dark' });
   await page.waitForTimeout(1_400);
   await page.evaluate(() => { (window as unknown as { __bornPause: boolean }).__bornPause = true; });
   await viewPosition(page).click();
@@ -346,12 +346,12 @@ test('screenshots: the transition as a filmstrip, and the result and the landed 
   for (const time of [0, 120, 240, 400]) {
     await page.evaluate((at) => document.getAnimations().forEach((animation) => { animation.currentTime = at; }), time);
     await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
-    await page.screenshot({ path: resolve(shotsDir!, `born-official-390-${String(time).padStart(3, '0')}ms.png`) });
+    await page.screenshot({ path: resolve(shotsDir!, `born-dark-390-${String(time).padStart(3, '0')}ms.png`) });
   }
   await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
   await expect.poll(async () => (await probe(page))?.finished ?? 0).toBe(1);
 
-  for (const [theme, width] of [['official', 390], ['dark', 390], ['light', 390], ['official', 320]] as const) {
+  for (const [theme, width] of [['dark', 390], ['dark', 320]] as const) {
     await page.setViewportSize({ width, height: 844 });
     await open(page, { theme });
     await page.waitForTimeout(1_400);

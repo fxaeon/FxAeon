@@ -49,7 +49,13 @@ export function useRouteGasCost(
   routeRef.current = route;
   // React effects run after paint. Keying the state prevents a previous
   // account/chain/route estimate from flashing as current for the new route.
-  const keyedView = enabled && state.key === routeKey ? state.view : EMPTY_VIEW;
+  // Preflight may have completed this exact route before the review mounts.
+  // Read that cache synchronously: waiting for the effect would flash empty
+  // fees and disable an otherwise fully prepared first review frame.
+  const cached = enabled && route ? routeGasCostCache.view(route, options.feeTierQuote) : EMPTY_VIEW;
+  const cachedIsNewer = cached.current && (!state.view.current || cached.current.fetchedAt >= state.view.current.fetchedAt);
+  const keyedView = !enabled ? EMPTY_VIEW
+    : state.key !== routeKey || cachedIsNewer ? cached : state.view;
   // A parent render after TTL expiry must not present the expired value as a
   // current review fact, even when this hook is configured with refresh=false.
   const expiredCurrent = keyedView.current && keyedView.current.validUntil <= Date.now();

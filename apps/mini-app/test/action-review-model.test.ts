@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { acceptedRouteTerms, canAcceptReviewedRoute, changedConsequenceFacts, consequenceSummary, pairVerifiedPositionFacts, reviewActionLabel, reviewGenerationIsCurrent, reviewSessionMismatch, transitionReviewStage, updatedRouteTermsRequired } from '../src/components/review/actionReviewModel';
+import { acceptedRouteTerms, canAcceptReviewedRoute, changedConsequenceFacts, consequenceSummary, pairVerifiedPositionFacts, reviewActionLabel, reviewCompletionSessionIsCurrent, reviewGenerationIsCurrent, reviewSessionMismatch, transitionReviewStage, updatedRouteTermsRequired } from '../src/components/review/actionReviewModel';
 import type { PlannedRoute } from '../src/lib/fx';
 
 const route = (data = '0x1234'): PlannedRoute => ({
@@ -34,6 +34,17 @@ test('stale and unmounted lifecycle generations cannot publish results', () => {
   assert.equal(reviewGenerationIsCurrent(true, 4, 4), true);
   assert.equal(reviewGenerationIsCurrent(true, 5, 4), false);
   assert.equal(reviewGenerationIsCurrent(false, 4, 4), false);
+});
+
+test('dismissing a confirmed result suppresses late UI writes but keeps captured completion work valid', () => {
+  const expected = { walletAddress: '0x1111111111111111111111111111111111111111', connectionVersion: 4, isEmbedded: true };
+  const live = { authenticated: true, address: expected.walletAddress, connectionVersion: 4, isEmbedded: true };
+  // Closing the result advances its UI generation, while the signed wallet
+  // session remains valid for the already-started refresh and onComplete work.
+  assert.equal(reviewGenerationIsCurrent(true, 5, 4), false);
+  assert.equal(reviewCompletionSessionIsCurrent(false, expected, live), true);
+  assert.equal(reviewCompletionSessionIsCurrent(true, expected, live), false);
+  assert.equal(reviewCompletionSessionIsCurrent(false, expected, { ...live, connectionVersion: 5 }), false);
 });
 
 test('accepted route terms remain distinguishable from a refreshed quote', () => {

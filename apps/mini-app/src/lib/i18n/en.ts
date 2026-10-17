@@ -4,6 +4,7 @@ const en: Messages = {
   'nav.home': 'Portfolio',
   'nav.trade': 'Trade',
   'nav.earn': 'Earn',
+  'nav.borrow': 'Borrow',
   'nav.move': 'Move',
   'nav.more': 'More',
   'common.openInTelegram': 'Open in Telegram',

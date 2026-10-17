@@ -25,16 +25,18 @@ function boot({ local = {}, session = {}, blockedStorage = false, connection, hi
   const network = connection && { ...connection, addEventListener: (type: string, listener: Listener) => listen(`connection:${type}`, listener) };
   runInNewContext(SHELL_INITIALIZER, { document, localStorage: storage(local), sessionStorage: storage(session), navigator: { connection: network } });
   const dispatch = (type: string, event: Record<string, unknown> = {}) => { for (const listener of [...(listeners.get(type) ?? [])]) listener(event); };
-  return { root, session, listeners, dispatch, document, network };
+  return { root, local, session, listeners, dispatch, document, network };
 }
 
-test('the saved theme is applied before the first paint, with the legacy light choice kept', () => {
-  assert.deepEqual(boot({ local: { fxaeon_theme_id_v2: 'dark' } }).root, { dataset: { theme: 'dark' }, style: { colorScheme: 'dark' } });
-  assert.equal(boot({ local: { fxaeon_theme_id_v2: 'light' } }).root.style.colorScheme, 'light');
-  assert.equal(boot({ local: { fxaeon_theme_id: 'light' } }).root.dataset.theme, 'official');
-  assert.equal(boot({ local: { fxaeon_theme_id: 'dark' } }).root.dataset.theme, 'official');
-  assert.equal(boot().root.dataset.theme, 'official');
-  assert.equal(boot().root.style.colorScheme, 'light');
+test('dark applies before the first paint and replaces saved light preferences', () => {
+  for (const saved of ['dark', 'light', 'official', 'unknown']) {
+    const page = boot({ local: { fxaeon_theme_id_v2: saved } });
+    assert.deepEqual(page.root, { dataset: { theme: 'dark' }, style: { colorScheme: 'dark' } });
+    assert.equal(page.local.fxaeon_theme_id_v2, 'dark');
+  }
+  assert.equal(boot({ local: { fxaeon_theme_id: 'light' } }).root.dataset.theme, 'dark');
+  assert.equal(boot().root.dataset.theme, 'dark');
+  assert.equal(boot().root.style.colorScheme, 'dark');
 });
 
 test('route headings light once per session, and a later load starts plain', () => {
@@ -71,7 +73,8 @@ test('the canvas rests with data saver on, and holds while the page is hidden', 
 
 test('blocked storage still lights the heading once for this page and keeps the default theme', () => {
   const page = boot({ blockedStorage: true });
-  assert.equal(page.root.dataset.theme, undefined);
+  assert.equal(page.root.dataset.theme, 'dark');
+  assert.equal(page.root.style.colorScheme, 'dark');
   page.dispatch('animationend', { animationName: 'heading-light' });
   assert.equal(page.root.dataset.headingLit, '');
 });

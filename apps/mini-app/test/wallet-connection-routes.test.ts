@@ -155,7 +155,7 @@ test('desktop absent wallets have only their reviewed official extension destina
     assert.equal(route.kind, 'install');
     if (route.kind !== 'install') assert.fail();
     assert.equal(route.href, expected[wallet.id]);
-    assert.equal(route.message, `Opening ${wallet.name}’s official download page.`);
+    assert.equal(route.message, `Install ${wallet.name} in your browser, then return here to connect.`);
     assert.equal('provider' in route, false);
   }
 });

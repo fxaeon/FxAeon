@@ -100,7 +100,7 @@ export function TransactionResultView({
           ? <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" /><path d="M15.5 27.2 22.6 34.3 37 19.6" /></svg>
           : <ResultIcon className="h-7 w-7" />}
       </span>
-      <h3 ref={headingRef} data-review-focus tabIndex={-1} className="text-display mt-4 text-[22px] font-semibold outline-none">{presentation.title}</h3>
+      <h3 ref={headingRef} data-review-focus data-result-heading tabIndex={-1} className="text-display mt-4 text-[22px] font-semibold outline-none">{presentation.title}</h3>
       {(!compactSuccess || refreshing && positionAction) && <p className="mt-1.5 max-w-[34ch] text-[14px] leading-snug text-mut">
         {resultBodyDuringRefresh({ status: result.status, refreshing, positionAction, body: presentation.body })}
       </p>}

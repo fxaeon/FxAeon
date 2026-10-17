@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import type { PrivyClientConfig, WalletListEntry } from '@privy-io/react-auth';
-import { THEMES, type ThemeId } from '../theme';
+import { APP_THEME } from '../theme';
 
 type PrivyAppearance = NonNullable<PrivyClientConfig['appearance']>;
 type HexColor = `#${string}`;
@@ -28,17 +28,16 @@ function hexColor(value: string): HexColor | undefined {
 }
 
 /**
- * The Privy modal's Aeon appearance for one FxAeon theme.
+ * The Privy modal's dark FxAeon appearance.
  *
  * Privy accepts a background hex as `theme`: a color at or below 50%
  * luminance selects its dark palette and becomes the modal background. Every
  * other surface, text, and radius is mapped to Aeon tokens by privy-theme.css.
  */
-export function privyAppearance(themeId: ThemeId): FxPrivyAppearance {
-  const theme = THEMES[themeId] ?? THEMES.official;
+export function privyAppearance(): FxPrivyAppearance {
   return {
-    theme: hexColor(theme.colors['--bg']) ?? (theme.id === 'dark' ? 'dark' : 'light'),
-    accentColor: hexColor(theme.accent),
+    theme: hexColor(APP_THEME.background) ?? 'dark',
+    accentColor: hexColor(APP_THEME.accent),
     // A sized image element: the mark has no intrinsic size, and Privy would
     // otherwise stretch it to the 90px limit it applies to wordmarks.
     logo: createElement('img', { src: FXAEON_MARK_PATH, width: 48, height: 48, alt: '' }),

@@ -102,7 +102,7 @@ export function resolveWalletConnectionRoute(
     return {
       kind: 'install',
       href: wallet.extensionUrl,
-      message: `Opening ${wallet.name}’s official download page.`,
+      message: `Install ${wallet.name} in your browser, then return here to connect.`,
       ...help, fallbackHref: wallet.extensionUrl, dappHref, canReopen: false,
     };
   }

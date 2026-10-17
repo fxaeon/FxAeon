@@ -43,7 +43,7 @@ test.beforeAll(async () => {
 });
 
 async function mount(page: Page, fixture: 'Fresh price' | 'Stale price' | 'Dust balance' = 'Fresh price') {
-  await page.setContent('<html data-theme="official"><body><div id="root"></div></body></html>');
+  await page.setContent('<html data-theme="dark"><body><div id="root"></div></body></html>');
   // The app's Tailwind mono stack; the grouped address measures its lines in it.
   await page.addStyleTag({ content: '.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }' });
   if (styles) await page.addStyleTag({ content: styles });

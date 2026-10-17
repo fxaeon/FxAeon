@@ -1,13 +1,11 @@
-.trigger { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; border: 1px solid var(--hairline); border-radius: 14px; background: var(--surface-2); color: var(--mut); font-size: 12px; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
+.trigger { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--mut); font-size: 12px; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
 .trigger[data-chip] { padding-left: 6px; }
 .chip { padding: 4px 8px; border-radius: 999px; background: var(--mint-dim); color: var(--mint-bright); font-size: var(--fs-micro); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
-:root:is([data-theme='official'], [data-theme='light']) .chip { color: var(--mint-text); }
 .trigger:hover, .trigger[aria-expanded='true'] { background: var(--mint-dim); color: var(--mint-text, var(--mint)); border-color: color-mix(in srgb, var(--mint) 28%, transparent); }
 .trigger:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
-.trigger > svg { flex-shrink: 0; transition: transform var(--motion-enter) var(--motion-ease); }
-.trigger:hover > svg, .trigger[aria-expanded='true'] > svg { transform: rotate(30deg); }
-.backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .24); backdrop-filter: blur(3px); }
-.panel { position: fixed; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: 0 20px 64px #0004; animation: settings-enter var(--motion-enter) var(--motion-ease) both; }
+.trigger > svg { flex-shrink: 0; }
+.backdrop { position: fixed; inset: 0; z-index: 70; background: var(--scrim); backdrop-filter: blur(3px); }
+.panel { position: fixed; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--elevation-2); animation: settings-enter var(--motion-enter) var(--motion-ease) both; }
 .panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 6px 20px; flex-shrink: 0; }
 .panel header strong { font-size: 20px; font-weight: 550; letter-spacing: -.035em; }
 .panel header button { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: var(--mut); border-radius: 50%; }
@@ -15,7 +13,7 @@
 .body { overflow: auto; overscroll-behavior: contain; padding: 2px 20px 12px; min-height: 0; scrollbar-width: thin; }
 .handle { display: none; }
 .footer { flex-shrink: 0; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
-.footer button { display: grid; place-items: center; min-height: 48px; width: 100%; border-radius: 14px; background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600; }
+.footer button { display: grid; place-items: center; min-height: 48px; width: 100%; border-radius: 10px; background: var(--mint); color: var(--on-accent); font-size: 14px; font-weight: 600; }
 .footer button:hover { opacity: .9; }
 .footer button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
 .backdrop[data-state='closed'] { pointer-events: none; }
@@ -23,10 +21,10 @@
 @keyframes settings-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes settings-exit { to { opacity: 0; transform: translateY(4px); } }
 @media (max-width: 640px) {
-  .panel { border-radius: 24px 24px 0 0; border-bottom: 0; box-shadow: 0 -12px 48px #0004; }
+  .panel { border-radius: 20px 20px 0 0; border-bottom: 0; box-shadow: 0 -12px 48px #0004; }
   .handle { display: block; flex-shrink: 0; width: 36px; height: 4px; border-radius: 99px; margin: 10px auto 0; background: var(--line-strong, var(--mut-2)); }
   .panel header { padding-top: 4px; }
-  .panel header strong { font-size: 22px; }
+  .panel header strong { font-size: 20px; }
   .footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
 }
 @media (prefers-reduced-motion: reduce) { .panel, .backdrop[data-state='closed'] .panel { animation: none; } .trigger > svg { transition: none; transform: none; } }

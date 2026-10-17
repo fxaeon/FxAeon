@@ -5,7 +5,6 @@
 .networkLabel { width: 52px; height: 9px; border-radius: var(--radius-full); }
 .avatar { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; }
 .identity { flex: 0 1 auto; width: 82px; min-width: 28px; height: 10px; border-radius: var(--radius-full); }
-.themeMark { width: 18px; height: 18px; border-radius: 50%; }
 
 /* The content area: .app-content's width and the live scroll area's flex,
    without its class name. */
@@ -18,8 +17,8 @@
   display: block;
   min-width: 0;
   overflow: hidden;
-  border: 0;
-  border-radius: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--product-radius);
   background: var(--surface);
   box-shadow: none;
   padding: 20px;

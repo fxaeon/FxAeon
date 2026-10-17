@@ -28,8 +28,11 @@ type HarnessState = {
   rejectActionSignature: boolean;
   prepareCount: number; planCount: number; runnerCount: number; sendCount: number; draftSaveCount: number; draftCancelCount: number; draftRemoveCount: number;
   feeQuoteCount: number; lastFeeSelection?: unknown;
+  gasPreflightCount?: number; failNextGasPreflight?: boolean;
   previewRequests: PreviewRequest[]; nextPreviewRequestId: number;
-  deferRefresh: boolean; refreshStarted: boolean; completeStarted: boolean; refreshResolvers: Array<() => void>; rerender?: () => void;
+  deferRefresh: boolean; refreshStarted: boolean; completeStarted: boolean; refreshResolvers: Array<() => void>;
+  deferComplete: boolean; completeResolvers: Array<() => void>; rerender?: () => void;
+  uncertainApproval: boolean;
   approvalRequired: boolean; sentTransactions: Array<{ maxFeePerGas?: string; maxPriorityFeePerGas?: string }>;
   previewDelayMs: number; refreshDelayMs: number; accountRefreshCount: number;
   stableTradeReview: boolean; omitReviewedLeverage: boolean; failNextClamp: boolean;
@@ -54,6 +57,7 @@ const H = (globalThis as typeof globalThis & { __actionReviewHarness?: HarnessSt
   prepareCount: 0, planCount: 0, runnerCount: 0, sendCount: 0, draftSaveCount: 0, draftCancelCount: 0, draftRemoveCount: 0, feeQuoteCount: 0,
   previewRequests: [], nextPreviewRequestId: 1,
   deferRefresh: false, refreshStarted: false, completeStarted: false, refreshResolvers: [],
+  deferComplete: false, completeResolvers: [], uncertainApproval: false,
   rejectActionSignature: false,
   previewDelayMs: initialOptions?.previewDelayMs ?? 0, refreshDelayMs: initialOptions?.refreshDelayMs ?? 0, accountRefreshCount: 0,
   stableTradeReview: false, omitReviewedLeverage: false, failNextClamp: false, longAmount: false, baseRoute: false, bridgeRecipient: false,
@@ -160,12 +164,15 @@ function Harness() {
       }}>Resolve oldest preview</button>
       <button type="button" onClick={() => { H.executionResolvers.shift()?.(); }}>Resolve execution</button>
       <button type="button" onClick={() => { H.deferRefresh = true; }}>Defer wallet refresh</button>
+      <button type="button" onClick={() => { H.deferComplete = true; }}>Defer completion refresh</button>
+      <button type="button" onClick={() => { H.completeResolvers.shift()?.(); }}>Resolve completion refresh</button>
       <button type="button" onClick={() => { H.partialResult = true; }}>Return partial result</button>
       <button type="button" onClick={() => { H.refreshResolvers.shift()?.(); }}>Resolve wallet refresh</button>
       <button type="button" onClick={() => { H.multiStepExecution = true; H.rerender?.(); }}>Use multi-step route</button>
       <button type="button" onClick={() => { H.nonzeroTransactionValues = true; H.rerender?.(); }}>Use nonzero transaction values</button>
       <button type="button" onClick={() => { H.approvalRequired = true; H.rerender?.(); }}>Use approval route</button>
       <button type="button" onClick={() => { H.rejectActionSignature = true; }}>Reject action signature</button>
+      <button type="button" onClick={() => { H.uncertainApproval = true; H.approvalRequired = true; }}>Return unconfirmed approval</button>
       <button type="button" onClick={() => { H.gasCost = { status: 'refreshing', checking: true, estimateIsCurrent: false }; H.rerender?.(); }}>Gas estimate loading</button>
       <button type="button" onClick={() => { H.gasCost = { status: 'unavailable', checking: false, estimateIsCurrent: false, error: 'RPC unavailable' }; H.rerender?.(); }}>Gas estimate unavailable</button>
       <button type="button" onClick={() => { H.gasCost = { status: 'current', checking: false, estimate: { status: 'current', nativeValueWei: 0n, executionGasFeeWei: 840000000000000n, totalNativeCostWei: 840000000000000n, requiredNativeCostWei: 1008000000000000n }, estimateIsCurrent: true }; H.rerender?.(); }}>Gas estimate current</button>
@@ -208,6 +215,7 @@ function Harness() {
       onComplete={async () => {
         H.completeStarted = true;
         H.rerender?.();
+        if (H.deferComplete) await new Promise<void>((resolve) => H.completeResolvers.push(resolve));
       }}
     />}
     {!presentationMode && <>

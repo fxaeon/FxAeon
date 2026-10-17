@@ -46,24 +46,11 @@ test('amount shortcuts retain touch targets and never overlap the label', async 
   for (const button of geometry.buttons) { expect(button.w).toBeGreaterThanOrEqual(44); expect(button.h).toBeGreaterThanOrEqual(44); }
 });
 
-test('form review actions remain reachable with 200% text in every appearance theme', async ({ page }) => {
+test('form review actions remain reachable with 200% text in dark appearance', async ({ page }) => {
   // The static export has no wallet/RPC planner; this contract verifies honest
   // layout and reachability without claiming that the route quote is healthy.
   const routes = ['/trade', '/borrow', '/earn', '/move'];
-  const themes = ['official', 'dark'] as const;
   await page.setViewportSize({ width: 393, height: 852 });
-
-  async function chooseTheme(theme: typeof themes[number]) {
-    const html = page.locator('html');
-    for (let attempt = 0; attempt < themes.length; attempt += 1) {
-      const current = await html.getAttribute('data-theme') ?? 'official';
-      if (current === theme) return;
-      const next = current === 'dark' ? 'official' : 'dark';
-      await page.getByRole('button', { name: `Switch to ${next === 'official' ? 'light' : 'dark'} theme` }).click();
-      await expect(html).toHaveAttribute('data-theme', next);
-    }
-    await expect(html).toHaveAttribute('data-theme', theme);
-  }
 
   async function assertActionReachable(route: string, enlargedText: boolean) {
     const action = page.locator('.reviewTrigger .button-primary').first();
@@ -119,24 +106,21 @@ test('form review actions remain reachable with 200% text in every appearance th
   }
 
   for (const route of routes) {
-    for (const theme of themes) {
-      await page.goto(route);
-      await expect(page.getByRole('button', { name: /Switch to .* theme/ })).toBeEnabled();
-      await chooseTheme(theme);
-      await assertActionReachable(route, false);
+    await page.goto(route);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await assertActionReachable(route, false);
 
-      await page.evaluate(() => {
-        const elements = Array.from(document.querySelectorAll<HTMLElement>('body *')).flatMap((element) => {
-          if (element.closest('svg')) return [];
-          const hasDirectText = Array.from(element.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()));
-          if (!hasDirectText && !element.matches('input, textarea, select')) return [];
-          const fontSize = Number.parseFloat(getComputedStyle(element).fontSize);
-          return Number.isFinite(fontSize) && fontSize > 0 ? [{ element, fontSize }] : [];
-        });
-        document.documentElement.style.fontSize = '200%';
-        for (const { element, fontSize } of elements) element.style.setProperty('font-size', `${fontSize * 2}px`, 'important');
+    await page.evaluate(() => {
+      const elements = Array.from(document.querySelectorAll<HTMLElement>('body *')).flatMap((element) => {
+        if (element.closest('svg')) return [];
+        const hasDirectText = Array.from(element.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && Boolean(node.textContent?.trim()));
+        if (!hasDirectText && !element.matches('input, textarea, select')) return [];
+        const fontSize = Number.parseFloat(getComputedStyle(element).fontSize);
+        return Number.isFinite(fontSize) && fontSize > 0 ? [{ element, fontSize }] : [];
       });
-      await assertActionReachable(route, true);
-    }
+      document.documentElement.style.fontSize = '200%';
+      for (const { element, fontSize } of elements) element.style.setProperty('font-size', `${fontSize * 2}px`, 'important');
+    });
+    await assertActionReachable(route, true);
   }
 });

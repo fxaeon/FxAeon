@@ -114,7 +114,7 @@
 .preferenceChoice[aria-checked='true'] {
   border-color: var(--mint);
   background: var(--mint-dim);
-  color: var(--mint);
+  color: var(--mint-text);
   font-weight: 700;
 }
 
@@ -292,7 +292,7 @@
   color: var(--mut);
   font-size: var(--fs-caption);
 }
-.authBadge svg { width: 12px; height: 12px; color: var(--mint); }
+.authBadge svg { width: 12px; height: 12px; color: var(--mint-text); }
 .authBadge strong { color: var(--text); font-weight: 600; }
 .authNotice {
   margin-top: 14px;
@@ -359,7 +359,7 @@
   place-items: center;
   border-radius: 12px;
   background: var(--mint-dim);
-  color: var(--mint);
+  color: var(--mint-text);
 }
 .authOptionIcon svg { width: 20px; height: 20px; }
 .authOptionText { min-width: 0; flex: 1; }
@@ -516,7 +516,6 @@
   background: #fff;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
 }
-:root:is([data-theme='official'], [data-theme='light']) .qrTile { box-shadow: 0 0 0 1px var(--line), 0 10px 28px rgba(54, 34, 79, 0.08); }
 .qrTile > svg { display: block; width: min(208px, 56vw); height: auto; }
 .addressValue {
   font-size: 15px;

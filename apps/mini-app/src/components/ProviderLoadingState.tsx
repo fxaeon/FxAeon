@@ -10,7 +10,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Home,
-  LayoutGrid,
+  Menu,
   PiggyBank,
   RefreshCw,
   Search,
@@ -22,9 +22,11 @@ import TokenIcon from '@/components/TokenIcon';
 import { useT } from '@/lib/i18n';
 import styles from './ProviderLoadingState.module.css';
 import control from './HeaderWalletControl.module.css';
+import navigation from './ShellNavigation.module.css';
 import layout from './ProductLayout.module.css';
 import ui from './ProductUI.module.css';
 import portfolio from './PortfolioWorkspace.module.css';
+import { ProtocolPositionSkeleton } from '@/components/ProtocolPositionSkeleton';
 import balance from './BalanceSummary.module.css';
 import assets from './PortfolioAssets.module.css';
 import assetRows from './AssetPresentation.module.css';
@@ -45,10 +47,11 @@ const TABS: { href: string; labelKey: string; icon: LucideIcon; also?: string[] 
   // Mirrors the dock in ui.tsx.
   { href: '/', labelKey: 'nav.home', icon: Home, also: ['/portfolio'] },
   { href: '/trade', labelKey: 'nav.trade', icon: CandlestickChart, also: ['/positions'] },
-  { href: '/earn', labelKey: 'nav.earn', icon: PiggyBank, also: ['/borrow'] },
+  { href: '/earn', labelKey: 'nav.earn', icon: PiggyBank },
+  { href: '/borrow', labelKey: 'nav.borrow', icon: CircleDollarSign },
   { href: '/move', labelKey: 'nav.move', icon: ArrowLeftRight },
-  { href: '/more', labelKey: 'nav.more', icon: LayoutGrid, also: ['/settings', '/history', '/qr', '/send', '/docs'] },
 ];
+const MORE_TAB = { href: '/more', labelKey: 'nav.more', also: ['/settings', '/history', '/qr', '/send', '/docs'] };
 
 const UTILITY_ROUTES = ['/more', '/settings', '/history', '/qr', '/send'];
 
@@ -121,13 +124,13 @@ function isActive(pathname: string, href: string, also?: string[]) {
   return pathname === href || Boolean(also?.some((prefix) => pathname.startsWith(prefix)));
 }
 
-/** The real top bar's geometry: mark and wordmark, the network and wallet control, the theme button. */
+/** The real top bar's geometry: mark, wordmark, and wallet control. */
 function ShellTopBar({ pathname }: { pathname: string }) {
   const t = useT();
   return <div className="app-topbar">
     <a className="flex items-center gap-2.5"><FxLogo size={32} /><span className="brand-wordmark">FxAeon</span></a>
     <nav className="desktop-navigation">
-      {TABS.map(({ href, labelKey, also }) => <a key={href} aria-current={isActive(pathname, href, also) ? 'page' : undefined}>{t(labelKey)}</a>)}
+      {[...TABS, MORE_TAB].map(({ href, labelKey, also }) => <a key={href} aria-current={isActive(pathname, href, also) ? 'page' : undefined}>{t(labelKey)}</a>)}
     </nav>
     <span className="app-topbar-actions">
       <span className={control.control}>
@@ -135,9 +138,7 @@ function ShellTopBar({ pathname }: { pathname: string }) {
           <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
-      <button type="button" tabIndex={-1} className="theme-toggle glass-press flex min-h-11 min-w-11 items-center justify-center rounded-full text-mut">
-        <span className={`skeleton ${styles.themeMark}`} />
-      </button>
+      <span data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Menu size={21} aria-hidden="true" /></span>
     </span>
   </div>;
 }
@@ -167,12 +168,7 @@ const QUICK_ACTIONS: { label: string; icon: LucideIcon }[] = [
   { label: 'Earn', icon: PiggyBank },
 ];
 
-/**
- * Portfolio as the connected page draws it while its reads are in flight,
- * built from the same classes: the hero (label, figure placeholder, four
- * round actions, Value breakdown), Assets with a network filter and three rows,
- * the Positions and fxSAVE cards, History, Markets and Borrow.
- */
+/** Portfolio first paint uses the same balance, ledger and inline position sections. */
 function PortfolioSilhouette() {
   return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
     <h1 className="sr-only">Portfolio</h1>
@@ -184,12 +180,18 @@ function PortfolioSilhouette() {
             <button type="button" tabIndex={-1}><RefreshCw size={18} aria-hidden="true" /></button>
           </div>
           <p className={`${portfolio.valueNumber} ${balance.value}`}><span className="missing-value missing-value-xl"><span className="missing-value-bar" /></span></p>
-          <div className={portfolio.quickActions}>
-            {QUICK_ACTIONS.map(({ label, icon: Icon }) => <a key={label} className={portfolio.quickAction}>
-              <span><Icon className="h-5 w-5" aria-hidden="true" /></span><strong>{label}</strong>
-            </a>)}
-          </div>
-          <details className={ui.disclosure}><summary tabIndex={-1}><span>Value breakdown</span><ChevronDown size={17} aria-hidden="true" /></summary></details>
+          <section aria-labelledby="portfolio-fallback-actions-title">
+            <h2 id="portfolio-fallback-actions-title" className="sr-only">Actions</h2>
+            <div className={portfolio.quickActions}>
+              {QUICK_ACTIONS.map(({ label, icon: Icon }) => <a key={label} className={portfolio.quickAction}>
+                <span><Icon className="h-5 w-5" aria-hidden="true" /></span><strong>{label}</strong>
+              </a>)}
+            </div>
+          </section>
+          <dl className={portfolio.valueBreakdown}>
+            {['Wallet assets', 'Position value'].map(label => <div key={label}><dt>{label}</dt><dd><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></dd></div>)}
+          </dl>
+          <details className={portfolio.valueDetails}><summary tabIndex={-1}>Balance details</summary></details>
         </section>
         <section className={`${assets.assets} ${assets.ledgerSurface}`}>
           <div className={assets.sectionHeading}>
@@ -202,6 +204,7 @@ function PortfolioSilhouette() {
               <ChevronDown size={15} aria-hidden="true" />
             </label>
           </div>
+          <div className={assets.status}><span>Balances loading.</span></div>
           <div className={assetRows.loadingList}>
             {[0, 1, 2].map((row) => <div key={row} className={assetRows.loadingRow}>
               <span className={`${assetRows.loadingIcon} skeleton`} />
@@ -210,12 +213,14 @@ function PortfolioSilhouette() {
             </div>)}
           </div>
         </section>
-        {['Positions', 'fxSAVE'].map((title) => <section key={title} className={title === 'fxSAVE' ? portfolio.earnSection : portfolio.positionsSection}>
-          <details className={ui.disclosure}><summary tabIndex={-1}><span>{title}</span>
-            <span className={ui.disclosureHint}><span className={`missing-value ${title === 'fxSAVE' ? 'missing-value-md' : 'missing-value-sm'}`}><span className="missing-value-bar" /></span></span>
-            <ChevronDown size={17} aria-hidden="true" />
-          </summary></details>
-        </section>)}
+        <section className={portfolio.positionsSection}>
+          <div className={portfolio.sectionTitle}><h2>Positions</h2><span><span className="missing-value missing-value-sm"><span className="missing-value-bar" /></span></span></div>
+          <ProtocolPositionSkeleton />
+        </section>
+        <section className={portfolio.earnSection}>
+          <div className={portfolio.sectionTitle}><h2>fxSAVE</h2><span><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></span></div>
+          <div className={portfolio.earnLoading}><span className="skeleton" /><span><span className="skeleton" /><span className="skeleton" /></span><span className="skeleton" /></div>
+        </section>
         <section className={activity.section}>
           <div className="section-heading mb-2 flex items-center justify-between">
             <h2 className="text-[length:var(--fs-title)] font-semibold tracking-tight text-[var(--text)]">History</h2>
@@ -240,14 +245,6 @@ function PortfolioSilhouette() {
               <div className="market-chart-compact mt-2 h-[54px]"><div className="market-chart-skeleton h-full" /></div>
             </a>)}
           </div>
-        </section>
-        <section className={ui.group}>
-          <h2>Borrow</h2>
-          <div className={ui.rowGroup}><a className={ui.actionRow}>
-            <CircleDollarSign className={ui.rowIcon} size={20} aria-hidden="true" />
-            <span className={ui.rowCopy}><strong>Borrow fxUSD</strong><small>Manage collateral and debt</small></span>
-            <ChevronRight size={18} aria-hidden="true" />
-          </a></div>
         </section>
       </aside>
     </div>

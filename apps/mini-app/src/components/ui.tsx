@@ -12,7 +12,8 @@ import {
   CandlestickChart,
   PiggyBank,
   ArrowLeftRight,
-  LayoutGrid,
+  CircleDollarSign,
+  Menu,
   Copy,
   Check,
   LucideIcon,
@@ -20,7 +21,6 @@ import {
 import { haptic } from '@/lib/telegram';
 import { useT } from '@/lib/i18n';
 import FxLogo from '@/components/FxLogo';
-import ThemeToggle from '@/components/ThemeToggle';
 import WalletProfile from '@/components/WalletProfile';
 import NetworkSelector from '@/components/NetworkSelector';
 import { ValueOrSkeleton } from '@/components/MissingValue';
@@ -28,6 +28,7 @@ import { compactAddress } from '@/lib/addressPresentation';
 import { copyText } from '@/lib/clipboard';
 import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
 import headerWalletControl from '@/components/HeaderWalletControl.module.css';
+import navigation from '@/components/ShellNavigation.module.css';
 
 /* ------------------------------------------------------------------ shell */
 
@@ -115,7 +116,7 @@ export function AppShell({
             <DesktopNavigation />
             <span className="app-topbar-actions">
               <HeaderWalletControl />
-              <ThemeToggle />
+              <MobileMoreLink />
             </span>
           </header>
         )}
@@ -169,13 +170,24 @@ function HeaderWallet() {
 const TABS: { href: string; labelKey: string; icon: LucideIcon; also?: string[] }[] = [
   { href: '/', labelKey: 'nav.home', icon: Home, also: ['/portfolio'] },
   { href: '/trade', labelKey: 'nav.trade', icon: CandlestickChart, also: ['/positions'] },
-  { href: '/earn', labelKey: 'nav.earn', icon: PiggyBank, also: ['/borrow'] },
+  { href: '/earn', labelKey: 'nav.earn', icon: PiggyBank },
+  { href: '/borrow', labelKey: 'nav.borrow', icon: CircleDollarSign },
   { href: '/move', labelKey: 'nav.move', icon: ArrowLeftRight },
-  { href: '/more', labelKey: 'nav.more', icon: LayoutGrid, also: ['/settings', '/history', '/qr', '/send', '/docs'] },
 ];
+const MORE_TAB = { href: '/more', labelKey: 'nav.more', also: ['/settings', '/history', '/qr', '/send', '/docs'] };
 
 function isTabActive(pathname: string | null, href: string, also?: string[]) {
   return pathname === href || Boolean(also?.some((prefix) => pathname?.startsWith(prefix)));
+}
+
+function MobileMoreLink() {
+  const pathname = usePathname();
+  const t = useT();
+  return <Link href={MORE_TAB.href} data-mobile-more aria-label={t(MORE_TAB.labelKey)} title={t(MORE_TAB.labelKey)}
+    aria-current={isTabActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}
+    className={navigation.mobileMore} onClick={() => haptic('selection')}>
+    <Menu size={21} aria-hidden="true" />
+  </Link>;
 }
 
 /* Routes remount the shell, so the dock remembers where its highlight was and
@@ -239,7 +251,7 @@ function DesktopNavigation() {
   const t = useT();
   return (
     <nav className="desktop-navigation" aria-label="Primary navigation">
-      {TABS.map(({ href, labelKey, also }) => {
+      {[...TABS, MORE_TAB].map(({ href, labelKey, also }) => {
         const active = isTabActive(pathname, href, also);
         return <Link key={href} href={href} aria-current={active ? 'page' : undefined} onClick={() => haptic('selection')}>
           {t(labelKey)}

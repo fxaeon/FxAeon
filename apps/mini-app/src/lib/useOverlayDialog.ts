@@ -10,9 +10,13 @@ type OverlayDialogOptions = {
   initialFocusRef?: RefObject<HTMLElement | null>;
   /** Opt-in fallback when this dialog's opener was removed by its result. */
   restoreFocusFallback?: () => HTMLElement | null;
+  /** A query-driven surface can retain ownership of its existing Back stop. */
+  manageHistory?: boolean;
+  /** Keep the local Back stop while a wallet request cannot be dismissed. */
+  dismissible?: boolean;
 };
 
-type OverlayEntry = { id: number; element: HTMLElement; href: string; previousState: () => unknown; navigate: (href: string) => void; dismiss: () => void };
+type OverlayEntry = { id: number; element: HTMLElement; href: string; previousState: () => unknown; navigate: (href: string) => void; dismiss: () => void; managesHistory: boolean; canDismiss: () => boolean; restoreHistory: () => void };
 const overlayStack: OverlayEntry[] = [];
 let nextOverlayId = 0;
 let originalBodyOverflow = '';
@@ -47,12 +51,19 @@ function installHistoryCoordinator(): void {
       return;
     }
     const pending = pendingHistoryTraversal;
-    if (!pending || JSON.stringify(event.state) !== pending.expectedState) return;
-    pendingHistoryTraversal = null;
-    consumedHistoryEvents.add(event);
-    for (const close of pending.queuedCloses) close();
-    for (const open of pending.queuedOpens) open();
-    for (const navigate of pending.queuedNavigations) navigate();
+    if (pending && JSON.stringify(event.state) === pending.expectedState) {
+      pendingHistoryTraversal = null;
+      consumedHistoryEvents.add(event);
+      for (const close of pending.queuedCloses) close();
+      for (const open of pending.queuedOpens) open();
+      for (const navigate of pending.queuedNavigations) navigate();
+      return;
+    }
+    const top = overlayStack.at(-1);
+    if (top?.managesHistory && !top.canDismiss()) {
+      event.stopImmediatePropagation();
+      top.restoreHistory();
+    }
   }, true);
   window.addEventListener('click', (event) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -63,13 +74,14 @@ function installHistoryCoordinator(): void {
     try { destination = new URL(anchor.href); } catch { return; }
     if (destination.origin !== window.location.origin) return;
     const sourceHref = window.location.href;
-    const activeEntries = overlayStack.filter((entry) => entry.href === sourceHref);
+    const activeEntries = overlayStack.filter((entry) => entry.href === sourceHref && entry.managesHistory);
     if (activeEntries.length === 0) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (activeEntries.some((entry) => !entry.canDismiss())) return;
     if (pendingOverlayNavigation || pendingHistoryTraversal?.queuedNavigations.length) return;
     const beginNavigation = () => {
-      const currentEntries = overlayStack.filter((entry) => entry.href === sourceHref);
+      const currentEntries = overlayStack.filter((entry) => entry.href === sourceHref && entry.managesHistory);
       if (!currentEntries.length) return;
       const root = currentEntries[0];
       pendingOverlayNavigation = {
@@ -138,6 +150,10 @@ export function beginLocalHistoryEntry(key: string, id: string | number) {
       }
     },
     previousState: () => previousState,
+    restore() {
+      if (!active || cancelled) return;
+      window.history.pushState({ ...historyStateRecord(previousState), [key]: id }, '', href);
+    },
   };
 }
 
@@ -163,7 +179,7 @@ function visibleFocusableElements(dialog: HTMLElement): HTMLElement[] {
 
 /** Shared lifecycle for modal overlays. The dialog element must have role=dialog,
  * aria-modal=true, an accessible name, and a visible close button. */
-export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, onClose, triggerRef, initialFocusRef, restoreFocusFallback }: OverlayDialogOptions) {
+export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, onClose, triggerRef, initialFocusRef, restoreFocusFallback, manageHistory = true, dismissible = true }: OverlayDialogOptions) {
   const router = useRouter();
   const routerRef = useRef(router);
   routerRef.current = router;
@@ -172,6 +188,8 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
   closeRef.current = onClose;
   const fallbackRef = useRef(restoreFocusFallback);
   fallbackRef.current = restoreFocusFallback;
+  const dismissibleRef = useRef(dismissible);
+  dismissibleRef.current = dismissible;
 
   useEffect(() => {
     if (!open) return;
@@ -191,21 +209,28 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
     const usedTriggerRef = trigger === triggerRef.current;
     const id = ++nextOverlayId;
     const historyKey = '__fxaeonOverlayId';
-    const historyEntry = beginLocalHistoryEntry(historyKey, id);
+    const historyEntry = manageHistory ? beginLocalHistoryEntry(historyKey, id) : null;
     const entry: OverlayEntry = { id, element: dialog, href: window.location.href,
-      previousState: historyEntry.previousState, navigate: (href) => routerRef.current.push(href), dismiss: () => closeRef.current() };
+      previousState: historyEntry?.previousState ?? (() => window.history.state), navigate: (href) => routerRef.current.push(href), dismiss: () => closeRef.current(), managesHistory: manageHistory,
+      canDismiss: () => dismissibleRef.current, restoreHistory: () => historyEntry?.restore() };
     const wasTop = () => overlayStack.at(-1)?.id === entry.id;
     if (overlayStack.length === 0) originalBodyOverflow = document.body.style.overflow;
     overlayStack.push(entry);
     document.body.style.overflow = 'hidden';
     let consumedBack = false;
     const focusable = () => visibleFocusableElements(dialog);
-    const focusInitial = () => (initialFocusRef?.current ?? focusable()[0] ?? dialog).focus({ preventScroll: true });
+    const focusInitial = () => {
+      const initial = initialFocusRef?.current;
+      const target = initial && dialog.contains(initial) && !initial.matches(':disabled,[aria-disabled="true"]')
+        && !initial.closest('[hidden],[aria-hidden="true"],[inert]') && initial.getClientRects().length > 0
+        ? initial : focusable()[0] ?? dialog;
+      target.focus({ preventScroll: true });
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (!wasTop()) return;
       if (event.key === 'Escape') {
         event.preventDefault();
-        closeRef.current();
+        if (dismissibleRef.current) closeRef.current();
       }
       if (event.key !== 'Tab') return;
       const items = focusable();
@@ -221,8 +246,10 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
       if (!dialog.contains(event.target as Node)) focusInitial();
     };
     const onPopState = (event: PopStateEvent) => {
+      if (!manageHistory) return;
       if (isLocalHistoryTraversal(event)) return;
       if (!wasTop()) return;
+      if (!dismissibleRef.current) { historyEntry?.restore(); return; }
       consumedBack = true;
       closeRef.current();
     };
@@ -230,7 +257,7 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
       if (!wasTop()) return;
       const detail = (event as CustomEvent<{ consume?: () => void; isConsumed?: () => boolean }>).detail;
       if (detail?.isConsumed?.()) return;
-      closeRef.current();
+      if (dismissibleRef.current) closeRef.current();
       detail?.consume?.();
     };
     // Initial focus waits a frame for the dialog to paint. By then the person
@@ -253,7 +280,7 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
       const index = overlayStack.findIndex((item) => item.id === entry.id);
       if (index >= 0) overlayStack.splice(index, 1);
       if (overlayStack.length === 0) document.body.style.overflow = originalBodyOverflow;
-      historyEntry.finish(consumedBack);
+      historyEntry?.finish(consumedBack);
       if (wasTopOnClose) {
         const returnTarget = usedTriggerRef && triggerRef.current?.isConnected ? triggerRef.current : trigger;
         if (returnTarget?.isConnected && !returnTarget.matches(':disabled')) returnTarget.focus({ preventScroll: true });
@@ -268,7 +295,7 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
         });
       }
     };
-  }, [open, triggerRef, initialFocusRef]);
+  }, [open, triggerRef, initialFocusRef, manageHistory]);
 
   return dialogRef;
 }

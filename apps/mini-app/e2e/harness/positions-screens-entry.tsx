@@ -63,9 +63,9 @@ globalThis.__positionsScreens = {
   walletRequests: 0,
 };
 
-const theme = config.theme ?? 'official';
+const theme = 'dark';
 document.documentElement.dataset.theme = theme;
-document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+document.documentElement.style.colorScheme = 'dark';
 liveMarketStore.setStatus('live');
 for (const [market, price] of [['ETH', 2_444.58], ['BTC', 81_354.96]] as const) {
   const now = Date.now();

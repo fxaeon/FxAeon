@@ -6,6 +6,12 @@ import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 export type ActionPlanBuilder = () => Promise<PlannedRoute | readonly PlannedRoute[]>;
 export type ActionReviewStage = 'input' | 'planning' | 'review' | 'executing' | 'result';
 
+/** Preparation belongs to the editor; only a complete review replaces it.
+ * Keep the underlying stage for prefetch latches and cancellation guards. */
+export function isReviewInputStage(stage: ActionReviewStage): boolean {
+  return stage === 'input' || stage === 'planning';
+}
+
 export interface ActionReviewProps {
   /** Build the route only after Review or an explicit quote refresh. */
   planBuilder: ActionPlanBuilder | null;

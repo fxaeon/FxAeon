@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { resolve } from 'node:path';
-import { test, expect, devices, type Page } from '@playwright/test';
+import { test, expect, devices, type Page, type TestInfo } from '@playwright/test';
 import type { MobileWalletHarnessState } from '../harness/mobile-wallet-entry';
 import { buildLabGlobalCss } from '../harness/portfolio-states-build';
 
@@ -98,16 +98,29 @@ async function showOtherWallets(page: Page) {
   await expect(page.getByRole('dialog')).toHaveAttribute('data-wallet-view', 'all');
 }
 
-test('wallet picker is a centered grouped dialog in light and dark at phone and desktop widths', async ({ page }) => {
+async function capturePicker(page: Page, testInfo: TestInfo, name: string) {
+  const path = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ path, animations: 'disabled' });
+  await testInfo.attach(name, { path, contentType: 'image/png' });
+}
+
+test('wallet picker uses a bottom sheet on phones and a centered flat list on desktop', async ({ page }) => {
   await openHarness(page);
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   const dialog = page.getByRole('dialog');
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    for (const theme of ['official', 'dark']) {
+    for (const theme of ['dark']) {
       await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
       await expect(dialog.locator('[data-wallet-id]')).toHaveCount(4);
       await expect(dialog.locator('.wallet-provider-detected')).toHaveCount(0);
+      // Read settled sheet geometry after its finite entrance motion instead
+      // of sampling a transitional position or weakening the viewport bounds.
+      await dialog.evaluate(async element => {
+        const finiteAnimations = element.getAnimations({ subtree: true }).filter((animation) =>
+          animation.effect?.getComputedTiming().iterations !== Infinity);
+        await Promise.all(finiteAnimations.map((animation) => animation.finished.catch(() => undefined)));
+      });
       const geometry = await dialog.evaluate(element => {
         const rect = element.getBoundingClientRect();
         return { left: rect.left, right: rect.right, center: rect.left + rect.width / 2,
@@ -117,11 +130,13 @@ test('wallet picker is a centered grouped dialog in light and dark at phone and 
           imagesLoaded: [...element.querySelectorAll('img')].every(image => image.complete && image.naturalWidth > 0),
         };
       });
-      expect(geometry.left).toBeGreaterThanOrEqual(11);
-      expect(geometry.right).toBeLessThanOrEqual(width - 11);
+      expect(geometry.left).toBeGreaterThanOrEqual(width <= 600 ? 8 : 20);
+      expect(geometry.right).toBeLessThanOrEqual(width - (width <= 600 ? 8 : 20));
       expect(Math.abs(geometry.center - width / 2)).toBeLessThanOrEqual(1);
-      expect(geometry.width).toBeLessThanOrEqual(380);
-      expect(geometry.bottom).toBeLessThanOrEqual(844 - 11);
+      expect(geometry.width).toBe(Math.min(400, width - (width <= 600 ? 16 : 40)));
+      expect(geometry.bottom).toBeLessThanOrEqual(844 - (width <= 600 ? 8 : 20));
+      if (width <= 600) expect(geometry.bottom).toBe(844 - 8);
+      await expect(dialog.locator('.wallet-provider-options')).toHaveCSS('border-top-width', '0px');
       expect(geometry.overflow).toBeLessThanOrEqual(1);
       expect(geometry.imagesLoaded).toBe(true);
       for (const height of geometry.rows) expect(height).toBeGreaterThanOrEqual(44);
@@ -764,7 +779,7 @@ async function expectNoNavigationSession(page: Page) {
 }
 
 for (const environment of ['mobile', 'unknown'] as const) {
-  test(`${environment} absent wallets navigate safely in the same tab and retry without borrowing an unrelated provider`, async ({ page }) => {
+  test(`${environment} absent wallets navigate safely in the same tab and retry without borrowing an unrelated provider`, async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width: 390, height: 844 });
     const navigation = await interceptExternalNavigation(page);
@@ -790,10 +805,14 @@ for (const environment of ['mobile', 'unknown'] as const) {
       await expect(dialog.getByRole('alert')).toHaveCount(0);
       const back = dialog.getByRole('button', { name: 'Back to Other wallets', exact: true });
       await expect(back).toBeFocused();
+      if (environment === 'mobile' && name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-handoff-dark-390');
+      const install = dialog.getByRole('link', { name: `${browserHref ? 'Install' : 'Get'} ${name}`, exact: true });
+      if (!browserHref) await expect(install).toBeVisible();
       await dialog.getByText('Connection help', { exact: true }).click();
-      await expect(dialog.getByRole('link', { name: `Install ${name}`, exact: true })).toHaveAttribute('href', name === 'Rabby' ? 'https://rabby.io/?platform=mobile' : appHref);
+      await expect(install).toHaveAttribute('href', name === 'Rabby' ? 'https://rabby.io/?platform=mobile' : appHref);
       await expect(dialog.getByRole('link', { name: 'Wallet guide', exact: true })).toBeVisible();
       await expect(dialog.getByRole('button', { name: 'Copy FxAeon link', exact: true })).toBeVisible();
+      if (environment === 'mobile' && name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-recovery-dark-390');
       if (browserHref) {
         const retry = dialog.getByRole('button', { name: `Open ${name}`, exact: true });
         await retry.click({ noWaitAfter: true });
@@ -841,7 +860,7 @@ const installationDestinations = [
   ['OKX', 'https://web3.okx.com/download'],
 ] as const;
 
-test('desktop absent-wallet selection opens only its official installation page and remains disconnected', async ({ page }) => {
+test('desktop absent-wallet selection opens only its official installation page and remains disconnected', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   const attemptedUrls: string[] = [];
   await page.context().route('**/*', async (route) => {
@@ -862,11 +881,14 @@ test('desktop absent-wallet selection opens only its official installation page 
     await installationPage.close();
     const dialog = page.getByRole('dialog', { name, exact: true });
     await expect(dialog).toHaveAttribute('data-wallet-view', 'handoff');
-    await expect(dialog.getByRole('status')).toHaveText(`Opening ${name}’s official download page.`);
+    await expect(dialog.getByRole('status')).toHaveText(`Install ${name} in your browser, then return here to connect.`);
+    const install = dialog.getByRole('link', { name: `Get ${name}`, exact: true });
+    await expect(install).toBeVisible();
+    if (name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-not-detected-dark-1280');
     await dialog.getByText('Connection help', { exact: true }).click();
-    const install = dialog.getByRole('link', { name: `Install ${name}`, exact: true });
     await expect(install).toHaveAttribute('href', href);
     await expect(dialog.getByRole('link', { name: 'Wallet guide', exact: true })).toBeVisible();
+    if (name === 'MetaMask') await capturePicker(page, testInfo, 'wallet-recovery-dark-1280');
     await expect(dialog.getByRole('button', { name: `Open ${name}`, exact: true })).toHaveCount(0);
     const retryPopup = page.waitForEvent('popup');
     await install.click();
@@ -1032,7 +1054,7 @@ test('pending approval stays visible through rerender and repeated consumer conn
   await page.evaluate(() => { globalThis.__mobileWalletHarness.rerender?.(); void globalThis.__mobileWalletHarness.connectFromSecondConsumer?.(); });
   const dialog = page.getByRole('dialog', { name: 'Test wallet 2', exact: true });
   await expect(dialog).toHaveAttribute('data-wallet-view', 'pending');
-  await expect(dialog.getByRole('status')).toContainText('Waiting for approval');
+  await expect(dialog.getByRole('heading', { name: 'Waiting for approval', exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Back to Other wallets', exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Close wallet selection', exact: true })).toBeVisible();
   await expect(page.locator('main')).toHaveAttribute('data-prompt', 'true');
@@ -1226,13 +1248,58 @@ test('recovery focus trap excludes closed help controls and follows the disclosu
   expect(observation.errors).toEqual([]);
 });
 
+test('wallet help stays inside the picker and returns focus without starting a connection', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const observation = await openHarness(page, 'multiple', '/earn');
+  const originalUrl = page.url();
+  const trigger = page.getByRole('button', { name: 'Connect wallet', exact: true });
+  await trigger.click();
+  const help = page.getByRole('button', { name: 'What is a wallet?', exact: true });
+  await capturePicker(page, testInfo, 'wallet-detected-list-dark-390');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await capturePicker(page, testInfo, 'wallet-detected-list-dark-1280');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await help.click();
+  const dialog = page.getByRole('dialog', { name: 'What is a wallet?', exact: true });
+  await expect(dialog).toHaveAttribute('data-wallet-view', 'help');
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(dialog.getByRole('heading', { level: 3 })).toHaveText(['Your connection to FxAeon', 'A home for your assets', 'You approve every action']);
+  await expect(dialog.getByRole('button', { name: 'Back to wallets', exact: true })).toBeFocused();
+  await capturePicker(page, testInfo, 'wallet-help-dark-390');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await capturePicker(page, testInfo, 'wallet-help-dark-1280');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await dialog.getByRole('button', { name: 'Back to wallets', exact: true }).click();
+  await expect(help).toBeFocused();
+  await help.click();
+  await dialog.getByRole('button', { name: 'Explore wallets', exact: true }).click();
+  const all = page.getByRole('dialog', { name: 'Other wallets', exact: true });
+  await expect(all.getByRole('searchbox', { name: 'Search wallets' })).toBeVisible();
+  await expect(all.getByRole('button', { name: 'Back to wallets', exact: true })).toBeFocused();
+  await all.getByRole('searchbox', { name: 'Search wallets' }).fill('MetaMask');
+  await expect(all.locator('[data-wallet-id]')).toHaveCount(1);
+  await capturePicker(page, testInfo, 'wallet-search-dark-390');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await capturePicker(page, testInfo, 'wallet-search-dark-1280');
+  expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
+  expect(page.url()).toBe(originalUrl);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(observation.errors).toEqual([]);
+});
+
 test('keyboard focus wraps and Escape quietly cancels the whole picker', async ({ page }) => {
   await openHarness(page, 'multiple');
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   const close = page.getByRole('button', { name: 'Close wallet selection', exact: true });
   await expect(close).toBeFocused();
   await page.keyboard.press('Shift+Tab');
+  await expect(page.getByRole('button', { name: 'What is a wallet?', exact: true })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
   await expect(page.getByRole('button', { name: 'Other wallets', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'What is a wallet?', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(close).toBeFocused();
   await page.keyboard.press('Escape');
@@ -1242,7 +1309,7 @@ test('keyboard focus wraps and Escape quietly cancels the whole picker', async (
   expect((await snapshot(page)).cancellations).toBe(1);
 });
 
-for (const theme of ['official', 'dark', 'light'] as const) {
+for (const theme of ['dark'] as const) {
   for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 1280, height: 800 }]) {
     test(`minimal wallet rows fit ${theme} at ${viewport.width}px with real local marks`, async ({ page }, testInfo) => {
       await page.setViewportSize(viewport);
@@ -1265,19 +1332,19 @@ for (const theme of ['official', 'dark', 'light'] as const) {
       expect(geometry.right).toBeLessThanOrEqual(viewport.width);
       expect(geometry.bottom).toBeLessThanOrEqual(viewport.height);
       expect(geometry.overflows).toBe(false);
-      expect(geometry.width).toBe(Math.min(380, viewport.width - (viewport.width <= 600 ? 24 : 40)));
+      expect(geometry.width).toBe(Math.min(400, viewport.width - (viewport.width <= 600 ? 16 : 40)));
       expect(Math.abs((geometry.left + geometry.right) / 2 - viewport.width / 2)).toBeLessThanOrEqual(1);
       for (const control of geometry.controls) { expect(control.width).toBeGreaterThanOrEqual(44); expect(control.height).toBeGreaterThanOrEqual(44); }
       expect(observation.requests.every((url) => new URL(url).origin === origin)).toBe(true);
       expect(observation.errors).toEqual([]);
-      await testInfo.attach(`wallet-selection-v4-${theme}-${viewport.width}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+      await capturePicker(page, testInfo, `wallet-selection-${theme}-${viewport.width}`);
     });
   }
 }
 
 for (const enlarged of [false, true]) {
   for (const view of ['wallets', 'all', 'pending', 'error'] as const) {
-    test(`${view} keeps every control reachable with ${enlarged ? '200% text' : 'a short viewport'}`, async ({ page }) => {
+    test(`${view} keeps every control reachable with ${enlarged ? '200% text' : 'a short viewport'}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: 320, height: enlarged ? 568 : 360 });
       await openHarness(page, 'multiple', '/', '&longName=1', 'unknown');
       await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
@@ -1305,13 +1372,16 @@ for (const enlarged of [false, true]) {
         const sizes = [...element.querySelectorAll<HTMLElement>('*')].map((node) => ({ node, size: parseFloat(getComputedStyle(node).fontSize) }));
         for (const { node, size } of sizes) node.style.fontSize = `${size * 2}px`;
       });
-      expect(await dialog.locator('h2').evaluate((heading) => {
+      if (view === 'pending') await capturePicker(page, testInfo, `wallet-pending-${enlarged ? 'enlarged' : 'short'}-320`);
+      const titleGeometry = await dialog.locator('h2').evaluate((heading) => {
         const title = heading.getBoundingClientRect();
         const close = heading.parentElement!.querySelector('button[aria-label="Close wallet selection"]')!.getBoundingClientRect();
         const range = document.createRange(); range.selectNodeContents(heading);
         const text = range.getBoundingClientRect();
-        return heading.scrollWidth <= heading.clientWidth && text.left >= title.left - 1 && text.right <= title.right + 1 && title.right <= close.left;
-      })).toBe(true);
+        return { fits: heading.scrollWidth <= heading.clientWidth && text.left >= title.left - 1 && text.right <= title.right + 1 && title.right <= close.left,
+          clientWidth: heading.clientWidth, scrollWidth: heading.scrollWidth, titleLeft: title.left, titleRight: title.right, textLeft: text.left, textRight: text.right, closeLeft: close.left };
+      });
+      expect(titleGeometry, JSON.stringify(titleGeometry)).toMatchObject({ fits: true });
       for (const control of await dialog.locator('button, input').all()) {
         await control.scrollIntoViewIfNeeded();
         await expect(control).toBeInViewport();

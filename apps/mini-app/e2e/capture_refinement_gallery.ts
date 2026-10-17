@@ -9,7 +9,7 @@ import { installBrowserAppFixtures } from './fixtures/test';
 import { installRefinementGalleryFixtures } from './fixtures/refinement-gallery';
 import { browserWalletInitScript, type BrowserWalletShimOptions } from './fixtures/wallet';
 
-type Theme = 'official' | 'dark' | 'light';
+type Theme = 'dark';
 type Viewport = { width: number; height: number; kind: 'mobile' | 'desktop' };
 type CaptureSection = { file: string; scrollTop: number; scrollHeight: number; clientHeight: number; sha256: string };
 type CapturedView = {
@@ -182,11 +182,11 @@ async function captureScrollView(page: Page, { id, route, theme, viewport, prove
 async function captureAppView(browser: Awaited<ReturnType<typeof chromium.launch>>, options: {
   id: string; route: string; theme?: Theme; viewport?: Viewport; walletOptions?: BrowserWalletShimOptions; prepare?: (page: Page) => Promise<void>; scrollTarget?: string; requireScrollTarget?: boolean; note: string;
 }): Promise<void> {
-  const theme = options.theme ?? 'official';
+  const theme = options.theme ?? 'dark';
   const viewport = options.viewport ?? mobile;
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1,
-    colorScheme: theme === 'light' ? 'light' : 'dark', locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', serviceWorkers: 'block',
+    colorScheme: 'dark', locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce', serviceWorkers: 'block',
   });
   try {
     const walletOptions = options.walletOptions ?? wallet;
@@ -195,19 +195,11 @@ async function captureAppView(browser: Awaited<ReturnType<typeof chromium.launch
     await pageReady(page, options.route, walletConnected);
     if (new URL(options.route, appUrl).pathname === '/portfolio') {
       await page.getByRole('button', { name: /View .* on Ethereum/ }).first().waitFor({ state: 'visible', timeout: 30_000 });
-      await page.locator('section[aria-label="Positions"] details summary').filter({ hasText: /\d+ open/ }).waitFor({ state: 'visible', timeout: 30_000 });
-      const positions = page.locator('section[aria-label="Positions"] details');
-      await positions.locator('summary').waitFor({ state: 'visible', timeout: 20_000 });
-      if (await positions.evaluate((element) => (element as HTMLDetailsElement).open)) {
-        throw new Error(`portfolio positions should be compact by default in ${options.id}`);
-      }
-      const earn = page.locator('section[aria-labelledby="portfolio-earn-heading"] details').first();
-      if (await earn.count()) {
-        await earn.locator(':scope > summary').waitFor({ state: 'visible', timeout: 20_000 });
-        if (await earn.evaluate((element) => (element as HTMLDetailsElement).open)) {
-          throw new Error(`portfolio fxSAVE should be compact by default in ${options.id}`);
-        }
-      }
+      const positions = page.locator('section[aria-label="Positions"]');
+      await positions.getByText(/\d+ open/).waitFor({ state: 'visible', timeout: 30_000 });
+      await positions.locator('[data-position-key]').first().waitFor({ state: 'visible', timeout: 20_000 });
+      const earn = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
+      await earn.getByRole('heading', { name: 'fxSAVE', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
     }
     await options.prepare?.(page);
     await captureScrollView(page, { ...options, theme, viewport, walletConnected, note: options.note, scrollTarget: options.scrollTarget ?? '.app-content' });
@@ -234,8 +226,8 @@ async function setToken(page: Page, token: string, label = 'Input asset'): Promi
 
 async function captureStateLab(browser: Awaited<ReturnType<typeof chromium.launch>>, labUrlValue: string): Promise<void> {
   const stages = ['Editing', 'Preparing', 'Review', 'Wallet request', 'Submitted', 'Partial completion', 'Confirmed', 'Uncertain'];
-  for (const theme of ['official', 'dark', 'light'] as const) {
-    const context = await browser.newContext({ viewport: { width: mobile.width, height: mobile.height }, deviceScaleFactor: 1, colorScheme: theme === 'light' ? 'light' : 'dark', locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce' });
+  for (const theme of ['dark'] as const) {
+    const context = await browser.newContext({ viewport: { width: mobile.width, height: mobile.height }, deviceScaleFactor: 1, colorScheme: 'dark', locale: 'en-US', timezoneId: 'UTC', reducedMotion: 'reduce' });
     try {
       const page = await context.newPage();
       const id = `state-lab-${theme}`;
@@ -243,7 +235,6 @@ async function captureStateLab(browser: Awaited<ReturnType<typeof chromium.launc
       const response = await page.goto(labUrlValue, { waitUntil: 'domcontentloaded' });
       if (!response?.ok()) throw new Error(`state lab returned HTTP ${response?.status() ?? 'no response'}`);
       await page.locator('[data-harness-ready="true"]').waitFor({ state: 'attached' });
-      await page.getByLabel('Theme', { exact: true }).selectOption(theme);
       for (const stage of stages) {
         await page.getByLabel('Transaction stage', { exact: true }).selectOption({ label: stage });
         const presentation = page.locator('.presentation');
@@ -332,11 +323,9 @@ async function main(): Promise<void> {
   const { configuredBrowserChannel } = createRequire(import.meta.url)(join(repoRoot, 'scripts', 'e2e_browser_channel.cjs')) as { configuredBrowserChannel: () => string | undefined };
   const browser = await chromium.launch({ channel: configuredBrowserChannel(), args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
-    await captureAppView(browser, { id: 'portfolio-official-mobile', route: '/portfolio', theme: 'official', note: 'Read-only connected test wallet with deterministic token balances; positions are verified ready-empty. All values are illustrative gallery fixtures.' });
     await captureAppView(browser, { id: 'portfolio-dark-mobile', route: '/portfolio', theme: 'dark', note: 'Read-only connected test wallet with deterministic token balances; positions are verified ready-empty. All values are illustrative gallery fixtures.' });
-    await captureAppView(browser, { id: 'portfolio-light-mobile', route: '/portfolio', theme: 'light', note: 'Read-only connected test wallet with deterministic token balances; positions are verified ready-empty. All values are illustrative gallery fixtures.' });
-    await captureAppView(browser, { id: 'portfolio-official-desktop', route: '/portfolio', theme: 'official', viewport: desktop, note: 'Desktop spot with deterministic read-only token balances and a verified ready-empty position state; illustrative gallery fixtures.' });
-    for (const theme of ['official', 'dark', 'light'] as const) {
+    await captureAppView(browser, { id: 'portfolio-dark-desktop', route: '/portfolio', theme: 'dark', viewport: desktop, note: 'Desktop spot with deterministic read-only token balances and a verified ready-empty position state; illustrative gallery fixtures.' });
+    for (const theme of ['dark'] as const) {
       await captureAppView(browser, {
         id: `wallet-profile-${theme}-mobile`, route: '/portfolio', theme, note: 'Wallet profile with deterministic read-only token balances; all values are illustrative gallery fixtures.',
         prepare: async (page) => {
@@ -349,7 +338,7 @@ async function main(): Promise<void> {
       });
     }
     await captureAppView(browser, {
-      id: 'wallet-asset-eth', route: '/portfolio', theme: 'official',
+      id: 'wallet-asset-eth', route: '/portfolio', theme: 'dark',
       note: 'ETH asset detail with an illustrative read-only balance and test wallet address.',
       prepare: async (page) => {
         await page.getByRole('button', { name: 'Open wallet profile', exact: true }).click();
@@ -359,7 +348,7 @@ async function main(): Promise<void> {
       scrollTarget: '[class*="WalletAssetDetails_modalBody"]', requireScrollTarget: true,
     });
     await captureAppView(browser, {
-      id: 'wallet-profile-official-desktop', route: '/portfolio', theme: 'official', viewport: desktop,
+      id: 'wallet-profile-dark-desktop', route: '/portfolio', theme: 'dark', viewport: desktop,
       note: 'Wallet profile desktop spot with deterministic read-only token balances; illustrative gallery fixtures.',
       prepare: async (page) => { await page.getByRole('button', { name: 'Open wallet profile', exact: true }).click(); await page.getByRole('dialog').waitFor({ state: 'visible' }); },
       scrollTarget: '.wallet-profile-backdrop [class*="WalletProfile_body"]', requireScrollTarget: true,
@@ -367,7 +356,7 @@ async function main(): Promise<void> {
     for (const market of ['ETH', 'BTC'] as const) {
       for (const side of ['Long', 'Short'] as const) {
         await captureAppView(browser, {
-          id: `trade-${market.toLowerCase()}-${side.toLowerCase()}`, route: '/trade', theme: 'official',
+          id: `trade-${market.toLowerCase()}-${side.toLowerCase()}`, route: '/trade', theme: 'dark',
           note: `${market} ${side.toLowerCase()} editable trade form; no quote or protocol balance is asserted.`,
           prepare: async (page) => {
             await setRadio(page, market);
@@ -377,37 +366,37 @@ async function main(): Promise<void> {
         });
       }
     }
-    await captureAppView(browser, { id: 'trade-official-desktop', route: '/trade', theme: 'official', viewport: desktop, note: 'Trade desktop spot, editable form; no route quote is asserted.' });
-    await captureAppView(browser, { id: 'earn-deposit', route: '/earn', theme: 'official', note: 'Earn deposit editor with illustrative wallet and vault balances; no transaction quote.' });
+    await captureAppView(browser, { id: 'trade-dark-desktop', route: '/trade', theme: 'dark', viewport: desktop, note: 'Trade desktop spot, editable form; no route quote is asserted.' });
+    await captureAppView(browser, { id: 'earn-deposit', route: '/earn', theme: 'dark', note: 'Earn deposit editor with illustrative wallet and vault balances; no transaction quote.' });
     await captureAppView(browser, {
-      id: 'earn-withdraw-instant', route: '/earn', theme: 'official', note: 'Earn instant withdrawal editor; fixture selection only, no withdrawal quote.',
+      id: 'earn-withdraw-instant', route: '/earn', theme: 'dark', note: 'Earn instant withdrawal editor; fixture selection only, no withdrawal quote.',
       prepare: async (page) => {
         await setRadio(page, 'Withdraw');
         await setRadio(page, /Instant/);
       },
     });
     await captureAppView(browser, {
-      id: 'earn-withdraw-queued', route: '/earn', theme: 'official', note: 'Earn after-cooldown withdrawal editor; fixture selection only, no withdrawal quote.',
+      id: 'earn-withdraw-queued', route: '/earn', theme: 'dark', note: 'Earn after-cooldown withdrawal editor; fixture selection only, no withdrawal quote.',
       prepare: async (page) => {
         await setRadio(page, 'Withdraw');
         await setRadio(page, /After cooldown/);
       },
     });
-    await captureAppView(browser, { id: 'borrow-eth-collateral', route: '/borrow', theme: 'official', note: 'Borrow editor with ETH collateral; no protocol balance or quote is asserted.' });
+    await captureAppView(browser, { id: 'borrow-eth-collateral', route: '/borrow', theme: 'dark', note: 'Borrow editor with ETH collateral; no protocol balance or quote is asserted.' });
     await captureAppView(browser, {
-      id: 'borrow-wbtc-collateral', route: '/borrow', theme: 'official', note: 'Borrow editor with WBTC collateral selected; no protocol balance or quote is asserted.',
+      id: 'borrow-wbtc-collateral', route: '/borrow', theme: 'dark', note: 'Borrow editor with WBTC collateral selected; no protocol balance or quote is asserted.',
       prepare: async (page) => setToken(page, 'WBTC', 'Collateral asset'),
     });
-    await captureAppView(browser, { id: 'move-ethereum-to-base', route: '/move', theme: 'official', note: 'Move editor, Ethereum to Base; no bridge quote is asserted.' });
+    await captureAppView(browser, { id: 'move-ethereum-to-base', route: '/move', theme: 'dark', note: 'Move editor, Ethereum to Base; no bridge quote is asserted.' });
     await captureAppView(browser, {
-      id: 'move-base-to-ethereum', route: '/move', theme: 'official', note: 'Move editor, Base to Ethereum; no bridge quote is asserted.',
+      id: 'move-base-to-ethereum', route: '/move', theme: 'dark', note: 'Move editor, Base to Ethereum; no bridge quote is asserted.',
       prepare: async (page) => {
         const reverse = page.getByRole('button', { name: /Reverse route to Ethereum/ });
         await reverse.waitFor({ state: 'visible' });
         await reverse.click();
       },
     });
-    for (const theme of ['dark', 'light'] as const) {
+    for (const theme of ['dark'] as const) {
       await captureAppView(browser, {
         id: `trade-eth-long-${theme}-mobile`, route: '/trade', theme,
         note: `ETH Long form in the ${theme} theme; deterministic fixture only, no quote or protocol balance asserted.`,
@@ -438,7 +427,7 @@ async function main(): Promise<void> {
       ['settings', '/settings'], ['history', '/history'], ['receive', '/qr'], ['docs', '/docs'], ['privacy-docs-section', '/docs#privacy'], ['more', '/more'], ['positions', '/positions'], ['login', '/login'],
     ] as const) {
       await captureAppView(browser, {
-        id, route, theme: 'official', note: id === 'login'
+        id, route, theme: 'dark', note: id === 'login'
           ? 'Disconnected wallet fixture; route rendering only, no credentials or login completion implied.'
           : `${id} route rendered with connected test wallet; illustrative data only.`,
         ...(id === 'login' ? { walletOptions: { ...wallet, initiallyConnected: false } } : {}),

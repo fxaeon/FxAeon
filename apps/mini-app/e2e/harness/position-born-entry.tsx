@@ -155,9 +155,9 @@ globalThis.__positionBorn = {
   },
 };
 
-const theme = config.theme ?? 'official';
+const theme = 'dark';
 document.documentElement.dataset.theme = theme;
-document.documentElement.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+document.documentElement.style.colorScheme = 'dark';
 liveMarketStore.setStatus('live');
 const now = Date.now();
 liveMarketStore.acceptQuote({ market: 'ETH', productId: 'ETH-USD', price: ETH_PRICE, open24h: ETH_PRICE, high24h: ETH_PRICE, low24h: ETH_PRICE, percentChange24h: 0, sequence: now, sourceAt: now, receivedAt: now, source: 'coinbase' });

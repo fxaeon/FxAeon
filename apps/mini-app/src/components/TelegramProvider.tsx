@@ -32,7 +32,7 @@ import {
   webAppStartRequest,
   type TelegramStartRequest,
 } from '@/lib/telegram';
-import { applyTheme, getSavedTheme } from '@/lib/theme';
+import { applyTheme } from '@/lib/theme';
 
 /** Screens that act as app roots — BackButton hidden (Telegram shows ✕). */
 const ROOT_PATHS = new Set(['/', '/login', '/portfolio']);
@@ -88,7 +88,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
 
   // One-time platform init + viewport binding + theme application.
   useEffect(() => {
-    applyTheme(getSavedTheme());
+    applyTheme();
     let disposed = false;
     const root = document.documentElement;
     const previousSafeAreaMarker = root.getAttribute('data-tma-safe-area');
@@ -117,11 +117,11 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
       initTelegram();
       markTelegramSafeArea();
       applyThemeParams();
-      applyTheme(getSavedTheme());
+      applyTheme();
       unbindViewport = bindViewportHeight();
       const syncTheme = () => {
         applyThemeParams();
-        applyTheme(getSavedTheme());
+        applyTheme();
       };
       tg.onEvent('themeChanged', syncTheme);
       cleanupTheme = () => tg.offEvent('themeChanged', syncTheme);

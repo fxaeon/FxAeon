@@ -5,13 +5,15 @@ import { E2E_BUILD_ENV } from './e2e_build_env.mjs';
 /**
  * Release verification runner.
  *
- * The checks are independent until the production export exists, so run the
- * static checks together and only serialize the build-dependent gates. This
- * preserves every check in the release contract while avoiding idle time on
- * the Windows CI runner.
+ * The checks are independent until the production export exists, so normal
+ * CI runs overlap bounded groups. Pass --serial on a constrained local host
+ * to run every gate and browser worker one at a time.
  */
 
-const phase = (process.argv[2] ?? 'all').replace(/^--/, '');
+const verifyArgs = process.argv.slice(2);
+const serial = verifyArgs.includes('--serial');
+const phaseArg = verifyArgs.find((argument) => argument !== '--serial' && argument !== '--');
+const phase = (phaseArg ?? 'all').replace(/^--/, '');
 const validPhases = new Set(['all', 'ci-source', 'ci-build', 'ci-isolated-0', 'ci-isolated-1', 'ci-isolated-2']);
 if (!validPhases.has(phase)) {
   console.error(`[verify] unknown phase: ${phase}`);
@@ -66,7 +68,7 @@ async function runLimited(checks, concurrency) {
 async function runGroup(checks, group) {
   const results = await runLimited(
     checks.map(({ args, label }) => ({ run: () => pnpmRun(args, label) })),
-    4,
+    serial ? 1 : 4,
   );
   const failed = results.filter((code) => code !== 0);
   if (failed.length) {
@@ -146,10 +148,10 @@ const builtChecks = await runLimited([
   { run: () => pnpmRun(['typecheck'], 'typecheck') },
   { run: () => pnpmRun(['check:bundle'], 'bundle check') },
   ...(phase === 'all' ? [
-    { run: () => run(process.execPath, ['scripts/run_built_e2e.mjs'], 'built-route E2E') },
+    { run: () => run(process.execPath, ['scripts/run_built_e2e.mjs'], 'built-route E2E', serial ? { E2E_WORKERS: '1' } : {}) },
     { run: () => pnpmRun(['test:landing:browser'], 'standalone landing browser checks') },
   ] : []),
-], 3);
+], serial ? 1 : 3);
 const builtFailures = builtChecks.filter((code) => code !== 0);
 if (builtFailures.length) {
   console.error(`[verify] build-dependent checks failed (${builtFailures.length})`);
@@ -186,7 +188,7 @@ if (shouldRunIsolated) {
   const isolatedStartedAt = Date.now();
   const isolatedResults = await runLimited(
     selectedIsolatedChecks.map((check) => ({ run: () => pnpmRun(check.args, check.label) })),
-    2,
+    serial ? 1 : 2,
   );
   const isolatedFailures = isolatedResults.flatMap((code, index) => code === 0 ? [] : [selectedIsolatedChecks[index].label]);
   if (isolatedFailures.length) {

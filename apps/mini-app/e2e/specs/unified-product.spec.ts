@@ -54,14 +54,13 @@ test.describe('unified product presentation', () => {
     });
   }
 
-  test('web slippage saves without gas quotes or losing saved gas and appearance preferences', async ({ page, requests }) => {
+  test('web slippage saves without gas quotes or losing saved gas preferences', async ({ page, requests }) => {
     await page.addInitScript(() => {
       if (!localStorage.getItem('fxaeon.settings.v1')) localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ gasTier: 'fast', slippageBps: 50 }));
     });
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    const theme = page.getByRole('radiogroup', { name: 'Appearance theme' });
-    await theme.getByRole('radio', { name: 'Light', exact: true }).click();
-    await expect(theme.getByRole('radio', { name: 'Light', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByRole('radiogroup', { name: 'Appearance theme' })).toHaveCount(0);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.getByRole('radiogroup', { name: 'Gas speed', exact: true })).toHaveCount(0);
     const slippage = page.getByRole('radiogroup').filter({ has: page.getByRole('radio', { name: '0.1%', exact: true }) });
     await slippage.getByRole('radio', { name: '1%', exact: true }).click();
@@ -75,7 +74,7 @@ test.describe('unified product presentation', () => {
     await expect(slippage.getByRole('radio', { name: '1%', exact: true })).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByRole('radiogroup', { name: 'Gas speed', exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1') || '{}').gasTier)).toBe('fast');
-    await expect(theme.getByRole('radio', { name: 'Light', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(requests.all.filter((url) => new URL(url).pathname === '/api/gas')).toEqual([]);
     assertNoBackendRequests(requests);
   });
@@ -113,8 +112,7 @@ test.describe('unified product presentation', () => {
     await expect(protocol).toHaveAttribute('href', 'https://fxprotocol.gitbook.io/fx-docs');
     await expect(protocol).toHaveAttribute('target', '_blank');
     await expect(page.getByRole('button', { name: 'Disconnect wallet', exact: true })).toHaveCount(0);
-    const appearance = page.getByRole('link', { name: /Appearance/ });
-    await expect(appearance).toHaveAttribute('href', '/settings#appearance');
+    await expect(page.getByRole('link', { name: /Appearance/ })).toHaveCount(0);
     assertNoBackendRequests(requests);
   });
 });

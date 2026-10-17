@@ -7,6 +7,7 @@ import { AppShell } from '@/components/ui';
 import { ChoiceCards, Disclosure, MetricRows, PageHeading, ProductNav, ProductSurface, StatusNotice } from '@/components/ProductUI';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
+import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 import { AmountField, Segmented, TokenSelect, useWalletTokenBalances, type TokenBalanceMap } from '@/components/ProtocolForm';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { EarnSections } from '@/components/ProductSections';
@@ -462,14 +463,15 @@ export default function EarnPage() {
   const warningTitle = activeReadWarnings.includes('balance') ? 'fxSAVE balance unavailable'
     : activeReadWarnings.includes('claim status') || activeReadWarnings.includes('redemption status') ? 'Withdrawal status unavailable'
       : 'Vault data unavailable';
+  const inputStage = isReviewInputStage(reviewStage);
 
   return (
     <AppShell>
       <ActionWorkspace className={presentation.workspace} density="compact">
         <PageHeading title="Earn" />
-        {reviewStage === 'input' && <ProductNav current="save" />}
-        <div className={presentation.vaultLayout} data-review={reviewStage !== 'input' || mode === 'claim'}>
-        {reviewStage === 'input' && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
+        {inputStage && <ProductNav current="save" />}
+        <div className={presentation.vaultLayout} data-review={!inputStage || mode === 'claim'}>
+        {inputStage && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus}
           onClaim={() => changeMode('claim')} />}
         <ProductSurface data-result-container className={presentation.panel} data-flow-stage={reviewStage}>
@@ -510,7 +512,7 @@ export default function EarnPage() {
             </>}
           />
         </ProductSurface>
-        {reviewStage === 'input' && mode !== 'claim' && <div className={presentation.vaultInfo}>
+        {inputStage && mode !== 'claim' && <div className={presentation.vaultInfo}>
           <EarnSections cooldown={config ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config ? formatRatio(config.instantRedeemFeeRatio) : null}
             vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} />
           <VaultDetails config={config} />
@@ -551,8 +553,8 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
     .find((task) => task.kind === 'withdrawal');
   return <div className={presentation.overview}>
     <div className={presentation.vaultIdentity}>
-      <TokenIcon symbol="fxSAVE" size={36} />
-      <div><h2>fxSAVE</h2></div>
+      <TokenIcon symbol="fxSAVE" size={32} />
+      <div><h2>fxSAVE</h2><p>Stability Pool vault</p></div>
       <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
       {connected && <button type="button" disabled={loading} onClick={() => void onRefresh()} aria-label="Refresh fxSAVE state" className={presentation.refresh}>
         <RefreshCw size={16} aria-hidden="true" className={loading ? 'animate-spin' : ''} />
@@ -629,13 +631,17 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
       {zeroExternalBalance && <p className={presentation.fundingGuide}>
         No {labelToken(token)} available. <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
       </p>}
-      {directEstimate && <EstimateRow label="Estimated fxSAVE received" value={directEstimate} note="Based on current vault assets and share supply. Review the quoted minimum before signing." />}
+      <section className={presentation.outcome} aria-label="Deposit outcome">
+        {directEstimate
+          ? <EstimateRow label="Estimated fxSAVE received" value={directEstimate} note="Based on current vault assets and share supply." />
+          : <div className={presentation.outcomeRow}><span>Receive</span><strong><TokenIcon symbol="fxSAVE" size={18} />fxSAVE</strong></div>}
+      </section>
     </>}
     {mode === 'withdraw' && <>
       <AmountField label="Amount" symbol="fxSAVE" value={shares} onChange={onSharesChange}
         compact balanceState={shareBalance} allowAll maxDecimals={18} />
       {zeroShareBalance && <p className={presentation.fundingGuide}>No fxSAVE yet. <button type="button" onClick={onDeposit}>Switch to Deposit</button> using fxUSD, USDC, or fxSP.</p>}
-      {directEstimate && <EstimateRow label="Estimated fxSP received" value={directEstimate} note="Based on current vault assets and share supply; direct redemption has no cooldown." />}
+      <div className={presentation.receiveRow}><span>{instant && token !== 'fxUSDBasePool' ? 'Receive asset' : 'Withdrawal route'}</span>{picker}</div>
       {token !== 'fxUSDBasePool' && <div className={presentation.withdrawOptions}>
         <ChoiceCards value={!instant ? 'cooldown' : 'instant'}
           onChange={(value) => onInstantChange(value === 'instant')} label="Withdrawal method" options={[
@@ -643,11 +649,11 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
             { value: 'instant', label: 'Instant', description: config ? `${formatRatio(config.instantRedeemFeeRatio)} fee` : 'Instant fee applies' },
           ]} />
       </div>}
-      <div className={presentation.receiveRow}><span>{instant && token !== 'fxUSDBasePool' ? 'Receive asset' : 'Withdrawal route'}</span>{picker}</div>
-      {token === 'fxUSDBasePool'
-        ? <p className={presentation.helper}>Redeems fxSAVE directly for fxSP, the Stability Pool share it holds, with no queued claim.</p>
-        // The SDK queues fxUSD and USDC requests alike (requestRedeem); the claim pays both, so say so here.
-        : !instant && <p className={presentation.helper}>A queued withdrawal is claimed later and pays out in fxUSD and USDC, as the claim preview shows. Choose fxSP here to redeem directly instead.</p>}
+      <section className={presentation.outcome} aria-label="Withdrawal outcome">
+      {directEstimate && <EstimateRow label="Estimated fxSP received" value={directEstimate} note="Based on current vault assets and share supply; direct redemption has no cooldown." />}
+      {!directEstimate && <div className={presentation.outcomeRow}><span>{token !== 'fxUSDBasePool' && !instant ? 'Claim later' : 'Receive'}</span><strong>{token !== 'fxUSDBasePool' && !instant ? 'fxUSD + USDC' : labelToken(token)}</strong></div>}
+      {token === 'fxUSDBasePool' && !directEstimate && <p className={presentation.outcomeNote}>Redeem directly for fxSP with no queued claim.</p>}
+      </section>
     </>}
     {mode === 'claim' && (walletData ? <ClaimState data={walletData} /> : <p className={presentation.helper}>Connect the requesting wallet to view its withdrawal.</p>)}
   </div>;
@@ -690,7 +696,7 @@ function ClaimState({ data }: { data: SaveData }) {
   const pending = data.claimable?.pendingSharesWei ?? data.redeemStatus?.pendingSharesWei;
   const preview = data.claimable?.previewReceive;
   return <div className={presentation.editor}>
-    <p className={presentation.helper}>{state.status === 'ready' ? 'Review the current receipt amounts before confirming.' : state.message}</p>
+    {state.status !== 'ready' && <p className={presentation.helper}>{state.message}</p>}
     <MetricRows rows={[
       ...(pending !== undefined && pending > 0n ? [{ label: 'Queued fxSP', value: formatDisplayAmount(pending) }] : []),
       ...(state.status === 'cooldown' && data.claimable?.redeemableAt ? [{ label: 'Available to claim', value: formatTimestamp(data.claimable.redeemableAt) }] : []),

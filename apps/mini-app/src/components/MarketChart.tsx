@@ -310,11 +310,6 @@ function addPriceSeries(chart: IChartApi, module: ChartModule, style: ChartStyle
     : { style, series: chart.addSeries(module.CandlestickSeries, candleOptions(theme)) };
 }
 
-function restyleSeries(entry: SeriesEntry, theme: ChartTheme) {
-  if (entry.style === 'line') entry.series.applyOptions(lineOptions(theme));
-  else entry.series.applyOptions(candleOptions(theme));
-}
-
 /**
  * Writes the whole history, or only the newest bar when just the tail moved.
  * `shift` moves every time into the viewer's zone; a tail write reuses the shift of the full write before it.
@@ -345,7 +340,6 @@ function LazyPriceChart({ snapshot, chartStyle, onScrub }: { snapshot: MarketCan
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
-    let themeObserver: MutationObserver | undefined;
     void import('lightweight-charts').then((module) => {
       if (!active || !hostRef.current) return;
       const theme = readChartTheme();
@@ -365,15 +359,8 @@ function LazyPriceChart({ snapshot, chartStyle, onScrub }: { snapshot: MarketCan
         if (price === undefined || typeof param.time !== 'number') { report(null); return; }
         report({ price, changePercent: scrubChangePercent(candlesRef.current[0]?.open, price), unixSeconds: param.time - state.shift });
       });
-      // Theme switches rewrite the tokens; repaint the canvas from them.
-      themeObserver = new MutationObserver(() => {
-        const next = readChartTheme();
-        chart.applyOptions(chartOptions(next, module));
-        restyleSeries(state.entry, next);
-      });
-      themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }).catch(() => { if (active) setFailed(true); });
-    return () => { active = false; themeObserver?.disconnect(); chartRef.current?.chart.remove(); chartRef.current = null; onScrubRef.current?.(null); };
+    return () => { active = false; chartRef.current?.chart.remove(); chartRef.current = null; onScrubRef.current?.(null); };
   }, []);
   useEffect(() => {
     const state = chartRef.current;

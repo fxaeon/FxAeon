@@ -119,20 +119,22 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 1024 
     });
     expect(order).toBe(true);
     await decision.scrollIntoViewIfNeeded();
-    await page.locator('[data-shell-content]').evaluate(node => { node.scrollTop = node.scrollHeight; });
+    await page.locator('[data-position-sheet-body], [data-shell-content]').last().evaluate(node => { node.scrollTop = node.scrollHeight; });
     const action = await decision.boundingBox();
     expect(action).not.toBeNull();
     expect(action!.height).toBeGreaterThanOrEqual(44);
     expect(action!.y).toBeGreaterThanOrEqual(0);
     const navigation = page.locator('[data-app-navigation]');
-    const visibleBottom = await navigation.isVisible() ? (await navigation.boundingBox())!.y : viewport.height;
+    const sheetBody = page.locator('[data-position-sheet-body]');
+    const visibleBottom = await sheetBody.count() ? await sheetBody.evaluate(node => node.getBoundingClientRect().bottom)
+      : await navigation.isVisible() ? (await navigation.boundingBox())!.y : viewport.height;
     expect(action!.y + action!.height).toBeLessThanOrEqual(visibleBottom);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
     await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/review-flow-${viewport.width}x${viewport.height}.png`), fullPage: false });
   });
 }
 
-test('four-position Close review hides siblings, keeps its action above navigation, and Edit returns to the position', async ({ page }) => {
+test('four-position Close review stays in its sheet, preserves approvals and fees, and Edit returns to management', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   await page.goto('http://positions.test/positions');
   await page.setViewportSize({ width: 393, height: 852 });
@@ -150,7 +152,7 @@ test('four-position Close review hides siblings, keeps its action above navigati
   await expect(page.getByRole('group', { name: /^Actions for / })).toHaveCount(0);
   await expect(actions).toBeHidden();
   await page.locator('[data-position-key="ETH:long:11"]').click();
-  await expect(openPositions).toBeHidden();
+  await expect(openPositions).toBeVisible();
   await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
   await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A11$/);
   await actions.getByRole('radio', { name: 'Close', exact: true }).click();
@@ -160,21 +162,26 @@ test('four-position Close review hides siblings, keeps its action above navigati
   await reviewAction.click();
   const confirm = page.getByRole('button', { name: 'Approve position', exact: true });
   await expect(confirm).toBeVisible();
-  await expect(page.locator('[data-review="true"] .reviewInlineContent')).toHaveCSS('padding', '12px');
+  await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toHaveCount(1);
+  await expect(page.locator('[data-mobile-review-sheet]')).toHaveCount(0);
+  await expect(page.locator('.reviewInlineContent').last()).toHaveCSS('padding', '0px');
   await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(0);
   await expect(page.getByText('Gas tier', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   await expect(page.getByText('Minimum received', { exact: true })).toBeVisible();
-  await page.evaluate(() => { document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 0; });
+  await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
   const confirmFitsAboveNavigation = async () => confirm.evaluate((button) => {
     const nav = document.querySelector('[data-app-navigation]')!.getBoundingClientRect();
     const action = button.getBoundingClientRect();
-    return action.top >= 0 && action.bottom <= nav.top;
+    const bottom = document.querySelector('[data-position-sheet-body]')?.getBoundingClientRect().bottom ?? nav.top;
+    return action.top >= 0 && action.bottom <= bottom;
   });
   await expect.poll(confirmFitsAboveNavigation).toBe(true);
   await page.screenshot({ path: resolve(root, 'apps/mini-app/e2e/.positions-harness-results/close-review-393x852.png'), fullPage: false });
-  await expect(openPositions).toBeHidden();
-  await expect(page.getByRole('navigation', { name: 'Trade views', exact: true })).toHaveCount(0);
+  await expect(openPositions).toBeVisible();
+  const backgroundNavigation = page.getByRole('navigation', { name: 'Trade views', exact: true });
+  await expect(backgroundNavigation).toBeVisible();
+  expect(await backgroundNavigation.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
   await expect(page.getByRole('heading', { name: 'ETH long · #11', exact: true })).toHaveCount(0);
   await expect(page.getByRole('radiogroup', { name: 'Position action', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
@@ -184,14 +191,14 @@ test('four-position Close review hides siblings, keeps its action above navigati
   await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
   await expect(actions).toBeVisible();
   await expect(reviewAction).toBeVisible();
-  await expect(openPositions).toBeHidden();
+  await expect(openPositions).toBeVisible();
   // "All positions" goes back one step, to the list and its view switch.
-  await page.getByRole('button', { name: 'All positions', exact: true }).click();
+  await page.getByRole('button', { name: 'Close position', exact: true }).click();
   await expect(openPositions).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Trade views', exact: true })).toBeVisible();
   await expect(actions).toBeHidden();
   await expect(page).toHaveURL(/\/positions$/);
-  await page.evaluate(() => { document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 0; });
+  await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 
   await page.evaluate(() => {
@@ -212,9 +219,10 @@ test('four-position Close review hides siblings, keeps its action above navigati
   const embeddedNavBox = await page.locator('[data-app-navigation]').boundingBox();
   expect(embeddedBox).not.toBeNull();
   expect(embeddedNavBox).not.toBeNull();
-  expect(embeddedBox!.y + embeddedBox!.height).toBeLessThanOrEqual(embeddedNavBox!.y);
+  const sheetBottom = await page.locator('[data-position-sheet-body]').evaluate(node => node.getBoundingClientRect().bottom);
+  expect(embeddedBox!.y + embeddedBox!.height).toBeLessThanOrEqual(sheetBottom);
   await page.evaluate(() => {
-    const content = document.querySelector<HTMLElement>('[data-shell-content]')!;
+    const content = (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!);
     content.scrollTop = content.scrollHeight;
   });
   // Expand the disclosure panels to exercise the actual scroll path, rather
@@ -230,22 +238,23 @@ test('four-position Close review hides siblings, keeps its action above navigati
   await expect(reviewInformation).toHaveCSS('overflow-y', 'visible');
   await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
   await page.evaluate(() => {
-    const content = document.querySelector<HTMLElement>('[data-shell-content]')!;
+    const content = (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!);
     content.scrollTop = content.scrollHeight;
   });
   await expect.poll(async () => {
-    const contentScrollTop = await page.locator('[data-shell-content]').evaluate((node) => node.scrollTop);
+    const contentScrollTop = await page.locator('[data-position-sheet-body], [data-shell-content]').last().evaluate((node) => node.scrollTop);
     const action = await embeddedConfirm.boundingBox();
     const nav = await page.locator('[data-app-navigation]').boundingBox();
-    return contentScrollTop > 0 && Boolean(action && nav && action.y >= 0 && action.y + action.height <= nav.y);
+    const bottom = await page.locator('[data-position-sheet-body]').evaluate(node => node.getBoundingClientRect().bottom);
+    return contentScrollTop > 0 && Boolean(action && nav && action.y >= 0 && action.y + action.height <= bottom);
   }).toBe(true);
   expect(await embeddedConfirm.evaluate((button) => {
-    for (let node: Element | null = button; node && !node.matches('[data-shell-content]'); node = node.parentElement) {
+    for (let node: Element | null = button; node && !node.matches('[data-position-sheet-body], [data-shell-content]'); node = node.parentElement) {
       if (['sticky', 'fixed'].includes(getComputedStyle(node).position)) return false;
     }
     return true;
   })).toBe(true);
-  const clipping = await page.locator('[data-review="true"] .reviewInlineContent').evaluate((node) => ({
+  const clipping = await page.locator('.reviewInlineContent').last().evaluate((node) => ({
     clientWidth: (node as HTMLElement).clientWidth,
     scrollWidth: (node as HTMLElement).scrollWidth,
   }));
@@ -253,7 +262,7 @@ test('four-position Close review hides siblings, keeps its action above navigati
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393);
 });
 
-test('Add, Reduce, Close, and Leverage use one review column; context changes reset input and an empty final read keeps the review mounted', async ({ page }) => {
+test('Add, Reduce, Close, and Leverage use one desktop review column and an inert phone underlay; context changes reset input and an empty final read keeps the review mounted', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   await page.goto('http://positions.test/positions?position=ETH%3Along%3A11&action=close');
   await page.setViewportSize({ width: 393, height: 852 });
@@ -262,6 +271,7 @@ test('Add, Reduce, Close, and Leverage use one review column; context changes re
   await page.addScriptTag({ content: harness.script });
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
   const actions = page.getByRole('radiogroup', { name: 'Position action', exact: true });
+  const positionsColumn = page.locator('section[aria-labelledby="open-positions-heading"]');
   const nameByAction: Record<string, string> = {
     Add: 'Review Add to ETH long position',
     Reduce: 'Review Reduce ETH long position',
@@ -275,13 +285,31 @@ test('Add, Reduce, Close, and Leverage use one review column; context changes re
     await expect(reviewAction).toBeVisible();
     await reviewAction.click();
     await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
-    await expect(page.locator('section[aria-labelledby="open-positions-heading"]')).toBeHidden();
-    await expect(page.getByRole('navigation', { name: 'Trade views', exact: true })).toHaveCount(0);
+    await expect(positionsColumn).toBeVisible();
+    expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
+    const tradeViews = page.getByRole('navigation', { name: 'Trade views', exact: true });
+    await expect(tradeViews).toBeVisible();
+    expect(await tradeViews.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await expect(actions).toHaveCount(0);
+    // The same accepted review becomes a single inline column on desktop;
+    // the phone keeps its list behind the one owned management sheet.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toHaveCount(0);
+    await expect(positionsColumn).toBeHidden();
+    await expect(positionsColumn.locator('..')).toHaveAttribute('data-review', 'true');
+    await expect(positionsColumn.locator('..')).toHaveCSS('display', 'block');
+    await expect(tradeViews).toHaveCount(0);
+    await expect(page.locator('[data-review-viewport]')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 393, height: 852 });
+    await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toBeVisible();
+    await expect(positionsColumn).toBeVisible();
+    expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     // The linked position stays open with its actions; the list waits behind it.
     await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
-    await expect(page.locator('section[aria-labelledby="open-positions-heading"]')).toBeHidden();
+    await expect(positionsColumn).toBeVisible();
+    expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await expect(actions).toBeVisible();
   }
 
@@ -397,7 +425,7 @@ test('submitted transaction status and explorer link scroll with the card and cl
     };
     await expect.poll(fitsAboveNavigation).toBe(true);
     const beforeScroll = await progress.boundingBox();
-    await page.locator('[data-shell-content]').evaluate((node) => { node.scrollTop += 80; });
+    await page.locator('[data-position-sheet-body], [data-shell-content]').last().evaluate((node) => { node.scrollTop += 80; });
     await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
     await progress.scrollIntoViewIfNeeded();
     await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/submitted-progress-${viewport.width}x${viewport.height}.png`), fullPage: false });
