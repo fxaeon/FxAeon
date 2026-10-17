@@ -94,7 +94,8 @@ test.describe('implementation regressions', () => {
       await expect(resource).toHaveAttribute('href', 'https://fxprotocol.gitbook.io/fx-docs');
       await expect(resource).toHaveAttribute('target', '_blank');
       await expect(page.getByRole('button', { name: 'Disconnect wallet', exact: true })).toHaveCount(0);
-      await page.getByRole('button', { name: 'View connected account', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'View connected account', exact: true })).toHaveCount(0);
+      await page.locator('header.app-topbar').getByRole('button', { name: 'Open wallet profile', exact: true }).click();
       const drawer = page.getByRole('dialog', { name: /Wallet/ });
       await expect(drawer).toBeVisible();
       await drawer.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();

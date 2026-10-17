@@ -4,8 +4,7 @@ import { startLandingMarketData } from './market-data-client.mjs';
 (() => {
   const MAX_AGE_MS = 5 * 60_000;
   const METRICS = ['fxSaveTvlUsd', 'fxSaveApy', 'ethUsd', 'btcUsd'];
-  const SOURCE_NAMES = { aladdin: 'Aladdin', defillama: 'DefiLlama', coingecko: 'CoinGecko' };
-  const SOURCE_HOSTS = new Set(['api.aladdin.club', 'fx.aladdin.club', 'aladdin.club', 'coins.llama.fi', 'defillama.com', 'api.coingecko.com', 'www.coingecko.com', 'coingecko.com']);
+  const SOURCE_NAMES = { aladdin: 'Aladdin', defillama: 'DefiLlama' };
   const dollars = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const amounts = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
   const compactDollars = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2 });
@@ -41,56 +40,29 @@ import { startLandingMarketData } from './market-data-client.mjs';
     const tabs = Array.from(document.querySelectorAll('[data-outcome-tab]'));
     const presets = Array.from(document.querySelectorAll('[data-dollar-preset]'));
     const setText = (selector, value) => document.querySelectorAll(selector).forEach(node => { if (node.textContent !== value) node.textContent = value; });
-    const sourceParts = new Map();
-    const renderSources = () => {
-      METRICS.forEach(key => {
-        const node = document.querySelector('[data-market-source="' + key + '"]');
-        if (!node) return;
-        const metric = snapshot?.[key];
-        const source = SOURCE_NAMES[metric?.source];
-        const fetchedAt = typeof metric?.fetchedAt === 'number' && Number.isFinite(metric.fetchedAt) && metric.fetchedAt > 0 ? metric.fetchedAt : null;
-        let sourceUrl;
-        try {
-          const candidate = new URL(metric.sourceUrl);
-          if (candidate.protocol === 'https:' && SOURCE_HOSTS.has(candidate.hostname) && !candidate.username && !candidate.password && !candidate.port) sourceUrl = candidate.href;
-        } catch { /* Source names remain available without a link. */ }
-        let parts = sourceParts.get(key);
-        if (!parts) {
-          // Keep the provider element connected across feed updates, including
-          // the initial timeout, so a focused source link never disappears.
-          parts = { link: document.createElement('a'), metadata: document.createTextNode('') };
-          node.replaceChildren(parts.link, parts.metadata);
-          sourceParts.set(key, parts);
-        }
-        parts.link.textContent = source ?? (initialWaitExpired ? 'Unavailable' : 'Waiting for data');
-        if (sourceUrl) {
-          parts.link.href = sourceUrl;
-          parts.link.target = '_blank';
-          parts.link.rel = 'noopener noreferrer';
-        } else {
-          parts.link.removeAttribute('href');
-          parts.link.removeAttribute('target');
-          parts.link.removeAttribute('rel');
-        }
-        const observedAt = typeof metric?.sourceAt === 'number' && Number.isFinite(metric.sourceAt) && metric.sourceAt > 0 ? metric.sourceAt : null;
-        const metadata = [];
-        if (observedAt) metadata.push('price ' + clock.format(observedAt) + ' UTC');
-        if (fetchedAt) metadata.push('checked ' + clock.format(fetchedAt) + ' UTC');
-        if (source && !observedAt && !fetchedAt) metadata.push('unavailable');
-        parts.metadata.textContent = metadata.length ? ' · ' + metadata.join(' · ') : '';
-      });
-    };
     const render = () => {
       const now = Date.now();
       const checkingData = refreshingData || snapshot?.status === 'loading' || (!snapshot && !initialWaitExpired);
-      if (refreshButton) { refreshButton.disabled = checkingData; refreshButton.setAttribute('aria-busy', String(checkingData)); refreshButton.textContent = checkingData ? 'Checking data…' : 'Refresh data'; }
       const values = Object.fromEntries(METRICS.map(key => [key, freshMetric(snapshot?.[key], key, now)]));
+      if (refreshButton) {
+        const unavailable = METRICS.some(key => values[key] === null && (snapshot?.[key]?.status === 'unavailable' || snapshot?.[key]?.status === 'fresh'));
+        refreshButton.hidden = !unavailable && !refreshingData;
+        refreshButton.disabled = checkingData;
+        refreshButton.setAttribute('aria-busy', String(checkingData));
+        refreshButton.textContent = checkingData ? 'Checking live data…' : 'Retry live data';
+      }
       METRICS.forEach(key => {
         const value = values[key];
         const waiting = !initialWaitExpired && (!snapshot?.[key] || snapshot[key].status === 'loading');
         const label = value === null ? '—' : key === 'fxSaveApy' ? amounts.format(value) + '%' : key === 'fxSaveTvlUsd' ? compactMoney(value) : money(value);
         setText('[data-market-value="' + key + '"]', label);
-        setText('[data-market-state="' + key + '"]', value === null ? waiting ? 'Loading' : 'Unavailable' : key === 'fxSaveApy' ? 'Variable yield' : key === 'fxSaveTvlUsd' ? 'Vault assets · USD' : 'Indicative · USD');
+        const node = document.querySelector('[data-market-value="' + key + '"]');
+        const metric = snapshot?.[key];
+        const source = SOURCE_NAMES[metric?.source];
+        const observedAt = key === 'ethUsd' || key === 'btcUsd' ? metric?.sourceAt : metric?.fetchedAt;
+        const timestamp = typeof observedAt === 'number' && Number.isFinite(observedAt) && observedAt > 0 && observedAt <= now + 120_000 ? clock.format(observedAt) + ' UTC' : null;
+        if (node) node.title = [source, key === 'btcUsd' ? 'WBTC indicative USD price' : null, timestamp ? (key === 'ethUsd' || key === 'btcUsd' ? 'Price updated ' : 'Checked ') + timestamp : null].filter(Boolean).join(' · ');
+        setText('[data-market-state="' + key + '"]', value === null ? waiting ? 'Loading' : 'Unavailable' : key === 'fxSaveApy' ? 'Annual percentage yield' : key === 'fxSaveTvlUsd' ? 'Vault assets · USD' : 'Indicative · USD');
       });
       const amount = validAmount(input.value);
       input.setAttribute('aria-invalid', String(amount === null));
@@ -114,7 +86,7 @@ import { startLandingMarketData } from './market-data-client.mjs';
       const waitingApy = !initialWaitExpired && (!snapshot?.fxSaveApy || snapshot.fxSaveApy.status === 'loading');
       setText('[data-earn-apy]', apy === null ? waitingApy ? 'Loading' : 'Unavailable' : amounts.format(apy) + '%');
       setText('[data-earn-gain]', projection === null ? '—' : '+' + money(projection - amount));
-      setText('[data-earn-caption]', amount === null ? 'Enter an example amount' : apy === null ? (waitingApy ? 'Waiting for a fresh APY' : 'Fresh APY unavailable') : 'At ' + amounts.format(apy) + '% APY, unchanged for 1 year');
+      setText('[data-earn-caption]', amount === null ? 'Enter an amount' : apy === null ? (waitingApy ? 'Waiting for a fresh APY' : 'Fresh APY unavailable') : 'At ' + amounts.format(apy) + '% APY, unchanged for 1 year');
       const comparison = document.querySelector('.earn-comparison');
       const principalBar = document.querySelector('.principal-bar');
       const projectionBar = document.querySelector('[data-earn-bar]');
@@ -126,7 +98,7 @@ import { startLandingMarketData } from './market-data-client.mjs';
         principalBar.setAttribute('y', String(125 - principalHeight));
         projectionBar.setAttribute('height', '112');
         projectionBar.setAttribute('y', '13');
-        comparison.setAttribute('aria-label', money(amount) + ' starting value and ' + money(projection) + ' after one year if the current ' + amounts.format(apy) + '% APY stays unchanged. Not a guaranteed return.');
+        comparison.setAttribute('aria-label', money(amount) + ' starting value and ' + money(projection) + ' after one year if the current ' + amounts.format(apy) + '% APY stays unchanged.');
       } else {
         principalBar.setAttribute('height', '90');
         principalBar.setAttribute('y', '35');
@@ -141,10 +113,11 @@ import { startLandingMarketData } from './market-data-client.mjs';
       setText('[data-trade-down-percent]', '−' + percent + '% of starting value');
       const units = exposure !== null && values.ethUsd !== null ? exposure / values.ethUsd : null;
       const waitingEth = !initialWaitExpired && (!snapshot?.ethUsd || snapshot.ethUsd.status === 'loading');
-      const unitText = units === null ? amount === null ? 'Enter an example amount' : waitingEth ? 'USD exposure · ETH price loading' : 'USD exposure · fresh ETH price unavailable' : '≈ ' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(units) + ' ETH at ' + money(values.ethUsd) + ' / ETH';
+      const unitText = units === null ? amount === null ? 'Enter an amount' : waitingEth ? 'USD exposure · ETH price loading' : 'USD exposure · fresh ETH price unavailable' : '≈ ' + new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(units) + ' ETH at ' + money(values.ethUsd) + ' / ETH';
       setText('[data-trade-units]', unitText);
       document.getElementById('leverage-value').textContent = leverageLabel;
       leverageInput.setAttribute('aria-valuetext', amounts.format(leverage) + ' times leverage');
+      leverageInput.style.setProperty('--range-fill', ((leverage - 1.1) / (5 - 1.1) * 100) + '%');
       window.clearTimeout(expiryTimer);
       const deadlines = METRICS.filter(key => values[key] !== null).map(key => (key === 'ethUsd' || key === 'btcUsd' ? snapshot[key].sourceAt : snapshot[key].fetchedAt) + MAX_AGE_MS);
       if (deadlines.length) expiryTimer = window.setTimeout(render, Math.max(1, Math.min(...deadlines) - now + 1));
@@ -175,12 +148,10 @@ import { startLandingMarketData } from './market-data-client.mjs';
     presets.forEach(button => button.addEventListener('click', () => { input.value = amounts.format(Number(button.dataset.dollarPreset)); render(); }));
     leverageInput.addEventListener('input', render);
     document.querySelectorAll('[data-open-outcome]').forEach(link => link.addEventListener('click', () => selectTab(link.dataset.openOutcome)));
-    document.querySelector('[data-try-example]')?.addEventListener('click', () => { input.value = '1,000'; leverageInput.value = '2'; selectTab('trade'); render(); });
-    window.addEventListener('fxaeon:market-data', event => { snapshot = event.detail && typeof event.detail === 'object' ? event.detail : null; renderSources(); render(); });
+    window.addEventListener('fxaeon:market-data', event => { snapshot = event.detail && typeof event.detail === 'object' ? event.detail : null; render(); });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') render(); });
     window.addEventListener('pageshow', render);
-    window.setTimeout(() => { initialWaitExpired = true; renderSources(); render(); }, 10_000);
-    renderSources();
+    window.setTimeout(() => { initialWaitExpired = true; render(); }, 10_000);
     render();
     marketData = startLandingMarketData();
     refreshButton?.addEventListener('click', async () => {

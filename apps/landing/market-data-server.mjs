@@ -31,17 +31,23 @@ async function boundedJson(url, { fetchImpl, now, timeoutMs, maxResponseBytes })
     const response = await fetchImpl(url, {
       method: 'GET',
       headers: { accept: 'application/json' },
-      redirect: 'error',
+      // Workerd's fetch implementation rejects `redirect: 'error'` in some
+      // Pages runtimes. `manual` keeps redirects from being followed, so the
+      // existing non-2xx check safely rejects 3xx responses without allowing
+      // a fixed upstream to redirect the request elsewhere.
+      redirect: 'manual',
       signal: controller.signal,
     });
-    if (!response.ok) throw new Error('upstream unavailable');
+    if (!response.ok) throw Object.assign(new Error('upstream unavailable'), {
+      diagnostic: `http-${response.status}`,
+    });
     const contentLength = response.headers.get('content-length');
     if (contentLength !== null && /^\d+$/.test(contentLength) && Number(contentLength) > maxResponseBytes) {
       await response.body?.cancel().catch(() => undefined);
-      throw new Error('upstream response too large');
+      throw Object.assign(new Error('upstream response too large'), { diagnostic: 'oversize' });
     }
 
-    if (!response.body) throw new Error('upstream response has no body');
+    if (!response.body) throw Object.assign(new Error('upstream response has no body'), { diagnostic: 'parse-error' });
     reader = response.body.getReader();
     const chunks = [];
     let totalBytes = 0;
@@ -51,7 +57,7 @@ async function boundedJson(url, { fetchImpl, now, timeoutMs, maxResponseBytes })
       totalBytes += value.byteLength;
       if (totalBytes > maxResponseBytes) {
         await reader.cancel().catch(() => undefined);
-        throw new Error('upstream response too large');
+        throw Object.assign(new Error('upstream response too large'), { diagnostic: 'oversize' });
       }
       chunks.push(value);
     }
@@ -61,7 +67,11 @@ async function boundedJson(url, { fetchImpl, now, timeoutMs, maxResponseBytes })
       bytes.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    return { payload: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)), fetchedAt: now() };
+    try {
+      return { payload: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)), fetchedAt: now() };
+    } catch {
+      throw Object.assign(new Error('invalid upstream JSON'), { diagnostic: 'parse-error' });
+    }
   })();
 
   try {
@@ -74,21 +84,25 @@ async function boundedJson(url, { fetchImpl, now, timeoutMs, maxResponseBytes })
 
 function failureCategory(error) {
   if (error instanceof Error && error.name === 'TimeoutError') return 'timeout';
-  if (error instanceof Error && error.message === 'upstream response too large') return 'oversized';
-  return 'unavailable';
+  if (error && typeof error === 'object' && typeof error.diagnostic === 'string') return error.diagnostic;
+  return 'fetch-error';
 }
 
 function fixedFailureLog(source, error) {
   console.warn(`[landing-market-data] ${source}_${failureCategory(error)}`);
 }
 
-function response(body, status = 200, cacheControl = 'public, max-age=0, s-maxage=30, stale-while-revalidate=30') {
+function response(body, status = 200, cacheControl = 'public, max-age=0, s-maxage=30, stale-while-revalidate=30', diagnostics) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': cacheControl,
       'x-content-type-options': 'nosniff',
+      ...(diagnostics ? {
+        'x-fxaeon-market-prices': diagnostics.prices,
+        'x-fxaeon-market-fxsave': diagnostics.fxsave,
+      } : {}),
     },
   });
 }
@@ -102,7 +116,9 @@ function unavailableSnapshot(now) {
  * only for deterministic contract tests; requests cannot choose upstream URLs.
  */
 export function createLandingMarketDataHandler({
-  fetchImpl = fetch,
+  // Keep the Worker runtime's fetch receiver intact. Some Workers runtimes
+  // reject a captured global fetch called as an unbound function.
+  fetchImpl = (...args) => globalThis.fetch(...args),
   now = Date.now,
   timeoutMs = REQUEST_TIMEOUT_MS,
   maxResponseBytes = MAX_RESPONSE_BYTES,
@@ -113,10 +129,11 @@ export function createLandingMarketDataHandler({
 
   const fetchSource = async (url, source) => {
     try {
-      return await boundedJson(url, { fetchImpl, now, timeoutMs, maxResponseBytes });
+      return { ...await boundedJson(url, { fetchImpl, now, timeoutMs, maxResponseBytes }), diagnostic: 'ok' };
     } catch (error) {
+      const diagnostic = failureCategory(error);
       fixedFailureLog(source, error);
-      return { payload: null, fetchedAt: null };
+      return { payload: null, fetchedAt: null, diagnostic };
     }
   };
 
@@ -154,7 +171,7 @@ export function createLandingMarketDataHandler({
         fxSavePayload: raw.fxSave.payload,
         fxSaveFetchedAt: raw.fxSave.fetchedAt ?? undefined,
         now: now(),
-      }));
+      }), 200, undefined, { prices: raw.prices.diagnostic, fxsave: raw.fxSave.diagnostic });
     } catch {
       return response(unavailableSnapshot(now()));
     }

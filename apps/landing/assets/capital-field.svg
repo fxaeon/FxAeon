@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 640" fill="none">
+  <defs>
+    <linearGradient id="upper" x1="155" y1="70" x2="525" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5a99ff"/><stop offset=".16" stop-color="#2464d0"/><stop offset=".58" stop-color="#143361"/><stop offset="1" stop-color="#101b2b"/>
+    </linearGradient>
+    <linearGradient id="lower" x1="535" y1="560" x2="195" y2="290" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#679fff"/><stop offset=".19" stop-color="#225ec0"/><stop offset=".6" stop-color="#143361"/><stop offset="1" stop-color="#101b2b"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="150" y1="100" x2="535" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#acd0ff" stop-opacity=".8"/><stop offset=".45" stop-color="#4b8fff" stop-opacity=".18"/><stop offset="1" stop-color="#8bbaff" stop-opacity=".6"/>
+    </linearGradient>
+    <path id="a" d="M138 250C138 145 223 60 328 60H532c35 0 54 40 33 68L460 268a157 157 0 0 1-126 57H212c-41 0-74-34-74-75Z"/>
+    <path id="b" d="M588 388c0 105-85 190-190 190H194c-35 0-54-40-33-68l105-140a157 157 0 0 1 126-57h122c41 0 74 34 74 75Z"/>
+    <clipPath id="planes"><use href="#a"/><use href="#b"/></clipPath>
+    <linearGradient id="lines" x1="120" y1="100" x2="585" y2="550" gradientUnits="userSpaceOnUse"><stop stop-color="#a6ceff" stop-opacity=".3"/><stop offset=".5" stop-color="#5087d3" stop-opacity=".08"/><stop offset="1" stop-color="#98c1ff" stop-opacity=".3"/></linearGradient>
+  </defs>
+  <g opacity=".8" transform="translate(0 14)"><use href="#a" fill="#071a37" stroke="#244a81"/><use href="#b" fill="#071a37" stroke="#244a81"/></g>
+  <use href="#a" fill="url(#upper)" stroke="url(#edge)"/>
+  <use href="#b" fill="url(#lower)" stroke="url(#edge)"/>
+  <g clip-path="url(#planes)" stroke="url(#lines)" stroke-width=".8">
+    <path d="M70 185 650 25M70 209 650 49M70 233 650 73M70 257 650 97M70 281 650 121M70 305 650 145M70 329 650 169M70 353 650 193M70 377 650 217M70 401 650 241M70 425 650 265M70 449 650 289M70 473 650 313M70 497 650 337M70 521 650 361M70 545 650 385M70 569 650 409M70 593 650 433M70 617 650 457M70 641 650 481M70 665 650 505M70 689 650 529"/>
+  </g>
+</svg>

@@ -438,6 +438,8 @@ test.describe('ActionReview isolated orchestration', () => {
     for (const size of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(size);
       await expect(sheet).toHaveCount(size.width <= 600 ? 1 : 0);
+      if (size.width <= 600) await expect(sheet.locator('[data-review-viewport]')).toBeVisible();
+      await expect(confirm).toBeVisible();
       await confirm.scrollIntoViewIfNeeded();
       await expect.poll(async () => {
         return confirm.evaluate((button) => {
@@ -451,8 +453,12 @@ test.describe('ActionReview isolated orchestration', () => {
       }, { message: `expanded review confirmation fits ${size.width}×${size.height}` }).toBe(true);
     }
     await page.setViewportSize({ width: 393, height: 852 });
-    await review.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = false; }));
-    await review.scrollIntoViewIfNeeded();
+    // Crossing the phone breakpoint moves the review into a new portal node.
+    // Wait for that owner before evaluating or scrolling its contents.
+    const phoneReview = sheet.locator('[data-review-viewport]');
+    await expect(phoneReview).toBeVisible();
+    await phoneReview.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = false; }));
+    await phoneReview.scrollIntoViewIfNeeded();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const duration = await details.locator(':scope > summary svg').evaluate((node) => getComputedStyle(node).transitionDuration);
     // The global reduced-motion reset uses 0.01ms to preserve end events.
@@ -461,6 +467,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.screenshot({ path: testInfo.outputPath('action-review-393x852.png') });
     // Existing-position reviews keep the direct action title and accepted leverage fact.
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await expect(sheet).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Increase ETH Long', exact: true })).toBeVisible();
     await expect(review.locator('[data-review-fact="Target leverage"] > span').last()).toHaveText('3×');
     expect(await review.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);

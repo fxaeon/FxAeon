@@ -26,7 +26,6 @@ import navigation from './ShellNavigation.module.css';
 import layout from './ProductLayout.module.css';
 import ui from './ProductUI.module.css';
 import portfolio from './PortfolioWorkspace.module.css';
-import marketPresentation from './trade-surfaces.module.css';
 import { ProtocolPositionSkeleton } from '@/components/ProtocolPositionSkeleton';
 import balance from './BalanceSummary.module.css';
 import assets from './PortfolioAssets.module.css';
@@ -237,7 +236,7 @@ function PortfolioSilhouette() {
             <span className={portfolio.marketTimeframe}>24h change</span>
           </div>
           <div className={`${account.market} grid grid-cols-2 gap-2.5`}>
-            {(['ETH', 'BTC'] as const).map((market) => <a key={market} className={marketPresentation.marketMiniCard}>
+            {(['ETH', 'BTC'] as const).map((market) => <a key={market} className={styles.marketCard}>
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2"><TokenIcon symbol={market === 'BTC' ? 'WBTC' : 'ETH'} size={28} /><strong className="text-[13px]">{market}</strong></span>
                 <span className="text-[11px] font-semibold"><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></span>

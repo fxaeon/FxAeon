@@ -27,34 +27,17 @@
     document.getElementById("year").textContent = String(
       new Date().getFullYear(),
     );
-    const motion = document.querySelector(".motion-toggle");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let paused = false;
     try {
-      paused ||= localStorage.getItem("fxaeon-motion") === "off";
+      localStorage.removeItem("fxaeon-motion");
     } catch {
-      /* Optional preference. */
+      /* Storage is optional. */
     }
     const applyMotion = () => {
-      root.dataset.motion = paused || reducedMotion.matches ? "off" : "on";
-      motion.setAttribute("aria-pressed", String(paused));
-      motion.setAttribute(
-        "aria-label",
-        paused ? "Resume animations" : "Pause animations",
-      );
+      root.dataset.motion = reducedMotion.matches ? "off" : "on";
     };
     applyMotion();
-    motion.addEventListener("click", () => {
-      paused = !paused;
-      try {
-        localStorage.setItem("fxaeon-motion", paused ? "off" : "on");
-      } catch {
-        /* Optional preference. */
-      }
-      applyMotion();
-    });
     reducedMotion.addEventListener("change", applyMotion);
-
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", init, { once: true });

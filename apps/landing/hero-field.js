@@ -60,46 +60,30 @@
     uniform float time;
     out vec4 color;
 
-    float hash(vec2 p) {
-      p = fract(p * vec2(123.34, 456.21));
-      p += dot(p, p + 45.32);
-      return fract(p.x * p.y);
-    }
-    float noise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-      f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-    }
-    float field(vec2 p) {
-      float v = 0.0;
-      float a = 0.55;
-      mat2 turn = mat2(0.82, 0.57, -0.57, 0.82);
-      for (int i = 0; i < 4; i++) {
-        v += noise(p) * a;
-        p = turn * p * 1.94 + vec2(2.7, -1.8);
-        a *= 0.48;
-      }
-      return v;
-    }
     void main() {
       vec2 uv = gl_FragCoord.xy / resolution;
-      vec2 p = vec2((uv.x - 0.5) * resolution.x / resolution.y, uv.y);
-      float t = time * 0.075;
-      float terrain = field(p * 2.25 + vec2(t, -t * 0.42));
-      float ridge = 0.36 + 0.055 * sin(p.x * 1.35 + t * 1.4)
-                    + 0.115 * (terrain - 0.5);
-      float distanceToRidge = abs(p.y - ridge);
-      float veil = 1.0 - smoothstep(0.035, 0.48, distanceToRidge);
-      float contours = abs(fract((terrain * 0.82 + p.y * 0.16) * 11.0) - 0.5);
-      float line = 1.0 - smoothstep(0.405, 0.48, contours);
-      float edge = smoothstep(0.0, 0.2, uv.y) * (1.0 - smoothstep(0.66, 0.98, uv.y));
-      float alpha = veil * edge * (0.16 + line * 0.34);
-      vec3 deep = vec3(0.10, 0.20, 0.38);
-      vec3 blue = vec3(0.26, 0.46, 0.82);
-      vec3 tint = mix(deep, blue, smoothstep(0.12, 0.44, terrain));
-      color = vec4(tint * alpha, alpha);
+      float phase = time * 0.045;
+      float center = 0.44 + 0.15 * sin((uv.x - 0.08) * 2.8 + phase * 0.55)
+                          - 0.07 * cos(uv.x * 5.1 - phase * 0.3);
+      float slope = 0.42 * cos((uv.x - 0.08) * 2.8 + phase * 0.55)
+                    + 0.357 * sin(uv.x * 5.1 - phase * 0.3);
+      float normal = sqrt(1.0 + slope * slope);
+      float pixel = 1.25 / resolution.y;
+      float lines = 0.0;
+      for (int i = 0; i < 9; i++) {
+        float offset = (float(i) - 4.0) * 0.028;
+        float distanceToCurve = abs(uv.y - center - offset) / normal;
+        float stroke = 1.0 - smoothstep(pixel * 0.35, pixel * 1.5, distanceToCurve);
+        float emphasis = 1.0 - abs(float(i) - 4.0) * 0.13;
+        lines = max(lines, stroke * emphasis);
+      }
+      float distanceToCenter = abs(uv.y - center);
+      float light = exp(-pow(distanceToCenter / 0.13, 2.0)) * 0.035;
+      float edge = smoothstep(0.02, 0.24, uv.x) * (1.0 - smoothstep(0.84, 1.0, uv.x))
+                   * smoothstep(0.04, 0.2, uv.y) * (1.0 - smoothstep(0.8, 0.98, uv.y));
+      float alpha = (light + lines * 0.24) * edge;
+      vec3 blue = vec3(0.23, 0.49, 0.94);
+      color = vec4(blue * alpha, alpha);
     }
   `;
 

@@ -25,6 +25,7 @@ const sources = await Promise.all(['index.html', 'styles.css', 'script.js', 'dol
 const assets = new Set(sources.flatMap(source => [...source.matchAll(/assets\/[\w./-]+/g)].map(match => match[0])));
 assets.add('assets/Inter-LICENSE.txt');
 assets.add('assets/Manrope-LICENSE.txt');
+assets.add('assets/Poppins-LICENSE.txt');
 for (const asset of assets) {
   if (asset === 'assets/telegram-qr.svg') continue;
   await mkdir(dirname(resolve(dist, asset)), { recursive: true });

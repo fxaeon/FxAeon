@@ -12,6 +12,7 @@ const root = resolve(import.meta.dirname, '..');
 const html = await readFile(resolve(root, 'index.html'), 'utf8');
 const css = await readFile(resolve(root, 'styles.css'), 'utf8');
 const script = await readFile(resolve(root, 'script.js'), 'utf8');
+const dollarOutcomes = await readFile(resolve(root, 'dollar-outcomes.js'), 'utf8');
 const heroField = await readFile(resolve(root, 'hero-field.js'), 'utf8');
 const cssCompact = css.replace(/\s+/g, '');
 const scriptCompact = script.replace(/\s+/g, '');
@@ -60,7 +61,7 @@ function referenceQr(value, level, boostLevel) {
 }
 
 test('brand metadata and the official protocol mark stay in sync', async () => {
-  for (const asset of ['assets/fxaeon-mark.svg', 'assets/fxaeon-banner.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt']) {
+  for (const asset of ['assets/fxaeon-mark.svg', 'assets/fxaeon-banner.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt']) {
     await access(resolve(root, asset));
   }
   assert.match(html, /<html lang="en" data-theme="dark">/);
@@ -70,8 +71,10 @@ test('brand metadata and the official protocol mark stay in sync', async () => {
   assert.match(html, /assets\/manrope-variable\.ttf/);
   assert.match(css, /font-family:\s*Inter;[\s\S]*?src:\s*url\("assets\/inter-latin\.woff2"\)/);
   assert.match(css, /font-family:\s*Manrope;[\s\S]*?src:\s*url\("assets\/manrope-variable\.ttf"\)/);
+  assert.match(css, /font-family:\s*Poppins;[\s\S]*?src:\s*url\("assets\/poppins-regular\.ttf"\)/);
+  assert.match(css, /font-family:\s*Poppins;[\s\S]*?src:\s*url\("assets\/poppins-medium\.ttf"\)/);
   assert.match(await readFile(resolve(root, 'assets/Manrope-LICENSE.txt'), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
-  assert.doesNotMatch(css, /font-family:\s*Poppins|poppins-(?:regular|medium)\.ttf/);
+  assert.match(await readFile(resolve(root, 'assets/Poppins-LICENSE.txt'), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
   assert.match(html, /<script src="hero-field\.js" defer><\/script>/);
   assert.deepEqual(
     await readFile(resolve(root, '../mini-app/public/brand/fx-official-mark.svg')),
@@ -80,18 +83,27 @@ test('brand metadata and the official protocol mark stay in sync', async () => {
   );
 });
 
-test('the outcome explorer links to all four real products without requiring a wallet', async () => {
+test('the four product cards link to their web routes and the three-use calculator', async () => {
   assert.equal(html.match(/<h1\b/g)?.length, 1, 'There should be one page heading');
-  const cards = [...html.matchAll(/<section class="outcome-panel" id="outcome-([^"]+)"[\s\S]*?<\/section>/g)];
-  assert.equal(cards.length, 3);
+  const productSection = elementSource(html, /<section\s+class="products section"/, 'section');
+  const cards = [...productSection.matchAll(/<article class="product-card ([^"]+)">([\s\S]*?)<\/article>/g)];
+  assert.equal(cards.length, 4);
   const routes = ['trade', 'earn', 'borrow', 'move'];
-  for (const route of routes.filter(route => route !== 'move')) {
-    const card = cards.find(([, name]) => name === route)?.[0];
-    assert.ok(card, `Missing ${route} product card`);
-    assert.match(card, new RegExp(`href="https:\\/\\/fxaeon\\.com\\/${route}(?:\\?market=ETH)?"`));
+  for (const [, className, card] of cards) {
+    const route = className.replace(/-card$/, '');
+    assert.ok(routes.includes(route), `Unexpected product ${route}`);
+    assert.match(card, new RegExp(`href="https:\\/\\/fxaeon\\.com\\/${route}"`));
     assert.match(card, /<h3\b[^>]*>[\s\S]*?<\/h3>/, `${route} has a product heading`);
     assert.match(card, /<p\b[^>]*>[\s\S]*?<\/p>/, `${route} has a product description`);
+    assert.match(card, new RegExp(`aria-label="Open ${route[0].toUpperCase()}${route.slice(1)}"`));
   }
+  assert.doesNotMatch(productSection, /<details\b|<summary\b/, 'Product cards avoid added disclosure controls');
+  const panels = [...html.matchAll(/<section class="outcome-panel" id="outcome-([^"]+)"/g)].map(([, name]) => name);
+  assert.deepEqual(panels, ['earn', 'borrow', 'trade']);
+  assert.match(html, /<section class="outcomes section" id="outcomes"/);
+  for (const route of ['earn', 'borrow', 'trade']) assert.match(html, new RegExp(`href="#outcomes" data-open-outcome="${route}"`));
+  assert.doesNotMatch(html, /class="hero-networks"|Also in Telegram/);
+  assert.match(textOf(html), /Four ways to use FxAeon/);
   const telegramSource = await readFile(resolve(root, '../mini-app/src/lib/telegram.ts'), 'utf8');
   const routeTable = telegramSource.match(/const START_PARAM_ROUTES[^=]*=\s*new Map\(\[([\s\S]*?)\]\);/)?.[1];
   assert.ok(routeTable, 'The app declares an allowlisted Telegram start route map');
@@ -107,30 +119,64 @@ test('the outcome explorer links to all four real products without requiring a w
   assert.match(html, /id="protocol"/);
   assert.match(html, /id="telegram"/);
   assert.match(html, /id="faq"/);
+  assert.match(html, /<footer class="site-footer">/);
 });
 
-test('illustrative calculations are distinct from live figures and executable quotes', () => {
-  assert.match(html, /Try it with \$1,000 of ETH/);
-  assert.match(html, /id="dollar-amount"[^>]*aria-label="Example amount in US dollars"/);
+test('calculator figures start blank where live data is required, use concise labels, and preserve their math', () => {
+  const outcomes = elementSource(html, /<section class="outcomes section"/, 'section');
+  assert.match(html, /id="dollar-amount"[^>]*aria-label="Amount in US dollars"/);
   assert.match(html, /id="example-leverage"[^>]*min="1\.1"[^>]*max="5"/);
   for (const key of ['fxSaveTvlUsd', 'fxSaveApy', 'ethUsd', 'btcUsd']) {
     assert.match(html, new RegExp(`data-market-value="${key}">—<`), 'Live metrics start without invented values');
   }
   assert.match(html, /data-earn-projection>—</);
-  assert.match(textOf(html), /Illustrative outcomes, not executable quotes/);
-  assert.match(textOf(html), /50% is an example, not your borrowing limit/);
-  assert.match(textOf(html), /0% is the base annual borrowing rate in normal conditions/);
-  assert.match(textOf(html), /Assumes today’s APY stays unchanged for 1 year/);
+  assert.match(html, /data-borrow-output>\$500\.00</);
+  assert.match(html, /data-earn-caption>Waiting for a fresh APY</);
+  assert.match(outcomes, /<h2 id="outcomes-title">What your crypto can do\.<\/h2>/);
+  assert.match(outcomes, /<label id="amount-context" for="dollar-amount">Starting value<\/label>/);
+  assert.match(outcomes, /<span class="amount-currency">USD<\/span>/);
+  assert.match(outcomes, /<div class="amount-presets" role="group" aria-label="Starting amount">/);
+  for (const amount of ['100', '1000', '10000']) assert.match(outcomes, new RegExp(`data-dollar-preset="${amount}"`));
+  assert.match(html, /Loan-to-value<\/span><strong>50%<\/strong>/);
+  assert.match(html, /<label for="example-leverage">Leverage<\/label>/);
+  assert.match(html, /class="visual-label">After 1 year<\/span>/);
+  assert.match(html, /<dt>Earnings<\/dt>/);
+  assert.match(html, /Base annual interest<\/dt><dd>0%<\/dd>/);
+  assert.match(html, /±10% price move/);
+  assert.doesNotMatch(textOf(outcomes), /illustrative|example/i, 'Scenario wording stays direct');
+  assert.doesNotMatch(outcomes, /aria-label="[^"]*(?:illustrative|example)/i, 'Accessible names stay concise');
+  assert.match(dollarOutcomes, /amount \* \(1 \+ apy \/ 100\)/);
+  assert.match(dollarOutcomes, /amount \* \.5/);
+  assert.match(dollarOutcomes, /exposure \* \.1/);
+  assert.match(dollarOutcomes, /Fresh APY unavailable/);
+  assert.match(dollarOutcomes, /fresh ETH price unavailable/);
 });
 
 test('web app actions work on every device and Telegram remains an explicit choice', () => {
   assert.equal(links(html).filter(({ device }) => device !== 'all').length, 0);
   const actions = elementSource(html, /<div class="actions"/, 'div');
-  assert.deepEqual(links(actions).map(link => link.href), ['https://fxaeon.com/', '#products']);
+  assert.deepEqual(links(actions).map(link => link.href), ['https://fxaeon.com/', 'https://t.me/FxAeonBot']);
   assert.match(html, /https:\/\/t\.me\/FxAeonBot/);
+  assert.match(html, /Open Mini App/);
+  assert.match(html, /Prefer the browser\? Open web app/);
   assert.match(html, /https:\/\/fxaeon\.com\/move/);
   assert.doesNotMatch(script, /userAgent|maxTouchPoints|ontouchstart/);
-  for (const tag of html.match(/<a\b[^>]*target="_blank"[^>]*>/g) ?? []) assert.match(tag, /rel="noreferrer"/);
+  for (const tag of html.match(/<a\b[^>]*target="_blank"[^>]*>/g) ?? []) assert.match(tag, /rel="[^"]*noreferrer/);
+});
+
+test('hero credit, market metadata, and retry affordance stay quiet until needed', () => {
+  const hero = elementSource(html, /<section class="hero"/, 'section');
+  assert.ok(hero.indexOf('class="lede"') < hero.indexOf('class="hero-credit"'), 'Protocol credit follows the hero lede');
+  assert.match(hero, /Powered By f\(x\) SDK/);
+  assert.doesNotMatch(hero, /Built on f\(x\) Protocol/);
+  assert.match(html, /<button class="market-refresh"[^>]*hidden>Retry live data<\/button>/);
+  assert.doesNotMatch(html, /Data sources|data-market-sources/i, 'No visible data-sources disclosure is added');
+  assert.match(dollarOutcomes, /refreshButton\.hidden = !unavailable && !refreshingData/);
+  assert.match(dollarOutcomes, /refreshButton\.disabled = checkingData/);
+  assert.match(dollarOutcomes, /node\.title = \[source/);
+  assert.match(dollarOutcomes, /\? 'Price updated ' : 'Checked '\)/);
+  assert.match(dollarOutcomes, /Price updated/);
+  assert.doesNotMatch(dollarOutcomes, /Variable yield|variable APY/i);
 });
 
 test('the menu stays keyboard accessible and the page enforces its single dark theme', () => {
@@ -154,6 +200,11 @@ test('the menu stays keyboard accessible and the page enforces its single dark t
   assert.ok(scriptCompact.includes('root.dataset.theme="dark"'));
   assert.ok(scriptCompact.includes('localStorage.removeItem("fxaeon-theme")'));
   assert.doesNotMatch(script, /setItem\("fxaeon-theme"|data-theme="light"/);
+  assert.ok(scriptCompact.includes('localStorage.removeItem("fxaeon-motion")'));
+  assert.ok(scriptCompact.includes('window.matchMedia("(prefers-reduced-motion:reduce)")'));
+  assert.ok(scriptCompact.includes('root.dataset.motion=reducedMotion.matches?"off":"on"'));
+  assert.ok(scriptCompact.includes('reducedMotion.addEventListener("change",applyMotion)'));
+  assert.doesNotMatch(html, /motion-toggle|motion-control|Reduce motion|Enable motion/);
   assert.ok(cssCompact.includes('@media(prefers-reduced-motion:reduce)'));
   assert.ok(cssCompact.includes('scroll-behavior:auto'));
   assert.ok(cssCompact.includes('transition:none!important'));
@@ -211,13 +262,11 @@ test('built output includes safe Telegram routes, the exact QR, font licenses, c
   assert.ok(builtHtml.includes(`href="${escapeAttribute(launcher)}"`));
   for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="https://fxaeon.com/${route}"`), `${route} web route`);
   assert.equal(await readFile(resolve(root, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
-  for (const file of ['script.js', 'hero-field.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt']) await access(resolve(root, 'dist', file));
+  for (const file of ['script.js', 'hero-field.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt']) await access(resolve(root, 'dist', file));
   assert.deepEqual(JSON.parse(await readFile(resolve(root, 'dist/_routes.json'), 'utf8')), { version: 1, include: ['/api/market-data'], exclude: [] });
   await assert.rejects(access(resolve(root, 'dist/functions')));
   assert.ok((await readFile(resolve(root, 'dist/hero-field.js'))).byteLength < 12 * 1024);
   for (const license of ['Inter-LICENSE.txt', 'Manrope-LICENSE.txt']) assert.deepEqual(await readFile(resolve(root, 'assets', license)), await readFile(resolve(root, 'dist/assets', license)));
-  await assert.rejects(access(resolve(root, 'dist/assets/poppins-regular.ttf')));
-  await assert.rejects(access(resolve(root, 'dist/assets/poppins-medium.ttf')));
   await assert.rejects(access(resolve(root, 'dist/assets/tokens/usdc.png')));
   const robots = await readFile(resolve(root, 'dist/robots.txt'), 'utf8');
   const sitemap = await readFile(resolve(root, 'dist/sitemap.xml'), 'utf8');
@@ -282,9 +331,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
     execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
     await assert.rejects(access(resolve(tempRoot, 'node_modules')));
     await assert.rejects(access(resolve(tempLanding, 'node_modules')));
-    for (const file of ['script.js', 'hero-field.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/telegram-qr.svg']) await access(resolve(tempLanding, 'dist', file));
-    await assert.rejects(access(resolve(tempLanding, 'dist/assets/poppins-regular.ttf')));
-    await assert.rejects(access(resolve(tempLanding, 'dist/assets/poppins-medium.ttf')));
+    for (const file of ['script.js', 'hero-field.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/telegram-qr.svg']) await access(resolve(tempLanding, 'dist', file));
     await assert.rejects(access(resolve(tempLanding, 'dist/assets/tokens/usdc.png')));
     await assert.rejects(access(resolve(tempLanding, 'dist/aurora.js')));
     const built = await readFile(resolve(tempLanding, 'dist/index.html'), 'utf8');

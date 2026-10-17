@@ -78,6 +78,48 @@ test('partial upstream failure leaves the healthy source available', async () =>
   assert.equal(body.ethUsd.status, 'fresh');
   assert.equal(body.fxSaveApy.status, 'unavailable');
   assert.equal(body.fxSaveTvlUsd.value, null);
+  assert.equal(response.headers.get('x-fxaeon-market-prices'), 'ok');
+  assert.equal(response.headers.get('x-fxaeon-market-fxsave'), 'fetch-error');
+});
+
+test('uses Worker global fetch with its receiver and exposes only fixed diagnostic categories', async () => {
+  const payloads = upstreamPayloads();
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = async function (url) {
+    assert.equal(this, globalThis, 'runtime fetch receiver is preserved');
+    if (url === PRICE_ENDPOINT) return upstreamResponse(payloads.prices);
+    if (url === FX_SAVE_APY_ENDPOINT) return new Response(null, { status: 503 });
+    throw new Error('unexpected upstream');
+  };
+  try {
+    const handler = createLandingMarketDataHandler({ now: () => now });
+    const response = await handler({ request: new Request('https://landing.test/api/market-data') });
+    assert.equal(response.headers.get('x-fxaeon-market-prices'), 'ok');
+    assert.equal(response.headers.get('x-fxaeon-market-fxsave'), 'http-503');
+    const body = await response.json();
+    assert.equal(body.status, 'partial');
+    assert.equal(JSON.stringify(body).includes('503'), false, 'diagnostics stay out of response data');
+  } finally {
+    globalThis.fetch = priorFetch;
+  }
+});
+
+test('does not follow upstream redirects and reports only their status category', async () => {
+  let calls = 0;
+  const handler = createLandingMarketDataHandler({
+    now: () => now,
+    fetchImpl: async () => {
+      calls += 1;
+      return new Response(null, { status: 302, headers: { location: 'https://untrusted.test/' } });
+    },
+  });
+  const response = await handler({ request: new Request('https://landing.test/api/market-data') });
+  const body = await response.json();
+  assert.equal(calls, 2, 'only each configured source is requested');
+  assert.equal(response.headers.get('x-fxaeon-market-prices'), 'http-302');
+  assert.equal(response.headers.get('x-fxaeon-market-fxsave'), 'http-302');
+  assert.equal(body.status, 'unavailable');
+  assert.equal(JSON.stringify(body).includes('untrusted.test'), false);
 });
 
 test('caches source reads for at most the configured interval and revalidates timestamps', async () => {
