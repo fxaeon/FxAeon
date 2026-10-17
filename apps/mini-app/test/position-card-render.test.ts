@@ -79,6 +79,13 @@ function brakeStore(entries: Record<string, PositionBrakeEntry>): PositionBrakeS
   return { entries: new Map(Object.entries(entries)), register: () => () => undefined };
 }
 
+function factValue(html: string, label: string): string {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const row = html.match(new RegExp(`<div class="test-fact"><dt>${escapedLabel}</dt><dd>([\\s\\S]*?)</dd></div>`));
+  assert.ok(row, `${label} is listed`);
+  return row[1].split('<small')[0].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function readyEntry(position: UiPosition, debtRatio: bigint, thresholds = { rebalanceRatio: 88n * E18 / 100n, liquidateRatio: 95n * E18 / 100n }, priceAtRead: number | null = 2_400): PositionBrakeEntry {
   return {
     record: {
@@ -113,9 +120,10 @@ test('a position row leads with identity and value; its details keep every figur
     assert.match(details, /<section class="test-details " data-position-details="ETH:long:42" aria-labelledby="manage-position-heading">/);
     assert.match(details, /<h2 id="manage-position-heading" class="sr-only">ETH Long · #42<\/h2>/);
     // An ETH long's collateral is the pool's stETH accounting, named as such.
-    for (const [label, value] of [['Collateral', '1 stETH<small>'], ['Debt', '0.5 fxUSD<small>'], ['Market price', ''], ['Debt / collateral', '']]) {
-      assert.match(details, new RegExp(`<dt>${label.replace('/', '\\/')}</dt><dd>${value}`), `${label} is listed`);
-    }
+    assert.equal(factValue(details, 'Collateral'), '1 stETH');
+    assert.equal(factValue(details, 'Debt'), '0.5 fxUSD');
+    assert.match(details, /<dt>Market price<\/dt>/);
+    assert.match(details, /<dt>Debt \/ collateral<\/dt>/);
     assert.equal((details.match(/<div class="test-fact"/g) ?? []).length, 4);
     assert.doesNotMatch(details, /test-metric|test-tile/);
 
@@ -132,8 +140,8 @@ test('compact management keeps balances and risk outside its closed secondary-me
       value: brakeStore({ 'ETH:long:42': readyEntry(ethLong, 90n * E18 / 100n) }),
     }, React.createElement(ProtocolPositionDetails, { position: ethLong, compact: true })));
     const primary = html.split('<details')[0];
-    assert.match(primary, /<dt>Collateral<\/dt><dd>1 stETH/);
-    assert.match(primary, /<dt>Debt<\/dt><dd>0\.5 fxUSD/);
+    assert.equal(factValue(primary, 'Collateral'), '1 stETH');
+    assert.equal(factValue(primary, 'Debt'), '0.5 fxUSD');
     assert.match(primary, /At the rebalance point/);
     assert.doesNotMatch(primary, /<dt>Market price|<dt>Debt \/ collateral/);
     assert.match(html, /<details class="test-metricDisclosure"><summary>Position details/);
@@ -157,8 +165,8 @@ test('every pool names its collateral and debt units in the details the way its 
       const details = renderToStaticMarkup(React.createElement(ProtocolPositionDetails, {
         position: { market, side, info: { ...ethLong.info, rawCollsToken, rawDebtsToken } },
       }));
-      assert.match(details, new RegExp(`<dt>Collateral</dt><dd>${collateral}<small>`), `${market} ${side} collateral`);
-      assert.match(details, new RegExp(`<dt>Debt</dt><dd>${debt}<small>`), `${market} ${side} debt`);
+      assert.equal(factValue(details, 'Collateral'), collateral, `${market} ${side} collateral`);
+      assert.equal(factValue(details, 'Debt'), debt, `${market} ${side} debt`);
     }
   });
 });

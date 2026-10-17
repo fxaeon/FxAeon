@@ -262,7 +262,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(393);
 });
 
-test('Add, Reduce, Close, and Leverage use one review column; context changes reset input and an empty final read keeps the review mounted', async ({ page }) => {
+test('Add, Reduce, Close, and Leverage use one desktop review column and an inert phone underlay; context changes reset input and an empty final read keeps the review mounted', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   await page.goto('http://positions.test/positions?position=ETH%3Along%3A11&action=close');
   await page.setViewportSize({ width: 393, height: 852 });
@@ -271,6 +271,7 @@ test('Add, Reduce, Close, and Leverage use one review column; context changes re
   await page.addScriptTag({ content: harness.script });
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
   const actions = page.getByRole('radiogroup', { name: 'Position action', exact: true });
+  const positionsColumn = page.locator('section[aria-labelledby="open-positions-heading"]');
   const nameByAction: Record<string, string> = {
     Add: 'Review Add to ETH long position',
     Reduce: 'Review Reduce ETH long position',
@@ -284,13 +285,31 @@ test('Add, Reduce, Close, and Leverage use one review column; context changes re
     await expect(reviewAction).toBeVisible();
     await reviewAction.click();
     await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
-    await expect(page.locator('section[aria-labelledby="open-positions-heading"]')).toBeHidden();
-    await expect(page.getByRole('navigation', { name: 'Trade views', exact: true })).toHaveCount(0);
+    await expect(positionsColumn).toBeVisible();
+    expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
+    const tradeViews = page.getByRole('navigation', { name: 'Trade views', exact: true });
+    await expect(tradeViews).toBeVisible();
+    expect(await tradeViews.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await expect(actions).toHaveCount(0);
+    // The same accepted review becomes a single inline column on desktop;
+    // the phone keeps its list behind the one owned management sheet.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toHaveCount(0);
+    await expect(positionsColumn).toBeHidden();
+    await expect(positionsColumn.locator('..')).toHaveAttribute('data-review', 'true');
+    await expect(positionsColumn.locator('..')).toHaveCSS('display', 'block');
+    await expect(tradeViews).toHaveCount(0);
+    await expect(page.locator('[data-review-viewport]')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 393, height: 852 });
+    await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toBeVisible();
+    await expect(positionsColumn).toBeVisible();
+    expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     // The linked position stays open with its actions; the list waits behind it.
     await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
-    await expect(page.locator('section[aria-labelledby="open-positions-heading"]')).toBeHidden();
+    await expect(positionsColumn).toBeVisible();
+    expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await expect(actions).toBeVisible();
   }
 

@@ -15,11 +15,11 @@ test.describe('shared shell spacing', () => {
 
     const geometry = await topbar.evaluate((element) => {
       const controls = Array.from(element.querySelectorAll<HTMLElement>(
-        '.app-topbar-actions > button, .app-topbar-actions .network-selector',
+        '.app-topbar-actions button, .app-topbar-actions a',
       ));
       return {
         height: element.getBoundingClientRect().height,
-        controlHeights: controls.map((control) => control.getBoundingClientRect().height),
+        controlHeights: controls.map((control) => control.getBoundingClientRect().height).filter((height) => height > 0),
         shellTopPadding: getComputedStyle(element.closest('.app-shell')!).paddingTop,
       };
     });
@@ -69,11 +69,11 @@ test.describe('shared shell spacing', () => {
 
       const geometry = await page.locator('header.app-topbar').evaluate((element) => ({
         height: element.getBoundingClientRect().height,
-        controls: Array.from(element.querySelectorAll<HTMLElement>('.app-topbar-actions button'))
+        controls: Array.from(element.querySelectorAll<HTMLElement>('.app-topbar-actions button, .app-topbar-actions a'))
           .map((control) => {
             const rect = control.getBoundingClientRect();
             return { height: rect.height, left: rect.left, right: rect.right };
-          }),
+          }).filter((control) => control.height > 0),
         identityWidth: element.querySelector<HTMLElement>('[aria-label="Open wallet profile"]')?.getBoundingClientRect().width ?? 0,
         viewportWidth: window.innerWidth,
       }));

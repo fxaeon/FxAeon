@@ -230,8 +230,7 @@ test.describe("connected browser wallet flows", () => {
     await expect(page.getByText(/0x930f/i).first()).toBeVisible();
     await expect(page.getByText("Wallet balances", { exact: true })).toHaveCount(0);
     await expect(page.getByRole('main').getByRole('status', { name: /portfolio value/i })).toBeVisible();
-    const breakdown = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Value breakdown' }) });
-    await breakdown.locator('summary').click();
+    const breakdown = page.getByRole('region', { name: 'Portfolio balance', exact: true });
     await expect(breakdown.getByText(/^(Known )?wallet assets$/i)).toBeVisible();
   await expect(breakdown.getByText(/^(Known )?position value$/i)).toBeVisible();
     await expect(page.getByText('Verified units', { exact: true })).toHaveCount(0);
@@ -555,21 +554,13 @@ test.describe("market price context", () => {
   test("portfolio keeps positions and fxSAVE actions inline", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
     const positions = page.getByRole("region", { name: "Positions", exact: true });
-    const disclosure = positions.locator("details");
-    await expect(disclosure.locator("summary")).toBeVisible();
-    await expect(disclosure).not.toHaveAttribute("open");
-    await disclosure.locator("summary").click();
-    await expect(disclosure).toHaveAttribute("open", "");
+    await expect(positions.getByRole("heading", { name: "Positions", exact: true })).toBeVisible();
     const actions = page.getByRole("region", { name: "Actions", exact: true });
     await expect(actions.getByRole("link", { name: "Trade", exact: true })).toHaveAttribute("href", "/trade");
     await expect(page.getByRole("region", { name: "Markets" }).getByText("24h change", { exact: true })).toBeVisible();
     const earnSection = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
     if (await earnSection.count()) {
-      const earnDisclosure = earnSection.locator("details");
-      await expect(earnDisclosure.locator("summary")).toBeVisible();
-      await expect(earnDisclosure).not.toHaveAttribute("open");
-      await earnDisclosure.locator("summary").click();
-      await expect(earnDisclosure).toHaveAttribute("open", "");
+      await expect(earnSection.getByRole("heading", { name: "fxSAVE", exact: true })).toBeVisible();
     } else {
       await expect(page.getByRole("link", { name: /^fxSAVE View Earn$/ })).toHaveAttribute("href", "/earn");
     }

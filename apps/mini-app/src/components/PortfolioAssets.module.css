@@ -1,68 +1,32 @@
-/* Network filter: equal segments with a thumb that travels on a spring. */
-.networkTabs { position: relative; isolation: isolate; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: fit-content; max-width: 100%; margin: 0 0 0 auto; padding: 3px; border-radius: 999px; background: var(--surface-2); }
-.networkTabs::before { content: ''; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--seg-count, 3)); border-radius: 999px; background: var(--surface-3); box-shadow: var(--ring-inset), 0 1px 3px rgba(0, 0, 0, 0.16); transform: translateX(calc(var(--seg-index, 0) * 100%)); transition: transform var(--dur-slow) var(--ease-spring); }
-.networkTabs button { min-width: 72px; min-height: 44px; border-radius: 999px; padding: 6px 12px; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; transition: color var(--dur-base) ease; }
-.networkTabs button:hover { color: var(--text); }
-.networkTabs button[aria-pressed='true'] { color: var(--text); }
-.assets { min-width: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; scrollbar-color: color-mix(in srgb, var(--mut-2) 52%, transparent) transparent; }
-.ledgerSurface { border: 0; border-radius: 0; background: transparent; padding: 0; }
-.sectionHeading { display: flex; flex-wrap: wrap; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 0; }
-.networkSelect { position: relative; display: inline-flex; min-width: 0; max-width: 100%; align-items: center; color: var(--text); }
-.networkSelect select { appearance: none; min-height: 44px; max-width: 100%; border: 0; border-radius: 12px; background: var(--surface); color: var(--text); padding: 8px 32px 8px 12px; font-size: var(--fs-caption); font-weight: 500; cursor: pointer; }
-.networkSelect select:focus-visible { outline: 2px solid #2973ff; outline-offset: 2px; }
-.networkSelect > svg { position: absolute; right: 10px; pointer-events: none; color: var(--mut); }
-.sectionHeading h2 { font-size: var(--fs-title); font-weight: 650; letter-spacing: -.02em; }
-.sectionHeading > span { color: var(--mut); font-size: 12px; }
-.search { display: flex; min-height: 48px; align-items: center; gap: 10px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--surface-2); margin: 0 0 6px; padding: 0 14px; color: var(--mut); transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, background-color var(--dur-base) ease; }
+/* A holdings ledger: identity on the left, USD value and quantity on the right. */
+.assets { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 16px; }
+.ledgerSurface { box-shadow: none; }
+.sectionHeading { display: flex; min-height: 44px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.sectionHeading h2 { margin: 0; font-size: 16px; font-weight: 550; letter-spacing: -.015em; }
+.networkSelect { position: relative; display: inline-flex; min-width: 0; max-width: 100%; align-items: center; color: var(--mut); }
+.networkSelect select { appearance: none; min-height: 44px; max-width: 100%; border: 0; border-radius: 10px; background: transparent; color: var(--text); padding: 8px 26px 8px 10px; font-size: 12px; font-weight: 400; cursor: pointer; }
+.networkSelect select:hover { background: var(--surface-2); }
+.networkSelect select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.networkSelect > svg { position: absolute; right: 6px; pointer-events: none; color: var(--mut); }
+.search { display: flex; min-height: 44px; align-items: center; gap: 10px; margin: 0 0 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--mut); }
 .search input { width: 100%; min-width: 0; min-height: 44px; background: transparent; color: var(--text); font-size: 16px; outline: none; }
-.search:focus-within { border-color: color-mix(in srgb, var(--mint) 64%, var(--line)); background: var(--input); box-shadow: 0 0 0 3px var(--mint-dim); }
+.search:focus-within { border-color: var(--focus-ring); box-shadow: 0 0 0 3px var(--mint-dim); }
+.status { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin: 0 0 6px; color: var(--mut); font-size: 12px; line-height: 1.5; }
+.status button { min-height: 44px; color: var(--mint-text); }
+.columnLabels { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 10px; border-bottom: 1px solid var(--line); color: var(--mut); font-size: 11px; font-weight: 400; }
 .assetList { list-style: none; margin: 0; padding: 0; }
-.assetList { margin-inline: -10px !important; }
-.assetRow { position: relative; display: flex; width: 100%; min-height: 68px; align-items: center; gap: 14px; padding: 10px; border-radius: var(--radius-md); text-align: left; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
+.assetList > li + li { border-top: 1px solid var(--line); }
+.assetRow { display: flex; width: 100%; min-width: 0; min-height: 66px; align-items: center; gap: 12px; padding: 12px 0; border: 0; border-radius: 8px; background: transparent; text-align: left; transition: background-color var(--dur-fast); }
 .assetRow:hover { background: var(--surface-2); }
-.assetRow:active { transform: scale(0.985); transition-duration: var(--dur-press); }
-.assetRow:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; }
-.assetNetworkIcon { position: relative; display: inline-flex; flex: 0 0 auto; filter: none; }
-.chainBadge { position: absolute; right: -4px; bottom: -3px; display: grid; width: 19px; height: 19px; place-items: center; overflow: hidden; border: 2px solid var(--bg); border-radius: 50%; background: var(--surface); }
-.chainBadge img { display: block; width: 14px; height: 14px; border-radius: 50%; object-fit: contain; }
-.assetIcon, .assetFallback { flex-shrink: 0; border-radius: 50%; object-fit: contain; }
-.assetFallback { display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface-2); color: var(--mut); font-size: 12px; font-weight: 650; }
-.assetName { min-width: 0; flex: 1; display: grid; gap: 5px; }
-.assetName strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); font-weight: 600; letter-spacing: -.01em; }
-.assetName small { color: var(--mut); font-size: 12px; }
-.assetWorth { min-width: 0; max-width: 54%; display: grid; gap: 5px; text-align: right; font-variant-numeric: tabular-nums; }
-.assetWorth strong { font-size: var(--fs-body); font-weight: 600; letter-spacing: -.015em; overflow-wrap: anywhere; }
-.quantity { color: var(--mut); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.networkNote { margin: 0; padding: 12px 0; color: var(--warn); border-bottom: 1px solid var(--line); background: transparent; font-size: 12px; line-height: 1.5; }
-.status { margin: 0; padding: 0 0 8px; color: var(--mut); font-size: 12px; line-height: 1.45; }
-.empty { display: grid; justify-items: center; gap: 10px; padding: 20px 16px; text-align: center; color: var(--mut); font-size: 13px; }
-.empty > svg { box-sizing: content-box; padding: 14px; border: 0; border-radius: 50%; background: var(--mint-dim); color: var(--mint-text); }
-.empty p { display: grid; max-width: 34ch; gap: 3px; margin: 0; line-height: 1.45; overflow-wrap: anywhere; }
-.empty p strong { color: var(--text); font-size: var(--fs-body); font-weight: 600; }
-.empty a, .empty button { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint-text); font-weight: 600; }
-.changedValue { animation: value-change 500ms ease-out; }
-@keyframes value-change { from { color: var(--mint-text); } to { color: var(--text); } }
-.dialog { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; border: 1px solid color-mix(in srgb, var(--line) 78%, var(--mint) 22%); border-radius: 22px; background-color: var(--surface); background-image: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 42%, var(--surface)), var(--surface) 260px); padding: 0; color: var(--text); box-shadow: 0 18px 44px color-mix(in srgb, var(--surface-shadow) 76%, transparent); }
-.dialog::backdrop { background: rgb(0 0 0 / 60%); }
-.sheet { padding: 24px; }
-.sheet header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-.sheet header button { display: grid; place-items: center; flex-shrink: 0; min-width: 44px; min-height: 44px; border-radius: 12px; background: var(--surface-2); }
-.sheetIdentity { display: flex; align-items: center; min-width: 0; gap: 12px; }
-.sheetIdentity h2 { font-size: 22px; font-weight: 650; overflow-wrap: anywhere; }
-.sheetIdentity p { color: var(--mut); margin-top: 4px; font-size: 12px; overflow-wrap: anywhere; }
-.sheetBalance { display: grid; gap: 10px; border-bottom: 1px solid var(--line); padding: 26px 0; }
-.sheetBalance > span:first-child { color: var(--mut); font-size: 13px; }
-.sheetBalance strong { font-size: clamp(30px, 8vw, 44px); font-weight: 650; line-height: 1.1; letter-spacing: -.055em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.sheetBalance .quantity { font-size: 14px; }
-.details { display: grid; gap: 0; border-top: 1px solid var(--line); padding-top: 20px; }
-.details > div { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid color-mix(in srgb, var(--line) 76%, transparent); font-size: 13px; }
-.details > div:last-child { border-bottom: 0; }
-.details dt { color: var(--mut); }
-.details dd { min-width: 0; text-align: right; overflow-wrap: anywhere; }
-.sheetActions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
-.sheetActions a { display: flex; flex: 1 0 40%; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px; border: 1px solid color-mix(in srgb, var(--mint) 25%, var(--line)); border-radius: 13px; color: var(--text); background: transparent; font-size: 13px; font-weight: 600; transition: border-color 160ms ease, background-color 160ms ease; }
-.sheetActions a:hover { border-color: color-mix(in srgb, var(--mint) 58%, var(--line)); background: var(--mint-dim); }
-.explorer { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; border-radius: 11px; color: var(--mut); font-size: 12px; }
-.explorer:hover { background: var(--surface-2); color: var(--text); }
-@media (max-width: 600px) { .sectionHeading { padding-inline: 0; } .search { margin-inline: 0; } .assetRow { min-height: 72px; gap: 10px; } .assetWorth { max-width: 58%; } .dialog { margin: auto 0 0; width: 100%; max-width: 100%; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 24px); border-radius: 24px 24px 0 0; } .sheet { padding: 20px 16px calc(20px + env(safe-area-inset-bottom, 0px)); } }
-@media (prefers-reduced-motion: reduce) { .changedValue { animation: none; } }
+.assetRow:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.assetList .assetRow strong { font-size: 14px; font-weight: 500; letter-spacing: -.01em; }
+.showAll { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: center; margin-top: 4px; border-top: 1px solid var(--line); color: var(--mint-text); font-size: 13px; font-weight: 500; }
+.showAll:focus-visible, .empty :is(a, button):focus-visible, .status button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }
+.empty { display: flex; min-width: 0; min-height: 76px; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; color: var(--mut); font-size: 13px; }
+.empty > svg { flex: 0 0 auto; color: var(--mut); }
+.empty p { display: grid; min-width: 0; flex: 1 1 140px; gap: 3px; margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.empty p strong { color: var(--mut); font-size: 13px; font-weight: 400; }
+.empty a, .empty button { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; margin-left: auto; color: var(--mint-text); font-size: 13px; font-weight: 500; }
+@media (min-width: 761px) { .assets { padding: 16px 20px; } }
+@media (max-width: 380px) { .assetRow { gap: 10px; } }
+@media (prefers-reduced-motion: reduce) { .assetRow { transition: none; } }

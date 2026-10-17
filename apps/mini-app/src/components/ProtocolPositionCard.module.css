@@ -175,7 +175,7 @@
 }
 .brake a svg { width: 12px; height: 12px; }
 .brakeSkeleton { display: block; width: min(76%, 280px); height: 10px; margin: 3px 0; border-radius: var(--radius-full); }
-.cardMetrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.cardMetrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .cardMetrics > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .cardMetricLabel { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
 .cardMetricValue { color: var(--text); font-size: var(--fs-small); font-weight: 600; line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -221,6 +221,7 @@
 .compactDetails .market { font-size: 20px; }
 .compactDetails .split { height: 6px; margin-top: 8px; }
 .compactDetails .brake { margin-top: 6px; }
+.compactDetails .cardMetrics { margin-top: 8px; padding-top: 6px; }
 .compactDetails .facts { margin-top: 8px; }
 .compactDetails .fact { padding-block: 7px; gap: 2px; }
 .compactDetails .fact dd { font-size: 14px; }

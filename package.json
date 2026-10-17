@@ -9,7 +9,7 @@
     "build": "pnpm --dir apps/mini-app build",
     "build:landing": "node apps/landing/build.mjs",
     "preview:landing": "node apps/landing/serve.mjs",
-    "test:landing": "node --test apps/landing/test/static.test.mjs",
+    "test:landing": "node --test apps/landing/test/*.test.mjs",
     "test:landing:browser": "node scripts/verify_landing_browser.mjs",
     "dev": "pnpm --dir apps/mini-app dev",
     "lint": "eslint apps/mini-app/src apps/mini-app/test",

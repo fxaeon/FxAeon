@@ -433,7 +433,9 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
   for (const token of ['fxUSD', 'usdc']) {
     await page.getByLabel('Earn asset', { exact: true }).selectOption(token);
     await page.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
-    await expect(page.getByText(/A queued withdrawal is claimed later/)).toBeVisible();
+    const outcome = page.getByRole('region', { name: 'Withdrawal outcome', exact: true });
+    await expect(outcome.getByText('Claim later', { exact: true })).toBeVisible();
+    await expect(outcome.getByText('fxUSD + USDC', { exact: true })).toBeVisible();
     await gasOnlySettings(page);
     await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
     // Open the review unless the restored draft already resumed it. Whether a draft

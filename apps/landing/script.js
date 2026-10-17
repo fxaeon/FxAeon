@@ -54,21 +54,7 @@
       applyMotion();
     });
     reducedMotion.addEventListener("change", applyMotion);
-    if ("IntersectionObserver" in window) {
-      const reveals = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            entry.target.classList.add("revealed");
-            reveals.unobserve(entry.target);
-          }
-        },
-        { threshold: 0.12 },
-      );
-      document
-        .querySelectorAll(".section-head, .protocol-steps li, .product-card, .telegram-copy, .telegram-visual, .faq-heading, .faq-list, .footer-invite")
-        .forEach((element) => reveals.observe(element));
-    }
+
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", init, { once: true });

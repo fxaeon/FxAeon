@@ -60,7 +60,8 @@ async function headerGeometry(page: Page) {
   return page.locator('header.app-topbar').evaluate((topbar) => {
     const group = topbar.querySelector('[data-header-wallet-control]')!.getBoundingClientRect();
     const name = topbar.querySelector<HTMLElement>('[data-wallet-identity-name]');
-    const controls = [...topbar.querySelectorAll<HTMLElement>('.app-topbar-actions button')].map((control) => control.getBoundingClientRect());
+    const controls = [...topbar.querySelectorAll<HTMLElement>('.app-topbar-actions :is(button, a)')]
+      .map((control) => control.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0);
     return {
       height: topbar.getBoundingClientRect().height,
       overflow: topbar.scrollWidth - topbar.clientWidth,
@@ -313,14 +314,18 @@ test('with data saver on, the canvas stays still from the first paint', async ({
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('More directory exposes its quick actions and marks only external links', async ({ page }) => {
+test('More lists History beside Settings and marks only external links', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
   const directory = page.locator('[data-utility-directory]');
   const links = directory.getByRole('link');
-  await expect(links).toHaveCount(6);
+  await expect(links).toHaveCount(5);
   const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
-  expect(hrefs).toEqual(['/history', '/qr', '/settings', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  expect(hrefs).toEqual(['/history', '/settings', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  const historyHeight = (await directory.getByRole('link', { name: 'History', exact: true }).boundingBox())!.height;
+  const settingsHeight = (await directory.getByRole('link', { name: 'Settings', exact: true }).boundingBox())!.height;
+  expect(historyHeight).toBeGreaterThanOrEqual(44);
+  expect(Math.abs(historyHeight - settingsHeight)).toBeLessThanOrEqual(1);
   expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
   for (const link of await links.all()) {
     await expect(link).toHaveAccessibleName(/\S/);
@@ -329,15 +334,17 @@ test('More directory exposes its quick actions and marks only external links', a
   await expect(directory.getByRole('link', { name: 'FxAeon docs' })).toHaveAttribute('href', '/docs');
 });
 
-test('More waits for a connected wallet before showing its account card; Settings preserves its loading shape', async ({ page }) => {
+test('More hides account and Receive at all times and History until connected; Settings preserves its loading shape', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[0][1] });
   await expect(page.getByRole('status', { name: 'Loading account' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveCount(0);
+  await setLab(page, { wallet: STATES[1][1] });
+  await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveCount(0);
   await setLab(page, { wallet: STATES[2][1] });
-  await expect(page.getByRole('button', { name: 'View connected account' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveAttribute('href', '/qr');
+  await expect(page.getByRole('button', { name: 'View connected account' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveAttribute('href', '/history');
 
   await setLab(page, { path: '/settings', wallet: STATES[0][1] });
@@ -491,7 +498,7 @@ test('keyboard focus shows one accent ring on the header, dock, rows and choices
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
   await expect(page.getByRole('heading', { level: 1, name: 'More' })).toBeVisible();
-  const targets = ['.network-selector', '[aria-label="Open wallet profile"]', 'nav.mobile-tabbar a[aria-current="page"]', 'main a[href="/history"]'];
+  const targets = ['.network-selector', '[aria-label="Open wallet profile"]', '[data-mobile-more][aria-current="page"]', 'main a[href="/history"]'];
   for (const theme of ['dark']) {
     await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
     await settle(page);
@@ -594,7 +601,7 @@ async function shellLayout(page: Page) {
         const box = shape.getBoundingClientRect();
         return [box.left, box.top, box.width, box.height].map((value) => Math.round(value));
       }),
-      toggle: rect('.app-topbar-actions > button'),
+      more: rect('[data-mobile-more]'),
       dock: [...document.querySelectorAll('.tabbar .nav-item-mobile')].map((item) => `${item.textContent}${item.classList.contains('nav-item-active') ? '*' : ''}`),
       heading: rect('.app-content h1'),
     };
@@ -623,6 +630,45 @@ test('the first-paint outline hands over to the live shell in place, at every ph
   expect(await feed.evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).not.toContain('route-in');
 });
 
+test('Borrow has its own tab and More stays reachable through the full mobile navigation range', async ({ page }) => {
+  await open(page);
+  const dock = page.locator('nav.mobile-tabbar');
+  const more = page.locator('[data-mobile-more]');
+  for (const width of [320, 390, 640, 768, 839]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(dock).toBeVisible();
+    await expect(more).toBeVisible();
+    await expect(more).toHaveAttribute('href', '/more');
+    await expect(more).toHaveAccessibleName('More');
+    const box = (await more.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+  }
+  for (const [path, active] of [['/portfolio', 'Portfolio'], ['/positions', 'Trade'], ['/earn', 'Earn'], ['/borrow', 'Borrow'], ['/move', 'Move']] as const) {
+    await setLab(page, { path });
+    await expect(dock.locator('[aria-current="page"]')).toHaveText(active);
+    await expect(more).not.toHaveAttribute('aria-current');
+  }
+  // Docs uses its own reader chrome; these destinations use AppShell.
+  for (const path of ['/more', '/settings', '/history', '/qr', '/send']) {
+    await setLab(page, { path });
+    await expect(more).toHaveAttribute('aria-current', 'page');
+    await expect(dock.locator('[aria-current="page"]')).toHaveCount(0);
+  }
+  for (const width of [840, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await setLab(page, { path: '/borrow' });
+    const desktop = page.locator('.desktop-navigation');
+    await expect(desktop).toBeVisible();
+    await expect(more).toBeHidden();
+    await expect(desktop.getByRole('link')).toHaveText(['Portfolio', 'Trade', 'Earn', 'Borrow', 'Move', 'More']);
+    await expect(desktop.locator('[aria-current="page"]')).toHaveText('Borrow');
+    await setLab(page, { path: '/settings' });
+    await expect(desktop.locator('[aria-current="page"]')).toHaveText('More');
+  }
+});
+
 test('the dock names Portfolio and keeps compact 44px targets at 320px and 390px', async ({ page }) => {
   await open(page, { width: 320, height: 700 });
   await setLab(page, { wallet: STATES[2][1] });
@@ -641,6 +687,7 @@ test('the dock names Portfolio and keeps compact 44px targets at 320px and 390px
     });
     expect(geometry.height, `dock is compact at ${width}px`).toBeLessThanOrEqual(60);
     expect(geometry.links).toHaveLength(5);
+    expect(geometry.links.map(item => item.label)).toEqual(['Portfolio', 'Trade', 'Earn', 'Borrow', 'Move']);
     for (const item of geometry.links) {
       expect(Math.min(item.width, item.height), `${item.label} keeps a 44px touch target at ${width}px`).toBeGreaterThanOrEqual(44);
     }

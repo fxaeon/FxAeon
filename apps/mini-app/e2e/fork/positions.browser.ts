@@ -1650,24 +1650,21 @@ async function runProof(captureStage: string) {
       await page.goto(`${baseUrl}/${route}`);
       await ensureForkWalletConnected();
       if (route === 'portfolio') {
-        const portfolioPositions = page.locator('section[aria-label="Positions"] details').first();
-        const portfolioPositionsSummary = portfolioPositions.locator('summary');
-        await expect(portfolioPositionsSummary).toContainText(/\d+ open/);
-        await expect(portfolioPositions.locator('[data-position-key]').first()).toBeHidden();
-        await page.screenshot({ path: resolve(artifactRoot, 'portfolio-positions-collapsed-mobile.png'), fullPage: false });
-        await portfolioPositionsSummary.click();
+        const portfolioPositions = page.locator('section[aria-label="Positions"]');
+        await expect(portfolioPositions.getByRole('heading', { name: 'Positions', exact: true })).toBeVisible();
+        await expect(portfolioPositions).toContainText(/\d+ open/);
         await expect(portfolioPositions.locator('[data-position-key]')).toHaveCount(2);
+        await expect(portfolioPositions.locator('[data-position-key]').first()).toBeVisible();
+        await page.screenshot({ path: resolve(artifactRoot, 'portfolio-positions-mobile.png'), fullPage: false });
         await expect(page.getByRole('link', { name: 'Manage all', exact: true })).toHaveAttribute('href', '/positions');
         for (const position of positions.filter(p => p.market === 'ETH')) {
           await expect(page.locator(`[data-position-key="${position.market}:${position.side}:${position.positionId}"]`)).toBeVisible();
         }
         const fxSaveSection = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
         await expect(fxSaveSection).toHaveCount(1, { timeout: 180_000 });
-        const fxSaveDisclosure = fxSaveSection.locator('details').first();
-        await expect(fxSaveDisclosure.locator(':scope > summary')).toContainText('fxSAVE');
-        await fxSaveDisclosure.locator(':scope > summary').click();
-        await expect(fxSaveDisclosure.getByRole('link', { name: 'Deposit', exact: true })).toBeVisible();
-        await page.screenshot({ path: resolve(artifactRoot, 'portfolio-expanded-mobile.png'), fullPage: true });
+        await expect(fxSaveSection.getByRole('heading', { name: 'fxSAVE', exact: true })).toBeVisible();
+        await expect(fxSaveSection.getByRole('link', { name: 'Deposit', exact: true })).toBeVisible();
+        await page.screenshot({ path: resolve(artifactRoot, 'portfolio-inline-mobile.png'), fullPage: true });
       }
       await page.getByRole('button', { name: 'Open wallet profile' }).click();
       const drawer = page.getByRole('dialog', { name: new RegExp(`^(?:Wallet ${wallet}|Wallet profile for .*; address ${wallet})$`, 'i') });

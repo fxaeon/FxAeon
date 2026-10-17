@@ -8,9 +8,7 @@ test.describe('Portfolio mobile hierarchy', () => {
       await page.setViewportSize(viewport);
       await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
       const positions = page.getByRole('region', { name: 'Positions', exact: true });
-      const disclosure = positions.locator('details');
-      await expect(disclosure.locator('summary')).toBeVisible();
-      await expect(disclosure).not.toHaveAttribute('open');
+      await expect(positions.getByRole('heading', { name: 'Positions', exact: true })).toBeVisible();
       const assets = page.getByRole('region', { name: 'Assets', exact: true });
       const filters = assets.getByRole('combobox', { name: 'Portfolio network', exact: true });
       await expect(assets).toBeVisible();
@@ -43,11 +41,11 @@ test.describe('Disconnected Portfolio entry', () => {
     }));
   });
 
-  test('keeps one wallet connection entry in the header and leaves the hero for the product', async ({ page, requests }, testInfo) => {
+  test('keeps one wallet connection entry and a concise Portfolio overview', async ({ page, requests }, testInfo) => {
     for (const viewport of [{ width: 320, height: 568 }, { width: 412, height: 818 }, { width: 1280, height: 800 }]) {
       await page.setViewportSize(viewport);
       await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { name: 'Leverage, savings, and credit.', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Your portfolio', exact: true })).toBeVisible();
       await expect(page.getByText('Leverage, savings, and credit. On f(x) Protocol.', { exact: true })).toHaveCount(0);
       const connect = page.getByRole('button', { name: 'Connect wallet', exact: true });
       await expect(connect).toHaveCount(1);
@@ -88,11 +86,16 @@ test.describe('Disconnected Portfolio entry', () => {
 test.describe('Grouped Portfolio header controls', () => {
   test.use({ telegram: false, browserWallet: { initiallyConnected: true } });
 
-  test('connected Receive and History open their own workspaces within More', async ({ page, requests }, testInfo) => {
+  test('connected Receive opens from the wallet and History remains in More', async ({ page, requests }, testInfo) => {
     for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
       await page.setViewportSize(viewport);
-      await page.goto('/more', { waitUntil: 'domcontentloaded' });
-      const receive = page.getByRole('main').getByRole('link', { name: 'Receive', exact: true });
+      await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
+      await page.getByRole('link', { name: 'More', exact: true }).click();
+      await expect(page).toHaveURL(/\/more\/?$/);
+      await expect(page.getByRole('main').getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('main').getByRole('button', { name: 'View connected account', exact: true })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Open wallet profile', exact: true }).click();
+      const receive = page.getByRole('dialog').getByRole('link', { name: 'Receive', exact: true });
       await expect(receive).toHaveAttribute('href', '/qr');
       await receive.click();
       await expect(page).toHaveURL(/\/qr\/?$/);
@@ -100,8 +103,8 @@ test.describe('Grouped Portfolio header controls', () => {
       await expect(page.getByText('Your wallet address', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Copy address', exact: true })).toBeVisible();
       expect((await page.getByRole('main').innerText()).replace(/\s/g, '')).toContain('0x930f0000000000000000000000000000000098b9');
-      const nav = page.locator(viewport.width < 1000 ? 'nav.mobile-tabbar' : '.app-topbar nav');
-      await expect(nav.locator('[aria-current="page"]')).toHaveText('More');
+      await expect(page.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
+      if (viewport.width < 840) await expect(page.locator('nav.mobile-tabbar [aria-current="page"]')).toHaveCount(0);
       await expect(page.getByRole('region', { name: 'Send assets' })).toHaveCount(0);
       await testInfo.attach(`receive-${viewport.width}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
       await page.getByRole('link', { name: 'Go back', exact: true }).click();
@@ -109,7 +112,7 @@ test.describe('Grouped Portfolio header controls', () => {
       await page.getByRole('main').getByRole('link', { name: 'History', exact: true }).click();
       await expect(page).toHaveURL(/\/history\/?$/);
       await expect(page.getByRole('heading', { name: 'History', exact: true, level: 1 })).toBeVisible();
-      await expect(nav.locator('[aria-current="page"]')).toHaveText('More');
+      await expect(page.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
     }
     assertNoBackendRequests(requests);
   });

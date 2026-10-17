@@ -47,7 +47,8 @@ async function portfolioLandmarks(page: Page) {
       actions: [...content.querySelectorAll('[class*="quickAction"] > span')].map(box),
       summaries: [...content.querySelectorAll('details > summary')].map(box),
       sectionHeadings: headings.map(box),
-      networkTabs: box(content.querySelector('[class*="networkTabs"]')),
+      networkFilter: box(content.querySelector('select')),
+      balanceBreakdown: box(content.querySelector('[class*="valueBreakdown"]')),
       assetRows: [...content.querySelectorAll('[class*="loadingRow"]')].map(box),
       historyRows: [...content.querySelectorAll('ul li')].map(box),
       marketCards: [...content.querySelectorAll('aside > section:first-child > div:last-child > a')].map(box),
@@ -103,7 +104,6 @@ test('placeholders hold the loaded figure line, so the page does not move when v
 test('a position card lands at its placeholder’s height, with its brake line and side in words', async ({ page }) => {
   const openPositions = async (stage: string) => {
     await open(page, stage);
-    await page.getByRole('region', { name: 'Positions' }).locator('summary').click();
     const positions = page.getByRole('region', { name: 'Positions' });
     return positions.locator(stage === 'reads' ? '[aria-label="Loading positions"]' : '[data-position-key]').first();
   };
@@ -131,7 +131,6 @@ test('screenshots of Portfolio’s positions in dark appearance', async ({ page 
       await page.setViewportSize({ width, height: 1600 });
       await open(page, 'positions', { theme });
       const positions = page.getByRole('region', { name: 'Positions' });
-      await positions.locator('summary').click();
       await page.waitForTimeout(1_100);
       await positions.screenshot({ path: resolve(directory!, `portfolio-${theme}-${width}-positions.png`), animations: 'disabled' });
       await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -185,7 +184,7 @@ test('reads that fail end every placeholder: each section says so with a retry',
   await open(page, 'unavailable');
   await expect(page.getByText('Total unavailable', { exact: true })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Portfolio value unavailable', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(3);
   await expect(page.getByText('Couldn’t load balances', { exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Positions' }).getByText('Unavailable', { exact: true })).toBeVisible();
   await expect(page.locator('section[aria-labelledby="portfolio-earn-heading"]').getByText('Unavailable', { exact: true })).toBeVisible();
@@ -220,12 +219,12 @@ test('a settled empty Positions section is compact while loading and read failur
 
   const loading = await positions('reads');
   await expect(loading.getByRole('status', { name: 'Loading open positions' })).toBeVisible();
-  await expect(loading.locator('details')).not.toHaveAttribute('open');
+  await expect(loading.getByRole('status', { name: 'Loading positions', exact: true })).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 
   const unavailable = await positions('unavailable');
   await expect(unavailable.getByRole('status', { name: 'Positions unavailable' })).toBeVisible();
-  await expect(unavailable.locator('details')).not.toHaveAttribute('open');
+  await expect(unavailable.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
 });
 
 test('the Portfolio network select filters seeded rows and the header balance preserves one cent', async ({ page }) => {
@@ -249,7 +248,7 @@ test('the Portfolio network select filters seeded rows and the header balance pr
   await expect(page.locator('[data-portfolio-value]')).not.toContainText('Total unavailable');
 });
 
-test('reduced motion leaves placeholders still and the hero light in place', async ({ page }) => {
+test('reduced motion leaves Portfolio placeholders still', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 393, height: 1200 });
   await open(page, 'reads');

@@ -114,6 +114,13 @@ test('wallet picker uses a bottom sheet on phones and a centered flat list on de
       await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
       await expect(dialog.locator('[data-wallet-id]')).toHaveCount(4);
       await expect(dialog.locator('.wallet-provider-detected')).toHaveCount(0);
+      // Read settled sheet geometry after its finite entrance motion instead
+      // of sampling a transitional position or weakening the viewport bounds.
+      await dialog.evaluate(async element => {
+        const finiteAnimations = element.getAnimations({ subtree: true }).filter((animation) =>
+          animation.effect?.getComputedTiming().iterations !== Infinity);
+        await Promise.all(finiteAnimations.map((animation) => animation.finished.catch(() => undefined)));
+      });
       const geometry = await dialog.evaluate(element => {
         const rect = element.getBoundingClientRect();
         return { left: rect.left, right: rect.right, center: rect.left + rect.width / 2,

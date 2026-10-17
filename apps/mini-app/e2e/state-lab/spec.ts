@@ -18,7 +18,7 @@ test('catalogs deterministic data states through the real provider-independent a
   await openLab(page);
   const input = page.getByRole('textbox', { name: 'Amount in ETH' });
   await expect(input).toHaveValue('1234.56789');
-  expect(await page.locator('.amount-control').evaluate((element) => getComputedStyle(element).borderRadius)).toBe('14px');
+  expect(await page.locator('.amount-control').evaluate((element) => getComputedStyle(element).borderRadius)).toBe('12px');
   await expect.poll(() => page.locator('img[aria-label="ETH logo"]').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
   await page.evaluate(() => document.fonts.ready);
   expect(await page.evaluate(() => document.fonts.check('14px Inter'))).toBe(true);

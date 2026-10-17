@@ -67,7 +67,8 @@ test.describe('Earn entry and honest unavailable state', () => {
     await expect(instant).toBeVisible();
     await cooldown.click();
     await expect(cooldown).toBeChecked();
-    await expect(page.getByText(/claimed later/i)).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('Claim later');
+    await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('fxUSD + USDC');
     const amount = page.getByLabel('Amount in fxSAVE');
     await expect(amount).toBeVisible();
     await expect(amount).toBeEnabled();

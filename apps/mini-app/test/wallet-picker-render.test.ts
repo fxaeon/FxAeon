@@ -51,7 +51,10 @@ for (const state of ['none', 'all installed', 'secondary and unknown installed']
 
 test('the stable coinbase selection presents the requested Base Wallet label in its handoff', () => {
   const html = render([], undefined, { walletId: 'coinbase', name: 'Base Wallet', status: 'handoff', message: 'Opening Base Wallet’s official app page.' });
-  assert.match(html, /<h2[^>]*>Base Wallet<\/h2>/);
+  const heading = html.match(/<h2 id="wallet-provider-chooser-title">([\s\S]*?)<\/h2>/);
+  assert.ok(heading, 'the handoff heading retains its accessible title id');
+  assert.equal(heading[1].replace(/<[^>]*>/g, '').trim(), 'Base Wallet');
+  assert.match(html, /aria-labelledby="wallet-provider-chooser-title"/);
   assert.match(html, /data-wallet-view="handoff"/);
   assert.match(html, /Open Base Wallet<\/button>/);
   assert.doesNotMatch(html, /Coinbase Wallet|Wallet connected|passkey/i);

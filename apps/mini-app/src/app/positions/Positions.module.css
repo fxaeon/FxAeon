@@ -14,7 +14,7 @@
 .manager :global(.amount-control), .manager :global(.range-control), .manager :global(.segmented) { border-radius: 12px; }
 .manager :global(.amount-control) { background: var(--surface-2); }
 @media (min-width: 840px) {
-  .manager.manager.manager { padding: 20px; gap: 4px; }
+  .manager.manager.manager { padding: 16px 20px; gap: 4px; }
   .viewBar { display: none; }
 }
 @media (max-width: 640px) {

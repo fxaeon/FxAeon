@@ -195,19 +195,11 @@ async function captureAppView(browser: Awaited<ReturnType<typeof chromium.launch
     await pageReady(page, options.route, walletConnected);
     if (new URL(options.route, appUrl).pathname === '/portfolio') {
       await page.getByRole('button', { name: /View .* on Ethereum/ }).first().waitFor({ state: 'visible', timeout: 30_000 });
-      await page.locator('section[aria-label="Positions"] details summary').filter({ hasText: /\d+ open/ }).waitFor({ state: 'visible', timeout: 30_000 });
-      const positions = page.locator('section[aria-label="Positions"] details');
-      await positions.locator('summary').waitFor({ state: 'visible', timeout: 20_000 });
-      if (await positions.evaluate((element) => (element as HTMLDetailsElement).open)) {
-        throw new Error(`portfolio positions should be compact by default in ${options.id}`);
-      }
-      const earn = page.locator('section[aria-labelledby="portfolio-earn-heading"] details').first();
-      if (await earn.count()) {
-        await earn.locator(':scope > summary').waitFor({ state: 'visible', timeout: 20_000 });
-        if (await earn.evaluate((element) => (element as HTMLDetailsElement).open)) {
-          throw new Error(`portfolio fxSAVE should be compact by default in ${options.id}`);
-        }
-      }
+      const positions = page.locator('section[aria-label="Positions"]');
+      await positions.getByText(/\d+ open/).waitFor({ state: 'visible', timeout: 30_000 });
+      await positions.locator('[data-position-key]').first().waitFor({ state: 'visible', timeout: 20_000 });
+      const earn = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
+      await earn.getByRole('heading', { name: 'fxSAVE', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
     }
     await options.prepare?.(page);
     await captureScrollView(page, { ...options, theme, viewport, walletConnected, note: options.note, scrollTarget: options.scrollTarget ?? '.app-content' });

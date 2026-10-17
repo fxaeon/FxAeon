@@ -15,6 +15,13 @@ async function reviewExitControl(page: import('@playwright/test').Page) {
     : page.getByRole('button', { name: 'Edit', exact: true });
 }
 
+async function resultExitControl(page: import('@playwright/test').Page) {
+  const sheet = page.locator('[data-mobile-review-sheet]');
+  return await sheet.isVisible()
+    ? sheet.getByRole('button', { name: 'Close transaction review', exact: true })
+    : page.getByRole('button', { name: 'View position', exact: true });
+}
+
 async function visibleReviewHeader(page: import('@playwright/test').Page) {
   const sheet = page.locator('[data-mobile-review-sheet]');
   return await sheet.isVisible() ? sheet.locator(':scope > header') : page.locator('[data-review-header]');
@@ -392,8 +399,9 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByText('0.001008 ETH max', { exact: true })).toBeVisible();
     const navigation = page.locator('[data-fixed-navigation="true"]');
     await expect(navigation).toBeVisible();
-    await expect(navigation.locator('a[href="/trade"]')).toHaveAttribute('aria-current', 'page');
+    await expect(navigation.getByRole('link', { name: 'Trade', exact: true })).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('[role="toolbar"]')).toBeHidden();
+    const collapsedActionOffset = await confirm.evaluate(button => button.getBoundingClientRect().top - button.closest('[data-review-viewport]')!.getBoundingClientRect().top);
     const box = await confirm.boundingBox();
     const navBox = await navigation.boundingBox();
     const sheetBox = await sheet.boundingBox();
@@ -422,7 +430,8 @@ test.describe('ActionReview isolated orchestration', () => {
     await review.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = true; }));
     const scrollBody = page.getByRole('region', { name: 'Review information', exact: true });
     expect(await scrollBody.evaluate((node) => getComputedStyle(node).overflowY)).not.toBe('auto');
-    expect((await confirm.boundingBox())!.y).toBeGreaterThan(box!.y);
+    await expect.poll(() => confirm.evaluate(button => button.getBoundingClientRect().top - button.closest('[data-review-viewport]')!.getBoundingClientRect().top)).toBeGreaterThan(collapsedActionOffset);
+    expect(await confirm.evaluate(button => getComputedStyle(button.parentElement!).position)).toBe('static');
     await confirm.scrollIntoViewIfNeeded();
     await expect(confirm).toBeInViewport();
     await page.screenshot({ path: testInfo.outputPath('action-review-expanded-flow.png') });
@@ -662,7 +671,7 @@ test.describe('ActionReview isolated orchestration', () => {
 
     // A has a final receipt but its completion read still waits. B must own
     // its recovery draft once the next wallet prompt starts.
-    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await (await resultExitControl(page)).click();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const confirm = page.getByRole('button', { name: 'Confirm', exact: true });
     await expect(confirm).toBeEnabled();
@@ -691,7 +700,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect.poll(async () => (await draftState()).removed).toBe(removedBeforeOldCompletion + 1);
     await expect.poll(async () => (await draftState()).completionWaiting).toBe(1);
     await harnessControl(page, 'Resolve completion refresh');
-    await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'View position', exact: true })).toBeEnabled();
     expect(await metric(page, 'draftSave')).toBe(2);
     expect(await metric(page, 'send')).toBe(2);
   });
@@ -1053,7 +1062,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'send')).toBe(0);
   });
 
-  test('stable Trade returns a self-clamp to the editor and retries the updated input', async ({ page }) => {
+  test('stable Trade refresh self-clamp preserves non-signable terms until the updated editor is reviewed', async ({ page }) => {
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
     await openHarness(page);
     await harnessControl(page, 'Use stable Trade review');
@@ -1066,6 +1075,13 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByText('The inputs changed. Check the action again before signing.', { exact: true })).toHaveCount(0);
     expect(await metric(page, 'plan')).toBe(2);
     expect(await metric(page, 'prepare')).toBe(1);
+    // A failed refresh retains the accepted route as non-signable evidence.
+    await expect(page.getByRole('heading', { name: 'position v1 3×', exact: true })).toBeVisible();
+    await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.25 fxUSD');
+    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
+    expect(await metric(page, 'send')).toBe(0);
+    await (await reviewExitControl(page)).click();
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByText('Editor terms v2', { exact: true })).toBeVisible();
@@ -1097,8 +1113,11 @@ test.describe('ActionReview isolated orchestration', () => {
     await resolvePreviewRequest(page, original.id);
     await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
     await expect(page.getByText('Editor terms v2', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Review position', exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: 'Review position', exact: true }).click();
+    await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    const retry = page.getByRole('button', { name: 'Review updated quote', exact: true });
+    await expect(retry).toBeEnabled();
+    await retry.click();
     await expect.poll(() => metric(page, 'prepare')).toBe(2);
     const updated = (await previewRequests(page))[1]!;
     expect(updated.routeVersion).toBe(2);
@@ -1221,7 +1240,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect.poll(() => metric(page, 'prepare')).toBe(1);
     const pending = (await previewRequests(page))[0]!;
     await resolvePreviewRequest(page, pending.id);
-    await expect(page.getByRole('button', { name: 'Confirm' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeVisible();
     expect(await metric(page, 'plan')).toBe(1);
     expect(await metric(page, 'send')).toBe(0);
     await (await reviewExitControl(page)).click();
@@ -1238,7 +1257,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(page.getByText('Editor terms v1', { exact: true })).toBeVisible();
     await resolvePreviewRequest(page, pending.id);
-    await expect(page.getByRole('button', { name: 'Confirm' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Review position', exact: true })).toBeEnabled();
     expect(await metric(page, 'send')).toBe(0);
   });
@@ -1280,10 +1299,13 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Disconnect');
     await harnessControl(page, 'Reconnect');
     await resolvePreviewRequest(page, original.id);
-    await expect(page.getByRole('button', { name: 'Confirm' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
     await expect(page.getByText('Editor terms v2', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Review position', exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: 'Review position', exact: true }).click();
+    await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    const retry = page.getByRole('button', { name: 'Review updated quote', exact: true });
+    await expect(retry).toBeEnabled();
+    await retry.click();
     await expect.poll(() => metric(page, 'prepare')).toBe(2);
     const current = (await previewRequests(page))[1]!;
     expect(current).toMatchObject({ routeVersion: 2, connectionVersion: 2 });

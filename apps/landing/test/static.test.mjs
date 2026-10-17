@@ -18,7 +18,6 @@ const scriptCompact = script.replace(/\s+/g, '');
 const builtHtml = await readFile(resolve(root, 'dist/index.html'), 'utf8');
 const headers = await readFile(resolve(root, 'dist/_headers'), 'utf8');
 const appRequire = createRequire(resolve(root, '../mini-app/package.json'));
-const DESKTOP = '(hover:hover) and (pointer:fine) and (min-width:861px)';
 
 function textOf(markup) {
   return markup.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -81,16 +80,15 @@ test('brand metadata and the official protocol mark stay in sync', async () => {
   );
 });
 
-test('the page presents all four products and routes Telegram launches to matching app screens', async () => {
+test('the outcome explorer links to all four real products without requiring a wallet', async () => {
   assert.equal(html.match(/<h1\b/g)?.length, 1, 'There should be one page heading');
-  const cards = [...html.matchAll(/<article class="product-card ([^"]+)"[\s\S]*?<\/article>/g)];
-  assert.equal(cards.length, 4);
+  const cards = [...html.matchAll(/<section class="outcome-panel" id="outcome-([^"]+)"[\s\S]*?<\/section>/g)];
+  assert.equal(cards.length, 3);
   const routes = ['trade', 'earn', 'borrow', 'move'];
-  for (const route of routes) {
-    const card = cards.find(([, className]) => className.startsWith(`${route}-card`))?.[0];
+  for (const route of routes.filter(route => route !== 'move')) {
+    const card = cards.find(([, name]) => name === route)?.[0];
     assert.ok(card, `Missing ${route} product card`);
-    assert.match(card, new RegExp(`href="https:\\/\\/fxaeon\\.com\\/${route}"`));
-    assert.match(card, new RegExp(`href="https:\\/\\/t\\.me\\/FxAeonBot\\?startapp=${route}"`));
+    assert.match(card, new RegExp(`href="https:\\/\\/fxaeon\\.com\\/${route}(?:\\?market=ETH)?"`));
     assert.match(card, /<h3\b[^>]*>[\s\S]*?<\/h3>/, `${route} has a product heading`);
     assert.match(card, /<p\b[^>]*>[\s\S]*?<\/p>/, `${route} has a product description`);
   }
@@ -100,10 +98,9 @@ test('the page presents all four products and routes Telegram launches to matchi
   const appRoutes = new Map([...routeTable.matchAll(/\['([a-z-]+)',\s*'([^']+)'\]/g)].map(([, startParam, path]) => [startParam, path]));
   for (const route of routes) assert.equal(appRoutes.get(route), `/${route}`, `startapp=${route} resolves to its product screen`);
   const startParams = [...html.matchAll(/href="https:\/\/t\.me\/FxAeonBot\?startapp=([^"&]+)"/g)].map(([, value]) => value);
-  assert.ok(startParams.length >= routes.length);
   for (const startParam of startParams) assert.ok(appRoutes.has(startParam), `The app explicitly handles startapp=${startParam}`);
   const copy = textOf(html);
-  assert.match(copy, /Leverage and borrowing involve liquidation risk\. Savings yields vary\./);
+  assert.match(copy, /Leveraged positions and borrowing can be rebalanced or liquidated/);
   assert.match(copy, /Your wallet approves each transaction/);
   assert.match(copy, /Smart contracts, tokens, wallets, bridges, and networks carry risk/);
   assert.match(html, /id="products"/);
@@ -112,25 +109,25 @@ test('the page presents all four products and routes Telegram launches to matchi
   assert.match(html, /id="faq"/);
 });
 
-test('the illustrative portfolio reflects the current connected portfolio structure', () => {
-  const phone = elementSource(html, /<div class="screen screen-portfolio"/, 'div');
-  assert.match(phone, /class="app-network"[\s\S]*?Ethereum/);
-  assert.match(phone, /class="app-wallet">0xf39f…2266/);
-  const actions = elementSource(phone, /<div class="screen-actions"/, 'div');
-  assert.match(textOf(actions), /\bBorrow\b/);
-  assert.doesNotMatch(textOf(actions), /\bMove\b/);
-  assert.ok(phone.indexOf('class="screen-section-label"') < phone.indexOf('<b>BTC long</b>'), 'Positions are separated from wallet assets');
-  assert.match(phone, /class="screen-section-label">Open positions/);
-  assert.match(html, /Balances shown are examples/);
+test('illustrative calculations are distinct from live figures and executable quotes', () => {
+  assert.match(html, /Try it with \$1,000 of ETH/);
+  assert.match(html, /id="dollar-amount"[^>]*aria-label="Example amount in US dollars"/);
+  assert.match(html, /id="example-leverage"[^>]*min="1\.1"[^>]*max="5"/);
+  for (const key of ['fxSaveTvlUsd', 'fxSaveApy', 'ethUsd', 'btcUsd']) {
+    assert.match(html, new RegExp(`data-market-value="${key}">—<`), 'Live metrics start without invented values');
+  }
+  assert.match(html, /data-earn-projection>—</);
+  assert.match(textOf(html), /Illustrative outcomes, not executable quotes/);
+  assert.match(textOf(html), /50% is an example, not your borrowing limit/);
+  assert.match(textOf(html), /0% is the base annual borrowing rate in normal conditions/);
+  assert.match(textOf(html), /Assumes today’s APY stays unchanged for 1 year/);
 });
 
-test('device actions use the reviewed CSS capability query and safe destinations', () => {
-  const actions = links(html).filter(({ device }) => device !== 'all');
-  assert.ok(actions.some(({ href, device }) => href === 'https://fxaeon.com/' && device === 'desktop'));
-  assert.ok(actions.some(({ href, device }) => href === 'https://t.me/FxAeonBot' && device === 'mobile'));
-  assert.ok(cssCompact.includes(`@media${DESKTOP.replaceAll(' ', '')}{`), 'The original fine-pointer desktop query remains the device breakpoint');
-  assert.match(css, /\[data-device="desktop"\]\s*\{\s*display:\s*none\s*!important\s*;/);
-  assert.match(html, /https:\/\/t\.me\/FxAeonBot\?startapp=trade/);
+test('web app actions work on every device and Telegram remains an explicit choice', () => {
+  assert.equal(links(html).filter(({ device }) => device !== 'all').length, 0);
+  const actions = elementSource(html, /<div class="actions"/, 'div');
+  assert.deepEqual(links(actions).map(link => link.href), ['https://fxaeon.com/', '#products']);
+  assert.match(html, /https:\/\/t\.me\/FxAeonBot/);
   assert.match(html, /https:\/\/fxaeon\.com\/move/);
   assert.doesNotMatch(script, /userAgent|maxTouchPoints|ontouchstart/);
   for (const tag of html.match(/<a\b[^>]*target="_blank"[^>]*>/g) ?? []) assert.match(tag, /rel="noreferrer"/);
@@ -160,8 +157,8 @@ test('the menu stays keyboard accessible and the page enforces its single dark t
   assert.ok(cssCompact.includes('@media(prefers-reduced-motion:reduce)'));
   assert.ok(cssCompact.includes('scroll-behavior:auto'));
   assert.ok(cssCompact.includes('transition:none!important'));
-  assert.match(css, /\.protocol-steps/);
-  assert.match(html, /class="protocol-steps"/);
+  assert.match(css, /\.protocol-principles/);
+  assert.match(html, /class="protocol-principles"/);
   assert.match(heroField, /webgl2/);
   assert.match(heroField, /1000\s*\/\s*30/);
   assert.match(heroField, /saveData/);
@@ -190,7 +187,8 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.doesNotMatch(html, /\sstyle=/);
   assert.doesNotMatch(html, /<style\b/);
   assert.doesNotMatch(html, /\son[a-z]+=/i);
-  assert.equal(html.toLowerCase().split('<script').length - 1, 2);
+  assert.equal(html.toLowerCase().split('<script').length - 1, 3);
+  assert.match(html, /<script type="module" src="dollar-outcomes\.js"><\/script>/);
   assert.match(html, /<script src="script\.js"><\/script>/);
   assert.match(html, /<script src="hero-field\.js" defer><\/script>/);
   assert.doesNotMatch(html, /aurora\.js/);
@@ -203,7 +201,7 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.match(headers, /Content-Security-Policy: default-src 'self'/);
   assert.match(headers, /script-src 'self'/);
   assert.match(headers, /style-src 'self'/);
-  assert.match(headers, /connect-src 'none'/);
+  assert.match(headers, /connect-src 'self'/);
   assert.match(headers, /X-Content-Type-Options: nosniff/);
   assert.match(headers, /Strict-Transport-Security: max-age=31536000/);
 });
@@ -211,9 +209,11 @@ test('markup, local assets, and built headers meet accessibility and CSP require
 test('built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404', async () => {
   const launcher = telegramLauncher(process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || undefined);
   assert.ok(builtHtml.includes(`href="${escapeAttribute(launcher)}"`));
-  for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="${escapeAttribute(telegramStartLink(launcher, route))}"`), `${route} start link`);
+  for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="https://fxaeon.com/${route}"`), `${route} web route`);
   assert.equal(await readFile(resolve(root, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
-  for (const file of ['script.js', 'hero-field.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt']) await access(resolve(root, 'dist', file));
+  for (const file of ['script.js', 'hero-field.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt']) await access(resolve(root, 'dist', file));
+  assert.deepEqual(JSON.parse(await readFile(resolve(root, 'dist/_routes.json'), 'utf8')), { version: 1, include: ['/api/market-data'], exclude: [] });
+  await assert.rejects(access(resolve(root, 'dist/functions')));
   assert.ok((await readFile(resolve(root, 'dist/hero-field.js'))).byteLength < 12 * 1024);
   for (const license of ['Inter-LICENSE.txt', 'Manrope-LICENSE.txt']) assert.deepEqual(await readFile(resolve(root, 'assets', license)), await readFile(resolve(root, 'dist/assets', license)));
   await assert.rejects(access(resolve(root, 'dist/assets/poppins-regular.ttf')));
@@ -290,7 +290,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
     const built = await readFile(resolve(tempLanding, 'dist/index.html'), 'utf8');
     const destinations = [...built.matchAll(/href="(https:\/\/t\.me\/[^\"]*)"/g)].map(([, href]) => href);
     assert.ok(destinations.includes('https://t.me/FxAeonBot/app?startapp=launch_1'));
-    for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(destinations.includes(`https://t.me/FxAeonBot/app?startapp=${route}`));
+    for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(built.includes(`https://fxaeon.com/${route}`));
     assert.equal(await readFile(resolve(tempLanding, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
 
     const site = await Promise.all(['index.html', 'styles.css', 'script.js', '404.html', 'document.css'].map((file) => readFile(resolve(tempLanding, 'dist', file), 'utf8')));
