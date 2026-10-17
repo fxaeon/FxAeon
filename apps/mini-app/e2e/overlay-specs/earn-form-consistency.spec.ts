@@ -155,15 +155,13 @@ test('resumed slippage is displayed, preserved by gas edits and used by review',
   await expect(page.getByRole('region',{name:'Earn review'})).toContainText('Review slippage: 0.5%');
 });
 
-test('navigation does not save a restored draft; explicit custom edits persist',async ({page}) => {
+test('transaction settings stay beside the form; explicit custom edits persist',async ({page}) => {
   await mount(page);
   await page.getByRole('button',{name:'Edit',exact:true}).click();
   let dialog=await openSettings(page,'2');
-  await dialog.getByRole('link',{name:'All settings'}).click();
-  await expect(page).toHaveURL('http://earn.test/settings');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(dialog.getByRole('link')).toHaveCount(0);
+  await dialog.getByRole('button',{name:'Close transaction settings'}).click();
   expect(await storedSlippage(page)).toBe(50);
-  await page.getByRole('button',{name:'Return to Earn'}).click();
   await page.getByRole('button',{name:'Withdraw',exact:true}).click();
   dialog=await openSettings(page,'0.5');
   const input=dialog.getByRole('textbox',{name:'Slippage tolerance percentage'});

@@ -201,13 +201,13 @@ test('one collateral picker plans both ETH and BTC with collateral above borrowi
   }
 });
 
-test('existing ETH-long Borrow review hides product navigation and restores it on Edit', async ({ page }) => {
+test('existing ETH-long Borrow review hides the input overview and restores the form on Edit', async ({ page }) => {
   await mount(page);
   await page.setViewportSize({ width: 393, height: 852 });
-  const productNav = page.getByRole('navigation', { name: 'Borrow product navigation' });
+  const borrowOverview = page.getByRole('region', { name: 'fxUSD borrowing overview', exact: true });
   await page.getByRole('button', { name: 'Your positions' }).click();
   await expect(page.getByText('ETH position #17')).toBeVisible();
-  await expect(productNav).toBeVisible();
+  await expect(borrowOverview).toBeVisible();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   await page.getByLabel('Additional fxUSD to borrow').fill('1');
   await page.evaluate(() => {
@@ -220,11 +220,13 @@ test('existing ETH-long Borrow review hides product navigation and restores it o
   await expect(review).toBeVisible();
   await expect(review).toContainText('Update collateral position');
   await expect(review).toContainText('ETH long · existing position #17');
-  await expect(productNav).toHaveCount(0);
+  await expect(borrowOverview).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Manage collateral position', exact: true })).toHaveCount(0);
   await expect(review.getByRole('button', { name: 'Confirm borrowing', exact: true })).toBeVisible();
 
   await review.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(productNav).toBeVisible();
+  await expect(borrowOverview).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Manage collateral position', exact: true })).toBeVisible();
   await expect(page.getByLabel('Additional fxUSD to borrow')).toHaveValue('1');
 });
 

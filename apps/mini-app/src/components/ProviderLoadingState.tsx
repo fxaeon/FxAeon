@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   Home,
+  Layers2,
   Menu,
   PiggyBank,
   RefreshCw,
@@ -24,9 +25,8 @@ import styles from './ProviderLoadingState.module.css';
 import control from './HeaderWalletControl.module.css';
 import navigation from './ShellNavigation.module.css';
 import layout from './ProductLayout.module.css';
-import ui from './ProductUI.module.css';
 import portfolio from './PortfolioWorkspace.module.css';
-import { ProtocolPositionSkeleton } from '@/components/ProtocolPositionSkeleton';
+import { PortfolioPositionSkeleton } from '@/components/PortfolioPositionSkeleton';
 import balance from './BalanceSummary.module.css';
 import assets from './PortfolioAssets.module.css';
 import assetRows from './AssetPresentation.module.css';
@@ -168,7 +168,7 @@ const QUICK_ACTIONS: { label: string; icon: LucideIcon }[] = [
   { label: 'Earn', icon: PiggyBank },
 ];
 
-/** Portfolio first paint uses the same balance, ledger and inline position sections. */
+/** Portfolio first paint mirrors the balance, section navigation and grouped holdings. */
 function PortfolioSilhouette() {
   return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
     <h1 className="sr-only">Portfolio</h1>
@@ -176,10 +176,13 @@ function PortfolioSilhouette() {
       <div className={portfolio.primary}>
         <section className={`${portfolio.valueCard} ${balance.hero}`}>
           <div className={portfolio.valueTop}>
-            <span className={portfolio.valueLabel}>Total value</span>
+            <span className={portfolio.valueLabel}>Total value <span>Ethereum + Base</span></span>
             <button type="button" tabIndex={-1}><RefreshCw size={18} aria-hidden="true" /></button>
           </div>
           <p className={`${portfolio.valueNumber} ${balance.value}`}><span className="missing-value missing-value-xl"><span className="missing-value-bar" /></span></p>
+          <dl className={portfolio.valueBreakdown}>
+            {['Wallet assets', 'Position value'].map(label => <div key={label}><dt><a>{label}<ChevronRight size={12} aria-hidden="true" /></a></dt><dd><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></dd></div>)}
+          </dl>
           <section aria-labelledby="portfolio-fallback-actions-title">
             <h2 id="portfolio-fallback-actions-title" className="sr-only">Actions</h2>
             <div className={portfolio.quickActions}>
@@ -188,46 +191,58 @@ function PortfolioSilhouette() {
               </a>)}
             </div>
           </section>
-          <dl className={portfolio.valueBreakdown}>
-            {['Wallet assets', 'Position value'].map(label => <div key={label}><dt>{label}</dt><dd><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></dd></div>)}
-          </dl>
           <details className={portfolio.valueDetails}><summary tabIndex={-1}>Balance details</summary></details>
         </section>
-        <section className={`${assets.assets} ${assets.ledgerSurface}`}>
-          <div className={assets.sectionHeading}>
-            <h2>Assets</h2>
-            <label className={assets.networkSelect}>
-              <span className="sr-only">Portfolio network</span>
-              <select disabled tabIndex={-1} defaultValue="all">
-                <option value="all">All networks</option><option value="1">Ethereum</option><option value="8453">Base</option>
-              </select>
-              <ChevronDown size={15} aria-hidden="true" />
-            </label>
-          </div>
-          <div className={assets.status}><span>Balances loading.</span></div>
-          <div className={assetRows.loadingList}>
-            {[0, 1, 2].map((row) => <div key={row} className={assetRows.loadingRow}>
-              <span className={`${assetRows.loadingIcon} skeleton`} />
-              <span className={assetRows.loadingName}><span className="skeleton" /><span className="skeleton" /></span>
-              <span className={assetRows.loadingWorth}><span className="skeleton" /><span className="skeleton" /></span>
-            </div>)}
-          </div>
-        </section>
-        <section className={portfolio.positionsSection}>
-          <div className={portfolio.sectionTitle}><h2>Positions</h2><span><span className="missing-value missing-value-sm"><span className="missing-value-bar" /></span></span></div>
-          <ProtocolPositionSkeleton />
-        </section>
-        <section className={portfolio.earnSection}>
-          <div className={portfolio.sectionTitle}><h2>fxSAVE</h2><span><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></span></div>
-          <div className={portfolio.earnLoading}><span className="skeleton" /><span><span className="skeleton" /><span className="skeleton" /></span><span className="skeleton" /></div>
-        </section>
-        <section className={activity.section}>
-          <div className="section-heading mb-2 flex items-center justify-between">
-            <h2 className="text-[length:var(--fs-title)] font-semibold tracking-tight text-[var(--text)]">History</h2>
-            <div className={activity.toolbar}><a>View all<ChevronRight size={14} aria-hidden="true" /></a><button type="button" tabIndex={-1} className={activity.refresh}><RefreshCw size={16} aria-hidden="true" /></button></div>
-          </div>
-          <ActivityRows count={3} />
-        </section>
+        <nav className={portfolio.sectionNav}>
+          <a>Wallet <span>Tokens</span></a><a>DeFi <span>Positions & savings</span></a><a>Activity <ChevronRight size={15} aria-hidden="true" /></a>
+        </nav>
+        <div className={portfolio.holdingsGrid}>
+          <section className={`${assets.assets} ${assets.ledgerSurface}`}>
+            <div className={assets.sectionHeading}>
+              <div><h2>Assets</h2><p>In your wallet</p></div>
+              <label className={assets.networkSelect}>
+                <span className="sr-only">Portfolio network</span>
+                <select disabled tabIndex={-1} defaultValue="all">
+                  <option value="all">All networks</option><option value="1">Ethereum</option><option value="8453">Base</option>
+                </select>
+                <ChevronDown size={15} aria-hidden="true" />
+              </label>
+            </div>
+            <div className={assets.status}><span>Balances loading.</span></div>
+            <div className={assetRows.loadingList}>
+              {[0, 1, 2].map((row) => <div key={row} className={assetRows.loadingRow}>
+                <span className={`${assetRows.loadingIcon} skeleton`} />
+                <span className={assetRows.loadingName}><span className="skeleton" /><span className="skeleton" /></span>
+                <span className={assetRows.loadingWorth}><span className="skeleton" /><span className="skeleton" /></span>
+              </div>)}
+            </div>
+          </section>
+          <section className={portfolio.protocolSection}>
+            <div className={portfolio.holdingsHeading}><div><h2>DeFi</h2><p>Positions and savings</p></div><span className={portfolio.chainLabel}>Ethereum</span></div>
+            <details className={portfolio.protocolGroup} open>
+              <summary tabIndex={-1}><span className={portfolio.protocolMark}><Layers2 size={21} aria-hidden="true" /></span><span><strong>f(x) Protocol</strong><small>Trade · Borrow · Earn</small></span><ChevronDown size={18} aria-hidden="true" /></summary>
+              <div className={portfolio.protocolBody}>
+                <section className={portfolio.positionsSection}>
+                  <div className={portfolio.sectionTitle}><h2>Positions</h2><div className={portfolio.sectionTools}><span><span className="missing-value missing-value-sm"><span className="missing-value-bar" /></span></span></div></div>
+                  <PortfolioPositionSkeleton />
+                </section>
+                <section className={portfolio.earnSection}>
+                  <div className={portfolio.sectionTitle}><h2>Savings</h2><span><span className="missing-value missing-value-md"><span className="missing-value-bar" /></span></span></div>
+                  <div className={portfolio.earnLoading}><span className="skeleton" /><span><span className="skeleton" /><span className="skeleton" /></span><span className="skeleton" /></div>
+                </section>
+              </div>
+            </details>
+          </section>
+        </div>
+        <div className={portfolio.activitySection}>
+          <section className={activity.section}>
+            <div className="section-heading mb-2 flex items-center justify-between">
+              <h2 className="text-[length:var(--fs-title)] font-semibold tracking-tight text-[var(--text)]">History</h2>
+              <div className={activity.toolbar}><a>View all<ChevronRight size={14} aria-hidden="true" /></a><button type="button" tabIndex={-1} className={activity.refresh}><RefreshCw size={16} aria-hidden="true" /></button></div>
+            </div>
+            <ActivityRows count={3} />
+          </section>
+        </div>
       </div>
       <aside className={portfolio.secondary}>
         <section>

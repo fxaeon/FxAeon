@@ -54,26 +54,23 @@ test.describe('unified product presentation', () => {
     });
   }
 
-  test('web slippage saves without gas quotes or losing saved gas preferences', async ({ page, requests }) => {
+  test('More opens transaction preferences directly without gas quotes or losing saved gas preferences', async ({ page, requests }) => {
     await page.addInitScript(() => {
       if (!localStorage.getItem('fxaeon.settings.v1')) localStorage.setItem('fxaeon.settings.v1', JSON.stringify({ gasTier: 'fast', slippageBps: 50 }));
     });
-    await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('radiogroup', { name: 'Appearance theme' })).toHaveCount(0);
+    await page.goto('/more', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await expect(page.getByRole('radiogroup', { name: 'Gas speed', exact: true })).toHaveCount(0);
-    const slippage = page.getByRole('radiogroup').filter({ has: page.getByRole('radio', { name: '0.1%', exact: true }) });
-    await slippage.getByRole('radio', { name: '1%', exact: true }).click();
-    await expect(page.getByText('Unsaved changes', { exact: true })).toBeVisible();
-    const save = page.getByRole('button', { name: 'Save preferences', exact: true });
-    await expect(save).toBeEnabled();
-    await save.click();
-    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
-    await expect(save).toBeDisabled();
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(slippage.getByRole('radio', { name: '1%', exact: true })).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByRole('radiogroup', { name: 'Gas speed', exact: true })).toHaveCount(0);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1') || '{}').gasTier)).toBe('fast');
+    const settingsButton = page.getByRole('button', { name: 'Transaction settings, 0.5% slippage', exact: true });
+    await settingsButton.click();
+    const settings = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
+    await expect(settings.getByRole('radiogroup', { name: 'Max slippage' })).toBeVisible();
+    await expect(settings.getByRole('radiogroup', { name: 'Network speed' })).toHaveCount(0);
+    await settings.getByRole('textbox', { name: 'Slippage tolerance percentage', exact: true }).fill('1');
+    await settings.getByRole('textbox', { name: 'Slippage tolerance percentage', exact: true }).press('Enter');
+    await expect(settingsButton).toHaveAttribute('aria-label', 'Transaction settings, 1% slippage');
+    await expect(settings.getByRole('link', { name: 'All settings' })).toHaveCount(0);
+    await settings.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1') || '{}'))).toMatchObject({ gasTier: 'fast', slippageBps: 100 });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(requests.all.filter((url) => new URL(url).pathname === '/api/gas')).toEqual([]);
     assertNoBackendRequests(requests);

@@ -8,7 +8,7 @@ export const productNavigation = [
   { id: 'earn', title: 'Earn with fxSAVE', group: 'Products', description: 'Deposit into the savings vault, withdraw, and claim queued redemptions.' },
   { id: 'borrow', title: 'Borrow fxUSD', group: 'Products', description: 'Supply collateral, borrow fxUSD, and manage your debt.' },
   { id: 'move', title: 'Move between chains', group: 'Products', description: 'Bridge fxUSD and fxSAVE between Ethereum and Base.' },
-  { id: 'fees', title: 'Fees & settings', group: 'Help', description: 'Understand network fees, slippage, and the settings saved on this device.' },
+  { id: 'fees', title: 'Fees & slippage', group: 'Help', description: 'Understand network fees, slippage controls, and transaction preferences saved on this device.' },
   { id: 'history', title: 'History & recovery', group: 'Help', description: 'Follow a transaction and recover a saved action without sending it twice.' },
   { id: 'privacy', title: 'Privacy & risks', group: 'Help', description: 'Know what stays on your device and what your wallet shares with the network.' },
   { id: 'troubleshooting', title: 'Troubleshooting', group: 'Help', description: 'Find the next step when a wallet, quote, or transaction is unavailable.' },

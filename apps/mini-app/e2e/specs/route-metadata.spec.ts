@@ -8,7 +8,7 @@ const ROUTE_METADATA = [
   ["/portfolio", "Portfolio", "wallet"],
   ["/docs", "Docs", "f(x) SDK"],
   ["/docs/sdk", "f(x) SDK reference", "15-method"],
-  ["/settings", "Settings", "appearance"],
+  ["/settings", "Wallet & account", "wallet"],
 ] as const;
 
 function metaContent(html: string, attribute: "name" | "property", value: string): string {

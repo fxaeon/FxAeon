@@ -52,7 +52,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
   { id: 'wallets', title: 'Wallets & signing', content: <>
 <h3 id="wallet-account">Check the selected account</h3>
 <p>Your connected wallet supplies the sender. FxAeon does not receive or store private keys.</p>
-              <p>Open the wallet control to check your address, or use More → Settings to change wallets. Balances and positions belong to the selected account and network.</p>
+              <p>Open the wallet control to check your address, or use More → Wallet &amp; account to change wallets. Balances and positions belong to the selected account and network. Transaction settings are available directly from More or the gear beside an action form.</p>
               <h3 id="wallet-requests">Understand the requests</h3>
               <p>A transaction may need more than one approval. The review says so before the first wallet request, for example “Two wallet requests: approve fxUSD, then confirm.” If its terms change before signing, review the updated details and choose the action again.</p>
               <div className={styles.callout}><p><strong>Before approval:</strong> confirm the address, network, recipient, amount, contract, and any approval request in your wallet.</p></div>
@@ -121,7 +121,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
               </ol>
               <h3 id="borrow-questions">Before you borrow</h3>
               <p><strong>Why can debt exceed the fxUSD I receive?</strong><br />An opening fee can be added to debt. Repayment can also incur a closing fee. Under certain conditions the protocol can apply a temporary borrowing cost, so do not assume every loan is permanently interest-free. Check the review and the protocol’s <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/fxmint-borrowing-fxusd-against-your-btc-and-eth">fxMINT explanation</ExternalLink>.</p>
-              <p><strong>What does the loan-to-value limit mean?</strong><br />Debt as a share of collateral value. Each pool sets a range, and FxAeon keeps a small margin under the top so a quote still fits when you sign.</p>
+              <p><strong>What does the loan-to-value limit mean?</strong><br />Debt as a share of collateral value. Each pool sets a range. The form applies a buffer below the live pool maximum to allow for price and route differences. The protocol simulation checks the quote again before signing.</p>
               <p><strong>Can I add collateral or borrow more later?</strong><br />Yes. On Borrow, under Your positions, add collateral, borrow more, repay, or withdraw. From a long position on Positions, Borrow against this position opens Borrow with that position selected. Each change gets its own review.</p>
               <p><strong>What happens if prices fall?</strong><br />Your loan-to-value rises. Automatic rebalancing can reduce leverage at protocol thresholds, and liquidation remains possible. Repaying or adding collateral lowers it.</p>
   </> },

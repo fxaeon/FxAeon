@@ -450,7 +450,7 @@ async function capture(page, file, route, prepare) {
     await playwright.expect(page.locator('[aria-label="Loading portfolio"]')).toHaveCount(0, { timeout: 30_000 });
   }
   if (route === '/settings') {
-    await playwright.expect(page.getByText('Wallet', { exact: true })).toBeVisible();
+    await playwright.expect(page.getByRole('region', { name: 'Wallet', exact: true })).toBeVisible();
     await playwright.expect(page.locator('.skeleton')).toHaveCount(0, { timeout: 30_000 });
   }
   await page.waitForFunction(() => [...document.querySelectorAll('[aria-label="Loading market chart"]')].every((element) => {

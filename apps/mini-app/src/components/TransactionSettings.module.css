@@ -84,24 +84,7 @@
 .preferenceFooter button { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: var(--mint-text, var(--mint)); font-size: 12px; }
 .preferenceFooter button:disabled { color: var(--mut-2); cursor: default; }
 
-.more {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  margin-top: 8px;
-  border-radius: 10px;
-  color: var(--text);
-  font-size: var(--fs-small);
-  font-weight: 600;
-  transition: background-color var(--dur-fast) ease;
-}
-.more:hover { background: var(--mint-dim); }
-.more svg { width: 16px; height: 16px; transition: transform var(--dur-base) var(--ease-out); }
-.more:hover svg { transform: translateX(2px); }
-
 @media (prefers-reduced-motion: reduce) {
-  .choices[data-thumb]::before, .speeds[data-thumb]::before, .choices button, .speeds button, .more svg { transition: none; }
+  .choices[data-thumb]::before, .speeds[data-thumb]::before, .choices button, .speeds button { transition: none; }
   .choices button:active, .speeds button:active { transform: none; }
 }

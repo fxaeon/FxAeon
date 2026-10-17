@@ -91,8 +91,10 @@ test.describe('documentation experience', () => {
     await expect(openHeading).toBeInViewport();
 
     const copy = page.getByRole('button', { name: 'Copy page', exact: true });
+    await expect(copy).toHaveText('');
     await copy.click();
     await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toHaveText('');
     const clipboard = await page.evaluate(() => navigator.clipboard.readText());
     expect(clipboard).toContain('Your first transaction');
     expect(clipboard).toContain('Open FxAeon');

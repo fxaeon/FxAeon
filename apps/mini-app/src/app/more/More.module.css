@@ -4,6 +4,11 @@
 .directory .links > a { min-height: 62px; padding: 14px 8px; gap: 14px; border-color: var(--hairline); border-radius: 0; }
 .links > a > svg:first-child { padding: 0; width: 19px; height: 19px; border-radius: 0; background: transparent; color: var(--mut); }
 .links > a strong { font-size: 14px; }
+.transactionSettings { display: flex; min-width: 0; min-height: 62px; align-items: center; justify-content: space-between; gap: 16px; margin-inline: 8px; padding-block: 8px; border-bottom: 1px solid var(--hairline); }
+.transactionSettingsCopy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.transactionSettingsCopy strong { font-size: 14px; font-weight: 600; }
+.transactionSettingsCopy small { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
+.transactionSettings :global(button) { flex: 0 0 auto; }
 @media (hover: hover) {
   .directory .links > a:hover { background: var(--surface); }
 }

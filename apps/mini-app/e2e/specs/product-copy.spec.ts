@@ -22,7 +22,7 @@ test.describe('product copy and session visibility', () => {
   test('Trade and History use visible page headings; other routes keep unanimated screen-reader titles', async ({ page, requests }) => {
     const titles = [
       ['/portfolio', 'Portfolio'], ['/positions', 'Positions'], ['/earn', 'Earn'], ['/borrow', 'Borrow'],
-      ['/move', 'Move'], ['/history', 'History'], ['/more', 'More'], ['/settings', 'Settings'],
+      ['/move', 'Move'], ['/history', 'History'], ['/more', 'More'], ['/settings', 'Wallet & account'],
     ] as const;
     for (const [route, title] of titles) {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
@@ -54,7 +54,7 @@ test.describe('product copy and session visibility', () => {
 
   test('disconnected settings do not expose a session disconnect card', async ({ page, requests }) => {
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Wallet & account', exact: true })).toBeVisible();
     await expect(page.getByRole('main').getByRole('button', { name: /^(Connect|Retry wallet provider)/ })).toBeVisible();
     await expect(page.getByText('Session', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /sign out|log out/i })).toHaveCount(0);

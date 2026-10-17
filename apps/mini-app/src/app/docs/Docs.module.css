@@ -521,7 +521,9 @@
 .docsPage .docsIntro h1 { max-width: none; font-size: 36px; line-height: 44px; font-weight: 700; letter-spacing: -.025em; text-wrap: initial; }
 .docsPage .lead { max-width: none; margin-top: 14px; color: var(--docs-muted); font-size: 18px; line-height: 28px; }
 .docsPage .breadcrumb { margin-bottom: 8px; color: var(--docs-muted); }
-.docsPage .copyPage { border-radius: 7px; padding: 4px 10px; min-height: 32px; }
+.docsPage .copyPage { display: inline-grid; width: 40px; min-width: 40px; height: 40px; min-height: 40px; place-items: center; margin-top: 16px; padding: 0; border-radius: 10px; color: var(--docs-muted); }
+.docsPage .copyPage:hover { border-color: var(--docs-accent); color: var(--docs-text); }
+.docsPage .copyPage:focus-visible { outline-offset: 3px; }
 .docsPage .articleBody h2 { margin: 44px 0 20px; font-size: 28px; line-height: 36px; font-weight: 650; letter-spacing: -.02em; scroll-margin-top: 100px; }
 .docsPage .articleBody h2:first-child { margin-top: 0; }
 .docsPage .articleBody h3 { font-size: 22px; line-height: 30px; scroll-margin-top: 100px; }
@@ -560,7 +562,7 @@
   .docsPage .docsIntro h1 { font-size: 30px; line-height: 36px; }
   .docsPage .lead { font-size: 18px; line-height: 28px; }
   .docsPage .articleBody h2 { font-size: 24px; line-height: 32px; }
-  .docsPage .copyPage { min-height: 44px; }
+  .docsPage .copyPage { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
   .docsPage .articlePagination { gap: 12px; }
   .referenceTable th, .referenceTable td { padding: 10px; }
 }
@@ -575,11 +577,6 @@
 @media (max-width: 760px) {
   .docsPage .articleBody h2, .docsPage .articleBody h3 { scroll-margin-top: 148px; }
 }
-@media (min-width: 761px) {
-  .docsPage .docsIntro:has(.copyPage) h1 { padding-right: 116px; }
-  .docsPage .copyPage { position: absolute; top: 0; right: 0; margin-top: 0; }
-}
-
 /* One compact mobile header leaves the reading column clear, as on GitBook. */
 .mobileMenu { display: none; }
 .homePage .articlePagination { grid-template-columns: 1fr; }
@@ -596,8 +593,6 @@
   .docsPage .docsNav { top: 64px; height: calc(100dvh - 64px); }
   .docsPage .navLinks { max-height: calc(100dvh - 154px); }
   .docsPage[data-mobile-search] .docsNav { top: 112px; height: calc(100dvh - 112px); }
-  .docsPage .docsIntro:has(.copyPage) { padding-top: 52px; }
-  .docsPage .copyPage { position: absolute; right: 0; top: 0; margin: 0; }
   .docsPage .docsIntro h1 { font-size: 30px; line-height: 36px; }
   .docsPage .docsIntro { margin-bottom: 44px; }
   .docsPage .articleBody h2, .docsPage .articleBody h3 { scroll-margin-top: 96px; }

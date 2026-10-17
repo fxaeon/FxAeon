@@ -7,12 +7,6 @@
 .iconButton { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; flex: 0 0 44px; margin-left: -10px; border-radius: 50%; color: var(--mut); transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .iconButton:hover { background: var(--surface-2); color: var(--text); }
 
-/* Quiet product tabs leave the financial summary in the foreground. */
-.productNav { display: flex; gap: 24px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
-.productNav a { display: flex; min-width: 0; min-height: 44px; align-items: center; padding: 8px 0; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--mut); font-size: var(--fs-small); font-weight: 500; transition: color var(--dur-base) ease; }
-.productNav a:hover { color: var(--text); }
-.productNav a[aria-current='page'] { color: var(--text); border-bottom-color: var(--text); }
-
 .metrics { display: flex; min-width: 0; flex-direction: column; gap: 12px; margin: 0; }
 .metrics > div { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); align-items: start; gap: 16px; font-size: var(--fs-small); line-height: 1.5; }
 .metrics dt { color: var(--mut); }

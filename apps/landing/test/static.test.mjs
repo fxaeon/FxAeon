@@ -157,7 +157,7 @@ test('web app actions work on every device and Telegram remains an explicit choi
   const actions = elementSource(html, /<div class="actions"/, 'div');
   assert.deepEqual(links(actions).map(link => link.href), ['https://fxaeon.com/', 'https://t.me/FxAeonBot']);
   assert.match(html, /https:\/\/t\.me\/FxAeonBot/);
-  assert.match(html, /Open Mini App/);
+  assert.match(html, /Open in Telegram/);
   assert.match(html, /Prefer the browser\? Open web app/);
   assert.match(html, /https:\/\/fxaeon\.com\/move/);
   assert.doesNotMatch(script, /userAgent|maxTouchPoints|ontouchstart/);
