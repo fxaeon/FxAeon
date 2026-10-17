@@ -676,7 +676,7 @@ export default function BorrowPage() {
           <div><dt>Pool maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd><small>{debtRange.source === 'live' ? 'Live pool parameter' : 'Live limit unavailable'}</small></div>
           <div><dt>Base annual interest</dt><dd>0%</dd><small>Temporary funding charges can apply</small></div>
         </dl>
-        <p className={presentation.riskNote}>The form limit stays below the pool maximum to allow for price and route differences. The protocol simulates the quote again before you sign.</p>
+        <p className={presentation.riskNote}>The form uses a lower limit to allow for price and route changes.</p>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
       {inputStage && <div className={presentation.viewTabs}>
