@@ -7,7 +7,7 @@ import Link from 'next/link';
 import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 import ConnectWalletButton from '@/components/ConnectWalletButton';
-import { MetricRows, PageHeading, ProductNav, ProductSurface, StatusNotice } from '@/components/ProductUI';
+import { MetricRows, PageHeading, ProductSurface, StatusNotice } from '@/components/ProductUI';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
@@ -663,8 +663,7 @@ export default function BorrowPage() {
 
   return <AppShell>
     <ActionWorkspace className={presentation.workspace}>
-      <PageHeading title="Borrow" />
-      {inputStage && <ProductNav current="borrow" />}
+      <PageHeading title="Borrow" visible />
       <ConfirmedPositionCards />
       <div className={presentation.layout} data-review={!inputStage}>
       {inputStage && <section className={presentation.overview} aria-label="fxUSD borrowing overview">
@@ -674,9 +673,10 @@ export default function BorrowPage() {
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt>Maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd><small>{debtRange.source === 'live' ? 'Pool limit' : 'Live limit unavailable'}</small></div>
+          <div><dt>Pool maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd><small>{debtRange.source === 'live' ? 'Live pool parameter' : 'Live limit unavailable'}</small></div>
           <div><dt>Base annual interest</dt><dd>0%</dd><small>Temporary funding charges can apply</small></div>
         </dl>
+        <p className={presentation.riskNote}>The form uses a lower limit to allow for price and route changes.</p>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
       {inputStage && <div className={presentation.viewTabs}>

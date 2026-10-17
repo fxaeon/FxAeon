@@ -159,9 +159,9 @@ test.describe('implementation regressions', () => {
     assertNoBackendRequests(requests);
   });
 
-  test('settings preserves reachable browser wallet controls', async ({ page, requests }) => {
+  test('wallet controls preserve reachable browser connection', async ({ page, requests }) => {
     await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Wallet & account', exact: true })).toBeVisible();
     const connect = page.getByRole('main').getByRole('button', { name: /^(Connect|Retry wallet provider)/ });
     await expect(connect).toBeVisible();
     await expect(connect).toBeEnabled();
@@ -170,20 +170,20 @@ test.describe('implementation regressions', () => {
     assertNoBackendRequests(requests);
   });
 
-  test.describe('connected settings', () => {
+  test.describe('connected wallet controls', () => {
     test.use({ browserWallet: { address: WALLET, initiallyConnected: true } });
-    test('keeps preference and session controls reachable on desktop and short phones', async ({ page, requests }) => {
+    test('keeps wallet and session controls reachable on desktop and short phones', async ({ page, requests }) => {
       for (const viewport of [{ width: 390, height: 500 }, { width: 1440, height: 900 }]) {
         await page.setViewportSize(viewport);
         await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-        await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Wallet & account', exact: true })).toBeVisible();
         const changeWallet = page.locator('details').filter({ has: page.locator('summary', { hasText: 'Change wallet' }) });
         await expect(changeWallet).toHaveCount(1);
         await expect(changeWallet).toHaveJSProperty('open', false);
         await changeWallet.locator('summary').click();
         await expect(changeWallet).toHaveJSProperty('open', true);
         await expect(changeWallet.getByRole('button').first()).toBeVisible();
-        for (const control of [page.getByRole('button', { name: 'Save preferences', exact: true }), page.getByRole('button', { name: 'Disconnect wallet', exact: true })]) {
+        for (const control of [page.getByRole('button', { name: 'Disconnect wallet', exact: true })]) {
           await expect(control).toBeVisible();
           await expectReachable(control, viewport.height);
         }

@@ -88,8 +88,8 @@ export function BorrowSections({ ltvLimit }: { ltvLimit: string }) {
   return <PageSections label="Borrowing details">
     <Section id="borrow-glance" title="Borrowing terms" expandable action={{ label: 'Borrowing details', href: FX_BORROWING_DOCS, external: true }}>
       <StatGrid stats={[
-        // The form's meter stops a little lower; this names why the two figures differ.
-        { label: 'Loan-to-value limit', value: ltvLimit, hint: 'Pool maximum; FxAeon keeps a small margin' },
+        // The displayed pool maximum is distinct from the guarded form ceiling.
+        { label: 'Pool maximum LTV', value: ltvLimit, hint: 'The form keeps a buffer below this limit' },
         { label: 'Annual interest', value: '0%', hint: 'In normal conditions; protocol fees apply' },
         { label: 'Collateral', value: 'ETH · BTC', hint: 'ETH, WETH, stETH, wstETH, or WBTC' },
         { label: 'You borrow', value: 'fxUSD', hint: 'On Ethereum' },

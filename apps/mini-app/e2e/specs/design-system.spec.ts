@@ -265,8 +265,10 @@ test.describe('cohesive responsive design', () => {
   });
 
   test('slippage presets support standard radio-key navigation', async ({ page, requests }) => {
-    await page.goto('/settings', { waitUntil: 'domcontentloaded' });
-    const group = page.getByRole('radiogroup', { name: 'Slippage tolerance' });
+    await page.goto('/more', { waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /Transaction settings/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Transaction settings' });
+    const group = dialog.getByRole('radiogroup', { name: 'Max slippage' });
     const selected = group.getByRole('radio', { name: '0.5%', exact: true });
     await expect(selected).toHaveAttribute('aria-checked', 'true');
     await expect(selected).toBeEnabled();

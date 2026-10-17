@@ -231,8 +231,12 @@ test.describe("connected browser wallet flows", () => {
     await expect(page.getByText("Wallet balances", { exact: true })).toHaveCount(0);
     await expect(page.getByRole('main').getByRole('status', { name: /portfolio value/i })).toBeVisible();
     const breakdown = page.getByRole('region', { name: 'Portfolio balance', exact: true });
-    await expect(breakdown.getByText(/^(Known )?wallet assets$/i)).toBeVisible();
-  await expect(breakdown.getByText(/^(Known )?position value$/i)).toBeVisible();
+    const walletAssets = breakdown.getByRole('link', { name: /^(Known )?wallet assets$/i });
+    const positionValue = breakdown.getByRole('link', { name: /^(Known )?position value$/i });
+    await expect(walletAssets).toBeVisible();
+    await expect(positionValue).toBeVisible();
+    await expect(walletAssets).toHaveAttribute('href', '#portfolio-assets-heading');
+    await expect(positionValue).toHaveAttribute('href', '#portfolio-defi');
     await expect(page.getByText('Verified units', { exact: true })).toHaveCount(0);
     await expect(page.getByText('0 assets', { exact: true })).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/\$\s*\d/);
@@ -560,7 +564,7 @@ test.describe("market price context", () => {
     await expect(page.getByRole("region", { name: "Markets" }).getByText("24h change", { exact: true })).toBeVisible();
     const earnSection = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
     if (await earnSection.count()) {
-      await expect(earnSection.getByRole("heading", { name: "fxSAVE", exact: true })).toBeVisible();
+      await expect(earnSection.getByRole("heading", { name: "Savings", exact: true })).toBeVisible();
     } else {
       await expect(page.getByRole("link", { name: /^fxSAVE View Earn$/ })).toHaveAttribute("href", "/earn");
     }
@@ -620,13 +624,11 @@ test.describe("market price context", () => {
   });
 });
 
-test("Earn links to borrowing without presenting positions as savings", async ({ page, requests }) => {
+test("Earn stays focused on fxSAVE without cross-product navigation", async ({ page, requests }) => {
   await page.goto("/earn", { waitUntil: "domcontentloaded" });
-  await page.getByRole("link", { name: "Borrow fxUSD" }).click();
-  await expect(page).toHaveURL(/\/borrow\/?$/);
-  // Debt is named for what it is, under the Earn tab's fxSAVE | Borrow fxUSD switch.
-  await expect(page.getByRole("heading", { name: "Borrow", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Borrow fxUSD", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "Earn", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "fxSAVE", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Borrow fxUSD", exact: true })).toHaveCount(0);
   assertNoBackendRequests(requests);
 });
 
@@ -716,15 +718,17 @@ test.describe("Move and More compact surfaces", () => {
     await page.goto("/more", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("link", { name: /History/ })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /Receive/ })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: /Settings/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Transaction settings/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Wallet & account", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: /Appearance/ })).toHaveCount(0);
     for (const redundantGroupTitle of ["Account", "Preferences", "f(x) Protocol", "Resources"]) {
       await expect(page.getByRole("heading", { name: redundantGroupTitle, exact: true })).toHaveCount(0);
     }
     await expect(page.getByRole("link", { name: "FxAeon docs", exact: true })).toHaveAttribute("href", "/docs");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Wallet & account", exact: true })).toBeVisible();
     await expect(page.getByRole("radiogroup", { name: "Appearance theme", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("radiogroup", { name: "Slippage tolerance" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Slippage tolerance" })).toHaveCount(0);
     assertNoBackendRequests(requests);
   });
 
@@ -736,11 +740,13 @@ test.describe("Move and More compact surfaces", () => {
       await expect(more.getByRole("heading", { name: "More", exact: true })).toBeVisible();
       await expect(more.getByRole("link", { name: /History/ })).toHaveCount(0);
       await expect(more.getByRole("link", { name: /Receive/ })).toHaveCount(0);
-      await expect(more.getByRole("link", { name: /Settings/ })).toBeVisible();
+      await expect(more.getByRole("button", { name: /Transaction settings/ })).toBeVisible();
+      await expect(more.getByRole("link", { name: "Wallet & account", exact: true })).toBeVisible();
       expect(await more.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
 
       await page.goto("/settings", { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("radiogroup", { name: "Slippage tolerance" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Wallet & account", exact: true })).toBeVisible();
+      await expect(page.getByRole("radiogroup", { name: "Slippage tolerance" })).toHaveCount(0);
       await expect(page.getByRole("radiogroup", { name: "Appearance theme" })).toHaveCount(0);
       expect(await page.getByRole("main").evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
     }

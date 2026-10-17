@@ -73,6 +73,16 @@ test('partial priced holdings still produce a useful subtotal without double cou
   assert.equal(result.hasKnownValue, true);
 });
 
+test('same canonical token is counted once per chain, with same-chain duplicates deduplicated', () => {
+  const fxUsdOnEthereum = row({ id: '1:fxusd-a', canonicalKey: 'fxUSD', symbol: 'fxUSD', name: 'fxUSD',
+    tokenAddress: address, decimals: 18, balanceWei: 2n * 10n ** 18n, balance: '2', usdValue: 2 });
+  const duplicateEthereumRow = { ...fxUsdOnEthereum, id: '1:fxusd-b' };
+  const fxUsdOnBase = { ...fxUsdOnEthereum, id: '8453:fxusd', chainId: 8453 as const,
+    network: 'base' as const, usdValue: 3 };
+  const result = knownFreshPortfolioSubtotal(snapshot([fxUsdOnEthereum, duplicateEthereumRow, fxUsdOnBase]), null, null, missing, now);
+  assert.deepEqual(result, { totalUsd: 5, assetCount: 2, hasKnownValue: true });
+});
+
 test('no data is unknown, while an authoritative zero remains zero', () => {
   assert.equal(knownFreshPortfolioSubtotal(null, null, null, missing, now).totalUsd, null);
   assert.equal(knownFreshPortfolioSubtotal(null, { balances: [zeroToken], failedTokens: [] }, now, missing, now).totalUsd, 0);

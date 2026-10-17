@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useId, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from 'react';
-import Link from 'next/link';
 import { formatUnits } from 'viem';
-import { ChevronRight, Fuel, Percent, RotateCcw } from 'lucide-react';
+import { Fuel, Percent, RotateCcw } from 'lucide-react';
 import { ChainIcon } from '@/components/TokenIcon';
 import { SettingsPopover } from '@/components/SettingsPopover';
 import { DecimalInput } from '@/components/DecimalInput';
@@ -205,6 +204,5 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
       <span>Changes save on this device.</span>
       <button type="button" disabled={!canReset} onClick={reset}><RotateCcw size={14} aria-hidden="true" />Reset defaults</button>
     </div>}
-    <Link href="/settings" className={styles.more}>All settings<ChevronRight aria-hidden="true" /></Link>
   </div>;
 }

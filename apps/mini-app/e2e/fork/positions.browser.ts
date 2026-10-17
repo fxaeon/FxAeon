@@ -1080,14 +1080,15 @@ async function runProof(captureStage: string) {
       console.log(`Responsive live-balance shortcuts verified at ${viewport.width}x${viewport.height}`);
     }
     await page.setViewportSize({ width: 393, height: 852 });
-    // Set slippage through Settings before opening a real fork-backed review.
+    // Set slippage directly from More before opening a real fork-backed review.
     // This scenario uses an external EIP-1193 wallet, which chooses its own fees.
-    await page.goto(`${baseUrl}/settings`);
+    await page.goto(`${baseUrl}/more`);
     await ensureForkWalletConnected();
-    const settingsSlippage = page.getByRole('radiogroup').filter({ has: page.getByRole('radio', { name: '0.1%', exact: true }) });
+    await page.getByRole('button', { name: /Transaction settings/ }).click();
+    const settingsDialog = page.getByRole('dialog', { name: 'Transaction settings' });
+    const settingsSlippage = settingsDialog.getByRole('radiogroup', { name: 'Max slippage' });
     await settingsSlippage.getByRole('radio', { name: '1%', exact: true }).click();
-    await page.getByRole('button', { name: 'Save preferences', exact: true }).click();
-    await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+    await settingsDialog.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
     assert.equal(submitted.length, 0, 'saving transaction preferences must not request a signature');
     await page.evaluate(() => {
       const key = 'fxaeon.settings.v1';

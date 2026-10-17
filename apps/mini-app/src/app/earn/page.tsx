@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { AppShell } from '@/components/ui';
-import { ChoiceCards, Disclosure, MetricRows, PageHeading, ProductNav, ProductSurface, StatusNotice } from '@/components/ProductUI';
+import { ChoiceCards, Disclosure, MetricRows, PageHeading, ProductSurface, StatusNotice } from '@/components/ProductUI';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
@@ -468,8 +468,7 @@ export default function EarnPage() {
   return (
     <AppShell>
       <ActionWorkspace className={presentation.workspace} density="compact">
-        <PageHeading title="Earn" />
-        {inputStage && <ProductNav current="save" />}
+        <PageHeading title="Earn" visible />
         <div className={presentation.vaultLayout} data-review={!inputStage || mode === 'claim'}>
         {inputStage && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus}
@@ -581,7 +580,7 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
         </>}
       </div>
       <div className={presentation.rate}>
-        <small>APY</small>
+        <small>Variable APY</small>
         <strong>{fxSaveApy
           ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
           : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>

@@ -7,28 +7,6 @@
 .disconnect :global(button) { min-height: 44px; color: var(--mut); font-size: var(--fs-caption); }
 .disconnect :global(button:hover) { color: var(--danger); background: var(--danger-dim); }
 .section { min-width: 0; scroll-margin-top: 104px; }
-.section > h2 { margin: 0 0 8px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; }
-.panel { padding: 16px; }
-.preferenceHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.preferenceHeading h3 { font-size: var(--fs-title); font-weight: 600; margin: 0; }
-.preferenceHeading > span { display: flex; align-items: center; gap: 4px; font-size: var(--fs-micro); color: var(--mut); }
-.preferenceHeading .saved { color: var(--success); }
-.refresh { min-height: 44px; min-width: 44px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 12px; color: var(--mut); font-size: var(--fs-caption); }
-.refresh:hover { color: var(--text); border-color: var(--line-strong); }
-.refresh:disabled { cursor: progress; color: var(--mut-2); }
-.gasPreference { margin: 12px 0 16px; padding-top: 8px; border-top: 1px solid var(--line); }
-.choices.gasChoices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.choices.gasChoices button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 68px; padding: 8px 4px; font-size: var(--fs-small); }
-.gasRate { display: flex; justify-content: center; color: var(--mut); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
-.gasChoices button[aria-checked='true'] .gasRate { color: var(--mint-text); }
-.help { color: var(--mut); font-size: var(--fs-caption); line-height: 1.6; margin: 6px 0 8px; }
-.scope { color: var(--mut); font-size: var(--fs-caption); line-height: 1.55; margin: 8px 0 12px; }
-.choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.choices button { min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: var(--input); color: var(--mut); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
-.choices button[aria-checked='true'] { background: var(--mint-dim); color: var(--text); border-color: var(--mint); }
-.choices button:disabled { cursor: progress; color: var(--mut-2); }
-.save { width: 100%; }
-.error { color: var(--danger); font-size: var(--fs-caption); line-height: 1.6; margin-top: 10px; }
 .walletManagement { margin-top: 8px; }
 
 /* More is a small directory: make the destinations read as grouped tools,
@@ -36,24 +14,9 @@
 .moreWorkspace { width: min(100%, 760px); gap: 18px; }
 .directory { display: grid; min-width: 0; gap: 14px; }
 
-/* Settings keeps its content in one calm column. These panels use the same
-   lilac theme tokens as the rest of the product, with a lighter edge. */
+/* Wallet selection stays a compact utility surface. Transaction settings live
+   beside actions and on More, where they can be changed without another page. */
 .settingsWorkspace { width: min(100%, 680px); gap: 18px; }
-.settingsWorkspace > .section > h2,
-.settingsWorkspace > :global(section#appearance) > h2 {
-  margin-bottom: 10px;
-  color: var(--mut-2);
-  font-size: var(--fs-caption);
-  font-weight: 650;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-.settingsWorkspace .panel {
-  border: 1px solid var(--hairline);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--surface) 96%, var(--mint) 4%);
-  box-shadow: none;
-}
 .settingsWorkspace .walletManagement :global(details) {
   overflow: hidden;
   border: 1px solid var(--hairline);
@@ -69,21 +32,6 @@
   border-bottom: 1px solid var(--line);
 }
 .settingsWorkspace .walletManagement :global(details > div) { padding: 8px; }
-.settingsWorkspace .choices button {
-  border-color: var(--hairline);
-  border-radius: 14px;
-  background: var(--surface-2);
-  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
-}
-.settingsWorkspace .choices button[aria-checked='true'] {
-  border-color: color-mix(in srgb, var(--mint) 58%, transparent);
-  background: var(--mint-dim);
-  color: var(--text);
-}
-.settingsWorkspace .choices button:focus-visible,
-.settingsWorkspace .refresh:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.settingsWorkspace .gasPreference { border-color: var(--hairline); }
-.settingsWorkspace .refresh { border-color: var(--hairline); border-radius: 14px; }
 .settingsWorkspace .disconnect { padding: 4px 0 0; }
 
 @media (min-width: 680px) {
@@ -94,8 +42,4 @@
   .moreWorkspace { gap: 14px; }
   .directory { gap: 12px; }
   .settingsWorkspace { gap: 16px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settingsWorkspace .choices button { transition: none; }
 }

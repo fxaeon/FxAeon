@@ -5,11 +5,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Coins, Search } from 'lucide-react';
-import { AssetListSkeleton, AssetRowContent, displayAssetSymbol, networkLabel } from '@/components/AssetPresentation';
+import { ChevronDown, ChevronRight, Coins, Search } from 'lucide-react';
+import { AssetListSkeleton, AssetNetworkIcon, AssetQuantity, displayAssetSymbol, networkLabel } from '@/components/AssetPresentation';
 export { AssetIcon, AssetNetworkIcon, AssetQuantity, displayAssetSymbol, networkLabel } from '@/components/AssetPresentation';
-import { filterSupportedWalletAssets, summarizeWalletAssets, type WalletAssetSnapshot } from '@/lib/walletAssets';
+import { filterSupportedWalletAssets, summarizeWalletAssets, type WalletAsset, type WalletAssetSnapshot } from '@/lib/walletAssets';
+import { ValueOrSkeleton } from '@/components/MissingValue';
+import { formatUsd } from '@/lib/prices';
 import { WalletAssetModal } from '@/components/WalletAssetDetails';
+import { isLowValuePortfolioAsset } from './portfolioAssetGroups';
 import styles from './PortfolioAssets.module.css';
 
 export type PortfolioNetwork = 'all' | 1 | 8453;
@@ -58,7 +61,11 @@ export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkC
 
   const missingFreshValues = assets.some((asset) => asset.usdValue === null);
   const showSearch = search.length > 0 || (displaySnapshot?.assets.filter((asset) => asset.balanceWei > 0n).length ?? 0) > 6;
-  const visibleAssets = expanded || query ? assets : assets.slice(0, 6);
+  // Unknown/stale values always stay in the main list. A failed price is never dust.
+  const groupingNow = Date.now();
+  const lowValueAssets = query ? [] : assets.filter((asset) => isLowValuePortfolioAsset(asset, groupingNow));
+  const mainAssets = query ? assets : assets.filter((asset) => !isLowValuePortfolioAsset(asset, groupingNow));
+  const visibleAssets = expanded || query ? mainAssets : mainAssets.slice(0, 6);
   const hasNetworkAssets = Boolean(displaySnapshot?.assets.some((asset) => asset.balanceWei > 0n && (network === 'all' || asset.chainId === network)));
   const showAssetLoading = countState === 'loading' && !hasNetworkAssets;
   const needsStatus = countState !== 'ready' || missingFreshValues;
@@ -69,14 +76,22 @@ export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkC
   const retryAction = onRefresh && <button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing}>{refreshing ? 'Refreshing…' : 'Try again'}</button>;
   const unavailableState = <div className={styles.empty}><Coins size={24} aria-hidden="true" /><p><strong>Couldn’t load balances</strong></p>{retryAction}</div>;
   const where = network === 'all' ? '' : ` on ${networkLabel(network)}`;
+  const assetRows = (rows: readonly WalletAsset[]) => <ul className={styles.assetList}>{rows.map((asset) => <li key={asset.id}>
+    <button type="button" className={styles.assetRow} onClick={() => { if (snapshot) setSelection({ wallet: snapshot.walletAddress, id: asset.id }); }} aria-label={`View ${displayAssetSymbol(asset.symbol)} on ${networkLabel(asset.chainId)}`}>
+      <AssetNetworkIcon asset={asset} size={38} />
+      <span className={styles.assetIdentity}><strong>{displayAssetSymbol(asset.symbol)}</strong><span><AssetQuantity asset={asset} compact /><span className={styles.assetNetwork}>{networkLabel(asset.chainId)}</span></span></span>
+      <span className={styles.assetValue}><ValueOrSkeleton value={formatUsd(asset.usdValue)} width="sm" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading holding value' : 'Holding value unavailable'} /></span>
+      <ChevronRight className={styles.rowArrow} size={15} aria-hidden="true" />
+    </button>
+  </li>)}</ul>;
   return <section className={`${styles.assets} ${styles.ledgerSurface}`} aria-labelledby="portfolio-assets-heading">
     <div className={styles.sectionHeading}>
-      <h2 id="portfolio-assets-heading">Assets</h2>
+      <div><h2 id="portfolio-assets-heading">Assets</h2><p>In your wallet</p></div>
         {onNetworkChange && <PortfolioNetworkTabs value={network} onChange={onNetworkChange} />}
       </div>
     {showSearch && <label className={styles.search}><Search size={18} aria-hidden="true" /><span className="sr-only">Search assets</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search assets" autoComplete="off" /></label>}
     {needsStatus && <div className={styles.status} role="status"><span>{statusLabel}</span>{!loading && assets.length > 0 && retryAction}</div>}
-    {assets.length > 0 && <div className={styles.columnLabels} aria-hidden="true"><span>Asset</span><span>Value</span></div>}
+    {assets.length > 0 && <div className={styles.columnLabels} aria-hidden="true"><span>Token / balance</span><span>Value</span></div>}
     {loading && !snapshot ? <AssetListSkeleton />
       : !snapshot ? unavailableState
       : showAssetLoading ? <AssetListSkeleton />
@@ -84,10 +99,12 @@ export function PortfolioAssets({ snapshot, loading, network = 'all', onNetworkC
         : assets.length === 0 ? <div className={styles.empty}><Coins size={24} aria-hidden="true" />
           {search ? <><p><strong>No matching assets{where}</strong></p><button type="button" onClick={() => setSearch('')}>Clear search</button></>
             : <><p><strong>No assets{where} yet</strong></p><Link href="/qr">Receive assets</Link></>}</div>
-      : <ul className={styles.assetList}>{visibleAssets.map((asset) => <li key={asset.id}><button type="button" className={styles.assetRow} onClick={() => setSelection({ wallet: snapshot.walletAddress, id: asset.id })} aria-label={`View ${displayAssetSymbol(asset.symbol)} on ${networkLabel(asset.chainId)}`}>
-        <AssetRowContent asset={asset} loading={loading} />
-      </button></li>)}</ul>}
-    {!query && assets.length > 6 && <button type="button" className={styles.showAll} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Show fewer assets' : `View all ${assets.length} assets`}</button>}
+      : assetRows(visibleAssets)}
+    {!query && mainAssets.length > 6 && <button type="button" className={styles.showAll} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Show fewer assets' : `View all ${mainAssets.length} assets`}</button>}
+    {lowValueAssets.length > 0 && <details className={styles.lowValueGroup} open={mainAssets.length === 0 || undefined}>
+      <summary><span><strong>Low-value assets ({lowValueAssets.length})</strong><small>Under $1 each</small></span><span className={styles.lowValueTotal}>{formatUsd(lowValueAssets.reduce((sum, asset) => sum + asset.usdValue!, 0))}</span><ChevronDown size={16} aria-hidden="true" /></summary>
+      {assetRows(lowValueAssets)}
+    </details>}
     {selected && <WalletAssetModal asset={selected} walletAddress={displaySnapshot?.walletAddress} onClose={() => setSelection(null)} />}
   </section>;
 }

@@ -8,12 +8,16 @@ const ROUTE_METADATA = [
   ["/portfolio", "Portfolio", "wallet"],
   ["/docs", "Docs", "f(x) SDK"],
   ["/docs/sdk", "f(x) SDK reference", "15-method"],
-  ["/settings", "Settings", "appearance"],
+  ["/settings", "Wallet & account", "wallet"],
 ] as const;
 
 function metaContent(html: string, attribute: "name" | "property", value: string): string {
   const match = html.match(new RegExp(`<meta\\s+${attribute}=["']${value}["']\\s+content=["']([^"']+)["']`, "i"));
   return match?.[1] ?? "";
+}
+
+function decodeHtmlText(text: string): string {
+  return text.replaceAll("&amp;", "&");
 }
 
 test.describe("server-rendered route metadata", () => {
@@ -28,7 +32,7 @@ test.describe("server-rendered route metadata", () => {
       const twitterTitle = metaContent(html, "name", "twitter:title");
       const icon = html.match(/<link\s+rel=["']icon["'][^>]*href=["']([^"']+)["']/i)?.[1] ?? "";
 
-      expect(documentTitle).toBe(`${title} · FxAeon`);
+      expect(decodeHtmlText(documentTitle)).toBe(`${title} · FxAeon`);
       expect(description).toContain(descriptionKeyword);
       expect(openGraphTitle).toBe(documentTitle);
       expect(twitterTitle).toBe(documentTitle);

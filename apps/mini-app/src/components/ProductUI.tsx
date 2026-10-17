@@ -21,13 +21,6 @@ export function PageHeading({ title, backHref, action, visible = false }: { titl
   </header>;
 }
 
-export function ProductNav({ current }: { current: 'save' | 'borrow' }) {
-  return <nav className={styles.productNav} aria-label="Savings and borrowing">
-    <Link href="/earn" aria-current={current === 'save' ? 'page' : undefined}>fxSAVE</Link>
-    <Link href="/borrow" aria-current={current === 'borrow' ? 'page' : undefined}>Borrow fxUSD</Link>
-  </nav>;
-}
-
 export type MetricRow = { label: string; value: ReactNode; detail?: ReactNode; emphasis?: boolean };
 export function MetricRows({ rows, label }: { rows: readonly MetricRow[]; label?: string }) {
   return <dl className={styles.metrics} aria-label={label}>

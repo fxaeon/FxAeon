@@ -62,6 +62,8 @@ export function knownFreshPortfolioSubtotal(
       && (balanceUpdatedAt > asset.balanceUpdatedAt
         || (balanceUpdatedAt === asset.balanceUpdatedAt && exactBalance.amountWei !== asset.balanceWei))) continue;
     if (asset.balanceWei > 0n) hasUnresolvedPositiveAsset = true;
+    // Canonical token keys repeat across networks (for example fxUSD on
+    // Ethereum and Base), so retain chain identity when deduplicating rows.
     const assetKey = asset.canonicalKey ? `${asset.chainId}:${asset.canonicalKey}` : asset.id;
     if (asset.balanceWei > 0n && freshTimestamp(asset.balanceUpdatedAt, now, ASSET_BALANCE_MAX_AGE_MS)) positiveAssets.add(assetKey);
     if (asset.balanceWei <= 0n || asset.usdValue === null || !Number.isFinite(asset.usdValue) || asset.usdValue < 0

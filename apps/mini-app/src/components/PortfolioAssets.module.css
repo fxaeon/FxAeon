@@ -1,32 +1,57 @@
-/* A holdings ledger: identity on the left, USD value and quantity on the right. */
-.assets { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); padding: 16px; }
+/* Compact wallet rows: token identity and units, then its verified dollar value. */
+.assets { min-width: 0; scroll-margin-top: 24px; }
 .ledgerSurface { box-shadow: none; }
-.sectionHeading { display: flex; min-height: 44px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.sectionHeading h2 { margin: 0; font-size: 16px; font-weight: 550; letter-spacing: -.015em; }
+.sectionHeading { display: flex; min-height: 48px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.sectionHeading h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.025em; scroll-margin-top: 24px; }
+.sectionHeading p { margin: 3px 0 0; color: var(--mut); font-size: 12px; }
 .networkSelect { position: relative; display: inline-flex; min-width: 0; max-width: 100%; align-items: center; color: var(--mut); }
-.networkSelect select { appearance: none; min-height: 44px; max-width: 100%; border: 0; border-radius: 10px; background: transparent; color: var(--text); padding: 8px 26px 8px 10px; font-size: 12px; font-weight: 400; cursor: pointer; }
+.networkSelect select { appearance: none; min-height: 44px; max-width: 100%; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--text); padding: 8px 30px 8px 13px; font-size: 12px; font-weight: 400; cursor: pointer; }
 .networkSelect select:hover { background: var(--surface-2); }
 .networkSelect select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.networkSelect > svg { position: absolute; right: 6px; pointer-events: none; color: var(--mut); }
-.search { display: flex; min-height: 44px; align-items: center; gap: 10px; margin: 0 0 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--mut); }
-.search input { width: 100%; min-width: 0; min-height: 44px; background: transparent; color: var(--text); font-size: 16px; outline: none; }
+.networkSelect > svg { position: absolute; right: 10px; pointer-events: none; color: var(--mut); }
+.search { display: flex; min-height: 44px; align-items: center; gap: 10px; margin: 0 0 10px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--mut); }
+.search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-size: 16px; outline: none; }
 .search:focus-within { border-color: var(--focus-ring); box-shadow: 0 0 0 3px var(--mint-dim); }
 .status { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin: 0 0 6px; color: var(--mut); font-size: 12px; line-height: 1.5; }
 .status button { min-height: 44px; color: var(--mint-text); }
-.columnLabels { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 10px; border-bottom: 1px solid var(--line); color: var(--mut); font-size: 11px; font-weight: 400; }
+.columnLabels { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 25px 12px 0; border-bottom: 1px solid var(--line); color: var(--mut); font-size: 11px; }
 .assetList { list-style: none; margin: 0; padding: 0; }
 .assetList > li + li { border-top: 1px solid var(--line); }
-.assetRow { display: flex; width: 100%; min-width: 0; min-height: 66px; align-items: center; gap: 12px; padding: 12px 0; border: 0; border-radius: 8px; background: transparent; text-align: left; transition: background-color var(--dur-fast); }
+.assetRow { display: grid; width: 100%; min-width: 0; min-height: 79px; grid-template-columns: 38px minmax(0, 1fr) auto 15px; align-items: center; gap: 12px; padding: 14px 0; border: 0; border-radius: 10px; background: transparent; text-align: left; transition: background-color var(--dur-fast); }
 .assetRow:hover { background: var(--surface-2); }
 .assetRow:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
-.assetList .assetRow strong { font-size: 14px; font-weight: 500; letter-spacing: -.01em; }
+.assetIdentity { display: grid; min-width: 0; gap: 6px; }
+.assetIdentity > strong { color: var(--text); font-size: 15px; font-weight: 550; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.assetIdentity > span { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; color: var(--mut); font-size: 12px; }
+.assetIdentity > span > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.assetNetwork { color: var(--mut-2); font-size: 10px; }
+.assetValue { min-width: 0; max-width: 180px; color: var(--text); text-align: right; font-size: 17px; font-weight: 550; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rowArrow { color: var(--mut-2); }
 .showAll { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: center; margin-top: 4px; border-top: 1px solid var(--line); color: var(--mint-text); font-size: 13px; font-weight: 500; }
-.showAll:focus-visible, .empty :is(a, button):focus-visible, .status button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }
-.empty { display: flex; min-width: 0; min-height: 76px; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 0; color: var(--mut); font-size: 13px; }
+.showAll:focus-visible, .empty :is(a, button):focus-visible, .status button:focus-visible, .lowValueGroup > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }
+.lowValueGroup { min-width: 0; margin-top: 8px; border-top: 1px solid var(--line); }
+.lowValueGroup > summary { display: flex; min-width: 0; min-height: 70px; align-items: center; gap: 10px; padding-block: 13px; cursor: pointer; list-style: none; }
+.lowValueGroup > summary::-webkit-details-marker { display: none; }
+.lowValueGroup > summary > span:first-child { display: grid; min-width: 0; flex: 1; gap: 4px; }
+.lowValueGroup > summary strong { color: var(--mut); font-size: 13px; font-weight: 500; }
+.lowValueGroup > summary small { color: var(--mut-2); font-size: 11px; }
+.lowValueTotal { color: var(--mut); font-size: 13px; font-variant-numeric: tabular-nums; }
+.lowValueGroup > summary > svg { flex: 0 0 auto; color: var(--mut); }
+.lowValueGroup[open] > summary > svg { transform: rotate(180deg); }
+.empty { display: flex; min-width: 0; min-height: 98px; flex-wrap: wrap; align-items: center; gap: 12px; padding: 18px 0; color: var(--mut); font-size: 13px; }
 .empty > svg { flex: 0 0 auto; color: var(--mut); }
 .empty p { display: grid; min-width: 0; flex: 1 1 140px; gap: 3px; margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .empty p strong { color: var(--mut); font-size: 13px; font-weight: 400; }
 .empty a, .empty button { display: inline-flex; min-height: 44px; flex: 0 0 auto; align-items: center; margin-left: auto; color: var(--mint-text); font-size: 13px; font-weight: 500; }
-@media (min-width: 761px) { .assets { padding: 16px 20px; } }
-@media (max-width: 380px) { .assetRow { gap: 10px; } }
+@media (max-width: 600px) { .sectionHeading { margin-bottom: 10px; } }
+@media (max-width: 380px) {
+  .assetRow { gap: 8px; grid-template-columns: 34px minmax(0, 1fr) auto 12px; }
+  .assetRow > :first-child { width: 34px !important; height: 34px !important; }
+  .assetRow > :first-child > :first-child { width: 34px !important; height: 34px !important; }
+  .assetValue { max-width: 130px; font-size: 15px; }
+  .assetIdentity > strong { font-size: 14px; }
+  .assetIdentity > span > span:first-child { font-size: 11px; }
+  .rowArrow { width: 12px; }
+  .columnLabels { padding-right: 20px; }
+}
 @media (prefers-reduced-motion: reduce) { .assetRow { transition: none; } }
