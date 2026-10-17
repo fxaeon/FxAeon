@@ -314,7 +314,7 @@ test('with data saver on, the canvas stays still from the first paint', async ({
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('More lists History beside Settings and marks only external links', async ({ page }) => {
+test('More lists History beside Wallet & account and marks only external links', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[2][1] });
   const directory = page.locator('[data-utility-directory]');
@@ -323,18 +323,19 @@ test('More lists History beside Settings and marks only external links', async (
   const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
   expect(hrefs).toEqual(['/history', '/settings', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
   const historyHeight = (await directory.getByRole('link', { name: 'History', exact: true }).boundingBox())!.height;
-  const settingsHeight = (await directory.getByRole('link', { name: 'Settings', exact: true }).boundingBox())!.height;
+  const accountHeight = (await directory.getByRole('link', { name: 'Wallet & account', exact: true }).boundingBox())!.height;
   expect(historyHeight).toBeGreaterThanOrEqual(44);
-  expect(Math.abs(historyHeight - settingsHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(historyHeight - accountHeight)).toBeLessThanOrEqual(1);
   expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
   for (const link of await links.all()) {
     await expect(link).toHaveAccessibleName(/\S/);
   }
   await expect(directory.getByRole('link', { name: /Protocol docs.*opens in a new tab/ })).toHaveAttribute('target', '_blank');
   await expect(directory.getByRole('link', { name: 'FxAeon docs' })).toHaveAttribute('href', '/docs');
+  await expect(directory.getByRole('button', { name: /^Transaction settings,/ })).toBeVisible();
 });
 
-test('More hides account and Receive at all times and History until connected; Settings preserves its loading shape', async ({ page }) => {
+test('More hides account and Receive at all times and History until connected; Wallet & account preserves its loading shape', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[0][1] });
   await expect(page.getByRole('status', { name: 'Loading account' })).toHaveCount(0);

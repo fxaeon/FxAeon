@@ -60,7 +60,7 @@ test.describe('unified product presentation', () => {
     });
     await page.goto('/more', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    const settingsButton = page.getByRole('button', { name: 'Transaction settings, 0.5% slippage', exact: true });
+    const settingsButton = page.getByRole('button', { name: /^Transaction settings,/ });
     await settingsButton.click();
     const settings = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
     await expect(settings.getByRole('radiogroup', { name: 'Max slippage' })).toBeVisible();

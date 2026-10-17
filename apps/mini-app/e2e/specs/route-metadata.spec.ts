@@ -16,6 +16,10 @@ function metaContent(html: string, attribute: "name" | "property", value: string
   return match?.[1] ?? "";
 }
 
+function decodeHtmlText(text: string): string {
+  return text.replaceAll("&amp;", "&");
+}
+
 test.describe("server-rendered route metadata", () => {
   for (const [route, title, descriptionKeyword] of ROUTE_METADATA) {
     test(`${route} exposes route-specific launch metadata before hydration`, async ({ request }) => {
@@ -28,7 +32,7 @@ test.describe("server-rendered route metadata", () => {
       const twitterTitle = metaContent(html, "name", "twitter:title");
       const icon = html.match(/<link\s+rel=["']icon["'][^>]*href=["']([^"']+)["']/i)?.[1] ?? "";
 
-      expect(documentTitle).toBe(`${title} · FxAeon`);
+      expect(decodeHtmlText(documentTitle)).toBe(`${title} · FxAeon`);
       expect(description).toContain(descriptionKeyword);
       expect(openGraphTitle).toBe(documentTitle);
       expect(twitterTitle).toBe(documentTitle);

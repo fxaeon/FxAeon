@@ -231,8 +231,12 @@ test.describe("connected browser wallet flows", () => {
     await expect(page.getByText("Wallet balances", { exact: true })).toHaveCount(0);
     await expect(page.getByRole('main').getByRole('status', { name: /portfolio value/i })).toBeVisible();
     const breakdown = page.getByRole('region', { name: 'Portfolio balance', exact: true });
-    await expect(breakdown.getByText(/^(Known )?wallet assets$/i)).toBeVisible();
-  await expect(breakdown.getByText(/^(Known )?position value$/i)).toBeVisible();
+    const walletAssets = breakdown.getByRole('link', { name: /^(Known )?wallet assets$/i });
+    const positionValue = breakdown.getByRole('link', { name: /^(Known )?position value$/i });
+    await expect(walletAssets).toBeVisible();
+    await expect(positionValue).toBeVisible();
+    await expect(walletAssets).toHaveAttribute('href', '#portfolio-assets-heading');
+    await expect(positionValue).toHaveAttribute('href', '#portfolio-defi');
     await expect(page.getByText('Verified units', { exact: true })).toHaveCount(0);
     await expect(page.getByText('0 assets', { exact: true })).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/\$\s*\d/);

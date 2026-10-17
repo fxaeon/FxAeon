@@ -19,7 +19,7 @@ test.describe('product copy and session visibility', () => {
     assertNoBackendRequests(requests);
   });
 
-  test('Trade and History use visible page headings; other routes keep unanimated screen-reader titles', async ({ page, requests }) => {
+  test('Trade, Earn, Borrow and History use visible page headings; other routes keep unanimated screen-reader titles', async ({ page, requests }) => {
     const titles = [
       ['/portfolio', 'Portfolio'], ['/positions', 'Positions'], ['/earn', 'Earn'], ['/borrow', 'Borrow'],
       ['/move', 'Move'], ['/history', 'History'], ['/more', 'More'], ['/settings', 'Wallet & account'],
@@ -35,9 +35,9 @@ test.describe('product copy and session visibility', () => {
         }
         return false;
       });
-      if (route === '/history') {
+      if (['/history', '/earn', '/borrow'].includes(route)) {
         await expect(heading).toBeVisible();
-        expect(isScreenReaderOnly, 'History keeps its visible feed heading').toBe(false);
+        expect(isScreenReaderOnly, `${route} keeps its visible page heading`).toBe(false);
       } else {
         expect(isScreenReaderOnly, `${route} keeps its title in the screen-reader-only tree`).toBe(true);
       }
