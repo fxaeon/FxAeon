@@ -1,21 +1,21 @@
-.moveWorkspace { width: 100%; max-width: 440px; margin: 0 auto; min-height: calc(var(--tg-viewport-height, 100dvh) - 144px); justify-content: center; padding-block: 12px; }
+.moveWorkspace.moveWorkspace { width: min(100%, 400px); max-width: 400px; margin: 0 auto; min-height: calc(var(--tg-viewport-height, 100dvh) - 128px); justify-content: center; gap: 8px; padding-block: 16px; }
 .centerStage { min-width: 0; }
-.moveCard.moveCard { width: 100%; min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: none; }
+.moveCard.moveCard { width: 100%; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: none; }
 .cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin: -2px 2px 8px; }
 .cardHead > span { font-size: 18px; font-weight: 600; letter-spacing: -.025em; }
 .moveCard.moveCard .moveFormFields { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.sourcePanel, .destinationPanel { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.sourcePanel, .destinationPanel { min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); }
 .destinationPanel { background: transparent; }
 .destinationPanel { display: flex; flex-direction: column; gap: 4px; }
-.sourcePanel, .destinationPanel { min-height: 104px; }
+.sourcePanel, .destinationPanel { min-height: 96px; }
 .receiveLine { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
 .receiveAmount { min-width: 0; overflow-wrap: anywhere; font-size: clamp(28px, 8.5vw, 36px); font-weight: 500; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .receiveCaption { margin: 0; color: var(--mut); font-size: 12px; line-height: 1.4; }
-.quoteSummary { padding: 4px 2px 10px; border-bottom: 1px solid var(--line); }
+.quoteSummary { padding: 0 2px 8px; border-bottom: 1px solid var(--line); }
 .quoteHeading { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
 .quoteHeading button { color: var(--mint-text, var(--mint)); min-height: 44px; font-size: 12px; }
 .quoteHeading button:disabled { color: var(--mut); }
-.quoteSummary dl { display: grid; gap: 10px; margin: 0; font-size: 13px; line-height: 1.45; }
+.quoteSummary dl { display: grid; gap: 6px; margin: 0; font-size: 13px; line-height: 1.45; }
 .quoteSummary dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .quoteSummary dt { color: var(--mut); }
 .quoteSummary dd { margin: 0; text-align: right; min-width: 0; max-width: 58%; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -30,13 +30,12 @@
 .expertSettings > div { margin-top: 12px; }
 .modeBadge { display: inline-block; margin-left: 8px; color: var(--warn); font-size: 11px; font-weight: 400; }
 .fieldError { display: block; margin-top: 6px; color: var(--danger); font-size: 12px; line-height: 1.5; }
-.moveCard .sourcePanel :global(.amount-control) { padding: 0; border-radius: 12px; border-color: transparent; background: transparent !important; --amount-ring: none; }
+.moveCard .sourcePanel :global(.amount-control) { padding: 0; border-radius: 12px; border-color: transparent; background: transparent !important; --amount-ring: none; --amount-max-size: 36px; }
 .moveCard .sourcePanel :global(.amount-control) > div:has(input) { min-height: 44px; }
 .moveCard .sourcePanel :global(.amount-control) input { min-height: 44px; }
 /* The amount panel has no inner padding here, so let its shortcut row end at
    the source panel edge instead of carrying its usual 10px bleed. */
 .moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin-right: 0; }
-.moveCard .sourcePanel :global(.amount-control:focus-within) { border-color: var(--mint); }
 .routeNode, .routeNode:first-child, .routeNode:last-child { display: flex; align-items: center; justify-content: space-between; min-height: 26px; padding: 0 0 6px; background: transparent; border: 0; box-shadow: none; border-radius: 0; }
 .routeIdentity { display: flex; align-items: center; min-width: 0; margin: 0; margin-top: 0; gap: 7px; font-size: 13px; }
 .chainLogo { flex: 0 0 auto; }
@@ -58,9 +57,10 @@
 .expertRisk { min-width: 0; }
 .moveCard :global(.sticky-action) { position: static; }
 .moveCard :global(.sticky-action)::before { display: none; }
+.moveCard :global(.button-primary) { min-height: 48px; border-radius: 14px; }
 @media (max-width: 640px) {
-  .moveWorkspace { margin-top: 0; min-height: calc(var(--tg-viewport-height, 100dvh) - 176px); padding-block: 8px; }
-  .moveCard.moveCard { padding: 16px; }
+  .moveWorkspace.moveWorkspace { margin-top: 0; min-height: calc(var(--tg-viewport-height, 100dvh) - 144px); padding-block: 8px; }
+  .moveCard.moveCard { padding: 14px; }
   .sourcePanel, .destinationPanel { padding: 10px 12px; }
 }
 @media (max-width: 359px) {

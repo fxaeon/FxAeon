@@ -7,7 +7,7 @@ import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { useExitPresence } from '@/lib/useExitPresence';
 import styles from './SettingsPopover.module.css';
 
-export function SettingsPopover({ summary, chip, children, title = 'Transaction settings' }: { summary: string; chip?: string | null; children: ReactNode; title?: string }) {
+export function SettingsPopover({ summary, chip, children, title = 'Transaction settings', triggerContent, triggerClassName, placement = 'anchor' }: { summary: string; chip?: string | null; children: ReactNode; title?: string; triggerContent?: ReactNode; triggerClassName?: string; placement?: 'anchor' | 'center' }) {
   const [open, setOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
@@ -38,6 +38,11 @@ export function SettingsPopover({ summary, chip, children, title = 'Transaction 
       const minX = (viewport?.offsetLeft ?? 0) + 12;
       const left = Math.max(minX, Math.min(anchor.right - width, minX + (viewport?.width ?? window.innerWidth) - width - 24));
       const available = Math.max(0, maxY - minY);
+      if (placement === 'center') {
+        setPosition({ width, left: (viewport?.offsetLeft ?? 0) + ((viewport?.width ?? window.innerWidth) - width) / 2,
+          top: (minY + maxY) / 2, translate: '0 -50%', maxHeight: available });
+        return;
+      }
       const anchorTop = Math.max(minY, Math.min(anchor.top - 8, maxY));
       const anchorBottom = Math.max(minY, Math.min(anchor.bottom + 8, maxY));
       const below = maxY - anchorBottom;
@@ -59,14 +64,14 @@ export function SettingsPopover({ summary, chip, children, title = 'Transaction 
       window.visualViewport?.removeEventListener('resize', place);
       window.visualViewport?.removeEventListener('scroll', place);
     };
-  }, [open]);
+  }, [open, placement]);
 
   return <>
-    <button ref={triggerRef} type="button" disabled={!hydrated} aria-label={`Transaction settings, ${summary}`} aria-haspopup="dialog" aria-expanded={open} className={styles.trigger} data-chip={chip ? true : undefined} onClick={() => setOpen(true)}>
-      {chip !== undefined ? chip && <span className={styles.chip}>{chip}</span> : <span>{summary}</span>}
+    <button ref={triggerRef} type="button" disabled={!hydrated} aria-label={`Transaction settings, ${summary}`} aria-haspopup="dialog" aria-expanded={open} className={triggerClassName ?? styles.trigger} data-chip={chip ? true : undefined} onClick={() => setOpen(true)}>
+      {triggerContent ?? <>{chip !== undefined ? chip && <span className={styles.chip}>{chip}</span> : <span>{summary}</span>}
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
         <path fillRule="evenodd" d="M9.5 2h5l.6 2.8 1.5.9 2.7-.9 2.5 4.4-2.1 1.9v1.8l2.1 1.9-2.5 4.4-2.7-.9-1.5.9-.6 2.8h-5l-.6-2.8-1.5-.9-2.7.9-2.5-4.4 2.1-1.9v-1.8L2.2 9.2l2.5-4.4 2.7.9 1.5-.9L9.5 2Zm6 10a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0Z" clipRule="evenodd" />
-      </svg>
+      </svg></>}
     </button>
     {present && typeof document !== 'undefined' && createPortal(<div className={styles.backdrop} data-state={open ? 'open' : 'closed'} inert={!open} aria-hidden={!open || undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Transaction settings" className={styles.panel} style={position}>

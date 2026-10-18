@@ -1651,20 +1651,30 @@ async function runProof(captureStage: string) {
       await page.goto(`${baseUrl}/${route}`);
       await ensureForkWalletConnected();
       if (route === 'portfolio') {
+        const defiTab = page.getByRole('tab', { name: 'DeFi', exact: true });
+        await defiTab.click();
+        await expect(defiTab).toHaveAttribute('aria-selected', 'true');
         const portfolioPositions = page.locator('section[aria-label="Positions"]');
-        await expect(portfolioPositions.getByRole('heading', { name: 'Positions', exact: true })).toBeVisible();
-        await expect(portfolioPositions).toContainText(/\d+ open/);
-        await expect(portfolioPositions.locator('[data-position-key]')).toHaveCount(2);
+        await expect(portfolioPositions).toBeVisible();
+        await expect(portfolioPositions.locator('[data-position-key]')).toHaveCount(positions.length);
         await expect(portfolioPositions.locator('[data-position-key]').first()).toBeVisible();
         await page.screenshot({ path: resolve(artifactRoot, 'portfolio-positions-mobile.png'), fullPage: false });
-        await expect(page.getByRole('link', { name: 'Manage all', exact: true })).toHaveAttribute('href', '/positions');
-        for (const position of positions.filter(p => p.market === 'ETH')) {
-          await expect(page.locator(`[data-position-key="${position.market}:${position.side}:${position.positionId}"]`)).toBeVisible();
+        for (const position of positions) {
+          const row = portfolioPositions.locator(`[data-position-key="${position.market}:${position.side}:${position.positionId}"]`);
+          await expect(row).toBeVisible();
+          await expect(row).toContainText('Position value');
         }
-        const fxSaveSection = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
-        await expect(fxSaveSection).toHaveCount(1, { timeout: 180_000 });
-        await expect(fxSaveSection.getByRole('heading', { name: 'fxSAVE', exact: true })).toBeVisible();
-        await expect(fxSaveSection.getByRole('link', { name: 'Deposit', exact: true })).toBeVisible();
+        const fxSaveSection = page.getByRole('region', { name: 'Savings', exact: true });
+        await expect(fxSaveSection).toBeVisible({ timeout: 180_000 });
+        await expect(fxSaveSection.getByRole('status', { name: 'Loading fxSAVE', exact: true })).toHaveCount(0, { timeout: 180_000 });
+        const fxSaveDetails = fxSaveSection.locator('details');
+        if (await fxSaveDetails.count()) {
+          await fxSaveDetails.locator('summary[aria-label="fxSAVE savings details"]').click();
+          await expect(fxSaveDetails.getByRole('link', { name: 'Deposit', exact: true })).toBeVisible();
+          await expect(fxSaveDetails.getByRole('link', { name: 'Withdraw', exact: true })).toBeVisible();
+        } else {
+          await expect(fxSaveSection.getByRole('link').first()).toBeVisible();
+        }
         await page.screenshot({ path: resolve(artifactRoot, 'portfolio-inline-mobile.png'), fullPage: true });
       }
       await page.getByRole('button', { name: 'Open wallet profile' }).click();
@@ -1761,7 +1771,7 @@ async function runProof(captureStage: string) {
       await ensureFormAdvancedDetailsOpen();
       await page.getByLabel('Slippage tolerance percentage').fill('1');
       await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
-      const closeActionName = `Review Close ${position.market} ${position.side} position`;
+      const closeActionName = 'Review close';
       await expect(page.getByRole('button', { name: closeActionName, exact: true })).toBeVisible({ timeout: 180_000 });
       assert.equal(submitted.length, signedBefore, 'close details must never request a signature');
       await page.screenshot({ path: resolve(artifactRoot, `${position.market}-${position.side}-close-review.png`), fullPage: true });

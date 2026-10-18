@@ -27,7 +27,7 @@
 
 .productSwitch > a:hover { background-color: var(--surface-3); color: var(--text); }
 .productSwitch > a:active { transform: translateY(1px); }
-.productSwitch > a:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.productSwitch > a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 .focusCard {
   border-radius: var(--radius-md);
@@ -117,7 +117,7 @@
   transition: color var(--dur-fast) ease;
 }
 .fundsLink:hover { color: var(--mint-bright); }
-.fundsLink:focus-visible { outline: 2px solid var(--mint); outline-offset: 0; }
+.fundsLink:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 0; }
 
 /* Fee speed: three equal choices. The selection takes the accent; the rest
  * answer hover and press like every other control. */
@@ -130,7 +130,7 @@
 .feeSelector label:hover input:not(:checked):not(:disabled) + span { border-color: var(--mut-2); background: var(--surface-2); }
 .feeSelector label:active input:not(:disabled) + span { transform: scale(0.97); transition-duration: var(--dur-press); }
 .feeSelector input:checked + span { border-color: var(--mint); background: var(--mint-dim); box-shadow: inset 0 0 0 1px var(--mint); }
-.feeSelector input:focus-visible + span { outline: 2px solid var(--mint); outline-offset: 2px; }
+.feeSelector input:focus-visible + span { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .feeSelector:disabled label { cursor: default; }
 .feeSelector:disabled { opacity: .7; }
 @media (prefers-reduced-motion: reduce) { .feeSelector label > span, .fundsLink { transition: none; } .feeSelector label:active input + span { transform: none; } }
@@ -213,7 +213,7 @@
 }
 
 .reviewTrigger .primaryAction:global(.button-primary):focus-visible,
-.reviewInlineActions .primaryAction:global(.button-primary):focus-visible { outline: 2px solid var(--mint-bright); outline-offset: 3px; }
+.reviewInlineActions .primaryAction:global(.button-primary):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 
 /* A blocked action names what is missing ("Not enough ETH"), so it stays
  * legible: neutral and full strength, never a half-faded accent. */
@@ -292,7 +292,7 @@
 .earnWorkspace :global(.segmented-option:active),
 .borrowWorkspace :global(.segmented-option:active) { transform: translateY(1px); }
 .earnWorkspace :global(.segmented-option:focus-visible),
-.borrowWorkspace :global(.segmented-option:focus-visible) { outline: 2px solid var(--mint); outline-offset: 1px; }
+.borrowWorkspace :global(.segmented-option:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 .earnWorkspace :global(.field-control), .borrowWorkspace :global(.field-control), .moveWorkspace :global(.field-control),
 .earnWorkspace :global(.amount-control), .borrowWorkspace :global(.amount-control), .moveWorkspace :global(.amount-control),
@@ -303,11 +303,6 @@
 }
 .earnWorkspace :global(.field-control), .borrowWorkspace :global(.field-control), .moveWorkspace :global(.field-control) { border-radius: var(--radius-sm); }
 .earnWorkspace :global(.amount-control), .borrowWorkspace :global(.amount-control), .moveWorkspace :global(.amount-control) { border-radius: var(--radius-md); box-shadow: none; }
-.earnWorkspace :global(.field-control:focus), .earnWorkspace :global(.field-control:focus-within), .earnWorkspace :global(.amount-control:focus-within), .earnWorkspace :global(.range-control:focus-within),
-.borrowWorkspace :global(.field-control:focus), .borrowWorkspace :global(.field-control:focus-within), .borrowWorkspace :global(.amount-control:focus-within), .borrowWorkspace :global(.range-control:focus-within),
-.moveWorkspace :global(.field-control:focus), .moveWorkspace :global(.field-control:focus-within), .moveWorkspace :global(.amount-control:focus-within), .moveWorkspace :global(.range-control:focus-within) {
-  border-color: var(--mint); background: var(--surface); box-shadow: 0 0 0 3px var(--mint-dim);
-}
 .earnWorkspace :global(.token-pill), .borrowWorkspace :global(.token-pill), .moveWorkspace :global(.token-pill) { border-color: color-mix(in srgb, var(--line-strong) 34%, var(--line)); background: color-mix(in srgb, var(--surface-3) 76%, var(--surface)); }
 .earnHeading { margin: 0; color: var(--text); font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
 .borrowHeading { margin: 0; color: var(--text); font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }

@@ -180,7 +180,7 @@ async function captureScrollView(page: Page, { id, route, theme, viewport, prove
 }
 
 async function captureAppView(browser: Awaited<ReturnType<typeof chromium.launch>>, options: {
-  id: string; route: string; theme?: Theme; viewport?: Viewport; walletOptions?: BrowserWalletShimOptions; prepare?: (page: Page) => Promise<void>; scrollTarget?: string; requireScrollTarget?: boolean; note: string;
+  id: string; route: string; theme?: Theme; viewport?: Viewport; walletOptions?: BrowserWalletShimOptions; portfolioView?: 'tokens' | 'defi'; prepare?: (page: Page) => Promise<void>; scrollTarget?: string; requireScrollTarget?: boolean; note: string;
 }): Promise<void> {
   const theme = options.theme ?? 'dark';
   const viewport = options.viewport ?? mobile;
@@ -195,11 +195,20 @@ async function captureAppView(browser: Awaited<ReturnType<typeof chromium.launch
     await pageReady(page, options.route, walletConnected);
     if (new URL(options.route, appUrl).pathname === '/portfolio') {
       await page.getByRole('button', { name: /View .* on Ethereum/ }).first().waitFor({ state: 'visible', timeout: 30_000 });
+      await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
       const positions = page.locator('section[aria-label="Positions"]');
-      await positions.getByText(/\d+ open/).waitFor({ state: 'visible', timeout: 30_000 });
-      await positions.locator('[data-position-key]').first().waitFor({ state: 'visible', timeout: 20_000 });
-      const earn = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
-      await earn.getByRole('heading', { name: 'fxSAVE', exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      // Gallery positions are explicitly ready-empty; never invent a holding
+      // or wait for a row the deterministic fixture cannot supply.
+      await positions.getByText('No open positions', { exact: true }).waitFor({ state: 'visible', timeout: 20_000 });
+      const savings = page.getByRole('region', { name: 'Savings', exact: true });
+      await savings.waitFor({ state: 'visible', timeout: 20_000 });
+      await savings.getByRole('status', { name: 'Loading fxSAVE', exact: true }).waitFor({ state: 'detached', timeout: 20_000 });
+      if (await savings.locator('details').count()) {
+        await savings.locator('summary[aria-label="fxSAVE savings details"]').waitFor({ state: 'visible', timeout: 20_000 });
+      } else {
+        await savings.getByRole('link').first().waitFor({ state: 'visible', timeout: 20_000 });
+      }
+      if (options.portfolioView !== 'defi') await page.getByRole('tab', { name: 'Tokens', exact: true }).click();
     }
     await options.prepare?.(page);
     await captureScrollView(page, { ...options, theme, viewport, walletConnected, note: options.note, scrollTarget: options.scrollTarget ?? '.app-content' });
@@ -325,6 +334,8 @@ async function main(): Promise<void> {
   try {
     await captureAppView(browser, { id: 'portfolio-dark-mobile', route: '/portfolio', theme: 'dark', note: 'Read-only connected test wallet with deterministic token balances; positions are verified ready-empty. All values are illustrative gallery fixtures.' });
     await captureAppView(browser, { id: 'portfolio-dark-desktop', route: '/portfolio', theme: 'dark', viewport: desktop, note: 'Desktop spot with deterministic read-only token balances and a verified ready-empty position state; illustrative gallery fixtures.' });
+    await captureAppView(browser, { id: 'portfolio-defi-dark-mobile', route: '/portfolio', theme: 'dark', portfolioView: 'defi', note: 'Selected DeFi view with verified ready-empty positions and deterministic read-only savings. All values are illustrative gallery fixtures.' });
+    await captureAppView(browser, { id: 'portfolio-defi-dark-desktop', route: '/portfolio', theme: 'dark', viewport: desktop, portfolioView: 'defi', note: 'Desktop selected DeFi view with verified ready-empty positions and deterministic read-only savings; illustrative gallery fixtures.' });
     for (const theme of ['dark'] as const) {
       await captureAppView(browser, {
         id: `wallet-profile-${theme}-mobile`, route: '/portfolio', theme, note: 'Wallet profile with deterministic read-only token balances; all values are illustrative gallery fixtures.',
@@ -342,6 +353,7 @@ async function main(): Promise<void> {
       note: 'ETH asset detail with an illustrative read-only balance and test wallet address.',
       prepare: async (page) => {
         await page.getByRole('button', { name: 'Open wallet profile', exact: true }).click();
+        await page.locator('details').filter({ has: page.getByRole('heading', { name: 'Tokens', exact: true }) }).locator('summary').click();
         await page.getByRole('button', { name: 'View ETH details on Ethereum', exact: true }).click();
         await page.getByRole('dialog', { name: 'ETH on Ethereum', exact: true }).waitFor({ state: 'visible' });
       },

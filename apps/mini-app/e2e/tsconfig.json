@@ -3,7 +3,8 @@
   "compilerOptions": {
     "types": ["node", "@playwright/test"],
     "noEmit": true,
-    "incremental": false
+    "incremental": true,
+    "tsBuildInfoFile": "../.cache/e2e.tsbuildinfo"
   },
   "include": [
     "**/*.ts",

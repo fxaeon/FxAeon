@@ -21,7 +21,7 @@
 .inputPreparation button:hover { background: var(--surface-2); }
 /* The shell scrolls the entire card, including its decision and disclosures. */
 .reviewScrollBody { min-width: 0; overflow: visible; }
-.reviewScrollBody:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 8px; }
+.reviewScrollBody:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: 8px; }
 @keyframes review-enter { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .surfaceEnter { animation: none; } }
 
@@ -116,7 +116,7 @@
 .reviewDetails > summary > span:last-child { display: inline-flex; align-items: center; gap: 8px; }
 .reviewDetails > summary > span > svg { transition: transform var(--dur-base) var(--ease-out); }
 .reviewDetails[open] > summary > span > svg { transform: rotate(180deg); }
-.reviewDetails > summary:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 4px; }
+.reviewDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: 4px; }
 .disclosures { border-top: 1px solid var(--line); }
 .transactionStep { min-width: 0; padding: 10px 0; }
 .transactionStep + .transactionStep { border-top: 1px solid var(--line); }
@@ -201,7 +201,7 @@
 }
 .hashLink:hover { background: var(--surface-3); }
 .hashLink:active { transform: scale(0.985); transition-duration: var(--dur-press); }
-.hashLink:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.hashLink:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .hashLink > span:first-child { min-width: 0; }
 .hashLink > span:first-child > span:first-child { display: block; font-variant-numeric: tabular-nums; }
 .hashLink > span:first-child > span:last-child { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; font-size: var(--fs-caption); font-weight: 600; }
@@ -271,7 +271,7 @@
 .resultDetails { width: 100%; margin-top: 20px; border-top: 1px solid var(--line); }
 .resultDetails > summary { display: flex; justify-content: space-between; align-items: center; min-height: 48px; gap: 12px; cursor: pointer; font-size: var(--fs-small); color: var(--mut); }
 .resultDetails > summary::-webkit-details-marker { display: none; }
-.resultDetails > summary:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; border-radius: 6px; }
+.resultDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
 .resultDetails .resultMeta { margin: 0 0 12px; }
 .receiptDetails { margin: 0 0 14px; text-align: left; }
 .resultSuccess > button { margin-top: 16px; box-shadow: none; }
@@ -303,7 +303,7 @@
 .exactAmount > summary > span { min-width: 0; }
 .exactAmount > summary > svg { flex-shrink: 0; color: var(--mut); }
 .exactAmount > summary::-webkit-details-marker { display: none; }
-.exactAmount > summary:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; border-radius: 4px; }
+.exactAmount > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
 .exactAmount[open] > summary > svg { transform: rotate(180deg); }
 .exactAmount p { margin: 4px 0 8px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; overflow-wrap: anywhere; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 .exactAmount p > span { display: block; color: var(--mut); margin-bottom: 2px; font-size: var(--fs-caption); }
@@ -330,7 +330,7 @@
 .feeDisclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; color: var(--mut); font-size: var(--fs-small); }
 .feeDisclosure > summary > span:last-child { display: flex; align-items: center; gap: 6px; text-transform: capitalize; color: var(--text); }
 .feeDisclosure > summary::-webkit-details-marker, .riskExplanation > summary::-webkit-details-marker { display: none; }
-.feeDisclosure > summary:focus-visible, .riskExplanation > summary:focus-visible, .technicalDetails > summary:focus-visible { outline: 2px solid var(--mint); outline-offset: -2px; border-radius: 4px; }
+.feeDisclosure > summary:focus-visible, .riskExplanation > summary:focus-visible, .technicalDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: 4px; }
 .feeDisclosure[open] > summary svg { transform: rotate(180deg); }
 .moreFacts { display: grid; gap: 10px; padding: 14px 0; }
 .technicalDetails { margin-top: 2px; color: var(--mut); }

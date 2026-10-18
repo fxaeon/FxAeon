@@ -2,15 +2,19 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal, flushSync } from 'react-dom';
-import { ArrowLeft, ChevronRight, Layers2, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CircleAlert, Layers2, RefreshCw, WalletCards, X } from 'lucide-react';
+import { PositionsPageHeader } from '@/components/PositionsPageHeader';
 import Link from 'next/link';
 import { AppShell, Card, EmptyState } from '@/components/ui';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import WalletConnectCTA from '@/components/WalletConnectCTA';
+import { MissingValue } from '@/components/MissingValue';
+import { useUsdPrices } from '@/components/PriceProvider';
 import {
   positionIsStale,
   ProtocolPositionCard,
   ProtocolPositionDetails,
+  ProtocolPositionIdentity,
   ProtocolPositionList,
   ProtocolPositionNotice,
   ProtocolPositionSkeleton,
@@ -29,6 +33,9 @@ import { MobileFlowSheetContext } from '@/components/MobileFlowSheet';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 import { groupDigits, positiveDecimal } from '@/lib/amount';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
+import { freshDisplayPrices } from '@/lib/displayPrices';
+import { priceKeyForSymbol } from '@/lib/prices';
+import { calculatePositionUsdValuation, formatUsdCents, type PositionUsdValuation } from '@/lib/positionValuation';
 import { DEFAULT_SLIPPAGE_PERCENT, readSlippagePercent, SETTINGS_KEY, SETTINGS_UPDATED_EVENT } from '@/lib/settings';
 import { haptic } from '@/lib/telegram';
 import { resetTransactionAmounts } from '@/lib/transactionState';
@@ -39,6 +46,7 @@ import {
   positionKey,
   positionCollateralDecimals,
   positionDebtDecimals,
+  positionTokenDecimals,
   positionInputTokenOptions,
   positionOutputTokenOptions,
   positionTargetLeverage,
@@ -605,7 +613,7 @@ export default function PositionsPage() {
     };
   }, [action, fraction, leverage, leverageBounds, selected, selectedStale, slippage, token, validAmount, wallet.address]);
 
-  const reviewLabel = action === 'close' ? 'Close position' : action === 'increase' ? 'Add to position' : action === 'reduce' ? 'Reduce position' : 'Adjust position leverage';
+  const reviewLabel = action === 'close' ? 'Review close' : action === 'increase' ? 'Review deposit' : action === 'reduce' ? 'Review reduction' : 'Review leverage';
   const selectedLabel = managerPosition ? `${managerPosition.market} ${managerPosition.side} position` : 'position';
   const operationLabel = action === 'close'
     ? `Close ${selectedLabel}`
@@ -628,14 +636,14 @@ export default function PositionsPage() {
   return (
     <AppShell>
       <div className={`${styles.positionsRoot} ${styles.positionsCompactRoot} ${positionStyles.root} ${!wallet.address ? styles.positionsDisconnectedRoot : ''}`} inert={phoneLayout && (positionViewOpen || !inputStage) || undefined} data-position-stage={reviewStage} data-position-view={positionView}>
-      <div className={styles.positionsWorkspace}>
-        <h1 className="sr-only">Positions</h1>
-        {(inputStage || phoneLayout) && <nav className={styles.positionsViews} aria-label="Trade views">
-          <Link href="/trade" className="glass-press">New position</Link>
-          <span aria-current="page">Positions</span>
-        </nav>}
+      <div className={`${styles.positionsWorkspace} ${positionStyles.workspace}`}>
+        {(inputStage || phoneLayout) ? <PositionsPageHeader product="Trade" /> : <h1 className="sr-only">Positions</h1>}
+        {inputStage && positions.length > 0 && <PositionOverview positions={positions} complete={positionState.status === 'ready' && !positionState.pendingPositions.length} />}
         {!wallet.address && !preserveActionReview ? (
-          <div className={styles.positionsEntry}><WalletConnectCTA compact ready={wallet.ready} authenticated={wallet.authenticated} body="Choose or connect a wallet to see and manage your open positions." /></div>
+          <div className={positionStyles.blankState}>
+            <EmptyState icon={WalletCards} title="Connect to view positions"
+              action={<WalletConnectCTA compact ready={wallet.ready} authenticated={wallet.authenticated} body="Choose the wallet holding your positions." />} />
+          </div>
         ) : positions.length > 0 || positionState.pendingPositions.length > 0 ? (
           inputStage ? <ProtocolPositionNotice
             status={positionState.status}
@@ -647,47 +655,56 @@ export default function PositionsPage() {
         ) : null}
         {inputStage && <ConfirmedPositionCards />}
         {wallet.address && positionState.status === 'loading' && !positions.length && !positionState.pendingPositions.length && inputStage ? (
-          <ProtocolPositionList label="Loading positions"><ProtocolPositionSkeleton /><ProtocolPositionSkeleton /></ProtocolPositionList>
+          <ProtocolPositionList label="Loading positions" className={positionStyles.positionList}><ProtocolPositionSkeleton /><ProtocolPositionSkeleton /></ProtocolPositionList>
         ) : wallet.address && positionState.status === 'unavailable' && !positions.length && !positionState.pendingPositions.length && inputStage ? (
-          <div role="status" aria-live="polite" className={styles.positionReadState}><div><strong>Positions unavailable</strong></div><button type="button" aria-label="Retry positions" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className="glass-press"><RefreshCw className={`h-4 w-4 ${positionState.refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />{positionState.refreshing ? 'Checking' : 'Retry'}</button></div>
+          <div role="status" aria-live="polite" className={positionStyles.blankState}>
+            <EmptyState icon={CircleAlert} title="Couldn’t load positions"
+              action={<button type="button" aria-label="Reload positions" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className={`button button-primary ${positionStyles.retry}`}><RefreshCw size={16} className={positionState.refreshing ? 'animate-spin' : ''} aria-hidden="true" />{positionState.refreshing ? 'Loading positions…' : 'Reload positions'}</button>} />
+          </div>
         ) : wallet.address && positionState.status === 'partial' && !positions.length && !positionState.pendingPositions.length && inputStage ? (
-          <div role="status" aria-live="polite" className={styles.positionReadState}><div><strong>Positions could not be fully checked</strong><p>Some position data couldn’t load, so results may be incomplete.</p></div><button type="button" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className="glass-press"><RefreshCw className={`h-4 w-4 ${positionState.refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />{positionState.refreshing ? 'Checking' : 'Retry positions'}</button></div>
+          <div role="status" aria-live="polite" className={positionStyles.blankState}>
+            <EmptyState icon={CircleAlert} title="Couldn’t load all positions"
+              action={<button type="button" aria-label="Reload positions" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className={`button button-primary ${positionStyles.retry}`}><RefreshCw size={16} className={positionState.refreshing ? 'animate-spin' : ''} aria-hidden="true" />{positionState.refreshing ? 'Loading positions…' : 'Reload positions'}</button>} />
+          </div>
         ) : wallet.address && positionState.status === 'ready' && !positions.length && !positionState.pendingPositions.length && inputStage ? (
-          <div className={styles.positionsEmpty}>
-            <EmptyState icon={Layers2} title="No open positions" body="Your ETH and BTC positions will appear here." action={<Link href="/trade" className="button button-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 font-medium">Open a position</Link>} />
+          <div className={positionStyles.blankState}>
+            <EmptyState icon={Layers2} title="No open positions" action={<Link href="/trade" className="button button-primary inline-flex min-h-11 items-center justify-center rounded-full px-5 font-medium">Open a position</Link>} />
           </div>
         ) : wallet.address && positions.length > 0 || preserveActionReview ? (
-          <div className={styles.positionManagerGrid} data-review={!inputStage && !phoneLayout || undefined}>
+          <div className={`${styles.positionManagerGrid} ${positionStyles.positionLayout}`} data-selection={positionViewOpen || undefined} data-review={!inputStage && !phoneLayout || undefined}>
             <section className={styles.positionsColumn} aria-labelledby="open-positions-heading">
-              <div className={styles.positionSectionHeader}>
-                <div><h2 id="open-positions-heading">Open positions</h2></div>
-                <span>{positions.length} open{positionState.pendingPositions.length > 0 && ` · ${positionState.pendingPositions.length} syncing`}</span>
+              <div className={`${styles.positionSectionHeader} ${positionStyles.listHeader}`}>
+                <div><h2 id="open-positions-heading">Open positions <span>{positions.length}</span></h2></div>
+                <button type="button" aria-label="Refresh positions" disabled={positionState.refreshing} onClick={() => void positionState.refresh()} className={positionStyles.refresh}><RefreshCw size={18} className={positionState.refreshing ? 'animate-spin' : ''} aria-hidden="true" /></button>
               </div>
               {/* A tap opens the position: its figures, actions and form together. */}
-              <ProtocolPositionList label="Open positions">
+              <ProtocolPositionList label="Open positions" className={positionStyles.positionList}>
                 {positions.map((position) => {
                   const key = positionKey(position);
-                  return <ProtocolPositionCard key={key} position={position} selected={key === selectedKey} onSelect={() => openPosition(key)} />;
+                  return <ProtocolPositionCard key={key} position={position} selected={positionViewOpen && key === selectedKey} onSelect={() => openPosition(key)} className={positionStyles.positionRow} overview />;
                 })}
               </ProtocolPositionList>
             </section>
 
-            <PositionManagerSurface mobile={phoneLayout} open={positionViewOpen || !inputStage} locked={reviewStage === 'executing'} identity={wallet.address ?? ''} triggerRef={positionOpenerRef} onClose={() => { if (reviewStage === 'executing') return; if (reviewStage !== 'input') resetTransactionContext(action, token); closePosition(); }}>
+            <PositionManagerSurface mobile={phoneLayout} open={positionViewOpen || !inputStage} locked={reviewStage === 'executing'} identity={wallet.address ?? ''} header={inputStage && selected ? <ProtocolPositionIdentity position={selected} headingId="manage-position-heading" /> : null} triggerRef={positionOpenerRef} onClose={() => { if (reviewStage === 'executing') return; if (reviewStage !== 'input') resetTransactionContext(action, token); closePosition(); }}>
             <section ref={managerRef} className={`${styles.positionManageColumn} ${positionStyles.manager}`} aria-label={inputStage ? undefined : `${operationLabel} review`} aria-labelledby={inputStage ? 'manage-position-heading' : undefined}>
               {inputStage && <div className={`${styles.positionViewBar} ${positionStyles.viewBar}`}>
                 <button type="button" onClick={closePosition} className={`${styles.positionBack} ${positionStyles.back} glass-press`}><ArrowLeft aria-hidden="true" />All positions</button>
-                {phoneLayout && <TransactionSettings scope="Positions" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />}
+                <TransactionSettings scope="Positions" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />
               </div>}
-              {inputStage && selected && <ProtocolPositionDetails compact position={selected} headingId="manage-position-heading" className={styles.positionFocus} />}
+              {inputStage && selected && <ProtocolPositionDetails compact hideIdentity={phoneLayout} position={selected} headingId="manage-position-heading" className={styles.positionFocus}>
+                {selected.side === 'long' && <Link href={`/borrow?market=${selected.market}&position=${selected.info.positionId}`} className={`${styles.borrowAgainst} glass-press`}>Borrow against this position<ChevronRight aria-hidden="true" /></Link>}
+              </ProtocolPositionDetails>}
               {inputStage && selectedStale && <span role="status" aria-label="Refreshing selected position" className="skeleton block h-8 rounded-xl" />}
 
               <Card className={`${styles.actionPanel} ${styles.positionActionCard} ${inputStage ? '' : styles.positionActionCardReview}`}>
-                {inputStage && <fieldset disabled={reviewStage === 'planning'} className={`${styles.positionActions} ${positionStyles.actionSelection}`}><Segmented value={action} onChange={changeAction} ariaLabel="Position action" options={[{ value: 'increase', label: 'Add' }, { value: 'reduce', label: 'Reduce' }, { value: 'leverage', label: 'Leverage' }, { value: 'close', label: 'Close' }]} />{!phoneLayout && <TransactionSettings scope="Positions" slippage slippagePercent={slippage} onSlippageChange={setSlippage} />}</fieldset>}
+                {inputStage && <fieldset disabled={reviewStage === 'planning'} className={`${styles.positionActions} ${positionStyles.actionSelection}`}><Segmented value={action} onChange={changeAction} ariaLabel="Position action" options={[{ value: 'increase', label: 'Add' }, { value: 'reduce', label: 'Reduce' }, { value: 'leverage', label: 'Leverage' }, { value: 'close', label: 'Close' }]} /></fieldset>}
                 <ActionReview
                   key={reviewRevision}
                   surface="content"
                   planBuilder={planBuilder}
                   label={reviewLabel}
+                  blocker={action === 'increase' && !amount.trim() ? 'Enter an amount' : undefined}
                   operationLabel={operationLabel}
                   destructive={action === 'close'}
                   onStageChange={handleReviewStageChange}
@@ -698,7 +715,7 @@ export default function PositionsPage() {
                   decisionBefore={decisionBefore}
                   editor={(
                     <div className={styles.positionEditor}>
-                      {action === 'increase' && <div className={styles.fieldStack}><AmountField compact label="Amount to add" symbol={token} value={amount} onChange={setAmount} maxDecimals={tokenDecimals(token)} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} />} /><LeverageField compact label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
+                      {action === 'increase' && <div className={styles.fieldStack}><AmountField compact showPercentages={false} label="Amount to add" symbol={token} value={amount} onChange={setAmount} maxDecimals={tokenDecimals(token)} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} />} /><LeverageField compact collapseSlider label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
                       {action === 'reduce' && <div className={styles.fieldStack}><div className={styles.positionReductionControl}><RangeField label="Position reduction" value={fraction} onChange={setFraction} min={1} max={99} step={1} suffix="%" /></div><div className="grid grid-cols-3 gap-2">{[25, 50, 75].map((value) => <button key={value} type="button" aria-pressed={fraction === value} onClick={() => setFraction(value)} className={`glass-press min-h-11 rounded-xl text-[12px] font-semibold tabular-nums transition-colors ${fraction === value ? 'bg-[var(--mint-dim)] text-mint' : 'bg-[var(--surface-2)] text-mut hover:text-[var(--text)]'}`}>{value}%</button>)}</div><TokenSelect label="Receive asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} /></div>}
                       {action === 'close' && <div className={styles.fieldStack}><div className={styles.closeNotice}><strong>Full close</strong><span>All remaining collateral and debt</span></div><TokenSelect label="Receive asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} /></div>}
                       {action === 'leverage' && <div className={styles.fieldStack}><LeverageField compact label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
@@ -713,7 +730,6 @@ export default function PositionsPage() {
                   }}
                 />
               </Card>
-              {inputStage && selected?.side === 'long' && <Link href={`/borrow?market=${selected.market}&position=${selected.info.positionId}`} className={`${styles.borrowAgainst} glass-press`}>Borrow against this position<ChevronRight aria-hidden="true" /></Link>}
             </section>
             </PositionManagerSurface>
           </div>
@@ -724,10 +740,46 @@ export default function PositionsPage() {
   );
 }
 
+/** Totals use the same verified token prices and integer accounting as each position. */
+function PositionOverview({ positions, complete }: { positions: readonly UiPosition[]; complete: boolean }) {
+  const snapshot = useUsdPrices();
+  const prices = freshDisplayPrices(snapshot);
+  const values = positions.map(position => {
+    const collateralKey = priceKeyForSymbol(position.info.rawCollsToken);
+    const debtKey = priceKeyForSymbol(position.info.rawDebtsToken);
+    return calculatePositionUsdValuation({
+      collateralRaw: position.info.rawColls,
+      collateralDecimals: positionTokenDecimals(position, 'collateral'),
+      collateralPrice: collateralKey ? prices[collateralKey] : undefined,
+      debtRaw: position.info.rawDebts,
+      debtDecimals: positionTokenDecimals(position, 'debt'),
+      debtPrice: debtKey ? prices[debtKey] : undefined,
+    });
+  });
+  const sum = (key: keyof PositionUsdValuation) => complete && values.every(value => value[key] !== null)
+    ? values.reduce((total, value) => total + value[key]!, 0n)
+    : null;
+  const metrics = [
+    { label: 'Position value', key: 'netEquityUsdCents' },
+    { label: 'Collateral', key: 'collateralUsdCents' },
+    { label: 'Debt', key: 'debtUsdCents' },
+  ] as const;
+  const pricesPending = snapshot.status === 'loading' || snapshot.refreshing;
+  const pending = pricesPending && values.some(value => value.netEquityUsdCents === null);
+  return <dl className={positionStyles.overview} data-position-overview>
+    {metrics.map(({ label, key }) => {
+      const total = pending ? null : sum(key);
+      return <div key={key}><dt>{label}</dt><dd>{total === null
+        ? <MissingValue status={pricesPending ? 'loading' : 'unavailable'} width="lg" label={pricesPending ? `Loading ${label.toLowerCase()}` : `${label} unavailable`} />
+        : <><span className={positionStyles.estimate}>≈ </span>{formatUsdCents(total)}</>}</dd></div>;
+    })}
+  </dl>;
+}
+
 /** A single portal mount moves between the desktop column and phone sheet.
  * Reparenting its DOM keeps the same form, accepted review and runner alive. */
-function PositionManagerSurface({ children, mobile, open, locked, identity, triggerRef, onClose }: {
-  children: ReactNode; mobile: boolean; open: boolean; locked: boolean; identity: string;
+function PositionManagerSurface({ children, mobile, open, locked, identity, header, triggerRef, onClose }: {
+  children: ReactNode; mobile: boolean; open: boolean; locked: boolean; identity: string; header: ReactNode;
   triggerRef: RefObject<HTMLElement | null>; onClose: () => void;
 }) {
   const [mount, setMount] = useState<HTMLDivElement | null>(null);
@@ -765,7 +817,8 @@ function PositionManagerSurface({ children, mobile, open, locked, identity, trig
         <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label="Manage position" tabIndex={-1} className={positionStyles.sheet}>
           <div className={positionStyles.sheetControls}>
             <span className={positionStyles.handle} aria-hidden="true" />
-            <button ref={closeRef} type="button" disabled={locked} aria-label="Close position" onClick={onClose} className={positionStyles.close}><X aria-hidden="true" size={20} /></button>
+            {header}
+            <button ref={closeRef} type="button" disabled={locked} aria-label="Close position manager" onClick={onClose} className={positionStyles.close}><X aria-hidden="true" size={20} /></button>
           </div>
           <div ref={bodyRef} data-position-sheet-body className={positionStyles.sheetBody} />
         </aside>

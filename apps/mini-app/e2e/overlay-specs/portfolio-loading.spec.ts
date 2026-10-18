@@ -54,11 +54,12 @@ async function portfolioLandmarks(page: Page) {
       actions: [...content.querySelectorAll('[class*="quickAction"] > span')].map(box),
       summaries: [...content.querySelectorAll('details > summary')].map(box),
       sectionHeadings: headings.map(box),
-      networkFilter: box(content.querySelector('select')),
-      balanceBreakdown: box(content.querySelector('[class*="valueBreakdown"]')),
+      networkFilter: box(content.querySelector('button[aria-haspopup="menu"][aria-label^="Portfolio network:"]')),
       assetRows: [...content.querySelectorAll('[class*="loadingRow"]')].map(box),
       historyRows: [...content.querySelectorAll('ul li')].map(box),
       marketCards: [...content.querySelectorAll('aside > section:first-child > div:last-child > a')].map(box),
+      portfolioTabs: [...content.querySelectorAll('[role="tablist"][aria-label="Portfolio views"] [role="tab"]')]
+        .map(tab => [tab.textContent?.trim(), tab.getAttribute('aria-selected'), tab.getAttribute('aria-controls')]),
       borrow: box(content.querySelector('[class*="rowGroup"]')),
       topBarActions: box(document.querySelector('.app-topbar-actions')),
       dock: box(document.querySelector('.tabbar')),
@@ -79,8 +80,12 @@ for (const width of [320, 393, 480, 1280]) {
     expect(fallback.figure).not.toBeNull();
     expect(fallback.actions).toHaveLength(4);
     expect(fallback.assetRows).toHaveLength(3);
-    expect(fallback.marketCards).toHaveLength(2);
-    // The fallback never answers the live page's own lookups (scroll area, market cards).
+    expect(fallback.marketCards).toHaveLength(0);
+    expect(fallback.portfolioTabs).toEqual([
+      ['Tokens', 'true', 'portfolio-tab-panel'], ['DeFi', 'false', 'portfolio-tab-panel'], ['Activity', 'false', 'portfolio-tab-panel'],
+    ]);
+    await expect(page.getByRole('heading', { name: 'Markets', exact: true })).toHaveCount(0);
+    // The fallback never answers the live page's own lookups (scroll area or market cards).
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await open(page, 'provider');
     expect(await page.locator('.app-content-tabs, .portfolio-market-card, [data-shell-tabs], [data-header-wallet-control]').count()).toBe(0);
@@ -108,7 +113,7 @@ test('placeholders hold the loaded figure line, so the page does not move when v
   expect(unavailable).toEqual(reads);
 });
 
-test('compact position rows expand into accurate accounting and risk details without mobile overflow', async ({ page }) => {
+test('compact position rows expand into accounting and numeric risk thresholds without mobile overflow', async ({ page }) => {
   const assertFits = async (position: Locator) => {
     const geometry = await position.evaluate(element => {
       const summary = element.querySelector('summary')!;
@@ -124,10 +129,13 @@ test('compact position rows expand into accurate accounting and risk details wit
         valueBeforeChevron: value.right <= chevron.left + 1,
         iconBeforeIdentity: icon.right <= identity.left + 1,
         factsFit: [...element.querySelectorAll('dl > div')].every(fact => {
+          const cell = fact.getBoundingClientRect();
           const label = fact.querySelector('dt')!.getBoundingClientRect();
           const value = fact.querySelector('dd')!;
           const rect = value.getBoundingClientRect();
-          return rect.left >= label.right - 1 && rect.right <= row.right + 1 && value.scrollWidth <= value.clientWidth + 1;
+          return cell.left >= row.left - 1 && cell.right <= row.right + 1
+            && rect.top >= label.bottom - 1 && rect.left >= cell.left - 1
+            && rect.right <= cell.right + 1 && value.scrollWidth <= value.clientWidth + 1;
         }),
       };
     });
@@ -152,6 +160,7 @@ test('compact position rows expand into accurate accounting and risk details wit
   };
   const openPositions = async (stage: string, inset: number) => {
     await open(page, stage);
+    await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
     // Exercise the narrower column a non-overlay scrollbar can leave behind.
     if (inset) await page.addStyleTag({ content: `.app-shell { width: calc(100% - ${inset}px); }` });
     const positions = page.getByRole('region', { name: 'Positions' });
@@ -168,21 +177,11 @@ test('compact position rows expand into accurate accounting and risk details wit
     const first = await openPositions('positions', inset);
     const firstSummary = first.locator('summary');
     await expect(firstSummary).toHaveAttribute('aria-label', 'ETH Long position #2033 details');
-    await expect(firstSummary).toHaveAccessibleDescription(/\$2,900\.00.*Position value/);
+    await expect(firstSummary).toHaveAccessibleDescription(/Position value.*\$2,900\.00/);
     await expect(firstSummary.getByText('ETH Long', { exact: true })).toBeVisible();
     await expect(first).toHaveJSProperty('open', false);
     await expect(first.locator('[data-position-price]')).toHaveCount(0);
     const positionsRegion = page.getByRole('region', { name: 'Positions', exact: true });
-    const sectionHeading = positionsRegion.getByRole('heading', { name: 'Positions', exact: true });
-    const headingBox = (await sectionHeading.boundingBox())!;
-    const headerBox = (await sectionHeading.locator('..').boundingBox())!;
-    const manageAll = positionsRegion.getByRole('link', { name: 'Manage all', exact: true });
-    await expect(manageAll).toHaveAttribute('href', '/positions');
-    const manageBox = (await manageAll.boundingBox())!;
-    expect(manageBox.height, 'Manage all keeps its touch target').toBeGreaterThanOrEqual(44);
-    expect(manageBox.y, 'Manage all shares the Positions heading band').toBeLessThanOrEqual(headingBox.y + headingBox.height);
-    expect(manageBox.y + manageBox.height).toBeGreaterThanOrEqual(headingBox.y);
-    expect((await first.boundingBox())!.y - (headerBox.y + headerBox.height), 'no separate action band precedes the first position').toBeLessThanOrEqual(12);
     const collapsed = await assertFits(first);
     expect(Math.abs(collapsed.width - placeholderBox.width), `position width at ${width}px, ${inset}px inset`).toBeLessThanOrEqual(1);
     expect(Math.abs(collapsed.summaryHeight - placeholderBox.height), `position height at ${width}px, ${inset}px inset`).toBeLessThanOrEqual(0.5);
@@ -194,7 +193,6 @@ test('compact position rows expand into accurate accounting and risk details wit
     await expect(first.locator('dl > div').filter({ has: page.locator('dt', { hasText: /^Debt$/ }) })).toContainText('3,100 fxUSD');
     await expect(first.locator('[data-position-price="rebalance"]')).toHaveText('≈ $1,383');
     await expect(first.locator('[data-position-price="liquidation"]')).toHaveText('≈ $1,281');
-    await expect(first.locator('p[data-tone]')).toContainText('Rebalances if ETH falls ≈ 42% (≈ $1,383)');
     await expect(first.getByRole('link', { name: 'Manage position', exact: true })).toHaveAttribute('href', '/positions?position=ETH%3Along%3A2033');
     await assertFits(first);
     await firstSummary.focus();
@@ -203,12 +201,12 @@ test('compact position rows expand into accurate accounting and risk details wit
     await expect(first.locator('dl, [data-position-price]')).toHaveCount(0);
     const short = page.getByRole('region', { name: 'Positions' }).locator('[data-position-key="BTC:short:109"]');
     await expect(short.locator('summary')).toHaveAttribute('aria-label', 'BTC Short position #109 details');
-    await expect(short.locator('summary')).toHaveAccessibleDescription(/\$3,560\.00.*Position value/);
+    await expect(short.locator('summary')).toHaveAccessibleDescription(/Position value.*\$3,560\.00/);
     await expect(short.getByText('BTC Short', { exact: true })).toBeVisible();
     await short.locator('summary').click();
     await expect(short.locator('[data-position-price="rebalance"]')).toHaveText('≈ $133,714');
     await expect(short.locator('[data-position-price="liquidation"]')).toHaveText('≈ $141,142');
-    await expect(short.locator('p[data-tone]')).toContainText('Rebalances if BTC rises ≈ 28% (≈ $133,714)');
+    await expect(short.getByRole('link', { name: 'Manage position', exact: true })).toHaveAttribute('href', '/positions?position=BTC%3Ashort%3A109');
     await assertFits(short);
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   }
@@ -218,9 +216,10 @@ test('expanding a position never revives dollar values from expired provider quo
   await page.clock.install({ time: new Date('2026-10-18T00:00:00Z') });
   await page.setViewportSize({ width: 393, height: 1400 });
   await open(page, 'positions');
+  await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
   const position = page.getByRole('region', { name: 'Positions', exact: true }).locator('[data-position-key="ETH:long:2033"]');
   const summary = position.locator('summary');
-  await expect(summary).toHaveAccessibleDescription(/\$2,900\.00.*Position value/);
+  await expect(summary).toHaveAccessibleDescription(/Position value.*\$2,900\.00/);
   const quotedAt = await page.evaluate(() => Date.now());
   // Advance the freshness clock without fabricating a provider refresh. The
   // disclosure interaction rerenders this row against the retained snapshot.
@@ -243,6 +242,7 @@ test('screenshots of Portfolio’s positions in dark appearance', async ({ page 
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 1600 });
       await open(page, 'positions', { theme });
+      await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
       const positions = page.getByRole('region', { name: 'Positions' });
       await page.waitForTimeout(1_100);
       await positions.screenshot({ path: resolve(directory!, `portfolio-${theme}-${width}-positions.png`), animations: 'disabled' });
@@ -298,16 +298,28 @@ test('the live page takes over the first paint without fading in a second time',
 test('reads that fail end every placeholder: each section says so with a retry', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 1500 });
   await open(page, 'unavailable');
-  await expect(page.getByText('Total unavailable', { exact: true })).toBeVisible();
   await expect(page.getByRole('status', { name: 'Portfolio value unavailable', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Try again' })).toHaveCount(1);
   await expect(page.getByText('Couldn’t load balances', { exact: true })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Positions' }).getByText('Unavailable', { exact: true })).toBeVisible();
-  await expect(page.locator('section[aria-labelledby="portfolio-earn-heading"]').getByText('Unavailable', { exact: true })).toBeVisible();
-  await expect(page.getByText('History couldn’t load. Your transactions are unaffected.', { exact: true })).toBeVisible();
-  await expect(page.getByText('Chart unavailable', { exact: true })).toHaveCount(2);
+  await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Positions' }).getByRole('status', { name: 'Couldn’t load positions. Your funds are unaffected.', exact: true })).toBeVisible();
+  const savings = page.getByRole('region', { name: 'Savings', exact: true });
+  await expect(savings.getByText('Couldn’t load fxSAVE', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
+  await expect(page.getByText('Couldn’t load history', { exact: true })).toBeVisible();
   // Nothing is left shimmering once its read has failed.
-  await expect(page.locator('main .missing-value-bar, main .skeleton, main .market-chart-skeleton')).toHaveCount(0);
+  await expect(page.locator('main .missing-value-bar, main .skeleton')).toHaveCount(0);
+});
+
+test('partial prices stay attached to the affected token and do not obscure the balance headline', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 1200 });
+  await open(page, 'partial');
+  const balance = page.getByRole('region', { name: 'Portfolio balance', exact: true });
+  await expect(balance.getByRole('status', { name: 'Portfolio value unavailable', exact: true })).toBeVisible();
+  const assets = page.getByRole('region', { name: 'Wallet assets', exact: true });
+  const fxUsd = assets.getByRole('button', { name: 'View fxUSD on Ethereum', exact: true });
+  await expect(fxUsd).toBeVisible();
+  await expect(fxUsd.getByRole('status', { name: 'Holding value unavailable', exact: true })).toBeVisible();
 });
 
 test('an empty wallet is told what is missing and how to start, never shown a placeholder', async ({ page }) => {
@@ -315,7 +327,10 @@ test('an empty wallet is told what is missing and how to start, never shown a pl
   await open(page, 'empty');
   await expect(page.getByText('No assets yet', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Receive assets' })).toBeVisible();
-  await expect(page.getByText('0 fxSAVE on Ethereum', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
+  const savings = page.getByRole('region', { name: 'Savings', exact: true });
+  await expect(savings.getByRole('link', { name: 'Deposit', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
   await expect(page.getByText('No activity yet', { exact: true })).toBeVisible();
   await expect(page.locator('main .missing-value-bar, main .skeleton')).toHaveCount(0);
 });
@@ -324,6 +339,7 @@ test('a settled empty Positions section is compact while loading and read failur
   await page.setViewportSize({ width: 393, height: 900 });
   const positions = async (stage: string) => {
     await open(page, stage);
+    await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
     return page.getByRole('region', { name: 'Positions', exact: true });
   };
 
@@ -335,35 +351,41 @@ test('a settled empty Positions section is compact while loading and read failur
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 
   const loading = await positions('reads');
-  await expect(loading.getByRole('status', { name: 'Loading open positions' })).toBeVisible();
   await expect(loading.getByRole('status', { name: 'Loading positions', exact: true })).toBeVisible();
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 
   const unavailable = await positions('unavailable');
-  await expect(unavailable.getByRole('status', { name: 'Positions unavailable' })).toBeVisible();
+  await expect(unavailable.getByRole('status', { name: 'Couldn’t load positions. Your funds are unaffected.', exact: true })).toBeVisible();
   await expect(unavailable.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
 });
 
-test('the Portfolio network select filters seeded rows and the header balance preserves one cent', async ({ page }) => {
+test('the Portfolio network menu filters seeded rows and the balance headline preserves one cent', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 1400 });
   await open(page, 'loaded');
-  const assets = page.getByRole('region', { name: 'Assets', exact: true });
-  const network = assets.getByRole('combobox', { name: 'Portfolio network', exact: true });
+  const assets = page.getByRole('region', { name: 'Wallet assets', exact: true });
+  const network = page.getByRole('button', { name: /^Portfolio network:/ });
+  const selectNetwork = async (name: 'Base' | 'Ethereum' | 'All networks') => {
+    await network.click();
+    const menu = page.getByRole('menu', { name: 'Filter by network', exact: true });
+    await menu.getByRole('menuitemradio', { name, exact: true }).click();
+    await expect(network).toHaveAccessibleName(`Portfolio network: ${name}`);
+    await expect(menu).toHaveCount(0);
+  };
   const rows = assets.locator('ul > li');
   await expect(rows).toHaveCount(4);
-  await network.selectOption('8453');
+  await selectNetwork('Base');
   await expect(rows).toHaveCount(1);
   await expect(rows.first().getByRole('button', { name: 'View ETH on Base', exact: true })).toBeVisible();
-  await network.selectOption('1');
+  await selectNetwork('Ethereum');
   await expect(rows).toHaveCount(3);
-  await network.selectOption('all');
+  await selectNetwork('All networks');
   await expect(rows).toHaveCount(4);
   await page.unrouteAll({ behavior: 'ignoreErrors' });
 
   await open(page, 'dust');
   await expect(page.locator('[data-portfolio-value]')).toContainText('$0.01');
-  await expect(page.locator('[data-portfolio-value]')).not.toContainText('Total unavailable');
-  const smallHoldings = page.getByRole('region', { name: 'Assets', exact: true }).locator('details').filter({ has: page.locator('summary', { hasText: 'Low-value assets (1)' }) });
+  await expect(page.getByRole('status', { name: 'Portfolio value unavailable', exact: true })).toHaveCount(0);
+  const smallHoldings = page.getByRole('region', { name: 'Wallet assets', exact: true }).locator('details').filter({ has: page.locator('summary', { hasText: 'Low-value assets (1)' }) });
   await expect(smallHoldings).toHaveJSProperty('open', true);
   await expect(smallHoldings.getByRole('button', { name: 'View USDC on Ethereum', exact: true })).toBeVisible();
 });
@@ -372,7 +394,7 @@ test('reduced motion leaves Portfolio placeholders still', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 393, height: 1200 });
   await open(page, 'reads');
-  const styles = await page.evaluate(() => [...document.querySelectorAll('.skeleton, .missing-value-bar, .market-chart-skeleton')].map((element) => {
+  const styles = await page.evaluate(() => [...document.querySelectorAll('.skeleton, .missing-value-bar')].map((element) => {
     const style = getComputedStyle(element);
     return `${style.animationName}|${style.backgroundImage}`;
   }));
@@ -388,7 +410,7 @@ test('History paints its feed in place before the wallet loads', async ({ page }
     await open(page, stage, { route: '/history' });
     const result = await page.evaluate(() => ({
       title: (() => { const r = document.querySelector('.app-content h1')!.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; })(),
-      filters: [...document.querySelectorAll('.app-content select, .app-content input')].map((element) => { const r = element.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }),
+      filters: [...document.querySelectorAll('.app-content [role="combobox"], .app-content input')].map((element) => { const r = element.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }),
       rows: [...document.querySelectorAll('.app-content ul li')].map((element) => { const r = element.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; }),
     }));
     await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -397,5 +419,6 @@ test('History paints its feed in place before the wallet loads', async ({ page }
   const fallback = await measure('provider');
   const reads = await measure('reads');
   expect(fallback).toEqual(reads);
+  expect(reads.filters).toHaveLength(3);
   expect(reads.rows).toHaveLength(5);
 });

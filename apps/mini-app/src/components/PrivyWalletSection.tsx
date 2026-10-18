@@ -90,7 +90,7 @@ export default function PrivyWalletControls() {
     return <div className={`${styles.panel} ${styles.loading}`} role="status" aria-live="polite"><span className="sr-only">Loading wallet provider</span></div>;
   }
 
-  if (!authenticated) return <div className={styles.panel}>
+  if (!authenticated) return <div className={styles.panel} data-wallet-options>
     <div className={styles.actionRow}>
       <span className={styles.icon}><Wallet size={18} aria-hidden="true" /></span>
       <span className={styles.copy}><strong>No wallet connected</strong></span>
@@ -99,7 +99,7 @@ export default function PrivyWalletControls() {
     {error && <p role="alert" className={styles.errorCopy}>{error}</p>}
   </div>;
 
-  return <div className={styles.panel}>
+  return <div className={styles.panel} data-wallet-options>
     {otherWallets.length > 0 && <section className={styles.walletChoices} aria-labelledby="settings-other-wallets">
       <h3 id="settings-other-wallets">Switch wallet</h3>
       {showSelectionHint && busy === 'none' && <p role="status" className={styles.statusCopy}>Choose a wallet below to use it.</p>}

@@ -2,6 +2,30 @@ import { test, expect, assertNoBackendRequests } from '../fixtures/test';
 
 const legacyFragments = ['overview', 'getting-started', 'access', 'wallets', 'trade', 'positions', 'earn', 'borrow', 'move', 'fees', 'history', 'recovery', 'privacy', 'troubleshooting'];
 
+test.describe('documentation provider lifecycle', () => {
+  test.use({ telegram: false, browserWallet: { initiallyConnected: true } });
+  test('defers wallet work on a docs entry and preserves the session after visiting the app', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const walletReads = () => page.evaluate(() => {
+      const wallet = (window as unknown as { __wallet: { requests: { method: string }[] } }).__wallet;
+      return wallet.requests.filter(request => request.method === 'eth_accounts').length;
+    });
+    await page.goto('/docs');
+    await expect(page.getByRole('searchbox', { name: 'Search docs' })).toBeEnabled();
+    expect(await walletReads()).toBe(0);
+    await page.getByRole('link', { name: 'Open app', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
+    const initialReads = await walletReads();
+    expect(initialReads).toBeGreaterThan(0);
+    await page.locator('.app-topbar').getByRole('link', { name: 'More', exact: true }).click();
+    await page.getByRole('link', { name: /FxAeon docs/ }).click();
+    await expect(page.getByRole('searchbox', { name: 'Search docs' })).toBeEnabled();
+    await page.getByRole('link', { name: 'Open app', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
+    expect(await walletReads()).toBe(initialReads);
+  });
+});
+
 async function openDocsSearch(page: import('@playwright/test').Page) {
   const toggle = page.getByRole('button', { name: 'Search documentation', exact: true });
   if (await toggle.isVisible() && await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
@@ -58,24 +82,19 @@ test.describe('documentation experience', () => {
     await expect(page.getByRole('heading', { name: 'Product guide' })).toBeVisible();
   });
 
-  test('has copyable examples and method anchors without requesting wallet access', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  test('has readable examples and method anchors without requesting wallet access', async ({ page }) => {
     await page.goto('/docs/sdk#sdk-setup');
     await expect(await openDocsSearch(page)).toBeEnabled();
-    const copy = page.getByRole('button', { name: 'Copy FxAeon app wrapper' });
-    await copy.click();
-    await expect(copy).toHaveText('Copied');
-    const text = await page.evaluate(() => navigator.clipboard.readText());
-    expect(text).toContain('getFxReadFacade()');
-    expect(text).toContain('getFxSaveBalance({ userAddress })');
+    const example = page.locator('pre[aria-label="FxAeon app wrapper"]');
+    await expect(example).toContainText('getFxReadFacade()');
+    await expect(example).toContainText('getFxSaveBalance({ userAddress })');
     await page.goto('/docs/sdk#getPositions');
     await expect(page.locator('#getPositions')).toBeInViewport();
     await expect(page.locator('#getPositions a')).toHaveAttribute('href', '#getPositions');
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
-  test('product articles support outline navigation, copying, pagination, and mobile width', async ({ page, context, requests }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  test('product articles support outline navigation, pagination, and mobile width', async ({ page, requests }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/docs/guide/getting-started');
     await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
@@ -89,15 +108,6 @@ test.describe('documentation experience', () => {
     await outline.getByRole('link', { name: 'Open FxAeon', exact: true }).click();
     await expect(page).toHaveURL(/#start-open$/);
     await expect(openHeading).toBeInViewport();
-
-    const copy = page.getByRole('button', { name: 'Copy page', exact: true });
-    await expect(copy).toHaveText('');
-    await copy.click();
-    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Copied', exact: true })).toHaveText('');
-    const clipboard = await page.evaluate(() => navigator.clipboard.readText());
-    expect(clipboard).toContain('Your first transaction');
-    expect(clipboard).toContain('Open FxAeon');
 
     const pagination = page.getByRole('navigation', { name: 'Pagination', exact: true });
     const next = pagination.getByRole('link', { name: /Telegram & browser/ });
@@ -250,28 +260,7 @@ test.describe('documentation experience', () => {
     expect(requests).toBe(2);
   });
 
-  test('copy failure is explained and a later attempt can recover', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.goto('/docs/sdk#sdk-setup');
-    await expect(await openDocsSearch(page)).toBeEnabled();
-    await page.evaluate(() => {
-      Object.defineProperty(navigator, 'clipboard', {
-        configurable: true,
-        value: { writeText: async () => { throw new Error('Test clipboard refusal'); } },
-      });
-    });
-    const copy = page.getByRole('button', { name: 'Copy FxAeon app wrapper' });
-    await copy.click();
-    await expect(copy).toHaveText('Try again');
-    await expect(page.getByText('Copy was unavailable. Select and copy the example directly.')).toBeVisible();
-    await page.evaluate(() => { Reflect.deleteProperty(navigator, 'clipboard'); });
-    await copy.click();
-    await expect(copy).toHaveText('Copied');
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('getFxReadFacade()');
-  });
-
-  test('desktop docs keeps search, copying and Back/Forward navigation usable in dark appearance', async ({ page, context }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  test('desktop docs keeps search and Back/Forward navigation usable in dark appearance', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/docs/guide');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -283,10 +272,6 @@ test.describe('documentation experience', () => {
     await expect(page.locator('#sdk-earn-heading')).toBeFocused();
     await nav.getByRole('link', { name: 'Read-only quickstart', exact: true }).click();
     await expect(page.locator('#sdk-setup-heading')).toBeFocused();
-    const copy = page.getByRole('button', { name: 'Copy FxAeon app wrapper' });
-    await copy.click();
-    await expect(copy).toHaveText('Copied');
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('getFxReadFacade()');
     await page.goBack();
     await expect(page).toHaveURL(/#sdk-earn$/);
     await expect(page.locator('#sdk-earn-heading')).toBeInViewport();

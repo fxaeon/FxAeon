@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 test('legacy all-token snapshots only display supported holdings plus FXN', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Legacy all-token snapshot', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Portfolio network' }).selectOption('all');
+  await chooseNetwork(page, 'All networks');
   await expect(page.getByRole('button', { name: 'View ETH on Ethereum', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'View FXN on Ethereum', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /View Unrelated/ })).toHaveCount(0);
@@ -21,6 +21,15 @@ const esbuild = createRequire(tsxPackage)('esbuild') as {
 const entry = resolve(appRoot, 'e2e/harness/portfolio-assets-entry.tsx');
 let script = '';
 let styles = '';
+
+async function chooseNetwork(page: Page, name: 'All networks' | 'Ethereum' | 'Base') {
+  const trigger = page.getByRole('button', { name: /^Portfolio network:/ });
+  await trigger.click();
+  const menu = page.getByRole('menu', { name: 'Filter by network', exact: true });
+  await menu.getByRole('menuitemradio', { name, exact: true }).click();
+  await expect(trigger).toHaveAccessibleName(`Portfolio network: ${name}`);
+  await expect(menu).toHaveCount(0);
+}
 
 test.beforeAll(async () => {
   const src = resolve(appRoot, 'src');
@@ -61,8 +70,8 @@ async function mount(page: Page) {
   if (styles) await page.addStyleTag({ content: styles });
   await page.addScriptTag({ content: script });
   await expect.poll(() => page.evaluate(() => (window as Window & { __portfolioAssetsHarnessReady?: boolean }).__portfolioAssetsHarnessReady)).toBe(true);
-  await expect(page.getByRole('region', { name: 'Assets', exact: true })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Portfolio network' }).selectOption('8453');
+  await expect(page.getByRole('region', { name: 'Wallet assets', exact: true })).toBeVisible();
+  await chooseNetwork(page, 'Base');
 }
 
 test('a pending filtered network keeps loading copy instead of reporting a balance failure', async ({ page }) => {
@@ -71,7 +80,6 @@ test('a pending filtered network keeps loading copy instead of reporting a balan
   await expect(page.getByRole('status', { name: 'Loading assets', exact: true })).toBeVisible();
   await expect(page.getByText('Couldn’t load balances', { exact: true })).toHaveCount(0);
   await expect(page.getByText('No assets on Base yet', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Balances loading.', { exact: true })).toBeAttached();
 });
 
 test('a completed empty network is shown as empty only after its read is ready', async ({ page }) => {
@@ -81,6 +89,19 @@ test('a completed empty network is shown as empty only after its read is ready',
   await expect(page.getByRole('link', { name: 'Receive assets', exact: true })).toHaveAttribute('href', '/qr');
   await expect(page.getByRole('status', { name: 'Loading assets', exact: true })).toHaveCount(0);
   await expect(page.getByText('Couldn’t load balances', { exact: true })).toHaveCount(0);
+});
+
+test('all networks waits for the complete first scope while a ready network remains immediately available', async ({ page }) => {
+  await mount(page);
+  await chooseNetwork(page, 'All networks');
+  await expect(page.getByRole('status', { name: 'Loading assets', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View ETH on Ethereum', exact: true })).toHaveCount(0);
+  await chooseNetwork(page, 'Ethereum');
+  await expect(page.getByRole('button', { name: 'View ETH on Ethereum', exact: true })).toBeVisible();
+  await chooseNetwork(page, 'All networks');
+  await page.getByRole('button', { name: 'Base zero', exact: true }).click();
+  await expect(page.getByRole('status', { name: 'Loading assets', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'View ETH on Ethereum', exact: true })).toBeVisible();
 });
 
 test('a failed network exposes Retry and invokes the supplied refresh callback', async ({ page }) => {

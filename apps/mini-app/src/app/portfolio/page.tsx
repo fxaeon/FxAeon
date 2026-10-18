@@ -1,16 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import {
+  ArrowUpFromLine,
   ArrowDownToLine,
   CandlestickChart,
+  Clock3,
   ChevronDown,
   ChevronRight,
   CircleAlert,
   CircleDollarSign,
   Layers2,
+  MoreHorizontal,
   PiggyBank,
   RefreshCw,
+  Wallet,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -28,6 +34,7 @@ import { ConfirmedPositionCards } from '@/components/ConfirmedPositionCards';
 import RecentActivityPreview from '@/components/RecentActivityPreview';
 import { RecentActivitySkeleton } from '@/components/WalletActivity';
 import TokenIcon from '@/components/TokenIcon';
+import ConnectWalletButton from '@/components/ConnectWalletButton';
 import { AppShell, SectionTitle } from '@/components/ui';
 import { PageHeading, StatusNotice } from '@/components/ProductUI';
 import { formatExactDecimal } from '@/lib/amount';
@@ -43,16 +50,17 @@ import {
 import { positionTokenDecimals, type UiPosition } from '@/app/trade/fxUi';
 import { formatUsd, priceKeyForSymbol, usdValueForUnits, type UsdPriceMap } from '@/lib/prices';
 import { walletAssetValuation } from '@/lib/walletAssets';
-import { canonicalWalletBalancesSnapshot, knownFreshPortfolioSubtotal, mergeFreshCanonicalWalletBalances, portfolioHeadlineTotal, type VerifiedPortfolioTotal } from '@/lib/portfolioValuation';
+import { canonicalWalletBalancesSnapshot, mergeFreshCanonicalWalletBalances, portfolioHeadlineTotal, type VerifiedPortfolioTotal } from '@/lib/portfolioValuation';
 import { calculatePositionUsdValuation } from '@/lib/positionValuation';
 import { fxSaveUsdValue, normalizedFxSaveAssetsWei } from '@/lib/fxSaveUnits';
 import { haptic } from '@/lib/telegram';
 import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
+import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { claimAvailability, type ClaimableLike } from '@/lib/earnState';
 import { selectWalletTasks } from '@/lib/taskState';
 import styles from '@/app/AccountWorkspace.module.css';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
-import { PortfolioAssets, type PortfolioNetwork } from '@/components/PortfolioAssets';
+import { PortfolioAssets, PortfolioNetworkTabs, type PortfolioNetwork } from '@/components/PortfolioAssets';
 import { PortfolioWorkspace } from '@/components/ProductLayout';
 import { PortfolioPositionRows } from '@/components/PortfolioPositionRows';
 import { PortfolioPositionSkeleton } from '@/components/PortfolioPositionSkeleton';
@@ -100,9 +108,24 @@ function PortfolioWallet() {
   const walletBalances = useWalletBalances({ address: walletAddress, chainId: 1, enabled: Boolean(walletAddress) });
   const claimableQuery = useFxSaveClaimable({ address: walletAddress, enabled: Boolean(walletAddress) });
   const liveAssets = useWalletAssets({ address: walletAddress, enabled: Boolean(walletAddress) });
-  const [network, setNetwork] = useState<PortfolioNetwork>('all');
+  const [viewState, setViewState] = useState<{ identity: string; tab: PortfolioTab; network: PortfolioNetwork }>({ identity: '', tab: 'tokens', network: 'all' });
+  const settledIdentity = useRef('');
+  const firstWalletSettling = Boolean(identity) && settledIdentity.current === '';
+  const stateIdentity = identity || settledIdentity.current;
+  const stateApplies = !identity ? viewState.identity === settledIdentity.current
+    : firstWalletSettling ? viewState.identity === '' : viewState.identity === identity;
+  const selectedTab = stateApplies ? viewState.tab : 'tokens';
+  const network = stateApplies ? viewState.network : 'all';
+  const selectTab = useCallback((tab: PortfolioTab) => setViewState({ identity: stateIdentity, tab, network }), [stateIdentity, network]);
+  const selectNetwork = useCallback((next: PortfolioNetwork) => setViewState({ identity: stateIdentity, tab: selectedTab, network: next }), [stateIdentity, selectedTab]);
+  useEffect(() => {
+    if (!identity) return;
+    const initialWallet = settledIdentity.current === '';
+    settledIdentity.current = identity;
+    if (initialWallet) setViewState((current) => current.identity === '' ? { ...current, identity } : current);
+    else setViewState((current) => current.identity === identity ? current : { identity, tab: 'tokens', network: 'all' });
+  }, [identity]);
   const [fxSaveState, setFxSaveState] = useState<{ identity: string; snapshot: FxSaveSnapshot }>({ identity: '', snapshot: EMPTY_FX_SAVE });
-  const [fxSaveRefreshing, setFxSaveRefreshing] = useState<{ identity: string; active: boolean }>({ identity: '', active: false });
   const fxSaveStateRef = useRef(fxSaveState);
   fxSaveStateRef.current = fxSaveState;
   const fxSaveSnapshot = fxSaveState.identity === identity ? fxSaveState.snapshot : EMPTY_FX_SAVE;
@@ -120,7 +143,6 @@ function PortfolioWallet() {
     const previousState = fxSaveStateRef.current;
     const previous = previousState.identity === identity ? previousState.snapshot : EMPTY_FX_SAVE;
     const hasVerifiedSnapshot = previous.status !== 'idle' && previous.status !== 'loading';
-    setFxSaveRefreshing({ identity, active: true });
     // Keep a verified same-wallet snapshot visible while a block-triggered
     // refresh is pending. Reset only when this is the first read for a new
     // wallet identity, so the headline never flickers during background work.
@@ -149,8 +171,6 @@ function PortfolioWallet() {
           ? { ...previous, status: 'unavailable', claimable: null }
           : { ...EMPTY_FX_SAVE, status: 'unavailable' } });
       }
-    } finally {
-      if (requestId.current === activeRequest) setFxSaveRefreshing({ identity, active: false });
     }
     })().finally(() => {
       if (protocolRequest.current?.promise === promise) protocolRequest.current = null;
@@ -174,7 +194,7 @@ function PortfolioWallet() {
 
   // A view of this same tree, not a separate component: when the wallet settles,
   // React keeps its controls (the actions, the network choice) instead of remounting them.
-  if (!ready || !walletState.ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: setNetwork });
+  if (!ready || !walletState.ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: selectNetwork, selectedTab, onTabChange: selectTab });
 
   if (!authenticated || !wallet) {
     return <DisconnectedPortfolio />;
@@ -198,7 +218,6 @@ function PortfolioWallet() {
       ? hasVerifiedReads ? 'partial' : 'unavailable'
       : loading || fxSaveLoading ? 'loading' : 'ready',
   };
-  const refreshing = manualRefresh.refreshing || priceSnapshot.refreshing || walletBalances.isFetching || liveAssets.isFetching || claimableQuery.isFetching || fxSaveLoading || (fxSaveRefreshing.identity === identity && fxSaveRefreshing.active) || positionState.refreshing;
   const fallbackValuation = walletValuation(protocol.balances, displayPrices, liveAssets.status === 'ready');
   const valuationNow = Date.now();
   const displayAssets = liveAssets.data
@@ -209,13 +228,11 @@ function PortfolioWallet() {
   const allWalletRowsPriced = displayAssets
     ? pricedWalletRows.length === displayAssets.assets.filter((asset) => asset.balanceWei > 0n).length
     : true;
-  const knownWalletSubtotal = knownFreshPortfolioSubtotal(displayAssets, walletBalances.data, walletBalances.updatedAt, priceSnapshot, valuationNow);
   const positionValues = positionState.positions.map((position) =>
     positionIsStale(position, positionState.failedGroups)
       ? null : positionNetEquityUsd(position, displayPrices));
   const missingPositions = positionValues.filter((value) => value === null).length;
   const protocolEquityUsd = positionValues.reduce<number>((sum, value) => sum + (value ?? 0), 0);
-  const knownPositionCount = positionValues.filter((value) => value !== null).length;
   const positionsComplete = positionState.status === 'ready'
     && positionState.pendingPositions.length === 0 && missingPositions === 0;
   const portfolioComplete = valuation.complete && allWalletRowsPriced && positionsComplete;
@@ -229,9 +246,7 @@ function PortfolioWallet() {
   const headline = portfolioHeadlineTotal(portfolioValuation.totalUsd, verifiedPortfolioTotalRef.current,
     wallet.address, valuationNow);
   verifiedPortfolioTotalRef.current = headline.verified;
-  const walletTasks = selectWalletTasks({ walletAddress: wallet.address, transactions: [], claimable: protocol.claimable,
-    valuation: (!valuation.complete || !allWalletRowsPriced) && Boolean(displayAssets?.assets.some((asset) => asset.balanceWei > 0n))
-      ? knownWalletSubtotal.hasKnownValue ? 'partial' : 'unavailable' : 'complete' });
+  const walletTasks = selectWalletTasks({ walletAddress: wallet.address, transactions: [], claimable: protocol.claimable });
 
   const refreshAll = () => {
     haptic('light');
@@ -242,90 +257,92 @@ function PortfolioWallet() {
       <SupportedValueCard displayTotalUsd={headline.displayTotalUsd}
         // The total waits for verified positions and first prices; until then it is loading, not unavailable.
         loading={loading || liveLoading || priceSnapshot.status === 'loading' || priceSnapshot.refreshing || positionState.status === 'loading' || positionState.refreshing} refreshing={manualRefresh.refreshing} onRefresh={refreshAll}
-        walletValue={knownWalletSubtotal.totalUsd} positionEquity={positionsComplete || knownPositionCount > 0 ? protocolEquityUsd : null}
-        walletComplete={valuation.complete && allWalletRowsPriced} positionsComplete={positionsComplete} />
-      {walletTasks.filter((task) => task.kind !== 'transaction' && (task.kind !== 'valuation' || !refreshing)).map((task) => <StatusNotice key={task.id} title={task.title}
-        tone={task.state === 'ready' ? 'success' : 'neutral'} action={<Link href={task.href}>{task.kind === 'withdrawal' && task.state === 'ready' ? 'Review claim' : task.kind === 'valuation' ? 'View affected assets' : 'View details'}</Link>}>
-        {task.kind !== 'valuation' && task.detail}
+        onSelectActivity={() => selectTab('activity')} />
+      {walletTasks.filter((task) => task.kind === 'withdrawal').map((task) => <StatusNotice key={task.id} title={task.title}
+        tone={task.state === 'ready' ? 'success' : 'neutral'} action={<Link href={task.href}>{task.state === 'ready' ? 'Review claim' : 'View details'}</Link>}>
+        {task.detail}
       </StatusNotice>)}
-      <PortfolioSections />
-      <div className={presentation.holdingsGrid}>
-        <PortfolioAssets snapshot={displayAssets} loading={loading || liveLoading}
-          network={network} onNetworkChange={setNetwork} onRefresh={refreshAll} refreshing={manualRefresh.refreshing} />
-        <ProtocolHoldings key={identity}>
-          <PositionsSection summary={positionsSummary(positionState.status, positionState.positions.length, positionState.pendingPositions.length)} empty={positionState.status === 'ready' && positionState.positions.length === 0 && positionState.pendingPositions.length === 0}
-            action={positionState.positions.length > 0 ? <Link className={presentation.manageAll} href="/positions">Manage all <ChevronRight size={15} aria-hidden="true" /></Link> : undefined}>
-          <ProtocolPositionNotice status={positionState.status} failedGroups={positionState.failedGroups}
-            hasPositions={positionState.positions.length + positionState.pendingPositions.length > 0} refreshing={positionState.refreshing}
-            onRefresh={() => void positionState.refresh()} compact />
-          <ConfirmedPositionCards />
-          {(positionState.status === 'loading' || positionState.status === 'idle') && !positionState.positions.length && !positionState.pendingPositions.length ? <PortfolioPositionSkeleton />
-            : positionState.positions.length > 0 ? <PortfolioPositionRows positions={positionState.positions} failedGroups={positionState.failedGroups} />
-              : positionState.status === 'ready' && !positionState.pendingPositions.length ? <div className={presentation.emptyState}><span className={presentation.emptyIcon}><Layers2 size={22} aria-hidden="true" /></span><p><span>No open positions</span></p><Link href="/trade">Open trade <ChevronRight size={14} aria-hidden="true" /></Link></div> : null}
+      <PortfolioToolbar value={selectedTab} onChange={selectTab} network={network} onNetworkChange={selectNetwork} />
+      <div className={presentation.tabPanel} role="tabpanel" id="portfolio-tab-panel" aria-labelledby={`portfolio-tab-${selectedTab}`} tabIndex={selectedTab === 'activity' ? 0 : -1}>
+        {selectedTab === 'tokens' && <PortfolioAssets snapshot={displayAssets} loading={loading || liveLoading} pricesLoading={priceSnapshot.status === 'loading' || priceSnapshot.refreshing}
+          network={network} onRefresh={refreshAll} refreshing={manualRefresh.refreshing} />}
+        {selectedTab === 'defi' && <ProtocolHoldings key={identity}>
+          <PositionsSection>
+            <ProtocolPositionNotice status={positionState.status} failedGroups={positionState.failedGroups}
+              hasPositions={positionState.positions.length + positionState.pendingPositions.length > 0} refreshing={positionState.refreshing}
+              onRefresh={() => void positionState.refresh()} compact />
+            <ConfirmedPositionCards />
+            {(positionState.status === 'loading' || positionState.status === 'idle') && !positionState.positions.length && !positionState.pendingPositions.length ? <PortfolioPositionSkeleton />
+              : positionState.positions.length > 0 ? <PortfolioPositionRows positions={positionState.positions} failedGroups={positionState.failedGroups} />
+                : positionState.status === 'ready' && !positionState.pendingPositions.length ? <div className={presentation.emptyState}><span className={presentation.emptyIcon}><Layers2 size={22} aria-hidden="true" /></span><p><span>No open positions</span></p><Link href="/trade">Open trade <ChevronRight size={14} aria-hidden="true" /></Link></div> : null}
           </PositionsSection>
           <EarnPositionCard protocol={protocol} loading={fxSaveLoading} prices={displayPrices}
             pricesLoading={priceSnapshot.status === 'loading'} onRetry={() => void loadProtocol()} />
-        </ProtocolHoldings>
+        </ProtocolHoldings>}
+        {selectedTab === 'activity' && <div className={presentation.activitySection}><RecentActivityPreview walletAddress={wallet.address as Address} /></div>}
       </div>
-      <div id="portfolio-activity" className={presentation.activitySection}><RecentActivityPreview walletAddress={wallet.address as Address} /></div>
     </div>
-    <aside className={presentation.secondary}>
-      <MarketOverview />
-    </aside>
   </div>;
 }
 
-function PositionsSection({ summary, children, empty = false, action }: { summary: React.ReactNode; children: React.ReactNode; empty?: boolean; action?: React.ReactNode }) {
+function PositionsSection({ children }: { children: React.ReactNode }) {
   return <section aria-label="Positions" className={presentation.positionsSection}>
-    <div className={presentation.sectionTitle}><h2>Positions</h2><div className={presentation.sectionTools}><span>{empty ? '0 open' : summary}</span>{action}</div></div>
     {children}
   </section>;
 }
 
-function PortfolioSections() {
-  return <nav className={presentation.sectionNav} aria-label="Portfolio sections">
-    <a href="#portfolio-assets-heading">Wallet <span>Tokens</span></a>
-    <a href="#portfolio-defi">DeFi <span>Positions & savings</span></a>
-    <a href="#portfolio-activity">Activity <ChevronRight size={15} aria-hidden="true" /></a>
-  </nav>;
+type PortfolioTab = 'tokens' | 'defi' | 'activity';
+
+function PortfolioToolbar({ value, onChange, network, onNetworkChange }: {
+  value: PortfolioTab; onChange: (value: PortfolioTab) => void;
+  network: PortfolioNetwork; onNetworkChange: (value: PortfolioNetwork) => void;
+}) {
+  return <div className={presentation.sectionToolbar}>
+    <PortfolioTabs value={value} onChange={onChange} />
+    {value === 'tokens' && <div className={presentation.sectionFilter}><PortfolioNetworkTabs value={network} onChange={onNetworkChange} /></div>}
+  </div>;
+}
+
+function PortfolioTabs({ value, onChange }: { value: PortfolioTab; onChange: (value: PortfolioTab) => void }) {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+  const tabs: { id: PortfolioTab; label: string }[] = [
+    { id: 'tokens', label: 'Tokens' }, { id: 'defi', label: 'DeFi' }, { id: 'activity', label: 'Activity' },
+  ];
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const currentIndex = tabs.findIndex((tab) => tab.id === value);
+    const nextIndex = event.key === 'ArrowRight' ? (currentIndex + 1) % tabs.length
+      : event.key === 'ArrowLeft' ? (currentIndex - 1 + tabs.length) % tabs.length
+        : event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
+    if (nextIndex < 0) return;
+    event.preventDefault();
+    onChange(tabs[nextIndex].id);
+    document.getElementById(`portfolio-tab-${tabs[nextIndex].id}`)?.focus();
+  };
+  return <div className={presentation.sectionNav} role="tablist" aria-label="Portfolio views" onKeyDown={onKeyDown}>
+    {tabs.map((tab) => <button key={tab.id} id={`portfolio-tab-${tab.id}`} type="button" role="tab"
+      disabled={!hydrated}
+      aria-selected={value === tab.id} aria-controls="portfolio-tab-panel" tabIndex={value === tab.id ? 0 : -1}
+      onClick={() => onChange(tab.id)}>{tab.label}</button>)}
+  </div>;
 }
 
 function ProtocolHoldings({ children }: { children: React.ReactNode }) {
-  return <section id="portfolio-defi" className={presentation.protocolSection} aria-labelledby="portfolio-defi-heading">
-    <div className={presentation.holdingsHeading}><div><h2 id="portfolio-defi-heading">DeFi</h2><p>Positions and savings</p></div><span className={presentation.chainLabel}>Ethereum</span></div>
-    <details className={presentation.protocolGroup} open>
-      <summary><span className={presentation.protocolMark}><Layers2 size={21} aria-hidden="true" /></span><span><strong>f(x) Protocol</strong><small>Trade · Borrow · Earn</small></span><ChevronDown size={18} aria-hidden="true" /></summary>
-      <div className={presentation.protocolBody}>{children}</div>
-    </details>
+  return <section id="portfolio-defi" className={presentation.protocolSection} aria-label="DeFi positions and savings">
+    <div className={presentation.protocolBody}>{children}</div>
   </section>;
-}
-
-/** A disclosure summary that has to say a read failed says it in words, not with a lone mark. */
-function SummaryUnavailable({ label, children = 'Unavailable' }: { label: string; children?: React.ReactNode }) {
-  return <span className={presentation.summaryUnavailable} role="status" aria-label={label} title={label}>
-    <CircleAlert size={14} aria-hidden="true" />{children}
-  </span>;
-}
-
-function positionsSummary(status: 'idle' | 'loading' | 'ready' | 'partial' | 'unavailable', count: number, syncing = 0): React.ReactNode {
-  if (status === 'ready') return syncing > 0 ? `${count > 0 ? `${count} open · ` : ''}${syncing} syncing` : `${count} open`;
-  if (status === 'idle' || status === 'loading') return <MissingValue width="sm" status="loading" label="Loading open positions" />;
-  // A partial read still names the positions it verified; the notice inside says which groups failed.
-  return status === 'partial' && count > 0
-    ? <SummaryUnavailable label={`${count} open; some positions could not be checked`}>{count} open</SummaryUnavailable>
-    : <SummaryUnavailable label="Positions unavailable" />;
 }
 
 /**
  * Until the wallet provider is ready the page keeps its real layout: values
- * wait as placeholders in their final places while the actions, network tabs
- * and markets already work, so nothing moves when the wallet arrives. It is a
+ * wait as placeholders in their final places while the actions and network
+ * filter remain available, so nothing moves when the wallet arrives. It is a
  * plain view, not a component, and its children sit in the same slots as the
  * ready page's, so React updates them in place: a tapped action or a chosen
  * network survives the handoff.
  */
-function portfolioLoadingView({ timedOut, network, onNetworkChange }: {
-  timedOut: boolean; network: PortfolioNetwork; onNetworkChange: (network: PortfolioNetwork) => void;
+function portfolioLoadingView({ timedOut, network, onNetworkChange, selectedTab, onTabChange }: {
+  timedOut: boolean; network: PortfolioNetwork; onNetworkChange: (network: PortfolioNetwork) => void; selectedTab: PortfolioTab; onTabChange: (tab: PortfolioTab) => void;
 }) {
   if (timedOut) {
     return <div id="overview" className={presentation.dashboard}>
@@ -335,28 +352,23 @@ function portfolioLoadingView({ timedOut, network, onNetworkChange }: {
           Check your connection and try again. Your funds are unaffected.
         </StatusNotice>
       </div>
-      <aside className={presentation.secondary}><MarketOverview /></aside>
     </div>;
   }
   return <div id="overview" className={presentation.dashboard} aria-busy="true">
     <div className={presentation.primary}>
-      <SupportedValueCard displayTotalUsd={null} loading refreshing={false}
-        walletValue={null} positionEquity={null} walletComplete positionsComplete />
+      <SupportedValueCard displayTotalUsd={null} loading refreshing={false} onSelectActivity={() => onTabChange('activity')} />
       {/* The ready page's wallet notices take this slot. */}
       {null}
-      <PortfolioSections />
-      <div className={presentation.holdingsGrid}>
-        <PortfolioAssets snapshot={null} loading network={network} onNetworkChange={onNetworkChange} />
-        <ProtocolHoldings>
-          <PositionsSection summary={positionsSummary('loading', 0)}><PortfolioPositionSkeleton /></PositionsSection>
+      <PortfolioToolbar value={selectedTab} onChange={onTabChange} network={network} onNetworkChange={onNetworkChange} />
+      <div className={presentation.tabPanel} role="tabpanel" id="portfolio-tab-panel" aria-labelledby={`portfolio-tab-${selectedTab}`} tabIndex={selectedTab === 'activity' ? 0 : -1}>
+        {selectedTab === 'tokens' && <PortfolioAssets snapshot={null} loading network={network} />}
+        {selectedTab === 'defi' && <ProtocolHoldings>
+          <PositionsSection><PortfolioPositionSkeleton /></PositionsSection>
           <EarnPositionCard protocol={{ ...EMPTY_FX_SAVE, balances: null }} loading prices={{}} pricesLoading />
-        </ProtocolHoldings>
+        </ProtocolHoldings>}
+        {selectedTab === 'activity' && <div className={presentation.activitySection}><RecentActivitySkeleton /></div>}
       </div>
-      <div id="portfolio-activity" className={presentation.activitySection}><RecentActivitySkeleton /></div>
     </div>
-    <aside className={presentation.secondary}>
-      <MarketOverview />
-    </aside>
   </div>;
 }
 
@@ -364,9 +376,10 @@ function DisconnectedPortfolio() {
   return <div id="overview" className={presentation.dashboard}>
     <div className={`${presentation.primary} ${presentation.disconnectedPrimary}`}>
       <section className={presentation.welcome} aria-label="Portfolio overview">
-        <div><h2>Your portfolio</h2><p>Ethereum and Base</p></div>
+        <span className={presentation.welcomeIcon} aria-hidden="true"><Wallet size={30} strokeWidth={1.5} /></span>
+        <div><h2>Your portfolio</h2><p>Connect your wallet to see your tokens and positions.</p></div>
+        <ConnectWalletButton className={`button button-primary ${presentation.welcomeConnect}`}>Connect wallet</ConnectWalletButton>
       </section>
-      <QuickActions disconnected />
       <ProductOverview />
     </div>
     <aside className={presentation.secondary}><MarketOverview /></aside>
@@ -434,123 +447,123 @@ function ProductOverview() {
       window.removeEventListener('offline', recover);
     };
   }, []);
-  return <section className={presentation.productOverview} aria-label="Savings and borrowing">
+  return <section className={presentation.productOverview} aria-label="Explore FxAeon">
+    <Link href="/trade" className={presentation.productCard}>
+      <div><span className={presentation.productIcon}><CandlestickChart size={24} strokeWidth={1.6} aria-hidden="true" /></span><strong>Trade</strong><ChevronRight size={16} aria-hidden="true" /></div>
+      <p>Go long or short on ETH and BTC.</p>
+    </Link>
     <Link href="/earn" className={presentation.productCard}>
-      <div><TokenIcon symbol="fxSAVE" size={28} /><strong>Earn with fxSAVE</strong><ChevronRight size={15} aria-hidden="true" /></div>
-      <p>{apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> APY</>
-        : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading fxSAVE APY" /> : <span>APY unavailable</span>}</p>
+      <div><TokenIcon symbol="fxSAVE" size={36} /><strong>Earn</strong><ChevronRight size={16} aria-hidden="true" /></div>
+      <p>{apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> variable APY</>
+        : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading fxSAVE APY" /> : <span>Save with fxSAVE.</span>}</p>
     </Link>
     <Link href="/borrow" className={presentation.productCard}>
-      <div><TokenIcon symbol="fxUSD" size={28} /><strong>Borrow fxUSD</strong><ChevronRight size={15} aria-hidden="true" /></div>
-      <p>ETH, WETH, stETH, wstETH or WBTC collateral</p>
+      <div><TokenIcon symbol="fxUSD" size={36} /><strong>Borrow</strong><ChevronRight size={16} aria-hidden="true" /></div>
+      <p>Get fxUSD against your ETH or BTC.</p>
     </Link>
   </section>;
 }
 
-/**
- * The fxSAVE card keeps one shape through every state, so it never trades
- * places with a different row when the read settles: loading, unavailable
- * (with a retry inside), none on Ethereum, or the position itself.
- */
+/** Savings use the same holding-row hierarchy as open positions. */
 function EarnPositionCard({ protocol, loading, prices, pricesLoading = false, onRetry }: {
   protocol: ProtocolSnapshot; loading: boolean; prices: UsdPriceMap; pricesLoading?: boolean; onRetry?: () => void;
 }) {
-  const earnSection = (content: React.ReactNode, summary: React.ReactNode) => <section aria-labelledby="portfolio-earn-heading" className={presentation.earnSection}>
-    <div className={presentation.sectionTitle}><h2 id="portfolio-earn-heading">Savings</h2><span>{summary}</span></div>
+  const earnSection = (content: React.ReactNode) => <section aria-label="Savings" className={presentation.earnSection}>
     {content}
   </section>;
   if (protocol.fxSaveShares === null) {
     if (loading) {
       return earnSection(<div className={presentation.earnLoading} role="status" aria-label="Loading fxSAVE">
         <span className="skeleton" /><span><span className="skeleton" /><span className="skeleton" /></span><span className="skeleton" />
-      </div>, <MissingValue width="md" status="loading" label="Loading fxSAVE" />);
+      </div>);
     }
     return earnSection(<div className={presentation.emptyEarn}><p><TokenIcon symbol="fxSAVE" size={32} />
       <span><strong>Couldn’t load fxSAVE</strong></span>
-      {onRetry ? <button type="button" onClick={onRetry}>Try again</button> : <Link href="/earn">Open Earn</Link>}</p></div>,
-    <SummaryUnavailable label="fxSAVE balance unavailable" />);
+      {onRetry ? <button type="button" onClick={onRetry}>Try again</button> : <Link href="/earn">Open Earn</Link>}</p></div>);
   }
   // The card reads fxSAVE on Ethereum, where deposits and withdrawals happen;
   // fxSAVE held on Base is listed with the assets above, so its zero says where.
   if (!/[1-9]/.test(protocol.fxSaveShares) && claimAvailability(protocol.claimable).status !== 'ready') {
     return earnSection(<div className={presentation.emptyEarn}><p><TokenIcon symbol="fxSAVE" size={32} />
-      <span><strong>No fxSAVE on Ethereum yet</strong></span>
-      <Link href="/earn?mode=deposit">Deposit</Link></p></div>, '0 fxSAVE on Ethereum');
+      <span><strong>fxSAVE</strong></span>
+      <Link href="/earn?mode=deposit">Deposit</Link></p></div>);
   }
   const value = fxSaveUsdValue('assetsWei', protocol.fxSaveAssets, prices);
   const valueStatus = pricesLoading ? 'loading' : 'unavailable';
   return earnSection(
-    <div className={presentation.earnCard}>
-      <div className={presentation.earnTop}><TokenIcon symbol="fxSAVE" size={36} /><div><h3>fxSAVE</h3><p>{formatExactDecimal(protocol.fxSaveShares, 6)} fxSAVE · Ethereum</p></div></div>
+    <details className={presentation.earnCard}>
+      <summary className={presentation.earnTop} aria-label="fxSAVE savings details"><TokenIcon symbol="fxSAVE" size={42} /><div><h3>fxSAVE</h3><p>{formatExactDecimal(protocol.fxSaveShares, 6)} fxSAVE</p></div><strong className={presentation.earnValue}><ValueOrSkeleton value={formatUsd(value)} width="md" status={valueStatus} label="fxSAVE position value" /></strong><ChevronDown size={16} aria-hidden="true" /></summary>
       <div className={presentation.earnActions}><Link href="/earn?mode=deposit">Deposit</Link><Link href="/earn?mode=withdraw">Withdraw</Link>
         {claimAvailability(protocol.claimable).status === 'ready' && <Link href="/earn?mode=claim">Review claim</Link>}</div>
-      <div className={presentation.underlying}><span>Underlying holdings</span><strong><ValueOrSkeleton value={protocol.fxSaveAssets === null ? '—' : `${formatExactDecimal(protocol.fxSaveAssets, 6)} fxSP`} status={loading ? 'loading' : 'unavailable'} label="Underlying holdings" /></strong></div>
-      <p className={presentation.savingsNote}>fxSAVE tokens are also listed in your wallet assets.</p>
-    </div>,
-    <ValueOrSkeleton value={formatUsd(value)} width="md" status={valueStatus} label="fxSAVE position value" />,
+    </details>,
   );
 }
 
-function SupportedValueCard({ displayTotalUsd, loading, refreshing, onRefresh,
-  walletValue, positionEquity, walletComplete, positionsComplete,
+function SupportedValueCard({ displayTotalUsd, loading, refreshing, onRefresh, onSelectActivity,
 }: {
   displayTotalUsd: number | null; loading: boolean; refreshing: boolean; onRefresh?: () => void;
-  walletValue: number | null; positionEquity: number | null; walletComplete: boolean; positionsComplete: boolean;
+  onSelectActivity?: () => void;
 }) {
   const formattedTotal = displayTotalUsd === null ? null : formatUsd(displayTotalUsd);
-  // A breakdown row is loading while the total is, and unavailable only once its read has settled.
-  const breakdownValue = (value: number | null, label: string) => value === null
-    ? <MissingValue width="md" status={loading ? 'loading' : 'unavailable'} label={loading ? `Loading ${label.toLowerCase()}` : `${label} unavailable`} />
-    : formatUsd(value);
   return <section aria-label="Portfolio balance" className={`${presentation.valueCard} ${balancePresentation.hero}`}>
     <div className={presentation.valueTop}>
-      <span className={presentation.valueLabel}>Total value <span>Ethereum + Base</span></span>
+      <p className={`${presentation.valueNumber} ${balancePresentation.value}`} data-portfolio-value data-value-size={formattedTotal && formattedTotal.length > 16 ? 'extended' : formattedTotal && formattedTotal.length > 12 ? 'long' : undefined}>{formattedTotal !== null
+        ? <SplitFigure value={formattedTotal} fractionClassName={balancePresentation.fraction} />
+        : loading ? <MissingValue width="xl" status="loading" label="Loading portfolio value" />
+          : <span className={presentation.valueUnavailable} role="status" aria-label="Portfolio value unavailable"><CircleAlert size={16} aria-hidden="true" />Unavailable</span>}</p>
       <button type="button" aria-label="Refresh portfolio balances and positions" aria-busy={refreshing} title="Refresh balances and positions" disabled={refreshing || !onRefresh} onClick={onRefresh}>
         <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} aria-hidden="true" />
       </button>
     </div>
-    <p className={`${presentation.valueNumber} ${balancePresentation.value}`} data-portfolio-value data-value-size={formattedTotal && formattedTotal.length > 16 ? 'extended' : formattedTotal && formattedTotal.length > 12 ? 'long' : undefined}>{formattedTotal !== null
-      ? <SplitFigure value={formattedTotal} fractionClassName={balancePresentation.fraction} />
-      : loading ? <MissingValue width="xl" status="loading" label="Loading portfolio value" />
-        : <span className={presentation.valueUnavailable}>
-          <span role="status" aria-label="Portfolio value unavailable"><CircleAlert size={16} aria-hidden="true" />Total unavailable</span>
-          {onRefresh && <button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing}>{refreshing ? 'Trying…' : 'Try again'}</button>}
-        </span>}</p>
-    <dl className={presentation.valueBreakdown}>
-      <div><dt><a href="#portfolio-assets-heading">{walletComplete || walletValue === null ? 'Wallet assets' : 'Known wallet assets'} <ChevronRight size={12} aria-hidden="true" /></a></dt><dd>{breakdownValue(walletValue, 'Wallet assets')}</dd></div>
-      <div><dt><a href="#portfolio-defi">{positionsComplete || positionEquity === null ? 'Position value' : 'Known position value'} <ChevronRight size={12} aria-hidden="true" /></a></dt><dd>{breakdownValue(positionEquity, 'Position value')}</dd></div>
-    </dl>
-    <QuickActions />
-    <details className={presentation.valueDetails}><summary>Balance details</summary>
-      <p>Position value is collateral minus debt. Pending transfers and withdrawal claims are excluded.</p>
-    </details>
+    <QuickActions onActivity={onSelectActivity} />
   </section>;
 }
 
-function QuickActions({ disconnected = false }: { disconnected?: boolean }) {
-  const actions: { href: string; label: string; icon: LucideIcon }[] = disconnected ? [
-    { href: '/trade', label: 'Trade', icon: CandlestickChart },
-    { href: '/earn', label: 'Earn', icon: PiggyBank },
-    { href: '/borrow', label: 'Borrow', icon: CircleDollarSign },
-  ] : [
+function QuickActions({ onActivity }: { onActivity?: () => void }) {
+  const actions: { href: string; label: string; icon: LucideIcon }[] = [
+    { href: '/send', label: 'Send', icon: ArrowUpFromLine },
     { href: '/qr', label: 'Receive', icon: ArrowDownToLine },
     { href: '/trade', label: 'Trade', icon: CandlestickChart },
-    { href: '/borrow', label: 'Borrow', icon: CircleDollarSign },
-    { href: '/earn', label: 'Earn', icon: PiggyBank },
   ];
   return (
     <section aria-labelledby="portfolio-actions-title">
       <h2 id="portfolio-actions-title" className="sr-only">Actions</h2>
-      <div className={`${presentation.quickActions} ${disconnected ? presentation.productActions : ''}`}>
+      <div className={presentation.quickActions}>
         {actions.map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href} onClick={() => haptic('light')} className={presentation.quickAction}>
             <span><Icon className="h-5 w-5" aria-hidden="true" /></span>
             <strong>{label}</strong>
           </Link>
         ))}
+        <MoreActions onActivity={onActivity} />
       </div>
     </section>
   );
+}
+
+function MoreActions({ onActivity }: { onActivity?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useOverlayDialog<HTMLDivElement>({ open, onClose: () => setOpen(false), triggerRef, initialFocusRef: closeRef });
+  const actions = [
+    { href: '/earn', label: 'Earn', icon: PiggyBank },
+    { href: '/borrow', label: 'Borrow', icon: CircleDollarSign },
+    { href: '/move', label: 'Move', icon: ArrowDownToLine },
+  ];
+  return <>
+    <button ref={triggerRef} type="button" className={presentation.quickAction} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
+      <span><MoreHorizontal size={21} aria-hidden="true" /></span><strong>More</strong>
+    </button>
+    {open && typeof document !== 'undefined' && createPortal(<div className={presentation.moreBackdrop} onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+      <div ref={dialogRef} className={presentation.moreDialog} role="dialog" aria-modal="true" aria-labelledby="portfolio-more-title" tabIndex={-1}>
+        <div className={presentation.moreHeading}><h2 id="portfolio-more-title">More actions</h2><button ref={closeRef} type="button" onClick={() => setOpen(false)} aria-label="Close more actions"><X size={19} aria-hidden="true" /></button></div>
+        <div className={presentation.moreLinks}>{actions.map(({ href, label, icon: Icon }) => <Link key={href} href={href} onClick={() => haptic('light')}><span className={presentation.moreIcon}><Icon size={21} aria-hidden="true" /></span><span>{label}</span><ChevronRight size={16} aria-hidden="true" /></Link>)}
+          <button type="button" onClick={() => { setOpen(false); onActivity?.(); }}><span className={presentation.moreIcon}><Clock3 size={21} aria-hidden="true" /></span><span>Activity</span><ChevronRight size={16} aria-hidden="true" /></button>
+        </div>
+      </div>
+    </div>, document.body)}
+  </>;
 }
 
 function MarketOverview() {

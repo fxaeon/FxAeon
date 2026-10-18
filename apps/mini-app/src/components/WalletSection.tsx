@@ -43,7 +43,7 @@ function BrowserWalletControls() {
   };
 
   if (!wallet.ready) return <div className={`${styles.panel} ${styles.loading}`} role="status" aria-live="polite"><span className="sr-only">Loading wallet provider</span></div>;
-  return <div className={styles.panel}>
+  return <div className={styles.panel} data-wallet-options>
     <ActionRow icon={Wallet} title={wallet.authenticated && wallet.selectedWallet ? 'Browser wallet connected' : 'Connect a browser wallet'}
       detail={wallet.authenticated && wallet.selectedWallet ? undefined : 'Use a browser extension or open fxaeon.com in your wallet’s mobile browser.'}
       label={wallet.authenticated && wallet.selectedWallet ? 'Reconnect wallet' : 'Connect wallet'}

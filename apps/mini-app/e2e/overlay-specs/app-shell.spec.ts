@@ -237,11 +237,9 @@ test('after the Trade sweep, other page titles stay unanimated and Trade stays p
       });
       expect(ink.fill).toBe(ink.color);
       expect(ink.background).toBe('none');
-    } else if (path === '/history') {
+    } else {
       await expect(heading).toBeVisible();
       await expect(heading).not.toHaveClass(/\bsr-only\b/);
-    } else {
-      await expect(heading).toHaveClass(/\bsr-only\b/);
     }
     expect(await heading.evaluate((element) => element.getAnimations().length), `${path} heading is still`).toBe(0);
   }
@@ -264,9 +262,9 @@ test('a route heading is never inside the route fade; heading-less content still
   await setLab(page, { path: '/trade' });
   expect(await fadingAncestors('.trade-page-heading h1')).toEqual([]);
   await setLab(page, { path: '/history' });
-  expect(await fadingAncestors('#main-content [data-page-heading] h1')).toEqual([]);
+  expect(await fadingAncestors('#main-content [data-page-heading]')).toEqual([]);
   // History's feed, below its heading, still arrives with the route fade.
-  expect(await page.locator('#main-content > [data-page-heading] + div').evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
+  expect(await page.locator('#main-content [data-history-route-content]').evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
 });
 
 test('reduced motion shows plain headings with no sweep and a still canvas', async ({ page }) => {
@@ -321,9 +319,9 @@ test('More lists History beside Wallet & account and marks only external links',
   const links = directory.getByRole('link');
   await expect(links).toHaveCount(5);
   const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
-  expect(hrefs).toEqual(['/history', '/settings', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
-  const historyHeight = (await directory.getByRole('link', { name: 'History', exact: true }).boundingBox())!.height;
-  const accountHeight = (await directory.getByRole('link', { name: 'Wallet & account', exact: true }).boundingBox())!.height;
+  expect(hrefs).toEqual(['/settings', '/history', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  const historyHeight = (await directory.getByRole('link', { name: /^History/ }).boundingBox())!.height;
+  const accountHeight = (await directory.getByRole('link', { name: /^Wallet & account/ }).boundingBox())!.height;
   expect(historyHeight).toBeGreaterThanOrEqual(44);
   expect(Math.abs(historyHeight - accountHeight)).toBeLessThanOrEqual(1);
   expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
@@ -331,22 +329,22 @@ test('More lists History beside Wallet & account and marks only external links',
     await expect(link).toHaveAccessibleName(/\S/);
   }
   await expect(directory.getByRole('link', { name: /Protocol docs.*opens in a new tab/ })).toHaveAttribute('target', '_blank');
-  await expect(directory.getByRole('link', { name: 'FxAeon docs' })).toHaveAttribute('href', '/docs');
+  await expect(directory.getByRole('link', { name: /^FxAeon docs/ })).toHaveAttribute('href', '/docs');
   await expect(directory.getByRole('button', { name: /^Transaction settings,/ })).toBeVisible();
 });
 
-test('More hides account and Receive at all times and History until connected; Wallet & account preserves its loading shape', async ({ page }) => {
+test('More keeps destinations available while disconnected; Wallet & account preserves its loading shape', async ({ page }) => {
   await open(page);
   await setLab(page, { path: '/more', wallet: STATES[0][1] });
   await expect(page.getByRole('status', { name: 'Loading account' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^History/ })).toHaveAttribute('href', '/history');
   await setLab(page, { wallet: STATES[1][1] });
-  await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /^History/ })).toHaveAttribute('href', '/history');
   await setLab(page, { wallet: STATES[2][1] });
   await expect(page.getByRole('button', { name: 'View connected account' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'History', exact: true })).toHaveAttribute('href', '/history');
+  await expect(page.getByRole('link', { name: /^History/ })).toHaveAttribute('href', '/history');
 
   await setLab(page, { path: '/settings', wallet: STATES[0][1] });
   const loading = page.getByRole('status', { name: 'Loading account' });

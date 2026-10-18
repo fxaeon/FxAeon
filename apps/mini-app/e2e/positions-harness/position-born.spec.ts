@@ -244,7 +244,7 @@ test.describe('a position opened on Trade', () => {
     }
   });
 
-  for (const width of [390, 1280]) test(`View position carries the chosen split into the position’s confirmed split at ${width}px`, async ({ page }) => {
+  for (const width of [390, 1280]) test(`View position opens compact management without animating an invisible split at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width > 800 ? 900 : 844 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await open(page);
@@ -256,19 +256,17 @@ test.describe('a position opened on Trade', () => {
     const { calls, ready } = (await probe(page))!;
     // One transition, requested with the chosen split named after its position.
     expect(calls).toHaveLength(1);
-    expect(ready).toBe(1);
+    expect(ready).toBe(0);
     expect(calls[0].sourceName).toBe(NAME);
     expect(share(calls[0].sourceShare)).toBeCloseTo(CHOSEN_SHARE, 6);
-    // The update resolved only once the new position's own split was on screen,
-    // under the same name: the browser captured the two bars as one.
-    expect(calls[0].atResolve).toMatchObject({ url: '/positions?position=ETH%3Along%3A4242', targetKey: KEY, targetName: NAME, targetVisible: true, born: true, sourceInDocument: false });
-    // The bar lands on the confirmed figures, never the ticket's.
+    // The compact destination has no visible split; the transition skips while
+    // navigation and the confirmed figures still reach the selected position.
+    expect(calls[0].atResolve).toMatchObject({ url: '/positions?position=ETH%3Along%3A4242', targetKey: KEY, targetName: null, targetVisible: false, born: false, sourceInDocument: false });
     expect(share(calls[0].atResolve!.targetShare)).toBeCloseTo(CONFIRMED_SHARE, 5);
-    // Afterwards nothing keeps the name, and the landed bar does not draw in again.
+    // No transition name is left on the hidden target.
     const split = details(page).locator('[data-position-split]');
     await expect.poll(() => split.evaluate((node) => (node as HTMLElement).style.viewTransitionName)).toBe('');
-    expect(await split.locator('i').first().evaluate((node) => getComputedStyle(node).animationName)).toBe('none');
-    await expect(details(page)).toContainText('ETH Long');
+    await expect(page.getByRole('heading', { name: 'ETH Long · #4242', exact: true })).toBeVisible();
   });
 
   test('reduced motion opens the position without a transition', async ({ page }) => {

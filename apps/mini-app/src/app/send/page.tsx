@@ -242,7 +242,7 @@ function SendForm() {
       </dl>
     </> : <>
       <div className={styles.cardHead}><h2>Send to a wallet</h2><TransactionSettings scope="Send" chainId={asset?.chainId ?? 1} /></div>
-      <div className={styles.amountPanel}>
+      <div data-focus-field className={styles.amountPanel}>
         <div className={styles.panelHead}>
           <label htmlFor="send-amount">Amount</label>
           <button type="button" className={styles.max} disabled={busy || !fundedAsset} onClick={maximum}><span>Max</span></button>
@@ -259,7 +259,7 @@ function SendForm() {
         action={<button type="button" disabled={busy || refreshing} aria-busy={refreshing || undefined} onClick={() => void refreshAction.run([assets.refresh])}>{refreshing ? 'Checking…' : 'Retry'}</button>}>
         {fundedAsset ? 'Showing the last checked balance. Review checks it again before you can send.' : 'Retry to check your supported assets on Ethereum and Base.'}
       </StatusNotice>}
-      <div className={styles.recipientPanel}>
+      <div data-focus-field className={styles.recipientPanel}>
         <label htmlFor="send-recipient" className={styles.fieldLabel}>To</label>
         <div className={styles.recipientRow}>
           {recipientValid ? <WalletAvatar address={trimmedRecipient} size={28} /> : <span className={styles.recipientEmpty} aria-hidden="true"><Wallet /></span>}

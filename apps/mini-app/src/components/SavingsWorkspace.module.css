@@ -1,25 +1,24 @@
-.workspace { width: min(100%, 1080px); margin-inline: auto; padding-bottom: 12px; }
-.workspace > :global(header) { margin-bottom: 10px; }
-.panel { grid-area: action; min-width: 0; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: none; }
+.workspace { width: min(100%, 1080px); margin-inline: auto; padding-block: 16px; }
+.workspace .panel { grid-area: action; min-width: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .panel :global(.sticky-action) { position: static; }
 .panel :global(.sticky-action)::before { display: none; }
 .vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'information'; gap: 18px; align-items: start; }
 .vaultLayout[data-review='true'] { grid-template-areas: 'action'; }
-.vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-bottom: 24px; }
+.vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 40px; }
 .vaultIdentity > div { min-width: 0; flex: 1 1 160px; }
-.vaultIdentity h2 { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 20px; line-height: 1.3; font-weight: 600; letter-spacing: -.025em; }
-.vaultIdentity p { margin: 3px 0 0; color: var(--mut); font-size: 12px; line-height: 1.4; }
-.network { margin-left: auto; display: flex; flex: 0 0 auto; align-items: center; gap: 5px; color: var(--mut); font-size: 12px; }
+.vaultIdentity h2 { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 40px; line-height: 1.12; font-weight: 600; letter-spacing: -.025em; }
+.vaultIdentity p { margin: 3px 0 0; color: var(--mut); font-size: 14px; line-height: 1.5; }
+.network { margin-left: auto; display: flex; flex: 0 0 auto; align-items: center; gap: 6px; color: var(--mut); font-size: 13px; }
 /* Financial figures sit directly on the canvas; only the action owns a card. */
-.overview { grid-area: summary; display: flex; min-width: 0; flex-direction: column; padding: 6px 0 18px; border-bottom: 1px solid var(--line); }
-.balanceTop { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .65fr); min-width: 0; align-items: start; gap: 24px; }
+.overview { grid-area: summary; display: flex; min-width: 0; flex-direction: column; padding: 4px 0 24px; border-bottom: 0; }
+.balanceTop { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); min-width: 0; align-items: start; gap: 24px; }
 .balanceCopy { min-width: 0; flex: 1; }
-.balanceCopy > p { margin: 0 0 6px; color: var(--mut); font-size: var(--fs-small); font-weight: 400; }
-.balanceCopy h2 { max-width: 100%; margin: 0 0 3px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(28px, 6.8vw, 38px); line-height: 1.15; letter-spacing: -.045em; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
+.balanceCopy > p { margin: 0 0 6px; color: var(--mut); font-size: 14px; font-weight: 400; }
+.balanceCopy h2 { max-width: 100%; margin: 0 0 3px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(30px, 4vw, 44px); line-height: 1.15; letter-spacing: -.045em; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
 .balanceCopy small { display: block; max-width: 100%; overflow-wrap: anywhere; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
-.rate { min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
-.rate > strong { display: block; font-size: clamp(22px, 5vw, 30px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
-.rate > small { display: block; margin-bottom: 6px; color: var(--mut); font-size: var(--fs-small); font-weight: 400; }
+.rate { min-width: 0; padding: 0; border: 0; background: transparent; }
+.rate > strong { display: block; font-size: clamp(30px, 4vw, 44px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.rate > small { display: block; margin-bottom: 6px; color: var(--mut); font-size: 14px; font-weight: 400; }
 .vaultHoldings { margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
 .vaultHoldings > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .vaultHoldings dt { color: var(--mut); }
@@ -28,13 +27,18 @@
 .vaultInfo > :global([aria-label='fxSAVE details']) { margin: 0; padding: 0; }
 .vaultInfo > details { margin-top: 0; }
 .vaultInfo :global(h2) { font-family: var(--font-sans), sans-serif; }
-.refresh { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; margin: 0 -10px 0 -2px; color: var(--mut); border-radius: 50%; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
+.refresh { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; margin: 0; color: var(--mut); border-radius: 50%; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .refresh:hover { color: var(--text); background: var(--surface-2); }
 /* Deposit/Withdraw with the settings gear at the right of the same row, first in the card. */
 .actionTabs { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0 0 16px; }
 .actionTabs > :first-child { min-width: 0; flex: 1 1 auto; }
 .editor { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
-.panel :global(.amount-control) { border-radius: 12px; --amount-ring: inset 0 0 0 1px var(--line); }
+.workspace .panel :global(.amount-control) { padding: 18px; border-radius: 22px; --amount-max-size: 42px; }
+.workspace .panel[data-flow-stage] :global(.amount-control) { background: #1b1b1f; --amount-ring: none; }
+.actionTabs :global(.segmented) { border: 0; border-radius: 18px; background: #1b1b1f; }
+.workspace .panel .actionTabs :global(.segmented[data-thumb])::before { border-radius: 14px; background: #323238; box-shadow: none; }
+.actionTabs :global(.segmented-option) { min-height: 48px; border-radius: 14px; }
+.panel :global(.reviewTrigger .button-primary) { min-height: 52px; border-radius: 16px; }
 .outcome { display: grid; gap: 10px; min-width: 0; margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--line); }
 .outcomeRow { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 12px; font-size: var(--fs-small); line-height: 1.5; }
 .outcomeRow > span { color: var(--mut); }
@@ -71,9 +75,10 @@
 .back { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; }
 
 @media (min-width: 840px) {
-  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 400px); grid-template-rows: min-content 1fr; grid-template-areas: 'summary action' 'information action'; column-gap: 56px; row-gap: 0; }
+  .workspace { min-height: calc(var(--tg-viewport-height, 100dvh) - var(--header-height) - var(--header-gap) - var(--shell-top-padding)); justify-content: center; padding-block: 32px; }
+  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: min-content 1fr; grid-template-areas: 'summary action' 'information action'; column-gap: 64px; row-gap: 0; }
   .vaultLayout[data-review='true'] { grid-template-columns: minmax(0, 620px); justify-content: center; }
-  .overview { padding-bottom: 30px; }
+  .overview { padding-bottom: 36px; }
   .workspace { --page-sections-width: 100%; }
 }
 
@@ -82,16 +87,21 @@
   .vaultLayout { gap: 16px; }
   .overview { padding: 6px 0 16px; }
   .vaultIdentity { padding-bottom: 18px; gap: 9px; }
-  .vaultIdentity h2 { font-size: 18px; }
-  .vaultIdentity > img { width: 32px !important; height: 32px !important; }
+  .vaultIdentity h2 { font-size: 28px; }
+  .vaultIdentity > img { width: 40px !important; height: 40px !important; }
+  .vaultIdentity > div { flex-basis: 110px; }
+  .vaultIdentity p { font-size: 12px; }
+  .network { font-size: 12px; }
   .workspace > :global(header), .workspace > :global(nav) { margin-bottom: 0; }
-  .panel { padding: 14px; }
+  .workspace .panel :global(.amount-control) { padding: 14px; border-radius: 20px; }
   .actionTabs { margin-bottom: 12px; }
   .editor { gap: 10px; }
   .panel > [role='status'] { margin-block: 8px; }
   .balanceTop { gap: 12px; }
   .balanceTop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rate { padding: 10px 12px; }
+  .rate { padding: 0; }
+  .rate > small, .balanceCopy > p { font-size: 12px; }
+  .rate > strong, .balanceCopy h2 { font-size: 30px; }
   .vaultHoldings { margin-top: 16px; padding-top: 12px; }
   .withdrawOptions :global(label) { padding: 8px; }
   .withdrawOptions :global(fieldset) { gap: 6px; }

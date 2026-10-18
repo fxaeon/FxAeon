@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, ArrowUpRight, ChevronRight, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import React from 'react';
 import {
   formatAmount,
@@ -17,6 +17,7 @@ import { MissingValue } from '@/components/MissingValue';
 import TokenIcon from '@/components/TokenIcon';
 import { formatUsdPrice, priceKeyForSymbol } from '@/lib/prices';
 import { freshDisplayPrices } from '@/lib/displayPrices';
+import { useInitialReadPending } from '@/lib/useInitialReadPending';
 import { formatWholeUsd, positionBrakeCopy, positionBrakeView } from '@/lib/positionBrake';
 import { calculatePositionUsdValuation, debtCollateralRatioPercent, formatUsdCents } from '@/lib/positionValuation';
 import { groupDigits } from '@/lib/amount';
@@ -50,6 +51,20 @@ function positionValuation(position: UiPosition, prices: ReturnType<typeof useUs
   });
 }
 
+/** The sheet's identity stays put while its accounting and form scroll. */
+export function ProtocolPositionIdentity({ position, headingId }: { position: UiPosition; headingId?: string }) {
+  const leverage = positionDisplayLeverage(position);
+  return <div className={styles.compactIdentity}>
+    <TokenIcon symbol={position.market === 'ETH' ? 'ETH' : 'WBTC'} size={32} />
+    <div>
+      <h2 id={headingId} aria-label={`${positionName(position.market, position.side)} · #${position.info.positionId}`}>
+        {position.market} <span className={position.side === 'long' ? styles.long : styles.short}>{positionSideLabel(position.side)}</span>
+      </h2>
+      <span className={styles.positionMeta}><strong>{leverage.value === null ? <MissingValue width="sm" status="loading" /> : `${leverage.value.toFixed(2).replace(/\.00$/, '')}×`}</strong><span className="sr-only">{leverage.label}</span><span aria-hidden="true">·</span>#{position.info.positionId}</span>
+    </div>
+  </div>;
+}
+
 /**
  * One position: identity and value, the f(x) split with its brake, and (in
  * full) the four figures behind them. Rows sit inside links and buttons, so
@@ -60,20 +75,24 @@ function PositionBody({
   interactive,
   details = false,
   compact = false,
+  hideIdentity = false,
   headingId,
+  children,
 }: {
   position: UiPosition;
   interactive: boolean;
   details?: boolean;
   compact?: boolean;
+  hideIdentity?: boolean;
   headingId?: string;
+  children?: React.ReactNode;
 }) {
   const priceSnapshot = useUsdPrices();
   const prices = freshDisplayPrices(priceSnapshot);
   const { quote: liveQuote, isFresh: hasFreshLiveQuote } = useLiveMarketQuote(position.market);
   // Validate each display quote independently, including retained quotes.
   const valuation = positionValuation(position, prices);
-  const missingStatus = priceSnapshot.status === 'loading' ? 'loading' as const : 'unavailable' as const;
+  const missingStatus = priceSnapshot.status === 'loading' || priceSnapshot.refreshing ? 'loading' as const : 'unavailable' as const;
   const netEquity = valuation.netEquityUsdCents === null
     ? <MissingValue width="lg" status={missingStatus} />
     : `≈ ${formatUsdCents(valuation.netEquityUsdCents)}`;
@@ -109,11 +128,15 @@ function PositionBody({
     if (price !== undefined && price !== null) return `≈\u00a0${formatWholeUsd(price)}`;
     return <span title={`Estimated ${kind} price unavailable`}><span aria-hidden="true">—</span><span className="sr-only">Estimated {kind} price unavailable</span></span>;
   };
+  const thresholds = <span className={styles.cardMetrics}>
+    <span><span className={styles.cardMetricLabel}>Est. rebalance</span><span className={styles.cardMetricValue} data-position-price="rebalance">{thresholdValue('rebalance')}</span></span>
+    <span><span className={styles.cardMetricLabel}>Est. liquidation</span><span className={styles.cardMetricValue} data-position-price="liquidation">{thresholdValue('liquidation')}</span></span>
+  </span>;
 
   return (
     <Block className={styles.content}>
-      {headingId && <h2 id={headingId} className="sr-only">{positionName(position.market, position.side)} · #{position.info.positionId}</h2>}
-      <span className={styles.identity}>
+      {headingId && !compact && <h2 id={headingId} className="sr-only">{positionName(position.market, position.side)} · #{position.info.positionId}</h2>}
+      {compact ? !hideIdentity && <ProtocolPositionIdentity position={position} headingId={headingId} /> : <span className={styles.identity}>
         <span className={styles.tokenIcon}><TokenIcon symbol={position.market === 'ETH' ? 'ETH' : 'WBTC'} size={32} /></span>
         {/* Two lines that each share out their own width: market and value, then leverage, ID and the value's label. */}
         <span className={styles.identityText}>
@@ -132,7 +155,7 @@ function PositionBody({
             {interactive && <span className={styles.navigateSpace} aria-hidden="true" />}
           </span>
         </span>
-      </span>
+      </span>}
       {splitFill !== null && <span
         className={styles.split}
         aria-hidden="true"
@@ -164,13 +187,16 @@ function PositionBody({
           </>}
         </span>
       </span>}
-      <span className={styles.cardMetrics}>
-        <span><span className={styles.cardMetricLabel}>Est. rebalance</span><span className={styles.cardMetricValue} data-position-price="rebalance">{thresholdValue('rebalance')}</span></span>
-        <span><span className={styles.cardMetricLabel}>Est. liquidation</span><span className={styles.cardMetricValue} data-position-price="liquidation">{thresholdValue('liquidation')}</span></span>
-      </span>
+      {!compact && thresholds}
       {details && <>
-        <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} section={compact ? 'primary' : 'all'} />
-        {compact && <details className={styles.metricDisclosure}><summary>Position details<ChevronRight aria-hidden="true" /></summary><PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} section="secondary" /></details>}
+        {compact
+          ? <details className={styles.metricDisclosure}>
+              <summary title="View position details"><span>Position value</span><span className={styles.disclosureValue} title={positionValueTitle}>{netEquity}</span><ChevronDown aria-hidden="true" /></summary>
+              {thresholds}
+              <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} />
+              {children}
+            </details>
+          : <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} />}
       </>}
     </Block>
   );
@@ -237,6 +263,7 @@ export function ProtocolPositionCard({
   onSelect,
   onNavigate,
   className = '',
+  overview = false,
 }: {
   position: UiPosition;
   highlighted?: boolean;
@@ -245,29 +272,64 @@ export function ProtocolPositionCard({
   onSelect?: () => void;
   onNavigate?: () => void;
   className?: string;
+  overview?: boolean;
 }) {
   const interactive = Boolean(href || onSelect);
-  const classes = [styles.row, interactive && styles.interactive, selected && styles.selected, highlighted && styles.highlighted, className].filter(Boolean).join(' ');
-  const body = <PositionBody position={position} interactive={interactive} />;
+  const classes = [styles.row, interactive && styles.interactive, selected && styles.selected, highlighted && styles.highlighted, overview && styles.overviewRow, className].filter(Boolean).join(' ');
+  const render = (body: React.ReactNode) => href
+    ? <Link href={href} onClick={onNavigate} className={classes} data-position-key={positionKey(position)}>{body}</Link>
+    : onSelect ? <button type="button" onClick={onSelect} className={classes} aria-current={selected ? 'true' : undefined} data-position-key={positionKey(position)}>{body}</button>
+      : <article className={classes} data-position-key={positionKey(position)}>{body}</article>;
+  return overview ? <PositionOverviewRow position={position} render={render} className={className} /> : render(<PositionBody position={position} interactive={interactive} />);
+}
 
-  if (href) {
-    return <Link href={href} onClick={onNavigate} className={classes} data-position-key={positionKey(position)}>{body}</Link>;
-  }
-  if (onSelect) {
-    return (
-      <button type="button" onClick={onSelect} className={classes} aria-current={selected ? 'true' : undefined} data-position-key={positionKey(position)}>
-        {body}
-      </button>
-    );
-  }
-  return <article className={classes} data-position-key={positionKey(position)}>{body}</article>;
+/** A scan-friendly position row; the management view holds the full accounting. */
+function PositionOverviewRow({ position, render, className }: { position: UiPosition; render: (body: React.ReactNode) => React.ReactNode; className: string }) {
+  const snapshot = useUsdPrices();
+  const valuation = positionValuation(position, freshDisplayPrices(snapshot));
+  const leverage = positionDisplayLeverage(position).value;
+  const { quote, isFresh } = useLiveMarketQuote(position.market);
+  const brake = usePositionBrake(position);
+  const pricesPending = snapshot.status === 'loading' || snapshot.refreshing;
+  const pending = useInitialReadPending(positionKey(position), brake.status === 'loading' || pricesPending && valuation.netEquityUsdCents === null);
+  if (pending) return <div className={`${styles.row} ${className}`} role="status" aria-label="Loading position" aria-busy="true" data-position-key={positionKey(position)}>
+    <span className={styles.overviewContent} aria-hidden="true">
+      <span className={styles.overviewIdentity}><Skeleton className={styles.skeletonToken} /><span><Skeleton className={styles.skeletonMarket} /><span className={styles.overviewMeta}><Skeleton className={styles.skeletonMeta} /></span></span></span>
+      <span className={styles.overviewValue}><Skeleton className={styles.skeletonValue} /></span>
+      {[0, 1].map(index => <span key={index} className={styles.overviewThreshold}><span className={styles.overviewMetricLabel}><Skeleton className={styles.skeletonBasis} /></span><Skeleton className={styles.skeletonMarket} /></span>)}
+      <span />
+    </span>
+  </div>;
+  const view = brake.status === 'ready' ? positionBrakeView(brake.reading, isFresh && quote ? quote.price : null) : null;
+  const warning = view && view.state !== 'clear' ? positionBrakeCopy(view, position.market, position.side) : null;
+  const threshold = (kind: 'rebalance' | 'liquidation') => {
+    if (position.info.rawDebts === 0n) return 'No debt';
+    if (view && (kind === 'rebalance' ? view.state !== 'clear' : view.state === 'liquidation')) return <span data-threshold-reached>Reached</span>;
+    const price = kind === 'rebalance' ? view?.rebalancePrice : view?.liquidatePrice;
+    return price == null ? <MissingValue status={brake.status === 'loading' ? 'loading' : 'unavailable'} label={`Estimated ${kind} price unavailable`} width="sm" /> : `≈ ${formatWholeUsd(price)}`;
+  };
+  return render(<span className={styles.overviewContent}>
+    <span className={styles.overviewIdentity}>
+      <TokenIcon symbol={position.market === 'ETH' ? 'ETH' : 'WBTC'} size={38} />
+      <span><span className={styles.overviewName}>{position.market} <span className={position.side === 'long' ? styles.long : styles.short}>{positionSideLabel(position.side)}</span></span>
+        <span className={styles.overviewMeta}>{leverage === null ? <MissingValue width="xs" /> : `${leverage.toFixed(2).replace(/\.00$/, '')}×`}<span aria-hidden="true"> · </span><span>#{position.info.positionId}</span></span>
+      </span>
+    </span>
+    <span className={styles.overviewValue}>{valuation.netEquityUsdCents === null
+      ? <MissingValue status={pricesPending ? 'loading' : 'unavailable'} label="Position value unavailable" />
+      : <><span className={styles.approximation}>≈ </span>{formatUsdCents(valuation.netEquityUsdCents)}</>}</span>
+    <span className={styles.overviewThreshold}><span className={styles.overviewMetricLabel}>Est. rebalance</span><span data-position-price="rebalance">{threshold('rebalance')}</span></span>
+    <span className={styles.overviewThreshold}><span className={styles.overviewMetricLabel}>Est. liquidation</span><span data-position-price="liquidation">{threshold('liquidation')}</span></span>
+    <ChevronRight className={styles.overviewArrow} size={17} aria-hidden="true" />
+    {warning && <span className={styles.overviewWarning}><AlertTriangle size={14} aria-hidden="true" />{warning.line}</span>}
+  </span>);
 }
 
 /** One position in full, as its manager shows it: the row, then its four figures. */
-export function ProtocolPositionDetails({ position, headingId, className = '', compact = false }: { position: UiPosition; headingId?: string; className?: string; compact?: boolean }) {
+export function ProtocolPositionDetails({ position, headingId, className = '', compact = false, hideIdentity = false, children }: { position: UiPosition; headingId?: string; className?: string; compact?: boolean; hideIdentity?: boolean; children?: React.ReactNode }) {
   return (
-    <section className={`${styles.details}${compact ? ` ${styles.compactDetails}` : ''} ${className}`} data-position-details={positionKey(position)} aria-labelledby={headingId}>
-      <PositionBody position={position} interactive={false} details compact={compact} headingId={headingId} />
+    <section className={`${styles.details}${compact ? ` ${styles.compactDetails}` : ''} ${className}`} data-position-details={positionKey(position)} data-separate-identity={hideIdentity || undefined} aria-labelledby={headingId}>
+      <PositionBody position={position} interactive={false} details compact={compact} hideIdentity={hideIdentity} headingId={headingId}>{children}</PositionBody>
     </section>
   );
 }

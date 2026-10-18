@@ -581,15 +581,13 @@ export default function MovePage() {
               <dl>
                 <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : 'Unavailable'} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} />
                 <QuoteRow label="Bridge fee" value={preview ? `${displayBridgeAmount(preview.nativeFee)} ETH` : 'Unavailable'} title={preview ? `${formatUnits(preview.nativeFee, 18)} ETH` : undefined} />
-                <QuoteRow label="Estimated source gas" value={preview?.sourceGas !== undefined ? `${displayBridgeAmount(preview.sourceGas)} ETH` : 'Calculated at review'} title={preview?.sourceGas !== undefined ? `${formatUnits(preview.sourceGas, 18)} ETH` : undefined} />
-                <QuoteRow label="Delivery estimate" value="Not provided by bridge" />
               </dl>
             </section>}
             {Boolean(amountWei) && <p className={moveStyles.gasNote} data-shortfall={nativeShortfall || undefined} role={nativeShortfall ? 'alert' : undefined}>
               {nativeShortfall ? preview?.sourceGas !== undefined
                 ? `Add ETH on ${sourceName}. Your balance does not cover the bridge fee and estimated transaction gas.`
                 : `Add ETH on ${sourceName}. Your balance does not cover the bridge fee; transaction gas is also required.`
-                : `Keep ETH on ${sourceName} for the bridge fee and gas. Max uses your token balance only.`}
+                : `Keep ETH on ${sourceName} for bridge fees and gas.`}
             </p>}
 
             <div className={moveStyles.recipientSection}>

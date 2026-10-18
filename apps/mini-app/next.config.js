@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const path = require('node:path');
+const { availableParallelism, totalmem } = require('node:os');
+
+// Static page workers each retain the app's wallet graph. Bound their memory
+// use on laptops while keeping parallel export work on larger build runners.
+const buildWorkers = Math.max(1, Math.min(availableParallelism(), totalmem() < 12 * 1024 ** 3 ? 2 : 4));
 
 const configuredDistDir = process.env.FX_E2E_DIST_DIR?.trim();
 if (configuredDistDir && !/^[a-zA-Z0-9_-]+$/.test(configuredDistDir)) {
@@ -8,6 +13,7 @@ if (configuredDistDir && !/^[a-zA-Z0-9_-]+$/.test(configuredDistDir)) {
 
 const nextConfig = {
   output: 'export',
+  experimental: { cpus: buildWorkers, webpackBuildWorker: true },
   // `pnpm lint` is an explicit release gate. Next 16 no longer accepts the
   // legacy `eslint` build configuration; the CLI runs lint independently.
   // `pnpm typecheck` is an explicit release gate. Running it once after the

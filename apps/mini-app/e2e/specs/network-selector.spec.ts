@@ -67,7 +67,7 @@ test.describe('network selector', () => {
     await expect(button).toHaveAttribute('aria-label', 'Change network, current Ethereum');
     await expect(button.locator('img[aria-label="Ethereum logo"]')).toBeVisible();
     await expect(button.locator('.network-selector-label')).toHaveClass(/sr-only/);
-    await expect(button.locator('svg')).toHaveCount(0);
+    await expect(button.locator('.network-selector-chevron')).toBeHidden();
 
     await button.click();
     await chooseNetwork(page, 'Base');

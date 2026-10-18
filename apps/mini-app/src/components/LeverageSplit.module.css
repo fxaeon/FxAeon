@@ -94,17 +94,17 @@
   border: 3px solid var(--surface);
   border-radius: 50%;
   background: var(--mint-bright);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mint-bright) 90%, white), 0 2px 5px rgba(10, 6, 24, 0.34), 0 4px 12px rgba(10, 6, 24, 0.2), 0 0 0 5px color-mix(in srgb, var(--mint) 14%, transparent);
+  box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 4px rgb(0 0 0 / 20%);
   transform: translateX(-50%);
   pointer-events: none;
 }
-.slider[data-dragging] .sliderThumb { box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 5px rgba(10, 6, 24, 0.34), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 8px color-mix(in srgb, var(--mint) 18%, transparent); }
+.slider[data-dragging] .sliderThumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring); }
 /* Touch screens keep :hover after a tap, so only a real hover grows the halo. */
 @media (hover: hover) {
-  .slider:hover .sliderThumb { box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 5px rgba(10, 6, 24, 0.34), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 8px color-mix(in srgb, var(--mint) 18%, transparent); }
+  .slider:hover .sliderThumb { box-shadow: 0 0 0 2px var(--mint-bright); }
 }
 .slider[data-dragging] { cursor: grabbing; }
-.slider:not([data-pointer-focus]) .sliderInput:focus-visible ~ .sliderThumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--mint-bright); }
+.slider:not([data-pointer-focus]) .sliderInput:focus-visible ~ .sliderThumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring); }
 /* Typed and keyed values animate; dragging follows the pointer immediately. */
 @media (prefers-reduced-motion: no-preference) {
   .sliderThumb { transition: box-shadow var(--dur-base) var(--ease-out); }

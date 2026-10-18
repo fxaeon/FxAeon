@@ -1,0 +1,14 @@
+.root { position: relative; min-width: 0; }
+.trigger { display: flex; width: 100%; min-width: 0; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 500; text-align: left; }
+.trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trigger > svg { flex-shrink: 0; color: var(--mut); transition: transform 160ms ease; }
+.trigger[aria-expanded='true'] > svg { transform: rotate(180deg); }
+.trigger[aria-expanded='true'] { border-color: var(--line-strong); background: var(--surface-2); }
+.menu { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; min-width: 100%; padding: 5px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--surface); box-shadow: var(--elevation-2); }
+.option { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 14px; padding: 10px; border-radius: 9px; color: var(--mut); font-size: 13px; white-space: nowrap; cursor: pointer; }
+.option[data-active] { background: var(--surface-2); color: var(--text); }
+.option[aria-selected='true'] { color: var(--mint-text); }
+.trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+@media (max-width: 480px) { .trigger { padding-inline: 10px; gap: 6px; } }
+@media (forced-colors: active) { .option[data-active] { outline: 1px solid Highlight; } .option[aria-selected='true'] { color: Highlight; } }
+@media (prefers-reduced-motion: reduce) { .trigger > svg { transition: none; } }

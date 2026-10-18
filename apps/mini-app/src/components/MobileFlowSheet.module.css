@@ -7,7 +7,7 @@
 .close { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 50%; color: var(--mut); transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease; }
 .close:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .close:disabled { opacity: .4; cursor: default; }
-.close:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .body { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
 /* The sheet owns the title and dismiss action. Its child retains the network
    caption and all of the same accepted transaction terms as desktop. */

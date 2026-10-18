@@ -12,7 +12,7 @@
     "test:landing": "node --test apps/landing/test/*.test.mjs",
     "test:landing:browser": "node scripts/verify_landing_browser.mjs",
     "dev": "pnpm --dir apps/mini-app dev",
-    "lint": "eslint apps/mini-app/src apps/mini-app/test",
+    "lint": "eslint apps/mini-app/src apps/mini-app/test --cache --cache-strategy content --cache-location .cache/eslint",
     "lint:fix": "eslint apps/mini-app/src --fix",
     "test": "pnpm --dir apps/mini-app test",
     "test:chaos": "pnpm --dir apps/mini-app test:chaos",

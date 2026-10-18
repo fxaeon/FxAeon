@@ -5,8 +5,8 @@
   isolation: isolate;
 }
 
-.hero :where(button, a):focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
-:global([data-product-ui='v2']) .hero summary:focus-visible { outline: 2px solid var(--mint); outline-offset: -3px; border-radius: 10px; }
+.hero :where(button, a):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+:global([data-product-ui='v2']) .hero summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; border-radius: 10px; }
 
 /* The landing's headline scale: a large, tight figure that stands on the
    canvas without a card. */

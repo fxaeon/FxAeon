@@ -11,7 +11,7 @@ const mocks: Record<string, string> = {
   '@/components/ConnectWalletButton': `export default function ConnectWalletButton({ children, onConnected, ...props }) { return <button {...props} onClick={onConnected}>{children}</button>; }`,
   '@/components/TokenIcon': `export function ChainIcon({ chainId, size }) { return <span aria-hidden="true" data-chain-icon={chainId} style={{ width: size }} />; }`,
   'next/navigation': `export function usePathname() { return '/portfolio'; } export function useRouter() { return { push(href) { const hash = href.includes('#') ? href.slice(href.indexOf('#')) : '#destination'; window.history.pushState({ destination: href }, '', hash); } }; }`,
-  'lucide-react': `const Icon = (props) => <svg aria-hidden="true" {...props} />; export const AlertTriangle = Icon; export const Check = Icon; export const Globe2 = Icon; export const LoaderCircle = Icon; export const RefreshCw = Icon;`,
+  'lucide-react': `const Icon = (props) => <svg aria-hidden="true" {...props} />; export const AlertTriangle = Icon; export const Check = Icon; export const ChevronDown = Icon; export const Globe2 = Icon; export const LoaderCircle = Icon; export const RefreshCw = Icon;`,
 };
 let bundle = '';
 

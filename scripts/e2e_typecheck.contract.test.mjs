@@ -34,10 +34,16 @@ test('E2E compiler includes every TypeScript suite, fixture, harness and Playwri
   assert.deepEqual(missing, [], 'TypeScript must not silently exclude browser test files');
 });
 
-test('E2E compiler preserves strict no-emit checking without incremental artifacts', () => {
+test('E2E compiler preserves strict no-emit checking with an isolated incremental cache', () => {
   assert.equal(parsed.options.strict, true);
   assert.equal(parsed.options.noEmit, true);
-  assert.equal(parsed.options.incremental, false);
+  assert.equal(parsed.options.incremental, true);
+  assert.equal(resolve(parsed.options.tsBuildInfoFile), resolve(app, '.cache/e2e.tsbuildinfo'));
+  const forkPath = resolve(app, 'e2e/fork/tsconfig.json');
+  const forkConfig = ts.readConfigFile(forkPath, ts.sys.readFile);
+  const fork = ts.parseJsonConfigFileContent(forkConfig.config, ts.sys, dirname(forkPath));
+  assert.equal(resolve(fork.options.tsBuildInfoFile), resolve(app, '.cache/fork.tsbuildinfo'));
+  assert.notEqual(fork.options.tsBuildInfoFile, parsed.options.tsBuildInfoFile);
   assert.notEqual(parsed.options.noCheck, true);
   for (const option of ['noImplicitAny', 'strictNullChecks', 'strictFunctionTypes', 'strictPropertyInitialization']) {
     assert.notEqual(parsed.options[option], false, `${option} must not override strict checking`);

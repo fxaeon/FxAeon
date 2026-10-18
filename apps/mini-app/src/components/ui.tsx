@@ -13,7 +13,7 @@ import {
   PiggyBank,
   ArrowLeftRight,
   CircleDollarSign,
-  Menu,
+  Ellipsis,
   Copy,
   Check,
   LucideIcon,
@@ -186,7 +186,7 @@ function MobileMoreLink() {
   return <Link href={MORE_TAB.href} data-mobile-more aria-label={t(MORE_TAB.labelKey)} title={t(MORE_TAB.labelKey)}
     aria-current={isTabActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}
     className={navigation.mobileMore} onClick={() => haptic('selection')}>
-    <Menu size={21} aria-hidden="true" />
+    <Ellipsis size={21} aria-hidden="true" />
   </Link>;
 }
 

@@ -5,12 +5,13 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Check, ChevronDown, ChevronRight, Code, Copy, ExternalLink,
-  Landmark, PiggyBank, RefreshCw, Search, ShieldCheck, TrendingDown, TrendingUp, X, type LucideIcon,
+  CircleAlert, History, Landmark, PiggyBank, RefreshCw, Search, ShieldCheck, TrendingDown, TrendingUp, X, type LucideIcon,
 } from 'lucide-react';
 import { formatUnits, type Address, type Hex } from 'viem';
 import { useQuery } from '@tanstack/react-query';
 import TokenIcon, { ChainIcon } from './TokenIcon';
 import { SectionTitle } from './ui';
+import { FilterSelect } from './FilterSelect';
 import { BridgeTracker } from './BridgeTracker';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { useWalletActivity } from '@/lib/useWalletActivity';
@@ -30,6 +31,7 @@ import { formatUsd, usdValueForUnits, type UsdPriceMap } from '@/lib/prices';
 import type { FxTokenKey } from '@/lib/fx/tokens';
 import { loadActivityReceipt } from '@/lib/activityReceipt';
 import styles from './WalletActivity.module.css';
+import filterStyles from './FilterSelect.module.css';
 
 const GLYPHS: Record<ActivityGlyph, LucideIcon> = {
   send: ArrowUpRight, receive: ArrowDownLeft, swap: ArrowLeftRight, move: ArrowLeftRight, long: TrendingUp,
@@ -58,13 +60,12 @@ function ActivityRowsSkeleton({ count, label }: { count: number; label: string }
  * draws its first read, so the page does not change shape when it arrives.
  */
 export function HistoryFeedSkeleton() {
-  return <section className={styles.section} aria-label="Transaction history" aria-busy="true">
+  return <section className={styles.section} data-full-history aria-label="Transaction history" aria-busy="true">
     <h2 className="sr-only">History</h2>
     <div className={styles.filters} aria-hidden="true" inert>
-      <select tabIndex={-1} defaultValue="all"><option value="all">All activity</option></select>
-      <select tabIndex={-1} defaultValue="all"><option value="all">All networks</option></select>
+      {['All activity', 'All networks'].map(label => <div key={label} className={filterStyles.root}><button type="button" role="combobox" aria-expanded="false" tabIndex={-1} className={filterStyles.trigger}><span>{label}</span><ChevronDown size={16} aria-hidden="true" /></button></div>)}
       <button type="button" tabIndex={-1} className={styles.refresh}><RefreshCw size={16} aria-hidden="true" /></button>
-      <label className={styles.search}><Search size={16} aria-hidden="true" /><input tabIndex={-1} placeholder="Search activity" readOnly /></label>
+      <label data-focus-field className={styles.search}><Search size={16} aria-hidden="true" /><input tabIndex={-1} placeholder="Search activity" readOnly /></label>
     </div>
     <span className={`skeleton ${styles.skeletonDay}`} aria-hidden="true" />
     <ActivityRowsSkeleton count={5} label="Loading history" />
@@ -141,16 +142,16 @@ function ActivityFeed({ walletAddress, compact, inDialog }: { walletAddress: Add
       <h3 className={styles.day}>{day.label}</h3>
       <ul className={styles.list}>{day.rows.map((item) => <li key={item.id}><ActivityRow item={item} prices={prices} grouped onOpen={open(item)} /></li>)}</ul>
     </Fragment>);
-  return <section className={styles.section} aria-label={compact ? 'Recent history' : 'Transaction history'}>
+  return <section className={styles.section} data-full-history={!compact || undefined} aria-label={compact ? 'Recent history' : 'Transaction history'}>
     {compact ? <SectionTitle level={inDialog ? 3 : 2} right={<div className={styles.toolbar}>
       {!inDialog && <Link href="/history" aria-label="View all history">View all<ChevronRight size={14} aria-hidden="true" /></Link>}
       {refresh}
     </div>}>History</SectionTitle> : <h2 className="sr-only">History</h2>}
     {!compact && <div className={styles.filters}>
-      <select aria-label="Activity status" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="all">All activity</option><option value="confirmed">Confirmed</option><option value="pending">Pending</option><option value="failed">Failed</option></select>
-      <select aria-label="Activity network" value={chain} onChange={(event) => setChain(event.target.value)}><option value="all">All networks</option><option value="1">Ethereum</option><option value="8453">Base</option></select>
+      <FilterSelect label="Activity status" value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All activity' }, { value: 'confirmed', label: 'Confirmed' }, { value: 'pending', label: 'Pending' }, { value: 'failed', label: 'Failed' }]} />
+      <FilterSelect label="Activity network" value={chain} onChange={setChain} options={[{ value: 'all', label: 'All networks' }, { value: '1', label: 'Ethereum' }, { value: '8453', label: 'Base' }]} />
       {refresh}
-      <label className={styles.search}><Search size={16} aria-hidden="true" /><input aria-label="Search activity" placeholder="Search activity" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+      <label data-focus-field className={styles.search}><Search size={16} aria-hidden="true" /><input aria-label="Search activity" placeholder="Search activity" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
     </div>}
     {!compact && drafts.length > 0 && <details className={styles.drafts}><summary>Drafts <span>({drafts.length})</span></summary>
       {drafts.map((draft) => <div key={draft.id}><span>{operationTitle(draft.operation)}</span><small>Unsubmitted</small>
@@ -161,10 +162,13 @@ function ActivityFeed({ walletAddress, compact, inDialog }: { walletAddress: Add
       <button type="button" disabled={activity.isFetching} onClick={retry}>Retry</button>
     </p>}
     {activity.isPending ? <>{!compact && <span className={`skeleton ${styles.skeletonDay}`} aria-hidden="true" />}<ActivityRowsSkeleton count={compact ? 3 : 5} label="Loading history" /></>
-      : unavailable ? <div role="status" className={styles.unavailable}><span>History couldn’t load. Your transactions are unaffected.</span>
-        <button type="button" disabled={activity.isFetching} onClick={retry}>Retry</button></div>
+      : unavailable ? <div role="status" className={styles.unavailable} data-full={!compact || undefined}>
+        {!compact && <CircleAlert size={24} aria-hidden="true" />}
+        <span><strong>Couldn’t load history</strong><small>Your transactions are unaffected. Try loading them again.</small></span>
+        <button type="button" disabled={activity.isFetching} onClick={retry}><RefreshCw size={15} aria-hidden="true" />{activity.isFetching ? 'Loading…' : 'Retry'}</button></div>
       : verified.length > 0 ? list(visible)
       : rows.length === 0 ? <div className={styles.empty} data-compact={compact || undefined}>
+        {!compact && <History size={24} aria-hidden="true" />}
         <strong>No activity yet</strong><span>Trades, deposits, moves and transfers from this wallet appear here.</span>
         {!compact && <Link href="/qr">Receive assets</Link>}
       </div>

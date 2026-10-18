@@ -1,40 +1,42 @@
 .backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgb(0 0 0 / 62%); padding: 16px; }
-.modal { display: flex; width: min(100%, 480px); max-height: min(880px, calc(100dvh - 32px)); min-height: 0; flex-direction: column; overflow: hidden; border: 1px solid color-mix(in srgb, var(--mint) 22%, var(--line)); border-radius: 22px; background: var(--surface); color: var(--text); box-shadow: 0 18px 48px color-mix(in srgb, var(--surface-shadow) 78%, transparent); }
-.modalHeader { display: flex; flex: 0 0 auto; min-height: 64px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding: 10px 16px; }
-.modalHeader h2 { min-width: 0; margin: 0; font-size: 18px; font-weight: 620; letter-spacing: -.02em; }
-.modalHeader button { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 50%; color: var(--mut); }
-.modalHeader button:hover { background: var(--mint-dim); color: var(--text); }
+.modal { display: flex; width: min(100%, 480px); max-height: min(880px, calc(100dvh - 32px)); min-height: 0; flex-direction: column; overflow: hidden; border: 0; border-radius: 26px; background: #131416; color: var(--text); box-shadow: 0 20px 56px rgb(0 0 0 / 30%); }
+.modalHeader { display: flex; flex: 0 0 auto; min-height: 72px; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+.modalHeader h2 { min-width: 0; margin: 0; font-size: 20px; font-weight: 550; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.modalHeader button { display: grid; flex: 0 0 48px; width: 48px; height: 48px; place-items: center; border-radius: 50%; color: var(--mut); }
+.modalHeader button:hover { background: #29292e; color: var(--text); }
+.modalHeader button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; }
 .modalBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 20px calc(20px + env(safe-area-inset-bottom, 0px)); }
-.details { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
-.hero { display: flex; align-items: center; gap: 16px; padding: 12px 0 20px; border-bottom: 1px solid var(--line); }
+.details { display: flex; min-width: 0; flex-direction: column; gap: 20px; }
+.hero { display: flex; min-width: 0; align-items: center; gap: 16px; padding: 8px 0 12px; }
 .heroValue { display: grid; min-width: 0; gap: 4px; }
-.holdingValue { color: var(--text); font-size: clamp(32px, 8vw, 40px); font-variant-numeric: tabular-nums; font-weight: 650; letter-spacing: -.055em; line-height: 1.1; overflow-wrap: anywhere; }
+.holdingValue { color: var(--text); font-size: clamp(32px, 9vw, 42px); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.045em; line-height: 1.12; overflow-wrap: anywhere; }
 .holdingLabel { color: var(--mut); font-size: 12px; }
-.holdingQuantity { min-width: 0; color: var(--mut); font-size: var(--fs-small); font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.holdingQuantity { min-width: 0; color: var(--mut); font-size: 15px; line-height: 1.45; font-weight: 400; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .addressPanel { display: grid; gap: 6px; padding: 4px 0 12px; }
 .addressHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .addressPanel h3 { margin: 0; color: var(--mut); font-size: 13px; font-weight: 500; }
-.address { margin: 0; color: var(--text); font-size: 14px; line-height: 1.4; user-select: all; }
+.address { min-width: 0; margin: 0; color: var(--text); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; user-select: all; }
 .copyStatus:empty { display: none; }
 .copyButton { display: inline-flex; min-height: 44px; width: fit-content; align-items: center; gap: 8px; border-radius: 10px; color: var(--mint-text); font-size: 13px; font-weight: 600; }
 .copyStatus { margin: -6px 0 0; color: var(--mut); font-size: 11px; }
-.facts { display: flex; min-width: 0; flex-direction: column; gap: 0; border-top: 1px solid var(--line); }
-.facts > div { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.facts { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
+.facts > div { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; border-radius: 14px; padding: 12px 14px; background: #1b1b1f; font-size: 14px; }
 .facts dt { color: var(--mut); }
 .facts dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; }
 .chain { display: inline-flex; align-items: center; gap: 8px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The wallet sheet's tonal actions: raised tone, no outline, a press that gives. */
-.actions a { display: inline-flex; flex: 1 0 42%; min-width: 0; min-height: 48px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: var(--radius-md); background: var(--surface-2); color: var(--text); padding: 10px; text-align: center; font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
-.actions a:hover { background: var(--surface-3); }
+.actions a { display: inline-flex; flex: 1 0 42%; min-width: 0; min-height: 52px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 14px; background: #25252b; color: var(--text); padding: 10px; text-align: center; font-size: 14px; font-weight: 500; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
+.actions a:hover { background: #303036; }
 .actions a:active { transform: scale(0.97); transition-duration: var(--dur-press); }
 .actions a > svg { flex: 0 0 auto; color: var(--mint-text); }
 .explorer { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border-radius: 11px; color: var(--mut); font-size: 12px; }
 .explorer:hover { background: var(--surface-2); color: var(--text); }
-.details :where(a,button):focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.details :where(a,button):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (max-width: 600px) {
   .backdrop { align-items: end; padding: 0; }
-  .modal { width: 100%; max-height: 92dvh; border-radius: 24px 24px 0 0; }
+  .modal { width: 100%; max-height: 92dvh; border-radius: 26px 26px 0 0; }
   .modalHeader { padding-top: 12px; }
   .modalBody { padding-inline: 18px; }
 }
+@media (prefers-reduced-motion: reduce) { .actions a { transition: none; } .actions a:active { transform: none; } }

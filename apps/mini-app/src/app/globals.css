@@ -46,7 +46,7 @@
   --short: var(--danger);
   --short-dim: var(--danger-dim);
   /* Keyboard focus is intent: one accent ring for chrome and content alike. */
-  --focus-ring: var(--mint);
+  --focus-ring: var(--mint-bright);
   --scrim: rgba(0, 0, 0, 0.66);
   --glass: color-mix(in srgb, var(--bg) 76%, transparent);
   --glass-strong: color-mix(in srgb, var(--surface) 84%, transparent);
@@ -541,8 +541,19 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 3px;
+  outline-offset: 2px;
 }
+
+/* Compound fields own one ring. Their preset and asset buttons keep their own
+   focus indicators without also outlining the surrounding field. */
+[data-focus-field]:has(input:not([type='range']):focus-visible, textarea:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+[data-focus-field] :is(input, textarea):focus-visible { outline: none; box-shadow: none; }
+/* These are announcement/return targets, not additional interactive controls. */
+:is([role='dialog'], h1, h2, h3, main)[tabindex='-1']:focus { outline: none; }
+@media (forced-colors: active) { :root { --focus-ring: Highlight; } }
 
 /* Form actions keep their place in the card; the shell's bottom padding lets
    the last action scroll fully clear of the navigation. */
@@ -636,6 +647,11 @@ details[open] > summary .disclosure-closed-only { display: none; }
    data-continued replaces the first-paint outline (ProviderLoadingState),
    which already drew it, so it does not fade in a second time. */
 .app-content > :not(.page-header):not(.sr-only):not([data-page-heading]):not([data-continued]):not(:has([data-page-heading], .trade-page-heading)) {
+  animation: route-in var(--dur-slow) var(--ease-out) both;
+}
+/* History keeps its visible heading and feed inside one layout wrapper. Fade
+   only the feed so the heading remains readable from its first frame. */
+.app-content > :has(> [data-page-heading]) > [data-history-route-content]:not([data-continued]) {
   animation: route-in var(--dur-slow) var(--ease-out) both;
 }
 /* Accessible route titles are labels for assistive technology, never visual content to animate. */
@@ -1252,12 +1268,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
   transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, background-color var(--dur-base) ease;
 }
 
-.field-control:focus,
-.field-control:focus-within,
-.amount-control:focus-within {
-  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
-  box-shadow: 0 0 0 3px var(--mint-dim);
-}
+.field-control:focus { border-color: var(--focus-ring); }
 
 .field-error,
 .field-error:focus-within {
@@ -1859,10 +1870,10 @@ select.field-control option {
   flex: 0 0 auto;
 }
 
-/* Leverage slider: a precise track with a soft, physical thumb. */
+/* Range controls share the leverage slider's quiet resting edge. */
 input[type='range'].lever {
   --lever-track-size: 6px;
-  --lever-thumb-size: 26px;
+  --lever-thumb-size: 24px;
   --lever-fill: var(--mint);
   display: block;
   width: 100%;
@@ -1899,10 +1910,10 @@ input[type='range'].lever::-webkit-slider-thumb {
   /* WebKit aligns the thumb's top with the track; offset by half the difference. */
   margin-top: calc((var(--lever-track-size) - var(--lever-thumb-size)) / 2);
   appearance: none;
-  border: 0;
+  border: 3px solid var(--surface);
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 2px var(--lever-fill), 0 1px 2px rgba(10, 6, 24, 0.3), 0 4px 12px rgba(10, 6, 24, 0.24), 0 0 0 6px color-mix(in srgb, var(--lever-fill) 18%, transparent);
+  background: var(--mint-bright);
+  box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 4px rgb(0 0 0 / 20%);
   cursor: grab;
   transition: box-shadow var(--dur-base) var(--ease-out);
 }
@@ -1911,24 +1922,32 @@ input[type='range'].lever::-moz-range-thumb {
   box-sizing: border-box;
   width: var(--lever-thumb-size);
   height: var(--lever-thumb-size);
-  border: 0;
+  border: 3px solid var(--surface);
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 2px var(--lever-fill), 0 1px 2px rgba(10, 6, 24, 0.3), 0 4px 12px rgba(10, 6, 24, 0.24), 0 0 0 6px color-mix(in srgb, var(--lever-fill) 18%, transparent);
+  background: var(--mint-bright);
+  box-shadow: 0 0 0 1px var(--mint-bright), 0 2px 4px rgb(0 0 0 / 20%);
   cursor: grab;
   transition: box-shadow var(--dur-base) var(--ease-out);
 }
 
 input[type='range'].lever:active::-webkit-slider-thumb {
   cursor: grabbing;
-  box-shadow: 0 0 0 2px var(--lever-fill), 0 1px 2px rgba(10, 6, 24, 0.3), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 9px color-mix(in srgb, var(--lever-fill) 18%, transparent);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring);
 }
 input[type='range'].lever:active::-moz-range-thumb {
   cursor: grabbing;
-  box-shadow: 0 0 0 2px var(--lever-fill), 0 1px 2px rgba(10, 6, 24, 0.3), 0 6px 16px rgba(10, 6, 24, 0.3), 0 0 0 9px color-mix(in srgb, var(--lever-fill) 18%, transparent);
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring);
 }
 input[type='range'].lever:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring); }
 input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--focus-ring); }
+@media (forced-colors: active) {
+  input[type='range'].lever::-webkit-slider-runnable-track { border: 1px solid CanvasText; background: Canvas; }
+  input[type='range'].lever::-moz-range-track { border: 1px solid CanvasText; background: Canvas; }
+  input[type='range'].lever::-webkit-slider-thumb { border: 2px solid CanvasText; background: Canvas; box-shadow: none; }
+  input[type='range'].lever::-moz-range-thumb { border: 2px solid CanvasText; background: Canvas; box-shadow: none; }
+  input[type='range'].lever:focus-visible::-webkit-slider-thumb { outline: 2px solid Highlight; outline-offset: 2px; box-shadow: none; }
+  input[type='range'].lever:focus-visible::-moz-range-thumb { outline: 2px solid Highlight; outline-offset: 2px; box-shadow: none; }
+}
 
 .tabbar-safe {
   /* Landscape notches and rounded corners keep clear of the dock's ends too. */

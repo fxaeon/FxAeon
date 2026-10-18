@@ -115,7 +115,7 @@ export function AmountFieldView({ value, onChange, symbol, label, hint, balance,
     if (next) change(next);
   };
   return <div className={styles.field} data-amount-field="unified" data-compact={compact || undefined}>
-    <div className={`${styles.surface} amount-control`} data-invalid={Boolean(error) || undefined}>
+    <div className={`${styles.surface} amount-control`} data-focus-field data-invalid={Boolean(error) || undefined}>
       <div className={styles.labelRow}>
         <label htmlFor={id}>{label}</label>
       {hasShortcuts && <div role="group" aria-label={`${label} shortcuts`} className={styles.shortcuts}>

@@ -33,7 +33,8 @@ const mocks: Record<string, string> = {
       const feeTiers={standard:{tier:'standard',gasPriceWei:25000000000n,maxFeePerGas:30000000000n,maxPriorityFeePerGas:5000000000n,source:'rpc'},fast:{tier:'fast',gasPriceWei:30000000000n,maxFeePerGas:50000000000n,maxPriorityFeePerGas:10000000000n,source:'rpc'},rapid:{tier:'rapid',gasPriceWei:40000000000n,maxFeePerGas:60000000000n,maxPriorityFeePerGas:20000000000n,source:'rpc'}};
       return { canSelectReviewedRoute:false,endConnectFlow:()=>{},error:null,execute:async()=>{},feeSelection:wallet.isEmbedded?{snapshot:{chainId:1,tiers:feeTiers},tier:'standard'}:null,gasCost:{checking:false,estimate:{status:'current',gas:240000n,executionGasFeeWei:2400000000000000n,totalNativeCostWei:2400000000000000n,nativeValueWei:0n},estimateIsCurrent:true,status:'ready'},headingRef:{current:null},loading,networkSwitching:false,quoteChanges:[],quoteExpired:false,refreshReviewedQuote:async()=>{},refreshing:false,reset,result,review,reviewTitle:'Close ETH long position',route:stage==='input'?null:selected,routeSummaries:[],routes:[selected],selectedRoute:0,selectReviewedRoute:()=>{},startConnectFlow:()=>{},stage,status:stage==='executing'?'submitted':'reviewing',statusDetail:'',stepResults,triggerRef:{current:null},wallet:{...wallet,ready:true,authenticated:true,isEmbedded:wallet.isEmbedded} };
     }`,
-  '@/components/MissingValue': `import React from 'react'; export const ValueOrSkeleton = ({value,label}) => value ? <>{value}</> : <span aria-label={label}>Loading</span>;`,
+  '@/components/PriceProvider': `export const useUsdPrices=()=>({prices:{},status:'unavailable',updatedAts:{},refreshing:false,refresh:async()=>{}}); export const useUsdPrice=()=>undefined; export const useLiveMarketQuote=()=>({quote:null,status:'unavailable',isFresh:false});`,
+  '@/lib/displayPrices': `export const freshDisplayPrices=snapshot=>snapshot.prices;`,
   '@/lib/addressPresentation': `export const compactAddress = value => value ? value.slice(0,6)+'…'+value.slice(-4) : '';`,
   '@/lib/transactionProgress': `export const hasTransactionHash = step => Boolean(step?.hash); export const transactionStepProgress=step=>({label:step?.status==='submitted'?'Submitted':'Ready',state:step?.status==='submitted'?'submitted':'ready',className:'',icon:null}); export const transactionStepKind=step=>step?.transaction?.kind==='action'?'Action':'Approval'; export const transactionExplorerUrl=(chainId,hash)=>chainId===1?'https://etherscan.io/tx/'+hash:null;`,
   '@/lib/taskState': `export const selectExecutionTask=()=>null;`,
@@ -46,7 +47,8 @@ const mocks: Record<string, string> = {
   '@/components/ProtocolPositionCard': `import React from 'react'; export const positionIsStale = () => false;
     const keyOf = position => position.market+':'+position.side+':'+position.info.positionId;
     export const ProtocolPositionCard = ({position,selected,onSelect,href}) => { const body = <strong>{position.market} {position.side} #{position.info.positionId}</strong>; return onSelect ? <button type="button" onClick={onSelect} data-position-key={keyOf(position)} aria-current={selected?'true':undefined}>{body}</button> : href ? <a href={href} data-position-key={keyOf(position)}>{body}</a> : <article data-position-key={keyOf(position)}>{body}</article>; };
-    export const ProtocolPositionDetails = ({position,headingId,className}) => <section className={className} data-position-details={keyOf(position)}><h2 id={headingId}>{position.market} {position.side} · #{position.info.positionId}</h2><dl><dt>Collateral</dt><dd>{String(position.info.rawColls)}</dd></dl></section>;
+    export const ProtocolPositionIdentity = ({position,headingId}) => <h2 id={headingId}>{position.market} {position.side} · #{position.info.positionId}</h2>;
+    export const ProtocolPositionDetails = ({position,headingId,className,hideIdentity}) => <section className={className} data-position-details={keyOf(position)}>{!hideIdentity && <ProtocolPositionIdentity position={position} headingId={headingId} />}<dl><dt>Collateral</dt><dd>{String(position.info.rawColls)}</dd></dl></section>;
     export const ProtocolPositionList = ({label,children}) => <div role="list" aria-label={label}>{React.Children.map(children, child => child ? <div role="listitem">{child}</div> : null)}</div>;
     export const ProtocolPositionNotice = () => null; export const ProtocolPositionSkeleton = () => <div />;`,
   '@/components/ProtocolPositionProvider': `export const useProtocolPositions = () => globalThis.__positionsReviewHarness.shared;`,
@@ -61,7 +63,7 @@ const mocks: Record<string, string> = {
   '@/lib/receiptPresentation': `export const buildReceiptPresentation=()=>({movements:[],technicalMovements:[],executionFee:null,feeLabel:'Network fee',feeCaveat:null,nativeValue:null}); export const receiptTransfersFromLogs=()=>[]; export const shouldShowReceiptMovementFallback=receipts=>receipts.length>0&&receipts.some(receipt=>receipt.transactionKind!=='approval'); export const receiptMovementLines=receipts=>{const tokenMovements=receipts.flatMap(receipt=>receipt.movements); if(tokenMovements.length) return {movements:tokenMovements,nativeValueIsMovement:false}; const nativeSends=receipts.flatMap(receipt=>receipt.nativeValue&&receipt.nativeValueLabel==='Native value sent'?['sent '+receipt.nativeValue]:[]); return {movements:nativeSends,nativeValueIsMovement:nativeSends.length>0};};`,
   '@/lib/telegram': `export const haptic=()=>{};`,
   '@/lib/transactionState': `export const resetTransactionAmounts=()=>({amount:'',fraction:25,leverage:2});`,
-  '@/app/trade/fxUi': `export const getSdkReductionAmountWei=async()=>1n; export const formatAmount=(value,decimals=18)=>String(Number(value)/10**decimals); export const parseAmount=()=>1n; export const positionKey=position=>position.market+':'+position.side+':'+position.info.positionId; export const positionCollateralDecimals=()=>18; export const positionDebtDecimals=()=>18; export const positionInputTokenOptions=()=>['ETH','USDC']; export const positionOutputTokenOptions=()=>['USDC','ETH']; export const positionTargetLeverage=()=>2; export const tokenAddress=()=> '0x0000000000000000000000000000000000000001'; export const tokenDecimals=token=>token==='USDC'?6:18;`,
+  '@/app/trade/fxUi': `export const getSdkReductionAmountWei=async()=>1n; export const formatAmount=(value,decimals=18)=>String(Number(value)/10**decimals); export const parseAmount=()=>1n; export const positionKey=position=>position.market+':'+position.side+':'+position.info.positionId; export const positionCollateralDecimals=()=>18; export const positionDebtDecimals=()=>18; export const positionTokenDecimals=()=>18; export const positionInputTokenOptions=()=>['ETH','USDC']; export const positionOutputTokenOptions=()=>['USDC','ETH']; export const positionTargetLeverage=()=>2; export const tokenAddress=()=> '0x0000000000000000000000000000000000000001'; export const tokenDecimals=token=>token==='USDC'?6:18;`,
 };
 
 async function buildHarness(): Promise<{ script: string; css: string }> {
@@ -102,9 +104,9 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 1024 
     await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
     await page.locator('[data-position-key="ETH:long:11"]').click();
     await page.getByRole('radio', { name: 'Close', exact: true }).click();
-    const trigger = page.getByRole('button', { name: 'Review Close ETH long position', exact: true });
+    const trigger = page.getByRole('button', { name: 'Review close', exact: true });
     await trigger.scrollIntoViewIfNeeded();
-    await expect(trigger.locator('xpath=ancestor::*[contains(@class,"sticky-action")][1]')).toHaveCSS('position', 'static');
+    await expect(trigger.locator('xpath=ancestor::*[contains(@class,"sticky-action")][1]')).toHaveCSS('position', viewport.width <= 600 ? 'sticky' : 'static');
     await trigger.click();
     const decision = page.getByRole('button', { name: 'Approve position', exact: true });
     await expect(decision).toBeVisible();
@@ -156,7 +158,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
   await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A11$/);
   await actions.getByRole('radio', { name: 'Close', exact: true }).click();
-  const reviewAction = page.getByRole('button', { name: 'Review Close ETH long position', exact: true });
+  const reviewAction = page.getByRole('button', { name: 'Review close', exact: true });
   await expect(reviewAction).toBeVisible();
   await reviewAction.scrollIntoViewIfNeeded();
   await reviewAction.click();
@@ -179,7 +181,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect.poll(confirmFitsAboveNavigation).toBe(true);
   await page.screenshot({ path: resolve(root, 'apps/mini-app/e2e/.positions-harness-results/close-review-393x852.png'), fullPage: false });
   await expect(openPositions).toBeVisible();
-  const backgroundNavigation = page.getByRole('navigation', { name: 'Trade views', exact: true });
+  const backgroundNavigation = page.locator('[data-positions-header]');
   await expect(backgroundNavigation).toBeVisible();
   expect(await backgroundNavigation.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
   await expect(page.getByRole('heading', { name: 'ETH long · #11', exact: true })).toHaveCount(0);
@@ -192,10 +194,10 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(actions).toBeVisible();
   await expect(reviewAction).toBeVisible();
   await expect(openPositions).toBeVisible();
-  // "All positions" goes back one step, to the list and its view switch.
-  await page.getByRole('button', { name: 'Close position', exact: true }).click();
+  // Closing management returns to the list and its page actions.
+  await page.getByRole('button', { name: 'Close position manager', exact: true }).click();
   await expect(openPositions).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Trade views', exact: true })).toBeVisible();
+  await expect(page.locator('[data-positions-header]')).toBeVisible();
   await expect(actions).toBeHidden();
   await expect(page).toHaveURL(/\/positions$/);
   await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
@@ -273,10 +275,10 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
   const actions = page.getByRole('radiogroup', { name: 'Position action', exact: true });
   const positionsColumn = page.locator('section[aria-labelledby="open-positions-heading"]');
   const nameByAction: Record<string, string> = {
-    Add: 'Review Add to ETH long position',
-    Reduce: 'Review Reduce ETH long position',
-    Close: 'Review Close ETH long position',
-    Leverage: 'Review Adjust ETH long position leverage',
+    Add: 'Review deposit',
+    Reduce: 'Review reduction',
+    Close: 'Review close',
+    Leverage: 'Review leverage',
   };
   for (const action of ['Add', 'Reduce', 'Close', 'Leverage']) {
     await actions.getByRole('radio', { name: action, exact: true }).click();
@@ -287,7 +289,7 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
     await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
     await expect(positionsColumn).toBeVisible();
     expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
-    const tradeViews = page.getByRole('navigation', { name: 'Trade views', exact: true });
+    const tradeViews = page.locator('[data-positions-header]');
     await expect(tradeViews).toBeVisible();
     expect(await tradeViews.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
     await expect(actions).toHaveCount(0);
@@ -313,7 +315,7 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
     await expect(actions).toBeVisible();
   }
 
-  await page.getByRole('button', { name: 'Review Adjust ETH long position leverage', exact: true }).click();
+  await page.getByRole('button', { name: 'Review leverage', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
   await page.evaluate(() => {
     const h = (globalThis as typeof globalThis & { __positionsReviewHarness: { wallet: { address: string; connectionVersion: number }; rerender?: () => void } }).__positionsReviewHarness;
@@ -331,7 +333,7 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
   await currentPosition.click();
   await actions.getByRole('radio', { name: 'Add', exact: true }).click();
   await page.getByRole('textbox', { name: 'Amount to add', exact: true }).fill('1');
-  const closeReview = page.getByRole('button', { name: 'Review Add to ETH long position', exact: true });
+  const closeReview = page.getByRole('button', { name: 'Review deposit', exact: true });
   await closeReview.click();
   await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
   await page.evaluate(() => {
@@ -378,7 +380,7 @@ test('submitted transaction status and explorer link scroll with the card and cl
 
     await page.locator('[data-position-key="ETH:long:11"]').click();
     await page.getByRole('radiogroup', { name: 'Position action', exact: true }).getByRole('radio', { name: 'Close', exact: true }).click();
-    const reviewAction = page.getByRole('button', { name: 'Review Close ETH long position', exact: true });
+    const reviewAction = page.getByRole('button', { name: 'Review close', exact: true });
     await reviewAction.scrollIntoViewIfNeeded();
     await reviewAction.click();
 

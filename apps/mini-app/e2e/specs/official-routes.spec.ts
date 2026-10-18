@@ -224,19 +224,21 @@ test.describe("connected browser wallet flows", () => {
     },
   });
 
-  test("portfolio shows the selected account and honest balance state", async ({ page, requests }) => {
+  test("Portfolio keeps the balance headline honest and its contents in the selected view", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
     await expect(page.getByText(/0x930f/i).first()).toBeVisible();
-    await expect(page.getByText("Wallet balances", { exact: true })).toHaveCount(0);
     await expect(page.getByRole('main').getByRole('status', { name: /portfolio value/i })).toBeVisible();
-    const breakdown = page.getByRole('region', { name: 'Portfolio balance', exact: true });
-    const walletAssets = breakdown.getByRole('link', { name: /^(Known )?wallet assets$/i });
-    const positionValue = breakdown.getByRole('link', { name: /^(Known )?position value$/i });
-    await expect(walletAssets).toBeVisible();
-    await expect(positionValue).toBeVisible();
-    await expect(walletAssets).toHaveAttribute('href', '#portfolio-assets-heading');
-    await expect(positionValue).toHaveAttribute('href', '#portfolio-defi');
+    const balance = page.getByRole('region', { name: 'Portfolio balance', exact: true });
+    await expect(balance.locator('[data-portfolio-value]')).toBeVisible();
+    await expect(balance.getByRole('button', { name: 'Refresh portfolio balances and positions', exact: true })).toBeVisible();
+    await expect(balance.locator('details')).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'Tokens', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('region', { name: 'Wallet assets', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Positions', exact: true })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Positions', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Wallet assets', exact: true })).toHaveCount(0);
     await expect(page.getByText('Verified units', { exact: true })).toHaveCount(0);
     await expect(page.getByText('0 assets', { exact: true })).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/\$\s*\d/);
@@ -536,15 +538,15 @@ test.describe("market price context", () => {
     test("preserves actions and markets without a value card", async ({ page, requests }) => {
       await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
       const main = page.getByRole("main");
-      await expect(main.getByRole("button", { name: "Connect wallet", exact: true })).toHaveCount(0);
+      await expect(main.getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
       await expect(page.locator(".app-topbar").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Connect wallet", exact: true })).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Connect wallet", exact: true })).toHaveCount(2);
       await expect(main.locator(".portfolio-value-metrics")).toHaveCount(0);
       await expect(main.getByText("Portfolio value", { exact: true })).toHaveCount(0);
-      const actions = main.getByRole("region", { name: "Actions", exact: true });
+      const actions = main.getByRole("region", { name: "Explore FxAeon", exact: true });
       await expect(actions).toBeVisible();
       for (const label of ["Trade", "Earn", "Borrow"]) {
-        await expect(actions.getByRole("link", { name: label, exact: true })).toBeVisible();
+        await expect(actions.getByRole("link", { name: new RegExp(label) })).toBeVisible();
       }
       const markets = main.getByRole("region", { name: "Markets", exact: true });
       await expect(markets).toBeVisible();
@@ -555,19 +557,15 @@ test.describe("market price context", () => {
     });
   });
 
-  test("portfolio keeps positions and fxSAVE actions inline", async ({ page, requests }) => {
+  test("Portfolio keeps positions and savings in the DeFi view", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
+    await page.getByRole('tab', { name: 'DeFi', exact: true }).click();
     const positions = page.getByRole("region", { name: "Positions", exact: true });
-    await expect(positions.getByRole("heading", { name: "Positions", exact: true })).toBeVisible();
+    await expect(positions).toBeVisible();
     const actions = page.getByRole("region", { name: "Actions", exact: true });
     await expect(actions.getByRole("link", { name: "Trade", exact: true })).toHaveAttribute("href", "/trade");
-    await expect(page.getByRole("region", { name: "Markets" }).getByText("24h change", { exact: true })).toBeVisible();
-    const earnSection = page.locator('section[aria-labelledby="portfolio-earn-heading"]');
-    if (await earnSection.count()) {
-      await expect(earnSection.getByRole("heading", { name: "Savings", exact: true })).toBeVisible();
-    } else {
-      await expect(page.getByRole("link", { name: /^fxSAVE View Earn$/ })).toHaveAttribute("href", "/earn");
-    }
+    await expect(page.getByRole("region", { name: "Markets", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Savings", exact: true })).toBeVisible();
     // The no-RPC fixture cannot fabricate protocol positions. When a
     // canonical read returns one, the card and its Manage/Borrow/Close links
     // stay in this region; when it does not, the empty state is still valid.
@@ -575,21 +573,25 @@ test.describe("market price context", () => {
     assertNoBackendRequests(requests);
   });
 
-  test("desktop portfolio sparklines stay inside their compact card frames", async ({ page, requests }) => {
-    await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
-    const charts = page.locator('.portfolio-market-card .market-chart-compact');
-    await expect(charts).toHaveCount(2);
-    for (const chart of await charts.all()) {
-      await expect(chart.getByRole('img')).toBeVisible();
-      const geometry = await chart.evaluate((element) => ({
-        chart: element.getBoundingClientRect().height,
-        frame: element.parentElement!.getBoundingClientRect().height,
-      }));
-      expect(geometry.chart).toBeLessThanOrEqual(54);
-      expect(geometry.chart).toBeLessThanOrEqual(geometry.frame);
-    }
-    assertNoBackendRequests(requests);
+  test.describe("disconnected desktop portfolio market cards", () => {
+    test.use({ telegram: false, browserWallet: false });
+
+    test("desktop portfolio sparklines stay inside their compact card frames", async ({ page, requests }) => {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
+      const charts = page.locator('.portfolio-market-card .market-chart-compact');
+      await expect(charts).toHaveCount(2);
+      for (const chart of await charts.all()) {
+        await expect(chart.getByRole('img')).toBeVisible();
+        const geometry = await chart.evaluate((element) => ({
+          chart: element.getBoundingClientRect().height,
+          frame: element.parentElement!.getBoundingClientRect().height,
+        }));
+        expect(geometry.chart).toBeLessThanOrEqual(54);
+        expect(geometry.chart).toBeLessThanOrEqual(geometry.frame);
+      }
+      assertNoBackendRequests(requests);
+    });
   });
 
   test("keeps a recent validated snapshot visible across a hard navigation when the feed retries", async ({ page, requests }) => {
@@ -617,8 +619,11 @@ test.describe("market price context", () => {
     await expect(page.getByRole("region", { name: "ETH market chart" }).getByText("$2,400.00", { exact: true })).toBeVisible();
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("region", { name: "Market prices" })).toHaveCount(0);
-    const marketCard = page.getByRole("link", { name: "Trade ETH", exact: true });
-    await expect(marketCard.getByText("$2,400.00", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Markets", exact: true })).toHaveCount(0);
+    // Connected Portfolio now focuses on holdings. Return to the real chart
+    // to verify the validated price survives hard navigation and failed retries.
+    await page.goto("/trade", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("region", { name: "ETH market chart" }).getByText("$2,400.00", { exact: true })).toBeVisible();
     await expect.poll(() => calls).toBeGreaterThan(1);
     assertNoBackendRequests(requests);
   });
@@ -716,15 +721,15 @@ test.describe("Move and More compact surfaces", () => {
 
   test("More exposes wallet/account destinations and docs without appearance choices", async ({ page, requests }) => {
     await page.goto("/more", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("link", { name: /History/ })).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("link", { name: /^History/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Receive/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Transaction settings/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Wallet & account", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Wallet & account/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Appearance/ })).toHaveCount(0);
     for (const redundantGroupTitle of ["Account", "Preferences", "f(x) Protocol", "Resources"]) {
       await expect(page.getByRole("heading", { name: redundantGroupTitle, exact: true })).toHaveCount(0);
     }
-    await expect(page.getByRole("link", { name: "FxAeon docs", exact: true })).toHaveAttribute("href", "/docs");
+    await expect(page.getByRole("link", { name: /^FxAeon docs/ })).toHaveAttribute("href", "/docs");
     await page.goto("/settings", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Wallet & account", exact: true })).toBeVisible();
     await expect(page.getByRole("radiogroup", { name: "Appearance theme", exact: true })).toHaveCount(0);
@@ -738,10 +743,10 @@ test.describe("Move and More compact surfaces", () => {
       await page.goto("/more", { waitUntil: "domcontentloaded" });
       const more = page.getByRole("main");
       await expect(more.getByRole("heading", { name: "More", exact: true })).toBeVisible();
-      await expect(more.getByRole("link", { name: /History/ })).toHaveCount(0);
+      await expect(more.getByRole("link", { name: /^History/ })).toBeVisible();
       await expect(more.getByRole("link", { name: /Receive/ })).toHaveCount(0);
       await expect(more.getByRole("button", { name: /Transaction settings/ })).toBeVisible();
-      await expect(more.getByRole("link", { name: "Wallet & account", exact: true })).toBeVisible();
+      await expect(more.getByRole("link", { name: /^Wallet & account/ })).toBeVisible();
       expect(await more.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
 
       await page.goto("/settings", { waitUntil: "domcontentloaded" });

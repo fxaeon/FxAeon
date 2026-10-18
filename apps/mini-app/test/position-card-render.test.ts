@@ -134,21 +134,19 @@ test('a position row leads with identity and value; its details keep every figur
   });
 });
 
-test('compact management keeps balances and risk outside its closed secondary-metric disclosure', async () => {
+test('compact management keeps risk visible and exact balances in its position-value disclosure', async () => {
   await withCardModule(({ card: { ProtocolPositionDetails }, brake: { PositionBrakeContext } }) => {
     const html = renderToStaticMarkup(React.createElement(PositionBrakeContext.Provider, {
       value: brakeStore({ 'ETH:long:42': readyEntry(ethLong, 90n * E18 / 100n) }),
     }, React.createElement(ProtocolPositionDetails, { position: ethLong, compact: true })));
     const primary = html.split('<details')[0];
-    assert.equal(factValue(primary, 'Collateral'), '1 stETH');
-    assert.equal(factValue(primary, 'Debt'), '0.5 fxUSD');
     assert.match(primary, /At the rebalance point/);
-    assert.doesNotMatch(primary, /<dt>Market price|<dt>Debt \/ collateral/);
-    assert.match(html, /<details class="test-metricDisclosure"><summary>Position details/);
+    assert.doesNotMatch(primary, /<dt>Collateral|<dt>Debt|<dt>Market price/);
+    assert.match(html, /<details class="test-metricDisclosure"><summary title="View position details"><span>Position value/);
+    assert.equal(factValue(html, 'Collateral'), '1 stETH');
+    assert.equal(factValue(html, 'Debt'), '0.5 fxUSD');
     assert.match(html, /<dt>Market price/);
     assert.match(html, /<dt>Debt \/ collateral/);
-    assert.match(html, /<dt>Collateral value/);
-    assert.match(html, /<dt>Debt value/);
   });
 });
 

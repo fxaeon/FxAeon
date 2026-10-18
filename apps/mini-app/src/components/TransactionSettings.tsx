@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from 'react';
 import { formatUnits } from 'viem';
-import { Fuel, Percent, RotateCcw } from 'lucide-react';
+import { ChevronRight, Fuel, Percent, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { ChainIcon } from '@/components/TokenIcon';
 import { SettingsPopover } from '@/components/SettingsPopover';
 import { DecimalInput } from '@/components/DecimalInput';
@@ -50,7 +50,8 @@ function useStoredSettings() {
  * quiet at the defaults and shows a chip once something differs. Changes save
  * at once and reach every open form and review.
  */
-export function TransactionSettings({ slippage = false, slippagePercent, onSlippageChange, chainId = 1, children, scope }: {
+export function TransactionSettings({ slippage = false, slippagePercent, onSlippageChange, chainId = 1, children, scope, presentation = 'icon' }: {
+  presentation?: 'icon' | 'row';
   scope?: string;
   chainId?: 1 | 8453;
   children?: ReactNode;
@@ -72,7 +73,10 @@ export function TransactionSettings({ slippage = false, slippagePercent, onSlipp
     slippage && Number(percent) !== DEFAULT_SLIPPAGE_PERCENT ? `${percent}% slippage` : null,
     !walletSetsFees && tier !== DEFAULT_GAS_TIER ? SPEED_LABELS[tier] : null,
   ].filter(Boolean);
-  return <SettingsPopover title={scope ? `${scope} settings` : 'Transaction settings'} summary={summary} chip={changes.length ? changes.join(' · ') : null}>
+  return <SettingsPopover title={scope ? `${scope} settings` : 'Transaction settings'} summary={summary} chip={changes.length ? changes.join(' · ') : null}
+    placement={presentation === 'row' ? 'center' : 'anchor'}
+    triggerClassName={presentation === 'row' ? styles.rowTrigger : undefined}
+    triggerContent={presentation === 'row' ? <><SlidersHorizontal size={20} aria-hidden="true" /><span className={styles.rowCopy}><strong>Transaction settings</strong><small>{walletSetsFees ? 'Slippage tolerance' : 'Slippage and network speed'}</small></span><span className={styles.rowValue}>{slippage ? `${percent}%` : SPEED_LABELS[tier]}</span><ChevronRight size={18} aria-hidden="true" /></> : undefined}>
     <div className={styles.context}><ChainIcon chainId={chainId} size={18} /><span>{chainId === 8453 ? 'Base' : 'Ethereum'}</span>{!walletSetsFees && <><span>·</span><span>App-managed fees</span></>}</div>
     <TransactionSettingsPanel chainId={chainId} slippage={slippage} percent={percent} tier={tier} walletSetsFees={walletSetsFees} controlledSlippage={slippagePercent !== undefined} onSlippageChange={onSlippageChange} />
     {children}
@@ -170,7 +174,7 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
           onKeyDown={event => navigateRadios(event, index, SLIPPAGE_PRESETS_BPS.length, next => choosePreset(SLIPPAGE_PRESETS_BPS[next]))}
           onClick={() => choosePreset(value)}>{formatPercent(value)}</button>)}
       </div>
-      <label className={styles.custom} data-active={presetIndex < 0 || undefined} data-invalid={Boolean(error || inputError) || undefined}>
+      <label data-focus-field className={styles.custom} data-active={presetIndex < 0 || undefined} data-invalid={Boolean(error || inputError) || undefined}>
         <span>Custom</span>
         <DecimalInput enterKeyHint="done" autoComplete="off" value={draft ?? percent} aria-label="Slippage tolerance percentage" policy="comma-decimal"
           aria-describedby={`${id}-slippage-help`} aria-invalid={Boolean(error || inputError)}

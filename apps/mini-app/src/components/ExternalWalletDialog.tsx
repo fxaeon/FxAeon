@@ -44,8 +44,9 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
   const [copying, setCopying] = useState(false);
   const copyGeneration = useRef(0);
   useEffect(() => {
-    copyGeneration.current++; setCopyMessage(''); setCopying(false);
-    return () => { copyGeneration.current++; };
+    const generation = copyGeneration;
+    generation.current++; setCopyMessage(''); setCopying(false);
+    return () => { generation.current++; };
   }, [pending?.walletId, pending?.dappHref]);
   const copyDapp = async () => {
     if (!pending?.dappHref) return;

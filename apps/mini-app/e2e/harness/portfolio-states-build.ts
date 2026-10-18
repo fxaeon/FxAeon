@@ -39,8 +39,8 @@ const ready = () => !['wallet', 'timeout'].includes(stage());
 export const isWalletConnectCancellation = () => false;
 export function useWalletReadyTimeout(isReady) { return !isReady && stage() === 'timeout'; }
 export function usePrivyWallet() {
-  const address = ready() ? '${WALLET}' : undefined;
-  return { ready: ready(), authenticated: ready(), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
+  const address = ready() && stage() !== 'disconnected' ? '${WALLET}' : undefined;
+  return { ready: ready(), authenticated: Boolean(address), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
     selectedWallet: address ? { address } : null, connect: async () => {}, disconnect: async () => {}, switchChain: async () => {}, sendTransaction: async () => {} };
 }`,
   '@/lib/wallet/activeWalletAddress': `export const activeWalletAddress = (wallet) => wallet.ready && wallet.authenticated ? wallet.address ?? null : null;`,
@@ -62,7 +62,8 @@ const now = Date.now();
 const PRICES = { ETH: 2400, WETH: 2400, stETH: 2400, wstETH: 2900, WBTC: 104000, fxUSD: 1, USDC: 1, USDT: 1, FXN: 26, fxSAVE: 1.05, fxUSDBasePool: 1 };
 export function useUsdPrices() {
   const loading = stage() === 'reads' || stage() === 'wallet' || stage() === 'timeout';
-  const prices = loading || stage() === 'unavailable' ? {} : PRICES;
+  const prices = loading || stage() === 'unavailable' ? {} : stage() === 'partial'
+    ? Object.fromEntries(Object.entries(PRICES).filter(([key]) => key !== 'fxUSD')) : PRICES;
   return { prices, status: loading ? 'loading' : stage() === 'unavailable' ? 'unavailable' : 'live', updatedAt: loading ? null : now,
     updatedAts: Object.fromEntries(Object.keys(prices).map((key) => [key, now])), refreshing: false, refresh: async () => {} };
 }
@@ -181,9 +182,10 @@ const fixtures = `
       'ETH:long:2033': { side: 'long', debtRatio: 507n * E18 / 1000n, rebalanceRatio: 880n * E18 / 1000n, liquidateRatio: 950n * E18 / 1000n, priceAtRead: 2400 },
       'BTC:short:109': { side: 'short', debtRatio: 700n * E18 / 1000n, rebalanceRatio: 900n * E18 / 1000n, liquidateRatio: 950n * E18 / 1000n, priceAtRead: 104000 },
     },
-      assets: (stage) => {
-      const assets = stage === 'empty' ? [] : stage === 'dust' ? [dustHolding] : holdings;
-      return { walletAddress: WALLET, assets, networks, totalUsdValue: assets.reduce((sum, item) => sum + item.usdValue, 0), unpricedAssetCount: 0, updatedAt: now, source: 'canonical' };
+    assets: (stage) => {
+      const assets = stage === 'empty' ? [] : stage === 'dust' ? [dustHolding] : stage === 'partial'
+        ? holdings.map(item => item.canonicalKey === 'fxUSD' ? { ...item, priceUsd: null, priceUpdatedAt: null, priceStatus: 'unavailable', usdValue: null } : item) : holdings;
+      return { walletAddress: WALLET, assets, networks, totalUsdValue: assets.reduce((sum, item) => sum + (item.usdValue ?? 0), 0), unpricedAssetCount: assets.filter(item => item.usdValue === null).length, updatedAt: now, source: 'canonical' };
     },
     balances: (stage) => ({ balances: stage === 'empty' ? [] : stage === 'dust' ? [{ key: 'USDC', address: USDC, decimals: 6, amountWei: unit(0.01, 6) }] : [{ key: 'USDC', address: USDC, decimals: 6, amountWei: unit(4500, 6) }, { key: 'ETH', address: '0x0000000000000000000000000000000000000000', decimals: 18, amountWei: unit(1.25) }, { key: 'fxUSD', address: FXUSD, decimals: 18, amountWei: unit(1200) }], failedTokens: [] }),
     fxSave: (stage) => stage === 'empty' || stage === 'dust' ? { balanceWei: 0n, assetsWei: 0n } : { balanceWei: unit(571.4286), assetsWei: unit(600) },

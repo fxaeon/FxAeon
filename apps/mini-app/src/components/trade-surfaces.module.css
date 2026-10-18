@@ -4,7 +4,7 @@
 
 .formSegmented { border-radius: var(--radius-md); }
 .formSegmented :global(.segmented-option) { min-height: 44px; }
-.formSegmented :global(.segmented-option:focus-visible) { outline: 2px solid var(--mint-bright); outline-offset: 2px; }
+.formSegmented :global(.segmented-option:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .formSegmented :global(.segmented-option:active) { transform: scale(0.97); transition-duration: var(--dur-press); }
 
 .formField,
@@ -25,12 +25,7 @@
 
 .amountField { container-type: inline-size; }
 
-.formField:focus-within,
-.amountField:focus-within,
-.rangeField:focus-within {
-  border-color: color-mix(in srgb, var(--mint) 55%, var(--line));
-  box-shadow: 0 0 0 3px var(--mint-dim);
-}
+
 
 /* The financial wrapper owns the focus ring. Remove the browser's second
  * inner outline while keeping a clear keyboard indicator on the wrapper. */
@@ -41,14 +36,7 @@
   outline-offset: 0;
 }
 
-@media (forced-colors: active) {
-  .formField:focus-within,
-  .amountField:focus-within,
-  .rangeField:focus-within {
-    outline: 2px solid Highlight;
-    outline-offset: 2px;
-  }
-}
+
 
 .slippageHelp { position: relative; display: inline-flex; flex: 0 0 24px; align-items: center; justify-content: center; }
 .slippageHelpButton { display: inline-flex; width: 44px; height: 44px; margin: -10px; align-items: center; justify-content: center; border-radius: 999px; color: var(--mut-2); transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease; }
@@ -160,7 +148,7 @@
   padding: 0 14px;
   transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
 }
-.tokenPickerSearch:focus-within { border-color: var(--mint); box-shadow: 0 0 0 1px var(--mint), 0 0 0 4px var(--mint-dim); }
+
 .tokenPickerSearchInput {
   min-height: 48px;
   min-width: 0;
@@ -276,29 +264,6 @@
 }
 .tradeRoot :global([data-product-layout='action']).tradeWorkspace { gap: 14px; }
 
-.positionsViews {
-  display: flex;
-  gap: 24px;
-  border-bottom: 1px solid var(--line);
-}
-.positionsViews > * {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 0 2px;
-  color: var(--mut);
-  font-size: var(--fs-small);
-  font-weight: 500;
-  transition: color var(--dur-fast) ease;
-}
-.positionsViews > a:hover { color: var(--text); }
-.positionsViews > [aria-current='page'] {
-  border-bottom-color: var(--text);
-  color: var(--text);
-}
 .positionsEmpty { width: 100%; padding-block: clamp(32px, 6vh, 64px); }
 .positionsEntry { align-self: center; width: min(100%, 360px); padding-block: 32px; }
 .positionsEmpty :global(.empty-state) { padding: 20px; background: transparent; border: 0; box-shadow: none; }
@@ -405,7 +370,7 @@
 .tradeRoot .rangeField:focus-within { border-color: transparent; box-shadow: none; }
 .tradeRoot .rangeField .leverageInput,
 .tradeRoot .rangeField .leverageInput:focus { border-color: transparent; background: transparent; box-shadow: none; }
-.tradeRoot .tradeCompactLeverageValue:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 60%, transparent); }
+
 .tradeTicket :global(details > summary) { min-height: 44px; }
 
 .marketColumn :global(.market-chart-panel) {
@@ -479,7 +444,7 @@
   font-weight: 600;
 }
 .positionBack svg { width: 16px; height: 16px; }
-.positionBack:focus-visible { outline: 2px solid var(--mint-bright); outline-offset: 0; }
+.positionBack:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 0; }
 /* The opened row and the position's details share one name, so a view
    transition carries the row into the details. */
 .positionFocus { view-transition-name: position-focus; }
@@ -496,13 +461,13 @@
   font-weight: 600;
 }
 .borrowAgainst svg { width: 16px; height: 16px; }
-.borrowAgainst:focus-visible { outline: 2px solid var(--mint-bright); outline-offset: -2px; }
+.borrowAgainst:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 /* Phones show one view at a time while editing: the list, or one position with
    its actions and form directly beneath. Wide screens keep both columns. */
 @media (max-width: 839px) {
   .positionsRoot[data-position-view='list'] .positionManageColumn,
-  .positionsRoot[data-position-view='position'] :is(.positionsColumn, .positionsViews) { display: none; }
+  .positionsRoot[data-position-view='position'] .positionsColumn { display: none; }
   .positionsRoot[data-position-view='position'] .positionsHeading {
     position: absolute;
     width: 1px;
@@ -701,6 +666,14 @@
   font-variant-numeric: tabular-nums;
 }
 .positionsCompactRoot .positionEditor .rangeField > :last-child { margin-top: 4px; padding-top: 4px; }
+.leverageValueControls { display: flex; min-width: 0; align-items: center; }
+.leverageSliderToggle { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 10px; color: var(--mut); }
+.leverageSliderToggle:hover { color: var(--text); background: var(--surface-2); }
+.leverageSliderToggle[aria-expanded='true'] svg { transform: rotate(180deg); }
+.tradeCompactLeverageSlider[hidden] { display: none; }
+.positionsCompactRoot .positionEditor [data-collapsible] .tradeCompactLeverageValue { width: 78px; flex-basis: 78px; min-height: 44px; padding: 0 8px; border: 0; background: transparent; box-shadow: none; }
+.positionsCompactRoot .positionEditor [data-collapsible] .tradeCompactLeverageValue .leverageInput { min-height: 44px; font-size: 17px; }
+.positionsCompactRoot .positionEditor [data-collapsible] .tradeCompactLeverageValue > :last-child { margin: 0; padding: 0; font-size: 15px; }
 .positionsCompactRoot .closeNotice { padding: 10px 12px; gap: 4px 8px; }
 .positionsCompactRoot .closeNotice span { min-width: 0; }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { AlertTriangle, Check, LoaderCircle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, LoaderCircle, RefreshCw } from 'lucide-react';
 import { usePrivyWallet, type FxChainId } from '@/lib/wallet';
 import { usePathname } from 'next/navigation';
 import ConnectWalletButton from '@/components/ConnectWalletButton';
@@ -213,6 +213,7 @@ export default function NetworkSelector() {
         {pending ? <LoaderCircle className="network-selector-spinner" size={15} aria-hidden="true" /> : currentChainIcon ? <ChainIcon chainId={currentChainIcon} size={17} /> : idleIcon}
         <span className="sr-only network-selector-label">{label}</span>
         <span className="network-selector-visual-label" aria-hidden="true">{visibleLabel}</span>
+        <ChevronDown className="network-selector-chevron" size={14} aria-hidden="true" />
       </button>
       {routeBlocked && <p className="network-selector-notice" role="status" aria-live="polite">{requiredChain ? `Switch to ${chainLabel(requiredChain)} to continue.` : 'Choose a supported network to continue.'}</p>}
       {open && <div ref={menuRef} id={menuId} className="network-selector-menu" role="menu" aria-label="Choose wallet network" onKeyDown={(event) => {

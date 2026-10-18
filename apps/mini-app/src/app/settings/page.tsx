@@ -19,14 +19,14 @@ export default function SettingsPage() {
 
   return <AppShell>
     <AccountWorkspace className={styles.workspace + ' ' + styles.settingsWorkspace}>
-      <PageHeading title="Wallet & account" backHref="/more" />
+      <PageHeading title="Wallet & account" backHref="/more" visible />
       <section className={styles.section} aria-label="Wallet">
         <AccountSummary />
-        <div className={styles.walletManagement}>
+        {(!wallet.ready || wallet.authenticated) && <div className={styles.walletManagement}>
           <Disclosure title={wallet.selectionRequired ? 'Choose wallet' : 'Change wallet'} defaultOpen={walletChoicesExpanded}>
             <WalletSection />
           </Disclosure>
-        </div>
+        </div>}
       </section>
       <div className={styles.disconnect}><SessionControl /></div>
     </AccountWorkspace>

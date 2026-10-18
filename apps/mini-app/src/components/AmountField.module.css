@@ -24,8 +24,7 @@
  * The resting ring never overrides the focus or validation cue below. */
 :global([data-flow-stage]) .surface:global(.amount-control),
 :global(.ui-card:not(.trade-ticket)) .surface:global(.amount-control) { background: var(--surface-2); --amount-ring: inset 0 0 0 1px var(--line); }
-/* The input draws no outline of its own; this 2px accent ring is the focus cue. */
-.surface:focus-within { border-color: var(--mint); box-shadow: 0 0 0 1px var(--mint), 0 0 0 4px var(--mint-dim); }
+/* The shared compound-field focus rule rings only the amount entry. */
 .surface[data-invalid='true'] { border-color: color-mix(in srgb, var(--danger) 70%, transparent); box-shadow: 0 0 0 3px var(--danger-dim); }
 .shortcuts { display: flex; max-width: 100%; flex: 0 1 auto; justify-content: flex-end; align-items: center; gap: 0; margin: -8px -10px -8px auto; }
 .shortcuts button { display: flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 3px 2px; color: var(--mut); background: transparent; border: 0; border-radius: var(--radius-sm); font-size: var(--fs-caption); font-weight: 600; transition: color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
@@ -37,7 +36,7 @@
 :global([data-flow-stage]) .shortcuts button > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button > span { background: var(--surface-3); }
 :global([data-flow-stage]) .shortcuts button:disabled > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button:disabled > span { background: color-mix(in srgb, var(--surface-3) 60%, transparent); }
 .shortcuts button:active:not(:disabled) { transform: scale(0.94); transition-duration: var(--dur-press); }
-.shortcuts button:focus-visible { outline: 2px solid var(--mint-bright); outline-offset: -2px; }
+.shortcuts button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .shortcuts button:disabled { cursor: not-allowed; opacity: 1; color: var(--mut-2); }
 .shortcuts button:disabled > span { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
 .entryRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 0; min-height: 56px; }

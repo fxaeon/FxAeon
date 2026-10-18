@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, Check, ChevronDown, CircleHelp, Copy, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, BookOpen, CandlestickChart, ChevronDown, CircleHelp, EllipsisVertical, Globe, History, Landmark, List, Menu, MessageCircle, Rocket, Search, Settings2, ShieldCheck, Sprout, Wallet } from 'lucide-react';
 import { ExternalLink } from './ExternalLink';
 import FxLogo from '@/components/FxLogo';
 import { searchDocs, searchExcerpt, type DocsEntry } from './docsSearch';
@@ -34,8 +34,6 @@ export default function DocsShell({ page, entries, children, home = false, artic
   const [contentsOpen, setContentsOpen] = useState(true);
   const [activeId, setActiveId] = useState(page === 'Product guide' ? 'overview' : 'sdk-overview');
   const [outline, setOutline] = useState<{ id: string; title: string }[]>([]);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobileLinksOpen, setMobileLinksOpen] = useState(false);
   const [searchEntries, setSearchEntries] = useState<DocsEntry[] | null>(null);
@@ -66,21 +64,11 @@ export default function DocsShell({ page, entries, children, home = false, artic
 
   useEffect(() => {
     if (!article) return;
-    setCopied(false);
-    setCopyError(false);
     setMobileSearchOpen(false);
     setMobileLinksOpen(false);
     setQuery('');
     setOutline(Array.from(document.querySelectorAll<HTMLElement>(`[data-docs-article] h2[id], [data-docs-article] h3[id]`)).map(node => { node.tabIndex = -1; return { id: node.id, title: node.textContent ?? '' }; }));
   }, [article]);
-
-  async function copyPage() {
-    try {
-      const content = document.querySelector<HTMLElement>('[data-docs-article]');
-      await navigator.clipboard.writeText(`${article?.title ?? (home ? 'FxAeon Documentation' : page)}\n\n${content?.innerText ?? ''}`);
-      setCopied(true); setCopyError(false);
-    } catch { setCopyError(true); }
-  }
 
   useEffect(() => {
     if (!home) return;
@@ -186,7 +174,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
               <FxLogo size={29} />
               <span>FxAeon Docs</span>
             </Link>
-            <div className={styles.searchRow}>
+            <div data-focus-field className={styles.searchRow}>
               <Search className={styles.searchIcon} aria-hidden="true" />
               <label className={styles.srOnly} htmlFor="docs-search">Search docs</label>
               <input id="docs-search" ref={inputRef} type="search" value={query} disabled={!hydrated} onFocus={prepareSearch}
@@ -199,12 +187,12 @@ export default function DocsShell({ page, entries, children, home = false, artic
             <nav className={styles.chromeLinks} aria-label="FxAeon links">
               <ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink>
               <span className={styles.supportLink}><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink></span>
-              <Link href="/" className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
+              <Link href="/" prefetch={false} className={styles.openApp}>Open app <ArrowUpRight size={14} aria-hidden="true" /></Link>
             </nav>
             <div className={styles.mobileActions}>
               <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); if (mobileSearchOpen) { setQuery(''); setContentsOpen(false); } }}><Search size={20} /></button>
               <button ref={mobileOptionsRef} type="button" aria-label="More documentation options" aria-expanded={mobileLinksOpen} onClick={() => { setMobileLinksOpen(!mobileLinksOpen); setMobileSearchOpen(false); setContentsOpen(false); setQuery(''); }}><EllipsisVertical size={20} /></button>
-              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/">Open app</Link></nav>}
+              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/" prefetch={false}>Open app</Link></nav>}
             </div>
           </div>
 
@@ -252,7 +240,7 @@ export default function DocsShell({ page, entries, children, home = false, artic
             <header className={styles.docsIntro}>
               {!home && <p className={styles.breadcrumb}>{article ? article.group : <><Link href="/docs">Docs</Link><span aria-hidden="true">/</span><span>{page}</span></>}</p>}
               <h1 id="docs-page-heading" tabIndex={-1}>{article?.title ?? (home ? 'FxAeon Documentation' : page === 'Product guide' ? 'Product guide' : 'The f(x) SDK in FxAeon')}</h1>
-              {article ? <><p className={styles.lead}>{article.description}</p><button className={styles.copyPage} type="button" onClick={copyPage} aria-label={copyError ? 'Copy page unavailable' : copied ? 'Copied' : 'Copy page'} title={copyError ? 'Copy unavailable' : copied ? 'Copied' : 'Copy page'}>{copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}</button>{copyError && <p role="status">Copy is unavailable. Select the text to copy it.</p>}</> : home ? <><p className={styles.lead}>Understand the products, use the app, and know what you are signing.</p><button className={styles.copyPage} type="button" onClick={copyPage} aria-label={copyError ? 'Copy page unavailable' : copied ? 'Copied' : 'Copy page'} title={copyError ? 'Copy unavailable' : copied ? 'Copied' : 'Copy page'}>{copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}</button>{copyError && <p role="status">Copy is unavailable. Select the text to copy it.</p>}</> : page === 'Product guide'
+              {article ? <p className={styles.lead}>{article.description}</p> : home ? <p className={styles.lead}>Understand the products, use the app, and know what you are signing.</p> : page === 'Product guide'
                 ? <p className={styles.lead}>Your guide to Trade, Earn, Borrow, and Move. Understand the action before you sign.</p>
                 : <>
                   <p className={styles.lead}>The methods, units, and safeguards behind the app. Start with a read, then explore how a reviewed transaction reaches the chain.</p>

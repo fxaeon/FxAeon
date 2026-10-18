@@ -97,8 +97,9 @@ test.describe('Earn unavailable reads', () => {
       await expect(holdings.locator('..').getByText('$12.5M', { exact: true })).toBeVisible();
       await expect(page.getByText('Total fxSAVE vault value', { exact: true })).toHaveCount(0);
       await expect(page.locator('details').getByText('Vault holdings', { exact: true })).toHaveCount(0);
-      const bounds = await holdings.boundingBox();
-      expect(bounds!.y + bounds!.height).toBeLessThan(viewport.height / 2);
+      // The larger product heading changes the summary height; the holdings
+      // row must still be readable in the first viewport without scrolling.
+      await expect(holdings.locator('..')).toBeInViewport({ ratio: 1 });
       await testInfo.attach(`connected-earn-${viewport.width}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
     }
     assertNoBackendRequests(requests);

@@ -30,18 +30,38 @@ test.describe('implementation regressions', () => {
       for (const viewport of [{ width: 1024, height: 768 }, { width: 1440, height: 900 }]) {
         await page.setViewportSize(viewport);
         await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
-        const actions = page.locator('section[aria-labelledby="portfolio-actions-title"] a');
-        await expect(actions).toHaveCount(4);
-        for (let index = 0; index < 4; index += 1) {
-          const action = actions.nth(index);
+        const actions = page.getByRole('region', { name: 'Actions', exact: true });
+        await expect(actions.getByRole('link')).toHaveCount(3);
+        await expect(actions.getByRole('button')).toHaveCount(1);
+        for (const [label, href] of [['Send', '/send'], ['Receive', '/qr'], ['Trade', '/trade']] as const) {
+          const action = actions.getByRole('link', { name: label, exact: true });
           await expect(action).toBeVisible();
           await expectReachable(action, viewport.height);
-          const href = await action.getAttribute('href');
-          expect(href).toMatch(/^\/(?:qr|trade|borrow|earn)$/);
+          await expect(action).toHaveAttribute('href', href);
           await action.click();
-          await expect(page).toHaveURL(new RegExp(`${href!.replace('/', '\\/')}(?:\\/)?$`));
+          await expect(page).toHaveURL(new RegExp(`${href.replace('/', '\\/')}(?:\\/)?$`));
           await page.goBack({ waitUntil: 'domcontentloaded' });
         }
+        const more = actions.getByRole('button', { name: 'More', exact: true });
+        for (const [label, href] of [['Earn', '/earn'], ['Borrow', '/borrow'], ['Move', '/move']] as const) {
+          await expect(more).toHaveAttribute('aria-expanded', 'false');
+          await expectReachable(more, viewport.height);
+          await more.click();
+          await expect(more).toHaveAttribute('aria-expanded', 'true');
+          const dialog = page.getByRole('dialog', { name: 'More actions', exact: true });
+          const action = dialog.getByRole('link', { name: label, exact: true });
+          await expect(action).toHaveAttribute('href', href);
+          await expectReachable(action, viewport.height);
+          await action.click();
+          await expect(page).toHaveURL(new RegExp(`${href.replace('/', '\\/')}(?:\\/)?$`));
+          await page.goBack({ waitUntil: 'domcontentloaded' });
+        }
+        await more.click();
+        const activity = page.getByRole('dialog', { name: 'More actions', exact: true }).getByRole('button', { name: 'Activity', exact: true });
+        await expectReachable(activity, viewport.height);
+        await activity.click();
+        await expect(page.getByRole('dialog', { name: 'More actions', exact: true })).toHaveCount(0);
+        await expect(page.getByRole('tab', { name: 'Activity', exact: true })).toHaveAttribute('aria-selected', 'true');
       }
       assertNoBackendRequests(requests);
     });
@@ -49,14 +69,24 @@ test.describe('implementation regressions', () => {
 
   test.describe('connected Portfolio history', () => {
     test.use({ browserWallet: { address: WALLET, initiallyConnected: true } });
-    test('keeps one useful history preview below the primary account summary', async ({ page, requests }) => {
+    test('opens one useful history panel from Activity below the primary account summary', async ({ page, requests }) => {
       for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
         await page.setViewportSize(viewport);
         await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
+        await expect(page.getByRole('tab', { name: 'Tokens', exact: true })).toHaveAttribute('aria-selected', 'true');
         const recent = page.locator('section[aria-label="Recent history"]');
+        await expect(recent).toHaveCount(0);
+        const activity = page.getByRole('tab', { name: 'Activity', exact: true });
+        await expectReachable(activity, viewport.height);
+        await activity.click();
+        await expect(activity).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByRole('tabpanel', { name: 'Activity', exact: true })).toBeVisible();
         await expect(recent).toHaveCount(1);
         await expect(recent).toBeVisible();
-        await expect(recent.getByText('No recent FxAeon history', { exact: true })).toHaveCount(0);
+        await expect(recent.getByRole('heading', { name: 'History', exact: true })).toBeVisible();
+        const allHistory = recent.getByRole('link', { name: 'View all history', exact: true });
+        await expect(allHistory).toHaveAttribute('href', '/history');
+        await expectReachable(allHistory, viewport.height);
         await expect(page.locator('[data-portfolio-value]')).toBeVisible();
         if (viewport.width < 1000) {
           // Hydration can replace the skeleton between separate rect reads.
