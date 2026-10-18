@@ -38,6 +38,31 @@
     };
     applyMotion();
     reducedMotion.addEventListener("change", applyMotion);
+
+    const applyHeader = () => {
+      root.toggleAttribute("data-scrolled", window.scrollY > 16);
+    };
+    applyHeader();
+    window.addEventListener("scroll", applyHeader, { passive: true });
+    window.addEventListener("pageshow", applyHeader);
+
+    // Keep decorative work local to what the visitor can actually see.
+    const motionSurfaces = document.querySelectorAll(".product-card, .site-footer");
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          entry.target.toggleAttribute("data-in-view", entry.isIntersecting);
+        }
+      }, { threshold: 0 });
+      motionSurfaces.forEach((surface) => observer.observe(surface));
+    } else {
+      motionSurfaces.forEach((surface) => surface.setAttribute("data-in-view", ""));
+    }
+    const applyVisibility = () => {
+      root.toggleAttribute("data-page-hidden", document.hidden);
+    };
+    applyVisibility();
+    document.addEventListener("visibilitychange", applyVisibility);
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", init, { once: true });
