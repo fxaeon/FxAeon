@@ -237,11 +237,9 @@ test('after the Trade sweep, other page titles stay unanimated and Trade stays p
       });
       expect(ink.fill).toBe(ink.color);
       expect(ink.background).toBe('none');
-    } else if (path === '/history') {
+    } else {
       await expect(heading).toBeVisible();
       await expect(heading).not.toHaveClass(/\bsr-only\b/);
-    } else {
-      await expect(heading).toHaveClass(/\bsr-only\b/);
     }
     expect(await heading.evaluate((element) => element.getAnimations().length), `${path} heading is still`).toBe(0);
   }
@@ -264,9 +262,9 @@ test('a route heading is never inside the route fade; heading-less content still
   await setLab(page, { path: '/trade' });
   expect(await fadingAncestors('.trade-page-heading h1')).toEqual([]);
   await setLab(page, { path: '/history' });
-  expect(await fadingAncestors('#main-content [data-page-heading] h1')).toEqual([]);
+  expect(await fadingAncestors('#main-content [data-page-heading]')).toEqual([]);
   // History's feed, below its heading, still arrives with the route fade.
-  expect(await page.locator('#main-content > [data-page-heading] + div').evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
+  expect(await page.locator('#main-content [data-history-route-content]').evaluate((element) => element.getAnimations().map((animation) => (animation as CSSAnimation).animationName))).toContain('route-in');
 });
 
 test('reduced motion shows plain headings with no sweep and a still canvas', async ({ page }) => {

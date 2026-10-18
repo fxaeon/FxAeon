@@ -23,7 +23,7 @@ export default function HistoryPage() {
     <AppShell>
       <div className={presentation.workspace}>
       <PageHeading title="History" backHref="/more" visible />
-      <div className={`${styles.workspace} ${styles.activitySection} ${styles.activityCompactWorkspace}`} data-continued={continued || undefined}>
+      <div className={`${styles.workspace} ${styles.activitySection} ${styles.activityCompactWorkspace}`} data-history-route-content data-continued={continued || undefined}>
         {wallet.ready && !wallet.authenticated ? <section className={presentation.connectState}>
           <History size={24} aria-hidden="true" />
           <h2>Your activity, in one place</h2>

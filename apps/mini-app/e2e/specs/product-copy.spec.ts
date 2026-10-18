@@ -19,12 +19,12 @@ test.describe('product copy and session visibility', () => {
     assertNoBackendRequests(requests);
   });
 
-  test('Trade, Earn, Borrow and History use visible page headings; other routes keep unanimated screen-reader titles', async ({ page, requests }) => {
+  test('routes keep one unanimated accessible title with the intended visible hierarchy', async ({ page, requests }) => {
     const titles = [
-      ['/portfolio', 'Portfolio'], ['/positions', 'Positions'], ['/earn', 'Earn'], ['/borrow', 'Borrow'],
-      ['/move', 'Move'], ['/history', 'History'], ['/more', 'More'], ['/settings', 'Wallet & account'],
+      ['/portfolio', 'Portfolio', false], ['/positions', 'Positions', true], ['/earn', 'Earn', false], ['/borrow', 'Borrow', false],
+      ['/move', 'Move', false], ['/history', 'History', true], ['/more', 'More', true], ['/settings', 'Wallet & account', true],
     ] as const;
-    for (const [route, title] of titles) {
+    for (const [route, title, visible] of titles) {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
       const heading = page.locator('main h1');
       await expect(heading).toHaveCount(1);
@@ -35,13 +35,14 @@ test.describe('product copy and session visibility', () => {
         }
         return false;
       });
-      if (['/history', '/earn', '/borrow'].includes(route)) {
+      if (visible) {
         await expect(heading).toBeVisible();
         expect(isScreenReaderOnly, `${route} keeps its visible page heading`).toBe(false);
       } else {
         expect(isScreenReaderOnly, `${route} keeps its title in the screen-reader-only tree`).toBe(true);
       }
       expect(await heading.evaluate((element) => element.getAnimations().length), `${route} title is unanimated`).toBe(0);
+      if (route === '/positions') await expect(page.getByRole('link', { name: 'Back to Trade', exact: true })).toHaveAttribute('href', '/trade');
     }
 
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });

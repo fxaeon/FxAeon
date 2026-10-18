@@ -649,6 +649,11 @@ details[open] > summary .disclosure-closed-only { display: none; }
 .app-content > :not(.page-header):not(.sr-only):not([data-page-heading]):not([data-continued]):not(:has([data-page-heading], .trade-page-heading)) {
   animation: route-in var(--dur-slow) var(--ease-out) both;
 }
+/* History keeps its visible heading and feed inside one layout wrapper. Fade
+   only the feed so the heading remains readable from its first frame. */
+.app-content > :has(> [data-page-heading]) > [data-history-route-content]:not([data-continued]) {
+  animation: route-in var(--dur-slow) var(--ease-out) both;
+}
 /* Accessible route titles are labels for assistive technology, never visual content to animate. */
 .app-content :is(h1[data-page-heading], [data-page-heading] h1.sr-only) { animation: none !important; }
 .app-content > *:nth-child(2) { animation-delay: 40ms; }
