@@ -29,12 +29,10 @@ const mocks: Record<string, string> = {
   '@/components/ProtocolPositionCard': `import React from 'react'; export const ProtocolPositionNotice = ({status}) => status === 'unavailable' ? <div role="status">Positions are temporarily unavailable</div> : null;`,
   '@/components/ConfirmedPositionCards': `export const ConfirmedPositionCards = () => null;`,
   '@/components/ProtocolForm': `import React from 'react'; export const AmountField = ({label, value, onChange, tokenSelector, hint}) => <div><label>{label}<input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /></label>{hint && <p data-hint={label}>{hint}</p>}{tokenSelector}</div>; export const Segmented = ({options, value, onChange, ariaLabel}) => <div role="group" aria-label={ariaLabel}>{options.map((option) => <button type="button" key={option.value} aria-pressed={value === option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; export const TokenSelect = ({label, options, value, onChange}) => <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>; export const useWalletTokenBalances = () => ({ balances: globalThis.__borrowHarness.balances ?? {}, status: 'ready', refresh: async () => {} });`,
-  '@/components/PriceProvider': `export const useUsdPrices = () => ({ status: 'unavailable', prices: {} }); export const useLiveMarketQuote = () => ({ quote: null, status: 'unavailable', isFresh: false });`,
+  '@/components/PriceProvider': `export const useUsdPrices = () => ({ status: 'unavailable', prices: {}, refreshing: globalThis.__borrowHarness.pricesPending ?? false }); export const useLiveMarketQuote = () => ({ quote: null, status: 'unavailable', isFresh: false });`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({ ...globalThis.__borrowHarness.wallet, isEmbedded: false, wallets: [], sendTransaction: async () => { globalThis.__borrowHarness.walletRequestCount += 1; } });`,
-  '@/lib/positionValuation': `export const calculatePositionUsdValuation = () => ({collateralUsdCents: null, debtUsdCents: null, netEquityUsdCents: null}); export const formatUsdCents = () => '—';`,
   '@/lib/prices': `export const priceKeyForSymbol = (symbol) => ({ eth: 'ETH', weth: 'WETH', steth: 'stETH', wsteth: 'wstETH', wbtc: 'WBTC', fxusd: 'fxUSD' })[String(symbol).toLowerCase()] ?? null; export const formatUsdPrice = () => '—';`,
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({deposit:'',mint:'',repay:'',withdraw:''});`,
-  '@/components/MissingValue': `import React from 'react'; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@aladdindao/fx-sdk': `export const tokens = { eth: '0x0000000000000000000000000000000000000001', weth: '0x0000000000000000000000000000000000000002', stETH: '0x0000000000000000000000000000000000000003', wstETH: '0x0000000000000000000000000000000000000004', WBTC: '0x0000000000000000000000000000000000000005', usdc: '0x0000000000000000000000000000000000000006', usdt: '0x0000000000000000000000000000000000000007', fxUSD: '0x0000000000000000000000000000000000000008', fxUSDBasePool: '0x0000000000000000000000000000000000000009' };`,
 };
 
@@ -72,6 +70,7 @@ type BorrowHarnessControl = {
   shared: { walletAddress: string | null; positions: object[]; status: string; failedGroups: Array<{ market: string; side: string; reason: unknown }>; lastVerifiedAt: number | null; [key: string]: unknown };
   balances?: Record<string, { status: string; amount: string }>;
   prices?: Record<string, number>;
+  pricesPending?: boolean;
   plannerCount: number;
   walletRequestCount: number;
   reviewAttemptCount: number;
@@ -97,6 +96,7 @@ async function changeSnapshot(page: import('@playwright/test').Page, update: (ha
 test('same-wallet disappearance removes the selected position and review action', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await expect(page.getByText('ETH position #17')).toBeVisible();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   await expect(page.getByRole('button', { name: 'Review borrowing' })).toBeVisible();
@@ -111,6 +111,82 @@ test('same-wallet disappearance removes the selected position and review action'
     return { planners: h.plannerCount, walletRequests: h.walletRequestCount };
   });
   expect(counters).toEqual({ planners: 0, walletRequests: 0 });
+});
+
+test('positions return to the Borrow workspace without opening a manager or planning a transaction', async ({ page }) => {
+  await mount(page);
+  await page.getByRole('button', { name: 'Your positions' }).click();
+  await expect(page.getByRole('heading', { name: 'Positions', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Manage ETH position #/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to Borrow', exact: true }).click();
+  await expect(page.getByLabel('Collateral', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Borrow fxUSD', exact: true })).toBeFocused();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => globalThis.__borrowHarness.plannerCount)).toBe(0);
+});
+
+test('collateral and debt show dollar equivalents without guessing missing or stale values', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 0.99 }; });
+  await page.getByRole('button', { name: 'Your positions' }).click();
+  const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
+  await expect(card).toContainText('100.00 fxUSD');
+  await expect(card).toContainText('≈ $99.00');
+  await expect(card).toContainText('2 stETH');
+  await expect(card).toContainText('≈ $4,800.00');
+  await card.click();
+  const manager = page.getByRole('dialog', { name: 'ETH position #17', exact: true });
+  await expect(manager.locator('summary')).toContainText('≈ $99.00');
+  await manager.locator('summary').click();
+  await expect(manager.locator('dl')).toContainText('2 stETH≈ $4,800.00');
+
+  // Only the unavailable price is withheld; the token amounts remain readable.
+  await changeSnapshot(page, (harness) => { harness.prices = { fxUSD: 0.99 }; });
+  await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('summary')).toContainText('≈ $99.00');
+  await expect(manager.locator('dl')).toContainText('2 stETH');
+
+  // A failed position read cannot turn retained balances into a fresh valuation.
+  await changeSnapshot(page, (harness) => {
+    harness.prices = { ETH: 2400, fxUSD: 0.99 };
+    harness.shared = { ...harness.shared, status: 'partial', failedGroups: [{ market: 'ETH', side: 'long', reason: 'read timeout' }] };
+  });
+  await expect(manager.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('summary')).not.toContainText('$0.00');
+  expect(await page.evaluate(() => globalThis.__borrowHarness.walletRequestCount)).toBe(0);
+});
+
+test('borrowing cards reveal complete first prices together and keep cached information during refresh', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, (harness) => { harness.pricesPending = true; harness.prices = { ETH: 2400 }; });
+  await page.getByRole('button', { name: 'Your positions' }).click();
+  const loading = page.getByRole('status', { name: 'Loading borrowing position', exact: true });
+  const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
+  await expect(loading).toHaveAttribute('aria-busy', 'true');
+  await expect(card).toHaveCount(0);
+  await expect(page.getByLabel('Debt value unavailable', { exact: true })).toHaveCount(0);
+  await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
+  await expect(card).toContainText('≈ $100.00');
+  await expect(card).toContainText('≈ $4,800.00');
+  await expect(loading).toHaveCount(0);
+  // The in-flight refresh doesn't blank a complete, verified view.
+  await changeSnapshot(page, (harness) => { harness.pricesPending = false; });
+  await changeSnapshot(page, (harness) => { harness.pricesPending = true; });
+  await expect(card).toBeVisible();
+  await expect(loading).toHaveCount(0);
+});
+
+test('a failed first price read resolves the skeleton into explicit missing values', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, (harness) => { harness.pricesPending = true; harness.prices = {}; });
+  await page.getByRole('button', { name: 'Your positions' }).click();
+  await expect(page.getByRole('status', { name: 'Loading borrowing position', exact: true })).toHaveAttribute('aria-busy', 'true');
+  await changeSnapshot(page, (harness) => { harness.pricesPending = false; });
+  const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
+  await expect(card).toContainText('100.00 fxUSD');
+  await expect(card.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(card).not.toContainText('$0.00');
 });
 
 test('new-position planning remains available while existing-position discovery is unavailable', async ({ page }) => {
@@ -135,12 +211,13 @@ test('new-position planning remains available while existing-position discovery 
   });
   expect(counters).toEqual({ planners: 1, walletRequests: 1 });
   await workspace.getByRole('button', { name: 'Your positions' }).click();
-  await expect(workspace.getByRole('status')).toContainText('Positions are temporarily unavailable');
+  await expect(workspace.getByRole('status')).toContainText('Couldn’t load positions');
 });
 
 test('mounted Borrow page prevents review planning and wallet requests when selection becomes stale', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await expect(page.getByText('ETH position #17')).toBeVisible();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   await expect(page.getByRole('button', { name: 'Review borrowing' })).toBeVisible();
@@ -166,6 +243,7 @@ test('mounted Borrow page prevents review planning and wallet requests when sele
 test('mounted Borrow page removes a selection when its provider snapshot changes accounts', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await expect(page.getByText('ETH position #17')).toBeVisible();
   await changeSnapshot(page, (harness) => {
     harness.wallet = { ...harness.wallet, address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', connectionVersion: 2 };
@@ -201,13 +279,14 @@ test('one collateral picker plans both ETH and BTC with collateral above borrowi
   }
 });
 
-test('existing ETH-long Borrow review hides the input overview and restores the form on Edit', async ({ page }) => {
+test('existing ETH-long management keeps review and Edit in the same dialog', async ({ page }) => {
   await mount(page);
   await page.setViewportSize({ width: 393, height: 852 });
   const borrowOverview = page.getByRole('region', { name: 'fxUSD borrowing overview', exact: true });
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await expect(page.getByText('ETH position #17')).toBeVisible();
-  await expect(borrowOverview).toBeVisible();
+  await expect(borrowOverview).toHaveCount(0);
   await page.getByRole('button', { name: 'Borrow more' }).click();
   await page.getByLabel('Additional fxUSD to borrow').fill('1');
   await page.evaluate(() => {
@@ -225,7 +304,7 @@ test('existing ETH-long Borrow review hides the input overview and restores the 
   await expect(review.getByRole('button', { name: 'Confirm borrowing', exact: true })).toBeVisible();
 
   await review.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(borrowOverview).toBeVisible();
+  await expect(borrowOverview).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Manage collateral position', exact: true })).toBeVisible();
   await expect(page.getByLabel('Additional fxUSD to borrow')).toHaveValue('1');
 });
@@ -233,6 +312,7 @@ test('existing ETH-long Borrow review hides the input overview and restores the 
 test('account changes preserve the active parent-page review until Edit', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   await page.getByLabel('Additional fxUSD to borrow').fill('80');
   await page.evaluate(() => {
@@ -264,6 +344,7 @@ test('account changes preserve the active parent-page review until Edit', async 
 test('optional collateral treats blank and exact zero equally without skipping positive amount checks', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   await page.getByRole('button', { name: 'Add collateral and borrow together' }).click();
   await page.getByLabel('Additional fxUSD to borrow').fill('10');
@@ -302,6 +383,7 @@ test('optional collateral treats blank and exact zero equally without skipping p
 test('adding collateral alone names an empty wallet instead of asking for an amount', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Add collateral', exact: true }).click();
   // Collateral is the only amount here, so it is never optional.
   await expect(page.getByLabel('Additional fxUSD to borrow')).toHaveCount(0);
@@ -337,6 +419,7 @@ test('the withdrawal field names how much collateral can leave before review', a
   await mount(page);
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Withdraw collateral', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Withdraw collateral', exact: true })).toBeVisible();
   // 2 ETH at $2,400 holding 100 fxUSD of debt under the 83.79% limit: 1.9502… ETH can leave, shown rounded down.
@@ -356,6 +439,7 @@ test('an existing position hands the review its loan-to-value against the live l
   await mount(page);
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   const before = page.locator('[data-decision-before]');
   // 100 fxUSD against 2 ETH at $2,400 is 2.083…%, shown as 2.1%; the 83.79% limit is shown as 83.7%.
@@ -377,6 +461,7 @@ test('a single collateral asset is named, not offered as a one-row picker', asyn
     harness.shared = { ...harness.shared, positions: [btc] };
   });
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await expect(page.getByText('BTC position #23')).toBeVisible();
   await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Add collateral', exact: true }).click();
   await expect(page.getByLabel('Collateral to add', { exact: true })).toBeVisible();
@@ -404,7 +489,7 @@ test('borrowing previews debt separately from net proceeds and clears invalid or
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
   const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome' });
   await expect(outcome).toContainText('Total debt0 → 800 fxUSD');
-  await expect(outcome).toContainText('Before conversion and fees');
+  await expect(outcome).not.toContainText('Before conversion and fees');
   await expect(page.getByText('The amount borrowed is added to your debt. You receive fxUSD after the f(x) fee.')).toHaveCount(0);
   await expect(page.getByText('Collateral can be liquidated. Keep room below the borrowing limit.')).toHaveCount(0);
   await changeSnapshot(page, (harness) => { harness.prices = {}; });
@@ -426,12 +511,13 @@ test('empty collateral guidance leads to receiving funds only for a verified zer
 test('repayment outcomes use the selected position debt and clear invalid input', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();
+  await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Repay debt', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Repay debt', exact: true })).toBeVisible();
   const outcome = page.getByRole('region', { name: 'Estimated position changes' });
   await page.getByLabel('Repay amount', { exact: true }).fill('40');
   await expect(outcome).toContainText('Total debt100 → 60 fxUSD');
-  await expect(outcome).toContainText('Before conversion and fees');
+  await expect(outcome).not.toContainText('Before conversion and fees');
   await page.getByLabel('Repay amount', { exact: true }).fill('all');
   await expect(outcome).toContainText('Total debt100 → 0 fxUSD');
   await page.getByLabel('Repay amount', { exact: true }).fill('101');

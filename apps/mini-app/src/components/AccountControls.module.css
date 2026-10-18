@@ -1,5 +1,5 @@
 /* The account card shares the row groups' surface (More, Settings). */
-.account { display: flex; width: 100%; min-width: 0; min-height: 64px; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--ring-inset); color: var(--text); text-align: left; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
+.account { display: flex; width: 100%; min-width: 0; min-height: 84px; align-items: center; gap: 14px; padding: 18px 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: none; color: var(--text); text-align: left; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
 button.account:hover { border-color: var(--line-strong); background: var(--surface-2); }
 button.account:active { background: var(--surface-3); }
 .accountIcon { display: inline-grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 13px; color: var(--mint-text); background: var(--mint-dim); }

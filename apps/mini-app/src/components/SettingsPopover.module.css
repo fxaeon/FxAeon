@@ -2,7 +2,7 @@
 .trigger[data-chip] { padding-left: 6px; }
 .chip { padding: 4px 8px; border-radius: 999px; background: var(--mint-dim); color: var(--mint-bright); font-size: var(--fs-micro); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .trigger:hover, .trigger[aria-expanded='true'] { background: var(--mint-dim); color: var(--mint-text, var(--mint)); border-color: color-mix(in srgb, var(--mint) 28%, transparent); }
-.trigger:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .trigger > svg { flex-shrink: 0; }
 .backdrop { position: fixed; inset: 0; z-index: 70; background: var(--scrim); backdrop-filter: blur(3px); }
 .panel { position: fixed; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--elevation-2); animation: settings-enter var(--motion-enter) var(--motion-ease) both; }
@@ -15,7 +15,7 @@
 .footer { flex-shrink: 0; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
 .footer button { display: grid; place-items: center; min-height: 48px; width: 100%; border-radius: 10px; background: var(--mint); color: var(--on-accent); font-size: 14px; font-weight: 600; }
 .footer button:hover { opacity: .9; }
-.footer button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.footer button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .backdrop[data-state='closed'] { pointer-events: none; }
 .backdrop[data-state='closed'] .panel { animation: settings-exit var(--motion-exit) var(--motion-ease) both; }
 @keyframes settings-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }

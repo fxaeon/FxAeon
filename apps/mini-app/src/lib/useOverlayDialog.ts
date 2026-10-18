@@ -193,6 +193,8 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
 
   useEffect(() => {
     if (!open) return;
+    // Keep the ref object so a replaced opener can receive focus on close.
+    const openerRef = triggerRef;
     const dialog = dialogRef.current;
     if (!dialog) return;
     const activeElement = document.activeElement;
@@ -282,7 +284,7 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
       if (overlayStack.length === 0) document.body.style.overflow = originalBodyOverflow;
       historyEntry?.finish(consumedBack);
       if (wasTopOnClose) {
-        const returnTarget = usedTriggerRef && triggerRef.current?.isConnected ? triggerRef.current : trigger;
+        const returnTarget = usedTriggerRef && openerRef.current?.isConnected ? openerRef.current : trigger;
         if (returnTarget?.isConnected && !returnTarget.matches(':disabled')) returnTarget.focus({ preventScroll: true });
         else if (fallbackRef.current) window.requestAnimationFrame(() => {
           // A successful connection may replace its opener during this commit.

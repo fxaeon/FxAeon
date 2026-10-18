@@ -5,8 +5,7 @@ import './globals.css';
 import './product-shell.css';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { TelegramProvider } from '@/components/TelegramProvider';
-import WalletProviderBoundary from '@/components/WalletProviderBoundary';
-import RoutePriceProvider from '@/components/RoutePriceProvider';
+import RouteProviders from '@/components/RouteProviders';
 import { LocaleProvider } from '@/lib/i18n';
 import { SHELL_INITIALIZER } from './shellInitializer';
 
@@ -73,11 +72,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <LocaleProvider>
-            <RoutePriceProvider>
-              <WalletProviderBoundary>
-                <TelegramProvider>{children}</TelegramProvider>
-              </WalletProviderBoundary>
-            </RoutePriceProvider>
+            <TelegramProvider><RouteProviders>{children}</RouteProviders></TelegramProvider>
           </LocaleProvider>
         </ErrorBoundary>
       </body>

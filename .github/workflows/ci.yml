@@ -25,6 +25,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
+      - name: Restore lint cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/eslint
+          key: eslint-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'package.json') }}-${{ github.sha }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs', 'package.json') }}-
       - name: Run source verification
         run: pnpm verify --ci-source
         env:
@@ -53,6 +60,16 @@ jobs:
           restore-keys: |
             next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mini-app/next.config.*', 'apps/mini-app/package.json') }}-
       - run: pnpm install --frozen-lockfile
+      - name: Restore isolated TypeScript caches
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            apps/mini-app/tsconfig.tsbuildinfo
+            apps/mini-app/.cache/e2e.tsbuildinfo
+            apps/mini-app/.cache/fork.tsbuildinfo
+          key: types-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mini-app/tsconfig.json', 'apps/mini-app/e2e/tsconfig.json', 'apps/mini-app/e2e/fork/tsconfig.json') }}-${{ github.sha }}
+          restore-keys: |
+            types-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'apps/mini-app/tsconfig.json', 'apps/mini-app/e2e/tsconfig.json', 'apps/mini-app/e2e/fork/tsconfig.json') }}-
       - name: Build once and run built artifact checks
         run: pnpm verify --ci-build
         env:

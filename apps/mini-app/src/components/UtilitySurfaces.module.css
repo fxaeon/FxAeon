@@ -89,7 +89,7 @@
 .moreRow:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 2px solid var(--mint);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -3px;
 }
 
@@ -120,7 +120,7 @@
 
 .preferenceChoice:hover { border-color: var(--line-strong); }
 .preferenceChoice:focus-visible,
-.themeChoice:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.themeChoice:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 .rowGroup {
   overflow: hidden;
@@ -350,7 +350,7 @@
 .authOption:active:not(:disabled) { transform: scale(0.985); transition-duration: var(--dur-press); }
 .authOption:disabled { cursor: default; }
 .authOption:disabled:not([aria-busy='true']) { opacity: .55; }
-.authOption:focus-visible { outline: 2px solid var(--mint-bright); outline-offset: 3px; }
+.authOption:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 .authOptionIcon {
   display: grid;
   width: 40px;

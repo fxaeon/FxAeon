@@ -28,9 +28,23 @@ The browser typecheck overrides the app's `e2e` exclusion, includes `.ts`,
 `.tsx`, `.mts` and `.cts`, and inherits Next's CSS/image declarations. Its coverage contract
 compares TypeScript's effective input set with every browser TypeScript file
 and Playwright config, so a future include/exclude change cannot silently skip
-those files. It uses no emit or incremental output. Root `pnpm typecheck` runs this gate,
+those files. It emits no application code. The E2E and fork compilers keep separate,
+ignored incremental caches in `apps/mini-app/.cache`, so one compiler cannot reuse
+another compiler's state. TypeScript still checks changed files and affected
+dependencies. Root `pnpm typecheck` runs this gate,
 so `pnpm verify`, which Client CI runs, includes it; browser execution remains a
-separate check.
+separate check. Lint uses a content-based cache in `.cache/eslint`; changed files
+and ESLint configuration invalidate the relevant entries. `pnpm lint --no-cache`
+runs a fresh lint pass.
+CI restores these caches using the toolchain/configuration fingerprint, while
+still running the same lint and typecheck commands on every revision.
+
+Local machines with less than 12 GiB of memory automatically run verification
+groups with one worker. CI retains bounded parallel groups; `pnpm verify --serial`
+also selects one worker explicitly. The static export caps page workers at two
+on smaller hosts and four on larger hosts to reduce memory contention. These
+limits change scheduling, not which checks run. Builds remain fresh before local
+browser tests unless the caller explicitly sets `E2E_BUILD=0`.
 
 Browser checks have separate gates. `pnpm test:e2e` runs the production-export
 routes and interactions. Seven isolated harnesses each use their own

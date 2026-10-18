@@ -1,17 +1,20 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { totalmem } from 'node:os';
 import { E2E_BUILD_ENV } from './e2e_build_env.mjs';
 
 /**
  * Release verification runner.
  *
  * The checks are independent until the production export exists, so normal
- * CI runs overlap bounded groups. Pass --serial on a constrained local host
- * to run every gate and browser worker one at a time.
+ * CI runs overlap bounded groups. Small local machines run every gate and
+ * browser worker one at a time to avoid paging; --serial can force this mode.
  */
 
 const verifyArgs = process.argv.slice(2);
-const serial = verifyArgs.includes('--serial');
+const constrainedLocal = !process.env.CI && totalmem() < 12 * 1024 ** 3;
+const serial = verifyArgs.includes('--serial') || constrainedLocal;
+if (constrainedLocal && !verifyArgs.includes('--serial')) console.log('[verify] using one worker on this memory-constrained local machine');
 const phaseArg = verifyArgs.find((argument) => argument !== '--serial' && argument !== '--');
 const phase = (phaseArg ?? 'all').replace(/^--/, '');
 const validPhases = new Set(['all', 'ci-source', 'ci-build', 'ci-isolated-0', 'ci-isolated-1', 'ci-isolated-2']);

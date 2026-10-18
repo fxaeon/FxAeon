@@ -1,6 +1,6 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": { "incremental": false, "plugins": [] },
+  "compilerOptions": { "incremental": true, "tsBuildInfoFile": "../../.cache/fork.tsbuildinfo", "plugins": [] },
   "include": ["./*.ts"],
   "exclude": []
 }

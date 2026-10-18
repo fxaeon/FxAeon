@@ -379,6 +379,37 @@ test('send rechecks retained holdings but never turns an unavailable selected ba
   await expect(page.getByText('Checking balances…', { exact: true })).toBeVisible();
   await expect(page.getByText('Couldn’t refresh balances', { exact: true })).toHaveCount(0);
 });
+test('history filters support keyboard selection, cancellation and resetting at phone width', async ({ page }) => {
+  await mount(page);
+  await page.setViewportSize({ width: 320, height: 568 });
+  const status = page.getByRole('combobox', { name: 'Activity status' });
+  const received = page.getByRole('button').filter({ hasText: 'Received' });
+  await status.focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('End');
+  await expect(page.getByRole('option', { name: 'Failed', exact: true })).toHaveAttribute('data-active', 'true');
+  await page.keyboard.press('Escape');
+  await expect(status).toBeFocused();
+  await expect(status).toHaveText('All activity');
+  await expect(received).toBeVisible();
+  await page.keyboard.press('p');
+  await page.keyboard.press('Enter');
+  await expect(status).toHaveText('Pending');
+  await expect(page.getByText('No matching activity', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
+  const network = page.getByRole('combobox', { name: 'Activity network' });
+  await network.click();
+  await page.getByRole('option', { name: 'Base', exact: true }).click();
+  await expect(network).toBeFocused();
+  await expect(received).toHaveCount(0);
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
+  await expect(received).toBeVisible();
+  await status.click();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(network).toBeFocused();
+});
+
 test('history detail fits short/mobile/desktop, closes with focus restored, and filters without extra sections',async({page},info)=>{
   await mount(page);
   for(const size of [{width:320,height:568},{width:393,height:852},{width:1280,height:800}]) {

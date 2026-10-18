@@ -50,7 +50,10 @@ type TransitionDocument = Document & { startViewTransition?: (update: () => Prom
 function bornTarget(doc: Document, key: string): HTMLElement | null | undefined {
   const details = doc.querySelector<HTMLElement>(`[data-position-details="${CSS.escape(key)}"]`);
   if (!details || details.getClientRects().length === 0) return undefined;
-  return details.querySelector<HTMLElement>('[data-position-split]');
+  const split = details.querySelector<HTMLElement>('[data-position-split]');
+  // Compact management intentionally omits the split. Skip the travel instead
+  // of animating into an invisible element or delaying the opened card.
+  return split && split.getClientRects().length > 0 ? split : null;
 }
 
 /**

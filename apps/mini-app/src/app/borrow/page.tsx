@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { AppShell } from '@/components/ui';
 import { formatUnits } from 'viem';
 import Link from 'next/link';
+import { RefreshCw } from 'lucide-react';
+import { PositionsPageHeader } from '@/components/PositionsPageHeader';
 import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 import ConnectWalletButton from '@/components/ConnectWalletButton';
-import { MetricRows, PageHeading, ProductSurface, StatusNotice } from '@/components/ProductUI';
+import { PageHeading, ProductSurface, StatusNotice } from '@/components/ProductUI';
+import { BorrowPositionCard, BorrowPositionManager, BorrowPositionsState } from '@/components/BorrowPositionCards';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
@@ -50,11 +53,9 @@ import {
 import presentation from '@/components/BorrowWorkspace.module.css';
 import { ActionWorkspace } from '@/components/ProductLayout';
 import { borrowSelectionIsActionable } from './selectionEligibility';
-import { calculatePositionUsdValuation, formatUsdCents } from '@/lib/positionValuation';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
 import { priceKeyForSymbol } from '@/lib/prices';
 import { resetTransactionAmounts } from '@/lib/transactionState';
-import { ValueOrSkeleton } from '@/components/MissingValue';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { BorrowSections } from '@/components/ProductSections';
 import { borrowCapacity, BORROW_LIMIT_GUARD_BPS, collateralUsdWad, loanToValueBps, tokenAmountForUsdWad, withdrawableCollateralUsd } from '@/lib/fx/borrowLimits';
@@ -151,6 +152,9 @@ export default function BorrowPage() {
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
+  const managerTriggerRef = useRef<HTMLElement>(null);
+  const overviewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const managerSnapshotRef = useRef<UiPosition | null>(null);
   const deepLinkApplied = useRef(false);
   const previousWalletContextRef = useRef<string | null>(null);
   const lastConnectedWalletRef = useRef<string | null>(null);
@@ -254,8 +258,8 @@ export default function BorrowPage() {
   const changePosition = useCallback((nextKey: string) => {
     const next = positions.find((position) => positionKey(position) === nextKey);
     if (!next) return;
-    setManagementAction('none');
-    setMode('manage');
+    setManagementAction('add');
+    setMode('mint');
     setMarket(next.market);
     setSelectedKey(nextKey);
     resetTransactionContext(collateralTokensForMarket(next.market)[0]);
@@ -506,11 +510,13 @@ export default function BorrowPage() {
     setManagementAction('none');
     if (next === 'new') {
       setMode('mint'); setSelectedKey('new'); resetTransactionContext(collateralTokensForMarket(market)[0]);
+      requestAnimationFrame(() => overviewHeadingRef.current?.focus({ preventScroll: true }));
     } else {
       const first = selected ?? positions[0];
       setMode('manage'); setSelectedKey(first ? positionKey(first) : '');
       if (first) setMarket(first.market);
       resetTransactionContext(collateralTokensForMarket(first?.market ?? market)[0]);
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-borrow-positions-heading]')?.focus({ preventScroll: true }));
     }
   };
   const chooseManagement = (action: ManagementAction) => {
@@ -614,11 +620,11 @@ export default function BorrowPage() {
       : managementAction === 'borrow' ? 'Borrow more'
         : managementAction === 'repay' ? 'Repay debt' : 'Withdraw collateral';
   const actionEditor = <div className={presentation.editor}>
-    {!newPosition && <h2 className={presentation.formTitle}>{actionTitle}</h2>}
+    {!newPosition && <h2 className="sr-only">{actionTitle}</h2>}
     {/* Collateral first: the borrowing limit below is computed from it. */}
     {showDeposit && <AmountField compact label={newPosition ? 'Collateral' : 'Collateral to add'} symbol={token} value={deposit}
       onChange={(value) => { setNativeMaxError(null); setDeposit(value); }} allowZero maxDecimals={tokenDecimals(token)}
-      balanceState={balanceStateFor(token)} tokenSelector={picker}
+      balanceState={balanceStateFor(token)} tokenSelector={picker} showPercentages={newPosition}
       maxAmount={token === 'ETH' ? null : undefined} onMax={token === 'ETH' ? resolveNativeMax : undefined}
       maxPending={token === 'ETH' && nativeMaxPending} constraintError={token === 'ETH' ? nativeMaxError : undefined} />}
     {showMint && <AmountField compact label={newPosition ? 'fxUSD to borrow' : 'Additional fxUSD to borrow'} symbol="fxUSD" value={mint}
@@ -628,7 +634,7 @@ export default function BorrowPage() {
         : collateralEntered ? 'Your limit shows once prices are available'
         : newPosition ? 'Enter collateral above to see your limit' : undefined} />}
     {showRepay && <AmountField compact label="Repay amount" symbol="fxUSD" value={repay} onChange={setRepay} allowAll allowZero maxDecimals={18}
-      balanceState={balanceStateFor('fxUSD')} hint={selected ? `Debt: ${formatPositionDebt(selected)}` : undefined} />}
+      balanceState={balanceStateFor('fxUSD')} showPercentages={false} hint={selected ? `Debt: ${formatPositionDebt(selected)}` : undefined} />}
     {showWithdraw && <AmountField compact label="Collateral to withdraw" symbol={token} value={withdraw} onChange={setWithdraw}
       allowZero maxDecimals={tokenDecimals(token)} showMax={false} showPercentages={false} tokenSelector={picker}
       hint={withdrawLimitWei === null ? 'Your limit shows once prices are available'
@@ -640,7 +646,6 @@ export default function BorrowPage() {
         <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(debtAfter, 18))} fxUSD</strong></dd></div>
       </dl>
       {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange.source === 'live' && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
-      <p className={presentation.estimateNote}>Before conversion and fees.</p>
     </section>}
     {showManageEstimate && <section className={presentation.outcome} aria-label="Estimated position changes">
       <div className={presentation.outcomeHeading}><span>Estimated position</span><span>Before → after</span></div>
@@ -648,7 +653,6 @@ export default function BorrowPage() {
         <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(existingDebt - repayPreviewWei!, 18))} fxUSD</strong></dd></div>
         {withdrawPreviewWei! > 0n && <div><dt>Receive asset</dt><dd>{symbol}</dd></div>}
       </dl>
-      <p className={presentation.estimateNote}>Before conversion and fees.</p>
     </section>}
     {emptyCollateral && <p className={presentation.fundingHint}>Add {symbol} to your wallet to supply collateral. <Link href="/qr">Receive {symbol}</Link></p>}
     {withdrawalRequested && <p className={presentation.helper}>Withdrawing collateral can increase liquidation risk.</p>}
@@ -660,23 +664,63 @@ export default function BorrowPage() {
   const showAction = newPosition || Boolean(selected && managementAction !== 'none') || !inputStage;
   const reviewBlocker = !wallet.address || !showAction ? null : mode === 'mint' ? mintBlocker() : manageBlocker();
   const reviewLabel = mode === 'mint' ? 'Review borrowing' : repayRequested && !withdrawalRequested ? 'Review repayment' : 'Review position changes';
+  if (inputStage && selected) managerSnapshotRef.current = selected;
+  const managerPosition = inputStage ? selected : managerSnapshotRef.current ?? selected;
+  const managerOpen = view === 'positions' && Boolean(managerPosition) && (managementAction !== 'none' || !inputStage);
+  const closeManager = () => {
+    if (reviewStage === 'executing') return;
+    setManagementAction('none');
+    resetTransactionContext(token);
+  };
+  const review = showAction && <div data-flow-stage={reviewStage} className={presentation.action}>
+    <ActionReview key={reviewRevision} surface="content" planBuilder={newPosition || !initialRead && !positionReadUnavailable ? planBuilder : null}
+      blocker={reviewBlocker} label={reviewLabel} operationLabel={mode === 'mint' ? selected ? 'Update collateral position' : 'Open collateral position' : manageOperationLabel}
+      draftActionKey={draftActionKey} draftResumePath="/borrow" draftState={draftState} resumeReview={resumeReview}
+      decisionBefore={reviewBefore} editor={actionEditor} onStageChange={setReviewStage} onComplete={refreshAfterAction} />
+  </div>;
 
   return <AppShell>
-    <ActionWorkspace className={presentation.workspace}>
-      <PageHeading title="Borrow" visible />
+    <ActionWorkspace className={presentation.workspace} data-view={view}>
+      {view === 'new' && <PageHeading title="Borrow" />}
       <ConfirmedPositionCards />
+      {view === 'positions' ? <>
+        <PositionsPageHeader product="Borrow" onReturn={() => chooseView('new')} />
+        <section className={presentation.positionsContent} data-testid="borrow-workspace-card" aria-label="Your borrowing positions">
+          {wallet.address && !initialRead && !positionReadUnavailable && positions.length > 0 && <>
+            <div className={presentation.positionsToolbar}><h2>Open positions <span>{positions.length}</span></h2>
+              <button type="button" aria-label="Refresh borrowing positions" disabled={sharedPositions.refreshing} onClick={() => void refreshPositions()}><RefreshCw size={17} aria-hidden="true" /></button>
+            </div>
+            <ProtocolPositionNotice status={sharedPositions.status} failedGroups={sharedPositions.failedGroups} hasPositions refreshing={sharedPositions.refreshing} onRefresh={() => void refreshPositions()} compact />
+          </>}
+          {!wallet.address ? <BorrowPositionsState kind="disconnected"><ConnectWalletButton className="button button-primary">Connect wallet</ConnectWalletButton></BorrowPositionsState>
+            : initialRead ? <BorrowPositionsState kind="loading" />
+              : positionReadUnavailable ? <BorrowPositionsState kind="unavailable" refreshing={sharedPositions.refreshing} onRetry={() => void refreshPositions()} />
+                : positions.length === 0 ? <BorrowPositionsState kind="empty"><button type="button" className="button button-primary" onClick={() => chooseView('new')}>Start borrowing</button></BorrowPositionsState>
+                  : <div className={presentation.positionGrid}>
+                    {positions.map(position => <BorrowPositionCard key={positionKey(position)} position={position} stale={positionIsStale(position, sharedPositions.failedGroups)} onOpen={trigger => { managerTriggerRef.current = trigger; changePosition(positionKey(position)); }} />)}
+                  </div>}
+          {!selected && selectedKey && positions.length > 0 && !initialRead && !positionReadUnavailable && <StatusNotice title="Choose a current position">The selected position is no longer available. Choose another position to manage.</StatusNotice>}
+        </section>
+        {managerOpen && managerPosition && <BorrowPositionManager position={managerPosition} stale={selectedStale} inputStage={inputStage} locked={reviewStage === 'executing'} triggerRef={managerTriggerRef} onClose={closeManager}>
+          {inputStage && <div className={presentation.management} role="group" aria-label="Manage collateral position">
+            {([{ value: 'add', label: 'Add collateral', short: 'Add' }, { value: 'borrow', label: 'Borrow more', short: 'Borrow' }, { value: 'repay', label: 'Repay debt', short: 'Repay' }, { value: 'withdraw', label: 'Withdraw collateral', short: 'Withdraw' }] as const).map(action =>
+              <button key={action.value} type="button" aria-label={action.label} aria-pressed={managementAction === action.value} disabled={selectedStale || initialRead} onClick={() => chooseManagement(action.value)}>{action.short}</button>)}
+          </div>}
+          {inputStage && selectedStale && <StatusNotice title="Refresh this position to continue" action={<button type="button" disabled={sharedPositions.refreshing} onClick={() => void refreshPositions()}>Refresh</button>}>The latest collateral and debt could not be verified.</StatusNotice>}
+          {review}
+        </BorrowPositionManager>}
+      </> : <>
       <div className={presentation.layout} data-review={!inputStage}>
       {inputStage && <section className={presentation.overview} aria-label="fxUSD borrowing overview">
         <div className={presentation.vaultIdentity}>
-          <TokenIcon symbol="fxUSD" size={32} />
-          <div><h2>Borrow fxUSD</h2><p>ETH or BTC collateral</p></div>
+          <TokenIcon symbol="fxUSD" size={48} />
+          <div><h2 ref={overviewHeadingRef} tabIndex={-1}>Borrow fxUSD</h2><p>ETH or BTC collateral</p></div>
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt>Pool maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd><small>{debtRange.source === 'live' ? 'Live pool parameter' : 'Live limit unavailable'}</small></div>
           <div><dt>Base annual interest</dt><dd>0%</dd><small>Temporary funding charges can apply</small></div>
+          <div><dt>Pool maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{debtRange.source !== 'live' && <small>Live limit unavailable</small>}</div>
         </dl>
-        <p className={presentation.riskNote}>The form uses a lower limit to allow for price and route changes.</p>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
       {inputStage && <div className={presentation.viewTabs}>
@@ -685,37 +729,12 @@ export default function BorrowPage() {
         ]} />
         <TransactionSettings scope="Borrow" />
       </div>}
-      {view === 'positions' && wallet.address && initialRead && <StatusNotice>Reading your collateral positions…</StatusNotice>}
-      {view === 'positions' && wallet.address && !initialRead && positionReadUnavailable && <ProtocolPositionNotice status="unavailable"
-        failedGroups={sharedPositions.failedGroups} hasPositions={false} refreshing={sharedPositions.refreshing}
-        onRefresh={() => void refreshPositions()} compact />}
-      {view === 'positions' && wallet.address && !initialRead && !positionReadUnavailable && <ProtocolPositionNotice status={sharedPositions.status}
-        failedGroups={sharedPositions.failedGroups} hasPositions={positions.length > 0} refreshing={sharedPositions.refreshing} onRefresh={() => void refreshPositions()} compact />}
-      {view === 'positions' && inputStage && <>
-        {!wallet.address ? <div className={presentation.empty}><p className={presentation.helper}>Connect the wallet that holds your collateral position.</p><ConnectWalletButton className="button button-primary mt-2 w-full">Connect wallet</ConnectWalletButton></div>
-          : !initialRead && !positionReadUnavailable && positions.length === 0 ? <div className={presentation.empty}>
-            <h2>No borrowing positions</h2><p className={presentation.helper}>Open an ETH or BTC collateral position to borrow fxUSD.</p>
-            <button type="button" className="button button-primary" onClick={() => chooseView('new')}>Start borrowing</button>
-          </div> : selected ? <div className={presentation.position}>
-            {positions.length > 1 && <PositionSelect value={selectedKey} positions={positions} onChange={changePosition} />}
-            <PositionSummary position={selected} />
-            <div className={presentation.management} role="group" aria-label="Manage collateral position">
-              {([{ value: 'add', label: 'Add collateral' }, { value: 'borrow', label: 'Borrow more' }, { value: 'repay', label: 'Repay debt' }, { value: 'withdraw', label: 'Withdraw collateral' }] as const).map((action) =>
-                <button key={action.value} type="button" aria-pressed={managementAction === action.value} disabled={selectedStale || initialRead}
-                  onClick={() => chooseManagement(action.value)}>{action.label}</button>)}
-            </div>
-          </div> : !initialRead && !positionReadUnavailable ? <StatusNotice title="Choose a current position" tone="warning">The selected position is no longer available. Choose New position to start another one.</StatusNotice> : null}
-      </>}
-      {showAction && <div data-flow-stage={reviewStage} className={presentation.action}>
-        <ActionReview key={reviewRevision} surface="content" planBuilder={newPosition || !initialRead && !positionReadUnavailable ? planBuilder : null}
-          blocker={reviewBlocker} label={reviewLabel} operationLabel={mode === 'mint' ? selected ? 'Update collateral position' : 'Open collateral position' : manageOperationLabel}
-          draftActionKey={draftActionKey} draftResumePath="/borrow" draftState={draftState} resumeReview={resumeReview}
-          decisionBefore={reviewBefore} editor={actionEditor} onStageChange={setReviewStage} onComplete={refreshAfterAction} />
-      </div>}
+      {review}
       </ProductSurface>
       {/* A limit, so rounded down to the tenth of a percent. */}
       {inputStage && <div className={presentation.details}><BorrowSections ltvLimit={debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} /></div>}
       </div>
+      </>}
     </ActionWorkspace>
   </AppShell>;
 }
@@ -747,36 +766,5 @@ function BorrowLimitMeter({ debt, collateralUsd, limitBps, before }: { debt: big
   </div>;
 }
 
-function PositionSelect({ value, positions, onChange }: { value: string; positions: UiPosition[]; onChange: (value: string) => void }) {
-  return <label className={presentation.positionSelect}>
-    <span>Collateral position</span>
-    <select value={value} onChange={(event) => onChange(event.target.value)}>
-      {positions.map((position) => <option key={positionKey(position)} value={positionKey(position)}>
-        {position.market} position #{position.info.positionId} · {formatPositionDebt(position)} debt
-      </option>)}
-    </select>
-  </label>;
-}
-function PositionSummary({ position }: { position: UiPosition }) {
-  const snapshot = useUsdPrices();
-  const prices = freshDisplayPrices(snapshot);
-  const collateralKey = priceKeyForSymbol(position.info.rawCollsToken);
-  const debtKey = priceKeyForSymbol(position.info.rawDebtsToken);
-  const valuation = calculatePositionUsdValuation({ collateralRaw: position.info.rawColls, collateralDecimals: positionCollateralDecimals(position),
-    collateralPrice: collateralKey ? prices[collateralKey] : undefined, debtRaw: position.info.rawDebts, debtDecimals: positionDebtDecimals(position), debtPrice: debtKey ? prices[debtKey] : undefined });
-  // Rounded up to the tenth, like the form's meter: a risk figure never reads lower than it is.
-  const ltv = valuation.collateralUsdCents !== null && valuation.collateralUsdCents > 0n && valuation.debtUsdCents !== null
-    ? formatTenths(loanToValueTenthsUp(valuation.debtUsdCents, valuation.collateralUsdCents)) : '—';
-  return <div className={presentation.positionSummary}>
-    <div className={presentation.positionIdentity}><TokenIcon symbol={position.market === 'BTC' ? 'WBTC' : 'ETH'} size={34} />
-      <div><h2>{position.market} position #{position.info.positionId}</h2><p>Ethereum</p></div></div>
-    <MetricRows label="Current collateral position" rows={[
-      { label: 'Collateral', value: formatPositionCollateral(position), detail: valuation.collateralUsdCents !== null ? `≈ ${formatUsdCents(valuation.collateralUsdCents)}` : 'Value unavailable' },
-      { label: 'Debt', value: formatPositionDebt(position), detail: valuation.debtUsdCents !== null ? `≈ ${formatUsdCents(valuation.debtUsdCents)}` : 'Value unavailable' },
-      { label: 'Net position value', value: <ValueOrSkeleton value={valuation.netEquityUsdCents !== null ? formatUsdCents(valuation.netEquityUsdCents) : '—'} status={snapshot.status === 'loading' ? 'loading' : 'unavailable'} />, emphasis: true },
-      { label: 'Loan-to-value', value: ltv },
-    ]} />
-  </div>;
-}
 function formatPositionCollateral(position: UiPosition): string { return `${groupDigits(formatAmount(position.info.rawColls, positionCollateralDecimals(position)))} ${positionCollateralSymbol(position)}`; }
 function formatPositionDebt(position: UiPosition): string { return `${groupDigits(formatAmount(position.info.rawDebts, positionDebtDecimals(position)))} ${position.info.rawDebtsToken}`; }

@@ -242,7 +242,7 @@ export function SlippageField({
         </span>
       </div>
       {showHelp && inlineHelp && <div id={helpId} role="tooltip" className={styles.slippageHelpInline}>The transaction can fail if adverse price movement exceeds this tolerance.</div>}
-      <div className={`${styles.formField} field-control flex min-h-[52px] items-center gap-2 px-4 ${error ? 'field-error' : ''}`}>
+      <div data-focus-field className={`${styles.formField} field-control flex min-h-[52px] items-center gap-2 px-4 ${error ? 'field-error' : ''}`}>
         <DecimalInput
           id={inputId}
           value={value}
@@ -286,6 +286,8 @@ export function TokenSelect<T extends string>({
   const selectId = useId();
   const labelId = `${selectId}-label`;
   const dialogTitleId = `${selectId}-dialog-title`;
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
   const [open, setOpen] = useState(false);
   const present = useExitPresence(open, selectId);
   const [query, setQuery] = useState('');
@@ -349,17 +351,17 @@ export function TokenSelect<T extends string>({
         aria-expanded={open}
         aria-controls={`${selectId}-menu`}
         aria-labelledby={labelId}
-        onClick={() => setOpen((current) => {
-          if (!current) {
-            setQuery('');
-            const hasMissingPrice = options.some((option) => {
-              const priceKey = priceKeyForSymbol(option);
-              return priceKey && prices[priceKey] === undefined;
-            });
-            if (priceStatus !== 'ready' || hasMissingPrice) void refreshPrices();
-          }
-          return !current;
-        })}
+        disabled={!hydrated}
+        onClick={() => {
+          if (open) { closePicker(); return; }
+          setQuery('');
+          const hasMissingPrice = options.some((option) => {
+            const priceKey = priceKeyForSymbol(option);
+            return priceKey && prices[priceKey] === undefined;
+          });
+          if (priceStatus !== 'ready' || hasMissingPrice) void refreshPrices();
+          setOpen(true);
+        }}
         className={`${compact ? '' : 'field-control'} glass-press flex min-h-[52px] w-full items-center justify-between gap-3 px-4 text-left text-[15px] font-semibold text-[var(--text)] outline-none`}
       >
         <span className="flex min-w-0 items-center gap-2.5">
@@ -393,7 +395,7 @@ export function TokenSelect<T extends string>({
               <button type="button" aria-label="Close asset picker" onClick={closePicker} className={`${styles.tokenPickerClose} glass-press`}>×</button>
             </div>
             {options.length > 4 && (
-              <label className={styles.tokenPickerSearch}>
+              <label data-focus-field className={styles.tokenPickerSearch}>
                 <Search className="h-4 w-4 shrink-0 text-mut" aria-hidden="true" />
                 <span className="sr-only">Search assets</span>
                 <input
@@ -534,6 +536,7 @@ export function LeverageField({
   max = 20,
   error,
   compact = false,
+  collapseSlider = false,
   split,
 }: {
   value: number;
@@ -543,6 +546,8 @@ export function LeverageField({
   max?: number;
   error?: string | null;
   compact?: boolean;
+  /** Keep direct value entry visible; reveal the slider only when requested. */
+  collapseSlider?: boolean;
   split?: { side: LeverageSide };
 }) {
   const inputId = useId();
@@ -554,6 +559,7 @@ export function LeverageField({
   const [leverageDraft, setLeverageDraft] = useState(Number.isFinite(value) ? String(value) : '');
   const [leverageFocused, setLeverageFocused] = useState(false);
   const [leverageInputError, setLeverageInputError] = useState('');
+  const [sliderExpanded, setSliderExpanded] = useState(false);
   useEffect(() => {
     if (!leverageFocused && Number.isFinite(value)) {
       setLeverageDraft(String(value));
@@ -654,17 +660,20 @@ export function LeverageField({
     </>
   );
   return (
-    <div className={compact ? styles.tradeCompactLeverage : undefined}>
+    <div data-leverage-field data-collapsible={compact && collapseSlider || undefined} className={compact ? styles.tradeCompactLeverage : undefined}>
       {compact ? (
         <>
           <div className={styles.tradeCompactLeverageHeader}>
             <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
-            <div className={`${styles.rangeField} ${styles.tradeCompactLeverageValue} range-control ${invalid || leverageInputError ? 'field-error' : ''}`}>
-              {numberInput}
-              <span className="text-display text-[18px] font-semibold text-mint" aria-hidden="true">×</span>
+            <div className={styles.leverageValueControls}>
+              <div data-focus-field className={`${styles.rangeField} ${styles.tradeCompactLeverageValue} range-control ${invalid || leverageInputError ? 'field-error' : ''}`}>
+                {numberInput}
+                <span className="text-display text-[18px] font-semibold text-mint" aria-hidden="true">×</span>
+              </div>
+              {collapseSlider && <button type="button" className={styles.leverageSliderToggle} aria-label={`${sliderExpanded ? 'Hide' : 'Show'} leverage slider`} aria-expanded={sliderExpanded} aria-controls={`${sliderId}-control`} onClick={() => setSliderExpanded(open => !open)}><ChevronDown size={16} aria-hidden="true" /></button>}
             </div>
           </div>
-          <div className={styles.tradeCompactLeverageSlider}>
+          <div id={`${sliderId}-control`} hidden={collapseSlider && !sliderExpanded} className={styles.tradeCompactLeverageSlider}>
             {slider}
           </div>
         </>
@@ -672,7 +681,7 @@ export function LeverageField({
         <>
           {/* The live range is stated once, at the slider's ends, as on Trade. */}
           <FieldLabel htmlFor={inputId}>{label}</FieldLabel>
-          <div className={`${styles.rangeField} range-control p-3 ${invalid || leverageInputError ? 'field-error' : ''}`}>
+          <div data-focus-field className={`${styles.rangeField} range-control p-3 ${invalid || leverageInputError ? 'field-error' : ''}`}>
             <div className="flex items-center gap-3">
               {numberInput}
               <span className="text-display text-[22px] font-semibold text-mint" aria-hidden="true">×</span>

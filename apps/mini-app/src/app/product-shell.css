@@ -16,11 +16,7 @@
 [data-product-ui='v2'] .trade-page-heading { margin-bottom: 6px; }
 [data-product-ui='v2'] .trade-page-heading h1 { font-size: 32px; font-weight: 550; letter-spacing: -.035em; }
 [data-product-ui='v2'] .app-content { scroll-padding-bottom: var(--content-bottom-clearance); }
-[data-product-ui='v2'] .app-content :where(button, a, input, select, summary):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
-/* AmountField owns its single focus ring, including inside action cards. */
-[data-product-ui='v2'] .app-content .amount-control input:focus-visible { outline: none; }
 [data-product-ui='v2'] :is(.field-control, .range-control, .toggle-row) { border-color: var(--line); }
-[data-product-ui='v2'] :is(.field-control, .range-control):focus-within { border-color: var(--mint); box-shadow: 0 0 0 3px var(--mint-dim); }
 [data-product-ui='v2'] .amount-control { border-radius: 12px; }
 [data-product-ui='v2'] .segmented { border-color: var(--line); box-shadow: none; }
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
@@ -28,6 +24,11 @@
 [data-product-ui='v2'] .segmented:not(.segmented-sides) .segmented-option-active { color: var(--text); font-weight: 600; }
 [data-product-ui='v2'] .desktop-navigation { background: transparent; box-shadow: none; }
 [data-product-ui='v2'] .desktop-navigation a { font-weight: 500; }
+[data-product-ui='v2'] .desktop-navigation a { min-height: 40px; border-radius: 10px; }
+[data-product-ui='v2'] .desktop-navigation a:hover { background: var(--surface); }
+[data-product-ui='v2'] .app-workspace[data-route='/more'] > .utility-content { max-width: 800px; }
+[data-product-ui='v2'] .app-workspace[data-route='/settings'] > .utility-content { max-width: 640px; }
+[data-product-ui='v2'] .app-workspace[data-route='/history'] > .utility-content { max-width: 720px; }
 [data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--mint-dim); color: var(--mint-text); box-shadow: none; }
 [data-product-ui='v2'] .tabbar { border-radius: 20px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 5%, transparent); }
 [data-product-ui='v2'] .tabbar::before { border-radius: 16px; box-shadow: none; background: var(--mint-dim); }

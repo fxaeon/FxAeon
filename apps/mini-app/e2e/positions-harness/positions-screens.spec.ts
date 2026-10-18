@@ -172,7 +172,7 @@ test('management viewport captures keep controls and the primary action above th
       await actions(page).getByRole('radio', { name: action, exact: true }).click();
       const measure = async (state: string) => {
       await page.evaluate(() => document.querySelector<HTMLElement>('[data-shell-content]')?.scrollTo({ top: 0 }));
-      const primary = page.getByRole('button', { name: /^Review / });
+      const primary = page.getByRole('button', { name: /^(Review |Enter an amount)/ });
       const metrics = await primary.evaluate(button => {
         const box = button.getBoundingClientRect();
         const nav = document.querySelector<HTMLElement>('[data-fixed-navigation="true"]')?.getBoundingClientRect();
@@ -180,11 +180,12 @@ test('management viewport captures keep controls and the primary action above th
         const manager = details.parentElement!.getBoundingClientRect();
         const cx = box.left + box.width / 2;
         const cy = box.top + box.height / 2;
-        return { ctaTop: box.top, ctaBottom: box.bottom, managerHeight: manager.height, detailsHeight: details.getBoundingClientRect().height, dockTop: nav && nav.height > 0 ? nav.top : innerHeight, centerHit: button.contains(document.elementFromPoint(cx, cy)) };
+        const inSheet = Boolean(button.closest('[role="dialog"]'));
+        return { ctaTop: box.top, ctaBottom: box.bottom, managerHeight: manager.height, detailsHeight: details.getBoundingClientRect().height, dockTop: !inSheet && nav && nav.height > 0 ? nav.top : innerHeight, centerHit: button.contains(document.elementFromPoint(cx, cy)) };
       });
       measurements.push({ theme, width, height, action, state, ...metrics });
       writeFileSync(resolve(directory, 'after.json'), JSON.stringify(measurements, null, 2));
-      if (width !== 320) {
+      if (width === 390) {
         expect(metrics.ctaTop).toBeGreaterThanOrEqual(0);
         expect(metrics.ctaBottom).toBeLessThanOrEqual(metrics.dockTop - 4);
         expect(metrics.centerHit).toBe(true);
@@ -207,6 +208,7 @@ test('management viewport captures keep controls and the primary action above th
 
 test('Positions leverage uses its live range and blocks an oversized manual target until commit', async ({ page }) => {
   await open(page, { positions: ['long'], path: '/positions?position=ETH%3Along%3A2033' });
+  await page.getByRole('button', { name: 'Show leverage slider', exact: true }).click();
   const leverage = page.getByRole('textbox', { name: 'Target leverage', exact: true });
   const slider = page.getByRole('slider', { name: 'Target leverage slider', exact: true });
   await leverage.fill('2');
@@ -229,7 +231,14 @@ test('Positions leverage uses its live range and blocks an oversized manual targ
 
 test('position discovery and receipt syncing preserve honest states with visible retry actions', async ({ page }) => {
   await open(page, { positions: [] });
+  await expect(page.getByRole('heading', { name: 'Positions', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'New position', exact: true })).toHaveAttribute('href', '/trade');
+  await expect(page.getByRole('link', { name: 'Back to Trade', exact: true })).toHaveAttribute('href', '/trade');
   await expect(page.getByText('No open positions', { exact: true })).toBeVisible();
+  if (screenshotDir) {
+    mkdirSync(screenshotDir, { recursive: true });
+    await page.screenshot({ path: resolve(screenshotDir, 'positions-empty-mobile.png'), animations: 'disabled' });
+  }
   await page.evaluate(() => {
     const h = globalThis.__positionsScreens;
     h.shared = { ...h.shared, status: 'unavailable', refreshing: false, refresh: async () => {
@@ -238,13 +247,17 @@ test('position discovery and receipt syncing preserve honest states with visible
     } };
     h.rerender?.();
   });
-  await expect(page.getByText('Positions unavailable', { exact: true })).toBeVisible();
+  await expect(page.getByText('Couldn’t load positions', { exact: true })).toBeVisible();
   if (screenshotDir) {
     mkdirSync(screenshotDir, { recursive: true });
     await page.screenshot({ path: resolve(screenshotDir, 'positions-unavailable-mobile.png'), animations: 'disabled' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.screenshot({ path: resolve(screenshotDir, 'positions-unavailable-desktop.png'), animations: 'disabled' });
+    await page.setViewportSize({ width: 393, height: 852 });
   }
-  await page.getByRole('button', { name: 'Retry positions', exact: true }).click();
+  await page.getByRole('button', { name: 'Reload positions', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Loading positions', exact: true })).toBeVisible();
+  if (screenshotDir) await page.screenshot({ path: resolve(screenshotDir, 'positions-loading-mobile.png'), animations: 'disabled' });
   await expect(page.getByText('No open positions', { exact: true })).toHaveCount(0);
   await page.evaluate(() => {
     const h = globalThis.__positionsScreens;
@@ -263,6 +276,28 @@ test('position discovery and receipt syncing preserve honest states with visible
   await expect(page.locator('[data-confirmed-position-status="checking"]')).toHaveAttribute('aria-busy', 'true');
   await expect(page.getByRole('button', { name: 'Retry position details', exact: true })).toBeDisabled();
   expect(await page.evaluate(() => globalThis.__positionsScreens.walletRequests)).toBe(0);
+});
+
+test('position overview does not turn missing prices or incomplete reads into portfolio totals', async ({ page }) => {
+  await open(page, { positions: ['long'] });
+  const overview = page.locator('[data-position-overview]');
+  await expect(overview).toContainText('$9,721.32');
+  await expect(overview).toContainText('$22,433.91');
+  await expect(overview).toContainText('$12,712.59');
+  await page.evaluate(() => {
+    delete globalThis.__positionsScreens.prices.ETH;
+    globalThis.__positionsScreens.rerender?.();
+  });
+  await expect(overview.getByRole('status', { name: 'Position value unavailable', exact: true })).toBeVisible();
+  await expect(overview.getByRole('status', { name: 'Collateral unavailable', exact: true })).toBeVisible();
+  await expect(overview).toContainText('$12,712.59');
+  await page.evaluate(() => {
+    const h = globalThis.__positionsScreens;
+    h.shared = { ...h.shared, status: 'partial' };
+    h.rerender?.();
+  });
+  await expect(overview.getByRole('status', { name: 'Debt unavailable', exact: true })).toBeVisible();
+  await expect(overview).not.toContainText('$0.00');
 });
 
 test('Positions settings preserve restored planner slippage through a gas-only preference change', async ({ page }) => {
@@ -295,7 +330,7 @@ test('a phone opens one position from its row and returns to the list where it w
   await expect(actions(page)).toBeHidden();
   // No per-row buttons; the position at its rebalance point stands out in words.
   await expect(page.getByRole('group', { name: /^Actions for / })).toHaveCount(0);
-  await expect(page.locator('[data-position-key="ETH:long:2034"] [data-position-brake="rebalance"]')).toContainText('At the rebalance point');
+  await expect(page.locator('[data-position-key="ETH:long:2034"]')).toContainText('At the rebalance point');
 
   await page.evaluate(() => { document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 220; });
   const listScrollTop = await scrollTop(page);
@@ -312,11 +347,12 @@ test('a phone opens one position from its row and returns to the list where it w
   const details = page.locator('[data-position-details="ETH:short:174"]');
   await expect(details).toBeVisible();
   expect(await scrollTop(page)).toBe(openedListScrollTop);
-  // Collateral, debt and the brake stay visible; secondary metrics are optional.
-  for (const label of ['Collateral', 'Debt']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  // The value opens thresholds and the exact accounting on demand.
+  for (const label of ['Collateral', 'Debt']) await expect(details.getByText(label, { exact: true })).toBeHidden();
+  await expect(details.locator('[data-position-price]')).toHaveCount(2);
   await expect(details.getByText('Market price', { exact: true })).toBeHidden();
   await details.locator('summary').click();
-  for (const label of ['Market price', 'Debt / collateral']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  for (const label of ['Collateral', 'Debt', 'Market price', 'Debt / collateral']) await expect(details.getByText(label, { exact: true })).toBeVisible();
   await details.locator('summary').click();
   await expect(details.locator('[data-position-brake="clear"]')).toContainText('Rebalances if ETH rises ≈ 47%');
   // The actions and the form follow the position directly, starting at the top.
@@ -330,7 +366,7 @@ test('a phone opens one position from its row and returns to the list where it w
   // A short has no "Borrow against".
   await expect(page.getByRole('link', { name: 'Borrow against this position' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Close position', exact: true }).click();
+  await page.getByRole('button', { name: 'Close position manager', exact: true }).click();
   await expect(list(page)).toBeVisible();
   await expect(page).toHaveURL(/\/positions$/);
   await expect.poll(() => page.evaluate(saved => {
@@ -341,6 +377,7 @@ test('a phone opens one position from its row and returns to the list where it w
   // Browser Back and Forward move between the same two views.
   await page.locator('[data-position-key="ETH:long:2033"]').click();
   await expect(page.locator('[data-position-details="ETH:long:2033"]')).toBeVisible();
+  await page.locator('[data-position-details="ETH:long:2033"] summary').click();
   await expect(page.getByRole('link', { name: 'Borrow against this position' })).toHaveAttribute('href', '/borrow?market=ETH&position=2033');
   await page.goBack();
   await expect(list(page)).toBeVisible();
@@ -370,12 +407,12 @@ test('a link to a position opens it, and its back control stays on this page', a
   await expect(page.locator('[data-position-details="BTC:short:109"]')).toBeVisible();
   await expect(actions(page).getByRole('radio', { name: 'Close', exact: true })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByText('Full close', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Close position', exact: true }).click();
+  await page.getByRole('button', { name: 'Close position manager', exact: true }).click();
   await expect(list(page)).toBeVisible();
   await expect(page).toHaveURL(/\/positions$/);
 });
 
-test('phone management is one focus-contained sheet and keeps its form across desktop resizing', async ({ page }, testInfo) => {
+test('phone management stays compact, contains focus and keeps its form across desktop resizing', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   const row = page.locator('[data-position-key="ETH:long:2033"]');
@@ -386,15 +423,40 @@ test('phone management is one focus-contained sheet and keeps its form across de
   await row.click();
   const sheet = page.getByRole('dialog', { name: 'Manage position', exact: true });
   await expect(sheet).toBeVisible();
+  await expect.poll(async () => Math.round((await sheet.boundingBox())!.width)).toBe(390);
+  expect((await sheet.boundingBox())!.height).toBeLessThan(490);
   await expect(list(page)).toBeVisible();
   await expect(page.locator('[data-position-details]')).toHaveCount(1);
   expect(await sheet.evaluate(node => node.parentElement?.parentElement === document.body)).toBe(true);
   expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
-  await expect(sheet.getByRole('button', { name: 'Close position', exact: true })).toBeFocused();
+  await expect(sheet.getByRole('button', { name: 'Close position manager', exact: true })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   expect(await sheet.evaluate(node => node.contains(document.activeElement))).toBe(true);
   const amount = sheet.getByRole('textbox', { name: /^Amount to add/ });
   await amount.fill('0.1');
+  const leverage = sheet.getByRole('textbox', { name: 'Target leverage', exact: true });
+  const slider = sheet.getByRole('slider', { name: 'Target leverage slider', exact: true });
+  await expect(slider).toBeHidden();
+  await leverage.fill('2.8');
+  await sheet.getByRole('button', { name: 'Show leverage slider', exact: true }).click();
+  await expect(slider).toHaveValue('2.8');
+  await sheet.getByRole('button', { name: 'Hide leverage slider', exact: true }).click();
+  await expect(leverage).toHaveValue('2.8');
+  const details = sheet.locator('[data-position-details]');
+  await details.locator('summary').click();
+  await expect(details.getByText('Collateral', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 568 });
+  const heading = sheet.getByRole('heading', { name: 'ETH Long · #2033', exact: true });
+  const headerTop = (await heading.boundingBox())!.y;
+  await sheet.locator('[data-position-sheet-body]').evaluate(node => { node.scrollTop = node.scrollHeight; });
+  expect((await heading.boundingBox())!.y).toBeCloseTo(headerTop, 0);
+  for (const label of [/^Transaction settings/, /^Close position manager$/]) {
+    expect(await sheet.getByRole('button', { name: label }).evaluate(button => {
+      const box = button.getBoundingClientRect();
+      return button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+    })).toBe(true);
+  }
+  await details.locator('summary').click();
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(sheet).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: /^Amount to add/ })).toHaveValue('0.1');
@@ -415,6 +477,47 @@ test('phone management is one focus-contained sheet and keeps its form across de
   await expect(page).toHaveURL(/\/positions$/);
 });
 
+test('keyboard focus belongs to the active field or button without nested frames', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page);
+  await page.locator('[data-position-key="ETH:long:2033"]').click();
+  const view = page.getByRole('dialog', { name: 'Manage position', exact: true });
+  const amount = view.getByRole('textbox', { name: /^Amount to add/ });
+  const field = view.locator('[data-amount-field] [data-focus-field]');
+  await amount.click();
+  await expect(field).toHaveCSS('outline-style', 'solid');
+  await expect(field).toHaveCSS('outline-width', '2px');
+  await expect(amount).toHaveCSS('outline-style', 'none');
+  await page.keyboard.press('Tab');
+  const preset = view.getByRole('button', { name: 'Use 100% of available balance', exact: true });
+  await preset.focus();
+  await expect(preset).toHaveCSS('outline-style', 'solid');
+  await expect(field).toHaveCSS('outline-style', 'none');
+  await preset.click();
+  const asset = field.getByRole('button', { name: /Input asset/ });
+  await page.keyboard.press('Tab');
+  await asset.focus();
+  await expect(asset).toHaveCSS('outline-style', 'solid');
+  await expect(field).toHaveCSS('outline-style', 'none');
+  await asset.click();
+  await expect(page.getByRole('dialog')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Close asset picker', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(asset).toBeFocused();
+  await view.getByRole('button', { name: /^Transaction settings/ }).click();
+  const custom = page.getByRole('textbox', { name: 'Slippage tolerance percentage' });
+  await custom.click();
+  await expect(custom).toHaveCSS('outline-style', 'none');
+  await expect(custom.locator('..')).toHaveCSS('outline-width', '2px');
+  await page.keyboard.press('Escape');
+  await page.emulateMedia({ forcedColors: 'active' });
+  await amount.focus();
+  await expect(field).toHaveCSS('outline-style', 'solid');
+  await expect(field).toHaveCSS('outline-width', '2px');
+  await expect(amount).toHaveCSS('outline-style', 'none');
+  await page.emulateMedia({ forcedColors: 'none' });
+});
+
 test('a position that is gone gives way to the list', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
@@ -430,12 +533,14 @@ test('a position that is gone gives way to the list', async ({ page }) => {
   await expect(page).toHaveURL(/\/positions$/);
 });
 
-test('wide screens keep the list beside the selected position and select in place', async ({ page }) => {
+test('wide screens show the list first and open management only after selecting a position', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await open(page);
   await expect(list(page)).toBeVisible();
+  await expect(page.locator('[data-position-details="ETH:long:2033"]')).toBeHidden();
+  await page.locator('[data-position-key="ETH:long:2033"]').click();
   await expect(page.locator('[data-position-details="ETH:long:2033"]')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'All positions', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'All positions', exact: true })).toBeVisible();
   await expect(page.locator('[data-position-key="ETH:long:2033"]')).toHaveAttribute('aria-current', 'true');
   const historyLength = await page.evaluate(() => window.history.length);
   await page.locator('[data-position-key="BTC:short:109"]').click();
@@ -489,5 +594,7 @@ test('screenshots: the list, a position for Add and for Close, and the wide view
     await open(page, { theme, positions: ['long', 'short', 'rebalance', 'ethShort'] });
     await page.waitForTimeout(1_100);
     await page.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-1280-wide.png`), animations: 'disabled' });
+    await page.locator('[data-position-key="ETH:long:2033"]').click();
+    await page.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-1280-manage.png`), animations: 'disabled' });
   }
 });

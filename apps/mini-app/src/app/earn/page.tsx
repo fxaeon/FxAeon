@@ -468,7 +468,7 @@ export default function EarnPage() {
   return (
     <AppShell>
       <ActionWorkspace className={presentation.workspace} density="compact">
-        <PageHeading title="Earn" visible />
+        <PageHeading title="Earn" />
         <div className={presentation.vaultLayout} data-review={!inputStage || mode === 'claim'}>
         {inputStage && mode !== 'claim' && <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus}
@@ -552,7 +552,7 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
     .find((task) => task.kind === 'withdrawal');
   return <div className={presentation.overview}>
     <div className={presentation.vaultIdentity}>
-      <TokenIcon symbol="fxSAVE" size={32} />
+      <TokenIcon symbol="fxSAVE" size={48} />
       <div><h2>fxSAVE</h2><p>Stability Pool vault</p></div>
       <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
       {connected && <button type="button" disabled={loading} onClick={() => void onRefresh()} aria-label="Refresh fxSAVE state" className={presentation.refresh}>
@@ -560,6 +560,12 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
       </button>}
     </div>
     <div className={presentation.balanceTop}>
+      <div className={presentation.rate}>
+        <small>Variable APY</small>
+        <strong>{fxSaveApy
+          ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
+          : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
+      </div>
       <div className={presentation.balanceCopy} data-connected={connected}>
         <p>{!connected ? 'Vault holdings' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'}</p>
         {!connected ? <>
@@ -578,12 +584,6 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
             : <ValueOrSkeleton value={formatUsd(value)} width="xl" label="fxSAVE position value" />}</h2>
           <small>{formatDisplayAmount(balance!.balanceWei)} fxSAVE</small>
         </>}
-      </div>
-      <div className={presentation.rate}>
-        <small>Variable APY</small>
-        <strong>{fxSaveApy
-          ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
-          : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
       </div>
     </div>
     {connected && <dl className={presentation.vaultHoldings}>

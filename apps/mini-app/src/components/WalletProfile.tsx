@@ -168,7 +168,7 @@ export default function WalletProfile() {
   }
 
   return <>
-    <button ref={openerRef} type="button" aria-label="Open wallet profile" onClick={() => { openedAtPathRef.current = pathname; setOpenWallet(walletIdentity); haptic('light'); }}
+    <button ref={openerRef} type="button" aria-label="Open wallet profile" aria-haspopup="dialog" aria-expanded={open} onClick={() => { openedAtPathRef.current = pathname; setOpenWallet(walletIdentity); haptic('light'); }}
       aria-describedby={pendingActivity.pendingCount ? 'wallet-pending-activity' : undefined} data-pending={pendingActivity.pendingCount ? true : undefined}
       className={`${styles.walletTrigger} ${headerWalletControl.trigger} ${headerWalletControl.identityTrigger} glass-press`}>
       <span className={headerWalletControl.identityAvatar}>{pendingActivity.pendingCount > 0 && <span className={headerWalletControl.pendingRing} aria-hidden="true" />}<WalletAvatar address={activeAddress} size={22} /></span>
@@ -211,8 +211,8 @@ export default function WalletProfile() {
               </div>
               {!onPortfolio && <Link href="/portfolio" className={presentation.portfolioLink}>View portfolio<ChevronRight size={16} aria-hidden="true" /></Link>}
             </section>
-            <section className={presentation.assets} aria-labelledby="wallet-profile-balances-title">
-              <div className={presentation.sectionHeading}><h3 id="wallet-profile-balances-title">Assets</h3><span>All networks</span></div>
+            <details className={presentation.assets} open={!onPortfolio || undefined}>
+              <summary className={presentation.sectionHeading}><h3 id="wallet-profile-balances-title">Tokens</h3><span>{nonZero.length || 'All networks'}<ChevronRight size={16} aria-hidden="true" /></span></summary>
               {loading && nonZero.length === 0 && <AssetListSkeleton compact />}
               {!loading && nonZero.length === 0 && !walletSnapshotValuation.complete && <div className={presentation.assetRetry}>
                 <span role="status">Couldn’t load assets. Your funds are unaffected.</span>
@@ -229,13 +229,13 @@ export default function WalletProfile() {
               {nonZero.length > WALLET_SHEET_ASSET_LIMIT && <button type="button" className={presentation.moreAssets} aria-expanded={assetsExpanded} onClick={() => setAssetsExpanded((value) => !value)}>
                 {assetsExpanded ? 'Show fewer assets' : `View all ${nonZero.length} assets`}
               </button>}
-            </section>
+            </details>
             <section className={presentation.positions} aria-labelledby="wallet-profile-positions-title">
               <ActionRow icon={Layers2} title="Positions" href="/positions" value={<ValueOrSkeleton value={positionCountValue} width="sm" status={positionState.status === 'loading' || positionState.status === 'idle' ? 'loading' : 'unavailable'} label="Indexed open and confirmed syncing positions" />} />
               <h3 id="wallet-profile-positions-title" className="sr-only">Open positions</h3>
               {claimTask && <ActionRow icon={ArrowDownToLine} title="Claim fxSAVE withdrawal" href={claimTask.href} />}
             </section>
-            <RecentActivityPreview walletAddress={wallet.address as Address} inDialog />
+            {!onPortfolio && <RecentActivityPreview walletAddress={wallet.address as Address} inDialog />}
             <nav className={presentation.links} aria-label="Wallet profile actions">
               <ActionRow icon={History} title="History" href="/history" />
               <ActionRow icon={Settings} title="Settings" href="/settings" />
