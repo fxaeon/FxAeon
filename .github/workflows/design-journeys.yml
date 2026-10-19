@@ -1,0 +1,51 @@
+name: Design journeys checks
+
+on:
+  push:
+    branches: [design/transaction-journeys-v4]
+    paths:
+      - 'design/transaction-journeys/**'
+      - '.github/workflows/design-journeys.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-journeys-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/design/transaction-journeys-v4'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+        working-directory: design/transaction-journeys
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Install isolated browser-test runtime
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fxaeon-design-env"
+          echo "$RUNNER_TEMP/fxaeon-design-env/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/fxaeon-design-env/bin/python" -m pip install playwright==1.57.0
+          "$RUNNER_TEMP/fxaeon-design-env/bin/python" -m playwright install --with-deps chromium
+      - name: Check fixture and build offline preview
+        run: |
+          node --check app.js
+          node --check model.js
+          node --test tests/model.test.cjs | tee tests/model-results.txt
+          python3 build.py
+      - name: Exercise layouts and connected journeys
+        run: python3 tests/browser.py
+      - name: Upload design reference and test evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: fxaeon-transaction-journeys
+          path: design/transaction-journeys
+          retention-days: 7

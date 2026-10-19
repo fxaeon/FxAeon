@@ -1,0 +1,6 @@
+FxAeon-journeys.html
+previews/
+tests/*-results.txt
+tests/*-results.json
+tests/*-console.txt
+__pycache__/

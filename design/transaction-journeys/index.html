@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101214">
+<meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>FxAeon · Transaction journeys</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+<div class="preview-bar"><span><i></i> Preview · No real funds</span><button id="lab-button" aria-label="Open preview controls">Sample controls <span aria-hidden="true">↗</span></button></div>
+<div id="shell">
+<header class="header"><a href="#trade" class="brand" aria-label="FxAeon home"><img src="assets/brand.svg" alt="" width="32" height="32"><span>FxAeon</span></a><nav class="desktop-nav" aria-label="Main navigation"></nav><div class="account"><span class="network-dot"></span><span class="desktop-only">Ethereum</span><span class="account-divider"></span><span class="avatar"></span><span>Sample wallet</span></div></header>
+<main id="content" tabindex="-1"></main>
+<nav class="dock" aria-label="Mobile navigation"></nav>
+</div>
+<dialog id="transaction" aria-labelledby="dialog-title"><div id="transaction-inner"></div></dialog>
+<dialog id="lab" aria-labelledby="lab-title"><div class="lab-inner"><div class="section-heading"><h2 id="lab-title">Preview controls</h2><button class="icon-button" data-close-lab aria-label="Close preview controls">×</button></div><p>All prices, fees, balances, approvals and receipts are samples. No wallet or network request is made.</p><label for="scenario">Next transaction</label><select id="scenario"><option value="normal">Normal flow</option><option value="quote">Fee quote changes</option><option value="decline">Wallet request declined</option><option value="unknown">Transaction status unknown</option><option value="revert">Transaction reverts</option><option value="stale">Position refresh unavailable</option></select><button class="secondary" id="claim-ready">Make queued withdrawal claimable</button><button class="secondary" id="reset">Reset sample account</button><p class="fine">Reset only clears this preview’s local data. It does not affect FxAeon.</p></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="model.js"></script><script src="app.js"></script>
+</body>
+</html>
