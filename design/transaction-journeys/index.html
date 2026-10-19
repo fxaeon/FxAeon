@@ -20,6 +20,6 @@
 <dialog id="transaction" aria-labelledby="dialog-title"><div id="transaction-inner"></div></dialog>
 <dialog id="lab" aria-labelledby="lab-title"><div class="lab-inner"><div class="section-heading"><h2 id="lab-title">Preview controls</h2><button class="icon-button" data-close-lab aria-label="Close preview controls">×</button></div><p>All prices, fees, balances, approvals and receipts are samples. No wallet or network request is made.</p><label for="scenario">Next transaction</label><select id="scenario"><option value="normal">Normal flow</option><option value="quote">Fee quote changes</option><option value="decline">Wallet request declined</option><option value="unknown">Transaction status unknown</option><option value="revert">Transaction reverts</option><option value="stale">Position refresh unavailable</option></select><button class="secondary" id="claim-ready">Make queued withdrawal claimable</button><button class="secondary" id="reset">Reset sample account</button><p class="fine">Reset only clears this preview’s local data. It does not affect FxAeon.</p></div></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
-<script src="model.js"></script><script src="app.js"></script>
+<script src="model.js"></script><script src="app.js"></script><script src="dialog-focus.js"></script>
 </body>
 </html>

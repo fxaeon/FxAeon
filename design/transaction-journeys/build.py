@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent
 def build():
     html = (ROOT / 'index.html').read_text()
     html = html.replace('<link rel="stylesheet" href="styles.css">', '<style>' + (ROOT / 'styles.css').read_text() + '</style>')
-    for name in ['model.js', 'app.js']:
+    for name in ['model.js', 'app.js', 'dialog-focus.js']:
         source = (ROOT / name).read_text().replace('</script', '<\\/script')
         html = html.replace(f'<script src="{name}"></script>', '<script>' + source + '</script>')
     assets = {}
