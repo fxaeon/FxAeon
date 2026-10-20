@@ -39,7 +39,6 @@ const mocks: Record<string, string> = {
   '@/lib/taskState': `export const selectExecutionTask=()=>null;`,
   '@/lib/confirmedPositions': `export const receiptMintedPositionIdentity=()=>null;`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
-  '@/components/review/ReviewProgress': `import React from 'react'; export const chainName=id=>id===8453?'Base':'Ethereum'; export const stepProgress=step=>({label:step?.status==='submitted'?'Submitted':'Ready',className:'',icon:null}); export const CalldataDisclosure=({data})=><pre>{data}</pre>; export const StatusNotice=({label,body})=><div role="status"><strong>{label}</strong><span> {body}</span></div>; export const InlineError=({message})=><div role="alert">{message}</div>; export const TransactionHashLink=({step})=><a aria-label="Receipt" href={"https://etherscan.io/tx/"+step.hash}>{step.transaction?.kind==='action'?'Action':'Approval'} {step.index+1} · {step.hash}</a>;`,
   '@/components/review/executionResult': `export const resultPresentation=()=>({title:'Confirmed',body:'Fixture result',tone:'success',icon:()=>null}); export const resultBodyDuringRefresh=({body})=>body;`,
   '@/components/review/actionReviewStatusModel': `export const buildStatusPresentation=({status})=>status==='submitted'?({icon:'clock',label:'Transaction submitted',body:'Waiting for confirmation on-chain.'}):({icon:'clock',label:'Ready',body:'Reviewed terms'});`,
   '@/components/WalletConnectCTA': `import React from 'react'; export default ({body}) => <section>{body}</section>;`,
@@ -125,8 +124,14 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
       await expect.poll(() => information.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
       await expect(decision).toBeInViewport({ ratio: 1 });
     }
-    await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
-    await expect.poll(() => information.evaluate(node => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
+    // Advanced animates its height. Keep requesting the actual end while it
+    // expands rather than testing a scroll offset captured mid-animation.
+    const finalNote = information.getByText('USD uses current prices, not transaction limits or receipt-time prices.', { exact: true });
+    await expect.poll(async () => {
+      await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
+      const [body, note] = await Promise.all([information.boundingBox(), finalNote.boundingBox()]);
+      return Boolean(body && note && note.y >= body.y - 1 && note.y + note.height <= body.y + body.height + 1);
+    }).toBe(true);
     const order = await decision.evaluate(button => {
       const information = button.closest('[data-review-viewport]')!.querySelector('[aria-label="Review information"]')!;
       return button.getBoundingClientRect().top >= information.getBoundingClientRect().bottom;
@@ -182,7 +187,9 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(0);
   await expect(page.getByText('Gas tier', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
-  await expect(page.getByText('Minimum received', { exact: true })).toBeVisible();
+  const minimum = page.locator('[data-review-fact="Minimum received"]');
+  await expect(minimum.getByText('You receive · minimum', { exact: true })).toBeVisible();
+  await expect(minimum.getByLabel('Show exact amount: 99 USDC', { exact: true })).toBeVisible();
   await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
   const confirmFitsAboveNavigation = async () => confirm.evaluate((button) => {
     const nav = document.querySelector('[data-app-navigation]')!.getBoundingClientRect();
@@ -245,8 +252,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   // after that region and clear of the navigation.
   const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
   await expect(reviewInformation).toHaveCSS('overflow-y', 'auto');
-  await reviewInformation.evaluate(node => { node.scrollTop = node.scrollHeight; });
-  await expect.poll(() => reviewInformation.evaluate(node => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
+  await expect.poll(() => reviewInformation.evaluate(node => { node.scrollTop = node.scrollHeight; return Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop); })).toBeLessThanOrEqual(1);
   await expect.poll(async () => {
     const contentScrollTop = await reviewInformation.evaluate(node => node.scrollTop);
     const action = await embeddedConfirm.boundingBox();
@@ -368,11 +374,11 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
   const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Advanced', { exact: true }) });
   await resultDetails.locator(':scope > summary').click();
   await expect(preservedManager.locator('[title="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]')).toBeVisible();
-  await expect(preservedManager.getByRole('link', { name: 'Receipt' })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
+  await expect(preservedManager.getByRole('link', { name: /^Action 2: Submitted\. View transaction/ })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 });
 
-test('submitted transaction status and explorer link scroll with the terms and clear navigation', async ({ page }) => {
+test('submitted transaction status and explorer link remain reachable inside the owned review sheet', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   const hash = `0x${'a'.repeat(64)}`;
   for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
@@ -417,17 +423,25 @@ test('submitted transaction status and explorer link scroll with the terms and c
     await expect(receipt).toHaveAttribute('href', `https://etherscan.io/tx/${hash}`);
     await expect(receipt).toContainText(hash.slice(0, 8));
     await progress.scrollIntoViewIfNeeded();
-    const fitsAboveNavigation = async () => {
-      const [submittedBox, receiptBox, navigationBox] = await Promise.all([
-        progress.boundingBox(), receipt.boundingBox(), page.locator('[data-app-navigation]').boundingBox(),
+    // The management sheet overlays the background tabbar. Its own terms
+    // region is the clipping boundary; a z40 tabbar under the z60 sheet isn't.
+    const fitsReview = async () => {
+      const [submittedBox, receiptBox, termsBox, sheetBox] = await Promise.all([
+        progress.boundingBox(), receipt.boundingBox(), reviewInformation.boundingBox(),
+        page.locator('[data-position-sheet-body]').boundingBox(),
       ]);
-      return Boolean(submittedBox && receiptBox && navigationBox
-        && submittedBox.y >= 0 && submittedBox.x >= 0 && submittedBox.x + submittedBox.width <= viewport.width
-        && submittedBox.y + submittedBox.height <= navigationBox.y
-        && receiptBox.y >= submittedBox.y && receiptBox.y + receiptBox.height <= submittedBox.y + submittedBox.height
-        && receiptBox.y + receiptBox.height <= navigationBox.y);
+      if (!submittedBox || !receiptBox || !termsBox || !sheetBox) return false;
+      const top = Math.max(0, termsBox.y, sheetBox.y);
+      const bottom = Math.min(viewport.height, termsBox.y + termsBox.height, sheetBox.y + sheetBox.height);
+      const fullyInside = submittedBox.y >= top - 1 && submittedBox.y + submittedBox.height <= bottom + 1
+        && submittedBox.x >= 0 && submittedBox.x + submittedBox.width <= viewport.width
+        && receiptBox.y >= submittedBox.y - 1 && receiptBox.y + receiptBox.height <= submittedBox.y + submittedBox.height + 1;
+      return fullyInside && await receipt.evaluate(node => {
+        const box = node.getBoundingClientRect();
+        return node.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
+      });
     };
-    await expect.poll(fitsAboveNavigation).toBe(true);
+    await expect.poll(async () => { await progress.scrollIntoViewIfNeeded(); return fitsReview(); }).toBe(true);
     const beforeScroll = await progress.boundingBox();
     await reviewInformation.evaluate(node => { node.scrollTop += 80; });
     await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);

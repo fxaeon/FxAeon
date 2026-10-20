@@ -152,7 +152,8 @@ test('collateral and debt show dollar equivalents without guessing missing or st
     harness.prices = { ETH: 2400, fxUSD: 0.99 };
     harness.shared = { ...harness.shared, status: 'partial', failedGroups: [{ market: 'ETH', side: 'long', reason: 'read timeout' }] };
   });
-  await expect(manager.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('summary').getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('dl').getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
   await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toBeVisible();
   await expect(manager.locator('summary')).not.toContainText('$0.00');
   expect(await page.evaluate(() => globalThis.__borrowHarness.walletRequestCount)).toBe(0);

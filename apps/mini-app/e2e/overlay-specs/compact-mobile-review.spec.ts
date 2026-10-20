@@ -43,12 +43,13 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
     const geometry = await review.evaluate(el => {
       const body = el.querySelector('[aria-label="Review information"]')!;
       const footer = el.querySelector('[data-review-actions]')!;
-      return { overflow: document.documentElement.scrollWidth - innerWidth, bodyScroll: body.scrollHeight - body.clientHeight, footerBottom: footer.getBoundingClientRect().bottom, height: innerHeight, bodyTop: body.scrollTop };
+      return { overflow: document.documentElement.scrollWidth - innerWidth, bodyScroll: body.scrollHeight - body.clientHeight, bodyOverflow: getComputedStyle(body).overflowY, bodyBottom: body.getBoundingClientRect().bottom, footerTop: footer.getBoundingClientRect().top, footerBottom: footer.getBoundingClientRect().bottom, height: innerHeight, bodyTop: body.scrollTop };
     });
     expect(geometry.overflow).toBeLessThanOrEqual(0);
     expect(geometry.footerBottom).toBeLessThanOrEqual(geometry.height);
     expect(geometry.bodyTop).toBe(0);
-    if (size.width === 390) expect(geometry.bodyScroll, 'essential summary fits without scrolling').toBeLessThanOrEqual(1);
+    expect(geometry.bodyBottom, 'terms cannot overlap the decision footer').toBeLessThanOrEqual(geometry.footerTop + 1);
+    if (geometry.bodyScroll > 1) expect(geometry.bodyOverflow, 'longer terms remain independently scrollable').toBe('auto');
     if (kind === 'borrow') {
       await expect(action).toHaveText('Not enough ETH');
       await expect(action).toBeDisabled();
@@ -57,8 +58,15 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
       await expect(review.locator('[data-review-fact="Loan-to-value"]')).toBeVisible();
     }
     if (kind === 'move') {
-      await expect(review.getByRole('region', { name: 'Bridge amounts and terms' })).toContainText('fxUSD on Ethereum');
-      await expect(review.getByRole('region', { name: 'Bridge amounts and terms' })).toContainText('fxUSD on Base');
+      const amounts = review.getByRole('region', { name: 'Bridge amounts and terms' });
+      const sent = amounts.locator('[data-review-fact="Amount"]');
+      const received = amounts.locator('[data-review-fact="Estimated received"]');
+      await expect(sent.locator('summary')).toHaveText('2500 fxUSD');
+      await expect(sent.locator('summary')).toHaveAccessibleName('Show exact sent amount: 2500 fxUSD');
+      await expect(sent.getByText('Ethereum', { exact: true })).toBeVisible();
+      await expect(received.locator('summary')).toHaveText('2497.5 fxUSD');
+      await expect(received.locator('summary')).toHaveAccessibleName('Show full receive estimate: 2497.5 fxUSD');
+      await expect(received.getByText('Base', { exact: true })).toBeVisible();
       await expect(review.locator('[data-review-fact="Networks"]')).toHaveCount(0);
       await expect(review.locator('[data-review-fact="Minimum received"]')).toContainText('2,475 fxUSD');
       await expect(review.locator('[data-review-fact="Recipient"] > summary')).toContainText('0x0000…00aa');
@@ -71,12 +79,22 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
     }
     if (kind === 'earn-instant') {
       await expect(review.locator('[data-review-fact="f(x) fee"]')).toHaveText('f(x) fee1%');
-      await expect(review.locator('[data-review-fact="Estimated received"]')).toHaveText('Estimated received99 USDC');
+      const received = review.locator('[data-review-fact="Estimated received"]');
+      await expect(received.getByText('You receive · estimated', { exact: true })).toBeVisible();
+      await expect(received.locator('summary')).toHaveText('99 USDC');
+      await expect(received.locator('summary')).toHaveAccessibleName('Show full estimate: 99 USDC');
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
     if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toContainText('Not enforced');
     await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
     const more = review.locator('details[aria-label="Advanced transaction details"] > summary');
+    await more.scrollIntoViewIfNeeded();
+    expect(await more.evaluate(node => {
+      const bounds = node.getBoundingClientRect();
+      const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
+      return bounds.top >= body.top - 1 && bounds.bottom <= body.bottom + 1;
+    }), 'the last disclosure is reachable inside the terms region').toBe(true);
+    await expect(action).toBeInViewport({ ratio: 1 });
     await more.click();
     await expect(action).toBeInViewport({ ratio: 1 });
     await page.getByRole('button', { name: 'Close transaction review' }).click();

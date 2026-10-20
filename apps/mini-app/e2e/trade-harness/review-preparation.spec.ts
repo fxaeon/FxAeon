@@ -132,17 +132,27 @@ async function expectReachableReview(page: Page) {
   for (const label of ['Amount', 'Estimated collateral', 'Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee', 'Gas fee', 'Total cost']) {
     const row = information.locator(`[data-review-fact="${label}"]`).first();
     await row.scrollIntoViewIfNeeded();
-    await expect(row).toBeInViewport({ ratio: 1 });
+    // IntersectionObserver rounds fractional scroll offsets differently from
+    // DOMRect. The explicit one-pixel bounds below remain the fit contract.
+    await expect(row).toBeInViewport({ ratio: 0.99 });
     const fits = await row.evaluate(node => {
       const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
       const row = node.getBoundingClientRect();
-      return row.top >= body.top - 1 && row.bottom <= body.bottom + 1;
+      return row.top >= body.top - 1 && row.bottom <= body.bottom + 1
+        && row.left >= body.left - 1 && row.right <= body.right + 1;
     });
     expect(fits, `${label} is fully readable inside the scrolling terms`).toBe(true);
     await expect(decision).toBeInViewport({ ratio: 1 });
   }
-  await advanced(page).locator(':scope > summary').scrollIntoViewIfNeeded();
-  await expect(advanced(page).locator(':scope > summary')).toBeInViewport({ ratio: 1 });
+  const disclosure = advanced(page).locator(':scope > summary');
+  await disclosure.scrollIntoViewIfNeeded();
+  await expect(disclosure).toBeInViewport({ ratio: 0.99 });
+  expect(await disclosure.evaluate(node => {
+    const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
+    const summary = node.getBoundingClientRect();
+    return summary.top >= body.top - 1 && summary.bottom <= body.bottom + 1
+      && summary.left >= body.left - 1 && summary.right <= body.right + 1;
+  }), 'Advanced stays within the scrolling terms, allowing only pixel rounding').toBe(true);
   await information.evaluate(node => { node.scrollTop = 0; });
 }
 
@@ -384,8 +394,8 @@ test('a Max-length amount remains in the input then fits the complete review at 
   await insufficient(page);
   await expectInsideCard();
   await expect(page.locator('p', { hasText: 'Add at least' })).toHaveText(/^Add at least \d[\d,]*(?:\.\d+)? ETH on Ethereum to cover network fees\. Receive ETH$/);
-  // The fee is the max the wallet funds, so the ETH to add is exactly the
-  // total shown (amount plus that max) less the fixture's 0.0004 ETH balance.
+  // The tooltip retains the exact funding requirement. The displayed total
+  // rounds up conservatively, as does the shortfall against the 0.0004 ETH balance.
   const toWei = (text: string) => {
     const [whole, fraction = ''] = /([\d,]+(?:\.\d+)?) ETH/.exec(text)![1].replace(/,/g, '').split('.');
     return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
@@ -396,8 +406,12 @@ test('a Max-length amount remains in the input then fits the complete review at 
   await advanced(page).locator(':scope > summary').click();
   const totalValue = page.locator('[data-review-fact="Total cost"] > span').last();
   const total = await nativeFigure(totalValue);
-  expect(total).toMatch(/ ETH max$/);
-  expect(toWei(total)).toBe(244431136966270n + toWei((await gasValue.getAttribute('title'))!));
+  expect(total).toMatch(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
+  await expect(totalValue).toHaveAttribute('title', /^[\d,]+(?:\.\d+)? ETH \(native value \+ max network fee\)$/);
+  const exactTotal = toWei((await totalValue.getAttribute('title'))!);
+  expect(exactTotal).toBe(244431136966270n + toWei((await gasValue.getAttribute('title'))!));
+  const displayStepWei = 1_000_000_000_000n; // Six decimal places in ETH, rounded up.
+  expect(toWei(total)).toBe(((exactTotal + displayStepWei - 1n) / displayStepWei) * displayStepWei);
   await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');
   await expect(totalValue).not.toContainText('$0.00');
   const asked = await page.locator('p', { hasText: 'Add at least' }).innerText();

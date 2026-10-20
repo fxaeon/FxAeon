@@ -437,7 +437,10 @@ test('history detail fits short/mobile/desktop, closes with focus restored, and 
     const row=page.getByRole('button').filter({hasText:'Received'});
     await row.click();
     const dialog=page.getByRole('dialog',{name:'Transaction details'});
-    await expect(dialog.getByText('0.123 ETH', { exact: true })).toBeVisible();
+    const received = dialog.getByRole('region', { name: 'You received', exact: true }).locator('strong[data-direction="in"]');
+    await expect(received).toHaveText('+0.123 ETH');
+    await expect(received).toHaveAttribute('title', '0.123');
+    await expect(received).toBeVisible();
     await expect(dialog.getByText('Confirmed',{exact:true})).toHaveCount(0);
     await expect.poll(async()=>{const bounds=await dialog.boundingBox();return bounds ? bounds.y+bounds.height : Infinity;}).toBeLessThanOrEqual(size.height+1);
     const bounds=await dialog.boundingBox(); expect(bounds!.y).toBeGreaterThanOrEqual(0);

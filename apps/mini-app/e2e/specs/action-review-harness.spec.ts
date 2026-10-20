@@ -542,7 +542,12 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('alert')).toContainText('selected wallet changed during this action');
     await harnessControl(page, 'Resolve wallet response');
     await expect(page.getByRole('heading', { name: 'Partially completed', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Action 1: Confirmed. View transaction 0x1111111111111111111111111111111111111111111111111111111111111111 on Ethereum explorer (opens in a new tab)', exact: true })).toHaveAttribute('href', 'https://etherscan.io/tx/0x1111111111111111111111111111111111111111111111111111111111111111');
+    // This orchestration harness renders transaction hashes, not live explorer links.
+    const receipts = page.getByRole('region', { name: 'Transaction receipts', exact: true });
+    await expect(receipts).toBeVisible();
+    await expect(receipts.getByText('0x1111111111111111111111111111111111111111111111111111111111111111', { exact: true })).toBeVisible();
+    await expect(receipts.locator('span')).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toHaveCount(0);
     expect(await metric(page, 'send')).toBe(1);
     const callbacks = await page.evaluate(() => {
       const harness = (window as typeof window & { __actionReviewHarness?: { refreshStarted?: boolean; completeStarted?: boolean } }).__actionReviewHarness;
@@ -1067,8 +1072,13 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const approve = page.getByRole('button', { name: 'Approve fxUSD', exact: true });
     await expect(approve).toBeEnabled();
-    // The wallet will ask twice; the review says so before the first prompt.
-    await expect(page.getByText('Two wallet requests: approve fxUSD, then confirm.', { exact: true })).toBeVisible();
+    // The visible sequence identifies both requests before any signing begins.
+    const sequence = page.getByRole('list', { name: 'Transaction sequence', exact: true });
+    await expect(sequence).toBeVisible();
+    await expect(sequence.getByRole('listitem')).toHaveText(['1Approve fxUSD', '2Confirm']);
+    await expect(sequence.locator('li[aria-current="step"]')).toHaveText('1Approve fxUSD');
+    await expect(sequence.locator('li[data-complete]')).toHaveCount(0);
+    expect(await metric(page, 'send')).toBe(0);
     await harnessControl(page, 'Fail before wallet request');
     await approve.click();
     await expect(page.getByRole('alert')).toHaveText('mock execution failure');
