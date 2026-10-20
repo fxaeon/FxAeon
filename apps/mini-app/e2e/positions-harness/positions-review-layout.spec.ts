@@ -415,6 +415,15 @@ test('submitted transaction status and explorer link remain reachable inside the
       h.setReviewStage?.('executing');
     }, hash);
 
+    // Entering execution intentionally closes secondary details and resets the
+    // review scroll position. Open Advanced in the rendered execution phase,
+    // rather than measuring descendants of the now-closed review disclosure.
+    await expect(page.locator('[data-position-stage="executing"]')).toHaveCount(1);
+    const advanced = page.getByLabel('Advanced transaction details', { exact: true });
+    await expect(advanced).toHaveJSProperty('open', false);
+    await openAdvanced(page);
+    await expect(advanced).toHaveJSProperty('open', true);
+
     const progress = page.getByRole('region', { name: 'Submitted transactions', exact: true });
     await expect(progress).toBeVisible();
     await expect(progress.getByText('Transaction submitted', { exact: true })).toBeVisible();
@@ -441,67 +450,7 @@ test('submitted transaction status and explorer link remain reachable inside the
         return node.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
       });
     };
-    try {
-      await expect.poll(async () => { await progress.scrollIntoViewIfNeeded(); return fitsReview(); }).toBe(true);
-    } catch (error) {
-      // Keep the full-group requirement until measured evidence establishes
-      // whether it is the group, an individual item, or an overlay that fails.
-      // CI does not retain failure artifacts for this isolated harness, so emit
-      // at most three bounded snapshots before rethrowing the original failure.
-      try {
-        const snapshot = (phase: string) => page.evaluate(({ phase, viewport }) => {
-          const group = document.querySelector<HTMLElement>('section[aria-label="Submitted transactions"]');
-          const status = group?.querySelector<HTMLElement>('[role="status"]') ?? null;
-          const receipt = group?.querySelector<HTMLAnchorElement>('a[href]') ?? null;
-          const terms = document.querySelector<HTMLElement>('[aria-label="Review information"]');
-          const sheet = document.querySelector<HTMLElement>('[data-position-sheet-body]');
-          const identify = (node: Element | null) => node ? {
-            tag: node.tagName, role: node.getAttribute('role'), label: node.getAttribute('aria-label')?.slice(0, 160),
-            className: node.getAttribute('class')?.slice(0, 160), text: node.textContent?.trim().slice(0, 120),
-          } : null;
-          const measure = (node: HTMLElement | null) => {
-            if (!node) return null;
-            const box = node.getBoundingClientRect();
-            const css = getComputedStyle(node);
-            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
-            return {
-              ...identify(node), box: box.toJSON(), clientHeight: node.clientHeight, scrollHeight: node.scrollHeight,
-              scrollTop: node.scrollTop, clientWidth: node.clientWidth, scrollWidth: node.scrollWidth,
-              overflowX: css.overflowX, overflowY: css.overflowY, position: css.position, zIndex: css.zIndex,
-              display: css.display, visibility: css.visibility, pointerEvents: css.pointerEvents,
-              inert: Boolean(node.closest('[inert]')), centerHit: node.contains(hit), hit: identify(hit),
-            };
-          };
-          const termsBox = terms?.getBoundingClientRect();
-          const sheetBox = sheet?.getBoundingClientRect();
-          const top = Math.max(0, termsBox?.top ?? 0, sheetBox?.top ?? 0);
-          const bottom = Math.min(innerHeight, termsBox?.bottom ?? innerHeight, sheetBox?.bottom ?? innerHeight);
-          const fits = (node: HTMLElement | null) => {
-            if (!node || !termsBox || !sheetBox) return false;
-            const box = node.getBoundingClientRect();
-            return box.top >= top - 1 && box.bottom <= bottom + 1 && box.left >= 0 && box.right <= innerWidth;
-          };
-          const ancestors = [];
-          for (let node = receipt?.parentElement ?? null; phase === 'group' && node && ancestors.length < 10; node = node.parentElement) ancestors.push(measure(node));
-          return {
-            phase, viewport, visibleTerms: { top, bottom, height: bottom - top },
-            fits: { group: fits(group), status: fits(status), receipt: fits(receipt) },
-            group: measure(group), status: measure(status), receipt: measure(receipt), terms: measure(terms), sheet: measure(sheet),
-            advancedOpen: document.querySelector('details[data-review-secondary]')?.hasAttribute('open'),
-            animations: document.getAnimations().slice(0, 8).map(animation => ({ playState: animation.playState, currentTime: animation.currentTime })),
-            ancestors,
-          };
-        }, { phase, viewport });
-        console.error('[positions-submitted-geometry] ' + JSON.stringify(await snapshot('group')));
-        await progress.getByRole('status').scrollIntoViewIfNeeded();
-        console.error('[positions-submitted-geometry] ' + JSON.stringify(await snapshot('status')));
-        await receipt.scrollIntoViewIfNeeded();
-        console.error('[positions-submitted-geometry] ' + JSON.stringify(await snapshot('receipt')));
-      } catch (diagnosticError) {
-        console.error('[positions-submitted-geometry] Diagnostic failed: ' + String(diagnosticError));
-      }
-      throw error;
-    }
+    await expect.poll(async () => { await progress.scrollIntoViewIfNeeded(); return fitsReview(); }).toBe(true);
     const beforeScroll = await progress.boundingBox();
     await reviewInformation.evaluate(node => { node.scrollTop += 80; });
     await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
