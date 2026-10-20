@@ -1,4 +1,5 @@
 .moveWorkspace.moveWorkspace { width: min(100%, 400px); max-width: 400px; margin: 0 auto; min-height: calc(var(--tg-viewport-height, 100dvh) - 128px); justify-content: center; gap: 8px; padding-block: 16px; }
+.moveWorkspace.moveWorkspace[data-review='true'] { width: min(100%, 480px); max-width: 480px; }
 .centerStage { min-width: 0; }
 .moveCard.moveCard { width: 100%; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); box-shadow: none; }
 .cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 36px; margin: -2px 2px 8px; }

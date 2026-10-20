@@ -25,15 +25,23 @@ const store = `
   const lab = globalThis.__shellLab ??= (() => {
     const listeners = new Set();
     const state = {
-      path: '/portfolio', overlay: 'none',
+      path: window.location.pathname === '/' ? '/portfolio' : window.location.pathname, overlay: 'none',
       wallet: { ready: false, authenticated: false, address: undefined, chainId: undefined, connectionVersion: 0, ensName: undefined },
     };
     let snapshot = { path: state.path, overlay: state.overlay, outline: false };
+    window.addEventListener('popstate', () => {
+      lab.set({ path: window.location.pathname === '/' ? '/portfolio' : window.location.pathname });
+    });
     return {
       state,
       get path() { return state.path; },
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       snapshot() { return snapshot; },
+      navigate(href, replace = false) {
+        const destination = new URL(href, window.location.href);
+        window.history[replace ? 'replaceState' : 'pushState']({ shellLabRoute: destination.pathname }, '', destination);
+        this.set({ path: destination.pathname === '/' ? '/portfolio' : destination.pathname });
+      },
       set(patch) {
         if (patch.wallet) state.wallet = { ...state.wallet, ...patch.wallet, connectionVersion: state.wallet.connectionVersion + 1 };
         if (patch.path) state.path = patch.path;
@@ -50,14 +58,14 @@ const store = `
 const mocks: Record<string, string> = {
   'next/navigation': `import { useSyncExternalStore } from 'react'; ${store}
     export function usePathname() { return useSyncExternalStore(lab.subscribe, () => lab.state.path); }
-    export function useRouter() { return { push(href) { lab.set({ path: href }); } }; }`,
+    export function useRouter() { return { push(href) { lab.navigate(href); }, replace(href) { lab.navigate(href, true); }, back() { window.history.back(); } }; }`,
   'next/link': `import React from 'react'; ${store}
     export default function Link({ href, children, onClick, prefetch, ...props }) {
       return React.createElement('a', { href, ...props, onClick(event) {
         onClick?.(event);
         if (event.defaultPrevented || /^https?:/.test(href)) return;
         event.preventDefault();
-        lab.set({ path: href.split('#')[0] || '/' });
+        lab.navigate(href);
       } }, children);
     }`,
   '@/lib/wallet': `import { useEffect, useState, useSyncExternalStore } from 'react'; ${store}

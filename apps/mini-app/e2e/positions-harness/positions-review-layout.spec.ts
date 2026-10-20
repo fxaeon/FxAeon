@@ -93,8 +93,8 @@ async function buildHarness(): Promise<{ script: string; css: string }> {
 let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
-for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
-  test(`review decisions follow expanded content at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
+  test(`review decisions remain accessible with expanded content at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
     await page.setViewportSize(viewport);
     await page.goto('http://positions.test/positions');
@@ -110,11 +110,20 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 768, height: 1024 
     await trigger.click();
     const decision = page.getByRole('button', { name: 'Approve position', exact: true });
     await expect(decision).toBeVisible();
+    if (viewport.width <= 600) await expect(decision).toBeInViewport({ ratio: 1 });
     await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
     await page.getByText('Steps · 2', { exact: true }).click();
     const information = page.getByRole('region', { name: 'Review information', exact: true });
-    await expect(information).toHaveCSS('overflow-y', 'visible');
-    await expect.poll(() => information.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+    await expect(information).toHaveCSS('overflow-y', viewport.width <= 600 ? 'auto' : 'visible');
+    if (viewport.width <= 600) {
+      await expect(page.locator('[data-inline-review-sheet]')).toHaveCount(1);
+      await expect.poll(() => information.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
+      await expect(decision).toBeInViewport({ ratio: 1 });
+      await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
+      await expect.poll(() => information.evaluate(node => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
+    } else {
+      await expect.poll(() => information.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+    }
     const order = await decision.evaluate(button => {
       const information = button.closest('[data-review-viewport]')!.querySelector('[aria-label="Review information"]')!;
       return button.getBoundingClientRect().top >= information.getBoundingClientRect().bottom;

@@ -10,7 +10,7 @@ import {
   ChevronDown,
   CircleDollarSign,
   Home,
-  Ellipsis,
+  Menu,
   MoreHorizontal,
   PiggyBank,
   RefreshCw,
@@ -137,7 +137,7 @@ function ShellTopBar({ pathname }: { pathname: string }) {
           <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
-      <span data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Ellipsis size={21} aria-hidden="true" /></span>
+      <span data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Menu size={21} aria-hidden="true" /></span>
     </span>
   </div>;
 }

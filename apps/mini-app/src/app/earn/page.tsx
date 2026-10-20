@@ -8,6 +8,7 @@ import { ChoiceCards, Disclosure, MetricRows, PageHeading, ProductSurface, Statu
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
+import { planClaimWithPreview } from '@/components/review/claimPreviewPresentation';
 import { AmountField, Segmented, TokenSelect, useWalletTokenBalances, type TokenBalanceMap } from '@/components/ProtocolForm';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { EarnSections } from '@/components/ProductSections';
@@ -421,7 +422,11 @@ export default function EarnPage() {
     if (readWarnings.includes('vault configuration')) return null;
     if (mode === 'claim') {
       if (claimableQuery.status !== 'ready' || !claimAvailability(walletData?.claimable).canReview) return null;
-      return () => planRedeem({ userAddress: wallet.address! });
+      return () => planClaimWithPreview(
+        () => planRedeem({ userAddress: wallet.address! }),
+        () => getFxReadFacade().getFxSaveClaimable({ userAddress: wallet.address! }),
+        wallet.address!,
+      );
     }
     if (mode === 'deposit') {
       if (readWarnings.includes('balance')) return null;

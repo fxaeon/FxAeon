@@ -38,7 +38,6 @@ import { usePrivyWallet } from '@/lib/wallet';
 import {
   ETH_MARKET_TOKENS,
   BTC_MARKET_TOKENS,
-  formatAmount,
   parseZeroAmount,
   positionCollateralDecimals,
   positionDebtDecimals,
@@ -54,12 +53,13 @@ import presentation from '@/components/BorrowWorkspace.module.css';
 import { ActionWorkspace } from '@/components/ProductLayout';
 import { borrowSelectionIsActionable } from './selectionEligibility';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
+import { positionTokenPresentation } from '@/lib/positionPresentation';
 import { priceKeyForSymbol } from '@/lib/prices';
 import { resetTransactionAmounts } from '@/lib/transactionState';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { BorrowSections } from '@/components/ProductSections';
 import { borrowCapacity, BORROW_LIMIT_GUARD_BPS, collateralUsdWad, loanToValueBps, tokenAmountForUsdWad, withdrawableCollateralUsd } from '@/lib/fx/borrowLimits';
-import { formatSignificantDecimal, formatSignificantDecimalUp, groupDigits } from '@/lib/amount';
+import { formatSignificantDecimal, formatSignificantDecimalUp } from '@/lib/amount';
 import { amountBlocker } from '@/lib/formBlockers';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
 
@@ -643,14 +643,14 @@ export default function BorrowPage() {
     {showPositionEstimate && <section className={presentation.outcome} aria-label="Estimated borrowing outcome">
       <div className={presentation.outcomeHeading}><span>Estimated position</span><span>Before → after</span></div>
       <dl className={presentation.outcomeRows}>
-        <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(debtAfter, 18))} fxUSD</strong></dd></div>
+        <div><dt>Total debt</dt><dd><span>{positionTokenPresentation(existingDebt, 18).text}</span><span aria-hidden="true"> → </span><strong>{positionTokenPresentation(debtAfter, 18).text} fxUSD</strong></dd></div>
       </dl>
       {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange.source === 'live' && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
     </section>}
     {showManageEstimate && <section className={presentation.outcome} aria-label="Estimated position changes">
       <div className={presentation.outcomeHeading}><span>Estimated position</span><span>Before → after</span></div>
       <dl className={presentation.outcomeRows}>
-        <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(existingDebt - repayPreviewWei!, 18))} fxUSD</strong></dd></div>
+        <div><dt>Total debt</dt><dd><span>{positionTokenPresentation(existingDebt, 18).text}</span><span aria-hidden="true"> → </span><strong>{positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD</strong></dd></div>
         {withdrawPreviewWei! > 0n && <div><dt>Receive asset</dt><dd>{symbol}</dd></div>}
       </dl>
     </section>}
@@ -766,5 +766,5 @@ function BorrowLimitMeter({ debt, collateralUsd, limitBps, before }: { debt: big
   </div>;
 }
 
-function formatPositionCollateral(position: UiPosition): string { return `${groupDigits(formatAmount(position.info.rawColls, positionCollateralDecimals(position)))} ${positionCollateralSymbol(position)}`; }
-function formatPositionDebt(position: UiPosition): string { return `${groupDigits(formatAmount(position.info.rawDebts, positionDebtDecimals(position)))} ${position.info.rawDebtsToken}`; }
+function formatPositionCollateral(position: UiPosition): string { return `${positionTokenPresentation(position.info.rawColls, positionCollateralDecimals(position)).text} ${positionCollateralSymbol(position)}`; }
+function formatPositionDebt(position: UiPosition): string { return `${positionTokenPresentation(position.info.rawDebts, positionDebtDecimals(position)).text} ${position.info.rawDebtsToken}`; }

@@ -35,7 +35,8 @@ const HASH = `0x${'a'.repeat(64)}`;
 const receipts: ReceiptPresentation[] = [{
   movements: ['sent 1 ETH', 'received 2 fxUSD'],
   technicalMovements: ['technical movement details'],
-  executionFee: '0.001 ETH', feeLabel: 'Action network fee', totalFeeLabel: null,
+  exactMovements: [{ direction: 'sent', amount: '1', symbol: 'ETH' }, { direction: 'received', amount: '2', symbol: 'fxUSD' }],
+  executionFee: '0.001 ETH', exactFees: { execution: '0.001' }, feeLabel: 'Action network fee', totalFeeLabel: null,
   transactionKind: 'action', l1DataFee: null, operatorFee: null,
   totalExecutionFee: null, feeCaveat: null, nativeValue: null, nativeValueLabel: 'Native value sent',
 }];
@@ -58,7 +59,7 @@ function result(status: TransactionExecutionResult['status'], options: { hash?: 
 async function renderResult(input: {
   result: TransactionExecutionResult;
   receipts?: readonly ReceiptPresentation[];
-  bridgeTracker?: React.ReactNode;
+  bridgeTracker?: (advancedContent: React.ReactNode) => React.ReactNode;
   refreshing?: boolean;
 }) {
   const [{ TransactionResultView }, { resultPresentation }] = await Promise.all([
@@ -79,18 +80,30 @@ async function renderResult(input: {
   }));
 }
 
-test('confirmed receipt outcome leads, while fee, movement and explorer details stay collapsed', async () => {
+test('confirmed receipt amounts keep the upper outcome and use only the compact receipt footer', async () => {
   const html = await renderResult({ result: result('confirmed', { receipt: true }) });
-  const detailsStart = html.indexOf('<details class="test-resultDetails">');
-  assert.ok(detailsStart > 0, 'transaction details are collapsed by default');
-  const receivedLabel = html.indexOf('<dt>Received</dt>');
-  const receivedAmount = html.indexOf('>2 <span>fxUSD</span>');
-  assert.ok(receivedLabel >= 0 && receivedLabel < detailsStart, 'received label appears in the outcome before closed details');
-  assert.ok(receivedAmount >= 0 && receivedAmount < detailsStart, 'received amount and token appear in the outcome before closed details');
-  assert.match(html, /<summary>Transaction details/);
-  assert.ok(html.indexOf('0.001 ETH') > detailsStart, 'the fee remains in the details disclosure');
-  const explorer = html.indexOf(`https://etherscan.io/tx/${HASH}`);
-  assert.ok(explorer > detailsStart, 'the explorer link remains inside the collapsed details');
+  assert.match(html, /data-review-fact="Received"/);
+  assert.match(html, />2 <span class="test-flowUnit">fxUSD<\/span>/);
+  assert.match(html, /Transaction Confirmed/);
+  assert.match(html, /Gas fee/);
+  assert.match(html, /0.001 ETH/);
+  assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
+  assert.doesNotMatch(html, /Advanced|test-resultDetails|test-receiptLinks|test-resultStatus|Closed ETH Long|All transaction steps are confirmed/);
+});
+
+test('concise confirmed unknown-token receipts point to the available explorer rather than hidden details', async () => {
+  const html = await renderResult({
+    result: result('confirmed', { receipt: true, operation: 'depositFxSave' }),
+    receipts: [{
+      ...receipts[0],
+      movements: ['Token movement available in technical details'],
+      exactMovements: [],
+      technicalMovements: ['Unknown token: 123 base units'],
+    }],
+  });
+  assert.match(html, /View token movement in the transaction explorer/);
+  assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
+  assert.doesNotMatch(html, /Token movement available in technical details|test-resultDetails/);
 });
 
 test('partial outcomes, bridge tracking and unknown-receipt fallback remain visible', async () => {
@@ -100,24 +113,41 @@ test('partial outcomes, bridge tracking and unknown-receipt fallback remain visi
 
   const bridge = await renderResult({
     result: result('confirmed', { operation: 'buildBridgeTx', receipt: true }),
-    bridgeTracker: React.createElement('p', null, 'Destination delivery is still being verified.'),
+    bridgeTracker: advancedContent => React.createElement(React.Fragment, null,
+      React.createElement('p', null, 'Confirmed on source. Destination delivery is still being verified.'),
+      React.createElement('details', null, React.createElement('summary', null, 'Advanced'), advancedContent)),
   });
+  assert.equal((bridge.match(/<summary>Advanced/g) ?? []).length, 1);
+  assert.equal((bridge.match(/<details\b/g) ?? []).length, 1, 'bridge has one flat Advanced container');
+  assert.ok(bridge.indexOf('0.001 ETH') > bridge.indexOf('<summary>Advanced'), 'receipt fees share tracker Advanced');
+  assert.ok(bridge.indexOf('technical movement details') > bridge.indexOf('<summary>Advanced'), 'technical movement rows stay accessible without nested disclosure');
+  assert.doesNotMatch(bridge, /You send|You receive|Estimated received/);
+  assert.doesNotMatch(bridge, /test-receiptLinks/);
   assert.match(bridge, /Confirmed on source/);
   assert.match(bridge, /Destination delivery is still being verified\./);
 
   const unknownReceipt = await renderResult({
     result: result('failed'),
-    receipts: [{ ...receipts[0], movements: [], technicalMovements: [] }],
+    receipts: [{ ...receipts[0], movements: [], exactMovements: [], technicalMovements: [] }],
   });
   assert.match(unknownReceipt, /Confirmation unknown/);
-  assert.match(unknownReceipt, /Token movements could not be established from the verified receipt logs\./);
+  assert.match(unknownReceipt, /No wallet token transfers appear in this receipt\./);
+  assert.doesNotMatch(unknownReceipt, /Amounts are from verified receipts/);
 
   const confirmedEmptyReceipt = await renderResult({
     result: result('confirmed', { receipt: true }),
-    receipts: [{ ...receipts[0], movements: [], technicalMovements: [] }],
+    receipts: [{ ...receipts[0], movements: [], exactMovements: [], technicalMovements: [] }],
   });
-  const detailsStart = confirmedEmptyReceipt.indexOf('<details class="test-resultDetails">');
-  assert.ok(confirmedEmptyReceipt.indexOf('No wallet token transfers appear in this receipt.') > detailsStart,
-    'receipt limitations belong in details, without suggesting the confirmed action failed');
-  assert.doesNotMatch(confirmedEmptyReceipt.slice(0, detailsStart), /Token movements|receipt logs|<dt>Received/);
+  assert.match(confirmedEmptyReceipt, /Transaction Confirmed/);
+  assert.doesNotMatch(confirmedEmptyReceipt, /<details|receipt logs|<dt>Received/);
+});
+
+
+test('all successful action types share the same compact lower receipt', async () => {
+  for (const operation of ['increasePosition', 'reducePosition', 'adjustPositionLeverage', 'depositAndMint', 'repayAndWithdraw', 'depositFxSave', 'withdrawFxSave', 'getRedeemTx'] as const) {
+    const html = await renderResult({ result: result('confirmed', { receipt: true, operation }) });
+    assert.match(html, /Transaction Confirmed/, operation);
+    assert.match(html, /Gas fee/, operation);
+    assert.doesNotMatch(html, /test-resultDetails|test-resultStatus|test-receiptLinks|Position:/, operation);
+  }
 });

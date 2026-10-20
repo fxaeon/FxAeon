@@ -69,6 +69,7 @@
  * portal-backed modal. */
 .reviewInlineCard {
   width: 100%;
+  min-width: 0;
   max-width: 480px;
   margin-inline: auto;
   border: 1px solid color-mix(in srgb, var(--line-strong) 42%, var(--line));
@@ -78,6 +79,8 @@
 .reviewInlineContent {
   width: 100%;
   min-width: 0;
+  max-width: 480px;
+  margin-inline: auto;
 }
 
 .reviewInlineActions {

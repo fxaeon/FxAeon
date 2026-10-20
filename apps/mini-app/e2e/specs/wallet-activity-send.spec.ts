@@ -109,6 +109,26 @@ async function openSendReview(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toBeVisible();
 }
 
+test('Send submitted footer stays compact and never labels a hash or estimated fee as confirmed', async ({ page }) => {
+  await mount(page);
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openSendReview(page);
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  const submitted = page.getByRole('region', { name: 'Send submitted', exact: true });
+  await expect(submitted.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  await expect(submitted.getByText('Not confirmed by the network yet. History shows its status.')).toBeVisible();
+  const details = submitted.getByLabel('Submitted transaction details', { exact: true });
+  await expect(details.locator('dt')).toHaveText(['Transaction submitted', 'Gas fee']);
+  await expect(details.getByText('Pending confirmation', { exact: true })).toBeVisible();
+  await expect(details.getByRole('link', { name: 'View submitted transaction on explorer' })).toHaveAttribute('href', `https://etherscan.io/tx/0x${'a'.repeat(64)}`);
+  await expect(submitted.getByRole('link', { name: 'View history', exact: true })).toHaveAttribute('href', '/history');
+  await expect(submitted.getByText('Transaction Confirmed', { exact: true })).toHaveCount(0);
+  await expect(details).not.toContainText('$0.00');
+  await expect(details).not.toContainText('estimated');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(1);
+});
+
 for (const change of ['network', 'wallet mode'] as const) test(`Send cannot adopt a ${change} change committed immediately before confirmation`, async ({ page }) => {
   await mount(page);
   await openSendReview(page);

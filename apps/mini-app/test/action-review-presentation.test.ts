@@ -47,6 +47,14 @@ function withdrawalRoute(tokenOut: 'USDC' | 'fxUSD' | 'fxUSDBasePool', instant =
   } as unknown as PlannedRoute;
 }
 
+test('position review shows independently calculated leverage instead of the SDK target echo', () => {
+  const facts = primaryReviewFacts({ ...route(), details: {
+    requestedLeverage: 1.1, leverage: 1.1, effectiveLeverage: 1.105,
+  } });
+  assert.equal(facts.find(fact => fact.label === 'Target leverage')?.value, '1.1×');
+  assert.equal(facts.find(fact => fact.label === 'Leverage')?.title, '1.105×');
+});
+
 test('queued fxSAVE reviews keep both later claim assets visible for either selected stablecoin', () => {
   for (const token of ['USDC', 'fxUSD'] as const) {
     const facts = primaryReviewFacts(withdrawalRoute(token));
@@ -210,4 +218,16 @@ test('borrow reviews state loan-to-value like the form, with leverage one tap aw
   // Trade keeps its leverage wording.
   const trade = { ...borrow, operation: 'increasePosition', policy: undefined, details: { leverage: 2.5 } } as unknown as PlannedRoute;
   assert.equal(primaryReviewFacts(trade).some((fact) => fact.label === 'Loan-to-value'), false);
+});
+
+
+test('historical bridge comparison keeps expired prior display without reviving live estimates', () => {
+  const quote = { nativeFee: 1n, bridgeToken: 'fxUSD', bridgeAmount: 10n * 10n ** 18n, minAmountLD: 9n * 10n ** 18n, estimatedReceived: 10n * 10n ** 18n, receiptReadAt: Date.now() - 120_000, destinationChainId: 8453 };
+  const previous = { ...route(), operation: 'buildBridgeTx', quote } as PlannedRoute;
+  assert.equal(primaryReviewFacts(previous).some(f => f.label === 'Estimated received'), false);
+  assert.equal(primaryReviewFacts(previous, { historicalComparison: true }).find(f => f.label === 'Estimated received')?.value, '10 fxUSD');
+  const invalid = { ...previous, quote: { ...quote, estimatedReceived: 11n * 10n ** 18n } };
+  assert.equal(primaryReviewFacts(invalid, { historicalComparison: true }).some(f => f.label === 'Estimated received'), false);
+  const future = { ...previous, quote: { ...quote, receiptReadAt: Date.now() + 60_000 } };
+  assert.equal(primaryReviewFacts(future, { historicalComparison: true }).some(f => f.label === 'Estimated received'), false);
 });

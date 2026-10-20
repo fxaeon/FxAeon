@@ -10,7 +10,7 @@
 .positionsToolbar > button:disabled { opacity: .5; }
 .positionGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .layout { display: grid; grid-template-areas: 'overview' 'action' 'details'; gap: 24px; align-items: start; }
-.layout[data-review='true'] { max-width: 620px; margin-inline: auto; grid-template-areas: 'action'; grid-template-columns: minmax(0, 1fr); }
+.layout[data-review='true'] { width: min(100%, 480px); min-width: 0; max-width: 480px; margin-inline: auto; grid-template-areas: 'action'; grid-template-columns: minmax(0, 1fr); }
 .overview { grid-area: overview; min-width: 0; padding: 4px 0 36px; border-bottom: 0; }
 .vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-bottom: 40px; }
 .vaultIdentity > div { min-width: 0; flex: 1 1 160px; }

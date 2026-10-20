@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { History } from 'lucide-react';
 import { AppShell, Button } from '@/components/ui';
@@ -25,10 +25,19 @@ type ShellLab = {
 
 const lab = (globalThis as typeof globalThis & { __shellLab: ShellLab }).__shellLab;
 
+function TradeDraft() {
+  const [amount, setAmount] = useState('');
+  return <div className="trade-workspace">
+    <header className="trade-page-heading"><div><h1>Trade</h1></div></header>
+    <label>Trade amount<input value={amount} onChange={event => setAmount(event.target.value)} /></label>
+    <p style={{ height: 1200 }}>Ticket</p>
+  </div>;
+}
+
 function Page({ path }: { path: string }) {
   if (path === '/history') return <HistoryPage />;
   if (path === '/trade') {
-    return <AppShell><div className="trade-workspace"><header className="trade-page-heading"><div><h1>Trade</h1></div></header><p>Ticket</p></div></AppShell>;
+    return <AppShell><TradeDraft /></AppShell>;
   }
   // The real More, Settings and Docs routes, against the lab's wallet and router.
   if (path === '/more') return <MorePage />;

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { formatEther, formatUnits, isAddress, type Address } from 'viem';
-import { ArrowLeft, ArrowUpRight, ChevronRight, Clock3, Wallet } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Clock3, Wallet } from 'lucide-react';
 import { AppShell } from '@/components/ui';
 import { DecimalInput } from '@/components/DecimalInput';
 import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
@@ -20,6 +20,8 @@ import { readGasTier, SETTINGS_KEY, SETTINGS_UPDATED_EVENT, type GasTier } from 
 import { userSafeError } from '@/lib/errors';
 import { canonicalAsset } from '@/lib/walletAssets';
 import { decimalInputError, decimalToUnits, formatBalanceDecimal, formatSignificantDecimalUp, groupDigits } from '@/lib/amount';
+import { AmountUsd } from '@/components/review/AmountUsd';
+import { CompactSubmissionFooter } from '@/components/review/CompactSubmissionFooter';
 import { formatUsd } from '@/lib/prices';
 import { displayAssetSymbol } from '@/components/AssetPresentation';
 import { WalletAssetPicker } from '@/components/WalletAssetPicker';
@@ -214,8 +216,8 @@ function SendForm() {
     <h2>Submitted</h2>
     <p className={styles.doneAmount}><strong>{groupDigits(quote.input.amount)} {quote.symbol}</strong> to {shortAddress(quote.input.recipient)}</p>
     <p className={styles.doneNote}>Not confirmed by the network yet. History shows its status.</p>
+    <CompactSubmissionFooter chainId={quote.input.chainId} hash={hash} />
     <Link className={`button button-primary ${styles.action}`} href="/history">View history</Link>
-    <a className={`button button-ghost ${styles.action}`} href={`https://${quote.input.chainId === 1 ? 'etherscan.io' : 'basescan.org'}/tx/${hash}`} target="_blank" rel="noopener noreferrer">View transaction<ArrowUpRight aria-hidden="true" /></a>
   </section>;
   return <section className={styles.card} aria-label={quote ? 'Review send' : 'Send crypto'}>
     {quote ? <>
@@ -238,7 +240,7 @@ function SendForm() {
       <dl className={styles.facts}>
         <div><dt>Network</dt><dd><ChainIcon chainId={quote.input.chainId} size={18} />{networkName(quote.input.chainId)}</dd></div>
         {/* An estimate, rounded up so the figure shown always covers it. */}
-        <div><dt>Network cost</dt><dd>≈ {formatSignificantDecimalUp(formatEther(quote.estimatedFee), 3)} ETH</dd></div>
+        <div><dt>Network cost · estimated</dt><dd><span title={`${formatEther(quote.estimatedFee)} ETH`}>≈ {formatSignificantDecimalUp(formatEther(quote.estimatedFee), 3)} ETH<AmountUsd amount={formatEther(quote.estimatedFee)} symbol="ETH" /></span></dd></div>
       </dl>
     </> : <>
       <div className={styles.cardHead}><h2>Send to a wallet</h2><TransactionSettings scope="Send" chainId={asset?.chainId ?? 1} /></div>

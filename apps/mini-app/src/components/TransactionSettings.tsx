@@ -76,7 +76,7 @@ export function TransactionSettings({ slippage = false, slippagePercent, onSlipp
   return <SettingsPopover title={scope ? `${scope} settings` : 'Transaction settings'} summary={summary} chip={changes.length ? changes.join(' · ') : null}
     placement={presentation === 'row' ? 'center' : 'anchor'}
     triggerClassName={presentation === 'row' ? styles.rowTrigger : undefined}
-    triggerContent={presentation === 'row' ? <><SlidersHorizontal size={20} aria-hidden="true" /><span className={styles.rowCopy}><strong>Transaction settings</strong><small>{walletSetsFees ? 'Slippage tolerance' : 'Slippage and network speed'}</small></span><span className={styles.rowValue}>{slippage ? `${percent}%` : SPEED_LABELS[tier]}</span><ChevronRight size={18} aria-hidden="true" /></> : undefined}>
+    triggerContent={presentation === 'row' ? <><SlidersHorizontal size={20} aria-hidden="true" /><span className={styles.rowCopy}><strong>Transaction settings</strong></span><span className={styles.rowValue}>{slippage ? `${percent}%` : SPEED_LABELS[tier]}</span><ChevronRight size={18} aria-hidden="true" /></> : undefined}>
     <div className={styles.context}><ChainIcon chainId={chainId} size={18} /><span>{chainId === 8453 ? 'Base' : 'Ethereum'}</span>{!walletSetsFees && <><span>·</span><span>App-managed fees</span></>}</div>
     <TransactionSettingsPanel chainId={chainId} slippage={slippage} percent={percent} tier={tier} walletSetsFees={walletSetsFees} controlledSlippage={slippagePercent !== undefined} onSlippageChange={onSlippageChange} />
     {children}

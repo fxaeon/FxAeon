@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { getEidByChainId } from '@aladdindao/fx-sdk';
-import { type Address, type Hex } from 'viem';
+import { formatUnits, type Address, type Hex } from 'viem';
 import { CheckCircle2, ChevronDown, Clock3, ExternalLink, LoaderCircle, Network, RefreshCw, XCircle } from 'lucide-react';
 import { assertPublicClientChain, getPublicClient } from '@/lib/fx/clients';
 import { userSafeError } from '@/lib/errors';
@@ -16,7 +16,11 @@ import {
 } from '@/lib/fx/bridgeDelivery';
 import { haptic, openExternalLink } from '@/lib/telegram';
 import { isForegroundOnline, subscribeToForegroundResume } from '@/lib/foreground';
+import { useTransactionEvidence } from './review/TransactionEvidenceContext';
 import { ValueOrSkeleton } from '@/components/MissingValue';
+import { BridgeResultCard } from './review/BridgeResultCard';
+import { updatePendingBridgeDeliveryProof } from '@/lib/fx/journal';
+import type { PendingBridgeContext } from '@/lib/fx/types';
 
 export type BridgeStepStatus = 'pending' | 'source_confirmed' | 'destination_verified' | 'failed';
 
@@ -39,6 +43,12 @@ export interface BridgeTrackerProps {
   /** Recovery lists auto-start only a bounded number of expensive log scans. */
   autoStart?: boolean;
   className?: string;
+  /** Presentation only; polling, matching and finality rules are unchanged. */
+  compact?: boolean;
+  headingRef?: Ref<HTMLHeadingElement>;
+  /** Receipt facts share this tracker’s single Advanced disclosure. */
+  advancedContent?: ReactNode;
+  completionContent?: (destinationTxHash: string) => ReactNode;
 }
 
 type GetLogsRequest = {
@@ -81,9 +91,16 @@ export function BridgeTracker({
   destinationBaselineBlock,
   autoStart = true,
   className = '',
+  compact = false,
+  headingRef,
+  advancedContent,
+  completionContent,
 }: BridgeTrackerProps) {
+  const simulated = useTransactionEvidence() === 'simulation';
   const [verifiedContextKey, setVerifiedContextKey] = useState<string | null>(null);
   const [sourceEventFound, setSourceEventFound] = useState(false);
+  const [sourceAmountProof, setSourceAmountProof] = useState<{ context: string; amount: bigint } | null>(null);
+  const [destinationAmountProof, setDestinationAmountProof] = useState<{ context: string; amount: bigint } | null>(null);
   const [sourceReverted, setSourceReverted] = useState(false);
   const [detectedDestinationTxHash, setDetectedDestinationTxHash] = useState<string | null>(null);
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -97,6 +114,7 @@ export function BridgeTracker({
     sourceTxHash ?? '',
     sourceChain,
     destinationChain,
+    token,
     sourceOftAddress ?? '',
     destinationOftAddress ?? '',
     recipient ?? '',
@@ -114,6 +132,8 @@ export function BridgeTracker({
   useEffect(() => {
     setVerifiedContextKey(null);
     setSourceEventFound(false);
+    setSourceAmountProof(null);
+    setDestinationAmountProof(null);
     setSourceReverted(false);
     setDetectedDestinationTxHash(null);
     setVerificationError(null);
@@ -139,6 +159,10 @@ export function BridgeTracker({
     }
 
     let cancelled = false;
+    // Resume/retry revalidates proof rather than displaying cached success.
+    setVerifiedContextKey(null);
+    setDestinationAmountProof(null);
+    setDetectedDestinationTxHash(null);
     setCanRetry(false);
     const sourceChainId = chainIdFor(sourceChain);
     const destinationChainId = chainIdFor(destinationChain);
@@ -181,7 +205,10 @@ export function BridgeTracker({
             amountLD,
             minimumReceivedLD: minAmountLD,
           });
-          if (!cancelled) setSourceEventFound(true);
+          if (!cancelled) {
+            setSourceEventFound(true);
+            setSourceAmountProof({ context: verificationContextKey, amount: sourceMessage.amountSentLD });
+          }
         }
 
         const destinationClient = getPublicClient(destinationChainId);
@@ -265,7 +292,27 @@ export function BridgeTracker({
         if (!cancelled) {
           setDetectedDestinationTxHash(received.transactionHash ?? null);
           setVerifiedContextKey(verificationContextKey);
+          setDestinationAmountProof({ context: verificationContextKey, amount: canonical.amountReceivedLD });
           setVerificationError(null);
+          // Persist only a canonical, sufficiently confirmed observation. A
+          // recovered record still goes through this full verification path.
+          const bridge: PendingBridgeContext = {
+            destinationChainId, sourceOftAddress: sourceOftAddress as Address,
+            destinationOftAddress: destinationOftAddress as Address, recipient: recipient as Address,
+            amountLD: amountLD.toString(), minAmountLD: minAmountLD.toString(),
+            destinationBaselineBlock: destinationBaselineBlock.toString(),
+            ...(token === 'fxUSD' || token === 'fxSAVE' ? { bridgeToken: token } : {}),
+          };
+          // Simulation receipts must never enter a live-wallet recovery journal.
+          if (!simulated) updatePendingBridgeDeliveryProof({ walletAddress: sourceSender, chainId: sourceChainId, hash: sourceTxHash, bridge }, {
+            guid: sourceMessage.guid, sourceTxHash: sourceTxHash as Hex,
+            sourceAmountSentLD: sourceMessage.amountSentLD.toString(),
+            sourceAmountReceivedLD: sourceMessage.amountReceivedLD.toString(),
+            destinationTxHash: canonical.transactionHash!,
+            destinationAmountReceivedLD: canonical.amountReceivedLD.toString(),
+            destinationBlockNumber: canonical.blockNumber!.toString(),
+            destinationBlockHash: canonical.blockHash!, verifiedAt: Date.now(),
+          });
         }
         return;
       } catch (cause) {
@@ -285,12 +332,12 @@ export function BridgeTracker({
       cancelled = true;
       if (retryTimerRef.current !== null) { window.clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
     };
-  }, [amountLD, autoStart, destinationBaselineBlock, destinationChain, destinationOftAddress, manualStarted, minAmountLD, recipient, retrySequence, sourceChain, sourceOftAddress, sourceSender, sourceStatusConfirmed, sourceTxHash, verificationContextKey]);
+  }, [amountLD, autoStart, destinationBaselineBlock, destinationChain, destinationOftAddress, manualStarted, minAmountLD, recipient, retrySequence, sourceChain, sourceOftAddress, sourceSender, sourceStatusConfirmed, sourceTxHash, verificationContextKey, token, simulated]);
 
   // Never trust an externally supplied destination_verified flag without the
   // local GUID/event correlation above.
   const verified = sourceStatusConfirmed && hasVerificationContext && verifiedContextKey === verificationContextKey;
-  const effectiveStatus: BridgeStepStatus = verified ? 'destination_verified' : status === 'destination_verified' ? 'source_confirmed' : status;
+  const effectiveStatus: BridgeStepStatus = sourceReverted ? 'failed' : verified ? 'destination_verified' : status === 'destination_verified' ? 'source_confirmed' : status;
   const sourceDone = Boolean(sourceTxHash) && effectiveStatus !== 'pending' && effectiveStatus !== 'failed';
   const delivered = effectiveStatus === 'destination_verified';
   const failed = effectiveStatus === 'failed' || sourceReverted;
@@ -299,21 +346,44 @@ export function BridgeTracker({
   const destinationExplorer = detectedDestinationTxHash ? `${explorerFor(destinationChain)}/tx/${detectedDestinationTxHash}` : null;
   const layerzeroScan = sourceTxHash ? `https://layerzeroscan.com/tx/${sourceTxHash}` : null;
 
+  const retryAction = sourceDone && hasVerificationContext && !delivered && !failed && (canRetry || (!autoStart && !manualStarted)) ? (
+    <button type="button" onClick={() => {
+      haptic('light'); setVerificationError('Checking the destination chain again…');
+      setCanRetry(false); setManualStarted(true); setRetrySequence(value => value + 1);
+    }} className="button glass-press my-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-3 text-[12px] font-semibold text-mint">
+      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {manualStarted || canRetry ? 'Check destination again' : 'Check destination'}
+    </button>
+  ) : null;
+  if (compact) return <BridgeResultCard state={effectiveStatus} sourceChain={sourceChain} destinationChain={destinationChain}
+    token={token} requestedAmount={amount}
+    sourceAmount={sourceDone && sourceAmountProof?.context === verificationContextKey ? formatUnits(sourceAmountProof.amount, 18) : undefined}
+    receivedAmount={delivered && destinationAmountProof?.context === verificationContextKey ? formatUnits(destinationAmountProof.amount, 18) : undefined}
+    sourceTxHash={sourceTxHash} destinationTxHash={detectedDestinationTxHash} recipient={recipient}
+    simulated={simulated} sourceReverted={sourceReverted} advancedContent={advancedContent}
+    completionContent={delivered && detectedDestinationTxHash ? completionContent?.(detectedDestinationTxHash) : undefined} headingRef={headingRef} retryAction={retryAction}
+    verificationDetails={<>
+      <p>{delivered ? 'Verified matching bridge message, recipient and amount with 3 destination confirmations.' : !hasVerificationContext ? 'Recovery details are missing. Destination delivery cannot be verified from this hash alone.' : canRetry ? 'Automatic checking has paused. Use Check destination again to resume.' : 'Delivery requires a matching bridge message, recipient, amount and 3 destination confirmations.'}</p>
+      {verificationError && !delivered && <p>Last check: {verificationError}</p>}
+      {!simulated && layerzeroScan && !delivered && <a href={layerzeroScan} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-mint">Track bridge message <ExternalLink size={13} aria-hidden="true" /></a>}
+    </>} />;
   return (
-    <section aria-label="Bridge status" aria-live="polite" aria-atomic="false" className={`flex flex-col rounded-xl border border-[var(--line-strong)] bg-[var(--surface-2)] p-4 ${className}`}>
+    <section data-compact-bridge={compact || undefined} aria-label="Bridge status" aria-live="polite" aria-atomic="false" className={`flex flex-col rounded-xl border border-[var(--line-strong)] bg-[var(--surface-2)] p-4 ${className}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-[var(--mint-dim)] text-mint"><Network aria-hidden="true" className="h-4 w-4" /></span>
           <div>
-            <h4 className="text-[13px] font-semibold">Bridge delivery</h4>
-            <p className="text-[10px] text-mut">{amount ? <><ValueOrSkeleton value={amount} width="sm" label="Bridge amount loading" /> {token} · </> : null}{sourceChain} → {destinationChain}</p>
+            <h4 ref={headingRef} data-review-focus={headingRef ? true : undefined} tabIndex={headingRef ? -1 : undefined} className="text-[13px] font-semibold outline-none">{compact ? delivered ? 'Bridge complete' : failed ? 'Bridge needs attention' : sourceDone ? 'Source confirmed' : 'Bridge pending' : 'Bridge delivery'}</h4>
+            <p className="text-[10px] text-mut">{!compact && amount ? <><ValueOrSkeleton value={amount} width="sm" label="Bridge amount loading" /> {token} · </> : null}{sourceChain} → {destinationChain}</p>
           </div>
         </div>
-        <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold ${delivered ? 'bg-[var(--success-dim)] text-success' : failed ? 'bg-[var(--danger-dim)] text-danger' : sourceDone ? 'bg-[var(--warn-dim)] text-warn' : 'bg-[var(--mint-dim)] text-mint'}`}>
+        {!compact && <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold ${delivered ? 'bg-[var(--success-dim)] text-success' : failed ? 'bg-[var(--danger-dim)] text-danger' : sourceDone ? 'bg-[var(--warn-dim)] text-warn' : 'bg-[var(--mint-dim)] text-mint'}`}>
           {delivered ? 'Destination received' : failed ? sourceReverted ? 'Source reverted' : 'Bridge interrupted' : sourceDone ? 'Source confirmed' : submitted ? 'Source pending' : 'Awaiting signature'}
-        </span>
+        </span>}
       </div>
-
+      {compact && <p className="mt-2 text-[12px] leading-relaxed text-mut">{delivered ? `Delivery verified on ${destinationChain}.` : failed ? 'Destination delivery is not verified. Check the details before trying again.' : sourceDone ? `Destination delivery on ${destinationChain} is not verified yet.` : 'Waiting for source confirmation.'}{simulated && ' Simulated receipts only.'}</p>}
+      <details open={compact ? undefined : true} className={compact ? 'mt-2' : ''}>
+      <summary style={compact ? undefined : { display: 'none' }} className="flex min-h-11 cursor-pointer items-center justify-between text-[12px] text-mut">Advanced<ChevronDown size={14} aria-hidden="true" /></summary>
+      {advancedContent}
       <div className="mt-4 flex flex-col gap-3">
         <TimelineRow
           state={failed ? 'failed' : submitted ? 'done' : 'active'}
@@ -328,7 +398,7 @@ export function BridgeTracker({
         />
         <TimelineRow
           state={delivered ? 'done' : sourceDone && !failed && hasVerificationContext && !canRetry && (autoStart || manualStarted) ? 'active' : 'pending'}
-          title="Waiting for destination"
+          title="Destination verification"
           body={delivered ? `Delivery was verified on ${destinationChain}.` : failed ? 'Destination delivery has not been verified.' : sourceDone ? !hasVerificationContext ? 'Recovery details are missing. Destination delivery cannot be checked.' : canRetry ? 'Automatic checking has paused. Check the destination again to resume.' : !autoStart && !manualStarted ? 'Start a destination check to verify delivery.' : `Checking ${destinationChain} for the matching delivery. No ETA is available.` : 'Starts after source confirmation.'}
           action={layerzeroScan ? { label: 'Track', onClick: () => { openExternalLink(layerzeroScan); } } : undefined}
         />
@@ -340,14 +410,14 @@ export function BridgeTracker({
         />
       </div>
       {(verificationError || hasVerificationContext) && (
-        <details className="mt-3 border-t border-[var(--line)] pt-1">
-          <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-mut">Verification details<ChevronDown aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0 disclosure-chevron" /></summary>
+        <section className="mt-3 border-t border-[var(--line)] pt-3" aria-label="Delivery verification">
           <div className="pb-2 text-[10.5px] leading-relaxed text-mut">
             <p>Delivery requires the matching bridge message, recipient, amount, and {DESTINATION_CONFIRMATIONS.toString()} destination confirmations.</p>
             {verificationError && !delivered && <p className="mt-2 break-words text-[var(--mut-2)]">Last check: {verificationError}</p>}
           </div>
-        </details>
+        </section>
       )}
+      </details>
       {sourceDone && hasVerificationContext && !delivered && !failed && (canRetry || (!autoStart && !manualStarted)) && (
         <button
           type="button"
@@ -378,6 +448,7 @@ function TimelineRow({
   body: ReactNode;
   action?: { label: string; onClick: () => void };
 }) {
+  const simulated = useTransactionEvidence() === 'simulation';
   const icon = state === 'done'
     ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
     : state === 'failed'
@@ -392,7 +463,7 @@ function TimelineRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[12px] font-semibold">{title}</span>
-          {action && <button type="button" onClick={action.onClick} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-[10px] text-mint hover:bg-[var(--mint-dim)] hover:underline">{action.label} <ExternalLink aria-hidden="true" className="h-3 w-3" /></button>}
+          {action && (simulated ? <span className="text-[10px] text-mut">No on-chain link</span> : <button type="button" onClick={action.onClick} className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-[10px] text-mint hover:bg-[var(--mint-dim)] hover:underline">{action.label} <ExternalLink aria-hidden="true" className="h-3 w-3" /></button>)}
         </div>
         <p className="text-[10.5px] leading-relaxed text-mut">{body}</p>
       </div>

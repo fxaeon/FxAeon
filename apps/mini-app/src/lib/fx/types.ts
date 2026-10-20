@@ -50,6 +50,21 @@ export interface PlannedTransaction {
 }
 
 export interface RouteDetails {
+  /** Display-only fresh claim read. Not a minimum, signing term or receipt. */
+  displayClaimPreview?: {
+    walletAddress: string;
+    receiver: string;
+    actionTo: string;
+    actionData: string;
+    readAt: number;
+    queuedShares: string;
+    fxUSD: string;
+    USDC: string;
+  };
+  /** Same-read SDK accounting inputs, validated locally before review. */
+  positionEconomics?: import('./positionEconomics').PositionEconomics;
+  /** Effective economic leverage independently calculated from the quote. */
+  effectiveLeverage?: number;
   /** Live fee tuple already read by the pinned SDK for this route's pool/router.
    * Display only; ratios use 1e9 precision and are not gas or swap fees. */
   protocolFeeQuote?: {
@@ -482,6 +497,22 @@ export interface PendingBridgeContext {
   minAmountLD: string;
   destinationBaselineBlock: string;
   bridgeToken?: string;
+  /** Untrusted cached evidence only. Reloads must reverify both chains before showing delivery. */
+  deliveryProof?: PendingBridgeDeliveryProof;
+}
+
+/** JSON-safe observed amounts, never populated from calldata, quotes, or minima. */
+export interface PendingBridgeDeliveryProof {
+  guid: Hex;
+  sourceTxHash: Hex;
+  sourceAmountSentLD: string;
+  sourceAmountReceivedLD: string;
+  destinationTxHash: Hex;
+  destinationAmountReceivedLD: string;
+  destinationBlockNumber: string;
+  destinationBlockHash: Hex;
+  /** Local observation time, not the transaction's on-chain timestamp. */
+  verifiedAt: number;
 }
 
 export interface BridgeApprovalParams {

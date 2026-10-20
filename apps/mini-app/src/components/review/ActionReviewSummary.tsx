@@ -1,4 +1,5 @@
-import { ChevronDown } from 'lucide-react';
+import { AmountUsd, FeeUsd } from './AmountUsd';
+import { reviewFactLabel } from './reviewHierarchy';
 import type { ChangedReviewFact } from './actionReviewModel';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { receiptMovementLines, shouldShowReceiptMovementFallback, type ReceiptPresentation } from '@/lib/receiptPresentation';
@@ -29,14 +30,14 @@ export function CompactQuoteMetrics({ facts, gasStatus }: {
   return <div className={presentationStyles.quoteMetrics} aria-label="Current quote estimates">
     {metrics.map((fact) => <div className={presentationStyles.quoteMetric} key={fact.label}>
       <span className={presentationStyles.quoteMetricLabel}>{fact.label}</span>
-      <span className={presentationStyles.quoteMetricValue} title={fact.title}>{fact.label === 'Gas tier' ? fact.value : <ValueOrSkeleton value={fact.value} width="sm" status={gasStatus === 'refreshing' ? 'loading' : 'unavailable'} label={fact.label} />}</span>
+      <span className={presentationStyles.quoteMetricValue} title={fact.title}>{fact.label === 'Gas tier' ? fact.value : <ValueOrSkeleton value={fact.value} width="sm" status={gasStatus === 'refreshing' ? 'loading' : 'unavailable'} label={fact.label} />}{['Gas fee', 'Network fee max'].includes(fact.label) && <FeeUsd fact={fact} />}</span>
     </div>)}
   </div>;
 }
 
 function SummaryRow({ label, value, title }: { label: string; value: string; title?: string }) {
   return <div className="grid min-w-0 grid-cols-[minmax(84px,.72fr)_minmax(0,1.28fr)] gap-x-3 py-1 text-[13px] leading-snug">
-    <span className="text-mut">{label}</span><span className="min-w-0 break-words text-right font-semibold tabular-nums" title={title}>{value}</span>
+    <span className="text-mut">{reviewFactLabel(label)}</span><span className="min-w-0 break-words text-right font-semibold tabular-nums" title={title}>{value}{['Gas fee', 'Bridge fee', 'Total cost'].includes(label) && <FeeUsd fact={{ value, title }} />}</span>
   </div>;
 }
 
@@ -52,8 +53,8 @@ export function UpdatedQuoteSummary({ changes }: { changes: readonly ChangedRevi
       <p className="text-[12px] font-semibold text-warn">Changed since your previous review</p>
       <div className="mt-1.5 flex flex-col gap-1.5">
         {visibleChanges.map((change) => <div key={change.label} className="grid grid-cols-[minmax(84px,.7fr)_minmax(0,1.3fr)] gap-x-3 text-[13px]">
-          <span className="text-mut">{change.label}</span>
-          <span className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere]">{change.before ? `${change.before} → ` : ''}{change.after ?? 'No longer included'}</span>
+          <span className="text-mut">{reviewFactLabel(change.label)}</span>
+          <span className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere]">{change.before ? `${change.before} → ` : ''}{change.after ?? 'No longer included'}{change.after && ['Gas fee', 'Bridge fee', 'Total cost'].includes(change.label) && <FeeUsd fact={{ value: change.after }} />}</span>
         </div>)}
       </div>
     </section>
@@ -109,16 +110,16 @@ export function ReceiptSummary({ receipts, variant = 'default' }: { receipts: re
       {variant === 'default' && <><p className="text-[13px] font-semibold">Verified receipt</p>
       {movements.map((movement, index) => <p key={`movement-${index}`} className="mt-1.5 text-[13px] first-letter:uppercase">{movement}</p>)}
       {movements.length === 0 && showMovementFallback && <p className="mt-1.5 text-[12px] text-mut">Token movements could not be established from the verified receipt logs.</p>}</>}
-      {technicalMovements.length > 0 && <details className="mt-2 text-[12px]"><summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-mut">Technical movement details<ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 disclosure-chevron" /></summary>{technicalMovements.map((movement, index) => <p key={`technical-${index}`} className="mt-1 break-all font-mono text-[11px] text-mut">{movement}</p>)}</details>}
+      {technicalMovements.length > 0 && <section className="mt-2 text-[12px]" aria-label="Technical movements"><p className="text-mut">Technical movements</p>{technicalMovements.map((movement, index) => <p key={`technical-${index}`} className="mt-1 break-all font-mono text-[11px] text-mut">{movement}</p>)}</section>}
       {receipts.map((receipt, index) => <div key={`fees-${index}`} className="mt-1.5 text-[12px] text-mut">
-        {receipt.executionFee && <p>{receipt.feeLabel}: {receipt.executionFee}</p>}
-        {receipt.l1DataFee && <p>Base L1 data fee: {receipt.l1DataFee}</p>}
-        {receipt.operatorFee && <p>Base operator fee: {receipt.operatorFee}</p>}
-        {receipt.totalExecutionFee && receipt.totalFeeLabel && <p>{receipt.totalFeeLabel}: {receipt.totalExecutionFee}</p>}
+        {receipt.executionFee && <p>{receipt.feeLabel}: {receipt.executionFee}<AmountUsd amount={receipt.exactFees?.execution ?? ''} symbol="ETH" receipt /></p>}
+        {receipt.l1DataFee && <p>Base L1 data fee: {receipt.l1DataFee}<AmountUsd amount={receipt.exactFees?.l1Data ?? ''} symbol="ETH" receipt /></p>}
+        {receipt.operatorFee && <p>Base operator fee: {receipt.operatorFee}<AmountUsd amount={receipt.exactFees?.operator ?? ''} symbol="ETH" receipt /></p>}
+        {receipt.totalExecutionFee && receipt.totalFeeLabel && <p>{receipt.totalFeeLabel}: {receipt.totalExecutionFee}<AmountUsd amount={receipt.exactFees?.total ?? ''} symbol="ETH" receipt /></p>}
         {receipt.feeCaveat && <p>{receipt.feeCaveat}</p>}
       </div>)}
       {receipts.map((receipt, index) => receipt.nativeValue && !(nativeValueIsMovement && receipt.nativeValueLabel === 'Native value sent')
-        && <p key={`native-${index}`} className="mt-1 text-[12px] text-mut">{receipt.nativeValueLabel}: {receipt.nativeValue}</p>)}
+        && <p key={`native-${index}`} className="mt-1 text-[12px] text-mut">{receipt.nativeValueLabel}: {receipt.nativeValue}{receipt.exactNativeValue && <AmountUsd amount={receipt.exactNativeValue} symbol="ETH" receipt />}</p>)}
     </section>
   );
 }

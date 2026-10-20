@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import React from 'react';
 import {
-  formatAmount,
-  positionDisplayLeverage,
   positionKey,
   positionTokenDecimals,
   type PositionGroupFailure,
@@ -19,8 +17,9 @@ import { formatUsdPrice, priceKeyForSymbol } from '@/lib/prices';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { useInitialReadPending } from '@/lib/useInitialReadPending';
 import { formatWholeUsd, positionBrakeCopy, positionBrakeView } from '@/lib/positionBrake';
-import { calculatePositionUsdValuation, debtCollateralRatioPercent, formatUsdCents } from '@/lib/positionValuation';
-import { groupDigits } from '@/lib/amount';
+import { calculatePositionUsdPresentation, debtCollateralRatioPercent } from '@/lib/positionValuation';
+import { positionLeveragePresentation } from '@/lib/positionPresentation';
+import { PositionLeverage, PositionTokenAmount } from '@/components/PositionPresentation';
 import { positionName, positionSideLabel } from '@/lib/positionNaming';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
 import { openExternalLink } from '@/lib/telegram';
@@ -41,7 +40,7 @@ function openDocs(href: string) {
 function positionValuation(position: UiPosition, prices: ReturnType<typeof useUsdPrices>['prices']) {
   const collateralKey = priceKeyForSymbol(position.info.rawCollsToken);
   const debtKey = priceKeyForSymbol(position.info.rawDebtsToken);
-  return calculatePositionUsdValuation({
+  return calculatePositionUsdPresentation({
     collateralRaw: position.info.rawColls,
     collateralDecimals: positionTokenDecimals(position, 'collateral'),
     collateralPrice: collateralKey ? prices[collateralKey] : undefined,
@@ -53,14 +52,14 @@ function positionValuation(position: UiPosition, prices: ReturnType<typeof useUs
 
 /** The sheet's identity stays put while its accounting and form scroll. */
 export function ProtocolPositionIdentity({ position, headingId }: { position: UiPosition; headingId?: string }) {
-  const leverage = positionDisplayLeverage(position);
+  const leverage = positionLeveragePresentation(position);
   return <div className={styles.compactIdentity}>
     <TokenIcon symbol={position.market === 'ETH' ? 'ETH' : 'WBTC'} size={32} />
     <div>
       <h2 id={headingId} aria-label={`${positionName(position.market, position.side)} · #${position.info.positionId}`}>
         {position.market} <span className={position.side === 'long' ? styles.long : styles.short}>{positionSideLabel(position.side)}</span>
       </h2>
-      <span className={styles.positionMeta}><strong>{leverage.value === null ? <MissingValue width="sm" status="loading" /> : `${leverage.value.toFixed(2).replace(/\.00$/, '')}×`}</strong><span className="sr-only">{leverage.label}</span><span aria-hidden="true">·</span>#{position.info.positionId}</span>
+      <span className={styles.positionMeta}><strong><PositionLeverage position={position} /></strong>{leverage.state === 'available' && <span className="sr-only">leverage</span>}<span aria-hidden="true">·</span>#{position.info.positionId}</span>
     </div>
   </div>;
 }
@@ -95,11 +94,9 @@ function PositionBody({
   const missingStatus = priceSnapshot.status === 'loading' || priceSnapshot.refreshing ? 'loading' as const : 'unavailable' as const;
   const netEquity = valuation.netEquityUsdCents === null
     ? <MissingValue width="lg" status={missingStatus} />
-    : `≈ ${formatUsdCents(valuation.netEquityUsdCents)}`;
-  const leverageInfo = positionDisplayLeverage(position);
-  const leverage = leverageInfo.value !== null
-    ? `${leverageInfo.value.toFixed(2).replace(/\.00$/, '')}×`
-    : <MissingValue width="sm" status="loading" />;
+    : `≈ ${valuation.netEquityUsdText}`;
+  const leverageInfo = positionLeveragePresentation(position);
+  const leverage = <PositionLeverage position={position} />;
   const positionValueTitle = valuation.netEquityUsdCents === null
     ? missingStatus === 'loading' ? 'Loading position value' : 'Position value unavailable until prices refresh'
     : 'Collateral value minus debt';
@@ -150,7 +147,7 @@ function PositionBody({
             {interactive && <ChevronRight className={styles.navigateIcon} aria-hidden="true" />}
           </span>
           <span className={styles.identityLine}>
-            <span className={styles.positionMeta}><strong>{leverage}</strong> {leverageInfo.label}<span aria-hidden="true">·</span>#{position.info.positionId}</span>
+            <span className={styles.positionMeta}><strong>{leverage}</strong> {leverageInfo.state === 'available' ? 'leverage' : null}<span aria-hidden="true">·</span>#{position.info.positionId}</span>
             <span className={styles.valueBasis}>Position value</span>
             {interactive && <span className={styles.navigateSpace} aria-hidden="true" />}
           </span>
@@ -213,7 +210,7 @@ function PositionFacts({ position, prices, valuation, missingStatus, liveQuote, 
 }) {
   const collateralKey = priceKeyForSymbol(position.info.rawCollsToken);
   const debtKey = priceKeyForSymbol(position.info.rawDebtsToken);
-  const usd = (cents: bigint | null) => cents === null ? <MissingValue width="md" status={missingStatus} /> : `≈ ${formatUsdCents(cents)}`;
+  const usd = (value: string | null) => value === null ? <MissingValue width="md" status={missingStatus} /> : `≈ ${value}`;
   const marketPrice = liveQuote ?? prices[position.market === 'ETH' ? 'ETH' : 'WBTC'];
   const ratio = debtCollateralRatioPercent({
     collateralRaw: position.info.rawColls,
@@ -227,16 +224,16 @@ function PositionFacts({ position, prices, valuation, missingStatus, liveQuote, 
     <dl className={styles.facts}>
       {section !== 'secondary' && <><div className={styles.fact}>
         <dt>Collateral</dt>
-        <dd>{groupDigits(formatAmount(position.info.rawColls, positionTokenDecimals(position, 'collateral')))} <span className={styles.factUnit}>{positionCollateralSymbol(position)}</span><small>{usd(valuation.collateralUsdCents)}</small></dd>
+        <dd><PositionTokenAmount raw={position.info.rawColls} decimals={positionTokenDecimals(position, 'collateral')} symbol={positionCollateralSymbol(position)} unitClassName={styles.factUnit} /><small>{usd(valuation.collateralUsdText)}</small></dd>
       </div>
       <div className={styles.fact}>
         <dt>Debt</dt>
-        <dd>{groupDigits(formatAmount(position.info.rawDebts, positionTokenDecimals(position, 'debt')))} <span className={styles.factUnit}>{position.info.rawDebtsToken}</span><small>{usd(valuation.debtUsdCents)}</small></dd>
+        <dd><PositionTokenAmount raw={position.info.rawDebts} decimals={positionTokenDecimals(position, 'debt')} symbol={position.info.rawDebtsToken} unitClassName={styles.factUnit} /><small>{usd(valuation.debtUsdText)}</small></dd>
       </div>
       </>}
       {section === 'secondary' && <>
-        <div className={styles.fact}><dt>Collateral value</dt><dd>{usd(valuation.collateralUsdCents)}</dd></div>
-        <div className={styles.fact}><dt>Debt value</dt><dd>{usd(valuation.debtUsdCents)}</dd></div>
+        <div className={styles.fact}><dt>Collateral value</dt><dd>{usd(valuation.collateralUsdText)}</dd></div>
+        <div className={styles.fact}><dt>Debt value</dt><dd>{usd(valuation.debtUsdText)}</dd></div>
       </>}
       {section !== 'primary' && <><div className={styles.fact}>
         <dt>Market price</dt>
@@ -287,7 +284,6 @@ export function ProtocolPositionCard({
 function PositionOverviewRow({ position, render, className }: { position: UiPosition; render: (body: React.ReactNode) => React.ReactNode; className: string }) {
   const snapshot = useUsdPrices();
   const valuation = positionValuation(position, freshDisplayPrices(snapshot));
-  const leverage = positionDisplayLeverage(position).value;
   const { quote, isFresh } = useLiveMarketQuote(position.market);
   const brake = usePositionBrake(position);
   const pricesPending = snapshot.status === 'loading' || snapshot.refreshing;
@@ -312,12 +308,12 @@ function PositionOverviewRow({ position, render, className }: { position: UiPosi
     <span className={styles.overviewIdentity}>
       <TokenIcon symbol={position.market === 'ETH' ? 'ETH' : 'WBTC'} size={38} />
       <span><span className={styles.overviewName}>{position.market} <span className={position.side === 'long' ? styles.long : styles.short}>{positionSideLabel(position.side)}</span></span>
-        <span className={styles.overviewMeta}>{leverage === null ? <MissingValue width="xs" /> : `${leverage.toFixed(2).replace(/\.00$/, '')}×`}<span aria-hidden="true"> · </span><span>#{position.info.positionId}</span></span>
+        <span className={styles.overviewMeta}><PositionLeverage position={position} /><span aria-hidden="true"> · </span><span>#{position.info.positionId}</span></span>
       </span>
     </span>
     <span className={styles.overviewValue}>{valuation.netEquityUsdCents === null
       ? <MissingValue status={pricesPending ? 'loading' : 'unavailable'} label="Position value unavailable" />
-      : <><span className={styles.approximation}>≈ </span>{formatUsdCents(valuation.netEquityUsdCents)}</>}</span>
+      : <><span className={styles.approximation}>≈ </span>{valuation.netEquityUsdText}</>}</span>
     <span className={styles.overviewThreshold}><span className={styles.overviewMetricLabel}>Est. rebalance</span><span data-position-price="rebalance">{threshold('rebalance')}</span></span>
     <span className={styles.overviewThreshold}><span className={styles.overviewMetricLabel}>Est. liquidation</span><span data-position-price="liquidation">{threshold('liquidation')}</span></span>
     <ChevronRight className={styles.overviewArrow} size={17} aria-hidden="true" />

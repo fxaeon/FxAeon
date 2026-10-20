@@ -4,7 +4,7 @@
  * FxAeon shared UI kit — every screen composes these so the app feels like
  * one product instead of disconnected pages.
  */
-import { forwardRef, ReactNode, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes, type MouseEventHandler } from 'react';
+import { forwardRef, lazy, ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes, type MouseEventHandler } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,7 +13,6 @@ import {
   PiggyBank,
   ArrowLeftRight,
   CircleDollarSign,
-  Ellipsis,
   Copy,
   Check,
   LucideIcon,
@@ -27,8 +26,13 @@ import { ValueOrSkeleton } from '@/components/MissingValue';
 import { compactAddress } from '@/lib/addressPresentation';
 import { copyText } from '@/lib/clipboard';
 import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
+import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import headerWalletControl from '@/components/HeaderWalletControl.module.css';
 import navigation from '@/components/ShellNavigation.module.css';
+
+/* Load the directory only when requested; the underlying action page stays
+   mounted so opening navigation cannot discard a form or review draft. */
+const MobileMoreMenu = lazy(() => import('@/components/MobileMoreMenu'));
 
 /* ------------------------------------------------------------------ shell */
 
@@ -62,7 +66,45 @@ export function AppShell({
   const pathname = usePathname();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const contentRef = useRef<HTMLElement>(null);
-  const shellRef = useRef<HTMLDivElement>(null);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const mobileMoreTriggerRef = useRef<HTMLButtonElement>(null);
+  const contentScrollRef = useRef({ top: 0, left: 0 });
+  const shellRef = useOverlayDialog<HTMLDivElement>({
+    open: mobileMoreOpen,
+    onClose: () => setMobileMoreOpen(false),
+    triggerRef: mobileMoreTriggerRef,
+    initialFocusRef: mobileMoreTriggerRef,
+  });
+
+  const toggleMobileMore = () => {
+    if (!mobileMoreOpen && contentRef.current) {
+      contentScrollRef.current = { top: contentRef.current.scrollTop, left: contentRef.current.scrollLeft };
+    }
+    haptic('selection');
+    setMobileMoreOpen(open => !open);
+  };
+
+  useLayoutEffect(() => {
+    if (!mobileMoreOpen && contentRef.current) {
+      contentRef.current.scrollTop = contentScrollRef.current.top;
+      contentRef.current.scrollLeft = contentScrollRef.current.left;
+    }
+  }, [mobileMoreOpen]);
+
+  // The mobile trigger disappears at the desktop breakpoint. Never leave an
+  // invisible modal (or its keyboard/history ownership) behind after resizing.
+  useEffect(() => {
+    if (!mobileMoreOpen) return;
+    const desktop = window.matchMedia('(min-width: 840px)');
+    const closeOnDesktop = () => {
+      if (!desktop.matches) return;
+      setMobileMoreOpen(false);
+      window.requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
+    };
+    closeOnDesktop();
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, [mobileMoreOpen]);
   // Keep browser/tab titles correct for routes that own their heading inside
   // the workspace (Portfolio and Trade). The visual shell heading remains
   // opt-in via `title`, so action pages do not get a second large title.
@@ -96,16 +138,21 @@ export function AppShell({
       content.removeEventListener('scroll', onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [shellRef]);
 
   return (
     <div
       ref={shellRef}
+      role={mobileMoreOpen ? 'dialog' : undefined}
+      aria-modal={mobileMoreOpen || undefined}
+      aria-label={mobileMoreOpen ? 'More menu' : undefined}
       data-product-ui="v2"
       data-shell-tabs={tabs ? 'true' : 'false'}
       className={`app-shell mx-auto w-full ${tabs ? 'app-shell-tabs' : 'app-shell-no-tabs pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]'}`}
     >
-      <a href="#main-content" className="skip-link">Skip to main content</a>
+      {mobileMoreOpen
+        ? <button type="button" className="skip-link" onClick={() => document.getElementById('mobile-more-menu')?.focus()}>Skip to main content</button>
+        : <a href="#main-content" className="skip-link">Skip to main content</a>}
       <div className="app-workspace" data-route={pathname ?? ''}>
         {tabs && (
           <header className="app-topbar">
@@ -116,7 +163,7 @@ export function AppShell({
             <DesktopNavigation />
             <span className="app-topbar-actions">
               <HeaderWalletControl />
-              <MobileMoreLink />
+              <MobileMoreToggle ref={mobileMoreTriggerRef} open={mobileMoreOpen} onToggle={toggleMobileMore} />
             </span>
           </header>
         )}
@@ -124,6 +171,9 @@ export function AppShell({
           ref={contentRef}
           id="main-content"
           data-shell-content="true"
+          hidden={mobileMoreOpen}
+          inert={mobileMoreOpen}
+          style={mobileMoreOpen ? { display: 'none' } : undefined}
           tabIndex={-1}
           className={`app-content ${tabs ? 'app-content-tabs' : ''} flex-1 outline-none ${['/more', '/settings', '/history', '/qr', '/send'].includes(pathname) ? 'utility-content' : ''}`}
         >
@@ -135,6 +185,10 @@ export function AppShell({
           )}
           {children}
         </main>
+        {mobileMoreOpen && <main id="mobile-more-menu" tabIndex={-1}
+          className={`app-content app-content-tabs utility-content flex-1 outline-none ${navigation.mobileMenu}`}>
+          <Suspense fallback={<p role="status">Loading menu…</p>}><MobileMoreMenu /></Suspense>
+        </main>}
       </div>
       {tabs && <TabBar />}
     </div>
@@ -180,15 +234,18 @@ function isTabActive(pathname: string | null, href: string, also?: string[]) {
   return pathname === href || Boolean(also?.some((prefix) => pathname?.startsWith(prefix)));
 }
 
-function MobileMoreLink() {
+const MobileMoreToggle = forwardRef<HTMLButtonElement, { open: boolean; onToggle: () => void }>(function MobileMoreToggle({ open, onToggle }, ref) {
   const pathname = usePathname();
-  const t = useT();
-  return <Link href={MORE_TAB.href} data-mobile-more aria-label={t(MORE_TAB.labelKey)} title={t(MORE_TAB.labelKey)}
-    aria-current={isTabActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}
-    className={navigation.mobileMore} onClick={() => haptic('selection')}>
-    <Ellipsis size={21} aria-hidden="true" />
-  </Link>;
-}
+  return <button ref={ref} type="button" data-mobile-more
+    aria-label={open ? 'Close menu' : 'Open menu'} title={open ? 'Close menu' : 'Open menu'}
+    aria-expanded={open} aria-controls={open ? 'mobile-more-menu' : undefined} aria-haspopup="dialog"
+    data-active={isTabActive(pathname, MORE_TAB.href, MORE_TAB.also) || open || undefined}
+    className={navigation.mobileMore} onClick={onToggle}>
+    <svg className={navigation.menuIcon} width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h16" />
+    </svg>
+  </button>;
+});
 
 /* Routes remount the shell, so the dock remembers where its highlight was and
    travels from there instead of reappearing in place. */

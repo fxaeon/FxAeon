@@ -556,7 +556,7 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
       if (wallet.isEmbedded && requestedGasTier && readGasTier() !== requestedGasTier) throw new Error('Network fee preference changed while preparing the updated review. Try again.');
       if (viable.some(candidate => Date.now() - routeEstimateReadAt(candidate) >= REVIEW_FRESHNESS_MS)) throw new Error('The updated quote expired while preparing the review. Try again.');
       const termsChanged = updatedRouteTermsRequired(acceptedTerms, next);
-      const previousFacts = primaryReviewFacts(reviewed);
+      const previousFacts = primaryReviewFacts(reviewed, { historicalComparison: true });
       const nextFacts = primaryReviewFacts(next);
       const factChanges = changedConsequenceFacts(previousFacts, nextFacts);
       const previousRouteType = reviewed.details?.routeType;

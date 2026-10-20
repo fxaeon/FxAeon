@@ -1,5 +1,6 @@
 'use client';
 
+import { FeeUsd } from '@/components/review/AmountUsd';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -514,7 +515,7 @@ export default function MovePage() {
 
   return (
     <AppShell>
-      <ActionWorkspace density="compact" className={`${styles.workspace} ${styles.moveWorkspace} ${moveStyles.moveWorkspace}`}>
+      <ActionWorkspace density="compact" data-review={!isReviewInputStage(reviewStage)} className={`${styles.workspace} ${styles.moveWorkspace} ${moveStyles.moveWorkspace}`}>
         <PageHeading title="Move" />
         <div className={moveStyles.centerStage}>
         <Card
@@ -732,5 +733,5 @@ function displayBridgeAmount(value: bigint): string {
   return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
 }
 function QuoteRow({ label, value, title }: { label: string; value: string; title?: string }) {
-  return <div><dt>{label}</dt><dd title={title}>{value}</dd></div>;
+  return <div><dt>{label}</dt><dd title={title}><span>{value}{label === 'Bridge fee' && <FeeUsd fact={{ value, title }} />}</span></dd></div>;
 }
