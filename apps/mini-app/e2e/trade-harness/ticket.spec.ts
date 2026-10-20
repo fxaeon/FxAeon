@@ -68,7 +68,7 @@ const outcome = (page: Page) => page.getByRole('group', { name: 'Estimated posit
 const fact = (page: Page, label: string) => outcome(page).locator(`[data-outcome-fact="${label}"] dd`);
 /** A preview row's estimate, as displayed on the ticket. */
 const figure = async (page: Page, label: string) => (await fact(page, label).locator('span').first().textContent()) ?? '';
-/** The review's summary row for a fact (its Details disclosure repeats some facts exactly, further down). */
+/** The review's plain fact value; token amounts use their own exact-value disclosure. */
 const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"]`).first().locator('> span').last();
 const slider = (page: Page) => page.getByRole('slider', { name: 'Target leverage slider', exact: true });
 const leverageField = (page: Page) => page.getByRole('textbox', { name: 'Target leverage', exact: true });
@@ -100,7 +100,16 @@ test.describe('the ticket’s outcome preview', () => {
     expect(preview.executionPriceExact).toBeTruthy();
     await expect(reviewFact(page, 'Execution price')).toHaveText(preview.executionPrice);
     await expect(reviewFact(page, 'Execution price')).toHaveAttribute('title', preview.executionPriceExact!);
-    await expect(reviewFact(page, 'Estimated collateral')).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
+    const collateral = page.locator('[data-review-fact="Estimated collateral"]');
+    const collateralSummary = collateral.locator('summary');
+    await expect(collateralSummary).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
+    await expect(collateralSummary).toHaveAccessibleName(/^Show full estimate: [\d,]+(?:\.\d+)? stETH$/);
+    const collateralExact = (await collateralSummary.getAttribute('aria-label'))!.replace('Show full estimate: ', '');
+    await collateralSummary.click();
+    await expect(collateral.locator('p')).toContainText(`Unrounded estimate${collateralExact} (`);
+    await expect(collateral.locator('p')).toHaveText(/wstETH at [\d,]+(?:\.\d+)? stETH per wstETH\)$/);
+    await collateralSummary.click();
+    await page.getByLabel('Advanced transaction details', { exact: true }).locator(':scope > summary').click();
     await expect(reviewFact(page, 'Estimated debt')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
     await expect(reviewFact(page, 'f(x) fee')).toHaveText(preview.fee);
     // The signed floor stays exact in wstETH, with its stETH equivalent muted beneath it.

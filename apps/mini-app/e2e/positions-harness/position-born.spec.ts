@@ -2,17 +2,16 @@ import { createRequire } from 'node:module';
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { extname, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { debtShare } from '../../src/lib/leverageShare';
 
 /*
- * The position is born: Trade's confirmed result for a newly opened ETH Long
- * draws the split chosen on the ticket, and "View position" carries that bar
- * into the position's own split on /positions with a view transition. A closed
- * position result also verifies its in-app return to Positions. The real Trade
- * and Positions pages, result view, rows and transition helper run
- * against mocked wallet, chain, prices and brake reads, behind a stand-in for
- * Next's asynchronous router (see e2e/harness/position-born-entry.tsx). Set
- * BORN_SHOTS_DIR to keep a filmstrip of the transition and the final states.
+ * Trade's compact confirmed receipt keeps the observed movement, verified
+ * action link and View position action. It deliberately has no source split,
+ * so navigation must not animate an absent bar or invent a target from the
+ * reviewed leverage. A closed-position result also returns in-app to Positions.
+ * The real Trade and Positions pages, result view and transition helper run
+ * against mocked wallet, chain, prices and brake reads behind an asynchronous
+ * router (see e2e/harness/position-born-entry.tsx). Set BORN_SHOTS_DIR to keep
+ * screenshots of the compact receipt and the selected position.
  */
 const appRoot = resolve(__dirname, '../..');
 const root = resolve(appRoot, '../..');
@@ -25,8 +24,7 @@ const shotsDir = process.env.BORN_SHOTS_DIR;
 const entry = resolve(appRoot, 'e2e/harness/position-born-entry.tsx');
 
 const KEY = 'ETH:long:4242';
-const NAME = 'position-born-eth-long-4242';
-const CHOSEN_SHARE = debtShare('long', 2.8);
+const ACTION_HASH = `0x${'ab'.repeat(32)}`;
 const CONFIRMED_SHARE = 0.62892;
 
 const mocks: Record<string, string> = {
@@ -222,50 +220,42 @@ const share = (value: string | null | undefined) => Number.parseFloat(value ?? '
 test.describe('a position opened on Trade', () => {
   test.beforeEach(async ({ page }) => { await page.setViewportSize({ width: 390, height: 844 }); });
 
-  test('its result names it as History will and draws the split chosen on the ticket', async ({ page }) => {
+  test('its compact receipt shows observed amounts and the verified action without an invented position split', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     for (const width of [320, 390, 480]) {
       await page.setViewportSize({ width, height: 844 });
       await open(page);
-      await expect(page.getByRole('heading', { name: 'Opened ETH Long', exact: true })).toBeVisible();
-      const row = source(page).locator('..');
-      await expect(row).toContainText('ETH Long · #4242');
-      await expect(row).toContainText('2.8× target');
-      // The bar is the ticket's split at the reviewed target, in the row's colours.
-      expect(share(await source(page).evaluate((node) => (node as HTMLElement).style.getPropertyValue('--debt-share')))).toBeCloseTo(CHOSEN_SHARE, 6);
+      const receipt = page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true });
+      await expect(receipt.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Observed token movements', exact: true })).toContainText('0.5 ETH');
+      await expect(receipt.getByRole('link', { name: 'View confirmed action transaction on explorer', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${ACTION_HASH}`);
+      await expect(receipt.getByLabel(/^Gas paid: 0\.000372 ETH\./)).toBeVisible();
+      await expect(source(page)).toHaveCount(0);
+      await expect(viewPosition(page)).toBeInViewport({ ratio: 1 });
       const card = (await page.locator('.trade-ticket').boundingBox())!;
-      const bar = (await source(page).boundingBox())!;
-      expect(bar.width, `${width}px`).toBeGreaterThan(card.width * 0.8);
-      expect(bar.x).toBeGreaterThanOrEqual(card.x);
-      expect(bar.x + bar.width).toBeLessThanOrEqual(card.x + card.width + 0.5);
+      const footer = (await receipt.boundingBox())!;
+      expect(footer.x, `${width}px`).toBeGreaterThanOrEqual(card.x);
+      expect(footer.x + footer.width, `${width}px`).toBeLessThanOrEqual(card.x + card.width + 0.5);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${width}px`).toBeLessThanOrEqual(0);
-      // The identity and target share one line.
-      expect((await page.locator('[data-position-born-source]').locator('xpath=preceding-sibling::p').boundingBox())!.height, `${width}px`).toBeLessThan(30);
     }
   });
 
-  for (const width of [390, 1280]) test(`View position opens compact management without animating an invisible split at ${width}px`, async ({ page }) => {
+  for (const width of [390, 1280]) test(`View position opens compact management without animating an absent split at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width > 800 ? 900 : 844 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await open(page);
-    await expect(source(page)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(source(page)).toHaveCount(0);
     await viewPosition(page).click();
     await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242$/);
     await expect(details(page)).toBeVisible();
-    await expect.poll(async () => (await probe(page))?.finished ?? 0).toBe(1);
-    const { calls, ready } = (await probe(page))!;
-    // One transition, requested with the chosen split named after its position.
-    expect(calls).toHaveLength(1);
-    expect(ready).toBe(0);
-    expect(calls[0].sourceName).toBe(NAME);
-    expect(share(calls[0].sourceShare)).toBeCloseTo(CHOSEN_SHARE, 6);
-    // The compact destination has no visible split; the transition skips while
-    // navigation and the confirmed figures still reach the selected position.
-    expect(calls[0].atResolve).toMatchObject({ url: '/positions?position=ETH%3Along%3A4242', targetKey: KEY, targetName: null, targetVisible: false, born: false, sourceInDocument: false });
-    expect(share(calls[0].atResolve!.targetShare)).toBeCloseTo(CONFIRMED_SHARE, 5);
-    // No transition name is left on the hidden target.
+    // The receipt has no split to carry. Navigation still opens the exact
+    // position and uses the confirmed read, never the ticket's 2.8× target.
+    expect((await probe(page))!.calls).toHaveLength(0);
     const split = details(page).locator('[data-position-split]');
-    await expect.poll(() => split.evaluate((node) => (node as HTMLElement).style.viewTransitionName)).toBe('');
+    expect(share(await split.evaluate(node => (node as HTMLElement).style.getPropertyValue('--debt-share')))).toBeCloseTo(CONFIRMED_SHARE, 5);
+    await expect(split).not.toHaveAttribute('data-born', '');
+    expect(await split.evaluate(node => (node as HTMLElement).style.viewTransitionName)).toBe('');
     await expect(page.getByRole('heading', { name: 'ETH Long · #4242', exact: true })).toBeVisible();
   });
 
@@ -293,8 +283,9 @@ test.describe('a position opened on Trade', () => {
   test('a position the chain has not returned yet opens from its receipt, then in full', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await open(page, { readable: false });
-    // The result still names it and draws the choice; the page has no read to land on.
-    await expect(page.getByRole('heading', { name: 'Opened ETH Long', exact: true })).toBeVisible();
+    // The receipt is confirmed even while the position read is still pending.
+    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(source(page)).toHaveCount(0);
     await viewPosition(page).click();
     await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242/);
     // The receipt's row, without invented figures.
@@ -315,7 +306,8 @@ test.describe('a position opened on Trade', () => {
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page, { closedPosition: true });
-    await expect(page.getByRole('heading', { name: 'Position closed', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'View confirmed action transaction on explorer', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${ACTION_HASH}`);
     await expect(page.getByRole('button', { name: 'View positions', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'View positions', exact: true }).click();
     await expect(page).toHaveURL('http://lab.test/positions');
@@ -329,35 +321,18 @@ test.describe('a position opened on Trade', () => {
   });
 });
 
-test('screenshots: the transition as a filmstrip, and the result and the landed position in dark appearance', async ({ page }) => {
-  test.skip(!shotsDir, 'set BORN_SHOTS_DIR to keep the filmstrip and screenshots');
+test('screenshots: the compact result and the landed position in dark appearance', async ({ page }) => {
+  test.skip(!shotsDir, 'set BORN_SHOTS_DIR to keep screenshots');
   mkdirSync(shotsDir!, { recursive: true });
-  await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
-
-  // The filmstrip: the transition's animations held at each frame's time.
-  await open(page, { theme: 'dark' });
-  await page.waitForTimeout(1_400);
-  await page.evaluate(() => { (window as unknown as { __bornPause: boolean }).__bornPause = true; });
-  await viewPosition(page).click();
-  await expect.poll(async () => (await probe(page))?.ready ?? 0).toBe(1);
-  for (const time of [0, 120, 240, 400]) {
-    await page.evaluate((at) => document.getAnimations().forEach((animation) => { animation.currentTime = at; }), time);
-    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
-    await page.screenshot({ path: resolve(shotsDir!, `born-dark-390-${String(time).padStart(3, '0')}ms.png`) });
-  }
-  await page.evaluate(() => document.getAnimations().forEach((animation) => animation.play()));
-  await expect.poll(async () => (await probe(page))?.finished ?? 0).toBe(1);
-
   for (const [theme, width] of [['dark', 390], ['dark', 320]] as const) {
     await page.setViewportSize({ width, height: 844 });
     await open(page, { theme });
-    await page.waitForTimeout(1_400);
-    await page.screenshot({ path: resolve(shotsDir!, `born-${theme}-${width}-result.png`) });
+    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await page.screenshot({ path: resolve(shotsDir!, `born-${theme}-${width}-result.png`), animations: 'disabled' });
     await viewPosition(page).click();
     await expect(details(page)).toBeVisible();
-    await expect.poll(async () => (await probe(page))?.finished ?? 0).toBe(1);
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: resolve(shotsDir!, `born-${theme}-${width}-position.png`) });
+    expect((await probe(page))!.calls).toHaveLength(0);
+    await page.screenshot({ path: resolve(shotsDir!, `born-${theme}-${width}-position.png`), animations: 'disabled' });
   }
 });

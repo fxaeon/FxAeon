@@ -23,6 +23,18 @@ async function open(page: Page, { width = 390, height = 844, initScript = '' } =
   await page.evaluate(() => document.fonts.ready);
 }
 
+// The shell owns scrolling in .app-content-tabs; global CSS intentionally keeps
+// body overflow hidden even without a dialog. Check the hook's inline override
+// separately so a leaked modal lock cannot hide behind that stylesheet rule.
+async function expectMenuDismissed(page: Page, originalBodyOverflow: string) {
+  await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe(originalBodyOverflow);
+  const content = page.locator('[data-shell-content]');
+  await expect(content).toBeVisible();
+  await expect(content).not.toHaveAttribute('inert');
+  await expect(content).toHaveCSS('overflow-y', 'auto');
+}
+
 async function setLab(page: Page, patch: Record<string, unknown>) {
   await page.evaluate((value) => (globalThis as typeof globalThis & { __shellLab: { set: (patch: unknown) => void } }).__shellLab.set(value), patch);
 }
@@ -717,6 +729,7 @@ test('mobile menu toggles in place and preserves the live form, URL, history sta
   await input.fill('123.456');
   const originalInput = await input.elementHandle();
   const originalUrl = page.url();
+  const originalBodyOverflow = await page.evaluate(() => document.body.style.overflow);
   await page.evaluate(() => {
     window.history.replaceState({ ...window.history.state, draftMarker: 'keep-me' }, '', window.location.href);
     document.querySelector<HTMLElement>('[data-shell-content]')!.scrollTop = 180;
@@ -728,6 +741,7 @@ test('mobile menu toggles in place and preserves the live form, URL, history sta
     await page.getByRole('button', { name: 'Open menu', exact: true }).click();
     const menu = page.getByRole('dialog', { name: 'More menu', exact: true });
     await expect(menu).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     await expect(menu.getByRole('heading', { name: 'More', exact: true })).toBeVisible();
     const close = menu.getByRole('button', { name: 'Close menu', exact: true });
     await expect(close).toHaveAttribute('aria-expanded', 'true');
@@ -735,7 +749,7 @@ test('mobile menu toggles in place and preserves the live form, URL, history sta
     await expect(input).toBeHidden();
     await expect(page).toHaveURL(originalUrl);
     await close.click();
-    await expect(menu).toHaveCount(0);
+    await expectMenuDismissed(page, originalBodyOverflow);
     await expect(input).toHaveValue('123.456');
     expect(await originalInput!.evaluate(element => element.isConnected)).toBe(true);
     await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toBeFocused();
@@ -750,9 +764,10 @@ test('Escape, browser Back, quick reopening and Forward never discard the draft 
   const input = page.getByRole('textbox', { name: 'Trade amount' });
   await input.fill('42');
   const initialUrl = page.url();
+  const originalBodyOverflow = await page.evaluate(() => document.body.style.overflow);
   await page.getByRole('button', { name: 'Open menu', exact: true }).click();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toHaveCount(0);
+  await expectMenuDismissed(page, originalBodyOverflow);
   await expect(input).toHaveValue('42');
 
   // Close and reopen in one task while the previous Back cleanup is pending.
@@ -764,23 +779,23 @@ test('Escape, browser Back, quick reopening and Forward never discard the draft 
   });
   await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toBeVisible();
   await page.goBack();
-  await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toHaveCount(0);
+  await expectMenuDismissed(page, originalBodyOverflow);
   await expect(input).toHaveValue('42');
   await expect(page).toHaveURL(initialUrl);
   await page.goForward();
   await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toHaveAttribute('aria-expanded', 'false');
   await expect(input).toHaveValue('42');
-  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+  await expectMenuDismissed(page, originalBodyOverflow);
 });
 
 test('menu navigation removes its temporary Back stop and never overwrites a newer route', async ({ page }) => {
   await open(page);
+  const originalBodyOverflow = await page.evaluate(() => document.body.style.overflow);
   await page.getByRole('button', { name: 'Open menu', exact: true }).click();
   await page.getByRole('dialog', { name: 'More menu', exact: true }).getByRole('link', { name: /^History\b/ }).click();
   await expect(page).toHaveURL(`${LAB_ORIGIN}/history`);
   await expect(page.getByRole('heading', { name: 'History', exact: true, level: 1 })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toHaveCount(0);
-  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+  await expectMenuDismissed(page, originalBodyOverflow);
   await page.goBack();
   await expect(page).toHaveURL(`${LAB_ORIGIN}/`);
   await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toHaveAttribute('aria-expanded', 'false');
@@ -797,9 +812,23 @@ test('menu keyboard focus stays in visible controls and nested settings dismiss 
   await expect(page.locator('#mobile-more-menu')).toBeFocused();
   await expect(menu).toBeVisible();
   await expect(page).toHaveURL(initialUrl);
-  await menu.getByRole('button', { name: 'Close menu', exact: true }).focus();
+  // The directory is lazy-loaded. Do not send Tab while Suspense still shows
+  // its loading status: at that point the next available control is the dock.
+  const firstMenuLink = menu.getByRole('link', { name: /^Wallet & account/ });
+  await expect(firstMenuLink).toBeVisible();
+  const close = menu.getByRole('button', { name: 'Close menu', exact: true });
+  await close.focus();
   await page.keyboard.press('Tab');
-  await expect(menu.getByRole('link', { name: /^Wallet & account/ })).toBeFocused();
+  await expect(firstMenuLink).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(close).toBeFocused();
+  const skip = menu.getByRole('button', { name: 'Skip to main content' });
+  const last = menu.getByRole('link', { name: 'Move', exact: true });
+  await last.focus();
+  await page.keyboard.press('Tab');
+  await expect(skip).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(last).toBeFocused();
   await menu.getByRole('button', { name: /^Transaction settings,/ }).click();
   const settings = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
   await expect(settings).toBeVisible();
@@ -813,6 +842,7 @@ test('menu keyboard focus stays in visible controls and nested settings dismiss 
 
 test('mobile menu closes on desktop resize and reduced motion disables its animation', async ({ page }) => {
   await open(page, { width: 320, height: 700 });
+  const originalBodyOverflow = await page.evaluate(() => document.body.style.overflow);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByRole('button', { name: 'Open menu', exact: true }).click();
   await expect(page.locator('#mobile-more-menu')).toHaveCSS('animation-name', 'none');
@@ -820,5 +850,5 @@ test('mobile menu closes on desktop resize and reduced motion disables its anima
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toHaveCount(0);
   await expect(page.locator('.desktop-navigation')).toBeVisible();
-  await expect(page.locator('body')).not.toHaveCSS('overflow', 'hidden');
+  await expectMenuDismissed(page, originalBodyOverflow);
 });

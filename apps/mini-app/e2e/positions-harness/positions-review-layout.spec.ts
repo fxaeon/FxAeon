@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const root = resolve(__dirname, '../../../..');
 const require = createRequire(resolve(root, 'package.json'));
@@ -36,7 +36,6 @@ const mocks: Record<string, string> = {
   '@/components/PriceProvider': `export const useUsdPrices=()=>({prices:{},status:'unavailable',updatedAts:{},refreshing:false,refresh:async()=>{}}); export const useUsdPrice=()=>undefined; export const useLiveMarketQuote=()=>({quote:null,status:'unavailable',isFresh:false});`,
   '@/lib/displayPrices': `export const freshDisplayPrices=snapshot=>snapshot.prices;`,
   '@/lib/addressPresentation': `export const compactAddress = value => value ? value.slice(0,6)+'…'+value.slice(-4) : '';`,
-  '@/lib/transactionProgress': `export const hasTransactionHash = step => Boolean(step?.hash); export const transactionStepProgress=step=>({label:step?.status==='submitted'?'Submitted':'Ready',state:step?.status==='submitted'?'submitted':'ready',className:'',icon:null}); export const transactionStepKind=step=>step?.transaction?.kind==='action'?'Action':'Approval'; export const transactionExplorerUrl=(chainId,hash)=>chainId===1?'https://etherscan.io/tx/'+hash:null;`,
   '@/lib/taskState': `export const selectExecutionTask=()=>null;`,
   '@/lib/confirmedPositions': `export const receiptMintedPositionIdentity=()=>null;`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
@@ -57,11 +56,10 @@ const mocks: Record<string, string> = {
   '@/lib/fx': `import {tokens as t} from '@aladdindao/fx-sdk'; export const FX_TOKENS={ETH:{address:t.eth,decimals:18,key:'ETH'},WETH:{address:t.weth,decimals:18,key:'WETH'},wstETH:{address:t.wstETH,decimals:18,key:'wstETH'},stETH:{address:t.stETH,decimals:18,key:'stETH'},WBTC:{address:t.WBTC,decimals:8,key:'WBTC'},USDC:{address:t.usdc,decimals:6,key:'USDC'},USDT:{address:t.usdt,decimals:6,key:'USDT'},fxUSD:{address:t.fxUSD,decimals:18,key:'fxUSD'},fxUSDBasePool:{address:t.fxUSDBasePool,decimals:18,key:'fxUSDBasePool'},fxSAVE:{address:'0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39',decimals:18,key:'fxSAVE'}}; export const MAX_FX_SLIPPAGE_PERCENT=100; export const clampLeverage=v=>v; export const leverageBoundsFor=()=>({min:1,max:10,source:'fixture'}); export const formatRouteGasCost=()=>({gasFee:'0.0024 ETH',totalCost:'0.0024 ETH'}); export const planAdjustPositionLeverage=async()=>null; export const planIncreasePosition=async()=>null; export const planReducePosition=async()=>null; export const prepareLeverageReview=async({leverage})=>({leverage,bounds:{min:1,max:10,source:'fixture'},plan:null,adjusted:false}); export const readLeverageBounds=async()=>({min:1,max:10,source:'fixture'}); export const readSignatureRequiredDraft=()=>null; export const restoreSignatureRequiredDraftFromSearch=()=>null; export const signatureDraftIdFromSearch=()=>null;`,
   '@/lib/fx/policy': `import {FX_TOKENS} from '@/lib/fx'; const pools={long:['0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8','0xAB709e26Fa6B0A30c119D8c55B887DeD24952473'],short:['0x25707b9e6690B52C60aE6744d711cf9C1dFC1876','0xA0cC8162c523998856D59065fAa254F87D20A5b0']}; export const positionPoolAddress=(market,type)=>pools[type][market==='ETH'?0:1]; export const positionCollateralTokenAddress=(market,type)=>type==='short'?FX_TOKENS.fxUSD.address:market==='ETH'?FX_TOKENS.wstETH.address:FX_TOKENS.WBTC.address; export const positionDebtTokenAddress=(market,type)=>type==='long'?FX_TOKENS.fxUSD.address:market==='ETH'?FX_TOKENS.wstETH.address:FX_TOKENS.WBTC.address;`,
   '@/lib/wallet': `export const usePrivyWallet=()=>({...globalThis.__positionsReviewHarness.wallet,sendTransaction:async()=>{globalThis.__positionsReviewHarness.walletRequests+=1;}}); export const isWalletConnectCancellation=()=>false;`,
-  '@/lib/amount': `export const positiveDecimal=value=>/^\\d+(\\.\\d+)?$/.test(value)&&Number(value)>0?value:null; export const normalizeAmountInput=(value,policy='dot-decimal')=>{ if(value.length>100) return null; if(policy==='dot-decimal') return value.includes(',')?null:value; if(value.includes('.')||(value.match(/,/g)||[]).length>1||/^\\d{1,3}(,\\d{3})+$/.test(value)) return null; return value.replace(',','.'); }; export const groupDigits=value=>{ const match=/^(\\d+)(\\.\\d+)?$/.exec(value); return match ? match[1].replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',') + (match[2] ?? '') : value; };`,
   '@/lib/settings': `export const DEFAULT_SLIPPAGE_PERCENT=1; export const GAS_TIERS=['standard','fast','rapid']; export const readSlippagePercent=()=>1; export const SETTINGS_KEY='settings'; export const SETTINGS_UPDATED_EVENT='settings-updated'; export const readGasTier=()=>'standard'; export const DEFAULT_GAS_TIER='standard'; export const MIN_SLIPPAGE_BPS=10; export const MAX_SLIPPAGE_BPS=200; export const SLIPPAGE_PRESETS_BPS=[10,50,100,200]; export const isSlippageBps=(v)=>Number.isInteger(v)&&v>=10&&v<=200; export const writeTransactionSettings=()=>true;`,
   '@/lib/fx/gasFeePolicy': `export const formatGasPriceGwei=value=>Number(value)/1000000000+' Gwei'; export const formatGasTierQuote=quote=>quote.tier+' · '+Number(quote.gasPriceWei)/1000000000+' Gwei'; export const fetchGasTierQuotes=async()=>{ throw new Error('Gas quotes are unavailable in the harness'); };`,
   '@/lib/receiptPresentation': `export const buildReceiptPresentation=()=>({movements:[],technicalMovements:[],executionFee:null,feeLabel:'Network fee',feeCaveat:null,nativeValue:null}); export const receiptTransfersFromLogs=()=>[]; export const shouldShowReceiptMovementFallback=receipts=>receipts.length>0&&receipts.some(receipt=>receipt.transactionKind!=='approval'); export const receiptMovementLines=receipts=>{const tokenMovements=receipts.flatMap(receipt=>receipt.movements); if(tokenMovements.length) return {movements:tokenMovements,nativeValueIsMovement:false}; const nativeSends=receipts.flatMap(receipt=>receipt.nativeValue&&receipt.nativeValueLabel==='Native value sent'?['sent '+receipt.nativeValue]:[]); return {movements:nativeSends,nativeValueIsMovement:nativeSends.length>0};};`,
-  '@/lib/telegram': `export const haptic=()=>{};`,
+  '@/lib/telegram': `export const haptic=()=>{}; export const openExternalLink=()=>false;`,
   '@/lib/transactionState': `export const resetTransactionAmounts=()=>({amount:'',fraction:25,leverage:2});`,
   '@/app/trade/fxUi': `export const getSdkReductionAmountWei=async()=>1n; export const formatAmount=(value,decimals=18)=>String(Number(value)/10**decimals); export const parseAmount=()=>1n; export const positionKey=position=>position.market+':'+position.side+':'+position.info.positionId; export const positionCollateralDecimals=()=>18; export const positionDebtDecimals=()=>18; export const positionTokenDecimals=()=>18; export const positionInputTokenOptions=()=>['ETH','USDC']; export const positionOutputTokenOptions=()=>['USDC','ETH']; export const positionTargetLeverage=()=>2; export const tokenAddress=()=> '0x0000000000000000000000000000000000000001'; export const tokenDecimals=token=>token==='USDC'?6:18;`,
 };
@@ -90,6 +88,14 @@ async function buildHarness(): Promise<{ script: string; css: string }> {
   };
 }
 
+async function openAdvanced(page: Page) {
+  const advanced = page.getByLabel('Advanced transaction details', { exact: true });
+  if (await advanced.getAttribute('open') === null) await advanced.locator(':scope > summary').click();
+  const transactions = advanced.getByRole('region', { name: 'Prepared transactions', exact: true });
+  await expect(transactions).toBeVisible();
+  await expect(transactions.getByRole('group', { name: /^Transaction [12]$/ })).toHaveCount(2);
+}
+
 let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
@@ -111,19 +117,16 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     const decision = page.getByRole('button', { name: 'Approve position', exact: true });
     await expect(decision).toBeVisible();
     if (viewport.width <= 600) await expect(decision).toBeInViewport({ ratio: 1 });
-    await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
-    await page.getByText('Steps · 2', { exact: true }).click();
+    await openAdvanced(page);
     const information = page.getByRole('region', { name: 'Review information', exact: true });
-    await expect(information).toHaveCSS('overflow-y', viewport.width <= 600 ? 'auto' : 'visible');
+    await expect(information).toHaveCSS('overflow-y', 'auto');
     if (viewport.width <= 600) {
       await expect(page.locator('[data-inline-review-sheet]')).toHaveCount(1);
       await expect.poll(() => information.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
       await expect(decision).toBeInViewport({ ratio: 1 });
-      await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
-      await expect.poll(() => information.evaluate(node => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
-    } else {
-      await expect.poll(() => information.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
     }
+    await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
+    await expect.poll(() => information.evaluate(node => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
     const order = await decision.evaluate(button => {
       const information = button.closest('[data-review-viewport]')!.querySelector('[aria-label="Review information"]')!;
       return button.getBoundingClientRect().top >= information.getBoundingClientRect().bottom;
@@ -224,6 +227,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await reviewAction.click();
   const embeddedConfirm = page.getByRole('button', { name: 'Approve position', exact: true });
   await expect(embeddedConfirm).toBeVisible();
+  await openAdvanced(page);
   await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(3);
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const embeddedBox = await embeddedConfirm.boundingBox();
@@ -236,24 +240,15 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
     const content = (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!);
     content.scrollTop = content.scrollHeight;
   });
-  // Expand the disclosure panels to exercise the actual scroll path, rather
-  // than relying on this short fixture to overflow by default.
-  await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
-  for (const label of ['Technical information', 'Steps · 2']) {
-    await page.getByText(label, { exact: true }).click();
-  }
   await embeddedConfirm.scrollIntoViewIfNeeded();
-  // Expanded details and the decision share the shell's scroll path. The
-  // action stays after the content and can scroll clear of the navigation.
+  // Expanded details scroll in the terms region while the decision remains
+  // after that region and clear of the navigation.
   const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
-  await expect(reviewInformation).toHaveCSS('overflow-y', 'visible');
-  await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
-  await page.evaluate(() => {
-    const content = (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!);
-    content.scrollTop = content.scrollHeight;
-  });
+  await expect(reviewInformation).toHaveCSS('overflow-y', 'auto');
+  await reviewInformation.evaluate(node => { node.scrollTop = node.scrollHeight; });
+  await expect.poll(() => reviewInformation.evaluate(node => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
   await expect.poll(async () => {
-    const contentScrollTop = await page.locator('[data-position-sheet-body], [data-shell-content]').last().evaluate((node) => node.scrollTop);
+    const contentScrollTop = await reviewInformation.evaluate(node => node.scrollTop);
     const action = await embeddedConfirm.boundingBox();
     const nav = await page.locator('[data-app-navigation]').boundingBox();
     const bottom = await page.locator('[data-position-sheet-body]').evaluate(node => node.getBoundingClientRect().bottom);
@@ -366,17 +361,18 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
     h.rerender?.();
   });
   await expect(preservedManager).toBeVisible();
-  // Successful results intentionally tuck the chain and wallet identity into
-  // Transaction details. Expanding that disclosure verifies that the result
-  // retains the submitting wallet after the connected account changes.
-  const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Transaction details', { exact: true }) });
+  // This lifecycle fixture has a hash but no verified receipt, so it retains
+  // Advanced evidence instead of claiming compact verified success. The
+  // submitting wallet must survive a later connected-account change.
+  await expect(preservedManager.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
+  const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Advanced', { exact: true }) });
   await resultDetails.locator(':scope > summary').click();
   await expect(preservedManager.locator('[title="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]')).toBeVisible();
   await expect(preservedManager.getByRole('link', { name: 'Receipt' })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 });
 
-test('submitted transaction status and explorer link scroll with the card and clear navigation', async ({ page }) => {
+test('submitted transaction status and explorer link scroll with the terms and clear navigation', async ({ page }) => {
   await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
   const hash = `0x${'a'.repeat(64)}`;
   for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
@@ -394,12 +390,9 @@ test('submitted transaction status and explorer link scroll with the card and cl
     await reviewAction.click();
 
     const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
-    await page.getByLabel('Review details', { exact: true }).locator(':scope > summary').click();
-    for (const label of ['Technical information', 'Steps · 2']) {
-      await page.getByText(label, { exact: true }).click();
-    }
-    await expect(reviewInformation).toHaveCSS('overflow-y', 'visible');
-    await expect.poll(() => reviewInformation.evaluate((node) => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+    await openAdvanced(page);
+    await expect(reviewInformation).toHaveCSS('overflow-y', 'auto');
+    await expect.poll(() => reviewInformation.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
 
     await page.evaluate((submittedHash) => {
       const h = (globalThis as typeof globalThis & {
@@ -436,7 +429,7 @@ test('submitted transaction status and explorer link scroll with the card and cl
     };
     await expect.poll(fitsAboveNavigation).toBe(true);
     const beforeScroll = await progress.boundingBox();
-    await page.locator('[data-position-sheet-body], [data-shell-content]').last().evaluate((node) => { node.scrollTop += 80; });
+    await reviewInformation.evaluate(node => { node.scrollTop += 80; });
     await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
     await progress.scrollIntoViewIfNeeded();
     await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/submitted-progress-${viewport.width}x${viewport.height}.png`), fullPage: false });

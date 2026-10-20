@@ -9,22 +9,17 @@ export type ReviewedTransaction = {
   valueWei: string;
 };
 
-/** Read and validate the one canonical Steps disclosure shown before signing. */
+/** Read and validate the canonical transaction evidence under Advanced before signing. */
 export async function readReviewedTransactions(
   actionDetails: Locator,
   options: { collapseAfterRead?: boolean } = {},
 ): Promise<ReviewedTransaction[]> {
   await expect(actionDetails).toBeVisible({ timeout: 180_000 });
-  const reviewDetails = actionDetails.locator('details[aria-label="Review details"]');
-  if (await reviewDetails.count() && !await reviewDetails.evaluate((element) => (element as HTMLDetailsElement).open)) {
+  const reviewDetails = actionDetails.locator('details[aria-label="Advanced transaction details"]');
+  await expect(reviewDetails).toHaveCount(1);
+  if (!await reviewDetails.evaluate((element) => (element as HTMLDetailsElement).open)) {
     await reviewDetails.locator(':scope > summary').click();
   }
-  const stepsSummary = actionDetails.locator('summary').filter({ hasText: /^Steps · \d+$/ });
-  const stepsDisclosure = stepsSummary.locator('..');
-  await expect(stepsDisclosure).toHaveCount(1);
-  await expect(stepsDisclosure).toBeVisible();
-  const isOpen = await stepsDisclosure.evaluate((element) => (element as HTMLDetailsElement).open);
-  if (!isOpen) await stepsSummary.click();
 
   const steps = actionDetails.getByRole('region', { name: 'Prepared transactions', exact: true });
   await expect(steps).toHaveCount(1);
@@ -34,35 +29,32 @@ export async function readReviewedTransactions(
   for (let index = 0; index < cardCount; index += 1) {
     const card = cards.nth(index);
     await expect(card).toHaveAttribute('aria-label', `Transaction ${index + 1}`);
-    const transactionSummary = card.locator('summary').filter({ hasText: /^Transaction details$/ });
-    const transactionDetails = transactionSummary.locator('..');
-    await expect(transactionDetails).toHaveCount(1);
-    const detailsOpen = await transactionDetails.evaluate((element) => (element as HTMLDetailsElement).open);
-    if (!detailsOpen) await transactionSummary.click();
-
-    const transaction = await card.evaluate((element) => {
-      const rows: Record<string, string> = {};
-      for (const row of Array.from(element.querySelectorAll('div.flex.items-start'))) {
-        const children = Array.from(row.children);
-        const label = children[0]?.textContent?.trim();
-        const value = children[1]?.textContent?.trim();
-        if (label && value) rows[label] = value;
-      }
-      const displayedHeading = element.querySelector('span')?.textContent?.trim() ?? '';
-      const status = element.querySelectorAll('span')[1]?.textContent?.trim() ?? '';
-      const headingMatch = displayedHeading.match(/^(\d+)\.\s+(.+)$/);
-      return {
-        // Keep the fork extractor's established `${title} ${index}` format.
-        heading: headingMatch ? `${headingMatch[2]} ${headingMatch[1]}` : displayedHeading,
-        status,
-        contract: rows.Contract ?? '',
-        calldata: '',
-        valueWei: rows['Transaction value (wei)'] ?? '',
-      };
-    });
-    const calldata = card.locator('pre[aria-label="Transaction calldata"]');
-    await expect(calldata).toHaveCount(1);
-    transaction.calldata = (await calldata.textContent() ?? '').trim();
+    // The flattened rows preview long values. Read their full-data dialogs,
+    // rather than treating a truncated preview or a tooltip as the calldata.
+    const exactEvidence = async (label: string): Promise<string> => {
+      const row = card.locator(`[data-review-evidence="${label}"]`);
+      await expect(row).toHaveCount(1);
+      await row.getByRole('button', { name: `View full ${label.toLowerCase()}`, exact: true }).click();
+      const dialog = row.getByRole('dialog', { name: `Full ${label.toLowerCase()}`, exact: true });
+      await expect(dialog).toBeVisible();
+      const value = await dialog.getByRole('textbox', { name: `Exact ${label.toLowerCase()}`, exact: true }).inputValue();
+      await dialog.getByRole('button', { name: 'Close full data', exact: true }).click();
+      await expect(dialog).toBeHidden();
+      return value;
+    };
+    const headingRow = card.locator(':scope > div').first();
+    const displayedHeading = (await headingRow.locator(':scope > span').first().textContent() ?? '').trim();
+    const statusBadge = headingRow.locator(':scope > span').nth(1);
+    const headingMatch = displayedHeading.match(/^(\d+)\.\s+(.+)$/);
+    const transaction: ReviewedTransaction = {
+      // Keep the fork extractor's established `${title} ${index}` format.
+      heading: headingMatch ? `${headingMatch[2]} ${headingMatch[1]}` : displayedHeading,
+      // A prepared transaction has no receipt or status badge yet.
+      status: await statusBadge.count() ? (await statusBadge.textContent() ?? '').trim() : '',
+      contract: await exactEvidence('Contract'),
+      calldata: await exactEvidence('Calldata'),
+      valueWei: await exactEvidence('Transaction value (wei)'),
+    };
     reviewed.push(transaction);
   }
 
@@ -75,11 +67,10 @@ export async function readReviewedTransactions(
     assert.match(transaction.calldata, /^0x[0-9a-fA-F]*$/, `transaction ${index + 1} must show its calldata`);
     assert.match(transaction.valueWei, /^\d+$/, `transaction ${index + 1} must show its exact native value in wei`);
   });
-  await expect(steps.locator('pre[aria-label="Transaction calldata"]')).toHaveCount(reviewed.length);
+  await expect(steps.locator('[data-review-evidence="Calldata"]')).toHaveCount(reviewed.length);
 
   if (options.collapseAfterRead !== false) {
-    await stepsSummary.click();
-    if (await reviewDetails.count()) await reviewDetails.locator(':scope > summary').click();
+    await reviewDetails.locator(':scope > summary').click();
   }
   return reviewed;
 }

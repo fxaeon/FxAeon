@@ -217,7 +217,7 @@ export const useInvalidateWalletData = () => async () => {
   'lucide-react': `
     import React from 'react';
     const Icon = ({ size = 24, ...props }) => <svg width={size} height={size} {...props} />;
-    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
+    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const ArrowDown = Icon; export const ArrowUpRight = Icon; export const Plus = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
     export const Clock3 = Icon; export const LoaderCircle = Icon; export const ShieldCheck = Icon; export const ExternalLink = Icon;
     export const Circle = Icon; export const X = Icon; export const XCircle = Icon; export const ChevronDown = Icon; export const Check = Icon; export const Copy = Icon;
   `,

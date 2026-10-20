@@ -130,7 +130,8 @@ test('collateral and debt show dollar equivalents without guessing missing or st
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 0.99 }; });
   await page.getByRole('button', { name: 'Your positions' }).click();
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
-  await expect(card).toContainText('100.00 fxUSD');
+  await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
+  await expect(card.getByText('Exact amount: 100 fxUSD', { exact: true })).toHaveCount(1);
   await expect(card).toContainText('≈ $99.00');
   await expect(card).toContainText('2 stETH');
   await expect(card).toContainText('≈ $4,800.00');
@@ -184,7 +185,8 @@ test('a failed first price read resolves the skeleton into explicit missing valu
   await expect(page.getByRole('status', { name: 'Loading borrowing position', exact: true })).toHaveAttribute('aria-busy', 'true');
   await changeSnapshot(page, (harness) => { harness.pricesPending = false; });
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
-  await expect(card).toContainText('100.00 fxUSD');
+  await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
+  await expect(card.getByText('Exact amount: 100 fxUSD', { exact: true })).toHaveCount(1);
   await expect(card.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
   await expect(card).not.toContainText('$0.00');
 });

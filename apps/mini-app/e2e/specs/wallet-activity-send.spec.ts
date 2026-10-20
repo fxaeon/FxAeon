@@ -437,7 +437,7 @@ test('history detail fits short/mobile/desktop, closes with focus restored, and 
     const row=page.getByRole('button').filter({hasText:'Received'});
     await row.click();
     const dialog=page.getByRole('dialog',{name:'Transaction details'});
-    await expect(dialog.getByText('0.123 ETH')).toBeVisible();
+    await expect(dialog.getByText('0.123 ETH', { exact: true })).toBeVisible();
     await expect(dialog.getByText('Confirmed',{exact:true})).toHaveCount(0);
     await expect.poll(async()=>{const bounds=await dialog.boundingBox();return bounds ? bounds.y+bounds.height : Infinity;}).toBeLessThanOrEqual(size.height+1);
     const bounds=await dialog.boundingBox(); expect(bounds!.y).toBeGreaterThanOrEqual(0);
@@ -488,5 +488,8 @@ test('send reviews the exact amount it signs, rounds its cost up, and opens on E
   const fit=await signed.evaluate((element)=>{const card=element.closest('section')!.getBoundingClientRect();const box=element.getBoundingClientRect();return {inside:box.left>=card.left-1&&box.right<=card.right+1,overflow:element.scrollWidth-element.clientWidth};});
   expect(fit).toEqual({inside:true,overflow:0});
   // 0.000252000000000001 ETH is an estimate: rounded up to three significant digits, never down.
-  await expect(page.getByText('≈ 0.000253 ETH',{exact:true})).toBeVisible();
+  const networkCost = page.getByTitle('0.000252000000000001 ETH', { exact: true });
+  await expect(networkCost).toBeVisible();
+  expect(await networkCost.evaluate((element) => [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim())).toBe('≈ 0.000253 ETH');
+  await expect(networkCost.getByText('USD value unavailable', { exact: true })).toBeVisible();
 });
