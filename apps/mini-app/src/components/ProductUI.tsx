@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, ExternalLink, Info, type LucideIcon } from 'lucide-react';
 import { haptic, openExternalLink } from '@/lib/telegram';
 import styles from './ProductUI.module.css';
+import { MetricLabel } from './InfoHelp';
+import type { InfoHelpKey } from './infoHelpContent';
 import { ValueOrSkeleton } from './MissingValue';
 
 /** Shared presentation only. Quotes, balances, eligibility and signing remain
@@ -21,11 +23,11 @@ export function PageHeading({ title, backHref, action, visible = false }: { titl
   </header>;
 }
 
-export type MetricRow = { label: string; value: ReactNode; detail?: ReactNode; emphasis?: boolean };
+export type MetricRow = { label: string; value: ReactNode; detail?: ReactNode; help?: ReactNode; definition?: InfoHelpKey; emphasis?: boolean };
 export function MetricRows({ rows, label }: { rows: readonly MetricRow[]; label?: string }) {
   return <dl className={styles.metrics} aria-label={label}>
     {rows.map((row) => <div key={row.label} className={row.emphasis ? styles.emphasizedMetric : undefined}>
-      <dt>{row.label}</dt><dd><ValueOrSkeleton value={row.value} status="unavailable" label={row.label} />{row.detail && <small>{row.detail}</small>}</dd>
+      <dt><MetricLabel label={row.label} help={row.help} definition={row.definition} /></dt><dd><ValueOrSkeleton value={row.value} status="unavailable" label={row.label} />{row.detail && <small>{row.detail}</small>}</dd>
     </div>)}
   </dl>;
 }

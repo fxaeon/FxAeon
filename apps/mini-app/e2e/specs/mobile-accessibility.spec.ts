@@ -5,7 +5,7 @@ const MOBILE_WIDTHS = [320, 360, 375, 390, 412, 430];
 
 test.describe("mobile web and Telegram accessibility contract", () => {
   test("every official screen fits a narrow viewport, exposes a main landmark, and keeps controls reachable", async ({ page, requests }) => {
-    // The matrix deliberately covers 78 route/viewport combinations. Keep a
+    // The matrix deliberately covers 90 route/viewport combinations. Keep a
     // generous ceiling for slower CI workers while each assertion retains its
     // normal locator timeout.
     test.setTimeout(180_000);
@@ -31,7 +31,7 @@ test.describe("mobile web and Telegram accessibility contract", () => {
             const style = getComputedStyle(element);
             if (style.display === "none" || style.visibility === "hidden" || rect.width === 0 || rect.height === 0) return [];
             return rect.width + 0.01 < 44 || rect.height + 0.01 < 44
-              ? [{ text: element.innerText.trim().slice(0, 50), width: rect.width, height: rect.height }]
+              ? [{ text: element.innerText.trim().slice(0, 50), label: element.getAttribute("aria-label"), width: rect.width, height: rect.height }]
               : [];
           }),
         );

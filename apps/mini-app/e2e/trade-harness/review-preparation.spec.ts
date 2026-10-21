@@ -65,14 +65,14 @@ async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: num
     };
     (globalThis as typeof globalThis & { __longReview: Control }).__longReview = h;
     new MutationObserver(() => {
-      if (Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Open position' && !button.disabled)) h.enabledConfirmSeen = true;
+      if (Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'Open ETH Long' && !button.disabled)) h.enabledConfirmSeen = true;
     }).observe(document.body, { subtree: true, childList: true, attributes: true });
   });
   await page.addStyleTag({ content: bundle.css });
   await page.addScriptTag({ content: bundle.script });
   if (options.restoredSlippage) {
     // Restored drafts intentionally reopen review once; the editor is replaced.
-    await expect(page.getByRole('heading', { name: /^Long ETH .*×$/ })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^.*× ETH Long$/ })).toBeVisible();
   } else {
     await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
   }
@@ -89,11 +89,108 @@ async function planCount(page: Page) {
 }
 async function review(page: Page) { await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click(); }
 async function insufficient(page: Page) { await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled(); }
+const advanced = (page: Page) => page.getByLabel('Advanced transaction details', { exact: true });
+async function expectReachableReview(page: Page) {
+  const information = page.getByRole('region', { name: 'Review information', exact: true });
+  const decision = page.locator('[data-review-actions] > button');
+  // Desktop can scroll the surrounding page; the phone decision must already
+  // be visible in its modal without moving the page or the review's terms.
+  if (page.viewportSize()!.width > 600) await decision.scrollIntoViewIfNeeded();
+  await expect(decision).toBeInViewport({ ratio: 1 });
+  const layout = await information.evaluate(body => {
+    const viewport = body.closest('[data-review-viewport]')!;
+    const actions = viewport.querySelector('[data-review-actions]')!;
+    const button = actions.querySelector('button')!;
+    const bounds = body.getBoundingClientRect();
+    const actionBounds = actions.getBoundingClientRect();
+    const buttonBounds = button.getBoundingClientRect();
+    const buttonUnobscured = [[.5, .5], [.25, .25], [.75, .25], [.25, .75], [.75, .75]].every(([x, y]) => {
+      const hit = document.elementFromPoint(buttonBounds.x + buttonBounds.width * x, buttonBounds.y + buttonBounds.height * y);
+      return hit === button || button.contains(hit);
+    });
+    return {
+      bodyHeight: bounds.height, bodyBottom: bounds.bottom, actionsTop: actionBounds.top,
+      buttonHeight: buttonBounds.height, buttonUnobscured,
+      overflowY: getComputedStyle(body).overflowY, scrollable: body.scrollHeight > body.clientHeight + 1,
+      horizontalOverflow: body.scrollWidth - body.clientWidth,
+    };
+  });
+  expect(layout.bodyHeight).toBeGreaterThan(0);
+  expect(layout.bodyBottom, 'scrolling terms end above the separate decision footer').toBeLessThanOrEqual(layout.actionsTop + 1);
+  expect(layout.buttonHeight).toBeGreaterThanOrEqual(44);
+  expect(layout.buttonUnobscured, 'the visible CTA has unobscured hit targets').toBe(true);
+  expect(layout.horizontalOverflow).toBeLessThanOrEqual(0);
+  if (layout.scrollable) expect(layout.overflowY).toMatch(/^(auto|scroll)$/);
+
+  // Rows beyond the clipped body may have screen coordinates below the CTA.
+  // Require every decision-critical value to scroll fully above it instead of
+  // comparing the CTA against an offscreen row's unscrolled coordinates.
+  const detailsWereOpen = await advanced(page).evaluate(node => (node as HTMLDetailsElement).open);
+  for (const label of ['Amount', 'Estimated collateral', 'Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee', 'Gas fee', 'Total cost']) {
+    // The total is intentionally secondary. Open its actual disclosure before
+    // applying the same full-row clipping and footer visibility contract.
+    if (label === 'Total cost' && !detailsWereOpen) await advanced(page).locator(':scope > summary').click();
+    const row = information.locator(`[data-review-fact="${label}"]`).first();
+    await row.scrollIntoViewIfNeeded();
+    // IntersectionObserver rounds fractional scroll offsets differently from
+    // DOMRect. The explicit one-pixel bounds below remain the fit contract.
+    await expect(row).toBeInViewport({ ratio: 0.99 });
+    const fits = await row.evaluate(node => {
+      const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
+      const row = node.getBoundingClientRect();
+      return row.top >= body.top - 1 && row.bottom <= body.bottom + 1
+        && row.left >= body.left - 1 && row.right <= body.right + 1;
+    });
+    expect(fits, `${label} is fully readable inside the scrolling terms`).toBe(true);
+    await expect(decision).toBeInViewport({ ratio: 1 });
+  }
+  if (!detailsWereOpen) await advanced(page).locator(':scope > summary').click();
+  const disclosure = advanced(page).locator(':scope > summary');
+  // Collapsing the last child changes the scroll range. Request a fresh normal
+  // scroll, then check physical edges instead of an opaque intersection ratio.
+  await disclosure.evaluate(node => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+  await expect.poll(() => disclosure.evaluate(node => {
+    const summary = node.getBoundingClientRect();
+    const bounds = { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
+    const scrollports: unknown[] = [];
+    for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const rect = ancestor.getBoundingClientRect();
+      const scaleX = ancestor.offsetWidth ? rect.width / ancestor.offsetWidth : 1;
+      const scaleY = ancestor.offsetHeight ? rect.height / ancestor.offsetHeight : 1;
+      const left = rect.left + ancestor.clientLeft * scaleX;
+      const top = rect.top + ancestor.clientTop * scaleY;
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        bounds.left = Math.max(bounds.left, left);
+        bounds.right = Math.min(bounds.right, left + ancestor.clientWidth * scaleX);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        bounds.top = Math.max(bounds.top, top);
+        bounds.bottom = Math.min(bounds.bottom, top + ancestor.clientHeight * scaleY);
+        scrollports.push({ top, height: ancestor.clientHeight * scaleY, scrollTop: ancestor.scrollTop, scrollHeight: ancestor.scrollHeight, clientHeight: ancestor.clientHeight });
+      }
+    }
+    const errors: string[] = [];
+    if (summary.width < 44 || summary.height < 44) errors.push(`Target ${summary.width}×${summary.height}`);
+    for (const edge of ['top', 'left'] as const) if (summary[edge] < bounds[edge] - 0.5) errors.push(`${edge}: ${summary[edge]} < ${bounds[edge]}`);
+    for (const edge of ['bottom', 'right'] as const) if (summary[edge] > bounds[edge] + 0.5) errors.push(`${edge}: ${summary[edge]} > ${bounds[edge]}`);
+    const x = summary.left + summary.width / 2;
+    const y = summary.top + summary.height / 2;
+    for (const [px, py] of [[x, y], [summary.left + 1, y], [summary.right - 1, y], [x, summary.top + 1], [x, summary.bottom - 1]]) {
+      const hit = document.elementFromPoint(px, py);
+      if (!hit || !node.contains(hit)) errors.push(`Blocked hit at ${px},${py}`);
+    }
+    if (errors.length) errors.push(`Scrollports: ${JSON.stringify(scrollports)}`);
+    return errors;
+  }), { message: 'Execution details has an unclipped 44px target and unobscured center and edges' }).toEqual([]);
+  await expect(decision).toBeInViewport({ ratio: 1 });
+  await information.evaluate(node => { node.scrollTop = 0; });
+}
 
 test('Trade settings preserve restored planner slippage through gas-only changes and explicit matching preset choices', async ({ page }) => {
   await mount(page, { funded: true, restoredSlippage: '0.101' });
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
+  await page.locator('[data-review-edit]').click();
   const gear = page.getByRole('button', { name: /Transaction settings/ });
   await expect(gear).toHaveAccessibleName(/0\.101%/);
   await page.evaluate(() => {
@@ -102,17 +199,17 @@ test('Trade settings preserve restored planner slippage through gas-only changes
   });
   await expect(gear).toHaveAccessibleName(/0\.101%/);
   await review(page);
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
-  await page.locator('details[aria-label="Review details"] > summary').click();
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
+  await advanced(page).locator(':scope > summary').click();
   await expect(page.locator('[data-review-fact="Slippage"]')).toContainText('0.101%');
-  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.locator('[data-review-edit]').click();
   await gear.click();
   await page.getByRole('radio', { name: '0.5%', exact: true }).click();
   await page.getByRole('button', { name: 'Close transaction settings', exact: true }).click();
   await expect(gear).toHaveAccessibleName(/0\.5%/);
   await review(page);
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
-  await page.locator('details[aria-label="Review details"] > summary').click();
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
+  await advanced(page).locator(':scope > summary').click();
   await expect(page.locator('[data-review-fact="Slippage"]')).toContainText('0.5%');
 });
 
@@ -124,32 +221,45 @@ for (const theme of ['dark']) {
     await mount(page, { funded: true, feeRatios: [3_000_000n, 1_000_000n, 0n, 0n] });
     await page.evaluate(theme => { document.documentElement.dataset.theme = theme; }, theme);
     await fill(page, '0.0003'); await review(page);
-    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
-    await expect(page.getByRole('heading', { name: 'Long ETH 2.8×', exact: true })).toBeVisible();
-    const sheet = page.getByRole('dialog', { name: 'Long ETH 2.8×' });
-    expect((await sheet.boundingBox())!.height).toBeLessThan(560);
+    await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
+    await expect(page.getByRole('heading', { name: '2.8× ETH Long', exact: true })).toBeVisible();
+    const sheet = page.getByRole('dialog', { name: 'Review position' });
+    const sheetBounds = (await sheet.boundingBox())!;
+    expect(sheetBounds.y).toBeGreaterThanOrEqual(0);
+    expect(sheetBounds.height).toBeLessThanOrEqual(844 * 0.92 + 1);
+    expect(sheetBounds.y + sheetBounds.height).toBeLessThanOrEqual(845);
+    await expectReachableReview(page);
     await expect(page.getByText('Confirm the terms, then continue in your wallet.', { exact: true })).toHaveCount(0);
     await expect(page.locator('[data-review-fact="f(x) fee"]')).toContainText('0.3%');
     await expect(page.locator('[data-review-fact="Execution price"]')).toBeInViewport();
     await expect(page.locator('[data-review-fact="Liquidation price"]')).toBeInViewport();
     await expect(page.locator('[data-review-fact="Rebalance price"]')).toContainText(/≈ \$[\d,.]+ \/ stETH/);
-    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toBeHidden();
+    const collateral = page.locator('[data-review-fact="Estimated collateral"]').first();
+    await expect(collateral).toContainText('Position size · collateral');
+    const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
+    await expect(collateralValue).toBeVisible();
+    await expect(collateralValue).toHaveText(/^≈ [\d,.]+ stETH$/);
+    const collateralSource = (await collateralValue.getAttribute('title'))!.split('. USD value unavailable:')[0];
+    expect(collateralSource).toMatch(/^[\d,.]+ stETH \([\d,.]+ wstETH at [\d,.]+ stETH per wstETH\)$/);
     await expect(page.locator('[data-review-fact="Gas fee"]')).toBeInViewport();
-    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeInViewport();
     const output = resolve(__dirname, '../../../../artifacts/review-redesign'); mkdirSync(output, { recursive: true });
     await page.screenshot({ path: resolve(output, `review-${theme}-390.png`) });
-    await page.getByText('Network speed', { exact: true }).click();
-    await expect(page.getByText('3 Gwei', { exact: true })).toBeVisible();
-    await page.getByText('Network speed', { exact: true }).click();
     await page.locator('[data-review-fact="Amount"] summary').click();
     await expect(page.locator('[data-review-fact="Amount"] p')).toContainText('0.0003 ETH');
     await page.locator('[data-review-fact="Amount"] summary').click();
-    await page.locator('details[aria-label="Review details"] > summary').click();
+    await advanced(page).locator(':scope > summary').click();
+    await expect(advanced(page).getByRole('group', { name: 'Network fee speed', exact: true })).toBeVisible();
+    await expect(advanced(page).getByText('3 Gwei', { exact: true })).toBeVisible();
+    await expect(advanced(page).getByRole('radio', { name: 'Standard 3 Gwei', exact: true })).toBeChecked();
     await expect(page.locator('[data-review-fact="Slippage"]')).toBeVisible();
-    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
+    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(2);
+    const nativeCollateral = advanced(page).locator('[data-review-fact="Estimated collateral"]');
+    await expect(nativeCollateral).toContainText('Quoted collateral · native');
+    await expect(nativeCollateral.locator(':scope > span').last()).toHaveText(collateralSource);
     await expect(page.locator('[data-review-fact="Estimated debt"]')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Open position', exact: true }).scrollIntoViewIfNeeded();
-    await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeInViewport();
+    await page.getByRole('button', { name: 'Open ETH Long', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeInViewport();
     await page.screenshot({ path: resolve(output, `review-details-${theme}-390.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     await page.clock.fastForward(31_000);
@@ -203,22 +313,22 @@ test('Cancel abandons preparation and late results cannot reopen review', async 
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
   await page.waitForTimeout(1800);
   await expect(page.getByRole('button', { name: 'Review ETH Long', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toHaveCount(0);
 });
 
 test('mobile review traps focus, survives a desktop resize, and closes back to the input', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mount(page, { funded: true }); await fill(page); await review(page);
-  const dialog = page.getByRole('dialog', { name: 'Long ETH 2.8×' });
+  const dialog = page.getByRole('dialog', { name: 'Review position' });
   await expect(dialog).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Close transaction review' })).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   expect(await dialog.evaluate(element => element.contains(document.activeElement))).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toBeEnabled();
+  await expect(page.locator('[data-review-edit]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
   expect(await planCount(page)).toBe(1);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(dialog).toBeVisible();
@@ -235,12 +345,12 @@ test('wallet change abandons the old preparation', async ({ page }) => {
   await page.evaluate(() => { const h = (globalThis as typeof globalThis & { __longReview: Control }).__longReview; h.wallet = { ...h.wallet, address: '0x2222222222222222222222222222222222222222', connectionVersion: 2 }; h.rerender?.(); });
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('');
   await page.waitForTimeout(1800);
-  await expect(page.getByRole('button', { name: 'Open position', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toHaveCount(0);
 });
 
 test('fresh-cache visibility refresh disables confirmation until the request settles', async ({ page }) => {
   await mount(page, { funded: true, delayMs: 100 }); await fill(page); await review(page);
-  const confirm = page.getByRole('button', { name: 'Open position', exact: true }); await expect(confirm).toBeEnabled();
+  const confirm = page.getByRole('button', { name: 'Open ETH Long', exact: true }); await expect(confirm).toBeEnabled();
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(page.getByRole('button', { name: 'Checking network fees…', exact: true })).toBeDisabled();
   await expect(confirm).toBeEnabled();
@@ -270,11 +380,11 @@ for (const viewport of stabilityViewports) {
     writeFileSync(testInfo.outputPath('review-geometry.json'), JSON.stringify(ready, null, 2));
     await testInfo.attach('review-geometry', { body: JSON.stringify(ready, null, 2), contentType: 'application/json' });
     expect(ready.boxes.at(-1)!.height).toBeGreaterThanOrEqual(44);
-    expect(ready.boxes.at(-1)!.y).toBeGreaterThan(ready.boxes[4].y);
+    await expectReachableReview(page);
     await expect(page.locator('[data-review-viewport] .skeleton')).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Checking network fees…',exact:true})).toHaveCount(0);
     if (viewport.width <= 600) {
-      await expect(page.getByRole('dialog', { name: 'Long ETH 2.8×' })).toBeVisible();
+      await expect(page.getByRole('dialog', { name: 'Review position' })).toBeVisible();
       expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     } else await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('button', { name: 'Not enough ETH', exact: true }).scrollIntoViewIfNeeded();
@@ -283,9 +393,12 @@ for (const viewport of stabilityViewports) {
       const review = document.querySelector<HTMLElement>('[data-review-viewport]')!;
       const body = review.querySelector<HTMLElement>('[aria-label="Review information"]')!;
       const status = review.querySelector<HTMLElement>('[aria-live="off"]')!;
-      return { horizontalOverflow: document.documentElement.scrollWidth > innerWidth, blankBody: body.getBoundingClientRect().bottom - body.lastElementChild!.getBoundingClientRect().bottom, statusHeight: status.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(status).lineHeight) };
+      const scrollEndInset = Number.parseFloat(getComputedStyle(body).paddingBottom);
+      return { horizontalOverflow: document.documentElement.scrollWidth > innerWidth, scrollEndInset, blankBody: body.getBoundingClientRect().bottom - body.lastElementChild!.getBoundingClientRect().bottom - scrollEndInset, statusHeight: status.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(status).lineHeight) };
     });
     expect(fit.horizontalOverflow).toBe(false);
+    // The deliberate scroll-end rounding inset is not unused content space.
+    expect(fit.scrollEndInset).toBe(2);
     expect(fit.blankBody).toBeLessThanOrEqual(1);
     // Settled status is content-sized, not a reserved three-line slot.
     expect(fit.statusHeight).toBeLessThanOrEqual(fit.lineHeight * 2 + 1);
@@ -315,7 +428,7 @@ test('a Max-length amount remains in the input then fits the complete review at 
     expect(fit.escaped, 'labels and values stay inside the card').toEqual([]);
     // The exact amount remains available through its disclosure throughout verification.
     await expect(page.locator('[data-review-fact="Amount"] summary')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Long ETH 2.8×' })).toBeInViewport();
+    await expect(page.getByRole('heading', { name: '2.8× ETH Long' })).toBeInViewport();
   };
   await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.00024443113696627');
@@ -323,16 +436,37 @@ test('a Max-length amount remains in the input then fits the complete review at 
   await insufficient(page);
   await expectInsideCard();
   await expect(page.locator('p', { hasText: 'Add at least' })).toHaveText(/^Add at least \d[\d,]*(?:\.\d+)? ETH on Ethereum to cover network fees\. Receive ETH$/);
-  // The fee is the max the wallet funds, so the ETH to add is exactly the
-  // total shown (amount plus that max) less the fixture's 0.0004 ETH balance.
+  // The compact display is approximate; its disclosure retains the exact
+  // funding requirement and conservatively rounded six-decimal total used by
+  // the shortfall against the 0.0004 ETH balance.
   const toWei = (text: string) => {
     const [whole, fraction = ''] = /([\d,]+(?:\.\d+)?) ETH/.exec(text)![1].replace(/,/g, '').split('.');
     return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
   };
-  await expect(page.locator('[data-review-fact="Gas fee"] > span').last()).toHaveText(/ ETH max$/);
-  await page.locator('details[aria-label="Review details"] > summary').click();
-  const total = await page.locator('[data-review-fact="Total cost"] > span').last().innerText();
-  expect(total).toMatch(/ ETH max$/);
+  const gasValue = page.locator('[data-review-fact="Gas fee"] > span').last();
+  await expect(gasValue.locator('summary [data-usd-state="unavailable"]')).toHaveText(/^(?:≈ )?[\d,]+(?:\.\d+)? ETH max$/);
+  const exactGas = (await gasValue.getAttribute('title'))!;
+  await gasValue.locator('summary').click();
+  await expect(gasValue.locator('p')).toBeVisible();
+  await expect(gasValue.locator('p')).toHaveText(`${exactGas}USD is a current-price estimate. The native amount governs the transaction.`);
+  await gasValue.locator('summary').click();
+  await advanced(page).locator(':scope > summary').click();
+  const totalValue = page.locator('[data-review-fact="Total cost"] > span').last();
+  await expect(totalValue.locator('summary > span')).toHaveText(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
+  await expect(totalValue).toHaveAttribute('title', /^[\d,]+(?:\.\d+)? ETH \(native value \+ max network fee\)$/);
+  const exactTotalText = (await totalValue.getAttribute('title'))!;
+  const exactTotal = toWei(exactTotalText);
+  expect(exactTotal).toBe(244431136966270n + toWei(exactGas));
+  await totalValue.locator('summary').click();
+  const fullTotal = totalValue.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last();
+  await expect(fullTotal).toBeVisible();
+  const total = (await fullTotal.textContent())!;
+  expect(total).toMatch(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
+  await expect(totalValue.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(exactTotalText);
+  const displayStepWei = 1_000_000_000_000n; // Six decimal places in ETH, rounded up.
+  expect(toWei(total)).toBe(((exactTotal + displayStepWei - 1n) / displayStepWei) * displayStepWei);
+  await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');
+  await expect(totalValue).not.toContainText('$0.00');
   const asked = await page.locator('p', { hasText: 'Add at least' }).innerText();
   expect(toWei(asked)).toBe(toWei(total) - 400000000000000n);
 });
@@ -343,7 +477,7 @@ test('failed preparation stays beside the input and Review performs a fresh chec
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
   await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
   await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.getByRole('button',{name:'Open position',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Open ETH Long',exact:true})).toHaveCount(0);
   await expect(page.getByLabel('Checking transaction steps')).toHaveCount(0);
   fixture.setSimulationFailure?.(undefined);
   await review(page); await insufficient(page);
@@ -359,5 +493,5 @@ test('Telegram Back cancels pending preparation and preserves the editor', async
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('fxaeon:telegram-back')));
   await expect(page.getByRole('textbox',{name:'Amount in ETH'})).toHaveValue('0.0003');
   await expect(page.getByRole('textbox',{name:'Amount in ETH'})).toBeEnabled();
-  await expect(page.getByRole('button',{name:'Open position',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Open ETH Long',exact:true})).toHaveCount(0);
 });

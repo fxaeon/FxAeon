@@ -15,9 +15,9 @@ const previousReact = globalReact.React;
 globalReact.React = React;
 const testRequire = createRequire(import.meta.url);
 const previousCssLoader = testRequire.extensions['.css'];
-const stylesPath = fileURLToPath(new URL('../src/components/TradeOutcomePreview.module.css', import.meta.url)).toLowerCase();
+const stylesPaths = new Set(['TradeOutcomePreview.module.css', 'review/ReviewFactValue.module.css', 'InfoHelp.module.css'].map(path => fileURLToPath(new URL(`../src/components/${path}`, import.meta.url)).toLowerCase()));
 testRequire.extensions['.css'] = (loadedModule, filename) => {
-  if (filename.toLowerCase() !== stylesPath) {
+  if (!stylesPaths.has(filename.toLowerCase())) {
     if (previousCssLoader) return previousCssLoader(loadedModule, filename);
     throw new Error(`Unexpected CSS import in trade outcome render test: ${filename}`);
   }
@@ -61,8 +61,8 @@ function textOf(markup: string): string {
 
 /** Rows as [label, visible text of the value], from rendered markup. */
 function rows(html: string) {
-  return [...html.matchAll(/<div class="test-row" data-outcome-fact="([^"]+)"><dt>[^<]*<\/dt><dd>(.*?)<\/dd><\/div>/g)]
-    .map((match) => [match[1], textOf(match[2])]);
+  return [...html.matchAll(/<div class="test-row" data-outcome-fact="([^"]+)"><dt>[^]*?<\/dt><dd>(.*?)<\/dd><\/div>/g)]
+    .map((match) => [match[1], textOf(match[2].match(/<summary\b[^>]*>(.*?)<\/summary>/)?.[1] ?? match[2])]);
 }
 
 test('while the warm-up runs, the same rows hold their place with announced-off placeholders', async () => {
@@ -77,7 +77,7 @@ test('while the warm-up runs, the same rows hold their place with announced-off 
   assert.doesNotMatch(html, /Loading USD value/);
 });
 
-test('a settled route shows the review’s figures, each marked as an estimate, with the exact value on hover', async () => {
+test('a settled route shows the review’s figures, each marked as an estimate, with the exact value in an accessible disclosure', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const route = opened('ETH', 'long', {
     colls: '1500000000000000000', debts: '1010218412345678901234', executionPrice: '2500.123456789',
@@ -88,17 +88,19 @@ test('a settled route shows the review’s figures, each marked as an estimate, 
   assert.doesNotMatch(html, /aria-busy/);
   // The SDK execution price already divides out the wstETH rate.
   assert.deepEqual(rows(html), [
-    ['Execution price', '≈ 2,500.1234 fxUSD / stETH'],
+    ['Execution price', '≈ 2,500.12 fxUSD / stETH'],
     ['Liquidation price', 'Unavailable'],
     ['f(x) fee', '0.3%'],
   ]);
-  assert.match(html, /title="2500\.123456789 fxUSD \/ stETH"/);
+  assert.match(html, /data-review-value="Execution price"/);
+  assert.match(html, /Show full execution price value/);
+  assert.match(html, /2500\.123456789 fxUSD \/ stETH/);
   assert.doesNotMatch(html, /Estimated collateral|Estimated debt|Loading USD value/);
   // A separate collateral accounting rate must never convert that price again.
   const converted = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
     market: 'ETH', side: 'long', route: { ...route, details: { ...route.details, stEthPerWstEth: '1200000000000000000' } },
   }));
-  assert.deepEqual(rows(converted)[0], ['Execution price', '≈ 2,500.1234 fxUSD / stETH']);
+  assert.deepEqual(rows(converted)[0], ['Execution price', '≈ 2,500.12 fxUSD / stETH']);
 });
 
 test('a short previews its quoted execution price and borrowed derivative, and an unreadable fee says so', async () => {
@@ -138,7 +140,9 @@ test('fresh pool liquidation quotes render the native USD price for all four mar
         ...(market === 'ETH' ? { stEthPerWstEth: '1250000000000000000' } : {}) },
     });
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market, side, route }));
-    assert.deepEqual(rows(html)[1], ['Liquidation price', expected]);
+    assert.deepEqual(rows(html)[1], ['Liquidation price', expected.replace('.00', '')]);
+    assert.ok(html.includes(expected), 'the unshortened liquidation value remains in execution details');
+    assert.match(html, /Show full liquidation price value/);
     assert.doesNotMatch(html, /Estimated collateral|Estimated debt/);
   }
 });

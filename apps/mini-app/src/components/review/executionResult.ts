@@ -55,3 +55,15 @@ export function resultBodyDuringRefresh(input: {
     ? 'Transaction confirmed. Position details are refreshing.'
     : input.body;
 }
+
+
+/** Short actionable status only; detailed explanation remains available separately. */
+export function compactResultWarning(presentation: { title: string; body: string }): string | null {
+  if (['Confirmation unknown', 'Verification incomplete', 'Confirmation pending'].includes(presentation.title)) return 'Do not resubmit · check History';
+  if (presentation.title === 'Approval confirmed') return 'Action not submitted';
+  if (presentation.title === 'Partially completed') return 'Earlier steps confirmed · do not repeat';
+  if (presentation.title === 'Reverted') return 'No later step submitted';
+  if (presentation.title === 'Wallet request declined') return 'Not submitted';
+  if (presentation.title === 'Not submitted' && presentation.body !== 'The route stopped before a transaction could be confirmed.') return presentation.body;
+  return null;
+}

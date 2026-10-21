@@ -181,7 +181,7 @@ test('bridge review keeps validated source, destination, asset, recipient, recei
     { label: 'Recipient', value: WALLET },
     { label: 'Bridge fee', value: '0.001 ETH', title: '0.001 ETH' },
   ]);
-  assert.equal(primaryReviewFacts(planned).find(fact => fact.label === 'Delivery estimate')?.value, 'Not provided by bridge');
+  assert.equal(primaryReviewFacts(planned).find(fact => fact.label === 'Delivery estimate'), undefined);
 });
 
 test('bridge receipt estimates retain exact precision and disappear when stale or outside the send bounds', () => {

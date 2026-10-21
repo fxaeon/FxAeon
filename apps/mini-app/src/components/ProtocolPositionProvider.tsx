@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { loadPositionRefresh } from '@/lib/positionRefreshQueue';
 import { PositionRefreshActivityContext } from './PositionRefreshActivity';
 import {
   createPositionReadGuard,
@@ -35,6 +36,8 @@ export type ProtocolPositionStatus = 'idle' | 'loading' | 'ready' | 'partial' | 
 
 export interface ProtocolPositionRefreshResult extends PositionReadResult {
   newPositions: UiPosition[];
+  readStartedAt?: number;
+  readCompletedAt?: number;
 }
 
 interface ProtocolPositionSnapshot {
@@ -48,7 +51,7 @@ interface ProtocolPositionSnapshot {
 }
 
 export interface ProtocolPositionContextValue extends ProtocolPositionSnapshot {
-  refresh: () => Promise<ProtocolPositionRefreshResult>;
+  refresh: (options?: { afterConfirmation?: boolean }) => Promise<ProtocolPositionRefreshResult>;
   pendingPositions: ConfirmedPositionHint[];
   checkingConfirmedPositions: boolean;
   refreshConfirmedPositions: () => Promise<void>;
@@ -206,6 +209,7 @@ function ProtocolPositionSession({ address, enabled, children }: { address: stri
     const requestId = readGuardRef.current.begin();
     if (requestId === null) return EMPTY_RESULT;
     const walletGeneration = sessionGeneration.current;
+    const readStartedAt = Date.now();
     const current = snapshotRef.current.walletAddress?.toLowerCase() === walletAddress.toLowerCase()
       ? snapshotRef.current
       : emptySnapshot(walletAddress);
@@ -245,7 +249,7 @@ function ProtocolPositionSession({ address, enabled, children }: { address: stri
       } else {
         schedulePositionRetryRef.current?.(walletAddress, walletGeneration);
       }
-      return { ...result, newPositions };
+      return { ...result, newPositions, readStartedAt, readCompletedAt: Date.now() };
     } catch (reason) {
       if (readGuardRef.current.isCurrent(requestId)) {
         const result = unavailablePositionResult(reason);
@@ -263,15 +267,8 @@ function ProtocolPositionSession({ address, enabled, children }: { address: stri
     }
   }, [commit]);
   const pendingLoadRef = useRef<{ address: string; promise: Promise<ProtocolPositionRefreshResult> } | null>(null);
-  const loadAddress = useCallback((walletAddress: string) => {
-    const normalized = walletAddress.toLowerCase();
-    if (pendingLoadRef.current?.address === normalized) return pendingLoadRef.current.promise;
-    const promise = loadAddressImpl(walletAddress).finally(() => {
-      if (pendingLoadRef.current?.promise === promise) pendingLoadRef.current = null;
-    });
-    pendingLoadRef.current = { address: normalized, promise };
-    return promise;
-  }, [loadAddressImpl]);
+  const loadAddress = useCallback((walletAddress: string, afterConfirmation = false) =>
+    loadPositionRefresh(pendingLoadRef, walletAddress, loadAddressImpl, afterConfirmation), [loadAddressImpl]);
 
   const schedulePositionRetry = useCallback((walletAddress: string, generation: number) => {
     if (positionRetryTimerRef.current !== null || positionRetryAttemptsRef.current >= POSITION_READ_RETRY_DELAYS_MS.length
@@ -378,13 +375,13 @@ function ProtocolPositionSession({ address, enabled, children }: { address: stri
     };
   }, [address, commit, enabled, loadAddress, refreshConfirmedPositions]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { afterConfirmation?: boolean }) => {
     if (!enabled || !address) return EMPTY_RESULT;
     void refreshConfirmedPositions();
     if (positionRetryTimerRef.current !== null) window.clearTimeout(positionRetryTimerRef.current);
     positionRetryTimerRef.current = null;
     positionRetryAttemptsRef.current = 0;
-    return loadAddress(address);
+    return loadAddress(address, options?.afterConfirmation === true);
   }, [address, enabled, loadAddress, refreshConfirmedPositions]);
 
   // Effects run after render, so hide the previous wallet's verified rows for

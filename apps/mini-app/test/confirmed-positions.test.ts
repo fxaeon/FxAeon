@@ -450,3 +450,20 @@ test('receipt presentation exposes only the exact newly minted Trade or Borrow i
   assert.equal(receiptMintedPositionIdentity(fixture({ operation: 'increasePosition', positionId: 42 })), null, 'an existing Trade position is not a new mint');
   assert.equal(receiptMintedPositionIdentity(fixture({ operation: 'depositAndMint', positionId: 42 })), null, 'an existing Borrow position is not a new mint');
 });
+
+
+// A new result uses minted identity, not a guessed ID from the quote.
+test('new Trade readback requires receipt identity and a genuinely post-confirmation matching pool read', async () => {
+  const { confirmedPositionReadback } = await import('../src/components/review/positionReview');
+  const source = fixture();
+  const fresh = { readStartedAt: 1001, readCompletedAt: 1002, status: 'ready', successfulGroups: [{market:'ETH',side:'long'}], failedGroups: [], positions: [{market:'ETH',side:'long',info:{positionId:42,rawColls:358481260986328125n,rawDebts:720891476593066406250n,rawCollsToken:'stETH',rawDebtsToken:'fxUSD',rawCollsDecimals:18,rawDebtsDecimals:18,currentLeverage:2,lsdLeverage:0}}] } as const;
+  const readback = confirmedPositionReadback(source.result, source.route, fresh as any, 1000);
+  assert.equal(readback?.key, 'ETH:long:42');
+  assert.equal(readback?.facts.find(fact=>fact.label==='Collateral')?.value, '0.358481260986328125 stETH');
+  assert.equal(readback?.facts.find(fact=>fact.label==='Debt')?.value, '720.89147659306640625 fxUSD');
+  assert.equal(confirmedPositionReadback(source.result, source.route, {...fresh,readStartedAt:999} as any,1000),null);
+  assert.equal(confirmedPositionReadback(source.result, source.route, {...fresh,successfulGroups:[]} as any,1000),null);
+  assert.equal(confirmedPositionReadback(source.result, source.route, {...fresh,positions:[{...fresh.positions[0],info:{...fresh.positions[0].info,positionId:99}}]} as any,1000),null);
+  source.receipt.logs=[];
+  assert.equal(confirmedPositionReadback(source.result, source.route, fresh as any,1000),null);
+});

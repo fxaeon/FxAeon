@@ -230,6 +230,11 @@ export function useOverlayDialog<T extends HTMLElement = HTMLElement>({ open, on
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (!wasTop()) return;
+      // A native child dialog owns its own keyboard lifecycle. Defer even
+      // when focus moved during copy, or the native close ran before bubbling.
+      const nativeTarget = event.target instanceof Element ? event.target.closest('dialog') : null;
+      if ((event.key === 'Escape' || event.key === 'Tab')
+        && (dialog.querySelector('dialog[open]') || (nativeTarget && nativeTarget !== (dialog as HTMLElement) && dialog.contains(nativeTarget)))) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         if (dismissibleRef.current) closeRef.current();

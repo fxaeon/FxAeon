@@ -1,12 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { AlertTriangle, Check, CheckCircle2, Circle, Clock3, Copy, ExternalLink, LoaderCircle, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, CheckCircle2, Circle, Clock3, ExternalLink, LoaderCircle, XCircle } from 'lucide-react';
 import type { TransactionStepResult } from '@/lib/fx';
 import { openExternalLink } from '@/lib/telegram';
 import { transactionExplorerUrl, transactionStepKind, transactionStepProgress } from '@/lib/transactionProgress';
+import { useTransactionEvidence } from './TransactionEvidenceContext';
 import presentation from './ActionReviewPresentation.module.css';
+import { TechnicalEvidenceRow } from './TechnicalEvidenceRow';
 
 export function chainName(chainId: number): string {
   return chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `Chain ${chainId}`;
@@ -30,10 +31,15 @@ export function stepProgress(step: TransactionStepResult | undefined): {
 }
 
 export function TransactionHashLink({ step, chainId }: { step: TransactionStepResult; chainId: number }) {
+  const simulated = useTransactionEvidence() === 'simulation';
   const url = transactionExplorerUrl(chainId, step.hash);
   if (!url || !step.hash) return null;
   const progress = stepProgress(step);
   const kind = transactionStepKind(step);
+  if (simulated) return <div className={presentation.hashLink} aria-label={`Simulated ${kind.toLowerCase()} ${step.index + 1}: ${progress.label}. No on-chain link.`}>
+    <span><span>{kind} {step.index + 1} · Simulated receipt</span><span className={progress.className}>{progress.icon}{progress.label}</span></span>
+    <span>No on-chain link</span>
+  </div>;
   return (
     <a
       href={url}
@@ -77,27 +83,5 @@ export function InlineError({ message }: { message: string }) {
 }
 
 export function CalldataDisclosure({ data }: { data: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(data);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setCopied(false);
-    }
-  };
-  return (
-    <div className="mt-2 border-t border-[var(--line)] pt-2">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold text-mut">Calldata</span>
-        <button type="button" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-[12px] font-semibold text-mut hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--mint)]" onClick={() => void copy()}>
-          {copied ? <Check aria-hidden="true" className="h-3.5 w-3.5" /> : <Copy aria-hidden="true" className="h-3.5 w-3.5" />}
-          {copied ? 'Copied' : 'Copy calldata'}
-        </button>
-      </div>
-      <pre className="max-h-28 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--surface-2)] p-2 font-mono text-[11px] leading-relaxed text-[var(--mut)] [overflow-wrap:anywhere]" tabIndex={0} aria-label="Transaction calldata">{data}</pre>
-      <span role="status" className="sr-only">{copied ? 'Calldata copied' : ''}</span>
-    </div>
-  );
+  return <TechnicalEvidenceRow label="Calldata" value={data} preview={`${data.slice(0, 10)} · ${Math.max(0, (data.length - 2) / 2)} bytes`} />;
 }

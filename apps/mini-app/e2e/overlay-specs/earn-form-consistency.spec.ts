@@ -31,7 +31,12 @@ const mocks: Record<string, string> = {
     React.useEffect(() => {if(resumeReview && planBuilder && !resumed.current){resumed.current=true;void open();}},[resumeReview,planBuilder]);
     return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p><button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<button disabled={!planBuilder || Boolean(blocker)} onClick={open}>{label}</button></>;
   };`,
-  '@/lib/fx': `export const assertWalletAddress = () => {}; export const assertPublicClientChain = async () => {}; export const getEthereumClient = () => ({}); export const MAX_FX_SLIPPAGE_PERCENT = 2; export const assertConfiguredPublicClientChain = async () => {}; export const withReadDeadline = promise => promise;
+  '@/lib/fx': `
+    // Wallet asset formatting needs real address/token identities, not live balances.
+    export { assertAddress } from 'real:lib/fx/validation';
+    export { resolveBridgeApprovalTokenAddress, resolveBridgeTokenAddress } from 'real:lib/fx/bridge';
+    export const getPublicClient = () => { throw new Error('Live balance reads are outside the Earn form fixture'); };
+    export const assertWalletAddress = () => {}; export const assertPublicClientChain = async () => {}; export const getEthereumClient = () => ({}); export const MAX_FX_SLIPPAGE_PERCENT = 2; export const assertConfiguredPublicClientChain = async () => {}; export const withReadDeadline = promise => promise;
     export const getFxReadFacade = () => ({getFxSaveConfig:async () => ({cooldownPeriodSeconds:3600n,instantRedeemFeeRatio:1000000000000000n,expenseRatio:0n,harvesterRatio:100000n,threshold:100n*10n**18n,totalAssetsWei:1000n*10n**18n,totalSupplyWei:1000n*10n**18n}),getFxSaveBalance:async () => ({balanceWei:BigInt(new URLSearchParams(location.search).get('fixtureShares') ?? 600n*10n**18n),assetsWei:62045n*10n**16n}),getFxSaveRedeemStatus:async () => ({hasPendingRedeem:false})});
     export const signatureDraftIdFromSearch = search => new URLSearchParams(search).get('fxDraft');
     export const restoreSignatureRequiredDraftFromSearch = (search,scope) => new URLSearchParams(search).has('fxDraft') && scope.actionKey === (new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'earn:deposit' : 'earn:withdraw') ? ({draft:{resumePath:'/earn'},formState:{mode:new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'deposit' : 'withdraw',token:new URLSearchParams(search).get('fixtureToken') ?? 'fxUSD',amount:'10',shares:'10',instant:new URLSearchParams(search).get('fixtureInstant') !== 'false',slippage:new URLSearchParams(search).get('fixtureSlippage') ?? '2'}}) : undefined;
@@ -119,6 +124,8 @@ test('deposits never offer or forward an unused slippage setting', async ({ page
   }
   expect(await storedSlippage(page)).toBe(50);
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await expect(page.getByRole('radio', { name: /After cooldown/ })).toBeChecked();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   await openSettings(page, '0.5');
 });
 
@@ -192,7 +199,9 @@ test('withdrawals compare the exact fxSAVE balance, and vault details read in th
   await expect(vault).not.toContainText(/raw units|Instant-redemption fee|Cooldown/);
   const holdings = page.getByText('Vault holdings', { exact: true });
   await expect(holdings).toHaveCount(1);
-  await expect(holdings.locator('..')).toContainText('$1K');
+  const holdingsValue = page.locator('dl > div').filter({ has: holdings }).locator('dd');
+  await expect(holdingsValue).toHaveText('$1K');
+  await expect(holdingsValue).toBeVisible();
   await expect(vault.getByText('Vault holdings', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Total fxSAVE vault value', { exact: true })).toHaveCount(0);
 });
@@ -201,6 +210,7 @@ test('the settings popover fits a 320px phone without clipping a row',async ({pa
   await page.setViewportSize({width:320,height:640});
   await mount(page,false);
   await page.getByRole('button',{name:'Withdraw',exact:true}).click();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   const dialog=await openSettings(page,'0.5');
   await expect(dialog.getByRole('radiogroup',{name:'Network speed'})).toBeVisible();
   const clipped=await dialog.evaluate((panel) => {
@@ -213,6 +223,7 @@ test('the settings popover fits a 320px phone without clipping a row',async ({pa
 test('transaction setting radio groups support arrow, Home and End keys with one tab stop', async ({ page }) => {
   await mount(page, false);
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   const dialog = await openSettings(page, '0.5');
   const slippage = dialog.getByRole('radiogroup', { name: 'Max slippage' });
   const slippageValues = ['0.1%', '0.5%', '1%', '2%'];
@@ -456,7 +467,7 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
   }
   await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
   await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
-  await expect(page.getByText(/with no queued claim/)).toBeVisible();
+  await expect(page.getByText('Direct redemption to fxSP has no cooldown or queued claim.', { exact: true })).toBeVisible();
   await expect(page.getByText(/A queued withdrawal is claimed later/)).toHaveCount(0);
   await gasOnlySettings(page);
   await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
@@ -495,7 +506,19 @@ test('direct base-pool routes show config-based share estimates and verified emp
   await page.getByLabel('Amount', { exact: true }).fill('10');
   await expect(page.getByText('Estimated fxSAVE received', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSAVE', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Based on current vault assets and share supply/)).toBeVisible();
+  const estimateHelp = page.getByRole('button', { name: 'About Estimated fxSAVE received', exact: true });
+  await estimateHelp.focus();
+  await estimateHelp.press('Enter');
+  const estimateExplanation = page.getByRole('dialog', { name: 'Estimated fxSAVE received', exact: true });
+  await expect(estimateExplanation).toBeVisible();
+  await expect(estimateExplanation).toBeFocused();
+  await expect(estimateExplanation).toHaveAccessibleDescription('Based on current vault assets and share supply.');
+  await page.keyboard.press('Escape');
+  await expect(estimateExplanation).toHaveCount(0);
+  await expect(estimateHelp).toBeFocused();
+  // Explaining a display-only estimate must not build or confirm a transaction.
+  expect(await latestPlan(page)).toBeUndefined();
+  await expect(page.getByRole('region', { name: 'Earn review' })).toHaveCount(0);
   await expect(page.getByText('Estimated fxSAVE received', { exact: true })).toHaveCount(1);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
@@ -543,6 +566,12 @@ for (const instant of [false, true]) {
     await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
     await gasOnlySettings(page);
     await page.getByLabel('Earn asset', { exact: true }).selectOption('usdc');
+    const methods = page.getByRole('group', { name: 'Withdrawal method' });
+    await expect(methods.getByRole('radio', { name: instant ? /^Instant/ : /After cooldown/ })).toBeChecked();
+    if (!instant) {
+      await gasOnlySettings(page);
+      await methods.getByRole('radio', { name: /^Instant/ }).locator('..').click();
+    }
     const dialog = await openSettings(page, '0.101');
     await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
   });

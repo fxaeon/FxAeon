@@ -140,8 +140,8 @@ test('Move keeps a late quote bound to the current amount and recipient', async 
     h.preview.pending[0].resolve({ readAt: Date.now(), nativeFee: 10n ** 16n, minimumReceived: 80n * 10n ** 16n, estimatedReceived: 81n * 10n ** 16n, nativeBalance: 1n, sourceGas: 2n * 10n ** 15n });
   });
   await expect(page.locator('section[aria-label="Receive assets"] strong').first()).toHaveText('0.99');
-  await expect(page.getByText('Minimum received').locator('xpath=following-sibling::dd')).toContainText('0.95 fxUSD');
-  await expect(page.getByText('Bridge fee').locator('xpath=following-sibling::dd')).toContainText('0.01 ETH');
+  await expect(page.locator('dt').filter({ hasText: /^Minimum received$/ }).locator('xpath=following-sibling::dd')).toContainText('0.95 fxUSD');
+  await expect(page.locator('dt').filter({ hasText: /^Bridge fee$/ }).locator('xpath=following-sibling::dd')).toContainText('0.01 ETH');
   await expect(page.getByRole('alert')).toContainText('Your balance does not cover the bridge fee and estimated transaction gas');
   const review = page.getByRole('button', { name: 'Add ETH on Ethereum for fees' });
   await expect(review).toBeDisabled();

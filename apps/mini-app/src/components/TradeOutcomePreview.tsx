@@ -6,6 +6,9 @@ import { LIQUIDATION_QUOTE_TTL_MS } from '@/lib/fx/liquidationQuote';
 import { positionOutcomeFacts } from '@/lib/fx/reviewFormatting';
 import type { PlannedRoute } from '@/lib/fx/types';
 import { approximately } from '@/lib/tradeOutcome';
+import { ReviewFactValue } from './review/ReviewFactValue';
+import { MetricLabel } from './InfoHelp';
+import { reviewHelpDefinition } from './review/reviewHelp';
 import styles from './TradeOutcomePreview.module.css';
 
 type Row = { label: string; value?: string; title?: string };
@@ -47,11 +50,11 @@ export function TradeOutcomePreview({ route }: { market: 'ETH' | 'BTC'; side: 'l
     <div className={styles.outcome} role="group" aria-label="Estimated position" aria-busy={!facts || undefined} data-trade-outcome={facts ? 'ready' : 'pending'}>
       <dl className={styles.facts}>
         {rows.map((row) => <div key={row.label} className={styles.row} data-outcome-fact={row.label}>
-          <dt>{row.label}</dt>
+          <dt><MetricLabel label={row.label} definition={reviewHelpDefinition(row.label)} /></dt>
           <dd>
             {row.value === undefined
               ? <MissingValue width={row.label === 'f(x) fee' ? 'sm' : 'xl'} announce={false} label={`Loading ${row.label.toLowerCase()}`} />
-              : <span className={styles.figure} title={row.title}>{row.value}</span>}
+              : <ReviewFactValue className={styles.figure} fact={{ label: row.label, value: row.value, title: row.title }} />}
           </dd>
         </div>)}
       </dl>

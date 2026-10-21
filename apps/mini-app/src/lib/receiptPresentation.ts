@@ -2,11 +2,17 @@ import { formatUnits, type Address } from 'viem';
 import { FX_TOKENS } from './fx/tokens';
 import type { FxChainId } from './fx/types';
 import type { ConfirmedPositionHint } from './confirmedPositions';
+import { tokenSymbol } from './fx/tokenPresentation';
 
 export type ReceiptTransferFact = { token: Address; from: Address; to: Address; amountRaw: bigint };
 export type ReceiptPresentation = {
   movements: string[];
+  /** Exact receipt-only token values for amount disclosures; never parsed from compact copy. */
+  exactMovements?: { direction: 'sent' | 'received'; amount: string; symbol: string }[];
+  exactNativeValue?: string | null;
   technicalMovements: string[];
+  /** Exact native fees for display-price conversion, never compact-string arithmetic. */
+  exactFees?: { execution?: string; l1Data?: string; operator?: string; total?: string };
   executionFee: string | null;
   feeLabel: string;
   totalFeeLabel: string | null;
@@ -96,6 +102,7 @@ export function buildReceiptPresentation(input: {
 }): ReceiptPresentation {
   const walletTokens = Object.values(FX_TOKENS).filter((token) => !token.native);
   const movements: string[] = [];
+  const exactMovements: NonNullable<ReceiptPresentation['exactMovements']> = [];
   const technicalMovements: string[] = [];
   if (input.status === 'success') for (const transfer of input.transfers ?? []) {
     const known = input.chainId === 1
@@ -104,6 +111,7 @@ export function buildReceiptPresentation(input: {
     const direction = known ? (transfer.from.toLowerCase() === input.walletAddress?.toLowerCase() ? 'sent' : 'received') : '';
     if (known) {
       movements.push(`${direction} ${compactAmount(transfer.amountRaw, known.decimals)} ${known.key}`);
+      exactMovements.push({ direction: direction as 'sent' | 'received', amount: formatUnits(transfer.amountRaw, known.decimals), symbol: tokenSymbol(known.key) });
     } else {
       movements.push('Token movement available in technical details');
       technicalMovements.push(`${transfer.from} → ${transfer.to}: token ${transfer.token}, ${transfer.amountRaw.toString()} base units`);
@@ -126,7 +134,15 @@ export function buildReceiptPresentation(input: {
     : null;
   return {
     movements,
+    exactMovements,
+    exactNativeValue: input.status === 'success' && input.nativeValueWei && input.nativeValueWei > 0n ? formatUnits(input.nativeValueWei, 18) : null,
     technicalMovements,
+    exactFees: {
+      ...(executionFee === undefined ? {} : { execution: formatUnits(executionFee, 18) }),
+      ...(l1DataFee === undefined ? {} : { l1Data: formatUnits(l1DataFee, 18) }),
+      ...(operatorFee === undefined ? {} : { operator: formatUnits(operatorFee, 18) }),
+      ...(totalExecutionFee === undefined ? {} : { total: formatUnits(totalExecutionFee, 18) }),
+    },
     executionFee: executionFee === undefined ? null : `${compactAmount(executionFee, 18)} ETH`,
     feeLabel,
     totalFeeLabel: totalExecutionFee === undefined ? null : `${feeSubject ? `${feeSubject} ` : ''}total execution fee`,

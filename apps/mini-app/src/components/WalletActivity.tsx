@@ -13,11 +13,12 @@ import TokenIcon, { ChainIcon } from './TokenIcon';
 import { SectionTitle } from './ui';
 import { FilterSelect } from './FilterSelect';
 import { BridgeTracker } from './BridgeTracker';
+import { AmountUsd } from '@/components/review/AmountUsd';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { useWalletActivity } from '@/lib/useWalletActivity';
 import { mergeWalletActivity, operationTitle, type WalletActivity as Activity } from '@/lib/walletActivity';
 import {
-  activityLegs, flowSymbolText, formatActivityAmount, networkName, signedLegText, UNVERIFIED_TOKEN_ICON,
+  activityLegs, flowSymbolText, formatActivityAmount, networkName, UNVERIFIED_TOKEN_ICON,
   type ActivityClassification, type ActivityFlow, type ActivityGlyph, type ActivityLeg,
 } from '@/lib/activityClassification';
 import { activityDayKey, activityDayLabel, activityRelativeTime } from '@/lib/activityTime';
@@ -30,6 +31,8 @@ import { copyText } from '@/lib/clipboard';
 import { formatUsd, usdValueForUnits, type UsdPriceMap } from '@/lib/prices';
 import type { FxTokenKey } from '@/lib/fx/tokens';
 import { loadActivityReceipt } from '@/lib/activityReceipt';
+import { readableReviewAmount } from './review/reviewHierarchy';
+import { useTransactionEvidence } from './review/TransactionEvidenceContext';
 import styles from './WalletActivity.module.css';
 import filterStyles from './FilterSelect.module.css';
 
@@ -206,7 +209,18 @@ function priceFor(flow: ActivityFlow, prices: UsdPriceMap): number | null {
 
 /** A leg's text with an "unverified" marker whenever its symbol is not canonical. */
 function legText(leg: ActivityLeg): string {
-  return leg.flow.verified ? signedLegText(leg) : `${signedLegText(leg)} (unverified)`;
+  return leg.flow.verified ? displayLegText(leg) : `${displayLegText(leg)} (unverified)`;
+}
+
+/** Display-only rounding matches review/receipts; original exact values stay available. */
+function displayLegAmount(leg: ActivityLeg): string {
+  if (leg.flow.amount === null) return 'Amount unknown';
+  const display = readableReviewAmount(leg.flow.exact ?? leg.flow.amount);
+  return `${display.shortened ? '≈ ' : ''}${leg.direction === 'in' ? '+' : '−'}${display.value}`;
+}
+
+function displayLegText(leg: ActivityLeg): string {
+  return `${displayLegAmount(leg)} ${flowSymbolText(leg.flow)}`;
 }
 
 type Secondary = { text: string; tone?: 'warn' | 'danger'; title?: string };
@@ -265,7 +279,7 @@ function ActivityRow({ item, prices, grouped, onOpen }: { item: Activity; prices
     <ActivityIcon classification={classification} />
     <span className={styles.label}><strong>{item.title}</strong><span title={subtitle}>{subtitle}</span></span>
     <span className={styles.outcome}>
-      {primary && <strong className={styles.amount} data-direction={primary.direction} title={exactLegText(primary)}>{signedLegText(primary)}</strong>}
+      {primary && <strong className={styles.amount} data-direction={primary.direction} title={exactLegText(primary)}>{displayLegText(primary)}</strong>}
       {secondary && <span className={styles.secondary} data-tone={secondary.tone} title={secondary.title ?? secondary.text}>{secondary.text}</span>}
     </span>
     <ChevronRight size={15} className={styles.chevron} aria-hidden="true" />
@@ -287,14 +301,13 @@ function FlowList({ label, legs, prices }: { label: string; legs: ActivityLeg[];
     <ul>{legs.map((leg) => {
       const usd = priceFor(leg.flow, prices);
       return <li key={`${leg.direction}:${leg.flow.token ?? 'native'}`} className={styles.flow}>
-        <span className={styles.flowToken}>
-          <span aria-hidden="true"><TokenMark symbol={leg.flow.verified ? leg.flow.symbol : UNVERIFIED_TOKEN_ICON} size={30} /></span>
-          <span className={styles.flowSymbol} title={leg.flow.token ?? undefined}>{flowSymbolText(leg.flow)}</span>
-          {!leg.flow.verified && <span className={styles.unverified}>Unverified</span>}
-        </span>
+        <span className={styles.flowMark} aria-hidden="true"><TokenMark symbol={leg.flow.verified ? leg.flow.symbol : UNVERIFIED_TOKEN_ICON} size={40} /></span>
         <span className={styles.flowAmount}>
-          <strong data-direction={leg.direction} title={leg.flow.exact ?? undefined}>{leg.flow.amount === null ? 'Amount unknown' : `${leg.direction === 'in' ? '+' : '−'}${leg.flow.amount}`}</strong>
-          {usd !== null && <small>{formatUsd(usd)}</small>}
+          <strong data-direction={leg.direction} title={leg.flow.exact ?? undefined}>{displayLegAmount(leg)} <span className={styles.flowUnit} title={leg.flow.token ?? undefined}>{flowSymbolText(leg.flow)}</span></strong>
+          <span className={styles.flowMeta}>
+            {usd !== null && <small>{formatUsd(usd)}</small>}
+            {!leg.flow.verified && <span className={styles.unverified}>Unverified</span>}
+          </span>
         </span>
       </li>;
     })}</ul>
@@ -310,6 +323,7 @@ function counterpartyTerm(classification: ActivityClassification): string {
 }
 
 function ActivityDetail({ item, open, onClose, triggerRef, prices }: { item: Activity; open: boolean; onClose: () => void; triggerRef: React.RefObject<HTMLButtonElement | null>; prices: UsdPriceMap }) {
+  const simulation = useTransactionEvidence() === 'simulation';
   const closeRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const ref = useOverlayDialog<HTMLDivElement>({ open, onClose, triggerRef, initialFocusRef: closeRef });
@@ -333,18 +347,21 @@ function ActivityDetail({ item, open, onClose, triggerRef, prices }: { item: Act
       : receipt.isFetching ? 'Checking…' : null;
   const statusTone = indexedReceipt?.status ?? item.status;
   // Only amounts that rounding changed need their exact value spelled out.
-  const rounded = [...sent, ...received].filter((leg) => leg.flow.exact !== null && leg.flow.exact !== leg.flow.amount?.replace(/,/g, ''));
+  const rounded = [...sent, ...received].filter((leg) => leg.flow.exact !== null && (leg.flow.exact !== leg.flow.amount?.replace(/,/g, '') || readableReviewAmount(leg.flow.exact).shortened));
   const exactLine = rounded.map((leg) => `${leg.direction === 'in' ? '+' : '−'}${leg.flow.exact} ${flowSymbolText(leg.flow)}${leg.flow.verified ? '' : ' (unverified)'}`).join(', ');
   const counterparty = classification.counterparty;
   const bridge = view?.record.bridge;
   const explorer = `${explorerHost(item.chainId)}/tx/${item.hash}`;
+  const showSummary = failed || (item.status === 'indexed' && indexedReceipt?.status !== 'confirmed') || item.status === 'pending' || item.statusLabel === 'Source confirmed'
+    || (sent.length === 0 && received.length === 0)
+    || (view !== undefined && view.verification !== 'receipt');
   if (!present || typeof document === 'undefined') return null;
   return createPortal(<div className={styles.backdrop} data-state={open ? 'open' : 'closed'} inert={!open} aria-hidden={!open || undefined} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div ref={ref} role="dialog" aria-modal="true" aria-label="Transaction details" className={styles.sheet}>
       <span className={styles.handle} aria-hidden="true" />
       <header>
         <ActivityIcon classification={classification} size={44} />
-        <div><h2>{classification.title}</h2><p>{failed && !view ? `This transaction failed on ${networkName(item.chainId)}. Nothing moved except the network fee.` : classification.summary}</p></div>
+        <div><h2>{classification.title}</h2>{showSummary && <p>{failed && !view ? `This transaction failed on ${networkName(item.chainId)}. Nothing moved except the network fee.` : classification.summary}</p>}</div>
         <button ref={closeRef} type="button" aria-label="Close transaction details" onClick={onClose}><X size={20} aria-hidden="true" /></button>
       </header>
       <div className={styles.detailBody}>
@@ -361,10 +378,10 @@ function ActivityDetail({ item, open, onClose, triggerRef, prices }: { item: Act
             </ExplorerLink>
           </dd></div>}
           <div><dt>Network</dt><dd><span className={styles.factIcon} aria-hidden="true"><ChainIcon chainId={item.chainId} size={18} /></span>{networkName(item.chainId)}</dd></div>
-          {cost && costWei !== undefined && <div><dt>{item.chainId === 8453 ? 'Execution cost' : 'Network cost'}</dt><dd title={`${formatUnits(costWei, 18)} ETH`}>{cost} ETH</dd></div>}
+          {cost && costWei !== undefined && <div><dt>{item.chainId === 8453 ? 'Execution cost' : 'Network cost'}</dt><dd title={`${formatUnits(costWei, 18)} ETH`}><span>{cost} ETH<AmountUsd amount={formatUnits(costWei, 18)} symbol="ETH" receipt /></span></dd></div>}
           {status && <div><dt>Status</dt><dd data-status={statusTone}>{status}</dd></div>}
           <div><dt>Date</dt><dd>{new Date(item.timestamp).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
-          <div><dt>Transaction</dt><dd><ExplorerLink href={explorer} label={`View transaction ${compactAddress(item.hash)} on ${item.chainId === 1 ? 'Etherscan' : 'Basescan'}`}>{compactAddress(item.hash)}</ExplorerLink></dd></div>
+          <div><dt>Transaction</dt><dd>{simulation ? <span>Simulated receipt</span> : <ExplorerLink href={explorer} label={`View transaction ${compactAddress(item.hash)} on ${item.chainId === 1 ? 'Etherscan' : 'Basescan'}`}>{compactAddress(item.hash)}</ExplorerLink>}</dd></div>
         </dl>
         {exactLine && <div className={styles.exact}>
           <div><small>Exact amounts</small><code>{exactLine}</code></div>

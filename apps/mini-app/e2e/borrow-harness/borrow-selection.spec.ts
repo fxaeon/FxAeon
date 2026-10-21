@@ -9,6 +9,7 @@ const tsxPackage = require.resolve('tsx/package.json', { paths: [resolve(root, '
 const esbuild = createRequire(tsxPackage)('esbuild') as { build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ text: string }> }> };
 const src = resolve(root, 'apps/mini-app/src');
 const entry = resolve(root, 'apps/mini-app/e2e/harness/borrow-selection-entry.tsx');
+const sdkPackage = require.resolve('@aladdindao/fx-sdk', { paths: [resolve(root, 'apps/mini-app')] });
 
 const mocks: Record<string, string> = {
   // The settings gear links to Settings and closes with the router; the harness has neither Next's
@@ -35,6 +36,13 @@ const mocks: Record<string, string> = {
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({deposit:'',mint:'',repay:'',withdraw:''});`,
   '@aladdindao/fx-sdk': `export const tokens = { eth: '0x0000000000000000000000000000000000000001', weth: '0x0000000000000000000000000000000000000002', stETH: '0x0000000000000000000000000000000000000003', wstETH: '0x0000000000000000000000000000000000000004', WBTC: '0x0000000000000000000000000000000000000005', usdc: '0x0000000000000000000000000000000000000006', usdt: '0x0000000000000000000000000000000000000007', fxUSD: '0x0000000000000000000000000000000000000008', fxUSDBasePool: '0x0000000000000000000000000000000000000009' };`,
 };
+// The real post-confirmation presentation imports receipt proof helpers. Keep
+// their SDK metadata intact, but fail closed if this selection-only fixture
+// accidentally starts an SDK read instead of using the supplied snapshots.
+mocks['@aladdindao/fx-sdk'] += `
+  export { BRIDGE_OFT_BY_TOKEN } from ${JSON.stringify(sdkPackage)};
+  export class FxSdk { constructor() { throw new Error('Live SDK reads are outside the borrow selection fixture'); } }
+`;
 
 async function buildHarness(): Promise<string> {
   type BuildApi = { onResolve: (options: { filter: RegExp }, callback: (args: { path: string; resolveDir?: string }) => unknown) => void; onLoad: (options: { filter: RegExp; namespace?: string }, callback: (args: { path: string; resolveDir: string }) => unknown) => void };
@@ -130,7 +138,8 @@ test('collateral and debt show dollar equivalents without guessing missing or st
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 0.99 }; });
   await page.getByRole('button', { name: 'Your positions' }).click();
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
-  await expect(card).toContainText('100.00 fxUSD');
+  await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
+  await expect(card.getByText('100 fxUSD', { exact: true })).toHaveAttribute('title', '100 fxUSD');
   await expect(card).toContainText('≈ $99.00');
   await expect(card).toContainText('2 stETH');
   await expect(card).toContainText('≈ $4,800.00');
@@ -151,7 +160,8 @@ test('collateral and debt show dollar equivalents without guessing missing or st
     harness.prices = { ETH: 2400, fxUSD: 0.99 };
     harness.shared = { ...harness.shared, status: 'partial', failedGroups: [{ market: 'ETH', side: 'long', reason: 'read timeout' }] };
   });
-  await expect(manager.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('summary').getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('dl').getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
   await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toBeVisible();
   await expect(manager.locator('summary')).not.toContainText('$0.00');
   expect(await page.evaluate(() => globalThis.__borrowHarness.walletRequestCount)).toBe(0);
@@ -184,7 +194,8 @@ test('a failed first price read resolves the skeleton into explicit missing valu
   await expect(page.getByRole('status', { name: 'Loading borrowing position', exact: true })).toHaveAttribute('aria-busy', 'true');
   await changeSnapshot(page, (harness) => { harness.pricesPending = false; });
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
-  await expect(card).toContainText('100.00 fxUSD');
+  await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
+  await expect(card.getByText('100 fxUSD', { exact: true })).toHaveAttribute('title', '100 fxUSD');
   await expect(card.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
   await expect(card).not.toContainText('$0.00');
 });
@@ -409,10 +420,13 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   await expect(review).toHaveAttribute('data-blocker', 'Borrow at least 31.34 fxUSD');
   await borrow.fill('31.34');
   await expect(review).toBeEnabled();
-  // 800 of 1,200 is 66.67%: shown as 66.7%; the 83.79% limit is shown as 83.7%.
+  // 800 of 1,200 is 66.66…%: the display states an upper bound, while the limit keeps its exact basis points.
   await borrow.fill('800');
-  await expect(page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' })).toHaveAttribute('aria-valuetext', '66.7% of a 83.7% limit');
-  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('0.0% → 66.7%');
+  const meter = page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' });
+  await expect(meter).toHaveAttribute('aria-valuetext', '≤ 66.67% of a 83.79% limit');
+  await expect(meter).toHaveAttribute('aria-valuemax', '83.79');
+  // No starting collateral means no prior ratio, rather than a fabricated zero LTV.
+  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
 });
 
 test('the withdrawal field names how much collateral can leave before review', async ({ page }) => {
@@ -442,8 +456,8 @@ test('an existing position hands the review its loan-to-value against the live l
   await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   const before = page.locator('[data-decision-before]');
-  // 100 fxUSD against 2 ETH at $2,400 is 2.083…%, shown as 2.1%; the 83.79% limit is shown as 83.7%.
-  await expect(before).toContainText('Loan-to-value: 2.1% of 83.7% limit');
+  // 100 fxUSD against 2 ETH at $2,400 is 2.083…%, bounded above by 2.09%; the limit remains exactly 83.79%.
+  await expect(before).toContainText('Loan-to-value: ≤ 2.09% of 83.79% limit');
   await expect(before).toContainText('Debt: 100 fxUSD');
   // Without a fresh price there is no verified figure to hand over.
   await changeSnapshot(page, (harness) => { harness.prices = {}; });
@@ -488,7 +502,7 @@ test('borrowing previews debt separately from net proceeds and clears invalid or
   await page.getByLabel('Collateral', { exact: true }).fill('0.5');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
   const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome' });
-  await expect(outcome).toContainText('Total debt0 → 800 fxUSD');
+  await expect(outcome).toContainText('Total debt0 fxUSD → 800 fxUSD');
   await expect(outcome).not.toContainText('Before conversion and fees');
   await expect(page.getByText('The amount borrowed is added to your debt. You receive fxUSD after the f(x) fee.')).toHaveCount(0);
   await expect(page.getByText('Collateral can be liquidated. Keep room below the borrowing limit.')).toHaveCount(0);
@@ -516,10 +530,10 @@ test('repayment outcomes use the selected position debt and clear invalid input'
   await expect(page.getByRole('heading', { name: 'Repay debt', exact: true })).toBeVisible();
   const outcome = page.getByRole('region', { name: 'Estimated position changes' });
   await page.getByLabel('Repay amount', { exact: true }).fill('40');
-  await expect(outcome).toContainText('Total debt100 → 60 fxUSD');
+  await expect(outcome).toContainText('Total debt100 fxUSD → 60 fxUSD');
   await expect(outcome).not.toContainText('Before conversion and fees');
   await page.getByLabel('Repay amount', { exact: true }).fill('all');
-  await expect(outcome).toContainText('Total debt100 → 0 fxUSD');
+  await expect(outcome).toContainText('Total debt100 fxUSD → 0 fxUSD');
   await page.getByLabel('Repay amount', { exact: true }).fill('101');
   await expect(outcome).toHaveCount(0);
   await page.getByLabel('Repay amount', { exact: true }).fill('bad');

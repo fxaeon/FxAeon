@@ -13,6 +13,7 @@ import {
 // exact SDK package; FxAeon does not maintain a second protocol-address list.
 import { createFxSdkFacade, getFxSdk } from "./sdk";
 import { normalizeRouteResult, normalizeTxResult } from "./normalize";
+import { assertPositionEconomics } from "./positionEconomics";
 import { planBridge } from "./bridge";
 import { assertConfiguredPublicClientChain } from "./clients";
 import { validateReviewedAction } from "./actionValidation";
@@ -160,13 +161,6 @@ function ethLongAccounting(market: unknown, type: unknown, heldPositionId?: numb
   return market === "ETH" && type === "long" ? readEthLongAccounting({ heldPositionId }) : undefined;
 }
 
-function assertRequestedLeverage(route: PlannedRoute, requested: number): void {
-  const planned = route.details?.leverage;
-  if (planned === undefined || Math.abs(planned - requested) > 1e-9) {
-    throw new Error("SDK route leverage does not match the reviewed target");
-  }
-}
-
 function assertSdkSlippage(route: PlannedRoute, requested: number): void {
   const echoed = route.details?.sdkSlippagePercent;
   // Older SDK route shapes may omit the root echo. When it is present, bind
@@ -263,7 +257,7 @@ export async function planIncreasePosition(request: IncreasePositionRequest): Pr
   const accountingDetails = accounting ? await accounting : {};
   const liquidationQuote = liquidation ? await liquidation : undefined;
   return normalizeRouteResult("increasePosition", result, assertAddress(request.userAddress)).map((route) => {
-    assertRequestedLeverage(route, request.leverage);
+    const { effectiveLeverage } = assertPositionEconomics(route, request);
     assertSdkSlippage(route, request.slippage);
     return withRequestDetails(withReviewedPolicy(route, {
       maxValueWei: isNativeToken(inputTokenAddress) ? request.amount : 0n,
@@ -290,6 +284,7 @@ export async function planIncreasePosition(request: IncreasePositionRequest): Pr
       },
     }), {
       ...accountingDetails,
+      effectiveLeverage,
       ...(liquidationQuote === undefined ? {} : { liquidationQuote }),
       requestedAmount: request.amount.toString(),
       requestedLeverage: request.leverage,
@@ -349,7 +344,7 @@ export async function planAdjustPositionLeverage(
   });
   const accountingDetails = accounting ? await accounting : {};
   return normalizeRouteResult("adjustPositionLeverage", result, assertAddress(request.userAddress)).map((route) => {
-    assertRequestedLeverage(route, request.leverage);
+    const { effectiveLeverage } = assertPositionEconomics(route, request);
     assertSdkSlippage(route, request.slippage);
     return withRequestDetails(withReviewedPolicy(route, {
       maxValueWei: 0n,
@@ -369,6 +364,7 @@ export async function planAdjustPositionLeverage(
       },
     }), {
       ...accountingDetails,
+      effectiveLeverage,
       requestedLeverage: request.leverage,
       slippagePercent: request.slippage,
     });

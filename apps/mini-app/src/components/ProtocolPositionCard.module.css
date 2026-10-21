@@ -97,7 +97,7 @@
 .overviewName { display: block; color: var(--text); font-size: 17px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; }
 .overviewName > span { font-size: 13px; margin-left: 4px; }
 .overviewMeta { display: block; margin-top: 5px; color: var(--mut); font-size: 12px; font-variant-numeric: tabular-nums; }
-.overviewValue { color: var(--text); font-size: 21px; font-weight: 500; letter-spacing: -.025em; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.overviewValue { color: var(--text); font-size: 21px; font-weight: 500; letter-spacing: -.025em; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .approximation { color: var(--mut); font-size: .7em; }
 .overviewThreshold { color: var(--text); text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
 .overviewMetricLabel { display: block; margin-bottom: 7px; color: var(--mut); font-size: 12px; }

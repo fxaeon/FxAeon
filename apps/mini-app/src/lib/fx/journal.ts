@@ -1,5 +1,6 @@
 import { isAddress, keccak256, type Address, type Hex } from "viem";
-import { OFFICIAL_FX_METHODS, type FxChainId, type PendingActionIntent, type PendingBridgeContext, type PendingHashRecord } from "./types";
+import { OFFICIAL_FX_METHODS, type FxChainId, type PendingActionIntent, type PendingBridgeContext, type PendingBridgeDeliveryProof, type PendingHashRecord } from "./types";
+import { parsePendingBridgeDeliveryProof, samePendingBridgeContext } from "./bridgeProof";
 
 const LEGACY_STORAGE_KEYS = [
   "fxaeon:pending-hashes:v1",
@@ -118,6 +119,22 @@ function recordStorageKey(record: PendingHashRecord): string {
   return `${RECORD_EVENT_KEY_PREFIX}${encodeURIComponent(record.id)}:${record.status}`;
 }
 
+function withoutDeliveryProof(bridge: PendingBridgeContext): PendingBridgeContext {
+  const { deliveryProof: _deliveryProof, ...context } = bridge;
+  return context;
+}
+
+/** Corrupt optional evidence must not erase the source hash needed for recovery. */
+function sanitizedRecord(value: unknown): PendingHashRecord | null {
+  if (!validRecord(value)) return null;
+  if (!value.bridge || value.bridge.deliveryProof === undefined) return value;
+  const deliveryProof = value.status === "confirmed" && value.stepKind !== "approval"
+    ? parsePendingBridgeDeliveryProof(value.bridge.deliveryProof, { ...value, bridge: value.bridge })
+    : undefined;
+  const bridge = withoutDeliveryProof(value.bridge);
+  return { ...value, bridge: { ...bridge, ...(deliveryProof ? { deliveryProof } : {}) } };
+}
+
 function readRecordKeys(target: Storage): PendingHashRecord[] {
   const records: PendingHashRecord[] = [];
   // Storage.key()/length are part of the Web Storage contract. A few tiny
@@ -129,7 +146,8 @@ function readRecordKeys(target: Storage): PendingHashRecord[] {
     if (!key?.startsWith(LEGACY_RECORD_KEY_PREFIX) && !key?.startsWith(RECORD_EVENT_KEY_PREFIX)) continue;
     try {
       const parsed: unknown = JSON.parse(target.getItem(key) ?? "null");
-      if (validRecord(parsed)) records.push(parsed);
+      const record = sanitizedRecord(parsed);
+      if (record) records.push(record);
     } catch {
       // Ignore one malformed/untrusted local record; other records remain
       // independently recoverable.
@@ -174,7 +192,10 @@ function readAll(): PendingHashRecord[] {
   for (const key of LEGACY_STORAGE_KEYS) {
     try {
       const parsed: unknown = JSON.parse(target.getItem(key) ?? "[]");
-      if (Array.isArray(parsed)) legacy.push(...parsed.filter(validRecord));
+      if (Array.isArray(parsed)) legacy.push(...parsed.flatMap(value => {
+        const record = sanitizedRecord(value);
+        return record ? [record] : [];
+      }));
     } catch {
       // One malformed legacy version cannot hide independently valid events.
     }
@@ -234,6 +255,50 @@ export function readPendingHashes(): PendingHashRecord[] {
   return readAll().filter((record) => record.status === "pending");
 }
 
+export type BridgeProofJournalIdentity = {
+  walletAddress: string;
+  chainId: FxChainId;
+  hash: string;
+  bridge: PendingBridgeContext;
+};
+
+function matchingBridgeRecord(record: PendingHashRecord, identity: BridgeProofJournalIdentity): boolean {
+  return record.operation === "buildBridgeTx" && record.stepKind !== "approval"
+    && record.status === "confirmed" && Boolean(record.bridge)
+    && record.chainId === identity.chainId
+    && record.walletAddress.toLowerCase() === identity.walletAddress.toLowerCase()
+    && record.hash.toLowerCase() === identity.hash.toLowerCase()
+    && validBridgeContext(identity.bridge, identity.chainId)
+    && samePendingBridgeContext(record.bridge!, identity.bridge);
+}
+
+/**
+ * Cached evidence is only a recovery hint. The tracker must repeat source-event,
+ * destination-event, canonical block, and finality checks before using its amount.
+ */
+export function readPendingBridgeDeliveryProof(identity: BridgeProofJournalIdentity): PendingBridgeDeliveryProof | undefined {
+  const record = readAll().find(candidate => matchingBridgeRecord(candidate, identity));
+  return record?.bridge?.deliveryProof;
+}
+
+/** Call only after the canonical destination event passes the tracker's finality checks. */
+export function updatePendingBridgeDeliveryProof(
+  identity: BridgeProofJournalIdentity,
+  value: PendingBridgeDeliveryProof,
+): boolean {
+  const record = readAll().find(candidate => matchingBridgeRecord(candidate, identity));
+  if (!record?.bridge) return false;
+  const deliveryProof = parsePendingBridgeDeliveryProof(value, { ...record, bridge: record.bridge });
+  if (!deliveryProof) return false;
+  if (JSON.stringify(record.bridge.deliveryProof) === JSON.stringify(deliveryProof)) return true;
+  writeRecord({
+    ...record,
+    bridge: { ...record.bridge, deliveryProof },
+    updatedAt: Math.max(Date.now(), (record.updatedAt ?? record.submittedAt) + 1),
+  });
+  return true;
+}
+
 export function recordPendingHash(params: {
   operation: PendingHashRecord['operation'];
   stepKind?: PendingHashRecord["stepKind"];
@@ -265,7 +330,8 @@ export function recordPendingHash(params: {
     nonce: params.nonce,
     dataHash: keccak256(params.data),
     valueWei: params.value.toString(),
-    bridge: params.bridge,
+    // A newly submitted action can carry recovery facts, never completed-delivery evidence.
+    bridge: params.bridge ? withoutDeliveryProof(params.bridge) : undefined,
     submittedAt,
     updatedAt: submittedAt,
     status: "pending",
@@ -285,7 +351,9 @@ export function updatePendingHash(hash: Hex, status: "confirmed" | "failed"): vo
     // storage event. A changed terminal status (for example after a reorg)
     // still appends a newer event below.
     if (record.status === status) continue;
-    changed.push({ ...record, status, updatedAt: Math.max(Date.now(), (record.updatedAt ?? record.submittedAt) + 1) });
+    changed.push({ ...record, status,
+      ...(status === "failed" && record.bridge ? { bridge: withoutDeliveryProof(record.bridge) } : {}),
+      updatedAt: Math.max(Date.now(), (record.updatedAt ?? record.submittedAt) + 1) });
   }
   if (changed.length) writeRecords(changed);
 }
@@ -309,7 +377,9 @@ export function updatePendingHashRecord(
       && candidate.hash.toLowerCase() === record.hash.toLowerCase()
       && candidate.to.toLowerCase() === record.to.toLowerCase();
     if (sameRecord && candidate.status !== status) {
-      changed.push({ ...candidate, status, updatedAt: Math.max(Date.now(), (candidate.updatedAt ?? candidate.submittedAt) + 1) });
+      changed.push({ ...candidate, status,
+        ...(status === "failed" && candidate.bridge ? { bridge: withoutDeliveryProof(candidate.bridge) } : {}),
+        updatedAt: Math.max(Date.now(), (candidate.updatedAt ?? candidate.submittedAt) + 1) });
     }
   }
   if (changed.length) writeRecords(changed);

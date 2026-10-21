@@ -1,0 +1,17 @@
+.footer { width: 100%; min-width: 0; margin: 0; padding: 8px 2px 6px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; min-height: 36px; margin: 0; font-size: 12.8px; line-height: 1.5; }
+.row dt, .row h3 { color: var(--mut); padding: 8px 0; text-align: left; }
+.row h3 { margin: 0; font-size: inherit; font-weight: 400; line-height: inherit; outline: none; }
+.row dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; font-weight: 670; font-variant-numeric: tabular-nums; }
+.confirmation { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--mut); }
+.confirmation > svg { flex: 0 0 auto; color: var(--success); }
+.links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 12px; min-width: 0; text-align: right; }
+.link { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; min-height: 44px; color: var(--link, #98baff); text-decoration: none; font-weight: 670; }
+.link svg { flex-shrink: 0; }
+.link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.link:focus-visible, .fee:focus-visible { border-radius: 4px; outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.fee { padding: 8px 0; }
+.note { color: var(--mut); font-size: 11px; font-weight: 400; }
+.fee .note { display: block; margin-top: 1px; }
+.fee[data-fee-state='priced'] .note { display: inline; margin-left: 4px; }
+@media (max-width: 360px) { .row { column-gap: 10px; font-size: 12px; } }

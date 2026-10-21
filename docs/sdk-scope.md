@@ -40,6 +40,62 @@ patch upstream. Each part of the patch stands as follows:
 Until an npm release includes these changes, the patch remains what the app
 installs.
 
+## Borrow-search and economic validation
+
+The local patch rejects a positive borrowing search whose initial bracket is
+already within the solver's absolute precision. Previously that branch returned
+an unqueried half-hint, including zero, and never consulted the converter. The
+rejection is local and adds no RPC call. It asks the user to increase the amount.
+The exact zero-target/zero-bracket case remains a zero borrow, so debt-free 1x
+is not classified as dust. Pool limits still decide whether that route is allowed.
+
+Normal searches retain their existing 100-sample grids, ten-pass maximum and
+multicall pacing. Failed, malformed, nonmonotonic, initially flat or unbracketed
+converter results fail closed. Flat refinements may retain an already verified
+crossing, and every grid includes its upper endpoint. The result is an actually
+evaluated upper crossing rather than an unqueried lower bound. Existing route
+slippage and pool checks remain.
+Both installed ESM and CommonJS bundles have executable regression coverage.
+
+A $0.01 **deposit** floor is insufficient: a 1.1x long requests approximately
+$0.001 of additional borrowing. The fxUSD search's zero-query boundary is a hint
+of 6,666,666,666,666,666 raw units (about $0.006667), not a universal deposit
+minimum. The reverse search uses collateral-token units instead. No display USD
+feed or new dollar-input restriction is used for transaction decisions.
+
+Increase and leverage-adjust plans now carry the pool's already-read price
+sample, wrapping rate, current balances, converted input and exact fee ratios.
+The adapter independently validates the requested borrowed/repaid exposure and
+the resulting collateral/debt, without trusting the SDK's leverage echo or
+adding a read. The existing two-sided SDK execution-price sample is used, not a
+display feed or a mismatched oracle denomination. ETH long mixed-unit quotes are
+converted correctly; shorts measure debt/equity. Adds apply the requested
+leverage to the new equity rather than requiring the entire old position to
+match it. The BTC leverage-down collateral quote's erroneous extra 1e10 scaling
+is corrected without changing its transaction calldata.
+
+The guard works in dollar-amount intervals, not a flat leverage tolerance. A
+2% relative solver allowance covers the legacy first grid's up-to-1.5% hint
+width. The bounds are multiplied by (1 - slippage)^2 and (1 + slippage)^2 and
+propagated through the exact supply/withdrawal fee; at 2% requested slippage this
+permits roughly -5.88%/+6.12% of the **changed exposure**, never that percentage
+of total collateral. Native-unit rounding is separate and cannot exceed 10%
+of the intended change. Quotes outside these bounds or with nonpositive equity
+are rejected. This is a deliberately bounded compatibility policy, not an
+exact-leverage guarantee or widened calldata slippage. The review reports the
+independently computed effective leverage alongside the requested target.
+
+One existing SDK edge remains intentionally fail-closed: when adding to an
+already debt-free position, its zero-debt leverage sentinel can skip blending
+and borrow against old capital too. The guard rejects that wrong incremental
+exposure even though the nominal echo matches. This patch does not change the
+SDK's global zero-debt sentinel or silently reinterpret the user's add request.
+
+These checks add local integer arithmetic only. They do not make network-backed
+planning instantaneous. Normal converter grids and their pacing are unchanged;
+unsupported dust avoids the search entirely. Calldata validation, pool limits,
+review expiry, simulation and explicit wallet approval remain required.
+
 ## Review preparation timing
 
 The local SDK patch replaces the unconditional 500 ms sleep after each chunk
@@ -137,10 +193,11 @@ a muted stETH equivalent beneath them, also rounded down. USD values keep their
 price basis: a position's SDK symbol, and the ticket preview's wstETH quote at
 the wstETH price.
 
-The SDK's BTC reduce and leverage-down quotes scale the withdrawn collateral
-by 1e10 too many (`withdraw / precision × rateRes` with an 8-decimal precision
-and a 1e18 rate), which makes them negative; the review omits a collateral
-figure it cannot read as a non-negative integer.
+The upstream SDK's BTC reduce and leverage-down quotes scale the withdrawn
+collateral by 1e10 too many (`withdraw / precision × rateRes` with an 8-decimal
+precision and a 1e18 rate). The local patch corrects leverage-down quote metadata
+for the economics guard. Reduce quotes retain the upstream behavior; the review
+omits a collateral figure it cannot read as a non-negative integer.
 
 ## Position brake
 

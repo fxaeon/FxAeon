@@ -16,6 +16,11 @@ import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
 import { readGasTier } from '@/lib/settings';
 import { estimatePlannedRouteCost } from '@/lib/fx';
+import { borrowLtvCeiling, formatBorrowBasisPoints } from '@/components/review/borrowLimitPresentation';
+import { ReviewFactValue } from '@/components/review/ReviewFactValue';
+import { formatReviewFactValue } from '@/components/review/reviewFactFormatting';
+import { MetricLabel } from '@/components/InfoHelp';
+import { confirmedPositionReadback, type ConfirmedPositionReadback } from '@/components/review/positionReview';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import { useProtocolPositions } from '@/components/ProtocolPositionProvider';
 import { ProtocolPositionNotice } from '@/components/ProtocolPositionCard';
@@ -38,7 +43,6 @@ import { usePrivyWallet } from '@/lib/wallet';
 import {
   ETH_MARKET_TOKENS,
   BTC_MARKET_TOKENS,
-  formatAmount,
   parseZeroAmount,
   positionCollateralDecimals,
   positionDebtDecimals,
@@ -54,12 +58,13 @@ import presentation from '@/components/BorrowWorkspace.module.css';
 import { ActionWorkspace } from '@/components/ProductLayout';
 import { borrowSelectionIsActionable } from './selectionEligibility';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
+import { positionTokenPresentation } from '@/lib/positionPresentation';
 import { priceKeyForSymbol } from '@/lib/prices';
 import { resetTransactionAmounts } from '@/lib/transactionState';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { BorrowSections } from '@/components/ProductSections';
 import { borrowCapacity, BORROW_LIMIT_GUARD_BPS, collateralUsdWad, loanToValueBps, tokenAmountForUsdWad, withdrawableCollateralUsd } from '@/lib/fx/borrowLimits';
-import { formatSignificantDecimal, formatSignificantDecimalUp, groupDigits } from '@/lib/amount';
+import { formatSignificantDecimal, formatSignificantDecimalUp } from '@/lib/amount';
 import { amountBlocker } from '@/lib/formBlockers';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
 
@@ -152,6 +157,7 @@ export default function BorrowPage() {
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
+  const [confirmedPosition, setConfirmedPosition] = useState<ConfirmedPositionReadback | null>(null);
   const managerTriggerRef = useRef<HTMLElement>(null);
   const overviewHeadingRef = useRef<HTMLHeadingElement>(null);
   const managerSnapshotRef = useRef<UiPosition | null>(null);
@@ -173,8 +179,10 @@ export default function BorrowPage() {
     : undefined;
   const refreshPositions = sharedPositions.refresh;
   const refreshAfterAction = useCallback(async (execution: TransactionExecutionResult, route: PlannedRoute) => {
+    const confirmedAt = Date.now();
     await trackConfirmedPosition(execution, route);
-    await Promise.all([refreshPositions(), refreshBalances()]);
+    const [read] = await Promise.all([refreshPositions({ afterConfirmation: true }), refreshBalances()]);
+    setConfirmedPosition(confirmedPositionReadback(execution, route, read, confirmedAt));
   }, [refreshBalances, refreshPositions, trackConfirmedPosition]);
 
   useEffect(() => {
@@ -543,7 +551,7 @@ export default function BorrowPage() {
   // meter states them, so the review can show before → after. Verified figures
   // only: a current position, a fresh price and the pool's live range.
   const currentLtv = selected && !selectedStale && debtRange.source === 'live' && existingCollateralUsd !== null && existingCollateralUsd > 0n && limitBps > 0n
-    ? `${formatTenths(loanToValueTenthsUp(existingDebt, existingCollateralUsd))} of ${formatTenths(limitBps / 10n)} limit`
+    ? `${borrowLtvCeiling(existingDebt, existingCollateralUsd)} of ${formatBorrowBasisPoints(limitBps)} limit`
     : null;
   const reviewBefore = useMemo(() => decisionBefore && currentLtv
     ? [...decisionBefore, { label: 'Loan-to-value', value: currentLtv }]
@@ -612,8 +620,8 @@ export default function BorrowPage() {
   const showManageEstimate = mode === 'manage' && selected && !selectedStale
     && repayPreviewWei !== null && repayPreviewWei <= existingDebt && withdrawPreviewWei !== null
     && (repayPreviewWei > 0n || withdrawPreviewWei > 0n);
-  const previousLtv = newPosition ? '0.0%' : existingCollateralUsd !== null && existingCollateralUsd > 0n
-    ? formatTenths(loanToValueTenthsUp(existingDebt, existingCollateralUsd)) : null;
+  const previousLtv = newPosition ? 'No position' : existingCollateralUsd !== null && existingCollateralUsd > 0n
+    ? borrowLtvCeiling(existingDebt, existingCollateralUsd) : null;
   const actionTitle = managementAction === 'combined'
     ? mode === 'mint' ? 'Add collateral and borrow' : 'Repay and withdraw'
     : managementAction === 'add' ? 'Add collateral'
@@ -634,23 +642,23 @@ export default function BorrowPage() {
         : collateralEntered ? 'Your limit shows once prices are available'
         : newPosition ? 'Enter collateral above to see your limit' : undefined} />}
     {showRepay && <AmountField compact label="Repay amount" symbol="fxUSD" value={repay} onChange={setRepay} allowAll allowZero maxDecimals={18}
-      balanceState={balanceStateFor('fxUSD')} showPercentages={false} hint={selected ? `Debt: ${formatPositionDebt(selected)}` : undefined} />}
+      balanceState={balanceStateFor('fxUSD')} showPercentages={false} hint={selected ? `Debt: ${formatReviewFactValue({ label: 'Debt', value: formatPositionDebt(selected) }).display}` : undefined} />}
     {showWithdraw && <AmountField compact label="Collateral to withdraw" symbol={token} value={withdraw} onChange={setWithdraw}
       allowZero maxDecimals={tokenDecimals(token)} showMax={false} showPercentages={false} tokenSelector={picker}
       hint={withdrawLimitWei === null ? 'Your limit shows once prices are available'
         : withdrawLimitWei > 0n ? `Up to ${formatSignificantDecimal(formatUnits(withdrawLimitWei, tokenDecimals(token)), 4)} ${symbol} at current prices`
         : 'Repay debt to withdraw collateral'} />}
     {showPositionEstimate && <section className={presentation.outcome} aria-label="Estimated borrowing outcome">
-      <div className={presentation.outcomeHeading}><span>Estimated position</span><span>Before → after</span></div>
+      <div className={presentation.outcomeHeading}><span>Current → estimated</span></div>
       <dl className={presentation.outcomeRows}>
-        <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(debtAfter, 18))} fxUSD</strong></dd></div>
+        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'Estimated debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} /></strong></dd></div>
       </dl>
       {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange.source === 'live' && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
     </section>}
     {showManageEstimate && <section className={presentation.outcome} aria-label="Estimated position changes">
-      <div className={presentation.outcomeHeading}><span>Estimated position</span><span>Before → after</span></div>
+      <div className={presentation.outcomeHeading}><span>Current → estimated</span></div>
       <dl className={presentation.outcomeRows}>
-        <div><dt>Total debt</dt><dd><span>{groupDigits(formatAmount(existingDebt, 18))}</span><span aria-hidden="true"> → </span><strong>{groupDigits(formatAmount(existingDebt - repayPreviewWei!, 18))} fxUSD</strong></dd></div>
+        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'Estimated debt', value: `${positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD` }} /></strong></dd></div>
         {withdrawPreviewWei! > 0n && <div><dt>Receive asset</dt><dd>{symbol}</dd></div>}
       </dl>
     </section>}
@@ -676,7 +684,14 @@ export default function BorrowPage() {
     <ActionReview key={reviewRevision} surface="content" planBuilder={newPosition || !initialRead && !positionReadUnavailable ? planBuilder : null}
       blocker={reviewBlocker} label={reviewLabel} operationLabel={mode === 'mint' ? selected ? 'Update collateral position' : 'Open collateral position' : manageOperationLabel}
       draftActionKey={draftActionKey} draftResumePath="/borrow" draftState={draftState} resumeReview={resumeReview}
-      decisionBefore={reviewBefore} editor={actionEditor} onStageChange={setReviewStage} onComplete={refreshAfterAction} />
+      decisionBefore={reviewBefore} editor={actionEditor} onStageChange={setReviewStage} onComplete={refreshAfterAction}
+      confirmedPosition={confirmedPosition} onReturnToPosition={({ key }) => {
+        // Return within Borrow, preserving the position identity, not the old quote.
+        const latest = positions.find(position => positionKey(position) === key);
+        if (latest) { changePosition(key); return; }
+        setMode('manage'); setSelectedKey(key); setManagementAction('none'); resetTransactionContext(token);
+        void refreshPositions();
+      }} />
   </div>;
 
   return <AppShell>
@@ -718,8 +733,8 @@ export default function BorrowPage() {
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt>Base annual interest</dt><dd>0%</dd><small>Temporary funding charges can apply</small></div>
-          <div><dt>Pool maximum LTV</dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{debtRange.source !== 'live' && <small>Live limit unavailable</small>}</div>
+          <div><dt><MetricLabel label="Current borrow rate" definition="borrowRate" /></dt><dd className={presentation.rateUnavailable}>Unavailable</dd><small>Base protocol rate 0%; funding charges may apply</small></div>
+          <div><dt><MetricLabel label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{debtRange.source !== 'live' && <small>Live limit unavailable</small>}</div>
         </dl>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
@@ -739,32 +754,25 @@ export default function BorrowPage() {
   </AppShell>;
 }
 
-/** Loan-to-value in tenths of a percent, rounded up: a risk figure never reads lower than it is. */
-function loanToValueTenthsUp(debt: bigint, collateralUsd: bigint): bigint { return (debt * 1000n + collateralUsd - 1n) / collateralUsd; }
-function formatTenths(tenths: bigint): string { return `${(Number(tenths) / 10).toFixed(1)}%`; }
-
 /** Loan-to-value against the borrowing limit, filling toward it as the borrow grows. */
 function BorrowLimitMeter({ debt, collateralUsd, limitBps, before }: { debt: bigint; collateralUsd: bigint; limitBps: bigint; before?: string | null }) {
   const ltvBps = debt * 10_000n / collateralUsd;
   const used = Number(ltvBps * 1000n / limitBps) / 10;
   const tone = used > 100 ? 'over' : used >= 85 ? 'near' : 'ok';
-  // In tenths of a percent: the loan-to-value rounds up and the limit down, so
-  // the room the meter shows is never more than the room there is.
-  const ltvTenths = loanToValueTenthsUp(debt, collateralUsd);
-  const limitTenths = limitBps / 10n;
-  const percent = formatTenths;
+  const ltvLabel = borrowLtvCeiling(debt, collateralUsd);
+  const limitLabel = formatBorrowBasisPoints(limitBps);
   return <div className={presentation.limitMeter} data-tone={tone}>
     <div className={presentation.limitMeterRow}>
-      <span>Loan-to-value</span>
-      <strong>{before && <><small>{before}</small><span aria-hidden="true"> → </span></>}{percent(ltvTenths)}</strong>
+      <MetricLabel label="Loan-to-value" definition="loanToValue" />
+      <strong>{before && <><small>{before}</small><span aria-hidden="true"> → </span></>}{ltvLabel}</strong>
     </div>
-    <div className={presentation.limitCaption}><span>Borrowing limit</span><span>{percent(limitTenths)}</span></div>
+    <div className={presentation.limitCaption}><MetricLabel label="Borrowing limit" help="This is lower than the pool maximum because the form reserves a safety buffer. It uses display prices, not a guaranteed borrowing quote; the route is checked again before signing." /><span>{limitLabel}</span></div>
     <div className={presentation.limitTrack} role="meter" aria-label="Loan-to-value against the borrowing limit"
-      aria-valuemin={0} aria-valuemax={Number(limitBps) / 100} aria-valuenow={Math.min(Number(ltvBps), Number(limitBps)) / 100} aria-valuetext={`${percent(ltvTenths)} of a ${percent(limitTenths)} limit`}>
+      aria-valuemin={0} aria-valuemax={Number(limitBps) / 100} aria-valuenow={Math.min(Number(ltvBps), Number(limitBps)) / 100} aria-valuetext={`${ltvLabel} of a ${limitLabel} limit`}>
       <span style={{ '--fill': `${Math.min(used, 100)}%` } as CSSProperties} />
     </div>
   </div>;
 }
 
-function formatPositionCollateral(position: UiPosition): string { return `${groupDigits(formatAmount(position.info.rawColls, positionCollateralDecimals(position)))} ${positionCollateralSymbol(position)}`; }
-function formatPositionDebt(position: UiPosition): string { return `${groupDigits(formatAmount(position.info.rawDebts, positionDebtDecimals(position)))} ${position.info.rawDebtsToken}`; }
+function formatPositionCollateral(position: UiPosition): string { return `${positionTokenPresentation(position.info.rawColls, positionCollateralDecimals(position)).text} ${positionCollateralSymbol(position)}`; }
+function formatPositionDebt(position: UiPosition): string { return `${positionTokenPresentation(position.info.rawDebts, positionDebtDecimals(position)).text} ${position.info.rawDebtsToken}`; }

@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { performance } from 'node:perf_hooks';
@@ -21,6 +21,15 @@ const mocks: Record<string, string> = {
   '@/lib/fx/liquidationQuote': `export const LIQUIDATION_QUOTE_TTL_MS = 30000; export const projectedLiquidationPrice = () => undefined; export const projectedRebalancePrice = () => undefined;`,
   '@/lib/fx': `
     const H = () => globalThis.__actionReviewHarness;
+    // Keep production validation and token identity helpers behind the real
+    // result/readback presentation. This fixture never performs live reads.
+    export { assertAddress, assertWalletAddress } from './src/lib/fx/validation';
+    export { assertPublicClientChain } from './src/lib/fx/clients';
+    export { resolveBridgeApprovalTokenAddress, resolveBridgeTokenAddress } from './src/lib/fx/bridge';
+    const unexpectedRead = () => { throw new Error('Live protocol reads are outside the action review fixture'); };
+    export const getPublicClient = unexpectedRead;
+    export const getEthereumClient = unexpectedRead;
+    export const getFxReadFacade = unexpectedRead;
     export const FX_TOKENS = { USDC: { key: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
     // The real fee copy, so the review's max and its shortfall notice are checked together.
     export { formatRouteGasCost } from '@/lib/fx/gasCost';
@@ -198,8 +207,8 @@ export const useInvalidateWalletData = () => async () => {
     export const InlineError = ({ message }) => <div role="alert">{message}</div>;
     export const TransactionHashLink = ({ step }) => <span>{step.hash}</span>;
   `,
-  '@/components/review/executionResult': `export const resultPresentation = (result) => { const approvalOnly = result.status === 'partial' && result.steps.some((step) => step.transaction.kind === 'approval' && step.status === 'confirmed') && !result.steps.some((step) => step.transaction.kind === 'action' && (step.status === 'confirmed' || step.hash)); if (approvalOnly) return { title: 'Approval confirmed', body: 'Action not submitted. The approval is on-chain; review each step before continuing.', tone: 'warning', icon: () => null }; return result.status === 'partial' ? ({ title: 'Partially completed', body: 'An earlier step confirmed before the action stopped.', tone: 'warning', icon: () => null }) : result.status === 'failed' ? ({ title: 'Not completed', body: result.error ?? 'Mock failed.', tone: 'danger', icon: () => null }) : ({ title: 'Confirmed', body: 'Mock confirmed.', tone: 'success', icon: () => null }); }; export const resultBodyDuringRefresh = ({ status, refreshing, positionAction, body }) => status === 'confirmed' && refreshing && positionAction ? 'Transaction confirmed. Position details are refreshing.' : body;`,
   '@/lib/fx/reviewFormatting': `
+    export { positionOutcomeFacts } from './src/lib/fx/reviewFormatting';
     export const rawQuoteReviewFacts = () => [];
     import { routeFinancialReviewFacts as acceptedFacts } from './src/lib/fx/reviewFormatting';
     export const routeFinancialReviewFacts = (route) => route.policy?.reviewedAction?.kind?.startsWith('fxsave-') ? acceptedFacts(route) : [];
@@ -217,7 +226,7 @@ export const useInvalidateWalletData = () => async () => {
   'lucide-react': `
     import React from 'react';
     const Icon = ({ size = 24, ...props }) => <svg width={size} height={size} {...props} />;
-    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
+    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const ArrowDown = Icon; export const ArrowUpRight = Icon; export const Plus = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
     export const Clock3 = Icon; export const LoaderCircle = Icon; export const ShieldCheck = Icon; export const ExternalLink = Icon;
     export const Circle = Icon; export const X = Icon; export const XCircle = Icon; export const ChevronDown = Icon; export const Check = Icon; export const Copy = Icon;
   `,
@@ -237,8 +246,9 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
         build.onResolve({ filter: /^@\// }, (args: { path: string }) => {
           if (mocks[args.path]) return { path: args.path, namespace: 'mock' };
           const candidate = resolve(src, args.path.slice(2));
-          if (existsSync(candidate)) return { path: candidate };
-          for (const extension of ['.tsx', '.ts']) if (existsSync(`${candidate}${extension}`)) return { path: `${candidate}${extension}` };
+          for (const file of [candidate, `${candidate}.tsx`, `${candidate}.ts`, resolve(candidate, 'index.ts'), resolve(candidate, 'index.tsx')]) {
+            if (existsSync(file) && statSync(file).isFile()) return { path: file };
+          }
           return { path: candidate };
         });
         build.onResolve({ filter: /^lucide-react$/ }, () => ({ path: 'lucide-react', namespace: 'mock' }));

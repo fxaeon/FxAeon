@@ -51,9 +51,10 @@ test('catalogs deterministic data states through the real provider-independent a
   await expect(receipt).toContainText('Execution fee: 0.000021 ETH');
   await expect(receipt).toContainText('Partial fee data: this receipt does not include every gas, L1 data, and operator fee component.');
   await expect(receipt).toContainText('Token movement available in technical details');
-  await receipt.getByText('Technical movement details', { exact: true }).click();
-  await expect(receipt).toContainText('0x3333333333333333333333333333333333333333');
-  await expect(receipt).toContainText('9 base units');
+  const technical = receipt.getByRole('region', { name: 'Technical movements', exact: true });
+  await expect(technical).toBeVisible();
+  await expect(technical).toContainText('0x3333333333333333333333333333333333333333');
+  await expect(technical).toContainText('9 base units');
 });
 
 test('exposes transaction stage fixtures, long values, and keyboard focus in dark appearance', async ({ page }) => {
@@ -185,7 +186,7 @@ test('captures focused components and compares approved Windows references when 
   }
   await page.getByLabel('Transaction stage', { exact: true }).selectOption({ label: 'Uncertain' });
   await compareOrCapture('receipt-known-usdc', page.locator('.receipt-example').nth(0));
-  await page.getByText('Technical movement details', { exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Technical movements', exact: true })).toBeVisible();
   await compareOrCapture('receipt-base-technical', page.locator('.receipt-example').nth(1));
   await testInfo.attach('state-lab-manifest', {
     body: Buffer.from(`${snapshotNames.map((name) => `ui-state-${name}.png`).join('\n')}\nSnapshots are compared only on Windows after the full reference set is approved and added.`),

@@ -51,6 +51,11 @@ test.describe('Earn route-specific settings', () => {
       for (const token of ['fxUSD', 'usdc']) {
         await page.goto(`/earn?mode=withdraw&token=${token}`, { waitUntil: 'domcontentloaded' });
         const methods = page.getByRole('group', { name: 'Withdrawal method' });
+        // Queued withdrawal is the default. Slippage applies only after the
+        // user explicitly selects the instant conversion route.
+        await expect(methods.getByRole('radio', { name: /After cooldown/ })).toBeChecked();
+        await checkSettings(false);
+        await methods.getByRole('radio', { name: /^Instant/ }).locator('..').click();
         await expect(methods.getByRole('radio', { name: /^Instant/ })).toBeChecked();
         await checkSettings(true);
         await methods.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
@@ -67,7 +72,7 @@ test.describe('Earn route-specific settings', () => {
       }
       await page.goto('/earn?mode=withdraw&token=fxUSDBasePool', { waitUntil: 'domcontentloaded' });
       await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
-      await expect(page.getByText(/with no queued claim/)).toBeVisible();
+      await expect(page.getByText('Direct redemption to fxSP has no cooldown or queued claim.', { exact: true })).toBeVisible();
       await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).not.toContainText('Claim later');
       await checkSettings(false);
       await page.screenshot({ path: testInfo.outputPath(`direct-base-pool-${width}.png`), fullPage: true, animations: 'disabled' });
@@ -94,12 +99,14 @@ test.describe('Earn unavailable reads', () => {
       await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
       const holdings = page.getByText('Vault holdings', { exact: true });
       await expect(holdings).toHaveCount(1);
-      await expect(holdings.locator('..').getByText('$12.5M', { exact: true })).toBeVisible();
+      const holdingsRow = page.locator('dl > div').filter({ has: holdings });
+      await expect(holdingsRow.locator('dd')).toHaveText('$12.5M');
+      await expect(holdingsRow.locator('dd')).toBeVisible();
       await expect(page.getByText('Total fxSAVE vault value', { exact: true })).toHaveCount(0);
       await expect(page.locator('details').getByText('Vault holdings', { exact: true })).toHaveCount(0);
       // The larger product heading changes the summary height; the holdings
       // row must still be readable in the first viewport without scrolling.
-      await expect(holdings.locator('..')).toBeInViewport({ ratio: 1 });
+      await expect(holdingsRow).toBeInViewport({ ratio: 1 });
       await testInfo.attach(`connected-earn-${viewport.width}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
     }
     assertNoBackendRequests(requests);

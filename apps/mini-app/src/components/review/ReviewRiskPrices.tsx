@@ -6,6 +6,8 @@ import { LIQUIDATION_QUOTE_TTL_MS, projectedLiquidationPrice, projectedRebalance
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { approximately } from '@/lib/tradeOutcome';
+import { ReviewFactValue } from './ReviewFactValue';
+import { MetricLabel } from '../InfoHelp';
 import styles from './ActionReviewPresentation.module.css';
 
 export function ReviewRiskPrices({ route, execution, pending, showExecution = true }: { route?: PlannedRoute | null; execution?: ReviewFact; pending: boolean; showExecution?: boolean }) {
@@ -19,8 +21,8 @@ export function ReviewRiskPrices({ route, execution, pending, showExecution = tr
   const liquidation = route ? projectedLiquidationPrice(route) : undefined;
   const rebalance = route ? projectedRebalancePrice(route) : undefined;
   return <div className={styles.riskPrices}>
-    {showExecution && <div data-review-fact="Execution price"><span>Execution price</span><span title={execution?.title}><ValueOrSkeleton value={execution ? approximately(execution.value) : pending ? '—' : 'Unavailable'} announce={false} /></span></div>}
-    <div data-review-fact="Rebalance price"><span>Est. rebalance price</span><span title={rebalance?.title}><ValueOrSkeleton value={rebalance ? `≈ ${rebalance.value}` : pending ? '—' : 'Unavailable'} announce={false} /></span></div>
-    <div data-review-fact="Liquidation price"><span>Est. liquidation price</span><span title={liquidation?.title}><ValueOrSkeleton value={liquidation ? `≈ ${liquidation.value}` : pending ? '—' : 'Unavailable'} announce={false} /></span></div>
+    {showExecution && <div data-review-fact="Execution price"><MetricLabel label="Execution price" definition="executionPrice" /><span title={execution?.title}>{execution ? <ReviewFactValue fact={{ ...execution, value: approximately(execution.value) }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>}
+    <div data-review-fact="Rebalance price"><MetricLabel label="Est. rebalance price" definition="rebalancePrice" /><span title={rebalance?.title}>{rebalance ? <ReviewFactValue fact={{ label: 'Rebalance price', value: `≈ ${rebalance.value}`, title: rebalance.title }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>
+    <div data-review-fact="Liquidation price"><MetricLabel label="Est. liquidation price" definition="liquidationPrice" /><span title={liquidation?.title}>{liquidation ? <ReviewFactValue fact={{ label: 'Liquidation price', value: `≈ ${liquidation.value}`, title: liquidation.title }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>
   </div>;
 }

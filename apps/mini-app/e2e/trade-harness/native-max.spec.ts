@@ -27,7 +27,7 @@ const mocks: Record<string, string> = {
   '@/components/ConfirmedPositionCards': `export const ConfirmedPositionCards = () => null;`,
   // The ticket's outcome preview reads the warmed route, which this harness never plans.
   '@/components/TradeOutcomePreview': `export const TradeOutcomePreview = () => null;`,
-  '@/lib/confirmedPositions': `export const deriveConfirmedPositionHint = () => null;`,
+  '@/lib/confirmedPositions': `export const deriveConfirmedPositionHint = () => null; export const receiptMintedPositionIdentity = () => null;`,
   '@/lib/confirmedPositionStorage': `export const confirmedPositionHintKey = () => '';`,
   '@/components/WalletDataProvider': `export const useWalletBalances = () => ({status:'ready',data:null});`,
   '@/components/ProtocolForm': `import React from 'react'; export { AmountFieldView as AmountField } from '@/components/AmountField'; export { Segmented, LeverageField } from '${src.replaceAll('\\', '/')}/components/ProtocolForm.tsx'; export const SlippageField = () => null; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>; export const tokenBalanceFor = (balances,token) => balances[token]; export const useWalletTokenBalances = () => ({balances:{ETH:{status:'ready',amount:globalThis.__tradeMaxHarness.balance}},status:'ready',refresh:async()=>{}});`,
@@ -42,7 +42,7 @@ const mocks: Record<string, string> = {
   '@/lib/walletAssets': `export const ASSET_PRICE_MAX_AGE_MS=60000;`,
   '@/lib/settings': `export const DEFAULT_SLIPPAGE_PERCENT=0.5; export const readSlippagePercent=()=>globalThis.__tradeMaxHarness.slippage??0.5; export const readGasTier=()=> 'standard'; export const SETTINGS_KEY='settings'; export const SETTINGS_UPDATED_EVENT='settings-updated'; export const GAS_TIERS=['standard','fast','rapid']; export const DEFAULT_GAS_TIER='standard'; export const MIN_SLIPPAGE_BPS=10; export const MAX_SLIPPAGE_BPS=200; export const SLIPPAGE_PRESETS_BPS=[10,50,100,200]; export const isSlippageBps=(v)=>Number.isInteger(v)&&v>=10&&v<=200; export const writeTransactionSettings=()=>true;`,
   '@/lib/transactionState': `export const readTradeDeepLinkContext=()=>null; export const resetTransactionAmounts=()=>({amount:'',leverage:2});`,
-  '@/app/trade/fxUi': `export const parseAmount=(value)=>value ? BigInt(Math.round(Number(value)*1e18)) : null; export const positionInputTokenOptions=(market)=>market==='ETH'?['ETH','WETH','stETH','wstETH']:['WBTC']; export const positionKey=()=>''; export const tokenAddress=()=> '0x0000000000000000000000000000000000000001'; export const tokenDecimals=()=>18;`,
+  '@/app/trade/fxUi': `export const parseAmount=(value)=>value ? BigInt(Math.round(Number(value)*1e18)) : null; export const positionInputTokenOptions=(market)=>market==='ETH'?['ETH','WETH','stETH','wstETH']:['WBTC']; export const positionKey=()=>''; export const tokenAddress=()=> '0x0000000000000000000000000000000000000001'; export const tokenDecimals=()=>18; export const positionCollateralDecimals=()=>18; export const positionDebtDecimals=()=>18;`,
 };
 
 async function buildHarness(): Promise<string> {

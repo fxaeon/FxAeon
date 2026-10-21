@@ -17,6 +17,7 @@ import {
   ProtocolPositionList,
   ProtocolPositionNotice,
 } from '@/components/ProtocolPositionCard';
+import { confirmedPositionReadback, type ConfirmedPositionReadback } from '@/components/review/positionReview';
 import { useProtocolPositions } from '@/components/ProtocolPositionProvider';
 import { ConfirmedPositionCards } from '@/components/ConfirmedPositionCards';
 import { deriveConfirmedPositionHint } from '@/lib/confirmedPositions';
@@ -71,6 +72,7 @@ export default function TradePage() {
   // those funds before wallet network switching so review stays informative.
   const walletBalances = useWalletTokenBalances(wallet.address, 1, wallet.chainId);
   const positionState = useProtocolPositions();
+  const [confirmedPosition, setConfirmedPosition] = useState<ConfirmedPositionReadback | null>(null);
   const [market, setMarket] = useState<UiMarket>('ETH');
   const [side, setSide] = useState<UiSide>('long');
   const [token, setToken] = useState<UiToken>('ETH');
@@ -617,11 +619,14 @@ export default function TradePage() {
   const handleOpenComplete = async (execution: TransactionExecutionResult, route: PlannedRoute) => {
     if (execution.status !== 'confirmed' || execution.operation !== 'increasePosition' || execution.chainId !== 1
       || execution.walletAddress.toLowerCase() !== wallet.address?.toLowerCase()) return;
+    const confirmedAt = Date.now();
     void walletBalances.refresh(true);
     if (await positionState.trackConfirmedPosition(execution, route)) {
       const hint = deriveConfirmedPositionHint({ route, result: execution, walletAddress: execution.walletAddress });
       if (hint) setHighlightedPositionKey(confirmedPositionHintKey(hint));
-    } else void positionState.refresh();
+    }
+    const read = await positionState.refresh({ afterConfirmation: true });
+    setConfirmedPosition(confirmedPositionReadback(execution, route, read, confirmedAt));
   };
 
   return (
@@ -677,6 +682,7 @@ export default function TradePage() {
                   </div>
                 </>
               }
+              confirmedPosition={confirmedPosition}
               onComplete={handleOpenComplete}
               onViewNewPosition={viewNewPosition}
             />

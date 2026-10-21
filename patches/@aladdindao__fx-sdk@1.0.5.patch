@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f8773cfff97 100644
+index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced27674874813b 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -15,6 +15,12 @@ var axios__default = /*#__PURE__*/_interopDefault(axios);
@@ -84,7 +84,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
  async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_SIZE, delayMs = DELAY_TIME_MS) {
    function chunkArray(arr, size) {
      const res = [];
-@@ -3089,14 +3104,22 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
+@@ -3089,52 +3104,85 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
    }
    const callChunks = chunkArray(contracts2, batchSize);
    let results = [];
@@ -109,7 +109,210 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    return results;
  }
-@@ -4964,7 +4987,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
+-
++// Never return an unqueried positive borrowing amount.
+ // src/core/aggregators/index.ts
+ var searchAmount = async (left, right, expect, convertData, _precision) => {
+-  let times = 0;
+-  let duration = (/* @__PURE__ */ new Date()).getTime();
+-  while (cBN(left).plus(_precision).lt(right)) {
+-    const calls = [];
+-    const step = cBN(right).minus(left).dividedBy(100).toFixed(0, 1);
+-    for (let i = 0; i < 100; i++) {
+-      const amount = cBN(left).plus(cBN(step).times(i + 1)).toFixed(0, 1);
+-      calls.push({
+-        address: contracts.TokenConverter_MultiPathConverter,
+-        abi: MultiPathConverter_default,
+-        functionName: "queryConvert",
+-        args: [amount, convertData.encoding, convertData.routes]
+-      });
++  if ([left, right, expect].some((value) => typeof value !== "string" || !/^\d+$/.test(value)) || !Number.isFinite(_precision) || !Number.isInteger(_precision) || _precision <= 0) {
++    throw new Error("Invalid converter search amounts or precision");
++  }
++  let lower = BigInt(left);
++  let upper = BigInt(right);
++  const target = BigInt(expect);
++  const tolerance = BigInt(_precision);
++  // An exact zero-sized borrowing leg is valid for a debt-free position.
++  if (target === 0n && lower === 0n && upper === 0n) return ["0", 0, 0];
++  if (target <= 0n || upper <= lower) throw new Error("Invalid converter search range");
++  if (upper - lower <= tolerance) {
++    throw new Error("Amount is too small to quote reliably. Increase the position amount.");
++  }
++  const startedAt = Date.now();
++  let lowerOutput;
++  for (let times = 1; times <= 10; times++) {
++    const span = upper - lower;
++    // Preserve the normal 100-point grid and RPC count. A one-wei step avoids
++    // duplicate zero-step queries when the remaining integer range is tiny.
++    const step = span / 100n || 1n;
++    const count = span < 100n ? Number(span) : 100;
++    // Keep the evaluated upper endpoint when division leaves an integer remainder.
++    // Replacing the final sample adds no query and cannot lose a valid bracket.
++    const amounts = Array.from({ length: count }, (_, i) => i === count - 1 ? upper : lower + step * BigInt(i + 1));
++    const calls = amounts.map((amount) => ({
++      address: contracts.TokenConverter_MultiPathConverter,
++      abi: MultiPathConverter_default,
++      functionName: "queryConvert",
++      args: [amount.toString(), convertData.encoding, convertData.routes]
++    }));
++    const results = await batchedMulticall(getClient(), calls);
++    if (!Array.isArray(results) || results.length !== count || results.some((entry) => entry?.status !== "success" || typeof entry.result !== "bigint" || entry.result < 0n)) {
++      throw new Error("Converter search evaluation failed");
+     }
+-    if (times === 10) {
+-      throw Error(
+-        "Exceeds the maximum trading range. Please lower the position size."
+-      );
++    const values = results.map((entry) => entry.result);
++    // An initially flat range proves no bracket. A later flat refinement can
++    // still cover the target above the previously evaluated lower output.
++    if (values.some((value, i) => i > 0 && value < values[i - 1]) || lowerOutput === void 0 && count > 1 && values[0] === values[count - 1]) {
++      throw new Error("Converter search requires an increasing quote range");
+     }
+-    times++;
+-    const results = await batchedMulticall(getClient(), calls);
+-    for (let i = 0; i < results.length; i++) {
+-      const { result } = results[i];
+-      if (cBN(result).gte(expect)) {
+-        left = cBN(left).plus(cBN(step).times(i)).toFixed(0, 1);
+-        right = cBN(left).plus(cBN(step)).toFixed(0, 1);
+-        break;
+-      }
++    const crossing = values.findIndex((value) => value >= target);
++    // The initial lower bound has not been quoted. Do not assume it brackets
++    // the target; later passes retain the previously evaluated lower output.
++    if (crossing < 0 || crossing === 0 && lowerOutput === void 0 && values[0] !== target) {
++      throw new Error("Converter search target is outside the quoted range");
++    }
++    if (crossing === 0 && values[0] === target) return [amounts[0].toString(), Date.now() - startedAt, times];
++    if (crossing > 0) {
++      lower = amounts[crossing - 1];
++      lowerOutput = values[crossing - 1];
+     }
++    upper = amounts[crossing];
++    // Return the evaluated amount that covers the output. All callers add
++    // positive slippage to this upper bound; an unqueried lower bound underfunds.
++    if (upper - lower <= tolerance) return [upper.toString(), Date.now() - startedAt, times];
+   }
+-  duration = (/* @__PURE__ */ new Date()).getTime() - duration;
+-  return [left, duration, times];
++  throw new Error("Exceeds the maximum trading range. Please lower the position size.");
+ };
+ var selectBest = (results, reverse) => {
+   const amounts = {};
+@@ -3218,6 +3266,7 @@ var getFxUSDByBorrowAmount = async ({
+   baseTokenAddress
+ }) => {
+   const results = [];
++  let smallAmountError;
+   const zapRouteData = getZapRoutes({
+     fromTokenAddress: tokens.fxUSD,
+     toTokenAddress: baseTokenAddress
+@@ -3237,6 +3286,7 @@ var getFxUSDByBorrowAmount = async ({
+       dst: BigInt(borrowAmount)
+     });
+   } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+   }
+   if (baseTokenAddress === tokens.WBTC) {
+     const zapRouteData2 = getZapRoutes({
+@@ -3259,9 +3309,11 @@ var getFxUSDByBorrowAmount = async ({
+         dst: BigInt(borrowAmount)
+       });
+     } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+     }
+   }
+   if (results.length === 0) {
++    if (smallAmountError) throw smallAmountError;
+     throw Error(
+       "Exceeds the maximum trading range. Please lower the position size."
+     );
+@@ -3275,6 +3327,7 @@ var getBorrowByFxUSDAmount = async ({
+   precision
+ }) => {
+   const results = [];
++  let smallAmountError;
+   const zapRouteData = getZapRoutes({
+     fromTokenAddress: baseTokenAddress,
+     toTokenAddress: tokens.fxUSD
+@@ -3293,6 +3346,7 @@ var getBorrowByFxUSDAmount = async ({
+       dst: BigInt(fxUSDAmount)
+     });
+   } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+   }
+   if (baseTokenAddress === tokens.WBTC) {
+     const zapRouteData2 = getZapRoutes({
+@@ -3314,9 +3368,11 @@ var getBorrowByFxUSDAmount = async ({
+         dst: BigInt(fxUSDAmount)
+       });
+     } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+     }
+   }
+   if (results.length === 0) {
++    if (smallAmountError) throw smallAmountError;
+     throw Error(
+       "Exceeds the maximum trading range. Please lower the position size."
+     );
+@@ -3336,6 +3392,21 @@ var getRouteTargets = (symbol, targets) => {
+ };
+ var PLEASE_INCREASE_LEVERAGE = "Your xPOSITION leverage is lower than the minimum leverage required, please increase your leverage level.";
+ var PLEASE_LOWER_LEVERAGE = "Your xPOSITION leverage is higher than the maximum leverage allowed, please lower your leverage level.";
++// Economic validation uses only values already read by this quote.
++function positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, inputCollateral, operation) {
++  return {
++    version: 1,
++    operation,
++    priceWad: cBN(poolInfo.averagePrice).times(PRECISION).toFixed(0, 1),
++    rateRes: String(poolInfo.rateRes),
++    currentColls: String(currentColls),
++    currentDebts: String(currentDebts),
++    inputCollateral: String(inputCollateral),
++    supplyFeeRatio: String(poolInfo.routerFeeRatios?.[0]),
++    withdrawFeeRatio: String(poolInfo.routerFeeRatios?.[1])
++  };
++}
++
+ var openOrAddFlashLoanQuote = async ({
+   tokenAddress,
+   positionId,
+@@ -3448,6 +3519,7 @@ var openOrAddFlashLoanQuote = async ({
+       const realPrice = cBN(fxUSDAmount).div(borrowAmount).times(precision).div(rateRes).toString();
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, deltaCollAmountIn, amountIn === 0n ? "adjust-up" : "increase"),
+           routeType: name,
+           positionLeverage: leverage,
+           minOut: deltaCollAmountInWithSlippage,
+@@ -3793,6 +3865,7 @@ var downLeverageQuote = async ({
+       const __deltaCollToWithdraw = cBN(withdrawDeltaCollAmount).times(precision).div(PRECISION).toFixed(0);
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, 0n, "adjust-down"),
+           routeType: name,
+           minOut: "0",
+           positionLeverage: leverage,
+@@ -3802,7 +3875,7 @@ var downLeverageQuote = async ({
+           realPrice,
+           priceImpact,
+           dataSource,
+-          colls: cBN(currentColls).minus(cBN(withdrawDeltaCollAmount).div(precision).times(rateRes)).toFixed(0, 1),
++          colls: cBN(currentColls).minus(cBN(withdrawDeltaCollAmount).div(PRECISION).times(rateRes)).toFixed(0, 1),
+           debts: cBN(currentDebts).minus(fxUSDAmount).toFixed(0, 1)
+         },
+         data: [
+@@ -4768,6 +4841,7 @@ var openOrAddShortFlashLoanQuote = async ({
+       const realPrice = cBN(fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, fxUSDAmountIn, amountIn === 0n ? "adjust-up" : "increase"),
+           routeType: name,
+           positionLeverage: leverage - 1,
+           minOut: fxUSDAmountInWithSlippage,
+@@ -4964,7 +5038,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
          ]
        });
      } catch (err) {
@@ -117,7 +320,39 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
        if (name === "FxRoute" /* FX_ROUTE */) {
          mainError = err;
        }
-@@ -11894,12 +11916,14 @@ var Pool = class {
+@@ -5076,6 +5149,7 @@ var downLeverageShortFlashLoanQuote = async ({
+       const realPrice = cBN(_fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, 0n, "adjust-down"),
+           routeType: name,
+           positionLeverage: leverage - 1,
+           positionId,
+@@ -5621,6 +5695,7 @@ var Position = class {
+       return {
+         routeType: item.params.routeType,
+         leverage: item.params.positionLeverage,
++        positionEconomics: item.params.positionEconomics,
+         executionPrice: item.params.curPrice,
+         colls: item.params.colls,
+         debts: item.params.debts,
+@@ -5721,6 +5796,7 @@ var Position = class {
+       return {
+         routeType: item.params.routeType,
+         leverage: item.params.positionLeverage,
++        positionEconomics: item.params.positionEconomics,
+         executionPrice: item.params.curPrice,
+         minOut: item.params.minOut,
+         colls: item.params.colls,
+@@ -5825,6 +5901,7 @@ var Position = class {
+       return {
+         routeType: item.params.routeType,
+         leverage: item.params.positionLeverage,
++        positionEconomics: item.params.positionEconomics,
+         executionPrice: item.params.curPrice,
+         colls: item.params.colls,
+         debts: item.params.debts,
+@@ -11894,12 +11971,14 @@ var Pool = class {
        return {
          collateralCapacity: poolInfoRes[0],
          collateralBalance: poolInfoRes[1],
@@ -135,7 +370,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
          supplyFeeRatio: poolFeeRatioRes[0],
          withdrawFeeRatio: poolFeeRatioRes[1],
          repayFeeRatio: fxMintPoolFeeRatioRes[3]
-@@ -11914,13 +11938,28 @@ var Pool = class {
+@@ -11914,13 +11993,28 @@ var Pool = class {
     */
    async getPoolInfo() {
      const { isShort } = this.config;
@@ -168,7 +403,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
      const poolInfo = {
        ...this.config,
        ...poolData,
-@@ -11935,11 +11974,22 @@ var Pool = class {
+@@ -11935,11 +12029,22 @@ var Pool = class {
        closeFeeRatio: cBN(poolData.withdrawFeeRatio ?? 0).div(1e9).toNumber(),
        repayFeeRatio: cBN(poolData.repayFeeRatio ?? 0).div(1e9).toNumber()
      };
@@ -192,7 +427,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
  // src/configs/layerzero.ts
  var LZ_ENDPOINT_ADDRESS = "0x1a44076050125825900e736c501f859c50fE728c";
  var EID_ETHEREUM = 30101;
-@@ -12110,7 +12160,8 @@ function getBridgeQuote(request) {
+@@ -12110,7 +12215,8 @@ function getBridgeQuote(request) {
      token,
      amount,
      recipient,
@@ -202,7 +437,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -12121,7 +12172,8 @@ function getBridgeQuote(request) {
+@@ -12121,7 +12227,8 @@ function getBridgeQuote(request) {
    }
    const { address: oftAddress, tokenKey } = resolveOftAddress(sourceChainId, token);
    const dstEid = getEidByChainId(destChainId);
@@ -212,7 +447,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    if (!rpcUrl) {
      throw new Error("Source RPC URL is required.");
    }
-@@ -12130,9 +12182,9 @@ function getBridgeQuote(request) {
+@@ -12130,9 +12237,9 @@ function getBridgeQuote(request) {
        id: sourceChainId,
        name: sourceChainId === 8453 ? "Base" : "Ethereum",
        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
@@ -224,7 +459,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    });
    const sendParam = {
      dstEid,
-@@ -12161,7 +12213,8 @@ async function buildBridgeTx(request) {
+@@ -12161,7 +12268,8 @@ async function buildBridgeTx(request) {
      amount,
      recipient,
      refundAddress,
@@ -234,7 +469,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16310,6 +16363,8 @@ function getDepositSpender(tokenIn) {
+@@ -16310,6 +16418,8 @@ function getDepositSpender(tokenIn) {
    return contracts.FxSave_fxSAVE;
  }
  async function depositFxSave(request) {
@@ -243,7 +478,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
    if (!viem.isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16350,7 +16405,8 @@ async function depositFxSave(request) {
+@@ -16350,7 +16460,8 @@ async function depositFxSave(request) {
        nonce: nonce++,
        chainId
      });
@@ -253,7 +488,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
      const fxRoute = new FxRoute();
-@@ -16418,9 +16474,11 @@ async function depositFxSave(request) {
+@@ -16418,9 +16529,11 @@ async function depositFxSave(request) {
      nonce: nonce++,
      chainId
    });
@@ -266,7 +501,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    const { userAddress, tokenOut, amount, instant = false, slippage } = request;
    if (!viem.isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16448,7 +16506,8 @@ async function withdrawFxSave(request) {
+@@ -16448,7 +16561,8 @@ async function withdrawFxSave(request) {
        nonce,
        chainId
      });
@@ -276,7 +511,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    if (!instant) {
      const data2 = viem.encodeFunctionData({
-@@ -16560,13 +16619,19 @@ async function withdrawFxSave(request) {
+@@ -16560,13 +16674,19 @@ async function withdrawFxSave(request) {
      nonce: instantNonce,
      chainId
    });
@@ -298,7 +533,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16660,10 +16725,10 @@ var FxSdk = class {
+@@ -16660,10 +16780,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -311,7 +546,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16731,10 +16796,10 @@ var FxSdk = class {
+@@ -16731,10 +16851,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -324,7 +559,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16783,7 +16848,7 @@ var FxSdk = class {
+@@ -16783,7 +16903,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -333,7 +568,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16843,10 +16908,10 @@ var FxSdk = class {
+@@ -16843,10 +16963,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -346,7 +581,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16906,10 +16971,10 @@ var FxSdk = class {
+@@ -16906,10 +17026,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -360,7 +595,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..fd0b931ac5d20bcc66d4c1e7e7c99f87
    /**
     * Gets a fee quote for bridging tokens between Base and Ethereum via LayerZero V2 OFT.
 diff --git a/dist/index.d.cts b/dist/index.d.cts
-index 2a628882c348c5a6e3d20e64a3b82a946e226986..c1e7e2c4468331f921679d23300301662b783506 100644
+index 2a628882c348c5a6e3d20e64a3b82a946e226986..1500a82b0c27e6ea213d357eb2911cc766a8459a 100644
 --- a/dist/index.d.cts
 +++ b/dist/index.d.cts
 @@ -62,6 +62,10 @@ interface BridgeQuoteRequest {
@@ -391,7 +626,7 @@ index 2a628882c348c5a6e3d20e64a3b82a946e226986..c1e7e2c4468331f921679d2330030166
  export { type AdjustPositionLeverageRequest, BRIDGE_OFT_BY_TOKEN, type BridgeQuoteRequest, type BridgeQuoteResult, type BridgeTokenId, type BridgeTxPayload, type BuildBridgeTxRequest, type BuildBridgeTxResult, CHAIN_ID_BASE, CHAIN_ID_ETHEREUM, type ConvertData, DEFAULT_RPC_BY_CHAIN, type DepositAndMintRequest, EID_BASE, EID_ETHEREUM, type FxSaveClaimPreviewReceive, type FxSaveDepositRequest, type FxSaveDepositResult, type FxSaveTokenIn, type FxSaveTx, type FxSaveWithdrawRequest, type FxSaveWithdrawResult, FxSdk, type FxSdkConfig, type GetFxSaveBalanceRequest, type GetFxSaveBalanceResult, type GetFxSaveClaimableRequest, type GetFxSaveClaimableResult, type GetFxSaveRedeemStatusRequest, type GetFxSaveRedeemStatusResult, type GetRedeemTxRequest, type GetRedeemTxResult, type IncreasePositionRequest, LZ_ENDPOINT_ADDRESS, type Market, type PoolConfig, type PoolInfo, PoolName, type PositionInfo, type PositionRequest, type PositionType, type PriceOracle, type ReducePositionRequest, type RepayAndWithdrawRequest, SUPPORTED_BRIDGE_CHAIN_IDS, type SupportedBridgeChainId, type TokenSymbol, getEidByChainId, tokens };
 +import type { Transport } from 'viem';
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 2a628882c348c5a6e3d20e64a3b82a946e226986..5bed88becc9ef6fff845c387c6522dc1794d04e1 100644
+index 2a628882c348c5a6e3d20e64a3b82a946e226986..eb20e20251cf7e60d057193a12978c10a9953da7 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
 @@ -62,6 +62,10 @@ interface BridgeQuoteRequest {
@@ -422,7 +657,7 @@ index 2a628882c348c5a6e3d20e64a3b82a946e226986..5bed88becc9ef6fff845c387c6522dc1
  export { type AdjustPositionLeverageRequest, BRIDGE_OFT_BY_TOKEN, type BridgeQuoteRequest, type BridgeQuoteResult, type BridgeTokenId, type BridgeTxPayload, type BuildBridgeTxRequest, type BuildBridgeTxResult, CHAIN_ID_BASE, CHAIN_ID_ETHEREUM, type ConvertData, DEFAULT_RPC_BY_CHAIN, type DepositAndMintRequest, EID_BASE, EID_ETHEREUM, type FxSaveClaimPreviewReceive, type FxSaveDepositRequest, type FxSaveDepositResult, type FxSaveTokenIn, type FxSaveTx, type FxSaveWithdrawRequest, type FxSaveWithdrawResult, FxSdk, type FxSdkConfig, type GetFxSaveBalanceRequest, type GetFxSaveBalanceResult, type GetFxSaveClaimableRequest, type GetFxSaveClaimableResult, type GetFxSaveRedeemStatusRequest, type GetFxSaveRedeemStatusResult, type GetRedeemTxRequest, type GetRedeemTxResult, type IncreasePositionRequest, LZ_ENDPOINT_ADDRESS, type Market, type PoolConfig, type PoolInfo, PoolName, type PositionInfo, type PositionRequest, type PositionType, type PriceOracle, type ReducePositionRequest, type RepayAndWithdrawRequest, SUPPORTED_BRIDGE_CHAIN_IDS, type SupportedBridgeChainId, type TokenSymbol, getEidByChainId, tokens };
 +import type { Transport } from 'viem';
 diff --git a/dist/index.js b/dist/index.js
-index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f45710a40 100644
+index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e469fbfd109 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -8,6 +8,12 @@ import axios from 'axios';
@@ -507,7 +742,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
  async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_SIZE, delayMs = DELAY_TIME_MS) {
    function chunkArray(arr, size) {
      const res = [];
-@@ -3082,14 +3097,22 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
+@@ -3082,52 +3097,85 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
    }
    const callChunks = chunkArray(contracts2, batchSize);
    let results = [];
@@ -532,7 +767,210 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    return results;
  }
-@@ -4957,7 +4980,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
+-
++// Never return an unqueried positive borrowing amount.
+ // src/core/aggregators/index.ts
+ var searchAmount = async (left, right, expect, convertData, _precision) => {
+-  let times = 0;
+-  let duration = (/* @__PURE__ */ new Date()).getTime();
+-  while (cBN(left).plus(_precision).lt(right)) {
+-    const calls = [];
+-    const step = cBN(right).minus(left).dividedBy(100).toFixed(0, 1);
+-    for (let i = 0; i < 100; i++) {
+-      const amount = cBN(left).plus(cBN(step).times(i + 1)).toFixed(0, 1);
+-      calls.push({
+-        address: contracts.TokenConverter_MultiPathConverter,
+-        abi: MultiPathConverter_default,
+-        functionName: "queryConvert",
+-        args: [amount, convertData.encoding, convertData.routes]
+-      });
++  if ([left, right, expect].some((value) => typeof value !== "string" || !/^\d+$/.test(value)) || !Number.isFinite(_precision) || !Number.isInteger(_precision) || _precision <= 0) {
++    throw new Error("Invalid converter search amounts or precision");
++  }
++  let lower = BigInt(left);
++  let upper = BigInt(right);
++  const target = BigInt(expect);
++  const tolerance = BigInt(_precision);
++  // An exact zero-sized borrowing leg is valid for a debt-free position.
++  if (target === 0n && lower === 0n && upper === 0n) return ["0", 0, 0];
++  if (target <= 0n || upper <= lower) throw new Error("Invalid converter search range");
++  if (upper - lower <= tolerance) {
++    throw new Error("Amount is too small to quote reliably. Increase the position amount.");
++  }
++  const startedAt = Date.now();
++  let lowerOutput;
++  for (let times = 1; times <= 10; times++) {
++    const span = upper - lower;
++    // Preserve the normal 100-point grid and RPC count. A one-wei step avoids
++    // duplicate zero-step queries when the remaining integer range is tiny.
++    const step = span / 100n || 1n;
++    const count = span < 100n ? Number(span) : 100;
++    // Keep the evaluated upper endpoint when division leaves an integer remainder.
++    // Replacing the final sample adds no query and cannot lose a valid bracket.
++    const amounts = Array.from({ length: count }, (_, i) => i === count - 1 ? upper : lower + step * BigInt(i + 1));
++    const calls = amounts.map((amount) => ({
++      address: contracts.TokenConverter_MultiPathConverter,
++      abi: MultiPathConverter_default,
++      functionName: "queryConvert",
++      args: [amount.toString(), convertData.encoding, convertData.routes]
++    }));
++    const results = await batchedMulticall(getClient(), calls);
++    if (!Array.isArray(results) || results.length !== count || results.some((entry) => entry?.status !== "success" || typeof entry.result !== "bigint" || entry.result < 0n)) {
++      throw new Error("Converter search evaluation failed");
+     }
+-    if (times === 10) {
+-      throw Error(
+-        "Exceeds the maximum trading range. Please lower the position size."
+-      );
++    const values = results.map((entry) => entry.result);
++    // An initially flat range proves no bracket. A later flat refinement can
++    // still cover the target above the previously evaluated lower output.
++    if (values.some((value, i) => i > 0 && value < values[i - 1]) || lowerOutput === void 0 && count > 1 && values[0] === values[count - 1]) {
++      throw new Error("Converter search requires an increasing quote range");
+     }
+-    times++;
+-    const results = await batchedMulticall(getClient(), calls);
+-    for (let i = 0; i < results.length; i++) {
+-      const { result } = results[i];
+-      if (cBN(result).gte(expect)) {
+-        left = cBN(left).plus(cBN(step).times(i)).toFixed(0, 1);
+-        right = cBN(left).plus(cBN(step)).toFixed(0, 1);
+-        break;
+-      }
++    const crossing = values.findIndex((value) => value >= target);
++    // The initial lower bound has not been quoted. Do not assume it brackets
++    // the target; later passes retain the previously evaluated lower output.
++    if (crossing < 0 || crossing === 0 && lowerOutput === void 0 && values[0] !== target) {
++      throw new Error("Converter search target is outside the quoted range");
++    }
++    if (crossing === 0 && values[0] === target) return [amounts[0].toString(), Date.now() - startedAt, times];
++    if (crossing > 0) {
++      lower = amounts[crossing - 1];
++      lowerOutput = values[crossing - 1];
+     }
++    upper = amounts[crossing];
++    // Return the evaluated amount that covers the output. All callers add
++    // positive slippage to this upper bound; an unqueried lower bound underfunds.
++    if (upper - lower <= tolerance) return [upper.toString(), Date.now() - startedAt, times];
+   }
+-  duration = (/* @__PURE__ */ new Date()).getTime() - duration;
+-  return [left, duration, times];
++  throw new Error("Exceeds the maximum trading range. Please lower the position size.");
+ };
+ var selectBest = (results, reverse) => {
+   const amounts = {};
+@@ -3211,6 +3259,7 @@ var getFxUSDByBorrowAmount = async ({
+   baseTokenAddress
+ }) => {
+   const results = [];
++  let smallAmountError;
+   const zapRouteData = getZapRoutes({
+     fromTokenAddress: tokens.fxUSD,
+     toTokenAddress: baseTokenAddress
+@@ -3230,6 +3279,7 @@ var getFxUSDByBorrowAmount = async ({
+       dst: BigInt(borrowAmount)
+     });
+   } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+   }
+   if (baseTokenAddress === tokens.WBTC) {
+     const zapRouteData2 = getZapRoutes({
+@@ -3252,9 +3302,11 @@ var getFxUSDByBorrowAmount = async ({
+         dst: BigInt(borrowAmount)
+       });
+     } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+     }
+   }
+   if (results.length === 0) {
++    if (smallAmountError) throw smallAmountError;
+     throw Error(
+       "Exceeds the maximum trading range. Please lower the position size."
+     );
+@@ -3268,6 +3320,7 @@ var getBorrowByFxUSDAmount = async ({
+   precision
+ }) => {
+   const results = [];
++  let smallAmountError;
+   const zapRouteData = getZapRoutes({
+     fromTokenAddress: baseTokenAddress,
+     toTokenAddress: tokens.fxUSD
+@@ -3286,6 +3339,7 @@ var getBorrowByFxUSDAmount = async ({
+       dst: BigInt(fxUSDAmount)
+     });
+   } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+   }
+   if (baseTokenAddress === tokens.WBTC) {
+     const zapRouteData2 = getZapRoutes({
+@@ -3307,9 +3361,11 @@ var getBorrowByFxUSDAmount = async ({
+         dst: BigInt(fxUSDAmount)
+       });
+     } catch (err) {
++    if (err?.message === "Amount is too small to quote reliably. Increase the position amount.") smallAmountError = err;
+     }
+   }
+   if (results.length === 0) {
++    if (smallAmountError) throw smallAmountError;
+     throw Error(
+       "Exceeds the maximum trading range. Please lower the position size."
+     );
+@@ -3329,6 +3385,21 @@ var getRouteTargets = (symbol, targets) => {
+ };
+ var PLEASE_INCREASE_LEVERAGE = "Your xPOSITION leverage is lower than the minimum leverage required, please increase your leverage level.";
+ var PLEASE_LOWER_LEVERAGE = "Your xPOSITION leverage is higher than the maximum leverage allowed, please lower your leverage level.";
++// Economic validation uses only values already read by this quote.
++function positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, inputCollateral, operation) {
++  return {
++    version: 1,
++    operation,
++    priceWad: cBN(poolInfo.averagePrice).times(PRECISION).toFixed(0, 1),
++    rateRes: String(poolInfo.rateRes),
++    currentColls: String(currentColls),
++    currentDebts: String(currentDebts),
++    inputCollateral: String(inputCollateral),
++    supplyFeeRatio: String(poolInfo.routerFeeRatios?.[0]),
++    withdrawFeeRatio: String(poolInfo.routerFeeRatios?.[1])
++  };
++}
++
+ var openOrAddFlashLoanQuote = async ({
+   tokenAddress,
+   positionId,
+@@ -3441,6 +3512,7 @@ var openOrAddFlashLoanQuote = async ({
+       const realPrice = cBN(fxUSDAmount).div(borrowAmount).times(precision).div(rateRes).toString();
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, deltaCollAmountIn, amountIn === 0n ? "adjust-up" : "increase"),
+           routeType: name,
+           positionLeverage: leverage,
+           minOut: deltaCollAmountInWithSlippage,
+@@ -3786,6 +3858,7 @@ var downLeverageQuote = async ({
+       const __deltaCollToWithdraw = cBN(withdrawDeltaCollAmount).times(precision).div(PRECISION).toFixed(0);
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, 0n, "adjust-down"),
+           routeType: name,
+           minOut: "0",
+           positionLeverage: leverage,
+@@ -3795,7 +3868,7 @@ var downLeverageQuote = async ({
+           realPrice,
+           priceImpact,
+           dataSource,
+-          colls: cBN(currentColls).minus(cBN(withdrawDeltaCollAmount).div(precision).times(rateRes)).toFixed(0, 1),
++          colls: cBN(currentColls).minus(cBN(withdrawDeltaCollAmount).div(PRECISION).times(rateRes)).toFixed(0, 1),
+           debts: cBN(currentDebts).minus(fxUSDAmount).toFixed(0, 1)
+         },
+         data: [
+@@ -4761,6 +4834,7 @@ var openOrAddShortFlashLoanQuote = async ({
+       const realPrice = cBN(fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, fxUSDAmountIn, amountIn === 0n ? "adjust-up" : "increase"),
+           routeType: name,
+           positionLeverage: leverage - 1,
+           minOut: fxUSDAmountInWithSlippage,
+@@ -4957,7 +5031,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
          ]
        });
      } catch (err) {
@@ -540,7 +978,39 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
        if (name === "FxRoute" /* FX_ROUTE */) {
          mainError = err;
        }
-@@ -11887,12 +11909,14 @@ var Pool = class {
+@@ -5069,6 +5142,7 @@ var downLeverageShortFlashLoanQuote = async ({
+       const realPrice = cBN(_fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
+       routeList.push({
+         params: {
++          positionEconomics: positionEconomicsSnapshot(poolInfo, currentColls, currentDebts, 0n, "adjust-down"),
+           routeType: name,
+           positionLeverage: leverage - 1,
+           positionId,
+@@ -5614,6 +5688,7 @@ var Position = class {
+       return {
+         routeType: item.params.routeType,
+         leverage: item.params.positionLeverage,
++        positionEconomics: item.params.positionEconomics,
+         executionPrice: item.params.curPrice,
+         colls: item.params.colls,
+         debts: item.params.debts,
+@@ -5714,6 +5789,7 @@ var Position = class {
+       return {
+         routeType: item.params.routeType,
+         leverage: item.params.positionLeverage,
++        positionEconomics: item.params.positionEconomics,
+         executionPrice: item.params.curPrice,
+         minOut: item.params.minOut,
+         colls: item.params.colls,
+@@ -5818,6 +5894,7 @@ var Position = class {
+       return {
+         routeType: item.params.routeType,
+         leverage: item.params.positionLeverage,
++        positionEconomics: item.params.positionEconomics,
+         executionPrice: item.params.curPrice,
+         colls: item.params.colls,
+         debts: item.params.debts,
+@@ -11887,12 +11964,14 @@ var Pool = class {
        return {
          collateralCapacity: poolInfoRes[0],
          collateralBalance: poolInfoRes[1],
@@ -558,7 +1028,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
          supplyFeeRatio: poolFeeRatioRes[0],
          withdrawFeeRatio: poolFeeRatioRes[1],
          repayFeeRatio: fxMintPoolFeeRatioRes[3]
-@@ -11907,13 +11931,28 @@ var Pool = class {
+@@ -11907,13 +11986,28 @@ var Pool = class {
     */
    async getPoolInfo() {
      const { isShort } = this.config;
@@ -591,7 +1061,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
      const poolInfo = {
        ...this.config,
        ...poolData,
-@@ -11928,11 +11967,22 @@ var Pool = class {
+@@ -11928,11 +12022,22 @@ var Pool = class {
        closeFeeRatio: cBN(poolData.withdrawFeeRatio ?? 0).div(1e9).toNumber(),
        repayFeeRatio: cBN(poolData.repayFeeRatio ?? 0).div(1e9).toNumber()
      };
@@ -615,7 +1085,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
  // src/configs/layerzero.ts
  var LZ_ENDPOINT_ADDRESS = "0x1a44076050125825900e736c501f859c50fE728c";
  var EID_ETHEREUM = 30101;
-@@ -12103,7 +12153,8 @@ function getBridgeQuote(request) {
+@@ -12103,7 +12208,8 @@ function getBridgeQuote(request) {
      token,
      amount,
      recipient,
@@ -625,7 +1095,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -12114,7 +12165,8 @@ function getBridgeQuote(request) {
+@@ -12114,7 +12220,8 @@ function getBridgeQuote(request) {
    }
    const { address: oftAddress, tokenKey } = resolveOftAddress(sourceChainId, token);
    const dstEid = getEidByChainId(destChainId);
@@ -635,7 +1105,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    if (!rpcUrl) {
      throw new Error("Source RPC URL is required.");
    }
-@@ -12123,9 +12175,9 @@ function getBridgeQuote(request) {
+@@ -12123,9 +12230,9 @@ function getBridgeQuote(request) {
        id: sourceChainId,
        name: sourceChainId === 8453 ? "Base" : "Ethereum",
        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
@@ -647,7 +1117,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    });
    const sendParam = {
      dstEid,
-@@ -12154,7 +12206,8 @@ async function buildBridgeTx(request) {
+@@ -12154,7 +12261,8 @@ async function buildBridgeTx(request) {
      amount,
      recipient,
      refundAddress,
@@ -657,7 +1127,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16303,6 +16356,8 @@ function getDepositSpender(tokenIn) {
+@@ -16303,6 +16411,8 @@ function getDepositSpender(tokenIn) {
    return contracts.FxSave_fxSAVE;
  }
  async function depositFxSave(request) {
@@ -666,7 +1136,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
    if (!isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16343,7 +16398,8 @@ async function depositFxSave(request) {
+@@ -16343,7 +16453,8 @@ async function depositFxSave(request) {
        nonce: nonce++,
        chainId
      });
@@ -676,7 +1146,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
      const fxRoute = new FxRoute();
-@@ -16411,9 +16467,11 @@ async function depositFxSave(request) {
+@@ -16411,9 +16522,11 @@ async function depositFxSave(request) {
      nonce: nonce++,
      chainId
    });
@@ -689,7 +1159,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    const { userAddress, tokenOut, amount, instant = false, slippage } = request;
    if (!isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16441,7 +16499,8 @@ async function withdrawFxSave(request) {
+@@ -16441,7 +16554,8 @@ async function withdrawFxSave(request) {
        nonce,
        chainId
      });
@@ -699,7 +1169,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    if (!instant) {
      const data2 = encodeFunctionData({
-@@ -16553,13 +16612,19 @@ async function withdrawFxSave(request) {
+@@ -16553,13 +16667,19 @@ async function withdrawFxSave(request) {
      nonce: instantNonce,
      chainId
    });
@@ -721,7 +1191,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16653,10 +16718,10 @@ var FxSdk = class {
+@@ -16653,10 +16773,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -734,7 +1204,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16724,10 +16789,10 @@ var FxSdk = class {
+@@ -16724,10 +16844,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -747,7 +1217,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16776,7 +16841,7 @@ var FxSdk = class {
+@@ -16776,7 +16896,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -756,7 +1226,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16836,10 +16901,10 @@ var FxSdk = class {
+@@ -16836,10 +16956,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -769,7 +1239,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..1340eb17bec031daa218cfa83aa2692f
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16899,10 +16964,10 @@ var FxSdk = class {
+@@ -16899,10 +17019,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
