@@ -125,6 +125,14 @@ try {
   const externalRequests = [];
   const failedResponses = [];
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    window.__sculptureDraws = 0;
+    const draw = WebGLRenderingContext.prototype.drawArrays;
+    WebGLRenderingContext.prototype.drawArrays = function (...args) {
+      window.__sculptureDraws += 1;
+      return draw.apply(this, args);
+    };
+  });
   let feedMode = 'ready';
   await context.route('**/api/market-data', route => feedMode === 'offline'
     ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
@@ -138,6 +146,10 @@ try {
   page.on('response', response => { if (response.status() >= 400 && !response.url().endsWith('/api/market-data')) failedResponses.push(response.url()); });
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('.capital-art')).toHaveAttribute('data-rendered', 'true');
+  const stillDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), stillDraws, 'Reduced motion renders a complete still without a loop');
 
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
   assert.equal(await page.locator('.outcome-panel').count(), 3);
@@ -351,13 +363,32 @@ try {
     const style = getComputedStyle(element);
     return { name: style.animationName, iterations: style.animationIterationCount, color: style.color };
   });
-  assert.equal(heroMotion.name, 'hero-light', 'The hero uses its own brief type highlight');
-  assert.equal(heroMotion.iterations, '1', 'The hero highlight never loops');
+  assert.equal(heroMotion.name, 'none', 'The hero heading stays still while the sculpture moves');
   await page.locator('.hero').scrollIntoViewIfNeeded();
+  await expect(page.locator('.capital-art')).toHaveAttribute('data-rendered', 'true');
+  const activeDraws = await page.evaluate(() => window.__sculptureDraws);
+  await expect.poll(() => page.evaluate(() => window.__sculptureDraws)).toBeGreaterThan(activeDraws);
+  const beforeMotion = await page.locator('.capital-canvas').screenshot();
+  await expect.poll(async () => Buffer.compare(await page.locator('.capital-canvas').screenshot(), beforeMotion) !== 0, { timeout: 6000, message: 'Visible motion changes the sculpture pixels during its peel cycle' }).toBe(true);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const hiddenDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), hiddenDraws, 'Hidden-page visibility stops sculpture rendering');
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
   await expect.poll(() => page.locator('.site-footer').evaluate((element) => getComputedStyle(element, '::before').animationPlayState)).toBe('paused');
   await page.locator('.trade-card').scrollIntoViewIfNeeded();
   await expect.poll(() => page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationPlayState)).toBe('running');
   await page.locator('.site-footer').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(100);
+  const offscreenDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), offscreenDraws, 'Offscreen sculpture does not render');
   await expect(page.locator('html')).toHaveAttribute('data-scrolled', '');
   assert.notEqual(await page.locator('.site-header').evaluate((element) => getComputedStyle(element).borderBottomColor), 'rgba(0, 0, 0, 0)', 'Scrolled navigation has a quiet separating edge');
   await expect.poll(() => page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationPlayState)).toBe('paused');
@@ -365,6 +396,9 @@ try {
   assert.equal(await page.locator('.motion-toggle').count(), 0, 'The footer has no animation control');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'off');
+  const reducedDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), reducedDraws, 'Changing the motion preference stops the sculpture loop');
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'off');
   assert.equal(await page.evaluate(() => document.getAnimations().length), 0, 'The system preference stops decorative motion');
   await page.reload({ waitUntil: 'networkidle' });
@@ -424,7 +458,39 @@ try {
   }
   await writeFile(resolve(captures, 'fixture-note.txt'), 'Screenshots use deterministic test data: TVL$12,345,678, APY6.5%, ETH$2,500, BTC$80,000. These are test fixtures, not current market claims.\n');
 
-console.log('Landing browser checks passed: USD scenarios, validation, feed failure/recovery, keyboard tabs/menu, web routes on every device,44px targets, dark theme, contrast, reduced motion, responsive overflow and local-only browser requests.');
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.querySelector('.capital-canvas').getContext('webgl').getExtension('WEBGL_lose_context').loseContext());
+  await expect(page.locator('.capital-art')).not.toHaveAttribute('data-rendered');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(page.locator('.capital-still')).toHaveCSS('opacity', '1');
+  await expect(page.locator('.capital-canvas')).toHaveCSS('opacity', '0');
+
+  for (const mode of ['no-webgl', 'save-data', 'no-script']) {
+    const fallbackContext = await browser.newContext({ javaScriptEnabled: mode !== 'no-script', reducedMotion: 'reduce' });
+    await fallbackContext.route('**/api/market-data', route => route.fulfill({ json: marketFixture() }));
+    if (mode === 'save-data') await fallbackContext.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true } }));
+    if (mode === 'no-webgl') await fallbackContext.addInitScript(() => {
+      const getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) { return type === 'webgl' ? null : getContext.call(this, type, ...args); };
+    });
+    const fallbackPage = await fallbackContext.newPage();
+    for (const width of [390, 1280]) {
+      await fallbackPage.setViewportSize({ width, height: 900 });
+      await fallbackPage.goto(origin, { waitUntil: 'networkidle' });
+      await fallbackPage.evaluate(() => document.fonts.ready);
+      const still = fallbackPage.locator('.capital-still img');
+      await expect(fallbackPage.locator('.capital-still')).toHaveCSS('opacity', '1');
+      assert.ok(await still.evaluate(image => image.complete && image.naturalWidth > 0), `${mode} artwork loads`);
+      assert.ok((await still.getAttribute('src')).endsWith('capital-sculpture-desktop.png'));
+      assert.ok((await still.evaluate(image => image.currentSrc)).includes(width === 390 ? 'mobile.png' : 'desktop.png'), `${mode} uses the intended responsive composition`);
+      assert.deepEqual(await visibleRoutes(fallbackPage, '.hero .actions a'), [WEB, TELEGRAM]);
+      await checkNoOverflow(fallbackPage, width);
+      if (mode === 'no-script') await fallbackPage.screenshot({ path: resolve(captures, `fallback-${width}px.png`) });
+    }
+    await fallbackContext.close();
+  }
+
+console.log('Landing browser checks passed: USD scenarios, feed freshness/recovery, keyboard tabs/menu, routes,44px targets, contrast, responsive overflow, sculpture motion/pausing/fallbacks and local-only requests.');
 } finally {
   await browser?.close();
   server.kill();
