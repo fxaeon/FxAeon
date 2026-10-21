@@ -42,8 +42,8 @@ importers:
         specifier: 9.39.4
         version: 9.39.4
       '@next/eslint-plugin-next':
-        specifier: 16.4.0
-        version: 16.4.0(eslint@9.39.4(jiti@2.6.1)(supports-color@7.2.0))
+        specifier: 16.4.2
+        version: 16.4.2(eslint@9.39.4(jiti@2.6.1)(supports-color@7.2.0))
       eslint:
         specifier: 9.39.4
         version: 9.39.4(jiti@2.6.1)(supports-color@7.2.0)
@@ -1004,8 +1004,8 @@ packages:
   '@next/env@16.4.2':
     resolution: {integrity: sha512-nTUTFH7G5/J/fmpkjVLegOkqyKOP0CEsJcMsyO4UCYeN1su+YMW/MfaSErnJskL7XM+UDK6aTvslxsRCyya/sA==}
 
-  '@next/eslint-plugin-next@16.4.0':
-    resolution: {integrity: sha512-ffeflB/dL8RrvWejQximw01pOpKHN692Y3FjDB82DCd0YVvXvBD6vY7mcZp27yvSVFVM6wA73xVodEKF4spizA==}
+  '@next/eslint-plugin-next@16.4.2':
+    resolution: {integrity: sha512-gCTWlw0e+Y6kajpFyKKgA195jUJCRhlzJE0lV7ufe8a+ghIsANWZ0/FiJwg6DuOG1+OvRbcZDcFBoRh3mNJx0g==}
 
   '@next/swc-darwin-arm64@16.4.2':
     resolution: {integrity: sha512-ONkhFvZNFWlsEHOM/81AtxdyuJP2KRYKYR0JxPwvcu1AuPMMMgcL+wW2luldJvMtZwKtUxoSkCychW5wIeoYSw==}
@@ -5076,7 +5076,7 @@ snapshots:
 
   '@next/env@16.4.2': {}
 
-  '@next/eslint-plugin-next@16.4.0(eslint@9.39.4(jiti@2.6.1)(supports-color@7.2.0))':
+  '@next/eslint-plugin-next@16.4.2(eslint@9.39.4(jiti@2.6.1)(supports-color@7.2.0))':
     dependencies:
       '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.4(jiti@2.6.1)(supports-color@7.2.0))
       fast-glob: 3.3.1
