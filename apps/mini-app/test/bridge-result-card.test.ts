@@ -30,7 +30,8 @@ test('bridge outcome uses verified source and destination amounts, never the req
   assert.match(html, new RegExp(`https://basescan.org/tx/${DEST}`));
   assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
   assert.equal((html.match(/<details\b/g) ?? []).length, 3);
-  assert.ok(html.indexOf('99.9876 fxUSD</dd>') > html.indexOf('<details class="advanced">'), 'unrounded verified amount is in flat Advanced');
+  assert.match(primary, /Exact received<\/span>99.9876 fxUSD<\/p>/, 'unrounded verified amount is directly on the received value');
+  assert.doesNotMatch(html.slice(html.indexOf('<details class="advanced">')), /99.9876 fxUSD/, 'the technical panel does not repeat the same observed amount');
   assert.match(html, /Copy full recipient/);
 });
 

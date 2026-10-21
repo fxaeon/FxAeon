@@ -1,16 +1,17 @@
 import type { ReviewFact } from '../../lib/fx/reviewFormatting';
+import type { ReactNode } from 'react';
 import { formatReviewFactValue } from './reviewFactFormatting';
 import styles from './ReviewFactValue.module.css';
 
 /** Amount-only at rest; the original value and its separate caveats stay reachable
  * by touch, keyboard and assistive technology, without a repeated chevron. */
-export function ReviewFactValue({ fact, className }: { fact: ReviewFact; className?: string }) {
+export function ReviewFactValue({ fact, className, display }: { fact: ReviewFact; className?: string; display?: ReactNode }) {
   const value = formatReviewFactValue(fact);
   const classes = [styles.value, className].filter(Boolean).join(' ');
-  if (!value.expandable) return <span className={classes}>{value.display}</span>;
+  if (!value.expandable && display === undefined) return <span className={classes}>{value.display}</span>;
   return <details className={classes} data-review-value={fact.label}>
     <summary className={styles.summary} aria-label={`${value.display}. Show full ${fact.label.toLowerCase()} value`}>
-      <span>{value.display}</span>
+      <span>{display ?? value.display}</span>
     </summary>
     <div className={styles.expanded}>
       <div><span className={styles.detailLabel}>Full value</span><span className={styles.original}>{value.original}</span></div>

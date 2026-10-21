@@ -104,7 +104,7 @@ test('review continuity freezes the starting snapshot and returns without pushin
   assert.match(review, /onReturnToPosition\(\{ key:/);
   assert.match(source('app/positions/page.tsx'), /onReturnToPosition=\{\(\{ key \}\) =>/);
   assert.match(source('app/borrow/page.tsx'), /onReturnToPosition=\{\(\{ key \}\) =>/);
-  assert.match(review, /Current borrow rate/);
+  assert.match(review, /label="Borrow rate"[^]*?'Not quoted'/);
   assert.match(source('app/borrow/page.tsx'), /label="Current borrow rate"/);
   assert.doesNotMatch(review, /className=\{presentationStyles.riskNotice\}/);
   assert.match(source('components/infoHelpContent.ts'), /Rebalancing can reduce collateral and debt/);
@@ -125,7 +125,7 @@ test('Bridge default renders amount-led network badges, distinct optional help a
   const { BridgeReviewSummary } = await import('../src/components/review/BridgeReviewSummary');
   const facts = [{ label: 'Amount', value: '100 fxUSD' }, { label: 'Estimated received', value: '99.9 fxUSD' }, { label: 'Minimum received', value: '99 fxUSD', title: '99.000000000000000001 fxUSD' }, { label: 'Gas fee', value: 'Unavailable' }];
   const html = renderToStaticMarkup(React.createElement(BridgeReviewSummary, { facts, allFacts: [...facts, { label: 'Source network', value: 'Ethereum' }, { label: 'Destination network', value: 'Base' }, { label: 'Slippage', value: '0.5%' }], sourceChainId: 1, destinationChainId: 8453 }));
-  assert.match(html, /You send/); assert.match(html, /You receive · estimated/);
+  assert.match(html, />Send</); assert.match(html, />Estimated</);
   assert.match(html, /Ethereum/); assert.match(html, /Base/);
   assert.doesNotMatch(html, /Bridge fxUSD/);
   assert.match(html, /About Min. received/);
@@ -156,7 +156,9 @@ test('paired before/after values preserve full precision and non-numeric caveats
 
 test('leverage review keeps explicit position identity next to its target', () => {
   const review = source('components/ActionReview.tsx');
-  assert.match(review, /leverageReview[^]*?<strong>\{identity.name\}<\/strong>[^]*?\{identity.subtitle\}[^]*?<LeverageChangeSummary/);
+  assert.match(review, /actionHeading = tradingAction \? identity.name : identity.review/);
+  assert.match(review, /leverageReview \?[^]*?\{identity.subtitle\}[^]*?<LeverageChangeSummary/);
+  assert.match(review, /stage === 'executing' \? identity.name : actionHeading/);
 });
 
 
@@ -185,8 +187,10 @@ test('Bridge groups hero digits without numeric conversion and does not expand a
   assert.doesNotMatch(html, /Show full price impact/);
   assert.match(html, /About Price impact/);
   const caveat = render([{ label: 'Price impact', value: 'Unavailable', title: 'Route validation failed; do not assume a zero price impact.' }]);
-  assert.match(caveat, /Show full price impact/);
-  assert.match(caveat, /Route validation failed/);
+  assert.match(caveat, /About Price impact/);
+  assert.doesNotMatch(caveat, /Show full price impact/);
+  const { reviewTermHelp } = await import('../src/components/review/ReviewTermRow');
+  assert.equal(reviewTermHelp({ label: 'Price impact', value: 'Unavailable', title: 'Route validation failed; do not assume a zero price impact.' }), 'Route validation failed; do not assume a zero price impact.');
 });
 
 

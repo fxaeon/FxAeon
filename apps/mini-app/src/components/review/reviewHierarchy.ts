@@ -49,11 +49,13 @@ export function reviewHierarchy(summary: readonly ReviewFact[], details: readonl
     if (fact.label === 'Gas tier' || (fact.label === 'Total cost' && fact.value === 'Included in gas fee')) continue;
     if (trade && fact.label === 'Quoted leverage' && fact.value === target?.value) continue;
     if (trade && fact.label === 'Target leverage') continue; // beside the position name
+    // A new loan has no previous debt. When both exact amounts agree, the
+    // visible Debt added already states this result; different/unknown debt stays.
+    if (newBorrow && fact.label === 'Estimated debt' && debtAdded !== undefined && exactTokenAmount(fact) === debtAdded) continue;
     if (bridgeNetworks && fact === source) primary.push(bridgeNetworks);
     const secondary = (Boolean(bridgeNetworks) && ['Source network', 'Destination network'].includes(fact.label))
       || (Boolean(assetShownInAmount) && fact.label === 'Asset') || SECONDARY.has(fact.label) || (trade && TRADE_SECONDARY.has(fact.label))
-      || (newBorrow && (NEW_BORROW_SECONDARY.has(fact.label)
-        || (fact.label === 'Estimated debt' && debtAdded !== undefined && exactTokenAmount(fact) === debtAdded)));
+      || (newBorrow && NEW_BORROW_SECONDARY.has(fact.label));
     const visible = summary.includes(fact)
       || (trade && fact.label === 'Execution price')
       || (newBorrow && NEW_BORROW_PRIMARY.has(fact.label));

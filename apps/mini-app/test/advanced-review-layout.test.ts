@@ -9,7 +9,8 @@ test('review has a single Execution details disclosure with flat transaction and
   assert.match(source, /<span>Execution details<\/span>/);
   assert.doesNotMatch(source, /Steps ·|Technical information|<summary[^>]*>Transaction details/);
   for (const field of ['Contract', 'Transaction value (wei)', 'Nonce', 'Approval spender', 'Quote data', 'economicLimits', 'bridge: bridgeQuote', 'Action fingerprint']) assert.ok(source.includes(field), field);
-  assert.ok(source.indexOf('hierarchy.more.filter') < source.indexOf('Fee basis:'));
+  assert.match(source, /additionalFacts.map/);
+  assert.ok(source.includes('!(bridgeReview ? bridgeDecisionLabels : decisionLabels).has(fact.label)'));
   assert.match(source, /stepResults\[index\] && <span/);
   assert.match(source, /CalldataDisclosure data=\{transaction.data\}/);
   assert.match(source, /AmountUsd amount=\{formatEther\(transaction.value\)\}/);
@@ -32,7 +33,9 @@ test('bridge receipt consolidates reviewed terms and tracker proof into one Exec
   assert.doesNotMatch(result, /BridgeReviewSummary/);
   assert.match(result, /BridgeResultDetails result=/);
   const card = component('review/BridgeResultCard.tsx');
-  assert.equal((card.match(/<details\b/g) ?? []).length, 3, 'one Execution details and two exact-amount presentations');
+  assert.match(card, /<OutcomeAmount[^]*?label=\{sourceKnown \? 'Sent'[^]*?inspectExact/);
+  assert.match(card, /<OutcomeAmount[^]*?label=\{delivered \? 'Received'[^]*?inspectExact/);
+  assert.match(card, /Show exact \$\{label.toLowerCase\(\)\} amount/);
   assert.match(card, /<details className=\{styles.advanced\}/);
   assert.doesNotMatch(component('review/BridgeResultDetails.tsx'), /<details\b/);
   assert.match(result, /bridgeTracker\?\.\(advancedContent,/);

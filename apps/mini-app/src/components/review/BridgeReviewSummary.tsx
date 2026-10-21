@@ -14,8 +14,8 @@ import { AmountUsd, FeeUsd, FeeAmount } from './AmountUsd';
 import { tokenAmountParts } from './transactionAmountPresentation';
 import { MetricLabel } from '../InfoHelp';
 import { ReviewFactValue } from './ReviewFactValue';
-import { formatReviewFactValue } from './reviewFactFormatting';
 import { reviewHelpDefinition } from './reviewHelp';
+import { ReviewTermRow } from './ReviewTermRow';
 
 function BridgeAmount({ fact, network, chainId, received = false }: {
   fact: ReviewFact; network?: ReviewFact; chainId?: number; received?: boolean;
@@ -29,7 +29,6 @@ function BridgeAmount({ fact, network, chainId, received = false }: {
       {(chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}
     </span>
     <div className={styles.bridgeAmountText}>
-      <span className={styles.bridgeAmountLabel}>{received ? 'You receive · estimated' : 'You send'}</span>
       <details className={styles.bridgeExactAmount}>
         <summary data-long={(figure?.value.length ?? 0) > 15 || undefined} aria-label={`${received ? 'Show full receive estimate' : 'Show exact sent amount'}: ${fact.title ?? fact.value}`}>
           <span>{figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : <ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" />} {unit && <span className={styles.flowUnit}>{unit}</span>}</span>
@@ -37,7 +36,7 @@ function BridgeAmount({ fact, network, chainId, received = false }: {
         </summary>
         <p><span>{received ? 'Unrounded estimate' : 'Exact send amount'}</span>{fact.title ?? fact.value}</p>
       </details>
-      <span className={styles.bridgeAssetNetwork}>{parts && <AmountUsd amount={parts.amount} symbol={parts.symbol} />}{network && <span>{network.value}</span>}</span>
+      <span className={styles.bridgeAssetNetwork}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
     </div>
   </div>;
 }
@@ -75,11 +74,12 @@ function BridgeFact({ fact, compact = false }: { fact: ReviewFact; compact?: boo
   const label = fact.label === 'Gas fee' ? (/max/i.test(fact.value) ? 'Network fee (max)' : 'Network fee') : fact.label === 'Estimated received' ? 'You receive · estimated' : fact.label === 'Minimum received' ? 'Min. received' : fact.label === 'Slippage' ? 'Max. slippage' : reviewFactLabel(fact.label);
   const onlyMissingPriceImpact = fact.label === 'Price impact' && fact.value === 'Unavailable'
     && fact.title === 'The accepted route does not provide a verified price-impact estimate.';
+  if (compact) return <ReviewTermRow fact={fact} displayLabel={label} />;
   // Explanations stay beside labels. Values use one precision control, never
   // nested disclosures; the original minimum and fee caveats remain available.
-  return <div data-review-fact={fact.label} className={compact ? styles.compactFact : styles.bridgeFact}>
-    {compact ? <span>{label}</span> : <MetricLabel label={label} definition={reviewHelpDefinition(fact.label)} />}
-    <span>{['Gas fee', 'Bridge fee'].includes(fact.label) ? <FeeAmount fact={fact} /> : fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" label={`${label} unavailable`} /> : compact ? formatReviewFactValue(fact).display : <ReviewFactValue fact={onlyMissingPriceImpact ? { ...fact, title: undefined } : fact} />}{fact.equivalent && <small>{fact.equivalent}</small>}{fact.label === 'Total cost' && <FeeUsd fact={fact} />}</span>
+  return <div data-review-fact={fact.label} className={styles.bridgeFact}>
+    <MetricLabel label={label} definition={reviewHelpDefinition(fact.label)} />
+    <span>{['Gas fee', 'Bridge fee'].includes(fact.label) ? <FeeAmount fact={fact} /> : fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" label={`${label} unavailable`} /> : <ReviewFactValue fact={onlyMissingPriceImpact ? { ...fact, title: undefined } : fact} />}{fact.equivalent && <small>{fact.equivalent}</small>}{fact.label === 'Total cost' && <FeeUsd fact={fact} />}</span>
   </div>;
 }
 
@@ -105,8 +105,9 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
       ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
       : <BridgeFact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div></details>
       : <div className={styles.bridgeTerms}>
-        <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact compact key={fact.label} fact={fact} />)}{slippage && <BridgeFact compact fact={slippage} />}{priceImpact.value !== 'Unavailable' && <BridgeFact compact fact={priceImpact} />}</div>
+        <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact compact key={fact.label} fact={fact} />)}{slippage && <BridgeFact compact fact={slippage} />}</div>
         <div className={styles.costGroup}>{remaining.filter(fact => ['Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => <BridgeFact compact key={fact.label} fact={fact} />)}</div>
+        <BridgeFact compact fact={priceImpact} />
         <div className={styles.bridgeContext}>{remaining.filter(fact => !['Minimum received', 'Quoted minimum received', 'Price impact', 'Slippage', 'Total cost', 'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => fact.label === 'Recipient'
           ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
           : <BridgeFact compact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div>

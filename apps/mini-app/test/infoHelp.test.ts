@@ -54,6 +54,8 @@ test('help fits a 320px viewport with 200% text, tall content, and anchors at ev
       const p = getInfoHelpPosition(anchor, height, { left: 0, top: 0, width: 320, height: 640 });
       assert.ok(p.left >= 12 && p.left + p.width <= 308);
       assert.ok(p.top >= 12 && p.top + Math.min(height, p.maxHeight) <= 628);
+      assert.ok(p.top >= anchor.bottom + 6 || p.top + Math.min(height, p.maxHeight) <= anchor.top - 6,
+        'the panel leaves its icon available for a second tap, even at enlarged text sizes');
     }
   }
   assert.match(css, /overflow: auto/);
@@ -117,6 +119,7 @@ function interactionHarness(native = true) {
   const hooks = {
     useId() { const instance = current; const i = instance.index++; return instance.hooks[i] ??= instance.id; },
     useRef(value: unknown) { const instance = current; const i = instance.index++; return instance.hooks[i] ??= { current: value }; },
+    useCallback(callback: (...args: any[]) => any, deps: unknown[]) { const instance = current; const i = instance.index++; const old = instance.hooks[i] as { callback: typeof callback; deps: unknown[] } | undefined; if (!old || deps.some((dep, n) => !Object.is(dep, old.deps[n]))) instance.hooks[i] = { callback, deps }; return instance.hooks[i].callback; },
     useState(value: unknown) { const instance = current; const i = instance.index++; if (!(i in instance.hooks)) instance.hooks[i] = value; return [instance.hooks[i], (next: unknown) => { instance.hooks[i] = typeof next === 'function' ? (next as (previous: unknown) => unknown)(instance.hooks[i]) : next; instance.dirty = true; }]; },
     useLayoutEffect(effect: () => (() => void) | undefined, deps: unknown[]) { const instance = current; const i = instance.index++; const old = instance.hooks[i] as Effect | undefined; if (!old || deps.some((dep, n) => !Object.is(dep, old.deps[n]))) instance.effects.push(() => { old?.cleanup?.(); instance.hooks[i] = { deps, cleanup: effect() }; }); },
   };
@@ -126,7 +129,7 @@ function interactionHarness(native = true) {
   const module = { exports: {} as any };
   runInNewContext(transformSync(source, { loader: 'tsx', format: 'cjs', jsx: 'automatic' }).code, {
     module, exports: module.exports, require: (name: string) => name === 'react' ? hooks : name === 'react/jsx-runtime' ? { jsx, jsxs: jsx, Fragment: 'fragment' } : name === 'react-dom' ? { createPortal: (child: any, target: FakeElement) => ({ portal: child, target }) } : name === 'lucide-react' ? { Info: 'info', X: 'x' } : name === './infoHelpContent' ? { INFO_HELP_CONTENT } : { __esModule: true, default: new Proxy({}, { get: (_, key) => key }) },
-    window, document, HTMLElement: FakeElement, Node: FakeElement, MutationObserver,
+    window, document, HTMLElement: FakeElement, Node: FakeElement, MutationObserver, setTimeout, clearTimeout,
   });
   const instances: Instance[] = [];
   const mount = (label: string, owner: FakeElement | null = null) => {

@@ -57,6 +57,29 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   });
   expect(await page.locator('[data-review-viewport] img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await page.screenshot({ path: info.outputPath('review.png'), animations: 'disabled' });
+  if (scenario.width === 390 && !scenario.reduced) {
+    const borrowRateHelp = viewport.getByRole('button', { name: 'About Borrow rate', exact: true });
+    const target = await borrowRateHelp.boundingBox();
+    expect(target!.width).toBeGreaterThanOrEqual(44);
+    expect(target!.height).toBeGreaterThanOrEqual(44);
+    const before = await viewport.locator('[data-review-fact="Debt added"]').boundingBox();
+    await borrowRateHelp.click();
+    const help = page.getByRole('dialog', { name: 'Borrow rate', exact: true });
+    await expect(help).toContainText('A zero base rate does not establish the current funding cost.');
+    expect(await viewport.locator('[data-review-fact="Debt added"]').boundingBox()).toEqual(before);
+    await page.screenshot({ path: info.outputPath('borrow-rate-help.png'), animations: 'disabled' });
+    await page.keyboard.press('Escape');
+    await expect(borrowRateHelp).toBeFocused();
+    const details = viewport.locator('details[aria-label="Advanced transaction details"]');
+    await details.locator('summary').first().click();
+    for (const label of ['Deposit', 'Debt added', 'Estimated debt', 'Loan-to-value', 'Borrow rate', 'Gas fee', 'f(x) fee']) {
+      await expect(details.locator(`[data-review-evidence="${label}"]`)).toHaveCount(0);
+    }
+    await expect(details.getByRole('region', { name: 'Prepared transactions' })).toBeVisible();
+    await details.getByRole('region', { name: 'Prepared transactions' }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath('technical-details.png'), animations: 'disabled' });
+    await details.locator('summary').first().click();
+  }
   await cta.click();
   const pending = page.getByRole('region', { name: 'Transaction progress', exact: true });
   await expect(pending).toContainText('Confirm in wallet');

@@ -78,7 +78,6 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
       await expect(review.locator('[data-review-fact="Delivery estimate"]')).toHaveCount(0);
     }
     if (kind === 'earn-instant') {
-      await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
       const fee = review.locator('[data-review-value="f(x) fee"]');
       await expect(fee.locator('summary')).toHaveText('1%');
       const feeTarget = await fee.locator('summary').boundingBox();
@@ -87,9 +86,8 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
       await fee.locator('summary').click();
       await expect(fee.getByText('Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.', { exact: true })).toBeVisible();
       await fee.locator('summary').click();
-      await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
       const received = review.locator('[data-review-fact="Estimated received"]');
-      await expect(received.getByText('You receive · estimated', { exact: true })).toBeVisible();
+      await expect(received.getByText('Estimated', { exact: true })).toBeVisible();
       await expect(received.locator('summary')).toHaveText('99 USDC');
       await expect(received.locator('summary')).toHaveAccessibleName('Show full estimate: 99 USDC');
     }

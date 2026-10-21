@@ -29,14 +29,22 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
         <div className={styles.flowAmount} data-review-fact={fact.label}>
           <span className={styles.flowToken} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={40} />{index === 0 && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}</span>
           <div className={styles.flowValue}>
-            <span className={styles.flowLabel}>{labels?.[fact.label] ?? plainAmountLabel(fact.label)}</span>
             <details className={styles.flowExact}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}><span>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span></summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${simulated ? 'simulated' : receipt ? 'receipt' : 'reviewed'} amount`}</span><span className={styles.selectableAmount}>{fact.title ?? fact.value}</span></p></details>
-            <div className={styles.flowSubline}><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && showNetwork && <span>· {chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span>}</div>
+            <div className={styles.flowSubline}><span>{amountCaption(labels?.[fact.label] ?? plainAmountLabel(fact.label))}</span><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && showNetwork && <><span aria-hidden="true">·</span><span>{chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span></>}</div>
           </div>
         </div>
       </div>;
     })}
   </section>;
+}
+
+/** The token is already beside the amount; this line describes its role. */
+function amountCaption(label: string): string {
+  if (label === 'You receive · estimated') return 'Estimated';
+  if (/^(?:fxUSD|USDC) payout · estimated$/.test(label)) return 'Estimated payout';
+  if (label === 'You receive · minimum' || /^(?:fxUSD|USDC) · minimum$/.test(label)) return 'Minimum received';
+  const caption = label.replace(/^You /, '');
+  return caption.charAt(0).toUpperCase() + caption.slice(1);
 }
 
 function boundedReviewedValue(value: string): string {

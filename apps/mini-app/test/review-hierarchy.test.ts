@@ -94,7 +94,9 @@ test('Borrow collapses only demonstrably identical debt while preserving the net
   const summary = [{ label: 'Debt added', value: '50 fxUSD' }, { label: 'Estimated fxUSD received', value: '49.75 fxUSD' }, { label: 'f(x) fee', value: '0.25 fxUSD (0.5%)' }];
   const same = reviewHierarchy(summary, [{ label: 'Estimated debt', value: '≈ 50 fxUSD', title: '50.000 fxUSD' }], false, true);
   assert.deepEqual(same.primary.map(f => f.label), ['Debt added', 'Estimated fxUSD received', 'f(x) fee']);
-  assert.equal(same.more[0].label, 'Estimated debt');
+  assert.equal(same.more.length, 0, 'identical new-loan debt is not duplicated in technical details');
+  const existing = reviewHierarchy(summary, [{ label: 'Estimated debt', value: '50 fxUSD', title: '50.000 fxUSD' }], false, false);
+  assert.equal(existing.more[0].label, 'Estimated debt', 'an existing loan retains resulting debt separately from the amount added');
   const different = reviewHierarchy(summary, [{ label: 'Estimated debt', value: '≈ 50 fxUSD', title: '50.00000001 fxUSD' }], false, true);
   assert.equal(different.primary.at(-1)?.label, 'Estimated debt');
   const unknown = reviewHierarchy(summary, [{ label: 'Estimated debt', value: 'Unavailable' }], false, true);
