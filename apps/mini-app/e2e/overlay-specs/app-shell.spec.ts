@@ -318,9 +318,9 @@ test('the decorative canvas remains absent while overlays and visibility change'
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('with data saver on, the canvas stays still from the first paint', async ({ page }) => {
+test('data saver needs no canvas marker for an absent background', async ({ page }) => {
   await open(page, { initScript: "Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true,addEventListener(){}}})" });
-  await expect(page.locator('html')).toHaveAttribute('data-save-data', '');
+  await expect(page.locator('html')).not.toHaveAttribute('data-save-data', '');
   expect(await canvasStates(page)).toEqual([]);
 });
 

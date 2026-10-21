@@ -448,31 +448,6 @@ main.utility-stage {
   .wallet-provider-option:active { transform: none; }
 }
 
-/* The living canvas: two soft lights drift behind every route on long, offset
-   loops, so the page breathes without ever competing with numbers. Transform-only
-   motion keeps it on the compositor; reduced motion holds the lights still. */
-body::before,
-body::after {
-  content: none;
-  position: fixed;
-  z-index: 0;
-  inset: -12vmax;
-  pointer-events: none;
-  will-change: transform;
-}
-body::before {
-  background:
-    radial-gradient(46vmax 30vmax at 50% 4%, var(--canvas-wash), transparent 68%),
-    radial-gradient(30vmax 24vmax at 88% 86%, var(--canvas-wash-secondary), transparent 72%);
-  animation: canvas-drift-a 42s var(--ease-in-out, ease-in-out) infinite alternate;
-}
-body::after {
-  background:
-    radial-gradient(30vmax 22vmax at 14% 22%, color-mix(in srgb, var(--brand-coral) 9%, transparent), transparent 70%),
-    radial-gradient(26vmax 20vmax at 76% 58%, color-mix(in srgb, var(--mint) 6%, transparent), transparent 72%);
-  animation: canvas-drift-b 56s var(--ease-in-out, ease-in-out) infinite alternate;
-}
-
 /* The first route heading of a session arrives lit, as the landing's headline
    does: one band of accent light crosses the word and leaves it in plain text.
    The band starts and ends beyond the word, so the first and last frames read
@@ -495,32 +470,6 @@ body::after {
 @media (forced-colors: active) {
   :is(.page-header, .trade-page-heading, [data-page-heading]) h1 { background: none; -webkit-text-fill-color: CanvasText; }
 }
-@keyframes canvas-drift-a {
-  from { transform: translate3d(-3vmax, -1vmax, 0) scale(1); }
-  to { transform: translate3d(4vmax, 3vmax, 0) scale(1.06); }
-}
-@keyframes canvas-drift-b {
-  from { transform: translate3d(3vmax, 2vmax, 0) rotate(0deg); }
-  to { transform: translate3d(-4vmax, -3vmax, 0) rotate(6deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  body::before, body::after { animation: none; }
-}
-/* The canvas rests when nobody is looking at it. With data saver on it stays
-   still from the first paint; while the page is hidden it holds its frame. */
-:root[data-save-data] body::before,
-:root[data-save-data] body::after { animation: none; will-change: auto; }
-:root[data-page-hidden] body::before,
-:root[data-page-hidden] body::after { animation-play-state: paused; }
-/* It also holds its frame under a sheet, dialog or transaction review, where
-   attention (and a backdrop blur) sits above it. Markers: overlays are
-   aria-modal; reviews render ActionReview's viewport, or mark their form with
-   data-review (Trade, Positions) or a data-flow-stage past input. */
-body:has([aria-modal='true'], [data-review-viewport], [data-review], [data-flow-stage]:not([data-flow-stage='input']))::before,
-body:has([aria-modal='true'], [data-review-viewport], [data-review], [data-flow-stage]:not([data-flow-stage='input']))::after {
-  animation-play-state: paused;
-}
-
 button,
 a,
 input,
