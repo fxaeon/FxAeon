@@ -24,7 +24,9 @@ test('all position and loan reviews retain risk rows without manufacturing price
   assert.match(review, /Execution details/);
   assert.match(review, /\[\.\.\.hierarchy.primary, \.\.\.hierarchy.more\]/);
   assert.match(review, /CollateralAmount collateral=\{collateralValuation\}/);
-  assert.match(review, /Quoted collateral · native/);
+  assert.match(review, /ReviewTermRow fact=\{collateral\}[^]*?displayValue=\{collateralValuation/);
+  assert.match(source('components/review/ReviewTermRow.tsx'), /ReviewFactValue fact=\{fact\} display=\{displayValue\}/);
+  assert.match(source('components/review/ReviewFactValue.tsx'), /value.original/);
 });
 
 test('mobile review is content-height and keeps scrollable information separate from action', () => {

@@ -123,7 +123,7 @@ test('Send submitted footer stays compact and never labels a hash or estimated f
   await expect(submitted.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
   await expect(submitted.getByText('Not confirmed by the network yet. History shows its status.')).toBeVisible();
   const details = submitted.getByLabel('Submitted transaction details', { exact: true });
-  await expect(details.locator('dt')).toHaveText(['Transaction submitted', 'Gas fee']);
+  await expect(details.locator('dt')).toHaveText(['Transaction submitted', 'Network fee']);
   await expect(details.getByText('Pending confirmation', { exact: true })).toBeVisible();
   await expect(details.getByRole('link', { name: 'View submitted transaction on explorer' })).toHaveAttribute('href', `https://etherscan.io/tx/0x${'a'.repeat(64)}`);
   await expect(submitted.getByRole('link', { name: 'View history', exact: true })).toHaveAttribute('href', '/history');

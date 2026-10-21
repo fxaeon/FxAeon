@@ -454,7 +454,6 @@
 .bridgeExactAmount > summary { min-height: 38px; font-size: clamp(23px, 6.8vw, 29px); letter-spacing: -.035em; }
 .bridgeAssetNetwork { display: flex; flex-wrap: wrap; gap: 2px 5px; font-size: 12px; }
 .bridgeAssetNetwork .amountUsd { font-size: inherit; }
-.bridgeAssetNetwork > span + span::before { content: '· '; }
 .bridgeDirection { margin: 11px 0 11px 11px; }
 .bridgeTerms { gap: 0; margin-top: 16px; }
 .bridgeFact { padding-block: 5px; }
@@ -845,28 +844,22 @@
 .recipientAddress button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
 .recipientAddress > p { color: var(--warn); font-size: var(--fs-caption); line-height: 1.5; }
 
-/* Decision facts are readable text. Their exact source values and individual
-   explanations live in Execution details; only actual controls take 44px. */
-.compactFact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; min-height: 28px; padding-block: 4px; font-size: 13px; line-height: 1.5; }
+/* A term, its contextual help and its exact value share one row. The compact
+   amount block makes room for real 44px targets without overlapping controls. */
+.compactFact { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 44px; padding: 0; font-size: 13px; line-height: 1.5; }
 .compactFact > span:first-child { min-width: 0; color: var(--mut); }
-.compactFact > span:last-child { min-width: 0; max-width: 64%; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.compactFact > span:last-child { min-width: 0; max-width: 60%; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .compactFact small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; }
 .compactFact:has(.feePrimary) { align-items: center; padding-block: 0; }
 .compactFact .feePrimary > summary > .amountUsd { color: var(--text); font: inherit; }
 .amountLedReview .consequenceGroup, .amountLedReview .costGroup, .bridgeDecision .consequenceGroup, .bridgeDecision .costGroup { gap: 0; }
-.amountLedReview .amountFlow + .facts { padding-top: 12px; }
+.amountLedReview .amountFlow + .facts { padding-top: 10px; }
 .amountLedReview .costGroup, .bridgeDecision .costGroup { margin-top: 8px; padding-top: 8px; }
 .amountLedReview .riskGroup { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--line); }
 .amountLedReview .riskGroup.loanRiskGroup { padding-top: 4px; margin-top: 4px; border-top: 1px solid var(--line); }
 .compactRisk { min-width: 0; }
-.riskDisclosure > summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--mut); font-size: 12px; list-style: none; cursor: pointer; }
-.riskDisclosure > summary::-webkit-details-marker { display: none; }
-.riskDisclosure > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
-.riskDisclosure > summary > svg { flex: 0 0 auto; }
-.riskDisclosure[open] > summary > svg { transform: rotate(180deg); }
-.riskDisclosure > p { margin: 0 0 10px; color: var(--mut); font-size: 12px; line-height: 1.55; }
 .flowAmount, .bridgeAmount { align-items: flex-start; }
-.flowToken, .bridgeToken { margin-top: 22px; }
+.flowToken, .bridgeToken { margin-top: 3px; }
 .flowLabel, .bridgeAmountLabel { font-size: 12px; }
 .amountContext { margin-bottom: 10px; }
 .flowExact > p, .bridgeExactAmount > p { font-size: 12px; }

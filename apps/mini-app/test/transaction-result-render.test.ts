@@ -234,7 +234,7 @@ test('queue result reports the confirmed request without inventing claim readine
     receipts: [{ ...receipts[0], movements: ['sent 200 fxSAVE'], exactMovements: [{ direction: 'sent', amount: '200', symbol: 'fxSAVE' }] }],
   });
   assert.match(html, /Withdrawal queued/);
-  assert.match(html, /You redeemed/);
+  assert.match(html, />Redeemed</);
   assert.match(html, /Check live status/);
   assert.match(html, /Payout<\/dt><dd>After cooldown/);
   assert.doesNotMatch(html, /Ready to claim|200 fxSP|Amount queued/);

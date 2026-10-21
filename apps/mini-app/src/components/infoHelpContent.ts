@@ -2,7 +2,7 @@
  * evidence belong in the visible interface, never in this registry. Callers
  * opt into a named definition; we deliberately do not infer from fact.title. */
 export const INFO_HELP_CONTENT = {
-  maxSlippage: 'The maximum adverse price movement allowed between the quote and execution. A higher tolerance permits a larger difference; it does not guarantee execution.',
+  maxSlippage: 'The maximum adverse price movement allowed between quote and execution. Raising it permits a larger difference, without guaranteeing execution.',
   networkSpeed: 'The speed setting changes the priority fee offered to the network. A higher priority fee can improve the chance of earlier inclusion, but timing is not guaranteed.',
   minimumReceived: 'The lowest output amount permitted by this quote after the selected slippage tolerance. It is a limit, not the expected amount received.',
   estimatedReceived: 'The expected output at the quoted conditions. The final amount can differ; use the displayed minimum received when a minimum applies.',

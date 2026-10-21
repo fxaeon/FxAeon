@@ -12,7 +12,7 @@ export function reviewHelpDefinition(label: string): InfoHelpKey | undefined {
     'Loan-to-value': 'loanToValue', 'Borrow rate': 'borrowRate',
     'Gas fee': 'networkFee', 'Bridge fee': 'bridgeFee', 'f(x) fee': 'protocolFee',
     'Protocol fee': 'protocolFee', 'Debt added': 'debtAdded',
-  'Collateral': 'collateralAccounting',
+    'Collateral': 'collateralAccounting', 'Estimated collateral': 'collateralAccounting',
     'Target leverage': 'targetLeverage', 'Leverage': 'effectiveLeverage',
     'Current APY': 'fxSaveApy',
   };

@@ -33,7 +33,7 @@ test('Execution details keep one disclosure, grouped limits and exact copy/view 
   const review = source('components/ActionReview.tsx');
   const evidence = source('components/review/TechnicalEvidenceRow.tsx');
   assert.equal((review.match(/<details\b/g) ?? []).length, 1);
-  for (const label of ['Route & limits', 'Wallet requests', 'Verification data', 'Network speed', 'Risk prices use']) assert.ok(review.includes(label), label);
+  for (const label of ['Route & limits', 'Wallet requests', 'Verification data', 'Network speed']) assert.ok(review.includes(label), label);
   assert.match(evidence, /copyText\(value\)/);
   assert.match(evidence, /aria-label=\{`Copy full \$\{label.toLowerCase\(\)\}`\}/);
   assert.match(evidence, /<textarea readOnly[^>]*value=\{value\}/);

@@ -17,7 +17,9 @@ test('execution keeps phone focus and its Back stop until the result can close',
   await page.getByRole('button', { name: 'Defer wallet response', exact: true }).click();
   await review(page);
   await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Confirm in wallet', exact: true })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Transaction progress', exact: true })).toContainText('Confirm in wallet');
+  await expect(surface(page).locator('[data-review-actions]')).toHaveCount(0);
+  expect(await metric(page, 'send')).toBe(1);
   await page.setViewportSize({ width: 390, height: 844 });
   const dialog = page.locator('[data-mobile-review-sheet]');
   await expect(dialog).toBeVisible();

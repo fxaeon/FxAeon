@@ -65,13 +65,6 @@ export function BridgeResultCard({
     {<details className={styles.advanced}>
       <summary><span>Execution details</span><ChevronDown size={16} aria-hidden="true" /></summary>
       <div className={styles.detailsBody}>
-        {(sourceKnown || destinationAmount !== undefined) && <section className={styles.group} aria-label="Verified bridge amounts">
-          <h4>{simulated ? 'Simulated amounts' : 'Verified amounts'}</h4>
-          <dl className={styles.facts}>
-            {sourceKnown && <div><dt>Exact sent</dt><dd>{sourceAmount} {token}</dd></div>}
-            {destinationAmount !== undefined && <div><dt>Exact received</dt><dd>{destinationAmount} {token}</dd></div>}
-          </dl>
-        </section>}
         {recipient && <section className={styles.group}><TechnicalEvidenceRow label="Recipient" value={recipient} preview={compactAddress(recipient)} /></section>}
         {advancedContent}
         {verificationDetails && <section className={styles.notes} aria-label="Delivery verification">{verificationDetails}</section>}
@@ -90,7 +83,6 @@ function OutcomeAmount({ network, token, amount, label, missing, secondary = fal
   return <div className={styles.amountRow} data-secondary={secondary || undefined}>
     <span className={styles.token} aria-hidden="true"><TokenIcon symbol={token} size={44} /><span><ChainIcon chainId={network === 'Base' ? 8453 : 1} size={16} /></span></span>
     <div className={styles.amountContent}>
-      <span className={styles.label}>{label}</span>
       {inspectExact && figure ? <details className={styles.exactAmount}>
         <summary aria-label={`Show exact ${label.toLowerCase()} amount: ${amount} ${token}`}>
           <span className={styles.amount} data-long={(display?.length ?? 0) > 17 || undefined}>{display}<span> {token}</span></span>
@@ -99,7 +91,7 @@ function OutcomeAmount({ network, token, amount, label, missing, secondary = fal
       </details> : <p className={styles.amount} data-unknown={!figure || undefined} data-long={(display?.length ?? 0) > 17 || undefined} title={amount === undefined ? undefined : `${amount} ${token}`}>
         {display ?? missing}{figure && <span> {token}</span>}
       </p>}
-      <p className={styles.subline}>{figure && amount !== undefined && <><AmountUsd amount={amount} symbol={token} receipt={receipt} /><span aria-hidden="true">·</span></>}<span>{!figure && `${token} on `}{network}</span></p>
+      <p className={styles.subline}><span>{label}</span><span aria-hidden="true">·</span>{figure && amount !== undefined && <><AmountUsd amount={amount} symbol={token} receipt={receipt} /><span aria-hidden="true">·</span></>}<span>{!figure && `${token} on `}{network}</span></p>
     </div>
   </div>;
 }
