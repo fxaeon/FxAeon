@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 const app = resolve(__dirname, '../..');
 const requireApp = createRequire(resolve(app, 'package.json'));
@@ -39,7 +39,12 @@ test.beforeAll(async () => {
     plugins:[{name:'fixtures',setup(build: { onResolve: (opts: {filter:RegExp}, cb:(args:{path:string})=>unknown)=>void; onLoad:(opts:{filter:RegExp;namespace:string},cb:(args:{path:string})=>unknown)=>void }) {
       build.onResolve({filter:/.*/},({path})=> {
         if(mocks[path])return {path,namespace:'fixture'};
-        if(path.startsWith('@/')) { const file=resolve(src,path.slice(2)); for(const ext of ['', '.tsx','.ts'])if(existsSync(file+ext))return {path:file+ext}; }
+        if(path.startsWith('@/')) {
+          const file=resolve(src,path.slice(2));
+          for(const candidate of [file, file+'.tsx', file+'.ts', resolve(file,'index.ts'), resolve(file,'index.tsx')]) {
+            if(existsSync(candidate) && statSync(candidate).isFile())return {path:candidate};
+          }
+        }
         return undefined;
       });
       build.onLoad({filter:/.*/,namespace:'fixture'},({path})=>({contents:mocks[path],loader:'tsx',resolveDir:app}));

@@ -9,6 +9,7 @@ const tsxPackage = require.resolve('tsx/package.json', { paths: [resolve(root, '
 const esbuild = createRequire(tsxPackage)('esbuild') as { build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ text: string }> }> };
 const src = resolve(root, 'apps/mini-app/src');
 const entry = resolve(root, 'apps/mini-app/e2e/harness/borrow-selection-entry.tsx');
+const sdkPackage = require.resolve('@aladdindao/fx-sdk', { paths: [resolve(root, 'apps/mini-app')] });
 
 const mocks: Record<string, string> = {
   // The settings gear links to Settings and closes with the router; the harness has neither Next's
@@ -35,6 +36,13 @@ const mocks: Record<string, string> = {
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({deposit:'',mint:'',repay:'',withdraw:''});`,
   '@aladdindao/fx-sdk': `export const tokens = { eth: '0x0000000000000000000000000000000000000001', weth: '0x0000000000000000000000000000000000000002', stETH: '0x0000000000000000000000000000000000000003', wstETH: '0x0000000000000000000000000000000000000004', WBTC: '0x0000000000000000000000000000000000000005', usdc: '0x0000000000000000000000000000000000000006', usdt: '0x0000000000000000000000000000000000000007', fxUSD: '0x0000000000000000000000000000000000000008', fxUSDBasePool: '0x0000000000000000000000000000000000000009' };`,
 };
+// The real post-confirmation presentation imports receipt proof helpers. Keep
+// their SDK metadata intact, but fail closed if this selection-only fixture
+// accidentally starts an SDK read instead of using the supplied snapshots.
+mocks['@aladdindao/fx-sdk'] += `
+  export { BRIDGE_OFT_BY_TOKEN } from ${JSON.stringify(sdkPackage)};
+  export class FxSdk { constructor() { throw new Error('Live SDK reads are outside the borrow selection fixture'); } }
+`;
 
 async function buildHarness(): Promise<string> {
   type BuildApi = { onResolve: (options: { filter: RegExp }, callback: (args: { path: string; resolveDir?: string }) => unknown) => void; onLoad: (options: { filter: RegExp; namespace?: string }, callback: (args: { path: string; resolveDir: string }) => unknown) => void };

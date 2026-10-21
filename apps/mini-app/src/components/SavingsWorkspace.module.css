@@ -75,7 +75,7 @@
 .riskSummary { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .riskSummary p { margin: 0; }
 .riskSummary nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 4px; }
-.riskSummary a { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
+.riskSummary a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
 .riskSummary a:hover { color: var(--text); }
 .retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--warn); background: color-mix(in srgb, var(--warn-dim) 68%, var(--surface)); }
 .retryButton:hover { background: var(--warn-dim); }

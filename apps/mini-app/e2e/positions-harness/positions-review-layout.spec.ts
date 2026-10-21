@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 
 const root = resolve(__dirname, '../../../..');
 const require = createRequire(resolve(root, 'package.json'));
@@ -94,6 +94,43 @@ async function openAdvanced(page: Page) {
   await expect(transactions.getByRole('group', { name: /^Transaction [12]$/ })).toHaveCount(2);
 }
 
+// IntersectionObserver rounds fractional layout edges differently across browsers.
+// Require every edge within half a CSS pixel of the visible clipping bounds,
+// and independently prove the center and all four sides remain clickable.
+async function expectDecisionReachable(decision: Locator) {
+  await expect.poll(() => decision.evaluate(button => {
+    const action = button.getBoundingClientRect();
+    const bounds = { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
+    for (let ancestor = button.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const rect = ancestor.getBoundingClientRect();
+      const scaleX = ancestor.offsetWidth ? rect.width / ancestor.offsetWidth : 1;
+      const scaleY = ancestor.offsetHeight ? rect.height / ancestor.offsetHeight : 1;
+      const left = rect.left + ancestor.clientLeft * scaleX;
+      const top = rect.top + ancestor.clientTop * scaleY;
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        bounds.left = Math.max(bounds.left, left);
+        bounds.right = Math.min(bounds.right, left + ancestor.clientWidth * scaleX);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        bounds.top = Math.max(bounds.top, top);
+        bounds.bottom = Math.min(bounds.bottom, top + ancestor.clientHeight * scaleY);
+      }
+    }
+    const errors: string[] = [];
+    if (action.width < 44 || action.height < 44) errors.push(`Target ${action.width}×${action.height}`);
+    for (const edge of ['top', 'left'] as const) if (action[edge] < bounds[edge] - 0.5) errors.push(`${edge}: ${action[edge]} < ${bounds[edge]}`);
+    for (const edge of ['bottom', 'right'] as const) if (action[edge] > bounds[edge] + 0.5) errors.push(`${edge}: ${action[edge]} > ${bounds[edge]}`);
+    const x = action.left + action.width / 2;
+    const y = action.top + action.height / 2;
+    for (const [px, py] of [[x, y], [action.left + 1, y], [action.right - 1, y], [x, action.top + 1], [x, action.bottom - 1]]) {
+      const hit = document.elementFromPoint(px, py);
+      if (!hit || !button.contains(hit)) errors.push(`Blocked hit at ${px},${py}`);
+    }
+    return errors;
+  })).toEqual([]);
+}
+
 let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
@@ -114,14 +151,14 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     await trigger.click();
     const decision = page.getByRole('button', { name: 'Approve position', exact: true });
     await expect(decision).toBeVisible();
-    if (viewport.width <= 600) await expect(decision).toBeInViewport({ ratio: 1 });
+    if (viewport.width <= 600) await expectDecisionReachable(decision);
     await openAdvanced(page);
     const information = page.getByRole('region', { name: 'Review information', exact: true });
     await expect(information).toHaveCSS('overflow-y', 'auto');
     if (viewport.width <= 600) {
       await expect(page.locator('[data-inline-review-sheet]')).toHaveCount(1);
       await expect.poll(() => information.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
-      await expect(decision).toBeInViewport({ ratio: 1 });
+      await expectDecisionReachable(decision);
     }
     // Advanced animates its height. Keep requesting the actual end while it
     // expands rather than testing a scroll offset captured mid-animation.
@@ -188,7 +225,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const minimum = page.locator('[data-review-fact="Minimum received"]');
   await expect(minimum.getByText('You receive · minimum', { exact: true })).toBeVisible();
-  await expect(minimum.getByLabel('Show exact amount: 99 USDC', { exact: true })).toBeVisible();
+  await expect(minimum.getByLabel('Show full reviewed amount: 99 USDC', { exact: true })).toBeVisible();
   await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
   const confirmFitsAboveNavigation = async () => confirm.evaluate((button) => {
     const nav = document.querySelector('[data-app-navigation]')!.getBoundingClientRect();

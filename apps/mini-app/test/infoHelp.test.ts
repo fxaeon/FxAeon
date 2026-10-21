@@ -60,8 +60,10 @@ test('help fits a 320px viewport with 200% text, tall content, and anchors at ev
   assert.match(css, /white-space: normal/);
   assert.match(css, /overflow-wrap: anywhere/);
   assert.match(css, /font-size: \.8125rem/);
-  assert.match(css, /min-width: 30px/);
-  assert.match(css, /min-height: 30px/);
+  const controls = css.match(/\.trigger, \.close\s*\{([^}]+)\}/)?.[1] ?? '';
+  assert.match(controls, /min-width: 44px/, 'both help controls retain the mobile target floor');
+  assert.match(controls, /min-height: 44px/, 'both help controls retain the mobile target floor');
+  assert.match(css, /\.trigger svg, \.close svg\s*\{[^}]*width: 16px; height: 16px;/, 'larger targets keep quiet icons');
 });
 
 test('help accounts for a zoomed or keyboard-offset visual viewport and repositions above when needed', () => {

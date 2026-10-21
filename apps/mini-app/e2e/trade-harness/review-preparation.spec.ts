@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 // Real Trade, ActionReview, service, patched SDK, route policy, simulation and
 // fee hooks. Only the wallet/display providers and transport responses are
@@ -90,10 +90,6 @@ async function planCount(page: Page) {
 async function review(page: Page) { await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click(); }
 async function insufficient(page: Page) { await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled(); }
 const advanced = (page: Page) => page.getByLabel('Advanced transaction details', { exact: true });
-// USD display estimates are a separate child, not part of the signed ETH figure.
-const nativeFigure = (value: Locator) => value.evaluate(node => Array.from(node.childNodes)
-  .filter(child => child.nodeType === Node.TEXT_NODE).map(child => child.textContent).join('').trim());
-
 async function expectReachableReview(page: Page) {
   const information = page.getByRole('region', { name: 'Review information', exact: true });
   const decision = page.locator('[data-review-actions] > button');
@@ -129,7 +125,11 @@ async function expectReachableReview(page: Page) {
   // Rows beyond the clipped body may have screen coordinates below the CTA.
   // Require every decision-critical value to scroll fully above it instead of
   // comparing the CTA against an offscreen row's unscrolled coordinates.
+  const detailsWereOpen = await advanced(page).evaluate(node => (node as HTMLDetailsElement).open);
   for (const label of ['Amount', 'Estimated collateral', 'Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee', 'Gas fee', 'Total cost']) {
+    // The total is intentionally secondary. Open its actual disclosure before
+    // applying the same full-row clipping and footer visibility contract.
+    if (label === 'Total cost' && !detailsWereOpen) await advanced(page).locator(':scope > summary').click();
     const row = information.locator(`[data-review-fact="${label}"]`).first();
     await row.scrollIntoViewIfNeeded();
     // IntersectionObserver rounds fractional scroll offsets differently from
@@ -144,6 +144,7 @@ async function expectReachableReview(page: Page) {
     expect(fits, `${label} is fully readable inside the scrolling terms`).toBe(true);
     await expect(decision).toBeInViewport({ ratio: 1 });
   }
+  if (!detailsWereOpen) await advanced(page).locator(':scope > summary').click();
   const disclosure = advanced(page).locator(':scope > summary');
   await disclosure.scrollIntoViewIfNeeded();
   await expect(disclosure).toBeInViewport({ ratio: 0.99 });
@@ -402,22 +403,33 @@ test('a Max-length amount remains in the input then fits the complete review at 
   await insufficient(page);
   await expectInsideCard();
   await expect(page.locator('p', { hasText: 'Add at least' })).toHaveText(/^Add at least \d[\d,]*(?:\.\d+)? ETH on Ethereum to cover network fees\. Receive ETH$/);
-  // The tooltip retains the exact funding requirement. The displayed total
-  // rounds up conservatively, as does the shortfall against the 0.0004 ETH balance.
+  // The compact display is approximate; its disclosure retains the exact
+  // funding requirement and conservatively rounded six-decimal total used by
+  // the shortfall against the 0.0004 ETH balance.
   const toWei = (text: string) => {
     const [whole, fraction = ''] = /([\d,]+(?:\.\d+)?) ETH/.exec(text)![1].replace(/,/g, '').split('.');
     return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
   };
   const gasValue = page.locator('[data-review-fact="Gas fee"] > span').last();
-  expect(await nativeFigure(gasValue)).toMatch(/^[\d,]+(?:\.\d+)? ETH max$/);
-  await expect(gasValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');
+  await expect(gasValue.locator('summary [data-usd-state="unavailable"]')).toHaveText(/^(?:≈ )?[\d,]+(?:\.\d+)? ETH max$/);
+  const exactGas = (await gasValue.getAttribute('title'))!;
+  await gasValue.locator('summary').click();
+  await expect(gasValue.locator('p')).toBeVisible();
+  await expect(gasValue.locator('p')).toHaveText(`${exactGas}USD is a current-price estimate. The native amount governs the transaction.`);
+  await gasValue.locator('summary').click();
   await advanced(page).locator(':scope > summary').click();
   const totalValue = page.locator('[data-review-fact="Total cost"] > span').last();
-  const total = await nativeFigure(totalValue);
-  expect(total).toMatch(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
+  await expect(totalValue.locator('summary > span')).toHaveText(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
   await expect(totalValue).toHaveAttribute('title', /^[\d,]+(?:\.\d+)? ETH \(native value \+ max network fee\)$/);
-  const exactTotal = toWei((await totalValue.getAttribute('title'))!);
-  expect(exactTotal).toBe(244431136966270n + toWei((await gasValue.getAttribute('title'))!));
+  const exactTotalText = (await totalValue.getAttribute('title'))!;
+  const exactTotal = toWei(exactTotalText);
+  expect(exactTotal).toBe(244431136966270n + toWei(exactGas));
+  await totalValue.locator('summary').click();
+  const fullTotal = totalValue.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last();
+  await expect(fullTotal).toBeVisible();
+  const total = (await fullTotal.textContent())!;
+  expect(total).toMatch(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
+  await expect(totalValue.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(exactTotalText);
   const displayStepWei = 1_000_000_000_000n; // Six decimal places in ETH, rounded up.
   expect(toWei(total)).toBe(((exactTotal + displayStepWei - 1n) / displayStepWei) * displayStepWei);
   await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');

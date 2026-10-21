@@ -1,7 +1,7 @@
 /* Optional definitions use one quiet, touchable disclosure across products. */
 .label { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; vertical-align: middle; }
 .label > span:first-child { min-width: 0; overflow-wrap: anywhere; }
-.trigger, .close { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; border: 0; border-radius: 50%; color: var(--mut); background: transparent; cursor: pointer; vertical-align: middle; }
+.trigger, .close { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%; color: var(--mut); background: transparent; cursor: pointer; vertical-align: middle; }
 .trigger svg, .close svg { flex: 0 0 auto; width: 16px; height: 16px; }
 .trigger:hover, .trigger[aria-expanded='true'], .close:hover { color: var(--text); background: var(--surface-2); }
 .trigger:focus-visible, .close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }

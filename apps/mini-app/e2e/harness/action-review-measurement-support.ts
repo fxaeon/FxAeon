@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import { performance } from 'node:perf_hooks';
@@ -21,6 +21,15 @@ const mocks: Record<string, string> = {
   '@/lib/fx/liquidationQuote': `export const LIQUIDATION_QUOTE_TTL_MS = 30000; export const projectedLiquidationPrice = () => undefined; export const projectedRebalancePrice = () => undefined;`,
   '@/lib/fx': `
     const H = () => globalThis.__actionReviewHarness;
+    // Keep production validation and token identity helpers behind the real
+    // result/readback presentation. This fixture never performs live reads.
+    export { assertAddress, assertWalletAddress } from './src/lib/fx/validation';
+    export { assertPublicClientChain } from './src/lib/fx/clients';
+    export { resolveBridgeApprovalTokenAddress, resolveBridgeTokenAddress } from './src/lib/fx/bridge';
+    const unexpectedRead = () => { throw new Error('Live protocol reads are outside the action review fixture'); };
+    export const getPublicClient = unexpectedRead;
+    export const getEthereumClient = unexpectedRead;
+    export const getFxReadFacade = unexpectedRead;
     export const FX_TOKENS = { USDC: { key: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
     // The real fee copy, so the review's max and its shortfall notice are checked together.
     export { formatRouteGasCost } from '@/lib/fx/gasCost';
@@ -199,6 +208,7 @@ export const useInvalidateWalletData = () => async () => {
     export const TransactionHashLink = ({ step }) => <span>{step.hash}</span>;
   `,
   '@/lib/fx/reviewFormatting': `
+    export { positionOutcomeFacts } from './src/lib/fx/reviewFormatting';
     export const rawQuoteReviewFacts = () => [];
     import { routeFinancialReviewFacts as acceptedFacts } from './src/lib/fx/reviewFormatting';
     export const routeFinancialReviewFacts = (route) => route.policy?.reviewedAction?.kind?.startsWith('fxsave-') ? acceptedFacts(route) : [];
@@ -236,8 +246,9 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
         build.onResolve({ filter: /^@\// }, (args: { path: string }) => {
           if (mocks[args.path]) return { path: args.path, namespace: 'mock' };
           const candidate = resolve(src, args.path.slice(2));
-          if (existsSync(candidate)) return { path: candidate };
-          for (const extension of ['.tsx', '.ts']) if (existsSync(`${candidate}${extension}`)) return { path: `${candidate}${extension}` };
+          for (const file of [candidate, `${candidate}.tsx`, `${candidate}.ts`, resolve(candidate, 'index.ts'), resolve(candidate, 'index.tsx')]) {
+            if (existsSync(file) && statSync(file).isFile()) return { path: file };
+          }
           return { path: candidate };
         });
         build.onResolve({ filter: /^lucide-react$/ }, () => ({ path: 'lucide-react', namespace: 'mock' }));

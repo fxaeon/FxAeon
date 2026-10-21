@@ -22,12 +22,40 @@ test.describe("protocol form help and picker keyboard behavior", () => {
     expect(panelGeometry.left).toBeGreaterThanOrEqual(0);
     expect(panelGeometry.right).toBeLessThanOrEqual(320);
 
-    // The explanation is always visible and describes the value field; no tooltip to discover.
+    // The transaction limit stays visible and describes the input. Optional
+    // help explains terminology without hiding that essential consequence.
     const slippageInput = settingsPanel.getByRole("textbox", { name: "Slippage tolerance percentage", exact: true });
     await expect(slippageInput).toHaveValue("0.5");
     const helpId = await slippageInput.getAttribute("aria-describedby");
     expect(helpId).toBeTruthy();
-    await expect(page.locator(`[id="${helpId}"]`)).toContainText("The transaction reverts if price moves past this limit before confirmation.");
+    await expect(page.locator(`[id="${helpId}"]`)).toHaveText("Reverts if price moves beyond the displayed slippage limit before confirmation.");
+    await expect(slippageInput).toHaveAccessibleDescription("Reverts if price moves beyond the displayed slippage limit before confirmation.");
+
+    const helpTrigger = settingsPanel.getByRole("button", { name: "About Max slippage", exact: true });
+    await expect(helpTrigger).toHaveAttribute("aria-expanded", "false");
+    await helpTrigger.focus();
+    await helpTrigger.press("Enter");
+    const helpPanel = page.getByRole("dialog", { name: "Max slippage", exact: true });
+    await expect(helpPanel).toBeVisible();
+    await expect(helpPanel).toBeFocused();
+    await expect(helpPanel).toHaveAttribute("aria-modal", "false");
+    await expect(helpPanel).toHaveAccessibleDescription("The maximum adverse price movement allowed between the quote and execution. A higher tolerance permits a larger difference; it does not guarantee execution.");
+    await expect(helpTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(helpTrigger).toHaveAttribute("aria-controls", (await helpPanel.getAttribute("id"))!);
+    const helpBounds = await helpPanel.boundingBox();
+    expect(helpBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(helpBounds!.x + helpBounds!.width).toBeLessThanOrEqual(320);
+    for (const control of [helpTrigger, helpPanel.getByRole("button", { name: "Close Max slippage help", exact: true })]) {
+      const bounds = await control.boundingBox();
+      expect(bounds!.width).toBeGreaterThanOrEqual(44);
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+    }
+    // Escape dismisses the nested explanation, not its transaction settings.
+    await page.keyboard.press("Escape");
+    await expect(helpPanel).toHaveCount(0);
+    await expect(helpTrigger).toBeFocused();
+    await expect(helpTrigger).toHaveAttribute("aria-expanded", "false");
+    await expect(settingsPanel).toBeVisible();
 
     // Presets are 44px targets that save at once and update the gear's label.
     const presets = settingsPanel.getByRole("radiogroup", { name: "Max slippage" }).getByRole("radio");

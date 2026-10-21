@@ -81,7 +81,7 @@ test.describe('Earn entry and honest unavailable state', () => {
 
   test('claim deep links remain available without a permanent empty tab', async ({ page, requests }) => {
     await page.goto('/earn?mode=claim', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: 'Withdrawal', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Withdrawal details', exact: true })).toBeVisible();
     await expect(page.getByText('Connect the requesting wallet to view its withdrawal.')).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Claim', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Back to fxSAVE' }).click();
@@ -108,7 +108,9 @@ test.describe('connected Earn summary at normal phone width', () => {
     await expect(page.getByText('Last verified position value', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('status', { name: 'fxSAVE balance' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Variable APY', { exact: true })).toBeVisible();
-    const apyRow = page.getByText('Variable APY', { exact: true }).locator('..');
+    // MetricLabel nests the label with its help trigger. The nearest div is
+    // the complete rate group, including the independently rendered value.
+    const apyRow = page.getByText('Variable APY', { exact: true }).locator('xpath=ancestor::div[1]');
     await expect(apyRow.getByText('6.96%', { exact: true })).toBeVisible();
     const geometry = await page.evaluate(() => {
       const summary = document.querySelector<HTMLElement>('[class*="balanceTop"]');
