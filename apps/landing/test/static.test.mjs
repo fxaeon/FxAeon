@@ -229,7 +229,7 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.doesNotMatch(html, /\sstyle=/);
   assert.doesNotMatch(html, /<style\b/);
   assert.doesNotMatch(html, /\son[a-z]+=/i);
-  assert.equal(html.toLowerCase().split('<script').length - 1, 2);
+  assert.equal(html.toLowerCase().split('<script').length - 1, 3);
   assert.match(html, /<script type="module" src="dollar-outcomes\.js"><\/script>/);
   assert.match(html, /<script src="script\.js"><\/script>/);
   assert.doesNotMatch(html, /aurora\.js/);
@@ -252,10 +252,10 @@ test('built output includes safe Telegram routes, the exact QR, font licenses, c
   assert.ok(builtHtml.includes(`href="${escapeAttribute(launcher)}"`));
   for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="https://fxaeon.com/${route}"`), `${route} web route`);
   assert.equal(await readFile(resolve(root, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
-  for (const file of ['script.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(root, 'dist', file));
+  for (const file of ['script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(root, 'dist', file));
   assert.deepEqual(JSON.parse(await readFile(resolve(root, 'dist/_routes.json'), 'utf8')), { version: 1, include: ['/api/market-data'], exclude: [] });
   await assert.rejects(access(resolve(root, 'dist/functions')));
-  await assert.rejects(access(resolve(root, 'dist/hero-field.js')), 'The static hero does not ship the removed WebGL runtime');
+  await assert.rejects(access(resolve(root, 'dist/hero-field.js')), 'The retired field renderer is not shipped');
   for (const license of ['Inter-LICENSE.txt', 'Manrope-LICENSE.txt']) assert.deepEqual(await readFile(resolve(root, 'assets', license)), await readFile(resolve(root, 'dist/assets', license)));
   await assert.rejects(access(resolve(root, 'dist/assets/tokens/usdc.png')));
   const robots = await readFile(resolve(root, 'dist/robots.txt'), 'utf8');
@@ -321,7 +321,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
     execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
     await assert.rejects(access(resolve(tempRoot, 'node_modules')));
     await assert.rejects(access(resolve(tempLanding, 'node_modules')));
-    for (const file of ['script.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/telegram-qr.svg', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(tempLanding, 'dist', file));
+    for (const file of ['script.js', 'sculpture.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/telegram-qr.svg', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(tempLanding, 'dist', file));
     await assert.rejects(access(resolve(tempLanding, 'dist/hero-field.js')));
     await assert.rejects(access(resolve(tempLanding, 'dist/assets/tokens/usdc.png')));
     await assert.rejects(access(resolve(tempLanding, 'dist/aurora.js')));
@@ -342,7 +342,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
 
     const assetVersion = (markup) => {
       const urls = [...markup.matchAll(/(?:src|href)="([^"\s]+\.(?:css|js|mjs)(?:\?[^"\s]+)?)"/g)].map(([, url]) => url);
-      assert.equal(urls.length, 3);
+      assert.equal(urls.length, 4);
       for (const url of urls) assert.match(url, /\?v=[a-f0-9]{16}$/);
       const versions = new Set(urls.map(url => new URL(url, 'https://fxaeon.xyz').searchParams.get('v')));
       assert.equal(versions.size, 1);

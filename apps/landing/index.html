@@ -41,6 +41,7 @@
     <meta name="theme-color" content="#101214" />
     <title>FxAeon — Trade, save and borrow on f(x) Protocol</title>
     <script src="script.js"></script>
+    <script src="sculpture.js" defer></script>
     <script type="module" src="dollar-outcomes.js"></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
     <link
@@ -125,13 +126,20 @@
     </dialog>
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <h1 id="hero-title">Put your crypto<br /><span>to work.</span></h1>
+        <div class="capital-art" aria-hidden="true">
+          <picture class="capital-still">
+            <source media="(max-width: 760px)" srcset="assets/capital-sculpture-mobile.png" />
+            <img src="assets/capital-sculpture-desktop.png" width="1500" height="660" alt="" />
+          </picture>
+          <canvas class="capital-canvas"></canvas>
         </div>
-        <div class="hero-intro">
-          <p class="lede">Trade ETH and BTC. Earn with fxSAVE. Borrow stablecoins against your crypto.</p>
-          <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Powered By f(x) SDK</p>
-          <div class="actions"><a class="button primary" href="https://fxaeon.com/">Open app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
+        <div class="hero-copy">
+          <h1 id="hero-title">Put your crypto <br /><span>to work.</span></h1>
+          <div class="hero-intro">
+            <p class="lede">Trade ETH and BTC. Earn with fxSAVE. Borrow stablecoins against your crypto.</p>
+            <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Powered By f(x) SDK</p>
+            <div class="actions"><a class="button primary" href="https://fxaeon.com/">Open web app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
+          </div>
         </div>
       </section>
 
