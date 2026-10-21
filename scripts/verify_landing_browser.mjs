@@ -125,6 +125,14 @@ try {
   const externalRequests = [];
   const failedResponses = [];
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  await context.addInitScript(() => {
+    window.__sculptureDraws = 0;
+    const draw = WebGLRenderingContext.prototype.drawArrays;
+    WebGLRenderingContext.prototype.drawArrays = function (...args) {
+      window.__sculptureDraws += 1;
+      return draw.apply(this, args);
+    };
+  });
   let feedMode = 'ready';
   await context.route('**/api/market-data', route => feedMode === 'offline'
     ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
@@ -138,10 +146,18 @@ try {
   page.on('response', response => { if (response.status() >= 400 && !response.url().endsWith('/api/market-data')) failedResponses.push(response.url()); });
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator('.capital-art')).toHaveAttribute('data-rendered', 'true');
+  const stillDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), stillDraws, 'Reduced motion renders a complete still without a loop');
 
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
   assert.equal(await page.locator('.outcome-panel').count(), 3);
-  assert.equal(await page.locator('.site-header a[href="https://fxaeon.com/"]').count(), 0, 'The header does not repeat the hero launch action');
+  assert.equal(await page.locator('.site-header a[href="https://fxaeon.com/"]').count(), 0, 'The header does not duplicate the hero launch action');
+  const footerApp = page.locator('.footer-invite .footer-launch');
+  await expect(footerApp).toHaveAttribute('href', WEB);
+  const footerAppBox = await footerApp.boundingBox();
+  assert.ok(footerAppBox?.width >= 44 && footerAppBox?.height >= 44, 'The footer app action remains touch-sized');
   await expect(page.locator('.hero .lede + .hero-credit')).toHaveText('Powered By f(x) SDK');
   assert.equal(await page.locator('.hero').getByText('Built on f(x) Protocol', { exact: true }).count(), 0);
   const productCards = page.locator('#products .product-card');
@@ -162,7 +178,7 @@ try {
     const panel = page.locator(`#outcome-${route}`);
     await expect(panel).toBeVisible();
     await assertTextContrast(page, `#outcome-${route} h3, #outcome-${route} p`, `${route} text`);
-    assert.deepEqual(await visibleRoutes(panel, 'a[href]'), [
+    assert.deepEqual(await visibleRoutes(panel, 'a[href^="https://fxaeon.com/"]'), [
       `https://fxaeon.com/${route}${route === 'trade' ? '?market=ETH' : ''}`,
     ], `${route} opens the real web app on a phone`);
   }
@@ -174,7 +190,15 @@ try {
   await page.getByRole('tab', { name: 'Earn', exact: true }).click();
   await expect(page.locator('[data-earn-projection]')).toHaveText('$1,065.00');
   await expect(page.locator('[data-earn-gain]')).toHaveText('+$65.00');
+  await expect(page.locator('[data-earn-checked]')).toHaveText(/APY checked \d{2}:\d{2} UTC/);
+  await expect(page.locator('#outcome-earn .market-provenance a')).toBeVisible();
+  await expect(page.locator('[data-earn-availability]')).toBeHidden();
   await expect(amount).toHaveAttribute('aria-describedby', 'amount-context');
+  await amount.focus();
+  assert.equal(await page.locator('.amount-entry').evaluate(element => getComputedStyle(element).outlineStyle), 'solid', 'The amount input has one container focus ring');
+  assert.equal(await amount.evaluate(element => getComputedStyle(element).outlineStyle), 'none', 'The input does not add a second ring');
+  await page.getByRole('button', { name: '$100', exact: true }).focus();
+  assert.equal(await page.locator('.amount-entry').evaluate(element => getComputedStyle(element).outlineStyle), 'none', 'Preset focus does not also outline the amount container');
   await page.getByRole('button', { name: '$10,000', exact: true }).click();
   await expect(page.locator('[data-earn-projection]')).toHaveText('$10,650.00');
   await page.getByRole('tab', { name: 'Earn', exact: true }).focus();
@@ -208,7 +232,22 @@ try {
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.locator('[data-market-value="fxSaveApy"]')).toHaveText(mode === 'ready' ? '6.5%' : '—');
     await expect(page.locator('[data-earn-projection]')).toHaveText(mode === 'ready' ? '$1,065.00' : '—');
-    if (mode === 'partial') await expect(page.locator('[data-market-value="ethUsd"]')).toHaveText('$2,500.00');
+    if (mode === 'ready') {
+      await expect(page.locator('.earn-comparison')).toBeVisible();
+      await expect(page.locator('[data-earn-availability]')).toBeHidden();
+    } else {
+      await expect(page.locator('.earn-comparison')).toBeHidden();
+      await expect(page.locator('[data-earn-projection]')).toBeHidden();
+      await expect(page.locator('[data-earn-status]')).toHaveText('Live APY unavailable');
+      await expect(page.locator('[data-earn-availability]')).toBeVisible();
+      await expect(page.locator('[data-earn-checked]')).toHaveText('Live APY unavailable');
+    }
+    if (mode === 'partial') {
+      await page.getByRole('tab', { name: 'Trade', exact: true }).click();
+      await expect(page.locator('[data-trade-units]')).toContainText('$2,500.00 / ETH');
+      await expect(page.locator('[data-trade-checked]')).toHaveText(/Updated \d{2}:\d{2} UTC/);
+      await expect(page.locator('#outcome-trade .market-provenance a')).toBeVisible();
+    }
     if (mode === 'ready') await expect(refresh).toBeHidden();
     else await expect(refresh).toBeEnabled();
   }
@@ -219,6 +258,7 @@ try {
   await page.clock.fastForward(2_000);
   await expect(page.locator('[data-market-value="fxSaveApy"]')).toHaveText('—');
   await expect(page.locator('[data-earn-projection]')).toHaveText('—');
+  await page.getByRole('tab', { name: 'Trade', exact: true }).click();
   await expect(page.locator('[data-trade-units]')).toContainText('unavailable');
   feedMode = 'ready';
   await refresh.click();
@@ -241,16 +281,21 @@ try {
   assert.equal(await opener.getAttribute('aria-expanded'), 'true');
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).overflow), 'hidden');
   assert.equal(await dialog.evaluate((element) => element.contains(document.activeElement)), true);
-  // Confirm forward and reverse keyboard navigation reaches dialog controls.
-  // After the final control Chromium may expose body as activeElement while
-  // the modal remains open, so do not assume every browser keeps a descendant
-  // as document.activeElement at the tab-order boundary.
-  for (let index = 0; index < 5; index += 1) {
+  // Confirm forward and reverse keyboard navigation reaches the current menu
+  // links. Tab through the actual link list so removed or added destinations
+  // do not leave a stale traversal count.
+  const menuLinks = dialog.locator('nav[aria-label="Menu"] a[href]');
+  const menuLinkCount = await menuLinks.count();
+  assert.ok(menuLinkCount > 0, 'The menu exposes navigation links');
+  assert.deepEqual(await menuLinks.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('href'))), [
+    '#products', '#outcomes', '#telegram', 'https://fxaeon.com/docs',
+  ], 'The menu presents the current primary destinations');
+  for (let index = 0; index < menuLinkCount; index += 1) {
     await page.keyboard.press('Tab');
-    assert.equal(await dialog.evaluate((element) => element.contains(document.activeElement)), true, 'Tab reaches menu controls');
+    await expect(menuLinks.nth(index)).toBeFocused();
   }
   await page.keyboard.press('Shift+Tab');
-  assert.equal(await dialog.evaluate((element) => element.contains(document.activeElement)), true, 'Shift+Tab returns through menu controls');
+  await expect(menuLinks.nth(menuLinkCount - 2)).toBeFocused();
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.site-menu').open);
   await page.waitForFunction(() => document.querySelector('.menu-toggle').getAttribute('aria-expanded') === 'false');
@@ -275,10 +320,11 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('fxaeon-theme')), null, 'Legacy theme preference is removed');
 
   // Device routing depends on CSS capability, and narrow screens remain usable.
-  for (const width of [320, 360, 390, 430, 760, 860, 861, 1024, 1440]) {
+  for (const width of [320, 360, 390, 430, 760, 820, 860, 861, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(origin, { waitUntil: 'networkidle' });
     await checkNoOverflow(page, width);
+    assert.equal(await page.locator('.site-header a[href="https://fxaeon.com/"]').count(), 0, `The header remains free of a duplicate app action at ${width}px`);
     assert.deepEqual(await visibleRoutes(page, '.hero .actions a'), [WEB, TELEGRAM], `Web app and Mini App remain visible at ${width}px`);
     assert.equal(await page.locator('.site-header button[aria-haspopup="dialog"]').isVisible(), width <= 760, `Menu breakpoint at ${width}px`);
     const visibleNavigationCount = await page.locator('.site-header .nav-side').evaluateAll((elements) => elements.filter((element) => {
@@ -286,6 +332,10 @@ try {
       return style.display !== 'none' && style.visibility !== 'hidden' && element.getBoundingClientRect().width > 0;
     }).length);
     assert.equal(visibleNavigationCount > 0, width > 760, `Desktop navigation breakpoint at ${width}px`);
+    const header = await page.locator('.site-header').boundingBox();
+    assert.equal(header.x, 0, `Navigation background starts at the viewport edge at ${width}px`);
+    assert.equal(Math.round(header.width), await page.evaluate(() => document.documentElement.clientWidth), `Navigation background spans the viewport at ${width}px`);
+    assert.ok(header.height <= 73, `Navigation stays compact at ${width}px`);
     await amount.fill('1000000');
     await expect(amount).toHaveAttribute('aria-invalid', 'false');
     await page.getByRole('tab', { name: 'Trade', exact: true }).click();
@@ -294,7 +344,7 @@ try {
     await checkNoOverflow(page, width);
     await amount.fill('1000');
     assert.deepEqual((await visibleRoutes(page, '#products .product-link')).sort(), routes.map(route => `https://fxaeon.com/${route}`).sort(), `All four product links remain reachable at ${width}px`);
-    const smallTargets = await page.locator('button:visible, .actions a:visible, .outcome-cta:visible, summary').evaluateAll(nodes => nodes.filter(node => node.getBoundingClientRect().height < 44).map(node => node.textContent));
+    const smallTargets = await page.locator('button:visible, .actions a:visible, .outcome-cta:visible, .footer-launch:visible, summary').evaluateAll(nodes => nodes.filter(node => node.getBoundingClientRect().height < 44).map(node => node.textContent));
     assert.deepEqual(smallTargets, [], `Touch targets remain44px at ${width}px`);
   }
 
@@ -309,10 +359,46 @@ try {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.reload({ waitUntil: 'networkidle' });
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
-  assert.equal(await page.locator('.hero').evaluate((element) => element.getAnimations({ subtree: true }).length), 0, 'Hero stays still while later sections animate');
+  const heroMotion = await page.locator('.hero h1 span').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { name: style.animationName, iterations: style.animationIterationCount, color: style.color };
+  });
+  assert.equal(heroMotion.name, 'none', 'The hero heading stays still while the sculpture moves');
+  await page.locator('.hero').scrollIntoViewIfNeeded();
+  await expect(page.locator('.capital-art')).toHaveAttribute('data-rendered', 'true');
+  const activeDraws = await page.evaluate(() => window.__sculptureDraws);
+  await expect.poll(() => page.evaluate(() => window.__sculptureDraws)).toBeGreaterThan(activeDraws);
+  const beforeMotion = await page.locator('.capital-canvas').screenshot();
+  await expect.poll(async () => Buffer.compare(await page.locator('.capital-canvas').screenshot(), beforeMotion) !== 0, { timeout: 6000, message: 'Visible motion changes the sculpture pixels during its peel cycle' }).toBe(true);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const hiddenDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), hiddenDraws, 'Hidden-page visibility stops sculpture rendering');
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect.poll(() => page.locator('.site-footer').evaluate((element) => getComputedStyle(element, '::before').animationPlayState)).toBe('paused');
+  await page.locator('.trade-card').scrollIntoViewIfNeeded();
+  await expect.poll(() => page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationPlayState)).toBe('running');
+  await page.locator('.site-footer').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(100);
+  const offscreenDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), offscreenDraws, 'Offscreen sculpture does not render');
+  await expect(page.locator('html')).toHaveAttribute('data-scrolled', '');
+  assert.notEqual(await page.locator('.site-header').evaluate((element) => getComputedStyle(element).borderBottomColor), 'rgba(0, 0, 0, 0)', 'Scrolled navigation has a quiet separating edge');
+  await expect.poll(() => page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationPlayState)).toBe('paused');
+  await expect.poll(() => page.locator('.site-footer').evaluate((element) => getComputedStyle(element, '::before').animationPlayState)).toBe('running');
   assert.equal(await page.locator('.motion-toggle').count(), 0, 'The footer has no animation control');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'off');
+  const reducedDraws = await page.evaluate(() => window.__sculptureDraws);
+  await page.waitForTimeout(150);
+  assert.equal(await page.evaluate(() => window.__sculptureDraws), reducedDraws, 'Changing the motion preference stops the sculpture loop');
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'off');
   assert.equal(await page.evaluate(() => document.getAnimations().length), 0, 'The system preference stops decorative motion');
   await page.reload({ waitUntil: 'networkidle' });
@@ -321,82 +407,30 @@ try {
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'on');
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
 
-  // Reduced motion must not touch WebGL, and changing the system preference
-  // must work without a page-specific settings control.
-  const motionContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
-  await motionContext.route('**/api/market-data', route => route.fulfill({ json: marketFixture() }));
-  await motionContext.addInitScript(() => {
-    window.__landingProbe = { webglAttempts: 0, webglAvailable: false, pendingFrames: new Set() };
-    const getContext = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
-      if (kind === 'webgl2') window.__landingProbe.webglAttempts += 1;
-      const result = getContext.call(this, kind, ...args);
-      if (kind === 'webgl2') window.__landingProbe.webglAvailable = Boolean(result);
-      return result;
-    };
-    const request = window.requestAnimationFrame.bind(window);
-    window.requestAnimationFrame = (callback) => {
-      let id;
-      id = request((time) => {
-        window.__landingProbe.pendingFrames.delete(id);
-        callback(time);
-      });
-      window.__landingProbe.pendingFrames.add(id);
-      return id;
-    };
-    const cancel = window.cancelAnimationFrame.bind(window);
-    window.cancelAnimationFrame = (id) => {
-      window.__landingProbe.pendingFrames.delete(id);
-      cancel(id);
-    };
-  });
-  const motionPage = await motionContext.newPage();
-  await motionPage.goto(origin, { waitUntil: 'networkidle' });
-  assert.equal(await motionPage.locator('html').getAttribute('data-motion'), 'off');
-  assert.equal(await motionPage.evaluate(() => window.__landingProbe.webglAttempts), 0, 'Reduced motion avoids WebGL initialization');
-  await motionPage.emulateMedia({ reducedMotion: 'no-preference' });
-  await motionPage.waitForFunction(() => document.documentElement.dataset.motion === 'on');
-  assert.equal(await motionPage.locator('html').getAttribute('data-motion'), 'on');
-  await motionPage.waitForFunction(() => window.__landingProbe.webglAttempts === 1);
-  await motionPage.locator('.hero').scrollIntoViewIfNeeded();
-  if (await motionPage.evaluate(() => window.__landingProbe.webglAvailable)) {
-    await motionPage.waitForFunction(() => window.__landingProbe.pendingFrames.size > 0);
-  }
-  await motionPage.emulateMedia({ reducedMotion: 'reduce' });
-  await motionPage.waitForFunction(() => document.documentElement.dataset.motion === 'off');
-  await motionPage.waitForTimeout(80);
-  assert.equal(await motionPage.evaluate(() => window.__landingProbe.pendingFrames.size), 0, 'System reduced-motion preference stops hero frames');
-  await motionPage.emulateMedia({ reducedMotion: 'no-preference' });
-  await motionPage.waitForFunction(() => document.documentElement.dataset.motion === 'on');
-  await motionPage.waitForTimeout(80);
-  await motionPage.emulateMedia({ reducedMotion: 'reduce' });
-  await motionPage.waitForTimeout(80);
-  assert.equal(await motionPage.evaluate(() => window.__landingProbe.pendingFrames.size), 0, 'Reducing motion cancels any scheduled hero frame');
-  await motionContext.close();
-
-  // Simulate a browser without WebGL2; the static contour artwork remains
-  // visible and the shader failure does not produce runtime errors.
-  const fallbackContext = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference' });
-  await fallbackContext.route('**/api/market-data', route => route.fulfill({ json: marketFixture() }));
-  await fallbackContext.addInitScript(() => {
-    window.__landingProbe = { webglAttempts: 0 };
-    const getContext = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
-      if (kind === 'webgl2') {
-        window.__landingProbe.webglAttempts += 1;
-        return null;
+  // Product illustrations and card actions remain available on phone and
+  // desktop, with reduced motion enabled.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForFunction(() => document.documentElement.dataset.motion === 'off');
+  for (const width of [390, 820, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(origin, { waitUntil: 'networkidle' });
+    const cards = page.locator('#products .product-card');
+    await expect(cards).toHaveCount(4);
+    for (const card of await cards.all()) {
+      await expect(card).toBeVisible();
+      await expect(card.locator('.product-link')).toBeVisible();
+      const images = await card.locator('img').evaluateAll((nodes) => nodes.map((image) => ({
+        src: image.getAttribute('src'),
+        complete: image.complete,
+        naturalWidth: image.naturalWidth,
+      })));
+      for (const image of images) {
+        assert.ok(image.complete && image.naturalWidth > 0, `Product artwork ${image.src} loads at ${width}px`);
       }
-      return getContext.call(this, kind, ...args);
-    };
-  });
-  const fallbackPage = await fallbackContext.newPage();
-  const fallbackErrors = [];
-  fallbackPage.on('pageerror', (error) => fallbackErrors.push(error.message));
-  await fallbackPage.goto(origin, { waitUntil: 'networkidle' });
-  assert.equal(await fallbackPage.evaluate(() => window.__landingProbe.webglAttempts), 1);
-  assert.equal(await fallbackPage.locator('.hero-contours').evaluate((element) => getComputedStyle(element).display !== 'none' && getComputedStyle(element).opacity !== '0'), true, 'Static contour fallback remains visible without WebGL2');
-  assert.deepEqual(fallbackErrors, [], 'Missing WebGL2 does not throw');
-  await fallbackContext.close();
+    }
+    assert.deepEqual(await visibleRoutes(page, '.hero .actions a'), [WEB, TELEGRAM], `First-screen actions stay available at ${width}px`);
+    await assertTextContrast(page, '.hero h1, .hero h1 span, .hero-intro .lede', `hero text at ${width}px`);
+  }
 
   assert.deepEqual(errors, [], 'Landing threw browser errors');
   assert.deepEqual(failedResponses, [], 'No missing page assets');
@@ -411,8 +445,12 @@ try {
     await page.locator('.telegram-qr').scrollIntoViewIfNeeded();
     await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
     await page.locator('.hero').scrollIntoViewIfNeeded();
+    await page.keyboard.press('Control+Home');
+    await page.screenshot({ path: resolve(captures, `opening-${width}px.png`) });
     await page.screenshot({ path: resolve(captures, `landing-${width}px.png`), fullPage: true });
-    for (const section of ['hero', 'products', 'faq', 'footer-frame']) {
+    await page.locator('.borrow-card').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: resolve(captures, `topbar-scrolled-${width}px.png`) });
+    for (const section of ['hero', 'products', 'telegram', 'footer-frame']) {
       await page.locator(`.${section}`).screenshot({ path: resolve(captures, `${section}-${width}px.png`) });
     }
     await page.getByRole('tab', { name: 'Trade', exact: true }).click();
@@ -420,7 +458,39 @@ try {
   }
   await writeFile(resolve(captures, 'fixture-note.txt'), 'Screenshots use deterministic test data: TVL$12,345,678, APY6.5%, ETH$2,500, BTC$80,000. These are test fixtures, not current market claims.\n');
 
-console.log('Landing browser checks passed: USD scenarios, validation, feed failure/recovery, keyboard tabs/menu, web routes on every device,44px targets, dark theme, contrast, reduced motion, responsive overflow and local-only browser requests.');
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  await page.evaluate(() => document.querySelector('.capital-canvas').getContext('webgl').getExtension('WEBGL_lose_context').loseContext());
+  await expect(page.locator('.capital-art')).not.toHaveAttribute('data-rendered');
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(page.locator('.capital-still')).toHaveCSS('opacity', '1');
+  await expect(page.locator('.capital-canvas')).toHaveCSS('opacity', '0');
+
+  for (const mode of ['no-webgl', 'save-data', 'no-script']) {
+    const fallbackContext = await browser.newContext({ javaScriptEnabled: mode !== 'no-script', reducedMotion: 'reduce' });
+    await fallbackContext.route('**/api/market-data', route => route.fulfill({ json: marketFixture() }));
+    if (mode === 'save-data') await fallbackContext.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true } }));
+    if (mode === 'no-webgl') await fallbackContext.addInitScript(() => {
+      const getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, ...args) { return type === 'webgl' ? null : getContext.call(this, type, ...args); };
+    });
+    const fallbackPage = await fallbackContext.newPage();
+    for (const width of [390, 1280]) {
+      await fallbackPage.setViewportSize({ width, height: 900 });
+      await fallbackPage.goto(origin, { waitUntil: 'networkidle' });
+      await fallbackPage.evaluate(() => document.fonts.ready);
+      const still = fallbackPage.locator('.capital-still img');
+      await expect(fallbackPage.locator('.capital-still')).toHaveCSS('opacity', '1');
+      assert.ok(await still.evaluate(image => image.complete && image.naturalWidth > 0), `${mode} artwork loads`);
+      assert.ok((await still.getAttribute('src')).endsWith('capital-sculpture-desktop.png'));
+      assert.ok((await still.evaluate(image => image.currentSrc)).includes(width === 390 ? 'mobile.png' : 'desktop.png'), `${mode} uses the intended responsive composition`);
+      assert.deepEqual(await visibleRoutes(fallbackPage, '.hero .actions a'), [WEB, TELEGRAM]);
+      await checkNoOverflow(fallbackPage, width);
+      if (mode === 'no-script') await fallbackPage.screenshot({ path: resolve(captures, `fallback-${width}px.png`) });
+    }
+    await fallbackContext.close();
+  }
+
+console.log('Landing browser checks passed: USD scenarios, feed freshness/recovery, keyboard tabs/menu, routes,44px targets, contrast, responsive overflow, sculpture motion/pausing/fallbacks and local-only requests.');
 } finally {
   await browser?.close();
   server.kill();

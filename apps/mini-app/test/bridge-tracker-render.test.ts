@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { BridgeTracker } from '../src/components/BridgeTracker';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+require.extensions['.css'] = loaded => { loaded.exports = {}; };
+const { BridgeTracker } = require('../src/components/BridgeTracker') as typeof import('../src/components/BridgeTracker');
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 const hash = `0x${'1'.repeat(64)}`;

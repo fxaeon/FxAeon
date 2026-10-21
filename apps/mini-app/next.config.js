@@ -32,6 +32,21 @@ const nextConfig = {
     // check both the largest chunk and the full raw/gzipped JavaScript total.
     if (!isServer && config.optimization?.splitChunks) {
       config.optimization.splitChunks.maxSize = 1_900_000;
+      // Privy's shared presentation wrapper otherwise repeats in dozens of
+      // lazy authentication screens, below Next's shared-chunk size threshold.
+      // Keep the original module once; authentication screens stay lazy.
+      config.optimization.splitChunks.cacheGroups = {
+        ...config.optimization.splitChunks.cacheGroups,
+        privyScreen: {
+          test: /[\\/]@privy-io[\\/]react-auth[\\/]dist[\\/]esm[\\/]Screen-[^\\/]+\.mjs$/,
+          name: 'privy-screen',
+          chunks: 'all',
+          minChunks: 2,
+          enforce: true,
+          reuseExistingChunk: true,
+          priority: 10,
+        },
+      };
     }
     // Privy's optional CAPTCHA screen imports @hcaptcha/loader. The upstream
     // loader bundles a hCaptcha-owned Sentry client and DSN; FxAeon has no

@@ -1,0 +1,104 @@
+.card { min-width: 0; width: 100%; padding: 22px 20px 0; border-radius: 22px; background: var(--surface-2); text-align: left; }
+.header { display: flex; align-items: flex-start; gap: 11px; }
+.stateIcon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; color: var(--mint); background: var(--mint-dim); }
+.header[data-tone="success"] .stateIcon { color: var(--success); background: var(--success-dim); }
+.header[data-tone="danger"] .stateIcon { color: var(--danger); background: var(--danger-dim); }
+.heading { min-width: 0; padding-top: 1px; }
+.heading h3 { margin: 0; font-size: 17px; line-height: 1.3; letter-spacing: -.025em; font-weight: 600; outline: none; }
+.heading p { margin: 5px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
+.simulation { display: inline-block; margin: 13px 0 0; padding: 4px 8px; border-radius: 6px; color: var(--warn); background: var(--warn-dim); font-size: 10px; line-height: 1.4; }
+.transfer { padding: 24px 0 22px; }
+.amountRow { display: flex; align-items: center; min-width: 0; gap: 14px; }
+.token { position: relative; flex: 0 0 44px; width: 44px; height: 44px; }
+.token > span { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: var(--surface-2); }
+.amountContent { min-width: 0; flex: 1; }
+.label { display: block; margin-bottom: 4px; color: var(--mut); font-size: 12px; line-height: 1.4; }
+.amount { margin: 0; font-size: clamp(26px, 6.7vw, 32px); line-height: 1.2; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.amount > span { font-size: .64em; font-weight: 500; letter-spacing: -.015em; }
+.amountRow[data-secondary] .amount { font-size: 23px; letter-spacing: -.025em; }
+.amount[data-unknown] { font-size: 23px; letter-spacing: -.025em; }
+.amount[data-long] { font-size: clamp(17px, 4.6vw, 23px); }
+.subline { display: flex; flex-wrap: wrap; gap: 3px 6px; align-items: baseline; margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: var(--mut); }
+.subline > span { font-size: inherit; margin: 0; }
+.direction { display: block; width: 17px; margin: 15px 0 15px 13px; color: var(--mut); opacity: .7; }
+.recipient { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 15px 0; border-top: 1px solid var(--line); font-size: 12px; }
+.recipient > span:first-child { color: var(--mut); }
+.recipient > span:last-child { font-variant-numeric: tabular-nums; }
+.advanced { border-top: 1px solid var(--line); }
+.advanced > summary { display: flex; align-items: center; justify-content: space-between; min-height: 54px; gap: 12px; cursor: pointer; list-style: none; color: var(--mut); font-size: 13px; }
+.advanced > summary::-webkit-details-marker { display: none; }
+.advanced[open] > summary > svg { transform: rotate(180deg); }
+.advanced > summary:focus-visible, .receipt:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 5px; }
+.detailsBody { padding-bottom: 8px; }
+.group { min-width: 0; padding: 16px 0; border-top: 1px solid var(--line); }
+.group h4 { margin: 0 0 12px; color: var(--mut); font-size: 11px; font-weight: 500; }
+.receipt { display: flex; align-items: center; gap: 10px; min-height: 52px; color: var(--text); text-decoration: none; }
+.receipt + .receipt { border-top: 1px solid var(--line); }
+.receipt > svg:first-child { color: var(--mut); flex-shrink: 0; }
+.receipt[data-status="Confirmed"] > svg:first-child { color: var(--success); }
+.receipt[data-status="Reverted"] > svg:first-child { color: var(--danger); }
+.receipt > span { display: grid; gap: 3px; min-width: 0; flex: 1; font-size: 12px; }
+.receipt small { color: var(--mut); font-size: 11px; }
+.receipt > svg:last-child:not(:first-child) { color: var(--mut); }
+.facts { display: grid; gap: 12px; margin: 0; min-width: 0; }
+.facts > div { display: grid; grid-template-columns: minmax(80px,.9fr) minmax(0,1.4fr); gap: 12px; font-size: 12px; line-height: 1.5; }
+.facts dt { color: var(--mut); }
+.facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.notes, .priceNote { padding: 14px 0; border-top: 1px solid var(--line); font-size: 11px; line-height: 1.6; color: var(--mut); }
+.notes p, .priceNote { margin: 0; }
+.notes p + p { margin-top: 8px; }
+@media (max-width: 360px) { .card { padding: 18px 14px 0; } .amountRow { gap: 11px; } .amount { font-size: 25px; } .amountRow[data-secondary] .amount { font-size: 21px; } .amount[data-unknown] { font-size: 20px; } .token { width: 38px; height: 38px; flex-basis: 38px; } .token > img, .token > svg { width: 38px; height: 38px; } .facts > div { gap: 8px; } }
+
+.card > .transfer:first-child { padding-top: 0; }
+.simulation:first-child { margin-top: 0; }
+
+/* Successful transfers keep only the outcome and compact receipt footer.
+   Exact precision is available on each amount, not a second technical card. */
+.card[data-compact-complete] { padding-bottom: 14px; }
+.card[data-compact-complete] .transfer { padding-bottom: 12px; }
+.completion > section { margin-top: 0; }
+.exactAmount { min-width: 0; }
+.exactAmount > summary { display: flex; align-items: center; gap: 7px; min-height: 44px; cursor: pointer; list-style: none; }
+.exactAmount > summary::-webkit-details-marker { display: none; }
+.exactAmount > summary > .amount { min-width: 0; }
+.exactAmount > summary > svg { flex-shrink: 0; color: var(--mut); }
+.exactAmount[open] > summary > svg { transform: rotate(180deg); }
+.exactAmount > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 5px; }
+.exactValue { margin: 5px 0 8px; padding: 9px 10px; border-radius: 9px; background: var(--surface); color: var(--text); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: all; }
+.exactValue > span { display: block; color: var(--mut); font-size: 11px; }
+
+/* The reference uses a compact receipt on delivery and an explicit two-step
+   timeline in transit. The state is still derived by the canonical tracker. */
+.card { padding: 0; border-radius: 0; background: transparent; }
+.header { gap: 12px; padding: 9px 0 16px; }
+.heading h3 { font-size: var(--fs-heading); font-weight: 600; line-height: 1.2; letter-spacing: -.03em; }
+.heading p { margin-top: 6px; }
+.transfer { padding: 16px; border-radius: 20px; background: var(--surface-2); margin-bottom: 14px; }
+.amountRow { gap: 10px; align-items: flex-start; }
+.token, .token > img, .token > svg { width: 40px; height: 40px; flex-basis: 40px; }
+.amount, .amountRow[data-secondary] .amount { font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; letter-spacing: -.035em; }
+.amount > span { font-size: .62em; font-weight: 500; color: var(--mut); }
+.amount[data-unknown] { font-size: var(--fs-title); font-weight: 500; letter-spacing: -.015em; }
+.amount[data-long] { font-size: clamp(17px, 4.7vw, 23px); }
+.label { margin-bottom: 2px; font-size: 11px; }
+.subline { margin-top: 3px; font-size: 13px; }
+.direction { margin: 8px 0 8px 8px; }
+.timeline { display: grid; padding: 8px 16px; border-radius: 20px; background: var(--surface-2); margin-bottom: 13px; }
+.timeline .receipt { min-height: 44px; }
+.timeline .receipt + .receipt { border-top: 0; }
+.timeline .receipt > span { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; }
+.timeline .receipt small { text-align: right; font-weight: 400; }
+.timeline .receipt > svg:first-child { width: 26px; height: 26px; padding: 5px; border-radius: 50%; background: var(--mint-dim); }
+.recipient { padding: 8px 2px; border: 0; }
+.advanced { border: 0; }
+.advanced > summary { min-height: 44px; padding-inline: 4px; font-size: 12px; }
+.deliveryNote { margin: 10px 0 0; text-align: center; font-size: 11px; color: var(--mut); line-height: 1.5; }
+.completedAmounts { display: grid; gap: 15px; margin: 0; padding: 16px; border-radius: 19px; background: var(--surface-2); }
+.completedAmounts > div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.completedAmounts dt { color: var(--mut); }
+.completedAmounts dd { margin: 0; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.compactExact > summary { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 22px; cursor: pointer; list-style: none; }
+.compactExact > summary::-webkit-details-marker { display: none; }
+.compactExact > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.compactExact p { font-size: 11px; font-weight: 400; overflow-wrap: anywhere; margin: 6px 0 0; }
+.card[data-compact-complete] { padding-bottom: 0; }

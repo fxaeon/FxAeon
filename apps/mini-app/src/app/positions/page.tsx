@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronRight, CircleAlert, Layers2, RefreshCw, WalletCards, 
 import { PositionsPageHeader } from '@/components/PositionsPageHeader';
 import Link from 'next/link';
 import { AppShell, Card, EmptyState } from '@/components/ui';
+import { confirmedPositionReadback, type ConfirmedPositionReadback } from '@/components/review/positionReview';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import WalletConnectCTA from '@/components/WalletConnectCTA';
 import { MissingValue } from '@/components/MissingValue';
@@ -31,7 +32,8 @@ import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { useExitPresence } from '@/lib/useExitPresence';
 import { MobileFlowSheetContext } from '@/components/MobileFlowSheet';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
-import { groupDigits, positiveDecimal } from '@/lib/amount';
+import { positiveDecimal } from '@/lib/amount';
+import { positionLeveragePresentation, positionTokenPresentation } from '@/lib/positionPresentation';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { priceKeyForSymbol } from '@/lib/prices';
@@ -41,7 +43,6 @@ import { haptic } from '@/lib/telegram';
 import { resetTransactionAmounts } from '@/lib/transactionState';
 import {
   getSdkReductionAmountWei,
-  formatAmount,
   parseAmount,
   positionKey,
   positionCollateralDecimals,
@@ -149,6 +150,7 @@ export default function PositionsPage() {
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
+  const [confirmedPosition, setConfirmedPosition] = useState<ConfirmedPositionReadback | null>(null);
   const [reviewPosition, setReviewPosition] = useState<UiPosition | null>(null);
   // On phones the page shows the list or one position. `?position=` names the
   // open one, so links, refreshes, browser Back and Telegram Back agree.
@@ -408,8 +410,9 @@ export default function PositionsPage() {
   const selectedStale = selected ? positionIsStale(selected, positionState.failedGroups) : false;
   const selectedSplit = selected ? { side: selected.side } : undefined;
   const decisionBefore = useMemo(() => managerPosition ? [
-    { label: 'Collateral', value: `${groupDigits(formatAmount(managerPosition.info.rawColls, positionCollateralDecimals(managerPosition)))} ${positionCollateralSymbol(managerPosition)}` },
-    { label: 'Debt', value: `${groupDigits(formatAmount(managerPosition.info.rawDebts, positionDebtDecimals(managerPosition)))} ${managerPosition.info.rawDebtsToken}` },
+    { label: 'Leverage', value: positionLeveragePresentation(managerPosition).text },
+    { label: 'Collateral', value: `${positionTokenPresentation(managerPosition.info.rawColls, positionCollateralDecimals(managerPosition)).text} ${positionCollateralSymbol(managerPosition)}` },
+    { label: 'Debt', value: `${positionTokenPresentation(managerPosition.info.rawDebts, positionDebtDecimals(managerPosition)).text} ${managerPosition.info.rawDebtsToken}` },
   ] : undefined, [managerPosition]);
   const marketTokens = selected
     ? action === 'reduce' || action === 'close'
@@ -686,7 +689,7 @@ export default function PositionsPage() {
               </ProtocolPositionList>
             </section>
 
-            <PositionManagerSurface mobile={phoneLayout} open={positionViewOpen || !inputStage} locked={reviewStage === 'executing'} identity={wallet.address ?? ''} header={inputStage && selected ? <ProtocolPositionIdentity position={selected} headingId="manage-position-heading" /> : null} triggerRef={positionOpenerRef} onClose={() => { if (reviewStage === 'executing') return; if (reviewStage !== 'input') resetTransactionContext(action, token); closePosition(); }}>
+            <PositionManagerSurface mobile={phoneLayout} open={positionViewOpen || !inputStage} locked={reviewStage === 'executing'} identity={wallet.address ?? ''} header={(inputStage || reviewStage === 'result') && selected ? <ProtocolPositionIdentity position={selected} headingId="manage-position-heading" /> : null} triggerRef={positionOpenerRef} onClose={() => { if (reviewStage === 'executing') return; if (reviewStage !== 'input') resetTransactionContext(action, token); closePosition(); }}>
             <section ref={managerRef} className={`${styles.positionManageColumn} ${positionStyles.manager}`} aria-label={inputStage ? undefined : `${operationLabel} review`} aria-labelledby={inputStage ? 'manage-position-heading' : undefined}>
               {inputStage && <div className={`${styles.positionViewBar} ${positionStyles.viewBar}`}>
                 <button type="button" onClick={closePosition} className={`${styles.positionBack} ${positionStyles.back} glass-press`}><ArrowLeft aria-hidden="true" />All positions</button>
@@ -697,7 +700,7 @@ export default function PositionsPage() {
               </ProtocolPositionDetails>}
               {inputStage && selectedStale && <span role="status" aria-label="Refreshing selected position" className="skeleton block h-8 rounded-xl" />}
 
-              <Card className={`${styles.actionPanel} ${styles.positionActionCard} ${inputStage ? '' : styles.positionActionCardReview}`}>
+              <Card data-position-action-card className={`${styles.actionPanel} ${styles.positionActionCard} ${inputStage ? '' : styles.positionActionCardReview}`}>
                 {inputStage && <fieldset disabled={reviewStage === 'planning'} className={`${styles.positionActions} ${positionStyles.actionSelection}`}><Segmented value={action} onChange={changeAction} ariaLabel="Position action" options={[{ value: 'increase', label: 'Add' }, { value: 'reduce', label: 'Reduce' }, { value: 'leverage', label: 'Leverage' }, { value: 'close', label: 'Close' }]} /></fieldset>}
                 <ActionReview
                   key={reviewRevision}
@@ -713,6 +716,15 @@ export default function PositionsPage() {
                   draftResumePath={draftResumePath}
                   resumeReview={resumeReview}
                   decisionBefore={decisionBefore}
+                  confirmedPosition={confirmedPosition}
+                  onReturnToPosition={({ key }) => {
+                    // Same surface and history entry; the provider supplies new values.
+                    setSelectedKey(key);
+                    const latest = positions.find(position => positionKey(position) === key);
+                    resetTransactionContext('increase', tokenForPositionAction(latest, 'increase'));
+                    setPositionViewOpen(true);
+                    requestAnimationFrame(() => document.getElementById('manage-position-heading')?.focus({ preventScroll: true }));
+                  }}
                   editor={(
                     <div className={styles.positionEditor}>
                       {action === 'increase' && <div className={styles.fieldStack}><AmountField compact showPercentages={false} label="Amount to add" symbol={token} value={amount} onChange={setAmount} maxDecimals={tokenDecimals(token)} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} />} /><LeverageField compact collapseSlider label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
@@ -721,8 +733,10 @@ export default function PositionsPage() {
                       {action === 'leverage' && <div className={styles.fieldStack}><LeverageField compact label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
                     </div>
                   )}
-                  onComplete={async (_execution, confirmedRoute) => {
-                    await Promise.all([positionState.refresh(), walletBalances.refresh()]);
+                  onComplete={async (execution, confirmedRoute) => {
+                    const confirmedAt = Date.now();
+                    const [read] = await Promise.all([positionState.refresh({ afterConfirmation: true }), walletBalances.refresh()]);
+                    setConfirmedPosition(confirmedPositionReadback(execution, confirmedRoute, read, confirmedAt));
                     const completedPosition = reviewPosition ?? selected;
                     if (action === 'close' && completedPosition && confirmedRoute.details?.positionId === completedPosition.info.positionId) {
                       await positionState.reconcileClosedPosition(completedPosition);
@@ -814,7 +828,7 @@ function PositionManagerSurface({ children, mobile, open, locked, identity, head
     {mount && createPortal(<MobileFlowSheetContext.Provider value={mobile}>{children}</MobileFlowSheetContext.Provider>, mount)}
     {mobile && present && createPortal(
       <div className={positionStyles.backdrop} data-state={sheetOpen ? 'open' : 'closed'} inert={!sheetOpen} aria-hidden={!sheetOpen || undefined} onMouseDown={event => { if (event.target === event.currentTarget && !locked) onClose(); }}>
-        <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label="Manage position" tabIndex={-1} className={positionStyles.sheet}>
+        <aside ref={dialogRef} data-inline-review-sheet role="dialog" aria-modal="true" aria-label="Manage position" tabIndex={-1} className={positionStyles.sheet}>
           <div className={positionStyles.sheetControls}>
             <span className={positionStyles.handle} aria-hidden="true" />
             {header}

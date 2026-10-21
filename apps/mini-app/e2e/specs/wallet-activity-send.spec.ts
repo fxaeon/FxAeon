@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { createRequire } from 'node:module';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 const app = resolve(__dirname, '../..');
 const requireApp = createRequire(resolve(app, 'package.json'));
@@ -39,7 +39,12 @@ test.beforeAll(async () => {
     plugins:[{name:'fixtures',setup(build: { onResolve: (opts: {filter:RegExp}, cb:(args:{path:string})=>unknown)=>void; onLoad:(opts:{filter:RegExp;namespace:string},cb:(args:{path:string})=>unknown)=>void }) {
       build.onResolve({filter:/.*/},({path})=> {
         if(mocks[path])return {path,namespace:'fixture'};
-        if(path.startsWith('@/')) { const file=resolve(src,path.slice(2)); for(const ext of ['', '.tsx','.ts'])if(existsSync(file+ext))return {path:file+ext}; }
+        if(path.startsWith('@/')) {
+          const file=resolve(src,path.slice(2));
+          for(const candidate of [file, file+'.tsx', file+'.ts', resolve(file,'index.ts'), resolve(file,'index.tsx')]) {
+            if(existsSync(candidate) && statSync(candidate).isFile())return {path:candidate};
+          }
+        }
         return undefined;
       });
       build.onLoad({filter:/.*/,namespace:'fixture'},({path})=>({contents:mocks[path],loader:'tsx',resolveDir:app}));
@@ -108,6 +113,26 @@ async function openSendReview(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Review', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toBeVisible();
 }
+
+test('Send submitted footer stays compact and never labels a hash or estimated fee as confirmed', async ({ page }) => {
+  await mount(page);
+  await page.setViewportSize({ width: 320, height: 568 });
+  await openSendReview(page);
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  const submitted = page.getByRole('region', { name: 'Send submitted', exact: true });
+  await expect(submitted.getByRole('heading', { name: 'Submitted', exact: true })).toBeVisible();
+  await expect(submitted.getByText('Not confirmed by the network yet. History shows its status.')).toBeVisible();
+  const details = submitted.getByLabel('Submitted transaction details', { exact: true });
+  await expect(details.locator('dt')).toHaveText(['Transaction submitted', 'Network fee']);
+  await expect(details.getByText('Pending confirmation', { exact: true })).toBeVisible();
+  await expect(details.getByRole('link', { name: 'View submitted transaction on explorer' })).toHaveAttribute('href', `https://etherscan.io/tx/0x${'a'.repeat(64)}`);
+  await expect(submitted.getByRole('link', { name: 'View history', exact: true })).toHaveAttribute('href', '/history');
+  await expect(submitted.getByText('Transaction Confirmed', { exact: true })).toHaveCount(0);
+  await expect(details).not.toContainText('$0.00');
+  await expect(details).not.toContainText('estimated');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(1);
+});
 
 for (const change of ['network', 'wallet mode'] as const) test(`Send cannot adopt a ${change} change committed immediately before confirmation`, async ({ page }) => {
   await mount(page);
@@ -417,7 +442,10 @@ test('history detail fits short/mobile/desktop, closes with focus restored, and 
     const row=page.getByRole('button').filter({hasText:'Received'});
     await row.click();
     const dialog=page.getByRole('dialog',{name:'Transaction details'});
-    await expect(dialog.getByText('0.123 ETH')).toBeVisible();
+    const received = dialog.getByRole('region', { name: 'You received', exact: true }).locator('strong[data-direction="in"]');
+    await expect(received).toHaveText('+0.123 ETH');
+    await expect(received).toHaveAttribute('title', '0.123');
+    await expect(received).toBeVisible();
     await expect(dialog.getByText('Confirmed',{exact:true})).toHaveCount(0);
     await expect.poll(async()=>{const bounds=await dialog.boundingBox();return bounds ? bounds.y+bounds.height : Infinity;}).toBeLessThanOrEqual(size.height+1);
     const bounds=await dialog.boundingBox(); expect(bounds!.y).toBeGreaterThanOrEqual(0);
@@ -468,5 +496,8 @@ test('send reviews the exact amount it signs, rounds its cost up, and opens on E
   const fit=await signed.evaluate((element)=>{const card=element.closest('section')!.getBoundingClientRect();const box=element.getBoundingClientRect();return {inside:box.left>=card.left-1&&box.right<=card.right+1,overflow:element.scrollWidth-element.clientWidth};});
   expect(fit).toEqual({inside:true,overflow:0});
   // 0.000252000000000001 ETH is an estimate: rounded up to three significant digits, never down.
-  await expect(page.getByText('≈ 0.000253 ETH',{exact:true})).toBeVisible();
+  const networkCost = page.getByTitle('0.000252000000000001 ETH', { exact: true });
+  await expect(networkCost).toBeVisible();
+  expect(await networkCost.evaluate((element) => [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim())).toBe('≈ 0.000253 ETH');
+  await expect(networkCost.getByText('USD value unavailable', { exact: true })).toBeVisible();
 });

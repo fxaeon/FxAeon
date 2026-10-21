@@ -15,6 +15,8 @@ import styles from './AmountField.module.css';
 
 export type AmountFieldProps = {
   value: string; onChange: (value: string) => void; symbol: string; label: string;
+  /** Visual context for a compact field; the plain label remains its input name. */
+  labelContent?: ReactNode;
   hint?: string; balance?: string | null; balanceState?: TokenBalanceView;
   allowAll?: boolean; allowZero?: boolean; showPercentages?: boolean; showMax?: boolean;
   showUsdValue?: boolean; showUnitPrice?: boolean; compact?: boolean; disabled?: boolean;
@@ -61,7 +63,7 @@ function submitNearestAction(event: KeyboardEvent<HTMLInputElement>) {
 }
 
 /** Provider-independent field view for isolated use and component testing. */
-export function AmountFieldView({ value, onChange, symbol, label, hint, balance, balanceState,
+export function AmountFieldView({ value, onChange, symbol, label, labelContent, hint, balance, balanceState,
   allowAll = false, allowZero = false, showPercentages = true, showMax = true,
   showUsdValue = true, showUnitPrice = false, compact = false, disabled = false,
   maxDecimals = 18, placeholder = '0.00', constraintError, maxAmount, onMax,
@@ -117,7 +119,7 @@ export function AmountFieldView({ value, onChange, symbol, label, hint, balance,
   return <div className={styles.field} data-amount-field="unified" data-compact={compact || undefined}>
     <div className={`${styles.surface} amount-control`} data-focus-field data-invalid={Boolean(error) || undefined}>
       <div className={styles.labelRow}>
-        <label htmlFor={id}>{label}</label>
+        <label htmlFor={id}>{labelContent ?? label}</label>
       {hasShortcuts && <div role="group" aria-label={`${label} shortcuts`} className={styles.shortcuts}>
         {showPercentages && [25, 50, 75].map((percent) => <button key={percent} type="button" disabled={inactive || !hasBalance} onClick={() => {
           haptic('selection'); const next = calculateFractionDecimal(available, percent, maxDecimals); if (next) change(next);

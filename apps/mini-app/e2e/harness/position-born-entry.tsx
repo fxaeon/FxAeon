@@ -4,6 +4,7 @@ import TradePage from '@/app/trade/page';
 import PositionsPage from '@/app/positions/page';
 import { liveMarketStore } from '@/lib/liveMarketStore';
 import { positionPoolAddress } from '@/lib/fx/policy';
+import { FX_TOKENS } from '@/lib/fx/tokens';
 
 /**
  * Trade's confirmed result for either a newly opened ETH Long (#4242) or a
@@ -89,7 +90,13 @@ const closedRoute = {
   operation: 'reducePosition',
   transactions: [closedAction],
   details: { routeType: 'Close ETH long position' },
-  policy: { ...route.policy, reviewedAction: { ...route.policy.reviewedAction, kind: 'position-reduce', positionId: existing.info.positionId, isClosePosition: true } },
+  policy: { ...route.policy, reviewedAction: {
+    kind: 'position-reduce', poolAddress: positionPoolAddress('ETH', 'long'), positionId: existing.info.positionId,
+    outputTokenAddress: FX_TOKENS.USDC.address,
+    collateralTokenAddress: route.policy.reviewedAction.collateralTokenAddress,
+    debtTokenAddress: route.policy.reviewedAction.debtTokenAddress,
+    positionType: 'long', isClosePosition: true, slippagePercent: 1,
+  } },
 };
 
 const readable = config.readable ?? true;

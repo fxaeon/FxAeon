@@ -13,8 +13,8 @@
 .context { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 14px; color: var(--mut); font-size: 12px; }
 .context img, .context svg { flex-shrink: 0; }
 .section { display: grid; gap: 10px; padding: 16px 0; border-top: 1px solid var(--line); }
-.heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.heading h3 { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 15px; font-weight: 550; letter-spacing: -0.01em; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.heading h3 { display: flex; min-width: 0; align-items: center; gap: 8px; color: var(--text); font-size: 15px; font-weight: 550; letter-spacing: -0.01em; }
 .heading h3 svg { flex-shrink: 0; color: var(--mut); }
 .value { color: var(--mint-bright); font-size: var(--fs-small); font-weight: 550; font-variant-numeric: tabular-nums; }
 .help { color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }

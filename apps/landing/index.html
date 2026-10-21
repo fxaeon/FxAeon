@@ -41,7 +41,7 @@
     <meta name="theme-color" content="#101214" />
     <title>FxAeon — Trade, save and borrow on f(x) Protocol</title>
     <script src="script.js"></script>
-    <script src="hero-field.js" defer></script>
+    <script src="sculpture.js" defer></script>
     <script type="module" src="dollar-outcomes.js"></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
     <link
@@ -64,7 +64,7 @@
       >
       <div class="nav-links">
         <nav class="nav-side nav-left" aria-label="Main navigation">
-          <a href="#products">Explore</a><a href="#protocol">How it works</a>
+          <a href="#products">Explore</a><a href="#outcomes">Try an amount</a>
         </nav>
         <nav class="nav-side nav-right" aria-label="More navigation">
           <a href="#telegram">Telegram</a
@@ -109,16 +109,12 @@
           >Explore
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
-        ><a href="#protocol"
-          >How it works
+        ><a href="#outcomes"
+          >Try an amount
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
         ><a href="#telegram"
           >Telegram
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
-        ><a href="#faq"
-          >Questions
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
         ><a href="https://fxaeon.com/docs"
@@ -130,34 +126,21 @@
     </dialog>
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <h1 id="hero-title">Put your crypto<br /><span>to work.</span></h1>
-          <p class="lede">Save in stablecoins. Borrow against ETH or BTC. Trade with the exposure you choose.</p>
-          <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Powered By f(x) SDK</p>
-          <div class="actions"><a class="button primary" href="https://fxaeon.com/">Open app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
+        <div class="capital-art" aria-hidden="true">
+          <picture class="capital-still">
+            <source media="(max-width: 760px)" srcset="assets/capital-sculpture-mobile.png" />
+            <img src="assets/capital-sculpture-desktop.png" width="1500" height="660" alt="" />
+          </picture>
+          <canvas class="capital-canvas"></canvas>
         </div>
-        <div class="hero-example" aria-label="Ways to use your crypto">
-          <div class="hero-field" aria-hidden="true"><img class="hero-contours" src="assets/capital-field.svg" width="720" height="640" alt="" /><canvas class="hero-shader" aria-hidden="true"></canvas></div>
-          <svg class="example-connectors" viewBox="0 0 520 440" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="hero-path-light" x1="156" y1="220" x2="273" y2="220" gradientUnits="userSpaceOnUse"><stop stop-color="#4b78be" stop-opacity=".35"/><stop offset=".5" stop-color="#80b1ff" stop-opacity=".9"/><stop offset="1" stop-color="#76a8f3" stop-opacity=".5"/></linearGradient></defs><path d="M156 220H170C190 220 198 212 198 192V120C198 103 211 93 228 93H273"/><path d="M156 220H273"/><path d="M156 220H170C190 220 198 228 198 248V320C198 337 211 347 228 347H273"/></svg>
-          <img class="example-hub" src="assets/fxaeon-mark.svg" width="40" height="40" alt="" />
-          <div class="example-start"><img src="assets/tokens/eth.png" width="32" height="32" alt="" /><div><strong data-hero-amount>$1,000</strong><span>of ETH</span></div></div>
-          <div class="example-paths">
-            <a href="#outcomes" data-open-outcome="earn"><span class="example-product"><img src="assets/tokens/fxsave.svg" width="24" height="24" alt="" /><strong>Earn</strong></span><span>Convert to stable savings</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
-            <a href="#outcomes" data-open-outcome="borrow"><span class="example-product"><img src="assets/tokens/fxusd.svg" width="24" height="24" alt="" /><strong>Borrow</strong></span><span><b data-hero-borrow>$500</b> in fxUSD at 50% LTV</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
-            <a href="#outcomes" data-open-outcome="trade"><span class="example-product"><img src="assets/tokens/eth.png" width="24" height="24" alt="" /><strong>Trade</strong></span><span><b data-hero-exposure>$2,000</b> exposure at <b data-hero-leverage>2×</b></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
+        <div class="hero-copy">
+          <h1 id="hero-title">Put your crypto <br /><span>to work.</span></h1>
+          <div class="hero-intro">
+            <p class="lede">Trade ETH and BTC. Earn with fxSAVE. Borrow stablecoins against your crypto.</p>
+            <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Powered By f(x) SDK</p>
+            <div class="actions"><a class="button primary" href="https://fxaeon.com/">Open web app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
           </div>
         </div>
-      </section>
-
-      <section class="proof-section" aria-label="Protocol and market figures">
-        <dl class="proof-strip">
-          <div class="proof-item"><dt>fxSAVE TVL</dt><dd data-market-value="fxSaveTvlUsd">—</dd><span data-market-state="fxSaveTvlUsd">Loading</span></div>
-          <div class="proof-item"><dt>fxSAVE APY</dt><dd data-market-value="fxSaveApy">—</dd><span data-market-state="fxSaveApy">Loading</span></div>
-          <div class="proof-item"><dt>Borrow interest</dt><dd>0<span>%</span></dd><span>Base annual rate</span></div>
-          <div class="proof-item"><dt><img src="assets/tokens/eth.png" width="16" height="16" alt="" />ETH</dt><dd data-market-value="ethUsd">—</dd><span data-market-state="ethUsd">Loading</span></div>
-          <div class="proof-item"><dt><img src="assets/tokens/wbtc.png" width="16" height="16" alt="" />BTC</dt><dd data-market-value="btcUsd">—</dd><span data-market-state="btcUsd">Loading</span></div>
-        </dl>
-        <button class="market-refresh" type="button" data-market-refresh hidden>Retry live data</button>
       </section>
 
       <section
@@ -224,7 +207,7 @@
             <div class="card-copy">
               <h3>Save with fxSAVE</h3>
               <p>
-                Deposit fxUSD or USDC. fxSAVE compounds Stability Pool rewards; yield varies.
+                Deposit fxUSD or USDC and let rewards compound.
               </p>
               <span class="product-name">Earn</span
               ><a
@@ -340,14 +323,10 @@
             </div>
           </article>
         </div>
-        <p class="product-note">
-          Leverage and borrowing involve liquidation risk. Savings yields vary.
-          Fees and network costs apply.
-        </p>
       </section>
 
       <section class="outcomes section" id="outcomes" aria-labelledby="outcomes-title">
-        <div class="section-head outcome-heading"><h2 id="outcomes-title">What your crypto can do.</h2></div>
+        <div class="section-head outcome-heading"><h2 id="outcomes-title">What your crypto can do.</h2><p>Start with an amount. See how saving, borrowing, and trading compare.</p></div>
         <div class="calculator-controls">
           <div class="calculator-amount">
             <label id="amount-context" for="dollar-amount">Starting value</label>
@@ -361,27 +340,26 @@
         </div>
         <div class="outcome-frame" data-dollar-calculator>
           <section class="outcome-panel" id="outcome-earn" role="tabpanel" aria-labelledby="tab-earn" tabindex="0">
-            <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/fxsave.svg" width="24" height="24" alt="" />Earn · fxSAVE</p><h3>Save in stablecoins.</h3><p>Deposit fxUSD or USDC into fxSAVE.</p><dl class="outcome-facts"><div><dt>Starting deposit</dt><dd data-earn-deposit>$1,000.00</dd></div><div><dt>Current APY</dt><dd data-earn-apy>—</dd></div><div><dt>Earnings</dt><dd data-earn-gain>—</dd></div></dl></div>
-            <div class="outcome-visual earn-visual"><span class="visual-label">After 1 year</span><output class="outcome-figure" data-earn-projection>—</output><span class="visual-caption" data-earn-caption>Waiting for a fresh APY</span><svg class="earn-comparison" viewBox="0 0 300 150" role="img" aria-label="A one-year projection appears when a fresh APY is available"><path class="comparison-baseline" d="M20 125h260" /><rect class="principal-bar" x="64" y="35" width="56" height="90" rx="5" /><rect class="projection-bar" data-earn-bar x="180" y="35" width="56" height="90" rx="5" hidden /><text x="92" y="147" text-anchor="middle">Starting value</text><text x="208" y="147" text-anchor="middle">After 1 year</text></svg><p class="scenario-label">1-year projection · before fees</p></div>
+            <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/fxsave.svg" width="24" height="24" alt="" />Earn · fxSAVE</p><h3>Save in stablecoins.</h3><p>Deposit fxUSD or USDC into fxSAVE.</p><dl class="outcome-facts"><div><dt>Starting deposit</dt><dd data-earn-deposit>$1,000.00</dd></div><div><dt>Current APY</dt><dd data-earn-apy data-market-value="fxSaveApy">—</dd></div><div><dt>fxSAVE TVL</dt><dd data-market-value="fxSaveTvlUsd">—</dd></div><div><dt>Earnings</dt><dd data-earn-gain>—</dd></div></dl><div class="market-provenance"><span>Source: <a href="https://fx.aladdin.club/earn" target="_blank" rel="noopener noreferrer">Aladdin</a></span><span data-earn-checked>Loading APY…</span></div></div>
+            <div class="outcome-visual earn-visual"><span class="visual-label" data-earn-result hidden>After 1 year</span><output class="outcome-figure" data-earn-projection hidden>—</output><span class="visual-caption" data-earn-caption hidden>Waiting for a fresh APY</span><svg class="earn-comparison" viewBox="0 0 300 150" role="img" aria-label="A one-year projection appears when a fresh APY is available" hidden><path class="comparison-baseline" d="M20 125h260" /><rect class="principal-bar" x="64" y="35" width="56" height="90" rx="5" /><rect class="projection-bar" data-earn-bar x="180" y="35" width="56" height="90" rx="5" hidden /><text x="92" y="147" text-anchor="middle">Starting value</text><text x="208" y="147" text-anchor="middle">After 1 year</text></svg><p class="scenario-label" data-earn-result hidden>1-year projection · before protocol and network costs</p><div class="earn-availability" data-earn-availability><strong data-earn-status role="status">Loading current APY…</strong><p data-earn-status-detail>A fresh rate is needed to estimate earnings.</p></div></div>
             <div class="outcome-action"><a class="button primary outcome-cta" href="https://fxaeon.com/earn">Open Earn <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
           </section>
           <section class="outcome-panel" id="outcome-borrow" role="tabpanel" aria-labelledby="tab-borrow" tabindex="0" hidden>
-            <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/fxusd.svg" width="24" height="24" alt="" />Borrow · fxUSD</p><h3>Access fxUSD.</h3><p>Keep your ETH as collateral.</p><dl class="outcome-facts"><div><dt>Collateral value</dt><dd data-borrow-collateral>$1,000.00</dd></div><div><dt>Scenario loan-to-value</dt><dd>50%</dd></div><div><dt>Base annual interest</dt><dd>0%</dd></div></dl><p class="outcome-risk">A fall in collateral value can trigger rebalancing or liquidation. Your live quote sets the available amount.</p></div>
-            <div class="outcome-visual borrow-visual"><span class="visual-label">fxUSD · before fees</span><output class="outcome-figure" data-borrow-output>$500.00</output><div class="borrow-flow"><span><img src="assets/tokens/eth.png" width="28" height="28" alt="" />ETH collateral</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span><img src="assets/tokens/fxusd.svg" width="28" height="28" alt="" />fxUSD</span></div><div class="example-ratio"><div><span>Loan-to-value</span><strong>50%</strong></div><meter min="0" max="100" value="50" aria-label="Loan-to-value ratio">50%</meter></div></div>
+            <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/fxusd.svg" width="24" height="24" alt="" />Borrow · fxUSD</p><h3>Borrow without selling.</h3><p>Use your ETH as collateral to access fxUSD.</p><dl class="outcome-facts"><div><dt>Collateral value</dt><dd data-borrow-collateral>$1,000.00</dd></div><div><dt>Scenario loan-to-value</dt><dd>50%</dd></div><div><dt>Borrowing asset</dt><dd>fxUSD</dd></div></dl></div>
+            <div class="outcome-visual borrow-visual"><span class="visual-label">fxUSD · before protocol and network costs</span><output class="outcome-figure" data-borrow-output>$500.00</output><div class="borrow-flow"><span><img src="assets/tokens/eth.png" width="28" height="28" alt="" />ETH collateral</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg><span><img src="assets/tokens/fxusd.svg" width="28" height="28" alt="" />fxUSD</span></div><div class="example-ratio"><div><span>Loan-to-value</span><strong>50%</strong></div><meter min="0" max="100" value="50" aria-label="Loan-to-value ratio">50%</meter></div></div>
             <div class="outcome-action"><a class="button primary outcome-cta" href="https://fxaeon.com/borrow">Open Borrow <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
           </section>
           <section class="outcome-panel" id="outcome-trade" role="tabpanel" aria-labelledby="tab-trade" tabindex="0" hidden>
             <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/eth.png" width="24" height="24" alt="" />Trade · ETH long</p><h3>Choose your exposure.</h3><div class="leverage-control"><div><label for="example-leverage">Leverage</label><output id="leverage-value" for="example-leverage">2×</output></div><input id="example-leverage" type="range" min="1.1" max="5" step="0.1" value="2" /><div class="range-labels" aria-hidden="true"><span>1.1×</span><span>5×</span></div></div></div>
-            <div class="outcome-visual trade-visual"><span class="visual-label">ETH long · starting exposure</span><output class="outcome-figure" data-trade-exposure>$2,000.00</output><span class="visual-caption" data-trade-units>USD exposure · ETH price loading</span><span class="scenario-label">±10% price move · gross effect before fees</span><div class="trade-scenarios"><div><span>ETH rises 10%</span><strong data-trade-up>+$200.00</strong><small data-trade-up-percent>+20% of starting value</small></div><div><span>ETH falls 10%</span><strong data-trade-down>−$200.00</strong><small data-trade-down-percent>−20% of starting value</small></div></div><p class="outcome-risk">Leverage magnifies gains and losses from the same price move.</p></div>
+            <div class="outcome-visual trade-visual"><span class="visual-label">ETH long · starting exposure</span><output class="outcome-figure" data-trade-exposure>$2,000.00</output><span class="visual-caption" data-trade-units>USD exposure · ETH price loading</span><div class="market-provenance"><span>ETH price: <a href="https://defillama.com/prices" target="_blank" rel="noopener noreferrer">DefiLlama</a></span><span data-trade-checked>Loading price…</span></div><span class="scenario-label">±10% price move · gross effect before protocol and network costs</span><div class="trade-scenarios"><div><span>ETH rises 10%</span><strong data-trade-up>+$200.00</strong><small data-trade-up-percent>+20% of starting value</small></div><div><span>ETH falls 10%</span><strong data-trade-down>−$200.00</strong><small data-trade-down-percent>−20% of starting value</small></div></div></div>
             <div class="outcome-action"><a class="button primary outcome-cta" href="https://fxaeon.com/trade?market=ETH">Open ETH Trade <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
           </section>
         </div>
+        <button class="market-refresh" type="button" data-market-refresh hidden>Retry live data</button>
         <noscript><p class="calculator-note">Enable JavaScript to explore an amount and load live figures.</p></noscript>
       </section>
 
-      <section class="protocol section" id="protocol" aria-labelledby="protocol-title"><div class="section-head"><p class="eyebrow">Built around your wallet</p><h2 id="protocol-title">Your assets. Your decision.</h2></div><div class="protocol-principles"><article><h3>Your wallet, your funds</h3><p>FxAeon is an interface for f(x) Protocol. Your wallet approves each transaction.</p></article><article><h3>A prepared review</h3><p>Inspect the route, estimated fees and expected outcome before signing.</p></article><article><h3>Across Ethereum and Base</h3><p>Trade, Earn and Borrow on Ethereum. Bridge fxUSD and fxSAVE to or from Base.</p><a class="text-link" href="https://fxaeon.com/move">Open Move <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></article></div></section>
-
-      <div class="closing-surface">
+<div class="closing-surface">
         <section
           class="telegram section"
           id="telegram"
@@ -397,7 +375,7 @@
               FxAeon, in Telegram.
             </h2>
             <p>
-              Open the mini app without leaving Telegram.
+              Trade, save, borrow, and track your portfolio. All inside Telegram.
             </p>
             <div class="privy-note" id="privy">
               <h3>
@@ -407,7 +385,7 @@
                 >
               </h3>
               <span
-                >Sign in with Telegram. Privy creates a wallet when needed; email and existing wallets are available too. You approve every transaction.</span
+                >Start with your Telegram account or connect an existing wallet.</span
               >
             </div>
             <a
@@ -466,73 +444,7 @@
             </figure>
           </div>
         </section>
-        <section class="faq section" id="faq" aria-labelledby="faq-title">
-          <div class="faq-heading">
-            <h2 id="faq-title">
-              Good questions.<br /><span>Clear answers.</span>
-            </h2>
-            <a class="text-link" href="https://fxaeon.com/docs"
-              >Go deeper in the docs
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 12h14m-6-6 6 6-6 6"></path></svg
-            ></a>
-          </div>
-          <div class="faq-list">
-            <details>
-              <summary>What is FxAeon?</summary>
-              <p>
-                FxAeon is an interface for f(x) Protocol on the web and in Telegram.
-              </p>
-            </details>
-            <details>
-              <summary>Does FxAeon hold my funds?</summary>
-              <p>
-                No. Your wallet approves each transaction. FxAeon does not
-                receive or store your private keys.
-              </p>
-            </details>
-            <details>
-              <summary>Which networks can I use?</summary>
-              <p>
-                Trade, Earn, and Borrow run on Ethereum. Move bridges fxUSD and fxSAVE between Ethereum and Base.
-              </p>
-            </details>
-            <details>
-              <summary>How do savings and withdrawals work?</summary>
-              <p>
-                Deposit fxUSD or USDC into fxSAVE, f(x) Protocol’s savings
-                vault. Its APY is variable. Withdraw instantly for a fee, or
-                queue a redemption and claim after the cooldown shown in the
-                app.
-              </p>
-            </details>
-            <details>
-              <summary>What does it cost?</summary>
-              <p>
-                Review estimated gas and network costs when data is available,
-                plus applicable protocol fees, before signing. Bridge transfers
-                include a LayerZero fee quote.
-              </p>
-            </details>
-            <details>
-              <summary>What should I know about risk?</summary>
-              <p>
-                Leveraged positions and borrowing can be rebalanced or
-                liquidated. Savings yields are variable and returns are not
-                guaranteed. Smart contracts, tokens, wallets, bridges, and
-                networks carry risk. Read the
-                <a
-                  href="https://fxprotocol.gitbook.io/fx-docs"
-                  target="_blank"
-                  rel="noreferrer"
-                  >f(x) Protocol docs</a
-                >
-                before you start.
-              </p>
-            </details>
-          </div>
-        </section>
-      </div>
+</div>
     </main>
     <div class="footer-frame">
       <footer class="site-footer">

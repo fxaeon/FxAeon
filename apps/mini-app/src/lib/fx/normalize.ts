@@ -5,6 +5,7 @@ import {
   type Hex,
 } from "viem";
 import type { FxChainId, OfficialFxMethod, PlannedRoute, PlannedTransaction, RouteDetails } from "./types";
+import { normalizePositionEconomics } from "./positionEconomics";
 
 export interface RawSdkTransaction {
   from?: string;
@@ -189,6 +190,7 @@ export function normalizeRouteResult(
       routeType: stringField(route.routeType, "route type"),
       positionId: numberField(root.positionId, "position ID"),
       leverage: numberField(route.leverage, "leverage"),
+      positionEconomics: normalizePositionEconomics(route.positionEconomics),
       executionPrice: stringField(route.executionPrice, "execution price"),
       minOut: stringField(route.minOut, "minimum output"),
       colls: stringField(route.colls, "collateral quote"),

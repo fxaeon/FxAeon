@@ -702,7 +702,7 @@
   .slippageHelpPopup, .slippageHelpInline { animation: none; }
 }
 
-.tradeLayout[data-review='true'] { display: block; width: 100%; max-width: 640px; margin-inline: auto; }
+.tradeLayout[data-review='true'] { display: block; width: 100%; max-width: 480px; margin-inline: auto; }
 
 /* Short viewports (a Telegram Mini App under its own header): the same parts
    in the same order, a little tighter, so the leverage slider clears the

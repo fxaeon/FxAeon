@@ -1,0 +1,253 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { after, test } from 'node:test';
+import { runInNewContext } from 'node:vm';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Check, ExternalLink, Info, RefreshCw } from 'lucide-react';
+import { formatUnits, parseUnits } from 'viem';
+import { freshDisplayPrices } from '../src/lib/displayPrices';
+import { fxSaveShareUsdValue } from '../src/lib/fxSaveShareValue';
+import { fxSaveUsdValue, fxSaveVaultUsdValue, normalizedFxSaveAssetsWei } from '../src/lib/fxSaveUnits';
+import { claimAvailability } from '../src/lib/earnState';
+import { selectWalletTasks } from '../src/lib/taskState';
+import { FX_TOKENS } from '../src/lib/fx/tokens';
+import { formatUsd, parseUsdPriceResponse, USD_PRICE_MAX_AGE_MS, type UsdPriceSnapshot } from '../src/lib/prices';
+
+// Resolve esbuild through the declared tsx dependency, including strict pnpm
+// layouts, without adding a new application dependency for these tests.
+const require = createRequire(import.meta.url);
+const { transformSync } = createRequire(require.resolve('tsx/package.json'))('esbuild') as {
+  transformSync: (input: string, options: Record<string, string>) => { code: string };
+};
+
+const globalReact = globalThis as typeof globalThis & { React?: typeof React };
+const previousReact = globalReact.React;
+globalReact.React = React;
+after(() => { if (previousReact) globalReact.React = previousReact; else Reflect.deleteProperty(globalThis, 'React'); });
+
+// Execute the actual Earn display and transition functions with deterministic,
+// wallet-free bindings. These tests neither query a chain nor sign a plan.
+function source(path: string): string {
+  return readFileSync(new URL(path, import.meta.url), 'utf8');
+}
+const page = source('../src/app/earn/page.tsx');
+const pageText = page;
+const css = source('../src/components/SavingsWorkspace.module.css');
+const presentation = Object.fromEntries([...css.matchAll(/\.([_a-zA-Z][\w-]*)/g)].map(match => [match[1], match[1]]));
+/** These source-level functions begin in column zero. Slice between top-level
+ * declarations, then let the installed esbuild parser validate/compile TSX.
+ * No extraction by a nested closing brace and no alternate implementation. */
+function declaration(file: string, name: string) {
+  const start = new RegExp(`^(?:export (?:default )?)?function ${name}\\(`, 'm').exec(file);
+  assert.ok(start, `${name} exists`);
+  const rest = file.slice(start.index);
+  const next = /\n(?=(?:export (?:default )?)?(?:function|type|interface|const) )/.exec(rest);
+  return (next ? rest.slice(0, next.index) : rest).replace(/^export (?:default )?/, '');
+}
+const earn = declaration(page, 'EarnPage');
+function variable(name: string) {
+  const start = earn.indexOf(`  const ${name} = `);
+  assert.notEqual(start, -1, `${name} declaration exists`);
+  const rest = earn.slice(start);
+  const next = /\n {2}(?=const |useEffect\()/.exec(rest);
+  assert.ok(next, `${name} has a following declaration boundary`);
+  return rest.slice(0, next.index);
+}
+const MetricLabel = ({ label, definition, help }: { label: string; definition?: string; help?: string }) => React.createElement('span', null,
+  label, (definition || help) && React.createElement('button', { type: 'button', 'aria-label': `About ${label}`, 'data-definition': definition, 'data-help': help }, 'i'));
+const TokenIcon = ({ symbol }: { symbol: string }) => React.createElement('span', { 'data-token': symbol });
+const ChainIcon = () => React.createElement('span', { 'data-chain': 'Ethereum' });
+const MissingValue = ({ label, status }: { label: string; status: string }) => React.createElement('span', { 'aria-label': label, 'data-value-status': status });
+const ValueOrSkeleton = ({ value }: { value: React.ReactNode }) => React.createElement(React.Fragment, null, value);
+function evaluate<T>(code: string, bindings: object = {}): T {
+  const js = transformSync(code, { target: 'es2020', loader: 'tsx', jsx: 'transform', jsxFactory: 'React.createElement', jsxFragment: 'React.Fragment', format: 'cjs' }).code;
+  return runInNewContext(js, {
+    React, Check, ExternalLink, Info, RefreshCw, MetricLabel, TokenIcon, ChainIcon, MissingValue, ValueOrSkeleton,
+    freshDisplayPrices, fxSaveShareUsdValue, fxSaveUsdValue, fxSaveVaultUsdValue, normalizedFxSaveAssetsWei,
+    claimAvailability, selectWalletTasks, formatUsd, formatUnits, presentation, styles: {}, ...bindings,
+  }) as T;
+}
+const helpers = ['formatDisplayAmount', 'formatVaultUsd', 'formatTimestamp', 'formatRatio', 'formatCooldown'].map(name => declaration(page, name)).join('\n')
+  + '\n' + declaration(source('../src/app/trade/fxUi.ts'), 'formatAmount');
+const now = 1_780_000_000_000;
+const quote = (overrides: Partial<UsdPriceSnapshot> = {}): UsdPriceSnapshot => ({ status: 'ready', prices: { fxSAVE: 1.12345 }, updatedAt: now, ...overrides });
+
+test('per-share value uses the address-matched fxSAVE quote, not fxSP or fxUSD', () => {
+  const coins = {
+    [`ethereum:${FX_TOKENS.fxSAVE.address.toLowerCase()}`]: { price: 1.12345, confidence: 0.99, timestamp: now / 1000 },
+    [`ethereum:${FX_TOKENS.fxUSDBasePool.address.toLowerCase()}`]: { price: 1.04, confidence: 0.99, timestamp: now / 1000 },
+    [`ethereum:${FX_TOKENS.fxUSD.address.toLowerCase()}`]: { price: 0.998, confidence: 0.99, timestamp: now / 1000 },
+  };
+  const parsed = parseUsdPriceResponse({ coins }, now / 1000);
+  assert.equal(fxSaveShareUsdValue({ status: 'ready', ...parsed }, now), 1.12345);
+  delete (coins as Record<string, unknown>)[`ethereum:${FX_TOKENS.fxSAVE.address.toLowerCase()}`];
+  const missing = parseUsdPriceResponse({ coins }, now / 1000);
+  assert.equal(fxSaveShareUsdValue({ status: 'partial', ...missing }, now), null, 'other asset quotes cannot substitute for fxSAVE');
+});
+
+test('per-share values reject missing, invalid, stale, future and failed data', () => {
+  for (const invalid of [0, -1, Number.NaN, Infinity, '1.12', null, undefined]) {
+    assert.equal(fxSaveShareUsdValue(quote({ prices: { fxSAVE: invalid } as UsdPriceSnapshot['prices'] }), now), null);
+  }
+  for (const updatedAt of [null, 0, now - USD_PRICE_MAX_AGE_MS - 1, now + 30_001]) {
+    assert.equal(fxSaveShareUsdValue(quote({ updatedAt }), now), null);
+  }
+  for (const status of ['stale', 'unavailable'] as const) assert.equal(fxSaveShareUsdValue(quote({ status }), now), null);
+  assert.equal(fxSaveShareUsdValue(quote({ status: 'loading', prices: {} }), now), null);
+  assert.equal(fxSaveShareUsdValue(quote({ prices: { fxUSD: 1, fxUSDBasePool: 1.25 } }), now), null);
+});
+
+test('per-asset validation time, not a fresher unrelated quote, controls fxSAVE freshness', () => {
+  assert.equal(fxSaveShareUsdValue(quote({ updatedAts: { fxSAVE: now - USD_PRICE_MAX_AGE_MS - 1, fxUSD: now } }), now), null);
+  assert.equal(fxSaveShareUsdValue(quote({ status: 'partial', updatedAt: now - USD_PRICE_MAX_AGE_MS - 1, updatedAts: { fxSAVE: now } }), now), 1.12345);
+});
+
+const pending = { hasPendingRedeem: true, pendingSharesWei: 50n * 10n ** 18n, isCooldownComplete: false, redeemableAt: 2_000 };
+const ready = { ...pending, isCooldownComplete: true };
+function summary({ claimable = ready as typeof ready | null, redeemStatus = pending, readWarnings = [] as string[], snapshot = quote({ updatedAt: Date.now() }), connected = true } = {}) {
+  const data = connected ? { walletAddress: '0x1111111111111111111111111111111111111111',
+    balance: { balanceWei: 1000n * 10n ** 18n, assetsWei: 1100n * 10n ** 18n }, claimable, redeemStatus } : null;
+  const props = { data, connected, loading: false, onRefresh: async () => {}, readWarnings, config: null,
+    fxSaveApy: null, fxSaveApyStatus: 'unavailable', onClaim: () => {}, claimTriggerRef: { current: null } };
+  const before = structuredClone(data);
+  const html = renderToStaticMarkup(evaluate<React.ReactNode>([
+    helpers, declaration(page, 'ReadyClaimBanner'), declaration(source('../src/components/ProductUI.tsx'), 'StatusNotice'),
+    declaration(page, 'SavingsSummary'), 'SavingsSummary(props);',
+  ].join('\n'), { props, useUsdPrices: () => snapshot }));
+  assert.deepEqual(data, before, 'summary rendering must not mutate a wallet/claim read');
+  return html;
+}
+
+test('ready banner keeps one review action and drops only repetitive explanation', () => {
+  const html = summary();
+  assert.match(html, /class="readyClaim" role="status"/);
+  assert.match(html, /Ready to claim/);
+  assert.equal((html.match(/>Review claim<\/button>/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /Review the verified assets available|Withdrawal ready to claim|No payout yet/);
+  assert.match(css, /\.readyClaim button \{[^}]*min-height: 44px/);
+  assert.doesNotMatch(css, /\.readyClaim[^}]*height: 140px/);
+});
+
+test('pending, unavailable and fallback redemption reads never gain a ready action', () => {
+  const waiting = summary({ claimable: pending });
+  assert.match(waiting, /Withdrawal pending/);
+  assert.match(waiting, /Available after/);
+  assert.doesNotMatch(waiting, /class="readyClaim"|>Review claim</);
+  const missing = summary({ claimable: null, redeemStatus: ready });
+  assert.doesNotMatch(missing, /class="readyClaim"|>Review claim</);
+  for (const warning of ['claim status', 'redemption status']) {
+    const html = summary({ readWarnings: [warning] });
+    assert.match(html, /Withdrawal status unavailable/);
+    assert.match(html, /Refresh to check the current withdrawal status/);
+    assert.doesNotMatch(html, /class="readyClaim"|>Review claim</);
+  }
+});
+
+test('per-share value is explicit when available and unavailable, including disconnected', () => {
+  assert.match(summary(), /Value per fxSAVE/);
+  assert.match(summary(), /\$1\.1235/);
+  const missing = summary({ snapshot: quote({ prices: { fxUSDBasePool: 1 }, updatedAt: Date.now() }) });
+  assert.match(missing, /Value per fxSAVE/);
+  assert.match(missing, /class="unavailableMetric">Unavailable/);
+  assert.doesNotMatch(missing, /\$1\.10<\/dd>/, 'wallet value divided by balance is not a quote');
+  assert.match(summary({ connected: false }), /Value per fxSAVE/);
+});
+
+function transitions() {
+  const writes: Record<string, unknown> = {};
+  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
+  const code = [variable('resetEarnContext'), variable('changeMode'), variable('changeToken'), '({ resetEarnContext, changeMode, changeToken });'].join('\n');
+  const actions = evaluate<{ resetEarnContext: () => void; changeMode: (mode: string) => void; changeToken: (token: string) => void }>(code,
+    { ...setters, useCallback: (callback: unknown) => callback, resetTransactionAmounts: () => ({ amount: '', shares: '' }), mode: 'withdraw' });
+  return { writes, ...actions };
+}
+
+test('fresh withdrawal uses cooldown, but mode/token changes do not overwrite selected Instant', () => {
+  const initial = /^ {2}const \[instant, setInstant\] = useState\([^;]+;/m.exec(earn);
+  assert.ok(initial);
+  assert.equal(evaluate<boolean>(`${initial[0]}\ninstant;`, { useState: (value: unknown) => [value, () => {}] }), false);
+  const reset = transitions(); reset.resetEarnContext();
+  assert.equal(reset.writes.Instant, false);
+  for (const action of [(t: ReturnType<typeof transitions>) => t.changeMode('withdraw'), (t: ReturnType<typeof transitions>) => t.changeToken('usdc')]) {
+    const t = transitions(); action(t);
+    assert.equal(Object.hasOwn(t.writes, 'Instant'), false, 'an explicit method must survive tab/asset changes');
+    assert.equal(t.writes.Amount, '');
+    assert.equal(t.writes.Shares, '', 'existing amount reset behavior stays unchanged');
+  }
+});
+
+test('signature-required drafts preserve explicit method, amounts, token and slippage', () => {
+  const marker = earn.indexOf('restoredDraftIdRef.current = draftId');
+  assert.notEqual(marker, -1);
+  const start = earn.lastIndexOf('  useEffect(() => {', marker);
+  const end = earn.indexOf('\n  }, [', marker);
+  assert.ok(start >= 0 && end > marker);
+  const effect = earn.slice(start, earn.indexOf(');', end) + 2);
+  for (const instant of [true, false]) {
+    const writes: Record<string, unknown> = {};
+    const state = { mode: 'withdraw', token: 'usdc', amount: '7.5', shares: '12.345', instant, slippage: '0.8' };
+    const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'Slippage', 'ReviewStage', 'ReviewRevision', 'ResumeReview'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
+    evaluate([declaration(page, 'isEarnMode'), declaration(page, 'isSaveToken'), effect].join('\n'), {
+      ...setters, useEffect: (callback: () => void) => callback(), reviewStage: 'input', wallet: { address: '0x1111111111111111111111111111111111111111', chainId: 1 },
+      signatureDraftIdFromSearch: () => 'draft-id', restoredDraftIdRef: { current: null }, restoreEarnDraft: () => state,
+      window: { location: { search: '?fxDraft=draft-id', href: 'https://fxaeon.local/earn?fxDraft=draft-id' }, history: { state: null, replaceState() {} } }, URL,
+    });
+    for (const [name, value] of Object.entries(state)) assert.equal(writes[name[0].toUpperCase() + name.slice(1)], value);
+  }
+});
+
+function editor(token: 'fxUSD' | 'fxUSDBasePool', instant: boolean, config: object | null) {
+  const props = { mode: 'withdraw', token, instant, shares: '2', amount: '', config, estimateConfig: config, walletData: null,
+    onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onInstantChange() {}, onDeposit() {}, balanceUnavailable: false };
+  const ChoiceCards = ({ options }: { options: { value: string; label: string; description: string }[] }) => React.createElement('fieldset', null, options.map(option => React.createElement('label', { key: option.value }, option.label, ' ', option.description)));
+  return renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
+    props, ChoiceCards, AmountField: () => null, TokenSelect: () => null, labelToken: (key: string) => key === 'fxUSDBasePool' ? 'fxSP' : key,
+    parseAmount: (value: string) => value ? parseUnits(value, 18) : null,
+  }));
+}
+const config = { cooldownPeriodSeconds: 5400n, instantRedeemFeeRatio: 2n * 10n ** 16n, totalAssetsWei: 12n * 10n ** 18n, totalSupplyWei: 10n * 10n ** 18n };
+test('withdrawal fees, configured cooldown, queued payout units and unknown terms stay visible', () => {
+  const queued = editor('fxUSD', false, config);
+  assert.match(queued, /90m · no instant fee/);
+  assert.match(queued, /Instant 2% fee/);
+  assert.match(queued, /Claim later/);
+  assert.match(queued, /fxUSD \+ USDC/);
+  assert.match(queued, /Network fees apply to the withdrawal request and claim/);
+  const missing = editor('fxUSD', false, null);
+  assert.match(missing, /Cooldown unavailable/);
+  assert.match(missing, /Fee unavailable/);
+  assert.match(missing, /Withdrawal terms unavailable. Refresh before review/);
+  assert.doesNotMatch(missing, /24h|1% fee|0% fee/);
+});
+
+test('direct fxSP redemption keeps no-cooldown terms visible outside optional estimate help', () => {
+  const html = editor('fxUSDBasePool', false, config);
+  assert.match(html, /Estimated fxSP received/);
+  assert.match(html, /≈ 2\.4 fxSP/);
+  assert.match(html, /Direct redemption to fxSP has no cooldown or queued claim/);
+  assert.match(html, /data-help="Based on current vault assets and share supply\."/);
+  assert.doesNotMatch(html, /data-help="[^"]*no cooldown|24h|Instant 2% fee/);
+});
+
+test('risk and audit access stays outside collapsed help and makes no UI audit claim', () => {
+  const html = renderToStaticMarkup(evaluate<React.ReactNode>(`${declaration(page, 'VaultRiskNotice')}\nVaultRiskNotice();`));
+  assert.match(html, /Capital is at risk. FxAeon is unaudited/);
+  assert.match(html, /https:\/\/fxprotocol\.gitbook\.io\/fx-docs\/risk-management\/audit-reports/);
+  assert.match(html, /https:\/\/fxprotocol\.gitbook\.io\/fx-docs\/f-x-protocol-mechanisms\/stability-pool/);
+  assert.equal((html.match(/rel="noopener noreferrer"/g) ?? []).length, 2);
+  assert.doesNotMatch(html, /<details|100% audited|guaranteed/);
+  assert.match(pageText, /<VaultRiskNotice \/>/);
+});
+
+test('optional help does not introduce signing authority, price-oracle derivation or local-clock readiness', () => {
+  const helper = readFileSync(new URL('../src/lib/fxSaveShareValue.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(helper, /planWithdraw|planRedeem|balanceWei|totalSupplyWei|totalAssetsWei|tvlUsd|fetch\(/);
+  const summarySource = declaration(page, 'SavingsSummary');
+  assert.match(summarySource, /!claimUnavailable && claim.status === 'ready'/);
+  assert.match(pageText, /definition="fxSaveApy"/);
+  assert.match(pageText, /label="Value per fxSAVE" definition="fxSaveShares"/);
+  assert.doesNotMatch(declaration(page, 'VaultDetails'), /InfoHelp|MetricLabel/, 'no help buried inside vault details');
+  assert.match(pageText, /config=\{activeReadWarnings.includes\('vault configuration'\) \? null : config\}/, 'stale configuration cannot appear current in choices');
+});

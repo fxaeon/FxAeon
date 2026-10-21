@@ -1,5 +1,6 @@
 'use client';
 
+import { AmountUsd } from '@/components/review/AmountUsd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -192,6 +193,30 @@ function RecoveryItem({ view, trackBridge, autoTrackBridge, task, positionHint, 
     executionCostWei: view.receiptExecutionCostWei,
     nativeValueWei: view.receiptNativeValueWei,
   }) : null;
+  const showBridgeTracker = trackBridge && Boolean(view.record.bridge) && view.status === 'confirmed';
+  const advancedContent = (
+            <div className="pb-2 text-[10.5px] leading-relaxed text-mut">
+              <p>{view.message}</p>
+              {view.receiptBlockNumber !== undefined && <p className="mt-1">Block {view.receiptBlockNumber.toString()}</p>}
+              {receiptFacts && (
+                <div className="mt-2 space-y-1">
+                  <p className="font-semibold text-[var(--text)]">Verified receipt facts</p>
+                  {verifiedPosition && <p>Created position: {verifiedPosition.market} {verifiedPosition.side} #{verifiedPosition.positionId}</p>}
+                  {view.status === 'failed' ? <p>Transaction reverted; token movements were not recorded.</p>
+                    : receiptFacts.movements.length ? receiptFacts.movements.map((movement, index) => <p key={`${movement}:${index}`}>{movement}</p>)
+                      : <p>Token movements could not be established from the verified receipt.</p>}
+                  {receiptFacts.nativeValue && <p>Native value sent: {receiptFacts.nativeValue}<AmountUsd amount={receiptFacts.exactNativeValue ?? ''} symbol="ETH" receipt /></p>}
+                  {receiptFacts.executionFee ? <p>{receiptFacts.feeLabel}: {receiptFacts.executionFee}<AmountUsd amount={receiptFacts.exactFees?.execution ?? ''} symbol="ETH" receipt />{receiptFacts.feeCaveat ? ` · ${receiptFacts.feeCaveat}` : ''}</p>
+                    : <p>Actual transaction fee is unavailable from this RPC response.</p>}
+                  {receiptFacts.technicalMovements.length > 0 && <section className="pt-1" aria-label="Technical token movements">
+                    {receiptFacts.technicalMovements.map((movement) => <p key={movement} className="break-all">{movement}</p>)}
+                  </section>}
+                  {action && <Link className="mt-1 inline-flex min-h-11 items-center text-mint" href={action.href}>{action.label}</Link>}
+                </div>
+              )}
+              <p className="mt-1 font-mono text-[10px] text-[var(--mut-2)]">{view.record.hash}</p>
+            </div>
+  );
   const Icon = status.icon;
   return (
     <li className="rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.025)] p-3">
@@ -225,33 +250,14 @@ function RecoveryItem({ view, trackBridge, autoTrackBridge, task, positionHint, 
               Explorer <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </a>
           </div>
-          <details className="mt-1 border-t border-[var(--line)] pt-1">
-            <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-mut">Details<ChevronDown aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0 disclosure-chevron" /></summary>
-            <div className="pb-2 text-[10.5px] leading-relaxed text-mut">
-              <p>{view.message}</p>
-              {view.receiptBlockNumber !== undefined && <p className="mt-1">Block {view.receiptBlockNumber.toString()}</p>}
-              {receiptFacts && (
-                <div className="mt-2 space-y-1">
-                  <p className="font-semibold text-[var(--text)]">Verified receipt facts</p>
-                  {verifiedPosition && <p>Created position: {verifiedPosition.market} {verifiedPosition.side} #{verifiedPosition.positionId}</p>}
-                  {view.status === 'failed' ? <p>Transaction reverted; token movements were not recorded.</p>
-                    : receiptFacts.movements.length ? receiptFacts.movements.map((movement, index) => <p key={`${movement}:${index}`}>{movement}</p>)
-                      : <p>Token movements could not be established from the verified receipt.</p>}
-                  {receiptFacts.nativeValue && <p>Native value sent: {receiptFacts.nativeValue}</p>}
-                  {receiptFacts.executionFee ? <p>{receiptFacts.feeLabel}: {receiptFacts.executionFee}{receiptFacts.feeCaveat ? ` · ${receiptFacts.feeCaveat}` : ''}</p>
-                    : <p>Actual transaction fee is unavailable from this RPC response.</p>}
-                  {receiptFacts.technicalMovements.length > 0 && <details className="pt-1">
-                    <summary className="min-h-11 cursor-pointer">Technical token details</summary>
-                    {receiptFacts.technicalMovements.map((movement) => <p key={movement} className="break-all">{movement}</p>)}
-                  </details>}
-                  {action && <Link className="mt-1 inline-flex min-h-11 items-center text-mint" href={action.href}>{action.label}</Link>}
-                </div>
-              )}
-              <p className="mt-1 font-mono text-[10px] text-[var(--mut-2)]">{view.record.hash}</p>
-            </div>
-          </details>
-          {trackBridge && view.record.bridge && view.status === 'confirmed' && (
+          {!showBridgeTracker && <details className="mt-1 border-t border-[var(--line)] pt-1">
+            <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-mut">Advanced<ChevronDown aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0 disclosure-chevron" /></summary>
+            {advancedContent}
+          </details>}
+          {showBridgeTracker && view.record.bridge && (
             <BridgeTracker
+              compact
+              advancedContent={advancedContent}
               className="mt-3"
               sourceChain={view.record.chainId === 1 ? 'Ethereum' : 'Base'}
               destinationChain={view.record.bridge.destinationChainId === 1 ? 'Ethereum' : 'Base'}

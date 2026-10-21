@@ -6,6 +6,7 @@ const ALWAYS_VISIBLE = new Set([
   'Action', 'Position', 'Mode', 'Slippage', 'Minimum received', 'Quoted minimum received',
   'Minimum fxSP', 'Final fxSAVE minimum', 'Minimum converted input', 'Minimum converted deposit',
   'Minimum debt repaid', 'Minimum received (fxUSD leg)', 'Minimum received (USDC leg)',
+  'Estimated fxUSD payout', 'Estimated USDC payout', 'Queued fxSP', 'Claim payout',
   'Gas tier', 'Gas fee', 'f(x) fee', 'Total cost', 'Bridge fee', 'Loan-to-value',
 ]);
 

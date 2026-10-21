@@ -100,18 +100,27 @@ export function consequenceSummary(facts: readonly ReviewFact[]): ReviewFact[] {
     && !(fact.label === 'Leverage' && targetLeverage?.value === fact.value));
 }
 
+export interface PairedPositionFact {
+  label: string;
+  before: string;
+  after: string;
+  beforeTitle?: string;
+  afterTitle?: string;
+}
+
 export function pairVerifiedPositionFacts(before: readonly ReviewFact[], after: readonly ReviewFact[]): {
-  paired: Array<{ label: string; before: string; after: string }>;
+  paired: PairedPositionFact[];
   remainingBefore: ReviewFact[];
 } {
-  const paired: Array<{ label: string; before: string; after: string }> = [];
+  const paired: PairedPositionFact[] = [];
   const remainingBefore: ReviewFact[] = [];
   for (const fact of before) {
     const normalized = fact.label.toLowerCase();
     const expected = after.find((candidate) => candidate.label.toLowerCase() === `estimated ${normalized}`)
       ?? after.find((candidate) => candidate.label.toLowerCase() === `expected ${normalized}`)
       ?? after.find((candidate) => candidate.label === fact.label);
-    if (expected) paired.push({ label: fact.label, before: fact.value, after: expected.value });
+    if (expected) paired.push({ label: fact.label, before: fact.value, after: expected.value,
+      ...(fact.title ? { beforeTitle: fact.title } : {}), ...(expected.title ? { afterTitle: expected.title } : {}) });
     else remainingBefore.push(fact);
   }
   return { paired, remainingBefore };

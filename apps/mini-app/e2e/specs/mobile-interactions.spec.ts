@@ -143,17 +143,23 @@ test.describe('short phone trade interactions', () => {
 
 test.describe('shared amount shortcuts', () => {
   test.use({ telegram: false });
-  for (const route of ['/trade', '/earn', '/borrow', '/move']) {
-    test(`keeps all four shortcuts visible on ${route} before balances load`, async ({ page }) => {
+  for (const { route, labels } of [
+    { route: '/trade', labels: ['25%', '50%', '75%', 'Max'] },
+    { route: '/earn', labels: ['25%', '50%', '75%', 'Max'] },
+    { route: '/borrow', labels: ['25%', '50%', '75%', 'Max'] },
+    { route: '/move', labels: ['Max'] },
+  ]) {
+    test(`keeps the intended shortcuts visible on ${route} before balances load`, async ({ page }) => {
       await page.setViewportSize({ width: 393, height: 852 });
       await page.goto(route, { waitUntil: 'domcontentloaded' });
       const shortcuts = page.getByRole('group', { name: /shortcuts$/ }).first();
-      await expect(shortcuts.getByRole('button')).toHaveCount(4);
-      for (const percent of ['25%', '50%', '75%']) {
-        await expect(shortcuts.getByRole('button', { name: percent, exact: true })).toBeVisible();
+      const buttons = shortcuts.getByRole('button');
+      await expect(buttons).toHaveCount(labels.length);
+      await expect(buttons).toHaveText(labels);
+      for (const button of await buttons.all()) {
+        await expect(button).toBeVisible();
+        await expect(button).toBeDisabled();
       }
-      await expect(shortcuts.getByText('Max', { exact: true })).toBeVisible();
-      for (const button of await shortcuts.getByRole('button').all()) await expect(button).toBeDisabled();
       expect(await page.getByRole('main').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
     });
   }

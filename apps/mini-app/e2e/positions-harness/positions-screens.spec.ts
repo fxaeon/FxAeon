@@ -70,12 +70,10 @@ export const useFxSaveClaimable = () => ({ data: null, status: 'idle', isFetchin
       return { canSelectReviewedRoute:false,endConnectFlow:()=>{},error:null,execute:async()=>{},feeSelection:{snapshot:{chainId:1,tiers:feeTiers},tier:'standard'},gasCost:{checking:false,estimate:{status:'current',gas:240000n,executionGasFeeWei:2400000000000000n,totalNativeCostWei:2400000000000000n,nativeValueWei:0n},estimateIsCurrent:true,status:'ready'},headingRef:{current:null},loading:false,networkSwitching:false,quoteChanges:[],quoteExpired:false,refreshReviewedQuote:async()=>{},refreshing:false,reset,result:null,review,reviewTitle:'Close ETH long position',route:stage==='input'?null:selected,routeSummaries:[],routes:[selected],selectedRoute:0,selectReviewedRoute:()=>{},startConnectFlow:()=>{},stage,status:'reviewing',statusDetail:'',stepResults:[],triggerRef:{current:null},wallet:{...wallet} };
     }`,
   '@/lib/addressPresentation': `export const compactAddress = value => value ? value.slice(0,6)+'…'+value.slice(-4) : '';`,
-  '@/lib/transactionProgress': `export const hasTransactionHash = step => Boolean(step?.hash); export const transactionStepProgress=()=>({label:'Ready',className:'',icon:null});`,
   '@/lib/taskState': `export const selectExecutionTask=()=>null;`,
   '@/lib/confirmedPositions': `export const receiptMintedPositionIdentity=()=>null;`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
   '@/components/review/ReviewProgress': `import React from 'react'; export const chainName=id=>id===8453?'Base':'Ethereum'; export const stepProgress=()=>({label:'Ready',className:'',icon:null}); export const CalldataDisclosure=({data})=><pre>{data}</pre>; export const StatusNotice=({label,body})=><div role="status"><strong>{label}</strong>{body}</div>; export const InlineError=({message})=><div role="alert">{message}</div>; export const TransactionHashLink=({step})=><a href={"https://etherscan.io/tx/"+step.hash}>Receipt</a>;`,
-  '@/components/review/executionResult': `export const resultPresentation=()=>({title:'Confirmed',body:'Fixture result',tone:'success',icon:()=>null}); export const resultBodyDuringRefresh=({body})=>body;`,
   '@/components/review/actionReviewStatusModel': `export const buildStatusPresentation=()=>({icon:'clock',label:'Ready',body:'Reviewed terms'});`,
   // CommonJS behind a Proxy: the planners the page calls are live; every
   // other name the graph imports resolves to an inert stub.

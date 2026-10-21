@@ -142,7 +142,7 @@ try {
   const failures = [];
   if (sourceMaps.length) failures.push(`source maps must not be published (${sourceMaps.length} found)`);
   if (staticBytes > MAX_STATIC_BYTES) failures.push(`static assets exceed ${formatBytes(MAX_STATIC_BYTES)}`);
-  if (jsBytes > MAX_JS_BYTES) failures.push(`JavaScript exceeds ${formatBytes(MAX_JS_BYTES)}`);
+  if (jsBytes > MAX_JS_BYTES) failures.push(`JavaScript exceeds ${formatBytes(MAX_JS_BYTES)} by ${(jsBytes - MAX_JS_BYTES).toLocaleString('en-US')} bytes`);
   if (jsGzipBytes > MAX_JS_GZIP_BYTES) failures.push(`gzipped JavaScript exceeds ${formatBytes(MAX_JS_GZIP_BYTES)}`);
   if (largest && largest.bytes > MAX_SINGLE_JS_BYTES) {
     failures.push(`single JavaScript asset exceeds ${formatBytes(MAX_SINGLE_JS_BYTES)}: ${path.relative(root, largest.file)}`);

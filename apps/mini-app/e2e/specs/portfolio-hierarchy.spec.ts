@@ -261,8 +261,14 @@ test.describe('Grouped Portfolio header controls', () => {
     for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
       await page.setViewportSize(viewport);
       await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
-      await page.getByRole('link', { name: 'More', exact: true }).click();
-      await expect(page).toHaveURL(/\/more\/?$/);
+      if (viewport.width < 840) {
+        await page.getByRole('button', { name: 'Open menu', exact: true }).click();
+        await expect(page.getByRole('dialog', { name: 'More menu', exact: true })).toBeVisible();
+        await expect(page).toHaveURL(/\/portfolio\/?$/);
+      } else {
+        await page.getByRole('link', { name: 'More', exact: true }).click();
+        await expect(page).toHaveURL(/\/more\/?$/);
+      }
       await expect(page.getByRole('main').getByRole('link', { name: 'Receive', exact: true })).toHaveCount(0);
       await expect(page.getByRole('main').getByRole('button', { name: 'View connected account', exact: true })).toHaveCount(0);
       await page.getByRole('button', { name: 'Open wallet profile', exact: true }).click();
@@ -274,7 +280,8 @@ test.describe('Grouped Portfolio header controls', () => {
       await expect(page.getByText('Your wallet address', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Copy address', exact: true })).toBeVisible();
       expect((await page.getByRole('main').innerText()).replace(/\s/g, '')).toContain('0x930f0000000000000000000000000000000098b9');
-      await expect(page.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
+      if (viewport.width < 840) await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toHaveAttribute('data-active', 'true');
+      else await expect(page.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
       if (viewport.width < 840) await expect(page.locator('nav.mobile-tabbar [aria-current="page"]')).toHaveCount(0);
       await expect(page.getByRole('region', { name: 'Send assets' })).toHaveCount(0);
       await testInfo.attach(`receive-${viewport.width}`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
@@ -283,7 +290,8 @@ test.describe('Grouped Portfolio header controls', () => {
       await page.getByRole('main').getByRole('link', { name: /^History\b/ }).click();
       await expect(page).toHaveURL(/\/history\/?$/);
       await expect(page.getByRole('heading', { name: 'History', exact: true, level: 1 })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
+      if (viewport.width < 840) await expect(page.getByRole('button', { name: 'Open menu', exact: true })).toHaveAttribute('data-active', 'true');
+      else await expect(page.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
     }
     assertNoBackendRequests(requests);
   });

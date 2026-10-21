@@ -116,7 +116,22 @@
 @media (max-width: 600px) {
   .desktopSlot { display: none; }
   .root :global([data-position-key][aria-current='true']) { background: var(--surface); }
+  /* The portal manager owns the mobile review. Propagate its height through
+     each real wrapper, preserving a scrollable terms region and visible action. */
+  .sheetBody:has([data-review-viewport]) { display: flex; flex-direction: column; overflow: hidden; }
+  .sheetBody .portalHost:has([data-review-viewport]),
+  .sheetBody .manager:has([data-review-viewport]),
+  .sheetBody :global([data-position-action-card]):has([data-review-viewport]),
+  .sheetBody :global([data-review-surface]):has([data-review-viewport]) { display: flex; flex-direction: column; min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .backdrop, .sheet, .backdrop[data-state='closed'], .backdrop[data-state='closed'] .sheet { animation: none; }
 }
+
+/* Review owns its title; keep Back and Close on that same row. */
+.sheet:has([data-review-header]) .sheetControls { min-height: 24px; height: 24px; padding: 0; }
+.sheet:has([data-review-header]) :global([data-review-header]) { position: relative; min-height: 44px; padding-inline: 44px; }
+.sheet:has([data-review-header]) :global([data-review-header]) > div { width: 100%; text-align: center; }
+.sheet:has([data-review-header]) :global([data-review-header]) h3 { font-size: 19px; }
+.sheet:has([data-review-header]) :global([data-review-header]) p { justify-content: center; }
+.sheet:has([data-review-header]) :global([data-review-edit]) { position: absolute; top: 0; left: 0; width: 44px; min-width: 44px; height: 44px; margin: 0; padding: 0; font-size: 0; gap: 0; }

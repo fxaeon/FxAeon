@@ -1,9 +1,19 @@
 .mobileMore { display: none; }
+.menuIcon path { transform-box: fill-box; transform-origin: center; transition: transform 180ms ease, opacity 140ms ease; }
+.mobileMore[aria-expanded='true'] .menuIcon path:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.mobileMore[aria-expanded='true'] .menuIcon path:nth-child(2) { opacity: 0; }
+.mobileMore[aria-expanded='true'] .menuIcon path:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+.mobileMenu { animation: menu-in 160ms ease-out; }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 839px) {
-  .mobileMore { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--mut); }
-  .mobileMore[aria-current='page'] { border-color: transparent; background: var(--mint-dim); color: var(--mint-text); }
+  .mobileMore { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--mut); cursor: pointer; transition: background 160ms ease, color 160ms ease, border-color 160ms ease; }
+  .mobileMore[data-active], .mobileMore[aria-current='page'] { border-color: transparent; background: var(--mint-dim); color: var(--mint-text); }
   .mobileMore:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 }
 @media (hover: hover) {
   .mobileMore:hover { background: var(--surface-2); color: var(--text); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobileMore, .menuIcon path { transition: none; }
+  .mobileMenu { animation: none; }
 }

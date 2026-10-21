@@ -11,10 +11,11 @@ import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { useInitialReadPending } from '@/lib/useInitialReadPending';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { priceKeyForSymbol } from '@/lib/prices';
-import { calculatePositionUsdValuation, formatUsdCents } from '@/lib/positionValuation';
+import { calculatePositionUsdPresentation, debtCollateralRatioPercent } from '@/lib/positionValuation';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
-import { groupDigits } from '@/lib/amount';
-import { formatAmount, positionCollateralDecimals, positionDebtDecimals, type UiPosition } from '@/app/trade/fxUi';
+import { BorrowPositionAmount } from './review/BorrowPositionAmount';
+import { PositionTokenAmount } from '@/components/PositionPresentation';
+import { positionCollateralDecimals, positionDebtDecimals, type UiPosition } from '@/app/trade/fxUi';
 import styles from './BorrowPositionCards.module.css';
 
 function usePositionFigures(position: UiPosition, stale = false) {
@@ -22,30 +23,22 @@ function usePositionFigures(position: UiPosition, stale = false) {
   const prices = freshDisplayPrices(snapshot);
   const collateralKey = priceKeyForSymbol(position.info.rawCollsToken);
   const debtKey = priceKeyForSymbol(position.info.rawDebtsToken);
-  const valuation = stale ? { collateralUsdCents: null, debtUsdCents: null, netEquityUsdCents: null } : calculatePositionUsdValuation({
+  const valuationInput = {
     collateralRaw: position.info.rawColls, collateralDecimals: positionCollateralDecimals(position),
-    collateralPrice: collateralKey ? prices[collateralKey] : undefined,
+    collateralPrice: !stale && collateralKey ? prices[collateralKey] : undefined,
     debtRaw: position.info.rawDebts, debtDecimals: positionDebtDecimals(position),
-    debtPrice: debtKey ? prices[debtKey] : undefined,
-  });
-  const ltv = valuation.collateralUsdCents !== null && valuation.collateralUsdCents > 0n && valuation.debtUsdCents !== null
-    ? `${(Number((valuation.debtUsdCents * 1000n + valuation.collateralUsdCents - 1n) / valuation.collateralUsdCents) / 10).toFixed(1)}%` : null;
+    debtPrice: !stale && debtKey ? prices[debtKey] : undefined,
+  };
+  const valuation = calculatePositionUsdPresentation(valuationInput);
+  const ltv = stale ? null : debtCollateralRatioPercent(valuationInput);
   return {
     ...valuation, ltv,
+    collateralUsdText: stale ? null : valuation.collateralUsdText,
+    debtUsdText: stale ? null : valuation.debtUsdText,
+    netEquityUsdText: stale ? null : valuation.netEquityUsdText,
     pending: !stale && (snapshot.status === 'loading' || snapshot.refreshing) && (valuation.collateralUsdCents === null || valuation.debtUsdCents === null),
     status: !stale && (snapshot.status === 'loading' || snapshot.refreshing) ? 'loading' as const : 'unavailable' as const,
-    collateral: `${groupDigits(formatAmount(position.info.rawColls, positionCollateralDecimals(position)))} ${positionCollateralSymbol(position)}`,
-    debt: displayDebt(position),
   };
-}
-
-/** Round the summary up to cents; the review retains the exact token amount. */
-function displayDebt(position: UiPosition): string {
-  const decimals = positionDebtDecimals(position);
-  if (decimals < 2) return groupDigits(formatAmount(position.info.rawDebts, decimals));
-  const scale = 10n ** BigInt(decimals - 2);
-  const cents = (position.info.rawDebts + scale - 1n) / scale;
-  return `${groupDigits((cents / 100n).toString())}.${(cents % 100n).toString().padStart(2, '0')}`;
 }
 
 export function BorrowPositionCard({ position, stale, onOpen }: { position: UiPosition; stale: boolean; onOpen: (trigger: HTMLButtonElement) => void }) {
@@ -63,19 +56,19 @@ export function BorrowPositionCard({ position, stale, onOpen }: { position: UiPo
       <span><strong>{position.market} collateral</strong><small>Position #{position.info.positionId}</small></span>
       <ChevronRight size={18} aria-hidden="true" />
     </span>
-    <span id={`${figuresId}-debt`} className={styles.debt}><span>Outstanding debt</span><strong>{figures.debt} <small>{position.info.rawDebtsToken}</small></strong>
-      <DollarEquivalent cents={figures.debtUsdCents} status={figures.status} label="Debt value" />
+    <span id={`${figuresId}-debt`} className={styles.debt}><span>Outstanding debt</span><strong><BorrowPositionAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} /></strong>
+      <DollarEquivalent value={figures.debtUsdText} status={figures.status} label="Debt value" />
     </span>
     <span id={`${figuresId}-facts`} className={styles.facts}>
-      <span><span>Collateral</span><strong>{figures.collateral}</strong><DollarEquivalent cents={figures.collateralUsdCents} status={figures.status} label="Collateral value" /></span>
+      <span><span>Collateral</span><strong><BorrowPositionAmount raw={position.info.rawColls} decimals={positionCollateralDecimals(position)} symbol={positionCollateralSymbol(position)} /></strong><DollarEquivalent value={figures.collateralUsdText} status={figures.status} label="Collateral value" /></span>
       <span><span>Loan-to-value</span><strong><ValueOrSkeleton value={figures.ltv ?? '—'} status={figures.status} label="Loan-to-value unavailable" /></strong></span>
     </span>
     {stale && <span className={styles.stale}><CircleAlert size={14} aria-hidden="true" />Update needed before managing</span>}
   </button>;
 }
 
-function DollarEquivalent({ cents, status, label }: { cents: bigint | null; status: 'loading' | 'unavailable'; label: string }) {
-  return <small className={styles.dollarEquivalent}><ValueOrSkeleton value={cents !== null ? `≈ ${formatUsdCents(cents)}` : '—'} status={status} label={`${label} ${status}`} /></small>;
+function DollarEquivalent({ value, status, label }: { value: string | null; status: 'loading' | 'unavailable'; label: string }) {
+  return <small className={styles.dollarEquivalent}><ValueOrSkeleton value={value !== null ? `≈ ${value}` : '—'} status={status} label={`${label} ${status}`} /></small>;
 }
 
 export function BorrowPositionsState({ kind, refreshing, onRetry, children }: {
@@ -106,7 +99,7 @@ export function BorrowPositionManager({ position, stale, inputStage, locked, tri
   const dialogRef = useOverlayDialog<HTMLElement>({ open: true, onClose, triggerRef, initialFocusRef: closeRef, dismissible: !locked,
     restoreFocusFallback: () => document.querySelector<HTMLElement>('[data-borrow-positions-heading]') });
   return createPortal(<div data-product-ui="v2" className={styles.backdrop} onMouseDown={event => { if (event.target === event.currentTarget && !locked) onClose(); }}>
-    <section ref={dialogRef} className={styles.manager} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+    <section ref={dialogRef} data-inline-review-sheet className={styles.manager} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
       <header className={styles.managerHeader}>
         <span className={styles.handle} aria-hidden="true" />
         <TokenIcon symbol={position.market === 'BTC' ? 'WBTC' : 'ETH'} size={32} />
@@ -117,12 +110,13 @@ export function BorrowPositionManager({ position, stale, inputStage, locked, tri
         {inputStage && <>
           <details className={styles.details}><summary><span className="sr-only">Position details: </span>
             <span className={styles.managerMetrics}>
-              <span><span>Outstanding debt</span><strong>{figures.debt} <small>{position.info.rawDebtsToken}</small></strong><DollarEquivalent cents={figures.debtUsdCents} status={figures.status} label="Debt value" /></span>
+              <span><span>Outstanding debt</span><strong><BorrowPositionAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} /></strong><DollarEquivalent value={figures.debtUsdText} status={figures.status} label="Debt value" /></span>
               <span><span>Loan-to-value</span><strong><ValueOrSkeleton value={figures.ltv ?? '—'} status={figures.status} label="Loan-to-value unavailable" /></strong></span>
             </span><ChevronDown size={15} aria-hidden="true" />
           </summary>
-            <dl><div><dt>Collateral</dt><dd>{figures.collateral}<DollarEquivalent cents={figures.collateralUsdCents} status={figures.status} label="Collateral value" /></dd></div>
-              <div><dt>Net position value</dt><dd><ValueOrSkeleton value={figures.netEquityUsdCents !== null ? `≈ ${formatUsdCents(figures.netEquityUsdCents)}` : '—'} status={figures.status} label="Net position value unavailable" /></dd></div></dl>
+            <dl><div><dt>Collateral</dt><dd><PositionTokenAmount raw={position.info.rawColls} decimals={positionCollateralDecimals(position)} symbol={positionCollateralSymbol(position)} /><DollarEquivalent value={figures.collateralUsdText} status={figures.status} label="Collateral value" /></dd></div>
+              <div><dt>Outstanding debt</dt><dd><PositionTokenAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} /><DollarEquivalent value={figures.debtUsdText} status={figures.status} label="Debt value" /></dd></div>
+              <div><dt>Net position value</dt><dd><ValueOrSkeleton value={figures.netEquityUsdText !== null ? `≈ ${figures.netEquityUsdText}` : '—'} status={figures.status} label="Net position value unavailable" /></dd></div></dl>
           </details>
         </>}
         <MobileFlowSheetContext.Provider value>{children}</MobileFlowSheetContext.Provider>

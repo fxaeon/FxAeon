@@ -7,6 +7,7 @@ import type { UseGasCostResult } from '@/lib/fx/useGasCost';
 import { formatNativeShortfall, nativeShortfallWei, routeNetworkFeeDisplay, type RouteGasCostEstimate } from '@/lib/fx/gasCost';
 import { formatGasTierQuote, type GasTierQuote } from '@/lib/fx/gasFeePolicy';
 import { ROUTE_PREFETCH_TTL_MS } from '@/lib/fx/routePrefetch';
+import { claimPreviewFacts } from './claimPreviewPresentation';
 
 export interface ExecutionCost { estimatedGas?: string; gasFee?: string; protocolFee?: string; totalCost?: string }
 type BridgeReviewQuote = { nativeFee: bigint; destinationChainId?: number; bridgeToken?: string; bridgeAmount?: bigint; minAmountLD?: bigint; recipient?: string; estimatedReceived?: bigint; receiptReadAt?: number };
@@ -130,7 +131,9 @@ function loanToValueFact(leverage: number): ReviewFact | undefined {
   };
 }
 
-export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
+export function primaryReviewFacts(route: PlannedRoute, options?: { historicalComparison?: boolean }): ReviewFact[] {
+  // Historical comparison only: an expired accepted estimate is still the old
+  // value the person saw. This does not revive it as a current executable quote.
   const facts: ReviewFact[] = [];
   const intent = route.policy?.reviewedAction;
   if (intent) {
@@ -178,6 +181,7 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
         if (intent.slippagePercent !== undefined) addFact(facts, 'Slippage', `${intent.slippagePercent}%`);
         break;
       case 'fxsave-claim':
+        facts.push(...claimPreviewFacts(route));
         addFact(facts, 'Recipient', compactAddress(intent.receiver));
         break;
     }
@@ -186,7 +190,7 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
   if (route.details?.routeType) addFact(facts, 'Route', route.details.routeType);
   if (route.details?.requestedLeverage !== undefined) addFact(facts, 'Target leverage', `${route.details.requestedLeverage}×`);
   if (route.details?.slippagePercent !== undefined) addFact(facts, 'Slippage', `${route.details.slippagePercent}%`);
-  const leverage = route.details?.leverage;
+  const leverage = route.details?.effectiveLeverage ?? route.details?.leverage;
   if (leverage !== undefined) {
     const leverageFact = { value: `${conciseDecimal(String(leverage), 2)}×`, title: `${leverage}×` };
     const loanToValue = intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw'
@@ -207,7 +211,7 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
     const { estimatedReceived, receiptReadAt, bridgeAmount, minAmountLD } = route.quote;
     if (typeof estimatedReceived === 'bigint' && typeof receiptReadAt === 'number'
       && Number.isSafeInteger(receiptReadAt) && receiptReadAt <= Date.now()
-      && Date.now() - receiptReadAt < ROUTE_PREFETCH_TTL_MS
+      && (options?.historicalComparison || Date.now() - receiptReadAt < ROUTE_PREFETCH_TTL_MS)
       && typeof bridgeAmount === 'bigint' && typeof minAmountLD === 'bigint'
       && estimatedReceived >= minAmountLD && estimatedReceived <= bridgeAmount) {
       addWadAmountFact(facts, 'Estimated received', estimatedReceived, route.quote.bridgeToken ?? 'tokens');
@@ -217,7 +221,6 @@ export function primaryReviewFacts(route: PlannedRoute): ReviewFact[] {
     }
     if (route.quote.recipient) addFact(facts, 'Recipient', route.quote.recipient);
     addWadAmountFact(facts, 'Bridge fee', route.quote.nativeFee, 'ETH');
-    addFact(facts, 'Delivery estimate', 'Not provided by bridge');
   }
 
   return facts;

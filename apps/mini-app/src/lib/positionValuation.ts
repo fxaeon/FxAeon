@@ -142,3 +142,26 @@ export function formatUsdCents(value: bigint | null): string {
   const cents = (absolute % 100n).toString().padStart(2, '0');
   return `${negative ? '-' : ''}$${groupDigits(dollars.toString())}.${cents}`;
 }
+
+
+/** Render-only text from the same unrounded rationals; shared rounded cents stay unchanged. */
+export function calculatePositionUsdPresentation(input: Parameters<typeof calculatePositionUsdValuation>[0]) {
+  const collateral = usdCentsRationalForUnits(input.collateralRaw, input.collateralDecimals, input.collateralPrice);
+  const debt = usdCentsRationalForUnits(input.debtRaw, input.debtDecimals, input.debtPrice);
+  const net = collateral === null || debt === null ? null : {
+    numerator: collateral.numerator * debt.denominator - debt.numerator * collateral.denominator,
+    denominator: collateral.denominator * debt.denominator,
+  };
+  const display = (value: Rational | null): string | null => {
+    if (value === null) return null;
+    const absolute = value.numerator < 0n ? -value.numerator : value.numerator;
+    if (absolute > 0n && absolute < value.denominator) return value.numerator < 0n ? 'Negative <$0.01' : '<$0.01';
+    return formatUsdCents(roundRational(value.numerator, value.denominator));
+  };
+  return {
+    ...calculatePositionUsdValuation(input),
+    collateralUsdText: display(collateral),
+    debtUsdText: display(debt),
+    netEquityUsdText: display(net),
+  };
+}
