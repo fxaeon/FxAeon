@@ -347,7 +347,7 @@
 .actions.actions { margin-top: 6px; padding-top: 10px; padding-bottom: 0; }
 .actions > button { border-radius: 12px; }
 .riskPrices { display: grid; gap: 6px; padding: 2px 0; container: review-risk-prices / inline-size; }
-.riskPrices > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: var(--fs-small); }
+.riskPrices > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: var(--fs-small); }
 .riskPrices > div > span:first-child { color: var(--mut); }
 .riskPrices > div > span:last-child { max-width: 60%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 /* Narrow reviews keep the same label width while an estimate replaces its
@@ -631,7 +631,7 @@
 .riskGroup { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
 .costGroup { gap: 10px; padding-top: 12px; margin-top: 12px; }
 .facts [data-review-fact], .riskPrices > div { font-size: 12.8px; line-height: 1.35; }
-.facts [data-review-fact] > span:last-child, .riskPrices > div > span:last-child { font-size: 12.9px; font-weight: 670; }
+.facts [data-review-fact] > span:last-child, .riskPrices > div > span:last-child { font-size: 12.9px; font-weight: 600; }
 .facts .amountUsd { font-size: 10px; }
 .facts .positionOutcome { padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); }
 .reviewHeader { align-items: center; margin-bottom: 12px; }
@@ -690,7 +690,7 @@
 .resultStatusLinks { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; font-size: 12px; color: var(--mut); }
 .resultStatusLinks a { color: var(--mint-text); font-weight: 670; display: inline-flex; align-items: center; min-height: 28px; gap: 4px; }
 .feePrimary { min-width: 0; }
-.feePrimary > summary { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 20px; cursor: pointer; list-style: none; }
+.feePrimary > summary { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 44px; min-width: 44px; cursor: pointer; list-style: none; }
 .feePrimary > summary::-webkit-details-marker { display: none; }
 .feePrimary > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
 .facts .feePrimary > summary > .amountUsd { display: inline; margin: 0; color: var(--text); font: inherit; }
@@ -701,9 +701,10 @@
 /* Loan risk follows LTV; borrowing costs form the next divided group. */
 .riskGroup.loanRiskGroup { border-top: 0; padding-top: 0; margin-top: 10px; }
 
-/* Quiet review chrome: the asset/action identity already names the decision. */
-.reviewHeader { justify-content: flex-end; min-height: 28px; margin-bottom: 0; }
-.reviewHeader h3:global(.sr-only) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+/* The review remains identifiable before and during the wallet handoff. The
+   phone sheet supplies this title and hides its nested desktop counterpart. */
+.reviewHeader { justify-content: space-between; min-height: 44px; margin-bottom: 12px; }
+.reviewHeader h3 { font-size: var(--fs-title); font-weight: 600; letter-spacing: -.025em; }
 
 /* Execution details use the same compact, grouped language as the summary.
    Exact data, approval scope and safety caveats remain inspectable and copyable. */
@@ -728,7 +729,7 @@
 .evidenceRow + .evidenceRow { border-top: 1px solid var(--line); }
 .evidenceRow > div { justify-content: flex-end; gap: 3px; }
 .evidenceValue { text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px; }
-.evidenceCopy { flex-basis: 36px; min-width: 36px; padding: 0; border-radius: 9px; }
+.evidenceCopy { flex-basis: 44px; min-width: 44px; padding: 0; border-radius: 9px; }
 .evidenceCopy:hover:not(:disabled), .evidenceValue:hover { color: var(--mint-text); }
 .evidenceCopy:hover:not(:disabled) { background: var(--mint-dim); }
 .evidenceRow > p, .evidenceRow > dialog { grid-column: 1 / -1; }
@@ -742,7 +743,7 @@
    The shared spacing/type scale is the same for Borrow, Earn and Move. */
 .amountLedReview, .bridgeDecision { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
 .amountLedReview .amountFlow, .amountLedReview .facts.facts { padding: 0; border-radius: 0; background: transparent; }
-.amountLedReview .amountFlow + .facts { padding-top: 8px; }
+.amountLedReview .amountFlow + .facts { padding-top: 16px; }
 .amountLedReview .flowArrow { margin-block: 3px; }
 .amountLedReview .consequenceGroup { margin-top: 0; gap: 6px; }
 .amountLedReview .positionOutcome { padding-top: 8px; margin-top: 8px; }
@@ -750,9 +751,10 @@
 .amountLedReview .riskGroup { gap: 6px; }
 .amountLedReview .costGroup { padding-top: 9px; margin-top: 9px; gap: 6px; }
 .amountLedReview .costGroup + .costGroup { padding-top: 6px; margin-top: 0; border-top: 0; }
-.amountContext { margin: 0 0 12px; color: var(--mut); font-size: 12px; line-height: 1.4; }
+.amountContext { margin: 0 0 16px; color: var(--mut); font-size: 12px; line-height: 1.4; }
+.amountContext strong { font-weight: 500; color: var(--text); }
 .amountLedReview .flowToken > span, .bridgeDecision .bridgeToken > span { background: var(--surface-2); }
-.amountLedReview .flowExact > summary, .bridgeDecision .bridgeExactAmount > summary { font-size: clamp(25px, 5.8vw, 32px); font-weight: 620; }
+.amountLedReview .flowExact > summary, .bridgeDecision .bridgeExactAmount > summary { font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
 .bridgeDecision .bridgeTerms { margin-top: 10px; }
 .bridgeDecision .bridgeDirection { margin-block: 4px; }
 .bridgeDecision .consequenceGroup { margin-top: 0; }
@@ -807,16 +809,84 @@
 /* Phone review correction: labels/amounts, quiet exact-value targets, one details section. */
 .positionPair > summary { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
 .positionOutcomeHeading { justify-content: flex-end; }
-.pendingSummary { padding: 16px; border-radius: 20px; background: var(--surface-2); }
-.pendingStatus { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--mint-text); font-size: 15px; }
-.pendingStatus > span { margin-left: auto; font-size: 11px; color: var(--warn); }
-.pendingIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 18px 0 12px; }
-.pendingIdentity > strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 15px; font-weight: 600; }
-.pendingIdentity > span { margin-left: auto; font-size: 12px; color: var(--mut); }
-.pendingSummary > dl { display: grid; gap: 8px; margin: 0; }
-.pendingSummary dl > div { display: grid; grid-template-columns: minmax(84px, .85fr) minmax(0, 1.15fr); align-items: center; gap: 10px; font-size: 13px; }
-.pendingSummary dt { color: var(--mut); }
-.pendingSummary dd { min-width: 0; margin: 0; text-align: right; font-weight: 600; }
-.pendingSummary .hashLink { margin-top: 14px; min-height: 40px; padding: 8px 0 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.pendingSummary { min-width: 0; }
+.pendingStatus { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--text); font-size: var(--fs-body); }
+.pendingStatus > div { min-width: 0; }
+.pendingStatus strong { font-weight: 600; overflow-wrap: anywhere; }
+.pendingStatus p { margin: 4px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.pendingStatus .pendingWarning { color: var(--warn); }
+.pendingMark { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; color: var(--mint-text); background: var(--mint-dim); }
+.pendingStatus[data-warning] .pendingMark { color: var(--warn); background: var(--warn-dim); }
+.pendingSpinner { animation: pending-turn 1.25s linear infinite; }
+@keyframes pending-turn { to { transform: rotate(360deg); } }
+.pendingSummary .hashLink { margin-top: 12px; min-height: 48px; padding: 8px 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
 .resultPositionStatus { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; font-size: 12px; color: var(--mut); margin: 12px 0 0; }
 .resultPositionStatus > dd { margin: 0; }
+
+/* One amount scale through review, wallet handoff, and the verified receipt.
+   Exact values expand in place; touch targets stay 44px even at 320px. */
+.flowExact > summary, .bridgeExactAmount > summary { min-height: 44px; font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
+.flowUnit { color: var(--mut); font-size: .62em; font-weight: 500; letter-spacing: -.015em; }
+.flowExact > summary:hover, .bridgeExactAmount > summary:hover { color: var(--mint-text); }
+.flowExact .selectableAmount { margin-top: 4px; color: var(--text); user-select: all; }
+.flowExact > summary[data-long], .bridgeExactAmount > summary[data-long], .amountLedReview .flowExact > summary[data-long], .bridgeDecision .bridgeExactAmount > summary[data-long] { font-size: clamp(17px, 4.7vw, 23px); }
+.amountLedReview .flowSubline, .bridgeDecision .bridgeAssetNetwork { margin-top: 2px; }
+.flowArrow { margin-block: 9px; }
+.actions.actions { padding-top: 12px; }
+.actions > button { min-height: 52px; border-radius: var(--radius-md); font-weight: 600; }
+.resultHeadingCopy h3 { font-size: var(--fs-heading); font-weight: 600; letter-spacing: -.03em; }
+.resultHeadingIcon { animation: receipt-mark-in var(--dur-slow) var(--ease-spring) both; }
+.resultHeadingIcon path { stroke-dasharray: 32; stroke-dashoffset: 32; animation: mark-draw var(--dur-slow) var(--ease-out) 100ms forwards; }
+@keyframes receipt-mark-in { from { transform: scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
+.recipientAddress { display: grid; gap: 2px; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--line); font-size: var(--fs-caption); }
+.recipientAddress > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); }
+.recipientAddress button { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 44px; min-height: 44px; color: var(--mut); }
+.recipientAddress button:hover { color: var(--mint-text); }
+.recipientAddress button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
+.recipientAddress > p { color: var(--warn); font-size: var(--fs-caption); line-height: 1.5; }
+
+/* Decision facts are readable text. Their exact source values and individual
+   explanations live in Execution details; only actual controls take 44px. */
+.compactFact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; min-height: 28px; padding-block: 4px; font-size: 13px; line-height: 1.5; }
+.compactFact > span:first-child { min-width: 0; color: var(--mut); }
+.compactFact > span:last-child { min-width: 0; max-width: 64%; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.compactFact small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; }
+.compactFact:has(.feePrimary) { align-items: center; padding-block: 0; }
+.compactFact .feePrimary > summary > .amountUsd { color: var(--text); font: inherit; }
+.amountLedReview .consequenceGroup, .amountLedReview .costGroup, .bridgeDecision .consequenceGroup, .bridgeDecision .costGroup { gap: 0; }
+.amountLedReview .amountFlow + .facts { padding-top: 12px; }
+.amountLedReview .costGroup, .bridgeDecision .costGroup { margin-top: 8px; padding-top: 8px; }
+.amountLedReview .riskGroup { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--line); }
+.amountLedReview .riskGroup.loanRiskGroup { padding-top: 4px; margin-top: 4px; border-top: 1px solid var(--line); }
+.compactRisk { min-width: 0; }
+.riskDisclosure > summary { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--mut); font-size: 12px; list-style: none; cursor: pointer; }
+.riskDisclosure > summary::-webkit-details-marker { display: none; }
+.riskDisclosure > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
+.riskDisclosure > summary > svg { flex: 0 0 auto; }
+.riskDisclosure[open] > summary > svg { transform: rotate(180deg); }
+.riskDisclosure > p { margin: 0 0 10px; color: var(--mut); font-size: 12px; line-height: 1.55; }
+.flowAmount, .bridgeAmount { align-items: flex-start; }
+.flowToken, .bridgeToken { margin-top: 22px; }
+.flowLabel, .bridgeAmountLabel { font-size: 12px; }
+.amountContext { margin-bottom: 10px; }
+.flowExact > p, .bridgeExactAmount > p { font-size: 12px; }
+.bridgeContext { min-width: 0; }
+.recipientAddress { margin-top: 6px; padding-top: 2px; }
+.recipientAddress > span { font-size: 12px; line-height: 1.6; }
+.resultHeading { margin-bottom: 18px; }
+.result .amountFlow, .pendingSummary .amountFlow { padding: 16px; }
+.result .flowArrow, .pendingSummary .flowArrow { margin-block: 3px; }
+.result .flowSubline, .pendingSummary .flowSubline { font-size: 13px; }
+.result .flowLabel, .pendingSummary .flowLabel { font-size: 12px; }
+.pendingStatus { margin-bottom: 14px; }
+.pendingStatus p { font-size: 12px; }
+@media (min-width: 601px) {
+  .reviewViewport { max-height: none; }
+  .reviewScrollBody { overflow: visible; }
+  .actions.actions { position: sticky; bottom: 16px; z-index: 2; padding-bottom: 8px; background: var(--surface); }
+  .amountLedReview, .bridgeDecision { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pendingSpinner, .resultHeadingIcon, .resultHeadingIcon path { animation: none; }
+  .resultHeadingIcon path { stroke-dashoffset: 0; }
+}

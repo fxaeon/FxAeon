@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import type { PlannedRoute } from '@/lib/fx';
 import { LIQUIDATION_QUOTE_TTL_MS, projectedLiquidationPrice, projectedRebalancePrice } from '@/lib/fx/liquidationQuote';
 import { ValueOrSkeleton } from '@/components/MissingValue';
@@ -10,7 +11,7 @@ import { ReviewFactValue } from './ReviewFactValue';
 import { MetricLabel } from '../InfoHelp';
 import styles from './ActionReviewPresentation.module.css';
 
-export function ReviewRiskPrices({ route, execution, pending, showExecution = true }: { route?: PlannedRoute | null; execution?: ReviewFact; pending: boolean; showExecution?: boolean }) {
+export function ReviewRiskPrices({ route, execution, pending, showExecution = true, compact = false }: { route?: PlannedRoute | null; execution?: ReviewFact; pending: boolean; showExecution?: boolean; compact?: boolean }) {
   const [, tick] = useState(0);
   useEffect(() => {
     const readAt = route?.details?.liquidationQuote?.readAt;
@@ -20,9 +21,24 @@ export function ReviewRiskPrices({ route, execution, pending, showExecution = tr
   }, [route]);
   const liquidation = route ? projectedLiquidationPrice(route) : undefined;
   const rebalance = route ? projectedRebalancePrice(route) : undefined;
-  return <div className={styles.riskPrices}>
-    {showExecution && <div data-review-fact="Execution price"><MetricLabel label="Execution price" definition="executionPrice" /><span title={execution?.title}>{execution ? <ReviewFactValue fact={{ ...execution, value: approximately(execution.value) }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>}
-    <div data-review-fact="Rebalance price"><MetricLabel label="Est. rebalance price" definition="rebalancePrice" /><span title={rebalance?.title}>{rebalance ? <ReviewFactValue fact={{ label: 'Rebalance price', value: `≈ ${rebalance.value}`, title: rebalance.title }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>
-    <div data-review-fact="Liquidation price"><MetricLabel label="Est. liquidation price" definition="liquidationPrice" /><span title={liquidation?.title}>{liquidation ? <ReviewFactValue fact={{ label: 'Liquidation price', value: `≈ ${liquidation.value}`, title: liquidation.title }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>
+  const rows = <div className={styles.riskPrices}>
+    {showExecution && <div data-review-fact={compact ? undefined : "Execution price"}><MetricLabel label="Execution price" definition="executionPrice" /><span title={execution?.title}>{execution ? <ReviewFactValue fact={{ ...execution, value: approximately(execution.value) }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>}
+    <div data-review-fact={compact ? undefined : "Rebalance price"}><MetricLabel label="Est. rebalance price" definition="rebalancePrice" /><span title={rebalance?.title}>{rebalance ? <ReviewFactValue fact={{ label: 'Rebalance price', value: `≈ ${rebalance.value}`, title: rebalance.title }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>
+    <div data-review-fact={compact ? undefined : "Liquidation price"}><MetricLabel label="Est. liquidation price" definition="liquidationPrice" /><span title={liquidation?.title}>{liquidation ? <ReviewFactValue fact={{ label: 'Liquidation price', value: `≈ ${liquidation.value}`, title: liquidation.title }} /> : <ValueOrSkeleton value={pending ? '—' : 'Unavailable'} announce={false} />}</span></div>
+  </div>;
+  if (!compact) return rows;
+  // Keep every available threshold in the decision. Missing auxiliary reads
+  // share one honest disclosure instead of displacing the amounts and costs.
+  const known = [
+    rebalance && { label: 'Est. rebalance price', value: rebalance.value, title: rebalance.title },
+    liquidation && { label: 'Est. liquidation price', value: liquidation.value, title: liquidation.title },
+  ].filter((fact): fact is { label: string; value: string; title: string } => Boolean(fact));
+  return <div className={styles.compactRisk}>
+    {known.map(fact => <div className={styles.compactFact} key={fact.label} data-review-fact={fact.label === 'Est. rebalance price' ? 'Rebalance price' : 'Liquidation price'}><span>{fact.label}</span><span title={fact.title}>≈ {fact.value}</span></div>)}
+    <details className={styles.riskDisclosure}>
+      <summary><span>{known.length === 0 ? 'Risk estimates unavailable' : known.length < 2 ? 'Some risk estimates unavailable' : 'About position risk'}</span><ChevronDown size={15} aria-hidden="true" /></summary>
+      <p>These estimates use the pool’s collateral price. Rebalancing reduces collateral and debt before liquidation. Funding, rates and rebalancing can change both thresholds.</p>
+      {rows}
+    </details>
   </div>;
 }

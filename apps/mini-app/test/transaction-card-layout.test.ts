@@ -22,7 +22,7 @@ test('all position and loan reviews retain risk rows without manufacturing price
   assert.match(review, /\(tradingAction \|\| loanAction\) && <div className=\{`\$\{presentationStyles.riskGroup\}/);
   assert.match(review, /priceImpact\?\.value \?\? 'Unavailable'/);
   assert.match(review, /Execution details/);
-  assert.match(review, /hierarchy.primary.filter\(fact => fact.label === 'Total cost'\)/);
+  assert.match(review, /\[\.\.\.hierarchy.primary, \.\.\.hierarchy.more\]/);
   assert.match(review, /CollateralAmount collateral=\{collateralValuation\}/);
   assert.match(review, /Quoted collateral · native/);
 });

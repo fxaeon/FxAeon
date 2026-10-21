@@ -105,16 +105,16 @@ async function renderResult(input: {
 test('confirmed receipt uses a compact heading, grouped actual amounts and unboxed receipt rows', async () => {
   const html = await renderResult({ result: result('confirmed', { receipt: true }) });
   assert.match(html, /data-review-fact="Received"/);
-  assert.match(html, />2 fxUSD<\/span>/);
+  assert.match(html, /Show exact amount: 2 fxUSD/);
   assert.match(html, /test-resultHeading/);
-  assert.match(html, /test-resultStats/);
+  assert.match(html, /test-amountFlow/);
   assert.match(html, /Closed ETH Long/);
   assert.match(html, /data-amount-provenance="receipt"/);
   assert.match(html, /Transaction confirmed/);
-  assert.match(html, /Gas fee/);
+  assert.match(html, /Network fee/);
   assert.match(html, /0.001 ETH/);
   assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
-  assert.doesNotMatch(html, /Advanced|test-receiptLinks|test-resultStatus|test-amountFlow|All transaction steps are confirmed/);
+  assert.doesNotMatch(html, /Advanced|test-receiptLinks|test-resultStatus|All transaction steps are confirmed/);
 });
 
 test('concise confirmed unknown-token receipts keep exact details and the explorer reachable', async () => {
@@ -178,7 +178,7 @@ test('all successful action types share the same compact lower receipt', async (
   for (const operation of ['increasePosition', 'reducePosition', 'adjustPositionLeverage', 'depositAndMint', 'repayAndWithdraw', 'depositFxSave', 'withdrawFxSave', 'getRedeemTx'] as const) {
     const html = await renderResult({ result: result('confirmed', { receipt: true, operation }) });
     assert.match(html, /Transaction confirmed/, operation);
-    assert.match(html, /Gas fee/, operation);
+    assert.match(html, /Network fee/, operation);
     assert.doesNotMatch(html, /test-resultStatus|test-receiptLinks|Position:/, operation);
   }
 });
@@ -205,7 +205,7 @@ test('mixed recognized and unknown transfers do not hide the technical remainder
     receipts: [{ ...receipts[0], movements: [...receipts[0].movements, 'Token movement available in technical details'], technicalMovements: ['0x3333: 123 base units'] }],
   });
   assert.match(html, /data-amount-provenance="receipt"/);
-  assert.match(html, />2 fxUSD<\/span>/);
+  assert.match(html, /Show exact amount: 2 fxUSD/);
   assert.match(html, /Additional movements/);
   assert.match(html, /0x3333: 123 base units/);
   assert.equal((html.match(/<summary>Execution details/g) ?? []).length, 1);
@@ -248,9 +248,9 @@ test('shortened actual amounts keep keyboard-accessible exact receipt values', a
     result: result('confirmed', { receipt: true }),
     receipts: [{ ...receipts[0], exactMovements: [{ direction: 'received', amount: '1.23456789', symbol: 'fxUSD' }] }],
   });
-  assert.match(html, /≈ 1.235 fxUSD/);
-  assert.match(html, /aria-label="≈ 1.235 fxUSD. Show full receipt amount value"/);
-  assert.match(html, /Full value/);
+  assert.match(html.replace(/<[^>]*>/g, ''), /≈ 1.235 fxUSD/);
+  assert.match(html, /aria-label="Show exact amount: 1.23456789 fxUSD"/);
+  assert.match(html, /Exact receipt amount/);
   assert.match(html, /1.23456789 fxUSD/);
 });
 
@@ -357,14 +357,14 @@ test('actual phone receipt and fresh readback decimals stay compact with exact e
  const readback={walletAddress:WALLET,chainId:1,transactionHash:HASH,key:'ETH:long:42',readAt:1002,facts:[{label:'Collateral',value:'0.358481260986328125 stETH'},{label:'Debt',value:'720.89147659306640625 fxUSD'},{label:'Leverage',value:'2×'}]};
  const html=await renderResult({result:execution,confirmedPosition:readback,receipts:[{...receipts[0],exactMovements:[{direction:'received',amount:'720.89147659306640625',symbol:'fxUSD'}]}]});
  const main=html.split('<summary>Execution details')[0];
- assert.match(main,/≈ 720.89 fxUSD/);
+ assert.match(main.replace(/<[^>]*>/g, ''),/≈ 720.89 fxUSD/);
  assert.match(main,/Position #42/);assert.match(main,/Updated/);
  assert.doesNotMatch(main,/Latest position|Read after confirmation|Not the earlier quote/);
  assert.match(html,/0.358481260986328125 stETH/);assert.match(html,/720.89147659306640625 fxUSD/);
  assert.match(html,/≈ 0.3585 stETH/);assert.match(html,/post-confirmation read/);
  assert.equal((html.match(/lucide-chevron-down/g)||[]).length,1);
  const stale=await renderResult({result:execution,confirmedPosition:{...readback,transactionHash:`0x${'b'.repeat(64)}`}});
- assert.doesNotMatch(stale,/post-confirmation read/);assert.match(stale,/Position values/);assert.match(stale,/Unavailable/);
+ assert.doesNotMatch(stale,/post-confirmation read/);assert.match(stale,/Post-confirmation position values are unavailable/);assert.match(stale,/data-position-readback="unavailable"/);
 });
 
 test('pending preserves long identities and tiny or large units without decorative amount controls', async () => {
@@ -376,5 +376,5 @@ test('pending preserves long identities and tiny or large units without decorati
   assert.ok(html.includes(value));assert.doesNotMatch(html,/NaN|Infinity|lucide-chevron-down/);
  }
  const css=readFileSync(new URL('../src/components/review/ActionReviewPresentation.module.css',import.meta.url),'utf8');
- assert.match(css,/\.pendingIdentity > strong \{[^}]*overflow-wrap: anywhere/);
+ assert.match(css,/\.pendingStatus strong \{[^}]*overflow-wrap: anywhere/);
 });

@@ -20,7 +20,9 @@ for (const width of [320, 390, 1280]) test(`quiet review keeps approval, details
   await expect(cta).toBeInViewport({ ratio: 1 });
   const title = width <= 600 ? page.locator('[data-mobile-review-sheet] > header h2') : review.locator('[data-review-focus]');
   await expect(title).not.toHaveText('');
-  expect(await title.evaluate(el => { const box=el.getBoundingClientRect(); return box.width <= 1 && box.height <= 1 && getComputedStyle(el).position === 'absolute'; })).toBe(true);
+  await expect(title).toBeVisible();
+  expect(await title.evaluate(el => { const box=el.getBoundingClientRect(); return box.width > 1 && box.height > 1; })).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Add to ETH Long', exact: true })).toHaveCount(1);
   if (width <= 600) await expect(page.getByRole('dialog')).toHaveAccessibleName(await title.textContent() ?? '');
   await page.screenshot({ path: info.outputPath('review.png'), animations: 'disabled' });
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
@@ -28,6 +30,9 @@ for (const width of [320, 390, 1280]) test(`quiet review keeps approval, details
   await expect(details.getByRole('region', { name: 'Route and limits' })).toBeVisible();
   await expect(details.getByRole('region', { name: 'Prepared transactions' })).toBeVisible();
   await expect(details.getByRole('button', { name: 'Copy full approval spender', exact: true })).toBeVisible();
+  const copyTarget = await details.getByRole('button', { name: 'Copy full approval spender', exact: true }).boundingBox();
+  expect(copyTarget!.width).toBeGreaterThanOrEqual(44);
+  expect(copyTarget!.height).toBeGreaterThanOrEqual(44);
   await details.getByRole('button', { name: 'View full approval spender', exact: true }).click();
   const dialog=page.getByRole('dialog', { name: 'Full approval spender', exact: true });
   await expect(dialog).toBeVisible();
@@ -47,6 +52,7 @@ for (const width of [320, 390, 768, 1280]) test(`context help is keyboard/touch 
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('[data-review-viewport]');
   const beforeHistory = await page.evaluate(() => history.length);
+  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   const help = review.getByRole('button', { name: 'About Execution price', exact: true });
   await help.focus();
   await page.keyboard.press('Enter');
@@ -75,7 +81,6 @@ for (const width of [320, 390, 768, 1280]) test(`context help is keyboard/touch 
   const advancedSummary = review.locator('details[aria-label="Advanced transaction details"] > summary');
   await advancedSummary.focus();
   await expect(panel).toHaveCount(0);
-  await advancedSummary.press('Enter');
   await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveAttribute('open');
   expect(await page.evaluate(() => history.length)).toBe(beforeHistory);
   // Help should reflow at enlarged text, not reduce the font to fit.

@@ -52,7 +52,7 @@ export function compactTransactionOutcomeModel(
       label: movement.direction === 'received' ? 'You received'
         : result.operation === 'depositFxSave' ? 'You deposited'
         : result.operation === 'withdrawFxSave' ? 'You redeemed'
-        : result.operation === 'depositAndMint' ? 'Collateral sent'
+        : result.operation === 'depositAndMint' ? 'You deposited'
         : result.operation === 'repayAndWithdraw' ? 'You repaid' : 'You paid',
     })).sort((a, b) => Number(a.direction === 'received') - Number(b.direction === 'received'));
   const hasTechnicalMovements = actionReceipts.some(receipt => receipt.technicalMovements.length > 0);

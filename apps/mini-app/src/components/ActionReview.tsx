@@ -55,6 +55,7 @@ import { transactionAmountFacts } from './review/transactionAmountPresentation';
 import { positionReviewBefore } from './review/positionReview';
 import { PendingTransactionSummary } from './review/PendingTransactionSummary';
 import { ReviewFactValue } from './review/ReviewFactValue';
+import { formatReviewFactValue } from './review/reviewFactFormatting';
 import { MetricLabel } from './InfoHelp';
 import { reviewHelpDefinition } from './review/reviewHelp';
 import { transactionCardIdentity } from './review/transactionCardIdentity';
@@ -435,8 +436,10 @@ export function ActionReview(props: ActionReviewProps) {
   const tradingAction = intent?.kind === 'position-increase' || intent?.kind === 'position-reduce' || leverageReview;
   const loanAction = intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw';
   const savingsAction = intent?.kind === 'fxsave-deposit' || intent?.kind === 'fxsave-withdraw' || intent?.kind === 'fxsave-claim';
-  const amountLed = loanAction || savingsAction;
-  const amountFacts = amountLed ? transactionAmountFacts(acceptedAmountFacts) : [];
+  const amountLed = loanAction || savingsAction || (tradingAction && !leverageReview);
+  // Position collateral is an accounting consequence, not a wallet receipt.
+  // Its existing unit-aware row preserves the signed native floor separately.
+  const amountFacts = amountLed ? transactionAmountFacts(acceptedAmountFacts).filter(fact => !(tradingAction && fact.label === 'Estimated collateral')) : [];
   const amountLabels = new Set(amountFacts.map(fact => fact.label));
   const compactReview = tradeReview || leverageReview || bridgeReview || intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw' || intent?.kind === 'fxsave-deposit' || intent?.kind === 'fxsave-withdraw' || intent?.kind === 'fxsave-claim';
   const hierarchy = reviewHierarchy(summaryFacts, reviewFacts.details, tradeReview, newBorrowReview, bridgeReview);
@@ -444,7 +447,7 @@ export function ActionReview(props: ActionReviewProps) {
   const fxFee = [...hierarchy.primary, ...hierarchy.more].find(fact => fact.label === 'f(x) fee');
   const actionName = reviewTitle ?? operationLabel ?? route?.operation ?? label;
   const identity = transactionCardIdentity(route, acceptedAmountFacts, actionName);
-  const actionHeading = identity.review;
+  const actionHeading = tradingAction ? identity.name : identity.review;
   const identityLabel = identity.amount?.label;
   const compactFacts = orderCompactReviewFacts(hierarchy.primary.filter(fact => fact.label !== identityLabel && !amountLabels.has(fact.label) && !(newBorrowReview && fact.label === 'Debt added' && positionChanges.paired.some(change => change.label === 'Debt')) && !pairedOutcomeLabels.has(fact.label.toLowerCase()) && !['Position', 'Target leverage', 'Execution price', 'Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout', 'Slippage'].includes(fact.label)), intent?.kind === 'deposit-and-mint');
   const collateral = tradeReview ? acceptedAmountFacts.find(fact => fact.label === 'Estimated collateral') : undefined;
@@ -484,37 +487,37 @@ export function ActionReview(props: ActionReviewProps) {
         {amountLed ? <>
           {identity.subtitle && identity.subtitle.toLowerCase() !== chainName(reviewChainId).toLowerCase() && <p className={presentationStyles.amountContext}>{identity.subtitle}</p>}
           <TransactionAmountFlow facts={amountFacts} chainId={reviewChainId} />
-        </> : leverageReview ? <><p className={presentationStyles.amountContext}><strong>{identity.name}</strong> · {identity.subtitle}</p><LeverageChangeSummary facts={acceptedAmountFacts} changes={positionChangeRows} /></> : <TransactionIdentity {...identity} />}
+        </> : leverageReview ? <><p className={presentationStyles.amountContext}>{identity.subtitle}</p><LeverageChangeSummary facts={acceptedAmountFacts} changes={positionChangeRows} /></> : <TransactionIdentity {...identity} />}
         <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
           <div className={presentationStyles.consequenceGroup}>
-            {collateral && <ReviewRow label="Estimated collateral" displayLabel="Position size · collateral" value={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : collateral.value} title={collateral.title} />}
-            {compactFacts.map(fact => <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Loan-to-value' ? 'Resulting LTV' : fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
-            {intent?.kind === 'fxsave-deposit' && <ReviewRow label="Current APY" value={facts.find(fact => fact.label === 'Current APY')?.value ?? 'Unavailable'} title="No APY is assumed from an exchange rate or sample value." />}
-            {tradingAction && <ReviewRow label="Execution price" value={executionPrice?.value ?? 'Unavailable'} title={executionPrice?.title} />}
-            {tradingAction && <ReviewRow label="Price impact" value={priceImpact?.value ?? 'Unavailable'} title={priceImpact?.title ?? 'The accepted route does not provide a verified price-impact estimate.'} />}
-            {slippage && !loanAction && <ReviewRow label="Slippage" displayLabel="Max. slippage" value={slippage.value} title={slippage.title} />}
+            {collateral && <ReviewRow compact label="Estimated collateral" displayLabel="Position size · collateral" value={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : collateral.value} title={collateral.title} />}
+            {compactFacts.map(fact => <ReviewRow compact key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Loan-to-value' ? 'Resulting LTV' : fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
+            {intent?.kind === 'fxsave-deposit' && <ReviewRow compact label="Current APY" value={facts.find(fact => fact.label === 'Current APY')?.value ?? 'Unavailable'} title="No APY is assumed from an exchange rate or sample value." />}
+            {tradingAction && <ReviewRow compact label="Execution price" value={executionPrice?.value ?? 'Unavailable'} title={executionPrice?.title} />}
+            {tradingAction && <ReviewRow compact label="Price impact" value={priceImpact?.value ?? 'Unavailable'} title={priceImpact?.title ?? 'The accepted route does not provide a verified price-impact estimate.'} />}
+            {slippage && !loanAction && <ReviewRow compact label="Slippage" displayLabel="Max. slippage" value={slippage.value} title={slippage.title} />}
           </div>
           {!leverageReview && positionChangeRows.length > 0 && <PositionOutcomeSummary facts={positionChangeRows} />}
-          {(tradingAction || loanAction) && <div className={`${presentationStyles.riskGroup} ${loanAction ? presentationStyles.loanRiskGroup : ''}`}><ReviewRiskPrices route={route} execution={executionPrice} showExecution={false} pending={false} />
-          </div>}
           {hierarchy.primary.filter(fact => fact.label === 'Claim payout').map(fact => <p key={fact.label} data-review-fact={fact.label} className={presentationStyles.claimCaveat} title={fact.title}>{fact.value}</p>)}
           {loanAction && <div className={presentationStyles.costGroup}>
-            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewRow label="Borrow rate" displayLabel="Current borrow rate" value={facts.find(fact => fact.label === 'Borrow rate')?.value ?? 'Unavailable'} title="The accepted route does not supply a verified borrow-rate estimate." />}
-            {hierarchy.primary.filter(fact => ['f(x) fee', 'Protocol fee'].includes(fact.label)).map(fact => <ReviewRow key={fact.label} label={fact.label} value={fact.value} title={fact.title} />)}
+            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewRow compact label="Borrow rate" value={facts.find(fact => fact.label === 'Borrow rate')?.value ?? 'Not quoted'} title="The accepted route does not quote the current borrowing or funding rate. A zero base rate does not establish the current funding cost." />}
+            {hierarchy.primary.filter(fact => ['f(x) fee', 'Protocol fee'].includes(fact.label)).map(fact => <ReviewRow compact key={fact.label} label={fact.label} value={fact.value} title={fact.title} />)}
           </div>}
           <div className={presentationStyles.costGroup}>
             {hierarchy.primary.filter(fact => (loanAction ? ['Gas fee', 'Bridge fee'] : ['Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee']).includes(fact.label)).map(fact =>
-              <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Gas fee' ? (/max/i.test(fact.value) ? 'Network fee (max)' : 'Network fee') : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
+              <ReviewRow compact key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Gas fee' ? (/max/i.test(fact.value) ? 'Network fee (max)' : 'Network fee') : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
           </div>
+          {(tradingAction || loanAction) && <div className={`${presentationStyles.riskGroup} ${loanAction ? presentationStyles.loanRiskGroup : ''}`}><ReviewRiskPrices route={route} execution={executionPrice} showExecution={false} pending={false} compact />
+          </div>}
         </div>
       </div>);
   return (
-    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: actionHeading, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing', hideTitle: true }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
+    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: stage === 'executing' ? identity.name : actionHeading, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing' }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
       <ReviewViewport stable={stablePreparation} compact={compactReview} phase={stage === 'executing' ? 'executing' : 'review'}>
       <header data-review-header className={presentationStyles.reviewHeader}>
         <div>
-          <h3 ref={headingRef} data-review-focus tabIndex={-1} className="sr-only outline-none">
-            {actionHeading}
+          <h3 ref={headingRef} data-review-focus tabIndex={-1} className="outline-none">
+            {stage === 'executing' ? identity.name : actionHeading}
           </h3>
         </div>
         <button data-review-edit type="button" disabled={loading} onClick={reset} className={presentationStyles.editButton}>
@@ -558,7 +561,7 @@ export function ActionReview(props: ActionReviewProps) {
       )}
 
       {showExecutionProgress && stage !== 'executing' && <div className={presentationStyles.actualProgress}><StatusNotice {...progress} /></div>}
-      {stage === 'executing' ? <PendingTransactionSummary identity={identity} facts={amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : identity.amount ? [identity.amount] : []} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind} /> : decisionContent}
+      {stage === 'executing' ? <PendingTransactionSummary showIdentity={false} identity={identity} facts={amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : identity.amount ? [identity.amount] : []} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind} requestLabel={nextTransaction ? nextTransaction.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm : undefined} requestNumber={activeStep + 1} requestCount={stepCount} /> : decisionContent}
 
 
 
@@ -579,7 +582,11 @@ export function ActionReview(props: ActionReviewProps) {
       <DecisionContext beforeFacts={positionChanges.remainingBefore.filter(fact => !['Collateral', 'Debt', 'Loan-to-value'].includes(fact.label))} />
       <section className={`${presentationStyles.advancedGroup} ${presentationStyles.moreFacts}`} aria-label="Route and limits">
         <p className={presentationStyles.advancedGroupLabel}>Route & limits</p>
-        {[...hierarchy.more, ...hierarchy.primary.filter(fact => fact.label === 'Total cost')].filter(fact => fact.label !== identityLabel && (fact.label !== 'Slippage' || loanAction)).map(fact => <ReviewRow quiet={stablePreparation} key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={collateral && fact.label === 'Estimated collateral' ? 'Quoted collateral · native' : fact.label === 'Slippage' ? 'Max. slippage' : reviewFactLabel(fact.label)} value={collateral && fact.label === 'Estimated collateral' ? fact.title ?? fact.value : fact.value} title={fact.title} equivalent={fact.equivalent} />)}
+        {tradingAction && !executionPrice && <ReviewRow secondary label="Execution price" value="Unavailable" title="The accepted route does not provide a verified execution price." />}
+        {tradingAction && !priceImpact && <ReviewRow secondary label="Price impact" value="Unavailable" title="The accepted route does not provide a verified price-impact estimate." />}
+        {loanAction && intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && !facts.some(fact => fact.label === 'Borrow rate') && <ReviewRow secondary label="Borrow rate" value="Not quoted" title="The accepted route does not quote the current borrowing or funding rate. A zero base rate does not establish the current funding cost." />}
+        {intent?.kind === 'fxsave-deposit' && !facts.some(fact => fact.label === 'Current APY') && <ReviewRow secondary label="Current APY" value="Unavailable" title="The accepted route does not supply a verified current APY. No yield is inferred from an exchange rate or sample value." />}
+        {[...hierarchy.primary, ...hierarchy.more].filter(fact => fact.label !== identityLabel).map(fact => <ReviewRow secondary quiet={stablePreparation} key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={collateral && fact.label === 'Estimated collateral' ? 'Quoted collateral · native' : fact.label === 'Slippage' ? 'Max. slippage' : reviewFactLabel(fact.label)} value={collateral && fact.label === 'Estimated collateral' ? fact.title ?? fact.value : fact.value} title={fact.title} equivalent={fact.equivalent} />)}
         {approvals.map((approval, index) => <ReviewRow key={`${approval.label}-${index}`} label={approval.label} value={approval.value} title={approval.title} />)}
       </section>
 
@@ -636,11 +643,6 @@ export function ActionReview(props: ActionReviewProps) {
           </Button>
         </div>
       )}
-      {stage === 'executing' && <div data-review-actions className={`${styles.reviewInlineActions} ${presentationStyles.actions}`}>
-        <Button disabled loading className={styles.primaryAction}>
-          {networkSwitching ? 'Switching network…' : status === 'awaiting-user' ? 'Confirm in wallet' : status === 'submitted' || status === 'included' || status === 'confirming' ? 'Confirming…' : 'Preparing next step…'}
-        </Button>
-      </div>}
       </ReviewViewport>
     </ReviewSurface>
   );
@@ -655,9 +657,12 @@ function ReviewSurface({ surface, className, children, stable = false, mobileShe
 }
 
 /** `equivalent` reads muted beneath the value: the same amount in another unit, never the signed figure. */
-function ReviewRow({ label, displayLabel, value, title, equivalent, className, quiet = false }: { label: string; displayLabel?: string; value: ReactNode; title?: string; equivalent?: string; className?: string; quiet?: boolean }) {
+function ReviewRow({ label, displayLabel, value, title, equivalent, className, quiet = false, compact = false, secondary = false }: { label: string; displayLabel?: string; value: ReactNode; title?: string; equivalent?: string; className?: string; quiet?: boolean; compact?: boolean; secondary?: boolean }) {
   const valueTitle = title ?? (typeof value === 'string' ? value : undefined);
-  return <div data-review-fact={label} className={`flex min-w-0 items-start justify-between gap-4 text-[13px] ${className ?? ''}`}><MetricLabel className="text-mut" label={displayLabel ?? label} definition={reviewHelpDefinition(label)} /><span title={valueTitle} className="max-w-[62%] break-words text-right font-semibold tabular-nums">{['Gas fee', 'Bridge fee'].includes(label) && typeof value === 'string' ? <FeeAmount fact={{ value, title }} /> : <>{typeof value === 'string' && value !== '—' ? <ReviewFactValue fact={{ label, value, title }} /> : <ValueOrSkeleton value={value} width="md" announce={!quiet} label={`Loading ${label.toLowerCase()}`} />}</>}{equivalent && <span className={presentationStyles.factEquivalent}>{equivalent}</span>}{label === 'Total cost' && typeof value === 'string' && <FeeUsd fact={{ value, title }} />}</span></div>;
+  // The decision is a short readable list. Per-fact guidance and unrounded
+  // terms remain in Execution details; amount and fee controls remain direct.
+  if (compact) return <div data-review-fact={label} className={presentationStyles.compactFact}><span>{displayLabel ?? label}</span><span title={valueTitle}>{['Gas fee', 'Bridge fee'].includes(label) && typeof value === 'string' ? <FeeAmount fact={{ value, title }} /> : typeof value === 'string' ? formatReviewFactValue({ label, value, title }).display : value}{equivalent && <small>{equivalent}</small>}</span></div>;
+  return <div data-review-fact={secondary ? undefined : label} data-review-evidence={secondary ? label : undefined} className={`flex min-w-0 items-center justify-between gap-4 text-[13px] ${className ?? ''}`}><MetricLabel className="text-mut" label={displayLabel ?? label} definition={reviewHelpDefinition(label)} /><span title={valueTitle} className="max-w-[62%] break-words text-right font-semibold tabular-nums">{['Gas fee', 'Bridge fee'].includes(label) && typeof value === 'string' ? <FeeAmount fact={{ value, title }} /> : <>{typeof value === 'string' && value !== '—' ? <ReviewFactValue fact={{ label, value, title }} /> : <ValueOrSkeleton value={value} width="md" announce={!quiet} label={`Loading ${label.toLowerCase()}`} />}</>}{equivalent && <span className={presentationStyles.factEquivalent}>{equivalent}</span>}{label === 'Total cost' && typeof value === 'string' && <FeeUsd fact={{ value, title }} />}</span></div>;
 }
 
 /** The recovery for a wallet short of ETH: its Receive address. */

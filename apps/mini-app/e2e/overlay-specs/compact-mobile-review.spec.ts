@@ -5,7 +5,7 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
   test(`${kind} keeps decision visible at ${size.width}×${size.height}`, async ({ page }, info) => {
     await page.setViewportSize(size);
     await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
-    await openHarness(page);
+    await openHarness(page, { presentationMode: true });
     await page.evaluate(kind => {
       const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
       const wallet = h.wallet.address;
@@ -69,20 +69,25 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
       await expect(received.getByText('Base', { exact: true })).toBeVisible();
       await expect(review.locator('[data-review-fact="Networks"]')).toHaveCount(0);
       await expect(review.locator('[data-review-fact="Minimum received"]')).toContainText('2,475 fxUSD');
-      await expect(review.locator('[data-review-fact="Recipient"] > summary')).toContainText('0x0000…00aa');
-      await review.locator('[data-review-fact="Recipient"] > summary').click();
-      await expect(review.locator('[data-review-fact="Recipient"] > div')).toContainText('0x00000000000000000000000000000000000000aa');
+      const recipient = review.locator('[data-review-fact="Recipient"]');
+      await expect(recipient.locator('[translate="no"]')).toHaveText('0x00000000000000000000000000000000000000aa');
+      await expect(recipient.getByRole('button', { name: 'Copy full recipient address' })).toBeVisible();
+      await expect(recipient.locator('summary')).toHaveCount(0);
       await expect(action).toBeInViewport({ ratio: 1 });
-      await review.locator('[data-review-fact="Recipient"] > summary').click();
       await expect(review.locator('[data-review-fact="Bridge fee"] summary')).toContainText('0.0001 ETH');
       await expect(review.locator('[data-review-fact="Delivery estimate"]')).toHaveCount(0);
     }
     if (kind === 'earn-instant') {
+      await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
       const fee = review.locator('[data-review-value="f(x) fee"]');
       await expect(fee.locator('summary')).toHaveText('1%');
+      const feeTarget = await fee.locator('summary').boundingBox();
+      expect(feeTarget!.width).toBeGreaterThanOrEqual(44);
+      expect(feeTarget!.height).toBeGreaterThanOrEqual(44);
       await fee.locator('summary').click();
       await expect(fee.getByText('Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.', { exact: true })).toBeVisible();
       await fee.locator('summary').click();
+      await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
       const received = review.locator('[data-review-fact="Estimated received"]');
       await expect(received.getByText('You receive · estimated', { exact: true })).toBeVisible();
       await expect(received.locator('summary')).toHaveText('99 USDC');
@@ -90,6 +95,7 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
     if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toContainText('Not enforced');
+    await page.evaluate(async () => { await document.fonts.load('600 28px Manrope'); await Promise.all([...document.images].map(image => image.decode().catch(() => undefined))); });
     await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
     const more = review.locator('details[aria-label="Advanced transaction details"] > summary');
     await more.scrollIntoViewIfNeeded();

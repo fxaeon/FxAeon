@@ -22,8 +22,8 @@ test('review removes the duplicate stepper but retains approval/action CTA and f
 test('visual review titles remain available as focus targets and accessible dialog names', () => {
   const review = source('components/ActionReview.tsx');
   const sheet = source('components/MobileFlowSheet.tsx');
-  assert.match(review, /data-review-focus tabIndex=\{-1\} className="sr-only outline-none"/);
-  assert.match(review, /hideTitle: true/);
+  assert.match(review, /data-review-focus tabIndex=\{-1\} className="outline-none"/);
+  assert.match(review, /stage === 'executing' \? identity.name : actionHeading/);
   assert.match(sheet, /aria-labelledby=\{titleId\}/);
   assert.match(sheet, /id=\{titleId\} tabIndex=\{-1\} className=\{hideTitle \? 'sr-only'/);
   assert.match(source('app/send/page.tsx'), /<h2 className="sr-only">Review send<\/h2>/);

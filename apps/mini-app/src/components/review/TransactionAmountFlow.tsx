@@ -11,11 +11,13 @@ import { readableReviewAmount } from './reviewHierarchy';
 import styles from './ActionReviewPresentation.module.css';
 
 /** The same amount-led presentation for reviewed intent and observed transfers. */
-export function TransactionAmountFlow({ facts, chainId, caption, receipt = false }: {
-  facts: readonly ReviewFact[]; chainId: number; caption?: string; receipt?: boolean;
+export function TransactionAmountFlow({ facts, chainId, caption, receipt = false, simulated = false, ariaLabel, labels, showNetwork = true }: {
+  facts: readonly ReviewFact[]; chainId: number; caption?: string; receipt?: boolean; simulated?: boolean;
+  ariaLabel?: string; labels?: Readonly<Record<string, string>>;
+  showNetwork?: boolean;
 }) {
   if (!facts.length) return null;
-  return <section className={styles.amountFlow} aria-label={receipt ? 'Observed token movements' : 'Transaction amounts'} data-amount-provenance={receipt ? 'receipt' : 'review'}>
+  return <section className={styles.amountFlow} aria-label={ariaLabel ?? (receipt ? 'Observed token movements' : 'Transaction amounts')} data-amount-provenance={simulated ? 'simulation' : receipt ? 'receipt' : 'review'}>
     {caption && <p className={styles.flowCaption}>{caption}</p>}
     {facts.map((fact, index) => {
       const parts = tokenAmountParts(fact);
@@ -27,9 +29,9 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
         <div className={styles.flowAmount} data-review-fact={fact.label}>
           <span className={styles.flowToken} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={40} />{index === 0 && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}</span>
           <div className={styles.flowValue}>
-            <span className={styles.flowLabel}>{plainAmountLabel(fact.label)}</span>
-            <details className={styles.flowExact}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}><span>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span></summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${receipt ? 'receipt' : 'reviewed'} amount`}</span>{fact.title ?? fact.value}</p></details>
-            <div className={styles.flowSubline}><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && <span>· {chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span>}</div>
+            <span className={styles.flowLabel}>{labels?.[fact.label] ?? plainAmountLabel(fact.label)}</span>
+            <details className={styles.flowExact}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}><span>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span></summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${simulated ? 'simulated' : receipt ? 'receipt' : 'reviewed'} amount`}</span><span className={styles.selectableAmount}>{fact.title ?? fact.value}</span></p></details>
+            <div className={styles.flowSubline}><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && showNetwork && <span>· {chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span>}</div>
           </div>
         </div>
       </div>;

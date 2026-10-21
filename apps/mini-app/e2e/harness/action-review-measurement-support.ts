@@ -16,9 +16,7 @@ const entry = resolve(root, 'apps/mini-app/e2e/harness/action-review-entry.tsx')
 const src = resolve(root, 'apps/mini-app/src');
 
 const mocks: Record<string, string> = {
-  '@/components/PriceProvider': `export const useUsdPrices = () => ({ prices: {}, status: 'unavailable', updatedAt: null });`,
-  // This harness has synthetic pools; the real Trade/RPC harness checks risk prices.
-  '@/lib/fx/liquidationQuote': `export const LIQUIDATION_QUOTE_TTL_MS = 30000; export const projectedLiquidationPrice = () => undefined; export const projectedRebalancePrice = () => undefined;`,
+  '@/components/PriceProvider': `export const useUsdPrices = () => { const prices = globalThis.__actionReviewHarness?.displayPrices; return { prices: prices ?? {}, status: prices ? 'ready' : 'unavailable', updatedAt: prices ? Date.now() : null }; };`,
   '@/lib/fx': `
     const H = () => globalThis.__actionReviewHarness;
     // Keep production validation and token identity helpers behind the real
@@ -87,7 +85,13 @@ const mocks: Record<string, string> = {
             ...(tier ? { maxFeePerGas: tier.maxFeePerGas, maxPriorityFeePerGas: tier.maxPriorityFeePerGas } : {}),
           };
           const hash = await callbacks.requestSignature(request, { ...transaction });
-          const step = { index, transaction, status: 'confirmed', hash, receipt: { status: 'success', logs: [] } };
+          if (h.deferReceipt) {
+            h.deferReceipt = false;
+            callbacks.onStep?.({ index, transaction, status: 'submitted', hash });
+            callbacks.onStatus?.('submitted', 'Waiting for the fixture receipt');
+            await new Promise(resolve => h.receiptResolvers.push(resolve));
+          }
+          const step = { index, transaction, status: 'confirmed', hash, receipt: { status: 'success', gasUsed: 21000n, effectiveGasPrice: 1000000000n, logs: transaction.kind === 'action' ? h.receiptLogs ?? [] : [] } };
           steps.push(step);
           callbacks.onStep?.(step);
           if (h.uncertainApproval && transaction.kind === 'approval') {
@@ -157,7 +161,6 @@ export const useInvalidateWalletData = () => async () => {
     };
   `,
   '@/lib/walletDataRefresh': `export const createRouteWalletRefresh = (invalidate) => async (route) => invalidate(route.walletAddress, route.chainId);`,
-  '@/lib/receiptPresentation': `export const buildReceiptPresentation = () => ({ movements: [], technicalMovements: [], executionFee: null, feeLabel: 'Network fee', feeCaveat: null, nativeValue: null }); export const receiptTransfersFromLogs = () => []; export const shouldShowReceiptMovementFallback = (receipts) => receipts.length > 0 && receipts.some((receipt) => receipt.transactionKind !== 'approval'); export const receiptMovementLines = (receipts) => { const tokenMovements = receipts.flatMap((receipt) => receipt.movements); if (tokenMovements.length) return { movements: tokenMovements, nativeValueIsMovement: false }; const nativeSends = receipts.flatMap((receipt) => receipt.nativeValue && receipt.nativeValueLabel === 'Native value sent' ? ['sent ' + receipt.nativeValue] : []); return { movements: nativeSends, nativeValueIsMovement: nativeSends.length > 0 }; };`,
   '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
   '@/components/ui': `
     import React, { forwardRef } from 'react';
@@ -192,26 +195,24 @@ export const useInvalidateWalletData = () => async () => {
   `,
   '@/lib/errors': `export const userSafeError = (cause, fallback) => cause instanceof Error ? cause.message : fallback;`,
   '@/lib/transactionProgress': `
-    export { transactionStepProgress } from './src/lib/transactionProgress';
+    export { transactionStepProgress, transactionExplorerUrl } from './src/lib/transactionProgress';
     export const hasTransactionHash = (step) => Boolean(step?.hash);
-    export const transactionExplorerUrl = () => null;
     export const transactionStepKind = () => 'Action';
     export const confirmedUpdateCopy = () => ({ label: 'Confirmed', body: 'Mock confirmed.' });
   `,
   '@/components/BridgeTracker': `export const BridgeTracker = () => null;`,
   '@/components/review/ReviewProgress': `
     import React from 'react';
-    export { CalldataDisclosure, stepProgress } from './src/components/review/ReviewProgress';
+    export { CalldataDisclosure, stepProgress, TransactionHashLink } from './src/components/review/ReviewProgress';
     export const chainName = (id) => id === 8453 ? 'Base' : 'Ethereum';
     export const StatusNotice = ({ label, body }) => <div role="status"><strong>{label}</strong><span>{body}</span></div>;
     export const InlineError = ({ message }) => <div role="alert">{message}</div>;
-    export const TransactionHashLink = ({ step }) => <span>{step.hash}</span>;
   `,
   '@/lib/fx/reviewFormatting': `
     export { positionOutcomeFacts } from './src/lib/fx/reviewFormatting';
     export const rawQuoteReviewFacts = () => [];
     import { routeFinancialReviewFacts as acceptedFacts } from './src/lib/fx/reviewFormatting';
-    export const routeFinancialReviewFacts = (route) => route.policy?.reviewedAction?.kind?.startsWith('fxsave-') ? acceptedFacts(route) : [];
+    export const routeFinancialReviewFacts = (route) => globalThis.__actionReviewHarness?.financialFacts || route.policy?.reviewedAction?.kind?.startsWith('fxsave-') ? acceptedFacts(route) : [];
     // This isolated harness measures orchestration; exact token formatting is
     // covered by review-formatting.test.ts and the fork browser review.
     export const tokenAmountReviewFact = (label, value) => ({ label, value: String(value), title: String(value) });
@@ -223,13 +224,6 @@ export const useInvalidateWalletData = () => async () => {
   // mounts into an existing document rather than Next's App Router tree.
   'next/navigation': `export const useRouter = () => ({ push: () => {}, replace: () => {}, prefetch: () => {} });`,
   '@/lib/fx/tokens': `export const FX_TOKENS = { WETH: { key: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
-  'lucide-react': `
-    import React from 'react';
-    const Icon = ({ size = 24, ...props }) => <svg width={size} height={size} {...props} />;
-    export const AlertTriangle = Icon; export const ArrowLeft = Icon; export const ArrowDown = Icon; export const ArrowUpRight = Icon; export const Plus = Icon; export const CheckCircle2 = Icon; export const CircleAlert = Icon; export const Info = Icon;
-    export const Clock3 = Icon; export const LoaderCircle = Icon; export const ShieldCheck = Icon; export const ExternalLink = Icon;
-    export const Circle = Icon; export const X = Icon; export const XCircle = Icon; export const ChevronDown = Icon; export const Check = Icon; export const Copy = Icon;
-  `,
 };
 
 export async function buildHarness(): Promise<{ script: string; css: string }> {
@@ -251,7 +245,6 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
           }
           return { path: candidate };
         });
-        build.onResolve({ filter: /^lucide-react$/ }, () => ({ path: 'lucide-react', namespace: 'mock' }));
         build.onResolve({ filter: /^next\/link$/ }, () => ({ path: 'next/link', namespace: 'mock' }));
         build.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: 'next/navigation', namespace: 'mock' }));
         build.onLoad({ filter: /.*/, namespace: 'mock' }, (args: { path: string }) => ({ contents: mocks[args.path], loader: 'tsx', resolveDir: resolve(root, 'apps/mini-app') }));
@@ -261,9 +254,15 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
   const generatedGlobals = await postcss([tailwind({ config: resolve(root, 'apps/mini-app/tailwind.config.js') }), autoprefixer()])
     .process(readFileSync(resolve(src, 'app/globals.css'), 'utf8'), { from: resolve(src, 'app/globals.css') });
   const productShell = readFileSync(resolve(src, 'app/product-shell.css'), 'utf8');
+  // A local production build can supply Next's compiled Inter font for exact
+  // visual comparison. Portable orchestration tests use its system fallback.
+  const interFont = process.env.FXAEON_REVIEW_INTER_FONT;
+  const bodyFont = interFont && existsSync(interFont)
+    ? `@font-face { font-family: ReviewInter; src: url('/fonts/review-inter.woff2') format('woff2'); font-weight: 100 900; font-display: swap; } :root { --font-sans: ReviewInter, ui-sans-serif, system-ui; }`
+    : ':root { --font-sans: ui-sans-serif, system-ui; }';
   return {
     script: result.outputFiles.find((file) => file.path.endsWith('.js'))?.text ?? '',
-    css: `${generatedGlobals.css}\n:root { --font-sans: ui-sans-serif, system-ui; }\n${productShell}\n${result.outputFiles.find((file) => file.path.endsWith('.css'))?.text ?? ''}`,
+    css: `${generatedGlobals.css}\n${bodyFont} body { font-family: var(--font-sans), sans-serif; }\n${productShell}\n${result.outputFiles.find((file) => file.path.endsWith('.css'))?.text ?? ''}`,
   };
 }
 
@@ -276,6 +275,21 @@ export async function openHarness(page: Page, options: { initialPreviewMode?: 'a
   if (!cachedBundle) cachedBundle = await buildHarness();
   const startedAt = performance.now();
   const initialOptions = { mode: options.initialPreviewMode, previewDelayMs: options.previewDelayMs ?? 0, refreshDelayMs: options.refreshDelayMs ?? 0, presentationMode: options.presentationMode ?? false };
+  if (options.presentationMode) {
+    // Screenshots use the actual vendored marks and font, never empty image
+    // slots or mocked icons. Financial reads remain the deterministic fixture.
+    await page.route(/\/(?:token-icons|chain-icons|fonts)\/[\w.-]+$/, async request => {
+      const asset = new URL(request.request().url()).pathname;
+      const path = asset === '/fonts/review-inter.woff2' && process.env.FXAEON_REVIEW_INTER_FONT ? process.env.FXAEON_REVIEW_INTER_FONT : resolve(root, 'apps/mini-app/public', `.${asset}`);
+      if (!existsSync(path)) return request.abort();
+      await request.fulfill({ path });
+    });
+    if (page.url() === 'about:blank') await page.evaluate(() => {
+      const base = document.createElement('base');
+      base.href = 'http://fxaeon-review.test/';
+      document.head.append(base);
+    });
+  }
   // Mount into the existing same-origin document instead of navigating it.
   // This keeps the settings storage used by the cross-tab invalidation test,
   // and avoids inheriting the production HTML response's CSP into an inline

@@ -6,7 +6,6 @@ import { ChainIcon, TokenIcon } from '@/components/TokenIcon';
 import { openExternalLink } from '@/lib/telegram';
 import { compactAddress } from '@/lib/addressPresentation';
 import { AmountUsd } from './AmountUsd';
-import { groupDigits } from '@/lib/amount';
 import { readableReviewAmount } from './reviewHierarchy';
 import { TechnicalEvidenceRow } from './TechnicalEvidenceRow';
 import styles from './BridgeResultCard.module.css';
@@ -49,10 +48,7 @@ export function BridgeResultCard({
       </div>
     </header>
     {simulated && !conciseComplete && <p className={styles.simulation}>Simulation · no real funds moved</p>}
-    {conciseComplete ? <dl className={styles.completedAmounts} aria-label="Bridge outcome" data-amount-provenance={simulated ? 'simulation' : 'receipt'}>
-      <div><dt>You sent</dt><dd>{sourceAmount === undefined ? 'Amount unavailable' : <ExactBridgeValue amount={sourceAmount} token={token} label="sent" />}</dd></div>
-      <div><dt>You received</dt><dd>{receivedAmount === undefined ? 'Amount unavailable' : <ExactBridgeValue amount={receivedAmount} token={token} label="received" />}</dd></div>
-    </dl> : <div className={styles.transfer} aria-label="Bridge outcome">
+    <div className={styles.transfer} aria-label="Bridge outcome" data-amount-provenance={simulated ? 'simulation' : delivered ? 'receipt' : 'mixed'}>
       <OutcomeAmount network={sourceChain} token={token} amount={sourceDisplay}
         label={sourceKnown ? 'Sent' : sourceConfirmed ? 'Source confirmed' : failed ? 'Source amount' : 'Requested'}
         missing={sourceConfirmed || failed ? 'Amount unavailable' : 'Not available'} secondary receipt={sourceKnown} inspectExact />
@@ -60,7 +56,7 @@ export function BridgeResultCard({
       <OutcomeAmount network={destinationChain} token={token} amount={destinationAmount}
         label={delivered ? 'Received' : 'Destination'}
         missing={delivered ? 'Amount unavailable' : failed ? 'Not verified' : 'Awaiting delivery'} receipt={delivered} inspectExact />
-    </div>}
+    </div>
     {!conciseComplete && <div className={styles.timeline} aria-label="Bridge progress"><BridgeReceiptRow label={sourceConfirmed ? "Source confirmed" : "Source transaction"} chain={sourceChain} hash={sourceTxHash} simulated={simulated} status={sourceReverted ? 'Reverted' : sourceConfirmed ? 'Confirmed' : sourceTxHash ? 'Pending' : 'Not submitted'} /><BridgeReceiptRow label={`Delivering to ${destinationChain}`} chain={destinationChain} hash={destinationTxHash} simulated={simulated} status={delivered ? 'Confirmed' : destinationTxHash ? 'Confirming' : 'Pending'} /></div>}
     {!conciseComplete && recipient && <div className={styles.recipient}><span>Recipient</span><span title={recipient}>{compactAddress(recipient)}</span></div>}
     {retryAction}
@@ -85,11 +81,6 @@ export function BridgeResultCard({
   </section>;
 }
 
-
-function ExactBridgeValue({ amount, token, label }: { amount: string; token: string; label: string }) {
-  const display = readableReviewAmount(amount);
-  return <details className={styles.compactExact}><summary aria-label={`Show exact ${label} amount: ${amount} ${token}`}>{display.shortened ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} {token}</summary><p>Exact {label}: {amount} {token}</p></details>;
-}
 
 function OutcomeAmount({ network, token, amount, label, missing, secondary = false, receipt = false, inspectExact = false }: {
   network: Chain; token: string; amount?: string; label: string; missing: string; secondary?: boolean; receipt?: boolean; inspectExact?: boolean;

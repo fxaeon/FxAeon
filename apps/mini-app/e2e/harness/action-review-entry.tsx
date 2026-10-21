@@ -21,6 +21,10 @@ type HarnessGasEstimate = {
   nativeBalanceWei?: bigint; requiredNativeCostWei?: bigint; insufficientNativeBalance?: boolean;
 };
 type HarnessState = {
+  receiptLogs?: Array<{ address: string; topics: string[]; data: string }>;
+  displayPrices?: Record<string, number>;
+  financialFacts?: boolean;
+  deferReceipt: boolean; receiptResolvers: Array<() => void>;
   reviewRoute?: PlannedRoute; reviewOperationLabel?: string;
   wallet: WalletState; version: number; mode: 'auto' | 'deferred'; failNextPrepare: boolean; executeVersion?: number; partialResult: boolean;
   deferRunner: boolean; failRunner: boolean; executionResolvers: Array<() => void>; deferWalletResponse: boolean; walletResolvers: Array<(reject?: boolean) => void>; lastExecutedRouteVersion?: number;
@@ -52,6 +56,7 @@ const H = (globalThis as typeof globalThis & { __actionReviewHarness?: HarnessSt
   wallet: { ready: true, authenticated: true, isEmbedded: false, connectionVersion: 1, address: '0x00000000000000000000000000000000000000aa', chainId: 1 },
   version: 1, mode: initialOptions?.mode ?? 'auto', failNextPrepare: false, executeVersion: undefined, partialResult: false, deferRunner: false, failRunner: false, executionResolvers: [], deferWalletResponse: false, walletResolvers: [],
   multiStepExecution: false, nonzeroTransactionValues: false, approvalRequired: false, sentTransactions: [],
+  deferReceipt: false, receiptResolvers: [],
   // 0.00084 ETH at the estimated gas; the wallet funds the 20%-buffered limit, a 0.001008 ETH max.
   gasCost: { status: 'current', checking: false, estimate: { status: 'current', nativeValueWei: 0n, executionGasFeeWei: 840000000000000n, totalNativeCostWei: 840000000000000n, requiredNativeCostWei: 1008000000000000n }, estimateIsCurrent: true },
   prepareCount: 0, planCount: 0, runnerCount: 0, sendCount: 0, draftSaveCount: 0, draftCancelCount: 0, draftRemoveCount: 0, feeQuoteCount: 0,
