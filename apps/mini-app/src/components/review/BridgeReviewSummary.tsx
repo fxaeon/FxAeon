@@ -10,11 +10,10 @@ import { copyText } from '@/lib/clipboard';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { readableReviewAmount, reviewFactLabel } from './reviewHierarchy';
 import styles from './ActionReviewPresentation.module.css';
-import { AmountUsd, FeeUsd, FeeAmount } from './AmountUsd';
+import { AmountUsd } from './AmountUsd';
 import { tokenAmountParts } from './transactionAmountPresentation';
 import { MetricLabel } from '../InfoHelp';
 import { ReviewFactValue } from './ReviewFactValue';
-import { reviewHelpDefinition } from './reviewHelp';
 import { ReviewTermRow } from './ReviewTermRow';
 
 function BridgeAmount({ fact, network, chainId, received = false }: {
@@ -59,7 +58,10 @@ function Recipient({ fact }: { fact: ReviewFact }) {
     setCopyState(copied ? 'copied' : 'unconfirmed');
   };
   const isAddress = /^0x[\da-f]{40}$/i.test(fact.value);
-  if (!isAddress) return <BridgeFact fact={fact} />;
+  if (!isAddress) return <div data-review-fact={fact.label} className={styles.bridgeFact}>
+    <MetricLabel label="Recipient" />
+    <span>{fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" label="Recipient unavailable" /> : <ReviewFactValue fact={fact} />}{fact.equivalent && <small>{fact.equivalent}</small>}</span>
+  </div>;
   return <div data-review-fact={fact.label} className={styles.recipientAddress}>
     <div><span>Recipient</span><button type="button" aria-label="Copy full recipient address" disabled={copyState === 'copying'} aria-busy={copyState === 'copying'} onClick={() => void copyRecipient()}>
       {copyState === 'copied' ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}<span>{copyState === 'copied' ? 'Copied' : copyState === 'copying' ? 'Copying…' : 'Copy'}</span>
@@ -70,22 +72,14 @@ function Recipient({ fact }: { fact: ReviewFact }) {
   </div>;
 }
 
-function BridgeFact({ fact, compact = false }: { fact: ReviewFact; compact?: boolean }) {
+function BridgeFact({ fact }: { fact: ReviewFact }) {
   const label = fact.label === 'Gas fee' ? (/max/i.test(fact.value) ? 'Network fee (max)' : 'Network fee') : fact.label === 'Estimated received' ? 'You receive · estimated' : fact.label === 'Minimum received' ? 'Min. received' : fact.label === 'Slippage' ? 'Max. slippage' : reviewFactLabel(fact.label);
-  const onlyMissingPriceImpact = fact.label === 'Price impact' && fact.value === 'Unavailable'
-    && fact.title === 'The accepted route does not provide a verified price-impact estimate.';
-  if (compact) return <ReviewTermRow fact={fact} displayLabel={label} />;
-  // Explanations stay beside labels. Values use one precision control, never
-  // nested disclosures; the original minimum and fee caveats remain available.
-  return <div data-review-fact={fact.label} className={styles.bridgeFact}>
-    <MetricLabel label={label} definition={reviewHelpDefinition(fact.label)} />
-    <span>{['Gas fee', 'Bridge fee'].includes(fact.label) ? <FeeAmount fact={fact} /> : fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" label={`${label} unavailable`} /> : <ReviewFactValue fact={onlyMissingPriceImpact ? { ...fact, title: undefined } : fact} />}{fact.equivalent && <small>{fact.equivalent}</small>}{fact.label === 'Total cost' && <FeeUsd fact={fact} />}</span>
-  </div>;
+  return <ReviewTermRow fact={fact} displayLabel={label} />;
 }
 
 /** Display only the accepted facts. No alternate quote, fee or timing math. */
-export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinationChainId, compactTerms = false, amountsOnly = false }: {
-  facts: readonly ReviewFact[]; allFacts: readonly ReviewFact[]; sourceChainId: number; destinationChainId?: number; compactTerms?: boolean; amountsOnly?: boolean;
+export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinationChainId }: {
+  facts: readonly ReviewFact[]; allFacts: readonly ReviewFact[]; sourceChainId: number; destinationChainId?: number;
 }) {
   const sent = facts.find(fact => fact.label === 'Amount' || fact.label === 'Input amount');
   const received = facts.find(fact => fact.label === 'Estimated received');
@@ -95,22 +89,19 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
   const priceImpact = allFacts.find(fact => fact.label === 'Price impact') ?? { label: 'Price impact', value: 'Unavailable', title: 'The accepted route does not provide a verified price-impact estimate.' };
   const slippage = allFacts.find(fact => fact.label === 'Slippage');
   const remaining = facts.filter(fact => !(fact.label === 'Delivery estimate' && /^(?:Not provided by bridge|Unavailable|Unknown|—)?$/i.test(fact.value.trim())) && fact !== sent && fact !== received && !(amountsShowNetworks && fact.label === 'Networks'));
-  return <section className={`${styles.bridgeSummary} ${!compactTerms && !amountsOnly ? styles.bridgeDecision : ''}`} aria-label="Bridge amounts and terms">
+  return <section className={`${styles.bridgeSummary} ${styles.bridgeDecision}`} aria-label="Bridge amounts and terms">
     <div className={styles.bridgeAmounts}>
       {sent && <BridgeAmount fact={sent} network={source} chainId={sourceChainId} />}
       {sent && received && <ArrowDown className={styles.bridgeDirection} size={17} aria-hidden="true" />}
       {received && <BridgeAmount fact={received} network={destination} chainId={destinationChainId} received />}
     </div>
-    {amountsOnly ? null : compactTerms ? <details className={styles.bridgeReviewedTerms}><summary>Reviewed terms</summary><p className={styles.reviewExplanation}>These are the accepted quote and limits, not final destination amounts.</p><div className={styles.bridgeTerms}>{remaining.map(fact => fact.label === 'Recipient'
-      ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
-      : <BridgeFact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div></details>
-      : <div className={styles.bridgeTerms}>
-        <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact compact key={fact.label} fact={fact} />)}{slippage && <BridgeFact compact fact={slippage} />}</div>
-        <div className={styles.costGroup}>{remaining.filter(fact => ['Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => <BridgeFact compact key={fact.label} fact={fact} />)}</div>
-        <BridgeFact compact fact={priceImpact} />
-        <div className={styles.bridgeContext}>{remaining.filter(fact => !['Minimum received', 'Quoted minimum received', 'Price impact', 'Slippage', 'Total cost', 'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => fact.label === 'Recipient'
-          ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
-          : <BridgeFact compact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div>
-      </div>}
+    <div className={styles.bridgeTerms}>
+      <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}{slippage && <BridgeFact fact={slippage} />}</div>
+      <div className={styles.costGroup}>{remaining.filter(fact => ['Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}</div>
+      <BridgeFact fact={priceImpact} />
+      <div className={styles.bridgeContext}>{remaining.filter(fact => !['Minimum received', 'Quoted minimum received', 'Price impact', 'Slippage', 'Total cost', 'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => fact.label === 'Recipient'
+        ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
+        : <BridgeFact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div>
+    </div>
   </section>;
 }
