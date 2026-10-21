@@ -204,11 +204,11 @@ test.describe("single-viewport route contract", () => {
         if (CTA_ROUTES.has(route)) {
           if (route === "/" || route === "/portfolio") {
             // The disconnected portfolio is the landing. Its real next
-            // actions are the three public product cards in Explore FxAeon;
+            // actions are the four public product cards in Explore FxAeon;
             // the Connect wallet control remains covered by the topbar check.
             const actions = page.getByRole("region", { name: "Explore FxAeon", exact: true });
-            await expect(actions.getByRole('link')).toHaveCount(3);
-            for (const label of ["Trade", "Earn", "Borrow"]) {
+            await expect(actions.getByRole('link')).toHaveCount(4);
+            for (const label of ["Trade", "Earn", "Borrow", "Move"]) {
               const action = actions.getByRole('link').filter({ has: page.getByText(label, { exact: true }) });
               await expect(action).toHaveAttribute('href', `/${label.toLowerCase()}`);
               await assertReachableAction(page, route, viewport, action);
