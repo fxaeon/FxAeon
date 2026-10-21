@@ -36,4 +36,6 @@ test('mobile review is content-height and keeps scrollable information separate 
   assert.match(css, /\.identityAmount \{[^}]*text-align: right/);
   assert.match(css, /\.actions > button \{ min-height: 48px/);
   assert.match(css, /\.reviewScrollBody \{ overflow-y: auto/);
+  assert.match(css, /\.reviewScrollBody \{[^}]*padding-block-end: 2px;/, 'fractional scroll ranges leave the last disclosure fully reachable');
+  assert.match(css, /\.editButton \{ min-width: 44px; width: 44px; margin: -6px 0 -6px 0;/, 'the end-aligned edit target remains inside the review width');
 });

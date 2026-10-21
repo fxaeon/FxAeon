@@ -491,7 +491,23 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(sheet).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Add to ETH Long', exact: true })).toBeVisible();
     await expect(review.getByRole('region', { name: 'Transaction summary', exact: true })).toContainText('Position #42');
-    expect(await review.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    // Crossing the breakpoint remounts the review outside the portal, then its
+    // layout effect measures the desktop scroll region. Visible copy alone is
+    // not evidence that those dimensions have settled. Allow no overflow once
+    // settled, and report the actual excess/descendants if it persists.
+    await expect.poll(() => review.evaluate((node) => {
+      const overflowPx = node.scrollWidth - node.clientWidth;
+      if (overflowPx <= 0) return null;
+      const bounds = node.getBoundingClientRect();
+      const left = bounds.left + node.clientLeft;
+      const right = left + node.clientWidth;
+      const offenders = Array.from(node.querySelectorAll<HTMLElement>('*')).flatMap(element => {
+        const rect = element.getBoundingClientRect();
+        if (!rect.width || !rect.height || rect.left >= left && rect.right <= right) return [];
+        return [{ tag: element.tagName, class: element.getAttribute('class'), fact: element.closest('[data-review-fact]')?.getAttribute('data-review-fact'), text: element.textContent?.trim().slice(0, 100), left: rect.left, right: rect.right, width: rect.width, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth }];
+      });
+      return { overflowPx, scrollWidth: node.scrollWidth, clientWidth: node.clientWidth, left, right, offenders: offenders.slice(0, 20) };
+    }), { timeout: 5_000, message: 'The settled desktop review has zero horizontal overflow' }).toBeNull();
     await page.screenshot({ path: testInfo.outputPath('action-review-desktop.png') });
   });
 
