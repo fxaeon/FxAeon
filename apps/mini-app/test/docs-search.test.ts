@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement } from 'react';
+import { createElement, Fragment } from 'react';
 import { readFileSync } from 'node:fs';
-import { createDocsEntries, searchDocs, searchExcerpt, textFromContent } from '../src/app/docs/docsSearch';
+import { createDocsEntries, createHeadingEntries, legacyDocsDestinations, searchDocs, searchExcerpt, textFromContent } from '../src/app/docs/docsSearch';
 import { OFFICIAL_FX_METHODS } from '../src/lib/fx/types';
 
 const entries = createDocsEntries([
@@ -50,6 +50,38 @@ test('result excerpts include matching content and stay bounded', () => {
   assert.equal(searchExcerpt('A short note.', 'missing'), 'A short note.');
 });
 
+test('method search targets the exact method and keeps neighboring explanations separate', () => {
+  const content = createElement(Fragment, null,
+    createElement('h3', { id: 'getFxSaveBalance' }, 'getFxSaveBalance'),
+    createElement('p', null, 'Read balanceWei and assetsWei without signing.'),
+    createElement(Fragment, null,
+      createElement('h3', { id: 'withdrawFxSave' }, 'withdrawFxSave'),
+      createElement('p', null, 'Prepare a queued redemption.')),
+    createElement('h3', null, 'Other guidance'),
+    createElement('p', null, 'Unrelated text does not describe the previous method.'),
+  );
+  const sections = [{ id: 'sdk-earn', title: 'fxSAVE methods', content }];
+  const methods = createHeadingEntries(sections, 'SDK reference', () => '/docs/sdk/earn');
+  const index = [...createDocsEntries(sections, 'SDK reference', '/docs/sdk'), ...methods];
+  assert.equal(searchDocs(index, 'getFxSaveBalance')[0].href, '/docs/sdk/earn#getFxSaveBalance');
+  assert.match(methods[0].text, /assetsWei/);
+  assert.doesNotMatch(methods[0].text, /redemption/);
+  assert.match(methods[1].text, /redemption/);
+  assert.doesNotMatch(methods[1].text, /Unrelated/);
+});
+
+test('legacy bookmarks include nested headings, section headings and aliases', () => {
+  const destinations = legacyDocsDestinations([{
+    id: 'history', aliases: ['recovery'], content: createElement(Fragment, null,
+      createElement('ol', null, createElement('li', null, createElement('h3', { id: 'history-retry' }, 'Retry')))),
+  }], id => `/docs/guide/${id}`);
+  assert.equal(destinations.history, '/docs/guide/history#docs-page-heading');
+  assert.equal(destinations['history-heading'], destinations.history);
+  assert.equal(destinations.recovery, destinations.history);
+  assert.equal(destinations['history-retry'], '/docs/guide/history#history-retry');
+  assert.equal(destinations['main-content'], undefined);
+});
+
 test('public reference documents exactly the locked SDK method surface', () => {
   const article = readFileSync(new URL('../src/app/docs/sdk/SdkArticle.tsx', import.meta.url), 'utf8');
   const methodIds = [...article.matchAll(/<h3 id="([^"]+)"/g)].map((match) => match[1]);
@@ -72,16 +104,16 @@ test('each action guide carries the steps and questions its page links to', () =
   const article = readFileSync(new URL('../src/app/docs/ProductArticle.tsx', import.meta.url), 'utf8');
   const section = (id: string) => article.slice(article.indexOf(`{ id: '${id}'`), article.indexOf('</> },', article.indexOf(`{ id: '${id}'`)));
   const guides = {
-    trade: ['Pick a direction.', 'Choose leverage.', 'Review, then sign.', 'What can I trade here?', 'How do I close or adjust a position?', 'What do position values mean?', 'Why can a review change before I sign?'],
-    earn: ['Deposit fxUSD or USDC.', 'Hold fxSAVE.', 'Withdraw your way.', 'Is the APY guaranteed?', 'What does the stability pool do?', 'How does a queued withdrawal work?', 'Can I use fxSAVE on Base?'],
-    borrow: ['Deposit collateral.', 'Borrow up to the limit.', 'Repay to withdraw.', 'What does the loan-to-value limit mean?', 'Can I add collateral or borrow more later?', 'What happens if prices fall?'],
-    move: ['Choose route and amount.', 'Approve and send.', 'Delivery.', 'How long does a move take?', 'Can I send to another wallet?', 'When would I use expert mode?'],
+    trade: ['Choose the market and side.', 'Set leverage.', 'Review and confirm.', 'trade-rebalancing', 'History &amp; recovery'],
+    earn: ['fxUSD, USDC, and fxSP', 'base-pool-share units', 'not a separately enforced final fxSAVE minimum', 'earn-claim', 'not a guaranteed return'],
+    borrow: ['Choose collateral.', 'Review the loan.', 'loan-to-value', 'temporary funding charges', 'Repay debt'],
+    move: ['Choose the direction.', 'Check the recipient.', 'Review and send.', 'source transaction', 'destination delivery', 'Custom bridge contracts'],
   };
   for (const [id, copy] of Object.entries(guides)) {
     const text = section(id);
     // Each page's "How it works" link lands on its section; the parts below have their own anchors.
     assert.match(text, new RegExp(`<h3 id="${id}-steps">[^<]+</h3>\\s*<ol>`));
-    assert.match(text, new RegExp(`<h3 id="${id}-questions">Before you `));
+    assert.match(text, new RegExp(`<h3 id="${id}-questions">[^<]+</h3>`));
     for (const phrase of copy) assert.ok(text.includes(phrase), `/docs#${id} explains: ${phrase}`);
     // Copy written for the action page must not point back at it from Docs.
     assert.doesNotMatch(text, /\bhere on (?:Earn|Borrow|Trade|Move)\b/);
@@ -99,8 +131,8 @@ test('visible topic-card descriptions participate in overview search', () => {
   const overview = createDocsEntries([
     { id: 'overview', title: 'Overview', content: createElement('div', null, descriptions.map((text, index) => createElement('span', { key: index }, text))) },
   ], 'Product guide', '/docs');
-  assert.equal(searchDocs(overview, 'repayments')[0]?.href, '/docs#overview');
-  assert.equal(searchDocs(overview, 'Understand ETH and BTC longs')[0]?.href, '/docs#overview');
+  assert.equal(searchDocs(overview, 'manage debt')[0]?.href, '/docs#overview');
+  assert.equal(searchDocs(overview, 'ETH BTC position')[0]?.href, '/docs#overview');
 });
 
 test('fxSAVE instant fee precision stays distinct from pool and router fees', () => {

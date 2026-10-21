@@ -1,37 +1,112 @@
-# FxAeon landing
+# FxAeon landing site
 
-Landing page for `fxaeon.xyz`. The page is statically built, with a same-origin Pages Function for public market data. It introduces Trade, Earn, Borrow, and Move on f(x) Protocol and links to the app at `https://fxaeon.com/` and its Telegram Mini App.
+The independent public site at [fxaeon.xyz](https://fxaeon.xyz) introduces Trade, Earn, Borrow, and Move, then links to the financial app at [fxaeon.com](https://fxaeon.com) and its Telegram Mini App.
 
-## Preview and build
+The page is static. A same-origin Pages Function supplies validated public display data. The site does not initialize a wallet, authenticate an account, or create protocol transaction plans.
 
-```sh
+## Build and preview
+
+From the repository root:
+
+~~~sh
+pnpm build:landing
+pnpm preview:landing
+~~~
+
+Or without installing workspace dependencies:
+
+~~~sh
 cd apps/landing
 node build.mjs
 node serve.mjs
-```
+~~~
 
-The build writes static files to `dist/`; the preview server listens at `http://localhost:4173` (or `PORT`) and serves the local `/api/market-data` route. It needs Node.js but no installed package dependencies. For Cloudflare Pages, set the project root to `apps/landing`, build command to `node build.mjs`, and output directory to `dist`. Deploy from that project root (or use Wrangler's `--cwd apps/landing`) so Pages discovers `apps/landing/functions/api/market-data.ts`; publishing `dist` as a static-only artifact omits this route and leaves live figures unavailable. The static page remains usable without the feed, but it must show unavailable values rather than substitute sample data. The Wrangler config pins the Pages build image to Node `22.23.2` and sets `SKIP_DEPENDENCY_INSTALL=true`. Keep those controls in `wrangler.toml` instead of duplicating them in dashboard variables. Attach only `fxaeon.xyz` to this project; `fxaeon.com` belongs to the financial app project.
+Output is `dist/` relative to this package. The local server listens at [localhost:4173](http://localhost:4173), or `PORT`, and also serves `/api/market-data`.
 
-Built stylesheet and script URLs include a shared content version, including imports within the calculator's module graph. Unchanged builds retain their URLs; changing any browser script or stylesheet refreshes the graph on the next page visit, even when the browser still has cached assets from an earlier deployment.
+Browser script and stylesheet URLs share a content version, including calculator-module imports. Unchanged builds retain URLs; browser-code or stylesheet changes update the graph's version.
 
-Set `NEXT_PUBLIC_TELEGRAM_APP_URL` at build time to the bot or named Mini App launcher, such as `https://t.me/<bot>[/<app>]`, optionally with one `startapp` value. The build validates that URL and uses it for the Telegram actions and QR code. The hero pairs Open web app and Open in Telegram actions at every viewport size. The four product cards link directly to their matching web routes. The amount explorer, Telegram section, and footer provide the lower-page product and support paths.
+## Entry and configuration
 
-## Visual and performance notes
+`NEXT_PUBLIC_TELEGRAM_APP_URL` optionally selects the bot or named Mini App launcher at build time. It must use the accepted HTTPS `t.me` format; the build validates it and generates the QR code from the same URL. No Privy ID, RPC endpoint, or secret is needed.
 
-The page uses a dark-only palette, Inter for interface copy, and Manrope for headlines and the wordmark. Its production footer uses Poppins for body copy and Manrope for headings. All three font families are self-hosted with their OFL notices; retired concept artwork and unused legacy fonts are excluded from the deployed files. The hero credits “Powered By f(x) SDK” beneath the lede, with no extra badge row. Its softly lit sculpture is decorative; the four product cards keep their production bento layout and direct web routes. The footer keeps its production layout with an all-width web launch link.
+The hero keeps web and Telegram launch actions at every viewport size. Four product cards link directly to their web routes. The amount explorer, Telegram section, and footer preserve later entry points. Navigation uses a native modal dialog on widths up to 760px, with focus handling, close control, link dismissal, and Escape behavior.
 
-The `#outcomes` section is headed “What your crypto can do.” Its calculator has a labelled starting value, USD currency marker, and $100, $1,000, and $10,000 presets. Earn, Borrow, and Trade tabs use that same dollar amount: a one-year projection at the current fxSAVE APY unchanged; a 50% loan-to-value calculation for fxUSD borrowing; and an ETH long exposure whose gross outcome responds to a ±10% ETH price move and the selected leverage. On phones, the amount controls lead into the selected result and its app action. These are scenarios, not account data, executable quotes, borrowing limits, or liquidation estimates. The calculator does not connect to a wallet. Its amount and leverage controls update the selected scenario; they do not create a quote.
+## Display data and scenarios
 
-`/api/market-data` returns public, display-only market data from fixed sources without API keys. fxSAVE APY and vault TVL are read from Aladdin's official `concentrator_aToken_tvl_apy` feed and accepted only for the verified fxSAVE contract `0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39`. The feed has no source-update timestamp; the value expires five minutes after it was checked by the server. ETH is quoted using the WETH contract and BTC using WBTC from DefiLlama's address-keyed price feed. Each quote must have confidence of at least 0.5, a source timestamp no more than five minutes old, and no more than two minutes in the future. Expired or invalid figures become unavailable rather than retaining stale values. The proof strip keeps these details out of a visible data-source disclosure: each value's title metadata names its provider and gives the APY/TVL checked time or the price's source-update time. The Retry live data control stays hidden until a metric is unavailable or stale, and appears while a manual retry is running. The endpoint times out upstream reads after eight seconds, caps response bodies at 256 KB, and caches a validated response for at most 60 seconds. A failed source does not erase valid data from another source.
+The browser requests only same-origin resources. [functions/api/market-data.ts](functions/api/market-data.ts) reads fixed public upstreams without API keys.
 
-The “0%” statement refers to fxMINT's base annual interest in normal conditions, not a promise of zero cost. Official f(x) docs note opening and closing fees and a temporary borrowing/funding cost under peg stress; the size and conditions can change through governance. See [fxMINT borrowing](https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/fxmint-borrowing-fxusd-against-your-btc-and-eth), [funding-cost conditions](https://fxprotocol.gitbook.io/fx-docs/faq/how-does-f-x-protocol-minimize-funding-costs-or-annual-interests), and [current documented fees](https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/fees).
+| Value | Validation |
+| --- | --- |
+| fxSAVE APY and TVL | Official Aladdin `concentrator_aToken_tvl_apy` feed and verified fxSAVE contract `0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39` |
+| APY/TVL freshness | Feed has no source-update timestamp; expires five minutes after the server check |
+| ETH/BTC prices | DefiLlama address-keyed WETH/WBTC quotes, confidence at least 0.5 |
+| Price timestamps | At most five minutes old and at most two minutes in the future |
 
-The hero uses `sculpture.js`, an original dependency-free WebGL renderer, to tessellate and curve the exact two-part FxAeon mark with rounded bevels and softly lit cobalt and light-blue materials. Its eight-second choreography rests in the assembled pose, peels the halves through depth, and settles back. A fine pointer adds a small tilt. Rendering is capped at 30 frames per second and 1.5 device pixels per CSS pixel, and pauses offscreen or in a hidden tab. Reduced motion renders one still frame. WebGL failure, context loss, save-data, and disabled JavaScript leave the responsive `capital-sculpture-desktop.png` or `capital-sculpture-mobile.png` visible; both are rendered from this same geometry. Text and launch controls never depend on graphics support.
+Upstream reads have an eight-second deadline and a 256 KB body cap. Validated responses cache for at most 60 seconds. One source's failure does not erase another valid source. Invalid/expired figures become unavailable; they are never replaced with sample data.
 
-Phantom informed the generous typography, contained cinematic composition, and playful material treatment. The paired sculpture is FxAeon's own mark and original code; no external artwork, library, or runtime is loaded. Browser requests stay same-origin; the server-side Pages Function reads the fixed Aladdin and DefiLlama endpoints. No remote fonts, analytics, or third-party browser data requests are used. Motion follows the system reduced-motion preference; there is no page-level motion control.
+Value title metadata retains provider and relevant check/source times. Retry appears when needed or while a manual retry runs. These are display values, not execution oracles.
 
-The mobile navigation uses a native modal dialog with browser focus handling and Escape behavior. The menu opens from the header button; its close button or a navigation link closes it. At widths up to 760 pixels the inline desktop navigation is replaced by the menu. Web and Mini App launch links remain available at every viewport size; no user-agent detection is used.
+The “What your crypto can do” calculator uses one labelled starting value and $100/$1,000/$10,000 presets:
+
+| Scenario | Meaning |
+| --- | --- |
+| Earn | One-year projection assuming current fxSAVE APY stays unchanged |
+| Borrow | Illustration at 50% loan-to-value |
+| Trade | ETH long gross exposure under a selected leverage and ±10% ETH move |
+
+Scenarios are not account balances, executable quotes, live borrowing limits, or liquidation estimates. The calculator connects to no wallet. Changes to its controls do not create a transaction plan.
+
+## Artwork, typography, and motion
+
+The dark-only site uses self-hosted Inter, Manrope, and footer Poppins with their OFL notices. Primary brand blue and contrast variants follow [brand guidance](../../docs/brand-assets.md). Retired artwork and unused legacy fonts are excluded from output.
+
+[sculpture.js](sculpture.js) tessellates and curves the original two-part FxAeon mark into softly lit cobalt/light-blue forms. It has no graphics-library dependency. Eight-second motion rests, separates through depth, and settles; fine pointers add a restrained tilt.
+
+Rendering is capped at 30 frames per second and 1.5 device pixels per CSS pixel. It pauses offscreen/in hidden documents. Reduced motion renders a still frame. Save-data, disabled JavaScript, WebGL failure, and context loss preserve responsive fallback images generated from the same geometry. Text and entry actions never depend on graphics support.
+
+Regenerate both fallbacks after changing geometry, lighting, or framing:
+
+~~~sh
+node scripts/render_landing_sculpture.mjs
+~~~
+
+Run that command from the repository root, then inspect phone and desktop results. The composition was informed by visual references, but the mark, geometry, renderer, and assets are FxAeon's own. No remote artwork, runtime library, analytics, or browser font request is introduced.
+
+## Social preview
+
+Both public sites use the same checked-in 1200×630 image:
+`assets/social-preview.png` here and
+`apps/mini-app/public/social-preview.png` in the financial app. The editable
+composition is [design/social-preview.html](design/social-preview.html).
+It uses the local mark, Manrope font, and sculpture fallback.
+
+Regenerate from the repository root with the workspace's Playwright browser:
+
+~~~sh
+node scripts/render_social_preview.mjs
+~~~
+
+The [renderer](../../scripts/render_social_preview.mjs) captures the composition
+and copies the identical PNG to both locations. Inspect and commit both copies
+together. Normal builds copy the existing image, and requests serve a static
+asset; no runtime image generation is needed. Social-profile banner and avatar
+artwork is separate; see [brand assets](../../docs/brand-assets.md).
+
+## Hosting
+
+The landing is the separate `fxaeon-landing` Pages project with root `apps/landing`, command `node build.mjs`, output `dist`, and domain `fxaeon.xyz`.
+
+Deploy from this package root, or use Wrangler's `--cwd apps/landing`, so Pages discovers its Functions directory. A static-only `dist` upload from the wrong root omits market data. The page remains usable, with affected live figures unavailable.
+
+[wrangler.toml](wrangler.toml) records Node `22.23.2` and `SKIP_DEPENDENCY_INSTALL=true`; avoid conflicting dashboard duplicates. The financial app uses a different project/root. See [deployment](../../docs/deployment.md).
 
 ## Verification
 
-`pnpm test:landing` checks product links and copy, responsive web routing, keyboard-accessible markup, menu and dark-only behavior, reduced-motion rules, CSP and static headers, Telegram URL validation and QR parity with the app's pinned encoder, local font notices, the static build, icon SVGs and their source license, market-data validation and freshness, and deployed asset references. The market-data tests cover stale/future quotes, malformed or wrong-address fxSAVE data, partial feeds, request races, resume, offline state, bounded response bodies, timeout, fixed-source routing, and endpoint caching. `pnpm test:landing:browser` checks responsive web routes, overflow, menu keyboard behavior, reduced motion, fresh/stale data rendering, sculpture pixel changes and pause behavior, graphics/data-saving/JavaScript fallbacks, and that the browser makes no off-site requests. Run `node scripts/render_landing_sculpture.mjs` from the repository root after changing sculpture geometry, lighting, or framing to regenerate its two fallback images. The visual and product checks establish behavior and layout; they do not measure or claim conversion uplift.
+~~~sh
+pnpm test:landing
+pnpm test:landing:browser
+~~~
+
+Static tests cover routing and launcher parity, semantic markup, build output, licenses, CSP/headers, data validation/freshness, partial failures, races, offline/resume, body/deadline bounds, and cache behavior. Browser checks cover responsive overflow, native menu keyboard interaction, data states, artwork pixel changes/pause behavior, reduced motion, graphics/data-saving/JavaScript fallbacks, and the absence of off-origin browser requests.
+
+Inspect actual renders after visible changes. These tests establish their documented behavior and layout, not conversion uplift, protocol execution, or production wallet state.

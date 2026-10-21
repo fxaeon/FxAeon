@@ -90,7 +90,7 @@ export function BorrowSections({ ltvLimit }: { ltvLimit: string }) {
       <StatGrid stats={[
         // The displayed pool maximum is distinct from the guarded form ceiling.
         { label: 'Pool maximum LTV', value: ltvLimit, hint: 'The form keeps a buffer below this limit' },
-        { label: 'Annual interest', value: '0%', hint: 'In normal conditions; protocol fees apply' },
+        { label: 'Borrowing cost', value: 'Protocol fees', hint: 'Temporary borrowing costs can also apply' },
         { label: 'Collateral', value: 'ETH · BTC', hint: 'ETH, WETH, stETH, wstETH, or WBTC' },
         { label: 'You borrow', value: 'fxUSD', hint: 'On Ethereum' },
       ]} />

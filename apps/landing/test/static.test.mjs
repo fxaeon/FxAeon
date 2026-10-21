@@ -60,7 +60,7 @@ function referenceQr(value, level, boostLevel) {
 }
 
 test('brand metadata, product artwork, and the official protocol mark stay in sync', async () => {
-  for (const asset of ['assets/fxaeon-mark.svg', 'assets/fxaeon-banner.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
+  for (const asset of ['assets/fxaeon-mark.svg', 'assets/social-preview.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
     await access(resolve(root, asset));
   }
   assert.match(html, /<html lang="en" data-theme="dark">/);

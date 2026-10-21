@@ -1,30 +1,47 @@
-# Browser test gates
+# Browser gate map
 
-The production mini-app suite and isolated component harnesses use separate Playwright configs. `pnpm test:e2e` runs only the production export suite; it does not collect the isolated harness specs.
+Built-route tests and isolated harnesses solve different problems. `pnpm test:e2e` collects the production-export suite only; it does not collect all the isolated projects.
 
-| Gate | Fixture and config | Focused command |
+Run these commands from the repository root. All nine isolated gates are included in `pnpm verify`.
+
+| Gate | Collection/config under `apps/mini-app` | Command |
 | --- | --- | --- |
-| Production routes and interactions | `apps/mini-app/e2e/specs`, default Playwright config | `pnpm test:e2e` |
-| Borrow selection eligibility | `apps/mini-app/e2e/borrow-harness`, `e2e/borrow-harness.config.ts` | `pnpm test:e2e:borrow-harness` |
-| Move review layout | `apps/mini-app/e2e/move-harness`, `e2e/move-harness.config.ts` | `pnpm test:e2e:move-harness` |
-| Positions: action review layout, position rows and the list-to-position flow, and a new position carried from Trade's result to its page | `apps/mini-app/e2e/positions-harness`, `e2e/positions-harness.config.ts` | `pnpm test:e2e:positions-harness` |
-| Privy embedded send adapter (its spec sits in `e2e/specs`, so `pnpm test:e2e` runs it too) | `apps/mini-app/e2e/specs/privy-send-adapter.spec.ts`, `e2e/privy-send-harness.config.ts` | `pnpm test:e2e:privy-send-harness` |
-| Trade: split slider and outcome preview, native Max, review preparation and gas checks | `apps/mini-app/e2e/trade-harness`, `e2e/trade-harness.config.ts` | `pnpm test:e2e:trade-harness` |
-| Overlay lifecycle, app shell, Portfolio first load, position brake, portfolio asset states, and wallet refresh | `apps/mini-app/e2e/overlay-specs`, `playwright.overlay.config.ts` | `pnpm test:e2e:overlay` |
-| Product state catalog | `apps/mini-app/e2e/state-lab`, `playwright.state-lab.config.ts` | `pnpm test:e2e:state-lab` |
+| Built routes and interactions | `e2e/specs`; `playwright.config.ts` | `pnpm test:e2e` |
+| Borrow eligibility | `e2e/borrow-harness`; `e2e/borrow-harness.config.ts` | `pnpm test:e2e:borrow-harness` |
+| Move review/session behavior | `e2e/move-harness`; `e2e/move-harness.config.ts` | `pnpm test:e2e:move-harness` |
+| Positions, review layout, list/detail continuity | `e2e/positions-harness`; `e2e/positions-harness.config.ts` | `pnpm test:e2e:positions-harness` |
+| Privy send adapter | `e2e/specs/privy-send-adapter.spec.ts`; `e2e/privy-send-harness.config.ts` | `pnpm test:e2e:privy-send-harness` |
+| Trade, Max, outcome and review preparation | `e2e/trade-harness`; `e2e/trade-harness.config.ts` | `pnpm test:e2e:trade-harness` |
+| Telegram-only provider routing | `e2e/wallet-provider-harness.config.ts` | `pnpm test:e2e:wallet-provider-harness` |
+| Mobile wallet-browser handoff | `e2e/mobile-wallet-harness.config.ts` | `pnpm test:e2e:mobile-wallet-harness` |
+| Overlays, amount entry, page and portfolio states | `e2e/overlay-specs`; `playwright.overlay.config.ts` | `pnpm test:e2e:overlay` |
+| Deterministic state catalog | `e2e/state-lab`; `playwright.state-lab.config.ts` | `pnpm test:e2e:state-lab` |
 
-`pnpm verify` runs the isolated browser gates sequentially after the shared build checks. This keeps the fixtures out of normal product E2E and limits simultaneous browser memory use. A nonzero result from any focused suite makes `pnpm verify` fail and names the failing gate in its output.
+The Privy send spec is also collected by the built-route suite. Its focused configuration is useful for iteration, but that overlap is not additional independent real-wallet coverage.
 
-The production suite includes route-specific metadata assertions before
-hydration and compact form checks at 393×852. It checks review-action clearance,
-44px amount shortcuts, and reachability at 200% text in Light (official) and
-Dark themes. The overlay suite verifies portfolio asset loading, empty,
-unavailable/retry, and refreshing-with-holdings states; its wallet refresh
-harness covers fan-out, account changes, synchronous reader failures, and
-retry. These suites do not establish live RPC health or protocol execution.
+## Select a focused test
 
-Protected fork coverage has separate commands and credentials; it is not part
-of `pnpm verify`. See [testing](testing.md) for the Anvil scope and
-[release validation](release-validation.md) for revision-specific results.
+Pass the spec name or Playwright filter after its script:
 
-The UI state lab's fixture states, capture instructions, and visual-comparison policy are documented in [ui-state-lab.md](ui-state-lab.md).
+~~~sh
+pnpm test:e2e:overlay move-form
+pnpm test:e2e:trade-harness --grep "review"
+~~~
+
+The relevant package script owns its config and collection. Inspect that config before assuming a test is covered by another gate.
+
+Built-route checks exercise exported metadata, navigation, form reachability, overflow, amount controls, and review interactions. Isolated suites preserve real controllers/components and replace wallet, SDK, RPC, or market leaves as documented by their fixtures. They cover their assertions; none independently establishes live RPC health, real signing, or production account configuration.
+
+## Run collection and artifacts correctly
+
+Local built-route tests rebuild unless `E2E_BUILD=0` explicitly requests an existing artifact. Avoid stale-server reuse for release checks. The [E2E package guide](../apps/mini-app/e2e/README.md) explains setup and reports.
+
+`pnpm verify` runs isolated projects with at most two concurrent browsers, or serially on constrained hosts. CI divides them into three bounded groups, separately from the four built-route shards. A nonzero focused suite fails the gate and identifies its name.
+
+The [UI state lab](ui-state-lab.md) has a separate visual-baseline policy. Intentional snapshot updates require inspecting images and documenting why behavior or appearance changed; re-recording is not a remedy for an unexplained failure.
+
+## What needs additional evidence
+
+Use [protected Ethereum fork tests](testing.md#protected-ethereum-fork-tests) for their supported protocol execution. Real native Telegram login/recovery, physical wallet handoff, live Base delivery, and emitted SDK chunk loading require their own appropriately scoped checks.
+
+Do not describe a mocked provider run as live authentication or a rendered review as a signed transaction. Record the revision, fixture, environment, and limitations with each result.

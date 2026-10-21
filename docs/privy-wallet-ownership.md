@@ -1,5 +1,9 @@
 # Privy wallet ownership and signing boundaries
 
+Implementation reference for [the wallet bridge](../apps/mini-app/src/lib/wallet/PrivyWalletBridge.ts).
+Start with [architecture](architecture.md#wallet-selection) for provider selection,
+or [browser gates](browser-test-gates.md) for the registered verification commands.
+
 The ordinary web app uses the browser-only Wagmi session owner. Telegram uses
 Privy. The route data provider remains connector-free in both modes; its Wagmi
 config is not a signer and does not reconnect wallets.

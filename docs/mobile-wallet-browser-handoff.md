@@ -1,5 +1,9 @@
 # Wallet selection and mobile browser handoff
 
+Implementation reference for the ordinary-web wallet flow. Use [local setup](../SETUP.md#wallet-modes)
+for configuration and [browser gates](browser-test-gates.md) for deterministic testing.
+The device-validation limits below remain part of the release contract.
+
 FxAeon uses a browser-only Wagmi session owner on ordinary web and its existing
 Privy flow in Telegram. Shared Wagmi data clients remain read-only. Browser
 signing configs use exactly one selected provider, with automatic discovery and

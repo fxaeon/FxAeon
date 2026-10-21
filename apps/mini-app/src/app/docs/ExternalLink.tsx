@@ -1,7 +1,7 @@
 'use client';
 
 import type { MouseEvent, ReactNode } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import DocsIcon from './DocsIcon';
 import { openExternalLink } from '@/lib/telegram';
 import styles from './Docs.module.css';
 
@@ -16,6 +16,6 @@ export function ExternalLink({ href, children }: { href: string; children: React
     if (openExternalLink(href)) event.preventDefault();
   };
   return <a href={href} target="_blank" rel="noopener noreferrer" onClick={open}>
-    {children}<ArrowUpRight className={styles.externalMark} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span>
+    {children}<DocsIcon name="ArrowUpRight" className={styles.externalMark} /><span className="sr-only"> (opens in a new tab)</span>
   </a>;
 }

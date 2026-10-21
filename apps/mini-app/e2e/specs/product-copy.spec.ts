@@ -6,7 +6,7 @@ test.describe('product copy and session visibility', () => {
   test('root identifies the Portfolio app and its canonical domain', async ({ page, requests }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveURL(/\/$/);
-    await expect(page).toHaveTitle('Portfolio · FxAeon');
+    await expect(page).toHaveTitle('FxAeon · Your DeFi, in motion.');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', /^https:\/\/fxaeon\.com\/?$/);
     await expect(page.getByRole('heading', { name: 'Portfolio', exact: true })).toBeVisible();
     assertNoBackendRequests(requests);

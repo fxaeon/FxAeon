@@ -1,45 +1,55 @@
-# Documentation
+# FxAeon developer handbook
 
-The financial app is hosted at [fxaeon.com](https://fxaeon.com/); the separate
-public landing site is [fxaeon.xyz](https://fxaeon.xyz/). The app's read-only
-product guide is available under **More → FxAeon docs** and at `/docs`.
+Build and maintain the web app, Telegram Mini App, and independent landing site. The handbook describes the repository's implemented behavior; the app's separate [product guide](https://fxaeon.com/docs) is written for people using the product.
 
-## Maintainer guides
+## Start here
 
-| Guide | Purpose |
+| Task | Guide |
 | --- | --- |
-| [Design contract](../DESIGN.md) | Shared app surfaces, themes, responsive controls, and transaction presentation |
-| [Architecture](architecture.md) | App boundaries, transaction flow, and state ownership |
-| [Product behavior](product-behavior.md) | App areas, transaction reviews, and compact mobile layout |
-| [SDK scope](sdk-scope.md) | Locked f(x) SDK method contract and reviewed package patch |
-| [Security](security.md) | Trust assumptions and controls |
-| [Testing](testing.md) | Local, CI, browser, and protected fork checks |
-| [Browser test gates](browser-test-gates.md) | The production suite and isolated browser harnesses, with their commands |
-| [UI state lab](ui-state-lab.md) | The development-only state catalog and its approved screenshots |
-| [Release validation record](release-validation.md) | Revision-specific automated and visual evidence |
-| [Product review captures](review/README.md) | Curated mobile screenshots from the implementation |
-| [Deployment](deployment.md) | App and landing Cloudflare Pages configuration |
-| [Brand assets](brand-assets.md) | Marks, themes, and image-use rules |
-| [Position screenshot fixture](position-screenshot-fixture.md) | Capture provenance and regeneration commands |
-| [Launch checklist](launch-readiness.md) | Durable release review items |
+| Install and run locally | [Local development](../SETUP.md) |
+| Prepare a focused contribution | [Contributing](../CONTRIBUTING.md) |
+| Understand system and signing boundaries | [Architecture](architecture.md) and [security](security.md) |
+| Find the right test | [Testing](testing.md) and [browser gate map](browser-test-gates.md) |
+| Deploy or roll back | [Deployment](deployment.md) and [release checklist](launch-readiness.md) |
 
-Start with [`../SETUP.md`](../SETUP.md) to run the workspace and
-[`../CONTRIBUTING.md`](../CONTRIBUTING.md) before changing it. The landing
-artwork source prompt is retained in [`landing-art-prompt.md`](landing-art-prompt.md).
+The financial app is [fxaeon.com](https://fxaeon.com); [fxaeon.xyz](https://fxaeon.xyz) is the independent marketing site. Their builds, Pages Functions, configuration, and domains are separate.
 
-Generated screenshot manifests and their image files are evidence artifacts;
-they are not substitutes for the separate automated test gates described in
-[`testing.md`](testing.md).
+The public guide has product topics under `/docs/guide/` and SDK topics under
+`/docs/sdk/`, including setup, positions, borrowing, bridging, Earn, execution,
+and boundaries. Repository operational instructions stay in this handbook.
 
-## Dated records and research
+## Implementation references
 
-These describe the code as it was on their date; later changes may not be
-reflected in them.
-
-| Record | Subject |
+| Area | Reference |
 | --- | --- |
-| [Runtime hardening, 3 October 2026](runtime-hardening-2026-10.md) | Review, history, portfolio-read and gas changes, with their validation limits |
-| [Privy Telegram audit, 3 October 2026](privy-telegram-miniapp-audit.md) | Privy configuration for the Telegram Mini App |
-| [Design critique, 7 October 2026](design-critique-2026-10.md) | Interaction and visual craft against Uniswap and Jumper |
-| [Uniswap and Balancer](frontend-research-uniswap-balancer.md), [Jumper and Curve](frontend-research-jumper-curve.md) | Frontend data and transaction patterns, from pinned source |
-| [Performance notes](performance/) | Long review preparation, SDK pool reads, market render work, and RPC chain proof |
+| Allowed protocol methods, patch, amounts, units, and capability matrix | [Official SDK scope](sdk-scope.md) |
+| Product areas, reviews, receipts, and unavailable states | [Product behavior](product-behavior.md) |
+| Shared visual and interaction contracts | [Design system](../DESIGN.md) |
+| Ordinary-web provider selection and mobile navigation | [Wallet browser handoff](mobile-wallet-browser-handoff.md) |
+| Accepted Privy wallet identity, cancellation, and dispatch authority | [Privy wallet ownership](privy-wallet-ownership.md) |
+| Development-only deterministic component catalog | [UI state lab](ui-state-lab.md) |
+| Marks, licenses, current appearance, and capture provenance | [Brand assets](brand-assets.md) |
+| Populated position capture setup | [Position screenshot fixture](position-screenshot-fixture.md) |
+
+Package guides: [financial app](../apps/mini-app/README.md), [landing](../apps/landing/README.md), and [built-browser tests](../apps/mini-app/e2e/README.md).
+
+## What establishes a result
+
+The selected wallet authorizes signing; verified chain receipts and current canonical reads establish transaction and protocol state. Indexers, caches, local drafts, display prices, and screenshots have narrower roles.
+
+Likewise, test evidence has a scope:
+
+- Built-route tests cover the delivered app with credential-free or deterministic boundaries.
+- Isolated harnesses exercise real components and controllers with synthetic services.
+- Protected Anvil tests execute against disposable local Ethereum forks.
+- Native Telegram login, physical wallet-browser handoff, and real Base delivery need separate validation.
+- A release record describes the revision named in that record, not the current branch automatically.
+
+See [testing](testing.md) for commands and evidence requirements, and the
+[release checklist](launch-readiness.md) for the current candidate's work.
+
+This handbook contains maintained instructions and implementation contracts.
+Completed iteration notes, abandoned proposals, and superseded candidate reports
+remain available in Git history. Keep new release evidence with its exact
+revision, environment, and limitations; do not treat an older result as a current
+release status. Update the owning guide whenever behavior changes.

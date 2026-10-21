@@ -1,44 +1,50 @@
 import Link from 'next/link';
+import DocsIcon from './DocsIcon';
 import DocsShell from './DocsShell';
 import { productSections } from './ProductArticle';
-import { sdkSections } from './sdk/SdkArticle';
-import { createDocsEntries, docsNavigation } from './docsSearch';
-import styles from './Docs.module.css';
+import { legacyDocsDestinations } from './docsSearch';
+import LegacyDocsRedirect from './LegacyDocsRedirect';
 import { productHref } from './productNavigation';
 import { ExternalLink } from './ExternalLink';
-import { ArrowLeftRight, ArrowRight, CandlestickChart, Landmark, Sprout } from 'lucide-react';
+import styles from './Docs.module.css';
 
 export default function DocsPage() {
-  const entries = [
-    ...createDocsEntries(productSections, 'Product guide', '/docs/guide').map(entry => ({ ...entry, href: productHref(entry.id) })),
-    ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
-  ];
-  return <DocsShell page="Product guide" entries={docsNavigation(entries, 'Product guide')} home>
-    <div className={styles.articleBody}>
-      <h2 id="what-is-fxaeon">What is FxAeon?</h2>
-      <p>FxAeon is an independent interface for f(x) Protocol. Use it in your browser or inside Telegram to trade ETH and BTC, save with fxSAVE, borrow fxUSD, and move supported assets between chains.</p>
-      <p>In Telegram, sign in with your Telegram account through Privy. On the web, connect an existing wallet. Your selected wallet confirms each transaction.</p>
-      <h2 id="choose-a-product">What would you like to do?</h2>
-      <div className={styles.productGuides}>
-        {[
-          { id: 'trade', title: 'Trade', Icon: CandlestickChart, text: 'Open and manage leveraged ETH or BTC positions.', network: 'Ethereum' },
-          { id: 'earn', title: 'Earn', Icon: Sprout, text: 'Deposit into fxSAVE and manage withdrawals.', network: 'Ethereum' },
-          { id: 'borrow', title: 'Borrow', Icon: Landmark, text: 'Borrow fxUSD against supported collateral.', network: 'Ethereum' },
-          { id: 'move', title: 'Move', Icon: ArrowLeftRight, text: 'Bridge fxUSD or fxSAVE to your destination wallet.', network: 'Ethereum ↔ Base' },
-        ].map(({ id, title, Icon, text, network }) => <Link key={id} href={productHref(id)}>
-          <span className={styles.guideTitle}><Icon size={20} aria-hidden="true" /><strong>{title}</strong><ArrowRight size={16} aria-hidden="true" /></span>
-          <span>{text}</span><small>{network}</small>
-        </Link>)}
-      </div>
-      <h2 id="start-reading">Start here</h2>
-      <ul>
-        <li><Link href={productHref('getting-started')}>Your first transaction</Link> — Open the app, add funds, and review your first action.</li>
-        <li><Link href={productHref('access')}>Your wallet and sign-in</Link> — Use Telegram or connect an existing wallet.</li>
-        <li><Link href={productHref('fees')}>Fees and slippage</Link> — Understand the costs shown before confirmation.</li>
-        <li><Link href={productHref('troubleshooting')}>Troubleshooting</Link> — Find the next step when an action stops.</li>
-      </ul>
-      <h2 id="protocol-and-interface">The protocol and the interface</h2>
-      <p>These guides explain FxAeon’s screens and supported actions. The <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs">f(x) Protocol documentation</ExternalLink> explains the underlying contracts, economics, governance, and risk parameters.</p>
+  return <DocsShell page="Product guide" home>
+    <LegacyDocsRedirect destinations={legacyDocsDestinations(productSections, productHref)} />
+    <Link href={productHref('getting-started')} className={styles.startGuide}>
+      <span><strong>Your first transaction</strong><small>From choosing a wallet to understanding the receipt. Start here.</small></span>
+      <DocsIcon name="ArrowRight" size={22} />
+    </Link>
+    <h2 id="use-fxaeon">Use FxAeon</h2>
+    <p>Trade, earn, borrow, and move assets through one independent interface for f(x) Protocol.</p>
+    <div className={styles.productGuides}>
+      {[
+        { id: 'trade', title: 'Trade', icon: 'CandlestickChart' as const, text: 'Open and manage leveraged ETH or BTC positions.', network: 'Ethereum' },
+        { id: 'earn', title: 'Earn', icon: 'Sprout' as const, text: 'Deposit into fxSAVE and choose your withdrawal path.', network: 'Ethereum' },
+        { id: 'borrow', title: 'Borrow', icon: 'Landmark' as const, text: 'Put collateral to use and manage your fxUSD debt.', network: 'Ethereum' },
+        { id: 'move', title: 'Move', icon: 'ArrowLeftRight' as const, text: 'Bridge fxUSD or fxSAVE to your destination wallet.', network: 'Ethereum ↔ Base' },
+      ].map(({ id, title, icon, text, network }) => <Link key={id} href={productHref(id)}>
+        <span className={styles.guideTitle}><DocsIcon name={icon} size={22} /><strong>{title}</strong><DocsIcon name="ArrowRight" size={16} /></span>
+        <span>{text}</span><small>{network}</small>
+      </Link>)}
     </div>
+    <h2 id="understand-your-action">Understand your action</h2>
+    <div className={styles.resourceLinks}>
+      {[
+        ['review', 'Read a review & receipt'],
+        ['fees', 'Fees & slippage'],
+        ['risks', 'Risks & rebalancing'],
+        ['history', 'Track or recover a transaction'],
+        ['troubleshooting', 'Resolve a problem'],
+        ['glossary', 'Look up a term'],
+      ].map(([id, title]) => <Link key={id} href={productHref(id)}>{title}<DocsIcon name="ArrowRight" size={16} /></Link>)}
+    </div>
+    <h2 id="for-developers">For developers</h2>
+    <p>Understand the integration, make your first read, and follow a transaction from its SDK plan to a verified receipt.</p>
+    <div className={styles.productGuides}>
+      <Link href="/docs/sdk/setup"><span className={styles.guideTitle}><DocsIcon name="Code2" size={22} /><strong>Read-only quickstart</strong><DocsIcon name="ArrowRight" size={16} /></span><span>Working examples, units, and the app’s read facade.</span><small>TypeScript · SDK 1.0.5</small></Link>
+      <Link href="/docs/sdk/overview"><span className={styles.guideTitle}><DocsIcon name="BookOpen" size={22} /><strong>SDK reference</strong><DocsIcon name="ArrowRight" size={16} /></span><span>Supported methods, execution rules, and reviewed patches.</span><small>15 supported methods</small></Link>
+    </div>
+    <p>For protocol economics, contracts, and governance, read the <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs">f(x) Protocol documentation</ExternalLink>.</p>
   </DocsShell>;
 }

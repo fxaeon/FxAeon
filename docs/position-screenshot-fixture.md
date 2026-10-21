@@ -1,5 +1,8 @@
 # Position screenshot fixture
 
+Capture procedure and provenance reference. See [testing](testing.md#evidence-boundaries)
+for how screenshot, local-fork, and production evidence differ.
+
 The populated position images show four ETH/BTC long/short positions on a
 disposable Ethereum fork. The pinned block and proof assertions are recorded
 in the [position screenshot manifest](fixtures/position-screenshot-manifest.json)

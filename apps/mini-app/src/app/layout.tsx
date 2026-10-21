@@ -8,34 +8,14 @@ import { TelegramProvider } from '@/components/TelegramProvider';
 import RouteProviders from '@/components/RouteProviders';
 import { LocaleProvider } from '@/lib/i18n';
 import { SHELL_INITIALIZER } from './shellInitializer';
+import { BRAND_DESCRIPTION, BRAND_TITLE, pageMetadata } from './routeMetadata';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fxaeon.com'),
-  title: {
-    default: 'FxAeon',
-    template: '%s · FxAeon',
-  },
-  description: 'Trade, borrow, earn, and bridge with the f(x) SDK from the web or Telegram.',
-  openGraph: {
-    type: 'website',
-    siteName: 'FxAeon',
-    title: 'FxAeon · Your DeFi. All in one place.',
-    description: 'Trade, borrow, earn, and bridge with the f(x) SDK from the web or Telegram.',
-    images: [{
-      url: '/landing/fxaeon-banner.png',
-      width: 2172,
-      height: 724,
-      alt: 'FxAeon — Your DeFi. All in one place.',
-    }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'FxAeon · Your DeFi. All in one place.',
-    description: 'Trade, borrow, earn, and bridge with the f(x) SDK from the web or Telegram.',
-    images: ['/landing/fxaeon-banner.png'],
-  },
+  ...pageMetadata(BRAND_TITLE, BRAND_DESCRIPTION, '/'),
+  title: { default: BRAND_TITLE, template: '%s · FxAeon' },
   applicationName: 'FxAeon',
   formatDetection: { telephone: false, email: false, address: false },
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'FxAeon' },

@@ -1,4 +1,4 @@
-import { isValidElement, type ReactNode } from 'react';
+import { Fragment, isValidElement, type ReactNode } from 'react';
 
 export interface DocsEntry {
   id: string;
@@ -6,11 +6,6 @@ export interface DocsEntry {
   page: 'Product guide' | 'SDK reference';
   href: string;
   text: string;
-}
-
-/** Keep the page tree in each document; the complete search text is served once. */
-export function docsNavigation(entries: readonly DocsEntry[], page: DocsEntry['page']): DocsEntry[] {
-  return entries.filter(entry => entry.page === page).map((entry) => ({ ...entry, text: '' }));
 }
 
 /** Derive the small, local index from the same content readers see. No service,
@@ -33,6 +28,50 @@ export function createDocsEntries(
   return sections.map(({ id, title, content }) => ({
     id, title, page, href: `${path}#${id}`, text: textFromContent(content).replace(/\s+/g, ' ').trim(),
   }));
+}
+
+/** Index each visible reference heading with its own explanation and destination.
+ * Only flatten fragments: a nested heading must not swallow the next section. */
+export function createHeadingEntries(
+  sections: readonly { id: string; content: ReactNode }[],
+  page: DocsEntry['page'],
+  href: (id: string) => string,
+): DocsEntry[] {
+  function flatten(node: ReactNode): ReactNode[] {
+    if (Array.isArray(node)) return node.flatMap(flatten);
+    if (isValidElement<{ children?: ReactNode }>(node) && node.type === Fragment) return flatten(node.props.children);
+    return [node];
+  }
+  return sections.flatMap(section => {
+    const result: DocsEntry[] = [];
+    let current: DocsEntry | undefined;
+    for (const node of flatten(section.content)) {
+      if (isValidElement<{ id?: string }>(node) && (node.type === 'h2' || node.type === 'h3')) {
+        current = node.props.id ? { id: node.props.id, title: textFromContent(node).trim(), page, href: `${href(section.id)}#${node.props.id}`, text: '' } : undefined;
+        if (current) result.push(current);
+      } else if (current) {
+        current.text = `${current.text} ${textFromContent(node)}`.replace(/\s+/g, ' ').trim();
+      }
+    }
+    return result;
+  });
+}
+
+export function legacyDocsDestinations(
+  sections: readonly { id: string; aliases?: readonly string[]; content: ReactNode }[],
+  href: (id: string) => string,
+): Record<string, string> {
+  function headingIds(node: ReactNode): string[] {
+    if (Array.isArray(node)) return node.flatMap(headingIds);
+    if (!isValidElement<{ id?: string; children?: ReactNode }>(node)) return [];
+    if (node.type !== Fragment && typeof node.type !== 'string') return [];
+    const own = (node.type === 'h2' || node.type === 'h3') && node.props.id ? [node.props.id] : [];
+    return [...own, ...headingIds(node.props.children)];
+  }
+  return Object.fromEntries([
+    ...sections.flatMap(section => [section.id, `${section.id}-heading`, ...(section.aliases ?? [])].map(id => [id, `${href(section.id)}#docs-page-heading`])),
+    ...sections.flatMap(section => headingIds(section.content).map(id => [id, `${href(section.id)}#${id}`])),
+  ]);
 }
 
 function normalize(value: string) {

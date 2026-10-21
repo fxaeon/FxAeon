@@ -1,145 +1,168 @@
-# Testing
+# Testing and verification
 
-Run commands from the repository root. The release gate is:
+Use the smallest relevant gate while developing, then verify the full release candidate. Commands run from the repository root unless specified. A passed fixture or old test record does not establish that a later deployed build passed.
 
-```powershell
+## Complete verification
+
+~~~sh
 pnpm verify
-```
+~~~
 
-It checks SDK scope and architecture, builds/tests the landing site, runs lint
-and source tests, audits production dependencies, builds the static app, then
-checks types, bundle and secrets, built-browser behavior, and landing-browser
-behavior. `.github/workflows/ci.yml` runs this gate on pushes and pull requests.
+The [verification runner](../scripts/verify.mjs) performs:
 
-Useful focused checks:
-
-| Command | Coverage |
+| Phase | Checks |
 | --- | --- |
-| `pnpm test` | App unit, contract, and seeded chaos tests; fork-dependent cases skip without a fork |
-| `pnpm test:chaos` | Deterministic lifecycle, ordering, and recovery stress |
-| `pnpm test:e2e` | Playwright against the static app build |
-| `pnpm test:landing` | Standalone landing static contracts |
-| `pnpm test:landing:browser` | Landing behavior, theme, viewport, accessibility, and network checks |
-| `pnpm typecheck` | App, fork-harness, and complete browser-suite TypeScript |
-| `pnpm typecheck:e2e` | Strict browser specs, React harness entries, fixtures, capture scripts, and Playwright configs |
-| `pnpm audit --prod --audit-level=high` | Runtime dependency audit |
+| Source | SDK scope, architecture, landing build/contracts, lint, unit/chaos tests, deployment and harness contracts, source secret scan, complete dependency audit |
+| Build | Credential-free production export, built secret scan, app/fork/browser TypeScript, unchanged bundle/security-header budgets |
+| Built browser | Real exported routes, accessibility, interaction, viewport and geometry contracts |
+| Isolated browser | Nine separate product, wallet, overlay, and state-lab gates |
+| Landing browser | Local network policy, data/fallback states, responsiveness, accessibility, motion and artwork behavior |
 
-The browser typecheck overrides the app's `e2e` exclusion, includes `.ts`,
-`.tsx`, `.mts` and `.cts`, and inherits Next's CSS/image declarations. Its coverage contract
-compares TypeScript's effective input set with every browser TypeScript file
-and Playwright config, so a future include/exclude change cannot silently skip
-those files. It emits no application code. The E2E and fork compilers keep separate,
-ignored incremental caches in `apps/mini-app/.cache`, so one compiler cannot reuse
-another compiler's state. TypeScript still checks changed files and affected
-dependencies. Root `pnpm typecheck` runs this gate,
-so `pnpm verify`, which Client CI runs, includes it; browser execution remains a
-separate check. Lint uses a content-based cache in `.cache/eslint`; changed files
-and ESLint configuration invalidate the relevant entries. `pnpm lint --no-cache`
-runs a fresh lint pass.
-CI restores these caches using the toolchain/configuration fingerprint, while
-still running the same lint and typecheck commands on every revision.
+The runner clears production Privy/RPC settings for its test export using [E2E_BUILD_ENV](../scripts/e2e_build_env.mjs), including values inherited from local files. Missing credentials are intentional. A successful verification build is not a production-configured artifact.
 
-Local machines with less than 12 GiB of memory automatically run verification
-groups with one worker. CI retains bounded parallel groups; `pnpm verify --serial`
-also selects one worker explicitly. The static export caps page workers at two
-on smaller hosts and four on larger hosts to reduce memory contention. These
-limits change scheduling, not which checks run. Builds remain fresh before local
-browser tests unless the caller explicitly sets `E2E_BUILD=0`.
+Small local hosts with less than 12 GiB memory automatically use serial execution. To select it explicitly:
 
-Browser checks have separate gates. `pnpm test:e2e` runs the production-export
-routes and interactions. Seven isolated harnesses each use their own
-Playwright config and focused command: Borrow selection
-(`pnpm test:e2e:borrow-harness`), Move review layout
-(`pnpm test:e2e:move-harness`), Positions (`pnpm test:e2e:positions-harness`),
-the Privy send adapter (`pnpm test:e2e:privy-send-harness`), Trade
-(`pnpm test:e2e:trade-harness`), overlays and page states
-(`pnpm test:e2e:overlay`), and the UI state lab (`pnpm test:e2e:state-lab`).
-`pnpm verify` runs them sequentially. The Trade harness covers the ticket's
-split slider and outcome preview, native Max, and review preparation. The
-Positions harness covers position rows, the list-to-position flow, and a new
-position carried from Trade's result to its page. The overlay harness covers
-the app shell, Portfolio's first load, position rows' rebalance markers, and
-portfolio asset loading/empty/error/refresh states and wallet refresh fan-out,
-including recovery after a synchronous reader failure. The state-lab gate
-compares its approved screenshots on Windows; the current reference set
-contains 17 images. Production E2E checks
-server-rendered route metadata and form reachability with 200% text in Light
-(official) and Dark themes. See
-[`browser-test-gates.md`](browser-test-gates.md) for the exact suite map and
-[`ui-state-lab.md`](ui-state-lab.md) for the development-only lab and its
-fixture limits.
+~~~sh
+pnpm verify --serial
+~~~
 
-For local Playwright runs, Chromium may be installed with:
+On other hosts lightweight work is bounded to four concurrent checks, build-dependent checks to three, and isolated browsers to two. Build and development servers must not share a checkout concurrently. Scheduling limits do not skip assertions.
 
-```powershell
+## Focused commands
+
+| Command | Use |
+| --- | --- |
+| `pnpm test` | Complete app unit/contract/seeded-chaos glob; fork-dependent cases can skip without a local fork |
+| `pnpm test:chaos` | Focused deterministic lifecycle and recovery stress |
+| `pnpm lint` | Source/test lint with content-based cache |
+| `pnpm typecheck` | App, fork harness, and complete browser TypeScript |
+| `pnpm typecheck:e2e` | Browser coverage contract and strict E2E compiler |
+| `pnpm audit:all` | All dependency paths and the validated, expiring backport exception |
+| `pnpm check:bundle` | Existing export size, maps, telemetry, and CSP/header checks |
+| `pnpm test:landing` | Static landing, market-data validation, and build contracts |
+| `pnpm test:landing:browser` | Rendered landing behavior and network checks |
+
+To run a specific app test:
+
+~~~sh
+pnpm --dir apps/mini-app exec tsx --test test/review-hierarchy.test.ts
+~~~
+
+Use the [browser gate map](browser-test-gates.md) for component and wallet work. Root scripts are the maintained entry points; package scripts and configurations define exact file collection.
+
+## Built-route browser tests
+
+Install Chromium once, then run:
+
+~~~sh
 pnpm --dir apps/mini-app exec playwright install chromium
-```
+pnpm test:e2e
+~~~
+
+Local built-route startup builds a fresh export by default. Tests use a local static server and deterministic browser boundaries, not production accounts. External display data is blocked or explicitly stubbed by fixtures.
+
+For deliberate reuse of a known current export:
+
+~~~powershell
+$env:E2E_BUILD = '0'
+pnpm test:e2e
+~~~
+
+Do not reuse output after changing source or build configuration. `E2E_REUSE_SERVER=1` is for controlled local iteration only; release verification disables stale-server reuse. [run_built_e2e.mjs](../scripts/run_built_e2e.mjs) runs the just-built artifact with rebuilding and server reuse disabled.
+
+Keep tests for exact amounts, disclosure access, quote expiry, approvals, wallet-session changes, footer clearance, 44px targets, long values, narrow screens, keyboard dismissal, and enlarged text. Synthetic provider tests do not validate real emitted lazy chunks; add an artifact/consumer smoke when changing module partitioning.
+
+Reports and captures are generated evidence, not source. Inspect failure traces and screenshots before updating a baseline. Record browser, platform, revision, and fixture provenance.
+
+## CI topology
+
+[Client CI](../.github/workflows/ci.yml) distributes the same gate across independent runners:
+
+| Job | Runner command |
+| --- | --- |
+| Source checks | `pnpm verify --ci-source` |
+| Production build checks | `pnpm verify --ci-build` |
+| Four built-route shards | Playwright `--shard=1/4` through `4/4`, reusing the uploaded export |
+| Three isolated groups | `pnpm verify --ci-isolated-0`, `--ci-isolated-1`, `--ci-isolated-2` |
+| Aggregate required check | Fails unless all source, build, built-browser and isolated jobs succeed |
+
+The source phase includes landing browser checks. Built E2E jobs download the export produced by the build job; they do not independently rebuild it. The standalone [Mini App E2E workflow](../.github/workflows/e2e-mini-app.yml) is manually dispatched, while normal PR/main browser coverage runs through Client CI.
+
+Lint, TypeScript, and Next caches speed repeated checks without replacing them. Browser TypeScript uses separate ignored incremental caches and a coverage contract that checks its input set against browser files/configs. A skipped or missing required job is not success.
 
 ## Protected Ethereum fork tests
 
-Fork tests use disposable local Anvil nodes, test accounts, and an operator-
-provided Ethereum RPC endpoint. They interact with protocol state on a local
-fork; they do not send transactions using production funds. Keep the endpoint
-restricted and out of source control.
+These gates need Foundry/Anvil and an operator-provided restricted Ethereum RPC URL. Transactions use disposable local accounts on a local fork; they do not use production funds.
 
-```powershell
+~~~powershell
 $env:ANVIL_FORK_URL = '<restricted Ethereum RPC URL>'
 pnpm test:anvil:all
 pnpm test:anvil:browser
-```
+~~~
 
-`pnpm test:anvil:all` opens ETH/BTC long/short positions, performs a real 25%
-partial reduction using the SDK's market- and side-specific amount units, runs
-the fxSAVE lifecycle proof, and runs randomized transaction-runner/snapshot
-smoke checks. The randomized runner checks exercise the execution harness on
-Anvil; they are not randomized protocol-position stress tests.
-`pnpm test:anvil:browser` exercises position actions through the browser,
-including quote-expiry refresh without signing and reviews of fxSAVE deposit,
-instant withdrawal, and queued withdrawal calldata. The protected manual
-workflow `.github/workflows/anvil-fork.yml` runs these gates and uploads
-redacted proof manifests; it requires the protected Ethereum RPC secret and
-Foundry/Anvil. Current-candidate results are recorded in
-[`release-validation.md`](release-validation.md); source coverage does not
-mean the protected gates have passed.
+| Gate | Scope |
+| --- | --- |
+| `pnpm test:anvil` | Protocol integration suite through the protected launcher |
+| `pnpm test:anvil:earn` | fxSAVE lifecycle execution |
+| `pnpm test:anvil:stress` | Randomized runner/snapshot smoke |
+| `pnpm test:anvil:all` | Protocol, Earn, and stress suites |
+| `pnpm test:anvil:browser` | Browser-driven protocol flows and review/calldata evidence |
 
-For an interactive session, run `pnpm preview:funded-fork` with the same
-`ANVIL_FORK_URL` and Anvil installation. It opens a separate Chrome/Chromium
-window with a disposable account funded with 5 local ETH and 4,000 local USDC.
-The app runs on port 4326 and its Ethereum fork on 8548; automated browser
-tests retain ports 4325 and 8547. Its separate export directory keeps later
-test builds from replacing the manual preview. Build these sequentially.
+The protocol suite covers supported ETH/BTC long/short positions and a real 25% partial reduction using the SDK's market/side-specific units. Randomized runner checks are execution-harness stress, not randomized protocol-position coverage. Browser withdrawal reviews do not imply withdrawal/claim execution; the separate Earn suite proves its covered lifecycle.
 
-Use the opened browser window: the local wallet adapter belongs to that
-session. The banner identifies disposable funds, and transactions are sent
-only to the loopback fork. Close the window or press Ctrl+C in the launcher
-to stop the session and discard its state. This Ethereum-only preview does
-not simulate Base bridge delivery or native Telegram sign-in, and opening
-it does not count as passing the automated browser proof.
+The [protected manual workflow](../.github/workflows/anvil-fork.yml) runs these gates and uploads redacted proof manifests. Inspect the manifest and the named revision rather than inferring coverage from a command's name. Fork support existing in source does not mean it ran for the current candidate.
 
-To reopen a browser against an existing preview without resetting its funds,
-set `FX_FORK_PREVIEW=1`, `FX_FORK_PREVIEW_ATTACH=1`,
-`ANVIL_RPC_URL=http://127.0.0.1:8548`, and `FX_FORK_BROWSER_PORT` to the running
-preview port, then run `pnpm --dir apps/mini-app exec tsx e2e/fork/positions.browser.ts`.
-The attached wallet advertises a stable local-only EIP-6963 identity and checks
-that its connection survives a page reload. Closing this attached window leaves
-the original fork owner and server running. Add `FX_FORK_PREVIEW_VERIFY=1` for a
-headless connection-and-reload check that exits without submitting transactions.
+### Interactive disposable preview
 
-## Screenshot evidence
+~~~powershell
+$env:ANVIL_FORK_URL = '<restricted Ethereum RPC URL>'
+pnpm preview:funded-fork
+~~~
 
-`pnpm docs:screenshots` refreshes standard UI captures using external display
-data. The checked-in `docs/fixtures/standard-screenshot-manifest.json` records
-the capture context, routes, viewports, and hashes. Those screenshots document
-rendered states; they are not transaction evidence.
+The launcher opens a separate browser with 5 local ETH and 4,000 local USDC, app port 4326 and Ethereum fork port 8548. Automated browser tests use 4325/8547. The separate export prevents later test builds from overwriting the preview; run builds sequentially.
 
-`pnpm docs:screenshots:positions` and the browser fork fixture have separate
-manifests. The current populated-position screenshots were captured during the
-browser fork proof at a pinned block; see
-[`position-screenshot-fixture.md`](position-screenshot-fixture.md). Their
-position state is fork-backed, while displayed prices and charts are visibly
-labelled illustrative data. Neither screenshots nor manifests replace test
-assertions.
+Use the opened browser because its local wallet belongs to that session. Close it or press Ctrl+C in the launcher to discard the owned session. This Ethereum-only preview does not prove Base delivery or native Telegram sign-in.
 
-No browser emulation establishes native Telegram authentication, wallet
-handoff, or a real bridge transfer. Keep those claims separate from automated
-browser and fork results.
+To attach without resetting an already running preview, set `FX_FORK_PREVIEW=1`, `FX_FORK_PREVIEW_ATTACH=1`, `ANVIL_RPC_URL=http://127.0.0.1:8548`, and `FX_FORK_BROWSER_PORT` to its app port, then run:
+
+~~~sh
+pnpm --dir apps/mini-app exec tsx e2e/fork/positions.browser.ts
+~~~
+
+`FX_FORK_PREVIEW_VERIFY=1` selects a headless connection/reload check without submitting transactions. Closing an attached browser leaves the original owner's fork/server running.
+
+## Performance verification
+
+Preserve the [performance boundaries](architecture.md#bounded-performance-work)
+when changing scheduling, subscriptions, or read batching. Focused source checks
+can run from the repository root:
+
+~~~sh
+pnpm --dir apps/mini-app exec tsx --test test/rpc-position-counts.test.ts test/direct-position-discovery.test.ts test/live-market-store.test.ts test/sdk-pool-read-concurrency.test.ts
+pnpm test:e2e:overlay wallet-rpc-proof live-market-store
+~~~
+
+For controlled measurements of the installed code:
+
+~~~sh
+pnpm --dir apps/mini-app exec tsx test/benchmarks/rpc-chain-proof.ts
+node scripts/measure_sdk_pool_reads.cjs
+~~~
+
+These use deterministic transport responses. Record the source revision,
+dependency/patch versions, fixture delays, environment, samples, exact-result
+equivalence, and wire counts. Report startup, first visible input, verified
+review, fee readiness, submission, and receipt reconciliation as distinct
+milestones. A harness timer is not a live quote latency, and fewer requests
+are not automatically an equivalent reduction in provider billing.
+
+## Evidence boundaries
+
+Record the tested source revision, build configuration, toolchain/browser,
+commands, outcomes, skips, and fixture or live-service boundaries in the pull
+request or release evidence. Attach relevant generated manifests and captures.
+Older reports remain in Git history; they do not establish current results.
+
+`pnpm docs:screenshots` captures UI with external display data; `pnpm docs:screenshots:positions` and the fork browser fixture have separate manifests. Preserve routes, viewports, revision, data source, and hashes. See [capture provenance](position-screenshot-fixture.md).
+
+A fixture, desktop browser, or Ethereum fork cannot establish physical phone dispatch, native Telegram authentication, live Privy recovery, or actual cross-chain settlement. Record those checks separately. The [release checklist](launch-readiness.md) keeps these limits visible.

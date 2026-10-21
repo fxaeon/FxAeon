@@ -1,3 +1,4 @@
 import type { Metadata } from 'next';
-export const metadata: Metadata = { title: 'Send' };
+import { routeMetadata } from '@/app/routeMetadata';
+export const metadata: Metadata = routeMetadata('send');
 export default function SendLayout({ children }: { children: React.ReactNode }) { return children; }
