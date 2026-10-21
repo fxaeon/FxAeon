@@ -216,7 +216,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('.reviewInlineContent');
   await expect(review.locator('[data-review-fact="Estimated received"] summary > span')).toHaveText('99 USDC');
-  await expect(review.getByText('You receive · estimated', { exact: true })).toBeVisible();
+  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Estimated', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-value="f(x) fee"]');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(fee.locator('summary')).toHaveText('1%');
