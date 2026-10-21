@@ -16,6 +16,12 @@ updates:
       prefix: "chore"
       include: "scope"
     groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
       privy:
         patterns:
           - "@privy-io/*"
@@ -30,6 +36,10 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
     labels:
       - "dependencies"
       - "github-actions"
