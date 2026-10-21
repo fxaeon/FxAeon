@@ -39,7 +39,7 @@ test.describe("protocol form help and picker keyboard behavior", () => {
     await expect(helpPanel).toBeVisible();
     await expect(helpPanel).toBeFocused();
     await expect(helpPanel).toHaveAttribute("aria-modal", "false");
-    await expect(helpPanel).toHaveAccessibleDescription("The maximum adverse price movement allowed between the quote and execution. A higher tolerance permits a larger difference; it does not guarantee execution.");
+    await expect(helpPanel).toHaveAccessibleDescription("The maximum adverse price movement allowed between quote and execution. Raising it permits a larger difference, without guaranteeing execution.");
     await expect(helpTrigger).toHaveAttribute("aria-expanded", "true");
     await expect(helpTrigger).toHaveAttribute("aria-controls", (await helpPanel.getAttribute("id"))!);
     const helpBounds = await helpPanel.boundingBox();

@@ -46,9 +46,9 @@
 .moveCard .sourcePanel :global(.amount-control) > div:has(input) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-height: 52px; }
 .moveCard .sourcePanel :global(.amount-control) > div:has(input) > span { min-width: 0; }
 .moveCard .sourcePanel :global(.amount-control) input { min-height: 44px; }
-/* The amount panel has no inner padding here, so let its shortcut row end at
-   the source panel edge instead of carrying its usual 10px bleed. */
-.moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin-right: -8px; }
+/* This surface has no inner padding to contain the shared shortcut bleed.
+   Keep the complete 44px target inside its edge. */
+.moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin-right: 2px; }
 .moveCard .sourcePanel :global(.amount-control) [role='group'] button > span { background: transparent; box-shadow: none; color: inherit; }
 .moveCard .sourcePanel :global(.amount-control) [role='group'] button:enabled { color: var(--mint-text); }
 .routeNode { display: flex; align-items: center; gap: 12px; min-height: 30px; color: var(--mut); font-size: 13px; font-weight: 400; }
@@ -84,6 +84,8 @@
 @media (max-width: 359px) {
   .moveCard.moveCard { padding: 14px; }
   .sourcePanel, .destinationPanel { padding: 10px; }
+  .sourcePanel :global(.amount-control) button[aria-haspopup='dialog'] { column-gap: 6px; padding-right: 8px; }
+  .sourcePanel :global(.amount-control) button[aria-haspopup='dialog'] > span { column-gap: 8px; }
 }
 /* Keep text clear of the route control where it bridges the two panels. */
 .sourcePanel { padding-bottom: 22px; }
