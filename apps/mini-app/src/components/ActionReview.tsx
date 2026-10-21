@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePauseAutomaticPositionRefresh } from './PositionRefreshActivity';
 import { usePresentedTransactions } from '@/lib/pendingActivity';
 import {
   AlertTriangle,
-  ArrowLeft,
+  X,
   CheckCircle2,
   ChevronDown,
   CircleAlert,
@@ -33,15 +33,14 @@ import { CalldataDisclosure, InlineError, StatusNotice, stepProgress, chainName 
 import { resultPresentation } from '@/components/review/executionResult';
 import { splitReviewFacts } from '@/components/review/reviewSummary';
 import { exactAmountText, factsOutsideConsequenceSummary, missingGasFeeFact, missingTotalCostFact, nativeFundsNotice, primaryReviewFacts, routeFacts as buildRouteFacts } from '@/components/review/actionReviewPresentation';
-import { ChainIcon } from '@/components/TokenIcon';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
 import { consequenceSummary, pairVerifiedPositionFacts, reviewActionLabel } from '@/components/review/actionReviewModel';
 import { useActionReviewLifecycle } from '@/components/review/useActionReviewLifecycle';
 import { selectExecutionTask } from '@/lib/taskState';
 import { buildReceiptPresentation, receiptTransfersFromLogs } from '@/lib/receiptPresentation';
 import { receiptMintedPositionIdentity } from '@/lib/confirmedPositions';
-import { openedPositionTitle, positionSideLabel } from '@/lib/positionNaming';
-import { rawQuoteReviewFacts, tokenAmountReviewFact, type ReviewFact } from '@/lib/fx/reviewFormatting';
+import { positionSideLabel } from '@/lib/positionNaming';
+import { positionOutcomeFacts, rawQuoteReviewFacts, tokenAmountReviewFact, type ReviewFact } from '@/lib/fx/reviewFormatting';
 import { buildStatusPresentation } from '@/components/review/actionReviewStatusModel';
 import { PositionOutcomeSummary, TransactionProgressPresentation, UpdatedQuoteSummary } from '@/components/review/ActionReviewSummary';
 import { TransactionResultView } from '@/components/review/TransactionResultView';
@@ -49,13 +48,21 @@ import { ReviewViewport } from '@/components/review/ReviewViewport';
 import { MobileFlowSheet } from '@/components/MobileFlowSheet';
 import { positionPoolAddress } from '@/lib/fx/policy';
 import { stableTradeReviewFacts } from './review/stableTradeReviewFacts';
-import { reviewFactLabel, reviewHierarchy } from './review/reviewHierarchy';
+import { orderCompactReviewFacts, reviewFactLabel, reviewHierarchy } from './review/reviewHierarchy';
+import { TransactionIdentity } from './review/TransactionIdentity';
 import { TransactionAmountFlow, LeverageChangeSummary } from './review/TransactionAmountFlow';
-import { AmountUsd, FeeUsd } from './review/AmountUsd';
+import { transactionAmountFacts } from './review/transactionAmountPresentation';
+import { positionReviewBefore } from './review/positionReview';
+import { PendingTransactionSummary } from './review/PendingTransactionSummary';
+import { ReviewFactValue } from './review/ReviewFactValue';
+import { MetricLabel } from './InfoHelp';
+import { reviewHelpDefinition } from './review/reviewHelp';
+import { transactionCardIdentity } from './review/transactionCardIdentity';
+import { AmountUsd, FeeUsd, FeeAmount, CollateralAmount } from './review/AmountUsd';
 import { TechnicalEvidenceRow } from './review/TechnicalEvidenceRow';
 import { exactEvidenceJson } from './review/technicalEvidence';
 import { retainedClaimPreviewFacts } from './review/claimPreviewPresentation';
-import { plainTransactionCopy, plainWalletStatus, transactionAmountFacts } from './review/transactionAmountPresentation';
+import { plainTransactionCopy, plainWalletStatus } from './review/transactionAmountPresentation';
 import { BridgeReviewSummary } from './review/BridgeReviewSummary';
 import { ReviewRiskPrices } from './review/ReviewRiskPrices';
 import { ROUTE_PREFETCH_TTL_MS } from '@/lib/fx/routePrefetch';
@@ -147,12 +154,17 @@ function statusPresentation(params: Parameters<typeof buildStatusPresentation>[0
 export function ActionReview(props: ActionReviewProps) {
   const router = useRouter();
   const lifecycle = useActionReviewLifecycle(props);
-  const { label = 'Review action', disabled = false, blocker = null, operationLabel, destructive = false, editor, decisionBefore, executionCost, surface = 'card', planBuilder, onViewNewPosition } = props;
+  const { label = 'Review action', disabled = false, blocker = null, operationLabel, destructive = false, editor, decisionBefore, executionCost, surface = 'card', planBuilder, onViewNewPosition, onReturnToPosition, confirmedPosition } = props;
   const { canSelectReviewedRoute, endConnectFlow, error, execute, feeSelection, gasCost, headingRef, loading, networkSwitching, quoteChanges, quoteExpired, refreshReviewedQuote, refreshing, reset, result, review, reviewTitle, route, routeSummaries, routes, selectedRoute, selectReviewedRoute, selectGasTier, startConnectFlow, stage, status, statusDetail, stepResults, triggerRef, wallet } = lifecycle;
   const [, refreshQuoteDisplay] = useState(0);
   // Keep the accepted amount identity through wallet requests and receipts.
   // This display snapshot never replaces the live execution/freshness guards.
   const acceptedAmountFacts = useMemo(() => route ? primaryReviewFacts(route) : [], [route]);
+  // Freeze the starting position with the accepted route. A post-confirmation
+  // provider refresh must not rewrite the historical "before" side.
+  const acceptedBefore = useRef<{ route: PlannedRoute | null; facts: ReviewFact[] }>({ route: null, facts: [] });
+  if (route !== acceptedBefore.current.route) acceptedBefore.current = { route, facts: route ? positionReviewBefore(route, decisionBefore ?? []) : [] };
+  const beforeFacts = acceptedBefore.current.facts;
   const actionCopy = plainTransactionCopy(route?.policy?.reviewedAction, reviewTitle ?? operationLabel ?? label, route?.operation === 'buildBridgeTx' && route.quote && typeof route.quote === 'object' && 'bridgeToken' in route.quote && typeof route.quote.bridgeToken === 'string' ? route.quote.bridgeToken : route?.operation === 'buildBridgeTx' ? 'asset' : undefined);
   const bridgeQuote = route?.operation === 'buildBridgeTx' && route.quote && typeof route.quote === 'object'
     ? route.quote as { receiptReadAt?: unknown } : undefined;
@@ -251,15 +263,25 @@ export function ActionReview(props: ActionReviewProps) {
       && positionIntent?.kind === 'position-increase' && positionIntent.positionId === 0 && poolLocation
       ? { ...poolLocation, targetLeverage: positionIntent.requestedLeverage }
       : undefined;
-    const confirmedTitle = opened ? openedPositionTitle(opened.market, opened.side)
+    const completedIntent = route?.policy?.reviewedAction;
+    // A requested target is not the final on-chain leverage. The receipt title
+    // names the confirmed action; the target remains explicitly labelled below.
+    const confirmedTitle = opened ? `${opened.market} ${positionSideLabel(opened.side)} opened`
       : closedPosition ? 'Position closed'
-      : result.operation === 'adjustPositionLeverage' ? 'Leverage updated'
-      : route?.policy?.reviewedAction?.kind === 'deposit-and-mint' && route.policy.reviewedAction.mintAmount > 0n ? 'Borrowing complete'
-      : positionAction ? 'Position updated'
-      : route?.policy?.reviewedAction?.kind === 'fxsave-withdraw' && !route.policy.reviewedAction.directBasePool && !route.policy.reviewedAction.instant ? 'Withdrawal requested'
-      : route?.policy?.reviewedAction?.kind === 'fxsave-claim' ? 'Claim complete'
-      : result.operation === 'depositFxSave' ? 'Deposit complete'
-      : undefined;
+      : completedIntent?.kind === 'position-increase' ? 'Collateral added'
+      : completedIntent?.kind === 'position-reduce' ? 'Position reduced'
+      : completedIntent?.kind === 'position-adjust' ? 'Leverage updated'
+      : completedIntent?.kind === 'deposit-and-mint' ? completedIntent.mintAmount > 0n
+        ? completedIntent.positionId > 0 && completedIntent.depositAmount > 0n ? 'Loan updated' : 'fxUSD borrowed'
+        : 'Collateral added'
+      : completedIntent?.kind === 'repay-and-withdraw' ? completedIntent.minimumRepayAmount > 0n
+        ? completedIntent.withdrawAmount > 0n ? 'Loan updated' : 'fxUSD debt repaid'
+        : 'Collateral withdrawn'
+      : completedIntent?.kind === 'fxsave-withdraw' ? completedIntent.directBasePool ? 'fxSAVE redeemed'
+        : completedIntent.instant ? 'Withdrawal complete' : 'Withdrawal queued'
+      : completedIntent?.kind === 'fxsave-claim' ? 'Withdrawal claimed'
+      : completedIntent?.kind === 'fxsave-deposit' ? 'Deposited into fxSAVE'
+      : positionAction ? 'Position updated' : undefined;
     const presentation = resultPresentation(result, bridge, confirmedTitle);
     const newPosition = opened && receiptPositionIdentity
       && receiptPositionIdentity.market === opened.market && receiptPositionIdentity.side === opened.side
@@ -298,17 +320,20 @@ export function ActionReview(props: ActionReviewProps) {
       })];
     });
     return (
-      <ReviewSurface surface={surface} mobileSheet={{ title: actionCopy.title, onClose: reset, triggerRef }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
+      <ReviewSurface surface={surface} mobileSheet={{ title: route?.operation === 'buildBridgeTx' ? 'Bridge status' : result.status === 'confirmed' ? confirmedTitle ?? 'Transaction result' : 'Review transaction', onClose: reset, triggerRef, hideTitle: true }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
         <TransactionResultView
           result={result}
           presentation={presentation}
           refreshing={refreshing}
           positionAction={positionAction}
+          positionClosed={closedPosition}
           positionLabel={positionLabel}
           newPosition={newPosition}
           receipts={receiptFacts}
           reviewedFacts={acceptedAmountFacts}
-          reviewedPositionChanges={pairVerifiedPositionFacts(decisionBefore ?? [], acceptedAmountFacts).paired}
+          reviewIdentity={route ? transactionCardIdentity(route, acceptedAmountFacts, reviewTitle ?? operationLabel ?? label) : undefined}
+          reviewedPositionChanges={pairVerifiedPositionFacts(beforeFacts, acceptedAmountFacts).paired}
+          confirmedPosition={confirmedPosition}
           headingRef={headingRef}
           bridgeTracker={bridgeQuote ? (advancedContent, completionContent) => (
             <BridgeTracker
@@ -332,14 +357,20 @@ export function ActionReview(props: ActionReviewProps) {
               destinationBaselineBlock={bridgeQuote.destinationBaselineBlock}
             />
           ) : undefined}
-          nextLabel={approvalConfirmedWithoutAction ? 'Continue action' : transactionTask ? 'View transaction progress' : requiresTracking ? 'View history' : bridge ? 'Back to Move' : closedPosition ? 'View positions' : positionAction ? 'View position' : result.status === 'confirmed' ? 'Done' : 'Try again'}
+          nextLabel={approvalConfirmedWithoutAction ? 'Continue action' : transactionTask ? bridge ? 'View transfer' : 'View transaction progress' : requiresTracking ? 'View history' : bridge ? 'Back to Move' : closedPosition ? 'View positions' : positionAction ? onReturnToPosition ? 'Back to position' : 'View position' : completedIntent?.kind === 'fxsave-claim' && result.status === 'confirmed' ? 'View wallet' : completedIntent?.kind === 'fxsave-deposit' && result.status === 'confirmed' ? 'View earnings' : result.status === 'confirmed' ? 'Done' : 'Try again'}
           onNext={() => {
             if (approvalConfirmedWithoutAction) { reset(); return; }
             if (transactionTask) { router.push(transactionTask.href); return; }
             if (requiresTracking) { router.push('/history'); return; }
+            if (completedIntent?.kind === 'fxsave-claim' && result.status === 'confirmed') { reset(); router.push('/portfolio'); return; }
             if (positionAction) {
               // A position this review just opened can open in place, carrying its split.
               if (newPosition && positionHref && onViewNewPosition) { onViewNewPosition({ key: newPosition.key, href: positionHref }); return; }
+              if (positionHref && positionMarket && positionSide && onReturnToPosition) {
+                reset();
+                onReturnToPosition({ key: `${positionMarket}:${positionSide}:${positionId}`, href: positionHref });
+                return;
+              }
               reset();
               router.push(positionHref ?? '/positions');
               return;
@@ -374,7 +405,12 @@ export function ActionReview(props: ActionReviewProps) {
   if (missingTotalCost && !facts.some((fact) => fact.label === 'Total cost')) facts.push(missingTotalCost);
   const reviewFacts = splitReviewFacts(facts);
   const consequenceFacts = route ? consequenceSummary(primaryReviewFacts(route)) : [];
-  const positionChanges = pairVerifiedPositionFacts(decisionBefore ?? [], facts);
+  const positionChanges = pairVerifiedPositionFacts(beforeFacts, facts);
+  const positionChangeRows = [
+    ...positionChanges.paired,
+    ...positionChanges.remainingBefore.filter(fact => ['Collateral', 'Debt', 'Loan-to-value'].includes(fact.label))
+      .map(fact => ({ label: fact.label, before: fact.value, beforeTitle: fact.title, after: 'Unavailable' })),
+  ];
   // A paired value lives in Position outcome only, whichever label it paired with.
   const pairedOutcomeLabels = new Set(positionChanges.paired.flatMap((fact) => {
     const label = fact.label.toLowerCase();
@@ -386,8 +422,6 @@ export function ActionReview(props: ActionReviewProps) {
   const summaryFacts = stablePreparation
     ? stableTradeReviewFacts(props.preparationFacts ?? [], verifiedSummaryFacts, { preparing: false, failed: status === 'failed', checkingGas, hasVerifiedRoute: true, totalIsGasOnly: Boolean(gasCost.estimateIsCurrent && gasCost.estimate?.nativeValueWei === 0n && gasCost.estimate.totalNativeCostWei !== undefined) })
     : verifiedSummaryFacts;
-  const amountFacts = transactionAmountFacts(acceptedAmountFacts);
-  const amountLabels = new Set(amountFacts.map(fact => fact.label));
   const intent = route?.policy?.reviewedAction;
   const tradeReview = stablePreparation || (intent?.kind === 'position-increase' && intent.positionId === 0);
   const newBorrowReview = intent?.kind === 'deposit-and-mint' && intent.positionId === 0;
@@ -398,16 +432,25 @@ export function ActionReview(props: ActionReviewProps) {
     ...reviewHierarchy(summaryFacts, reviewFacts.details, false, false, true).primary.filter(fact => !['Amount', 'Input amount', 'Estimated received'].includes(fact.label)),
   ];
   const leverageReview = intent?.kind === 'position-adjust';
-  const compactReview = leverageReview || bridgeReview || intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw' || intent?.kind === 'fxsave-deposit' || intent?.kind === 'fxsave-withdraw' || intent?.kind === 'fxsave-claim';
+  const tradingAction = intent?.kind === 'position-increase' || intent?.kind === 'position-reduce' || leverageReview;
+  const loanAction = intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw';
+  const savingsAction = intent?.kind === 'fxsave-deposit' || intent?.kind === 'fxsave-withdraw' || intent?.kind === 'fxsave-claim';
+  const amountLed = loanAction || savingsAction;
+  const amountFacts = amountLed ? transactionAmountFacts(acceptedAmountFacts) : [];
+  const amountLabels = new Set(amountFacts.map(fact => fact.label));
+  const compactReview = tradeReview || leverageReview || bridgeReview || intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw' || intent?.kind === 'fxsave-deposit' || intent?.kind === 'fxsave-withdraw' || intent?.kind === 'fxsave-claim';
   const hierarchy = reviewHierarchy(summaryFacts, reviewFacts.details, tradeReview, newBorrowReview, bridgeReview);
-  const executionPrice = hierarchy.primary.find(fact => fact.label === 'Execution price');
+  const executionPrice = [...hierarchy.primary, ...hierarchy.more].find(fact => fact.label === 'Execution price');
   const fxFee = [...hierarchy.primary, ...hierarchy.more].find(fact => fact.label === 'f(x) fee');
   const actionName = reviewTitle ?? operationLabel ?? route?.operation ?? label;
-  const positionName = tradeReview ? actionName.replace(/^(?:Review|Open|Increase)\s+/i, '') : undefined;
-  const headingLeverage = hierarchy.leverage && /^\d+(?:\.\d+)?[×x]$/.test(hierarchy.leverage.value) ? hierarchy.leverage.value : undefined;
-  const actionHeading = bridgeReview ? 'Review bridge' : tradeReview
-    ? `${positionName?.replace(/^(.+)\s+(Long|Short)$/i, '$2 $1')}${headingLeverage ? ` ${headingLeverage}` : ''}`
-    : actionCopy.review;
+  const identity = transactionCardIdentity(route, acceptedAmountFacts, actionName);
+  const actionHeading = identity.review;
+  const identityLabel = identity.amount?.label;
+  const compactFacts = orderCompactReviewFacts(hierarchy.primary.filter(fact => fact.label !== identityLabel && !amountLabels.has(fact.label) && !(newBorrowReview && fact.label === 'Debt added' && positionChanges.paired.some(change => change.label === 'Debt')) && !pairedOutcomeLabels.has(fact.label.toLowerCase()) && !['Position', 'Target leverage', 'Execution price', 'Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout', 'Slippage'].includes(fact.label)), intent?.kind === 'deposit-and-mint');
+  const collateral = tradeReview ? acceptedAmountFacts.find(fact => fact.label === 'Estimated collateral') : undefined;
+  const collateralValuation = tradeReview && route ? positionOutcomeFacts(route)?.collateral : undefined;
+  const slippage = facts.find(fact => fact.label === 'Slippage');
+  const priceImpact = facts.find(fact => fact.label === 'Price impact');
   const approvals = (route?.transactions ?? [])
     .map((transaction) => {
       const approval = approvalFacts(transaction);
@@ -424,8 +467,7 @@ export function ActionReview(props: ActionReviewProps) {
   const activeStep = route?.transactions.findIndex((_, index) => stepResults[index]?.status !== 'confirmed') ?? 0;
   const nextTransaction = route?.transactions[activeStep];
   const progress = plainWalletStatus(statusPresentation({ stage, status, detail: statusDetail, stepResults, stepCount, operation: route?.operation, refreshing, networkSwitching }), status === 'awaiting-user', networkSwitching, nextTransaction?.kind, actionCopy.title);
-  const confirmLabel = nextTransaction?.kind === 'approval' ? stepTitle(nextTransaction) : tradeReview ? 'Open position' : actionCopy.confirm;
-  const networkCaption = bridgeReview ? null : <p className={presentationStyles.reviewNetwork}><span aria-hidden="true"><ChainIcon chainId={reviewChainId} size={16} /></span>{chainName(reviewChainId)}</p>;
+  const confirmLabel = nextTransaction?.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm;
   const actionNotice = error ?? (fundsNotice ? <>{fundsNotice} <ReceiveLink /></>
     : checkingGas ? 'Checking network fees and available ETH.'
       : quoteExpired ? 'Quote expired. Review fresh terms to continue.' : undefined);
@@ -438,23 +480,50 @@ export function ActionReview(props: ActionReviewProps) {
           <span><strong>{tier === 'standard' ? 'Standard' : tier === 'fast' ? 'Fast' : 'Rapid'}</strong><small><ValueOrSkeleton value={visibleFeeSelection ? `${formatGasPriceGwei(visibleFeeSelection.snapshot.tiers[tier].gasPriceWei)} Gwei` : status === 'failed' ? 'Unavailable' : '—'} width="xs" announce={!stablePreparation} label={`Loading ${tier} gas price`} /></small></span>
         </label>)}
       </fieldset></section>;
+  const decisionContent = (bridgeReview ? <BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} sourceChainId={reviewChainId} destinationChainId={acceptedBridgeQuote?.destinationChainId} /> : <div className={amountLed || leverageReview ? presentationStyles.amountLedReview : undefined}>
+        {amountLed ? <>
+          {identity.subtitle && identity.subtitle.toLowerCase() !== chainName(reviewChainId).toLowerCase() && <p className={presentationStyles.amountContext}>{identity.subtitle}</p>}
+          <TransactionAmountFlow facts={amountFacts} chainId={reviewChainId} />
+        </> : leverageReview ? <><p className={presentationStyles.amountContext}><strong>{identity.name}</strong> · {identity.subtitle}</p><LeverageChangeSummary facts={acceptedAmountFacts} changes={positionChangeRows} /></> : <TransactionIdentity {...identity} />}
+        <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
+          <div className={presentationStyles.consequenceGroup}>
+            {collateral && <ReviewRow label="Estimated collateral" displayLabel="Position size · collateral" value={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : collateral.value} title={collateral.title} />}
+            {compactFacts.map(fact => <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Loan-to-value' ? 'Resulting LTV' : fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
+            {intent?.kind === 'fxsave-deposit' && <ReviewRow label="Current APY" value={facts.find(fact => fact.label === 'Current APY')?.value ?? 'Unavailable'} title="No APY is assumed from an exchange rate or sample value." />}
+            {tradingAction && <ReviewRow label="Execution price" value={executionPrice?.value ?? 'Unavailable'} title={executionPrice?.title} />}
+            {tradingAction && <ReviewRow label="Price impact" value={priceImpact?.value ?? 'Unavailable'} title={priceImpact?.title ?? 'The accepted route does not provide a verified price-impact estimate.'} />}
+            {slippage && !loanAction && <ReviewRow label="Slippage" displayLabel="Max. slippage" value={slippage.value} title={slippage.title} />}
+          </div>
+          {!leverageReview && positionChangeRows.length > 0 && <PositionOutcomeSummary facts={positionChangeRows} />}
+          {(tradingAction || loanAction) && <div className={`${presentationStyles.riskGroup} ${loanAction ? presentationStyles.loanRiskGroup : ''}`}><ReviewRiskPrices route={route} execution={executionPrice} showExecution={false} pending={false} />
+          </div>}
+          {hierarchy.primary.filter(fact => fact.label === 'Claim payout').map(fact => <p key={fact.label} data-review-fact={fact.label} className={presentationStyles.claimCaveat} title={fact.title}>{fact.value}</p>)}
+          {loanAction && <div className={presentationStyles.costGroup}>
+            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewRow label="Borrow rate" displayLabel="Current borrow rate" value={facts.find(fact => fact.label === 'Borrow rate')?.value ?? 'Unavailable'} title="The accepted route does not supply a verified borrow-rate estimate." />}
+            {hierarchy.primary.filter(fact => ['f(x) fee', 'Protocol fee'].includes(fact.label)).map(fact => <ReviewRow key={fact.label} label={fact.label} value={fact.value} title={fact.title} />)}
+          </div>}
+          <div className={presentationStyles.costGroup}>
+            {hierarchy.primary.filter(fact => (loanAction ? ['Gas fee', 'Bridge fee'] : ['Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee']).includes(fact.label)).map(fact =>
+              <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Gas fee' ? (/max/i.test(fact.value) ? 'Network fee (max)' : 'Network fee') : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
+          </div>
+        </div>
+      </div>);
   return (
-    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: actionHeading, subtitle: networkCaption, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing' }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
+    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: actionHeading, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing', hideTitle: true }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
       <ReviewViewport stable={stablePreparation} compact={compactReview} phase={stage === 'executing' ? 'executing' : 'review'}>
       <header data-review-header className={presentationStyles.reviewHeader}>
         <div>
-          <h3 ref={headingRef} data-review-focus tabIndex={-1} className="text-display outline-none">
+          <h3 ref={headingRef} data-review-focus tabIndex={-1} className="sr-only outline-none">
             {actionHeading}
           </h3>
-          {networkCaption}
         </div>
         <button data-review-edit type="button" disabled={loading} onClick={reset} className={presentationStyles.editButton}>
-          <ArrowLeft aria-hidden="true" className="h-4 w-4" /> Edit
+          <X aria-hidden="true" className="h-5 w-5" /><span className="sr-only">Close transaction review</span>
         </button>
       </header>
       <div data-review-scroll className={presentationStyles.reviewScrollBody} role="region" aria-label="Review information" tabIndex={0}>
 
-      {routes.length > 1 && (
+      {stage === 'review' && routes.length > 1 && (
         <div className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label="Route options">
           <p className="text-[12px] font-medium text-mut">Choose route</p>
           {routes.map((candidate, index) => (
@@ -488,66 +557,45 @@ export function ActionReview(props: ActionReviewProps) {
         </div>
       )}
 
-      {bridgeReview ? <BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} sourceChainId={reviewChainId} destinationChainId={acceptedBridgeQuote?.destinationChainId} /> : <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
-        {leverageReview ? <LeverageChangeSummary facts={acceptedAmountFacts} changes={positionChanges.paired} /> : <TransactionAmountFlow facts={amountFacts} chainId={reviewChainId} />}
-        <div className={presentationStyles.consequenceGroup}>
-          {hierarchy.primary.filter(fact => !amountLabels.has(fact.label) && !(leverageReview && fact.label === 'Target leverage') && !(tradeReview && fact.label === 'Execution price') && !['Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout'].includes(fact.label)).map(fact =>
-            <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
-          {(tradeReview || newBorrowReview) && <ReviewRiskPrices route={route} execution={executionPrice} showExecution={tradeReview} pending={false} />}
-        </div>
-        {hierarchy.primary.filter(fact => fact.label === 'Claim payout').map(fact => <p key={fact.label} data-review-fact={fact.label} className={presentationStyles.claimCaveat} title={fact.title}>{fact.value}</p>)}
-        <div className={presentationStyles.costGroup}>
-          {hierarchy.primary.filter(fact => !amountLabels.has(fact.label) && ['Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost'].includes(fact.label)).map(fact =>
-            <ReviewRow key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Gas fee' ? 'Network fee' : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} quiet={stablePreparation} />)}
-        </div>
-     </div>}
-
-      {showExecutionProgress && (
-        <div className={presentationStyles.actualProgress}>
-          <StatusNotice {...progress} />
-        </div>
-      )}
+      {showExecutionProgress && stage !== 'executing' && <div className={presentationStyles.actualProgress}><StatusNotice {...progress} /></div>}
+      {stage === 'executing' ? <PendingTransactionSummary identity={identity} facts={amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : identity.amount ? [identity.amount] : []} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind} /> : decisionContent}
 
 
-      {route && route.transactions.length > 1 && <ol className={presentationStyles.stepSequence} aria-label={bridgeReview ? "Wallet request sequence" : "Transaction sequence"}>
-        {route.transactions.map((transaction, index) => <li key={index} aria-current={index === activeStep ? 'step' : undefined} data-complete={stepResults[index]?.status === 'confirmed' || undefined}>
-          <span aria-hidden="true">{stepResults[index]?.status === 'confirmed' ? <CheckCircle2 size={14} /> : index + 1}</span>
-          {transaction.kind === 'approval' ? stepTitle(transaction) : tradeReview ? 'Open position' : 'Confirm'}
-        </li>)}
-      </ol>}
 
       {/* Trade's card says this in its status line, and an error already says why the route must be reviewed again. */}
-      {quoteExpired && !stablePreparation && !error && <p role="status" className={presentationStyles.reviewNotice}>Quote expired. Review updated terms before signing.</p>}
+      {quoteExpired && !stablePreparation && !error && <p role="status" className={presentationStyles.reviewNotice}>Quote expired · review again</p>}
       {stage === 'review' && <UpdatedQuoteSummary changes={quoteChanges} />}
 
-      {route && wrongNetwork && <p role="status" className={presentationStyles.reviewNotice}>Wallet is on {chainName(wallet.chainId!)}. Confirmation will switch to {chainName(reviewChainId)} before signing.</p>}
-      {route && unsupportedNetwork && <p role="status" className={presentationStyles.reviewNotice}>Wallet network is unavailable or unsupported. Confirmation will request {chainName(reviewChainId)} before signing.</p>}
+      {route && wrongNetwork && <p role="status" className={presentationStyles.reviewNotice}>Network switch: {chainName(wallet.chainId!)} → {chainName(reviewChainId)}</p>}
+      {route && unsupportedNetwork && <p role="status" className={presentationStyles.reviewNotice}>Network unavailable · {chainName(reviewChainId)} required</p>}
 
-      {!leverageReview && <PositionOutcomeSummary facts={positionChanges.paired} />}
       <details data-review-secondary className={presentationStyles.reviewDetails} aria-label="Advanced transaction details">
-        <summary><span>Advanced</span><span>{route ? `${stepCount} ${stepCount === 1 ? 'transaction' : 'transactions'}` : <ValueOrSkeleton value={status === 'failed' ? 'Unavailable' : '—'} width="sm" announce={!stablePreparation} label="Checking transaction steps" />}<ChevronDown size={16} aria-hidden="true" /></span></summary>
+        <summary><span>Execution details</span><span><ChevronDown size={16} aria-hidden="true" /></span></summary>
       <div className={presentationStyles.disclosures}>
-      {showExecutionProgress && <TransactionProgressPresentation label="Submitted transactions" status={status} stepResults={stepResults} chainId={reviewChainId} presentation={progress} />}
+      {stage === 'executing' && <section aria-label="Reviewed terms">{decisionContent}</section>}
+      {showExecutionProgress && stage !== 'executing' && <TransactionProgressPresentation label="Submitted transactions" status={status} stepResults={stepResults} chainId={reviewChainId} presentation={progress} />}
       {route ? <>
       {feeSpeedControl}
-      <DecisionContext beforeFacts={positionChanges.remainingBefore.length ? positionChanges.remainingBefore : undefined} />
-      <div className={presentationStyles.moreFacts}>
-        {hierarchy.more.filter(fact => !amountLabels.has(fact.label)).map(fact => <ReviewRow quiet={stablePreparation} key={`${fact.label}:${fact.value}`} label={fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} />)}
+      <DecisionContext beforeFacts={positionChanges.remainingBefore.filter(fact => !['Collateral', 'Debt', 'Loan-to-value'].includes(fact.label))} />
+      <section className={`${presentationStyles.advancedGroup} ${presentationStyles.moreFacts}`} aria-label="Route and limits">
+        <p className={presentationStyles.advancedGroupLabel}>Route & limits</p>
+        {[...hierarchy.more, ...hierarchy.primary.filter(fact => fact.label === 'Total cost')].filter(fact => fact.label !== identityLabel && (fact.label !== 'Slippage' || loanAction)).map(fact => <ReviewRow quiet={stablePreparation} key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={collateral && fact.label === 'Estimated collateral' ? 'Quoted collateral · native' : fact.label === 'Slippage' ? 'Max. slippage' : reviewFactLabel(fact.label)} value={collateral && fact.label === 'Estimated collateral' ? fact.title ?? fact.value : fact.value} title={fact.title} equivalent={fact.equivalent} />)}
         {approvals.map((approval, index) => <ReviewRow key={`${approval.label}-${index}`} label={approval.label} value={approval.value} title={approval.title} />)}
-      </div>
+      </section>
 
       <section className={presentationStyles.advancedGroup} aria-label="Prepared transactions">
+        <p className={presentationStyles.advancedGroupLabel}>Wallet requests</p>
         {route.transactions.map((transaction, index) => {
           const approval = approvalFacts(transaction);
           const progress = stepProgress(stepResults[index]);
           return (
           <div key={`${transaction.to}-${index}`} role="group" aria-label={`Transaction ${index + 1}`} className={presentationStyles.transactionStep}>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[12px] font-semibold">{index + 1}. {stepTitle(transaction)}</span>
+            <div className={presentationStyles.transactionStepHeader}>
+              <span className={presentationStyles.transactionStepTitle}><span className={presentationStyles.transactionStepNumber} aria-hidden="true">{index + 1}</span>{stepTitle(transaction)}</span>
               {stepResults[index] && <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${progress.className}`}>{progress.icon}{progress.label}</span>}
             </div>
-            {approval && <p className="mt-1 text-[12px] text-mut">{approvalSummary(transaction, approval)} to <span className="font-mono">{compactAddress(approval.spender)}</span></p>}
-            {transaction.value > 0n && <p className="mt-1 text-[12px] text-mut">Value sent: {exactAmountText(trimDecimal(formatEther(transaction.value)))} ETH <span className="text-[var(--mut-2)]">(network fees are separate)</span><AmountUsd amount={formatEther(transaction.value)} symbol="ETH" /></p>}
+            {approval && <p className={presentationStyles.transactionStepNote}>{approvalSummary(transaction, approval)} to <span className="font-mono">{compactAddress(approval.spender)}</span></p>}
+            {transaction.value > 0n && <p className={presentationStyles.transactionStepNote}>Value sent: {exactAmountText(trimDecimal(formatEther(transaction.value)))} ETH <span className="text-[var(--mut-2)]">(network fees are separate)</span><AmountUsd amount={formatEther(transaction.value)} symbol="ETH" /></p>}
             <div className={presentationStyles.advancedRows}>
               <TechnicalEvidenceRow label="Contract" value={transaction.to} />
               <TechnicalEvidenceRow label="Transaction value (wei)" value={transaction.value.toString()} />
@@ -590,7 +638,7 @@ export function ActionReview(props: ActionReviewProps) {
       )}
       {stage === 'executing' && <div data-review-actions className={`${styles.reviewInlineActions} ${presentationStyles.actions}`}>
         <Button disabled loading className={styles.primaryAction}>
-          {networkSwitching ? 'Switching network…' : status === 'awaiting-user' ? 'Confirm in wallet' : status === 'submitted' || status === 'included' || status === 'confirming' ? 'Waiting for confirmation…' : 'Preparing next step…'}
+          {networkSwitching ? 'Switching network…' : status === 'awaiting-user' ? 'Confirm in wallet' : status === 'submitted' || status === 'included' || status === 'confirming' ? 'Confirming…' : 'Preparing next step…'}
         </Button>
       </div>}
       </ReviewViewport>
@@ -599,7 +647,7 @@ export function ActionReview(props: ActionReviewProps) {
 
 }
 
-function ReviewSurface({ surface, className, children, stable = false, mobileSheet }: { surface: 'card' | 'content'; className: string; children: ReactNode; stable?: boolean; mobileSheet: { title: string; subtitle?: ReactNode; onClose: () => void; triggerRef: RefObject<HTMLElement | null>; dismissible?: boolean } }) {
+function ReviewSurface({ surface, className, children, stable = false, mobileSheet }: { surface: 'card' | 'content'; className: string; children: ReactNode; stable?: boolean; mobileSheet: { title: string; subtitle?: ReactNode; onClose: () => void; triggerRef: RefObject<HTMLElement | null>; dismissible?: boolean; hideTitle?: boolean } }) {
   const content = surface === 'content'
     ? <div data-review-surface className={`${styles.reviewInlineContent} reviewInlineContent ${stable ? '' : presentationStyles.surfaceEnter}`}>{children}</div>
     : <Card data-review-surface className={`${className} ${stable ? '' : presentationStyles.surfaceEnter}`}>{children}</Card>;
@@ -609,7 +657,7 @@ function ReviewSurface({ surface, className, children, stable = false, mobileShe
 /** `equivalent` reads muted beneath the value: the same amount in another unit, never the signed figure. */
 function ReviewRow({ label, displayLabel, value, title, equivalent, className, quiet = false }: { label: string; displayLabel?: string; value: ReactNode; title?: string; equivalent?: string; className?: string; quiet?: boolean }) {
   const valueTitle = title ?? (typeof value === 'string' ? value : undefined);
-  return <div data-review-fact={label} className={`flex min-w-0 items-start justify-between gap-4 text-[13px] ${className ?? ''}`}><span className="text-mut">{displayLabel ?? label}</span><span title={valueTitle} className="max-w-[62%] break-words text-right font-semibold tabular-nums"><ValueOrSkeleton value={value} width="md" announce={!quiet} label={`Loading ${label.toLowerCase()}`} />{equivalent && <span className={presentationStyles.factEquivalent}>{equivalent}</span>}{['Gas fee', 'Bridge fee', 'Total cost'].includes(label) && typeof value === 'string' && <FeeUsd fact={{value, title}} />}</span></div>;
+  return <div data-review-fact={label} className={`flex min-w-0 items-start justify-between gap-4 text-[13px] ${className ?? ''}`}><MetricLabel className="text-mut" label={displayLabel ?? label} definition={reviewHelpDefinition(label)} /><span title={valueTitle} className="max-w-[62%] break-words text-right font-semibold tabular-nums">{['Gas fee', 'Bridge fee'].includes(label) && typeof value === 'string' ? <FeeAmount fact={{ value, title }} /> : <>{typeof value === 'string' && value !== '—' ? <ReviewFactValue fact={{ label, value, title }} /> : <ValueOrSkeleton value={value} width="md" announce={!quiet} label={`Loading ${label.toLowerCase()}`} />}</>}{equivalent && <span className={presentationStyles.factEquivalent}>{equivalent}</span>}{label === 'Total cost' && typeof value === 'string' && <FeeUsd fact={{ value, title }} />}</span></div>;
 }
 
 /** The recovery for a wallet short of ETH: its Receive address. */
@@ -632,6 +680,7 @@ function AdvancedReviewDetails({ route }: { route: PlannedRoute }) {
   if (!hasDetails) return null;
   const exactJson = exactEvidenceJson(evidence);
   return <section className={presentationStyles.advancedGroup} aria-label="Contract and quote data">
+    <p className={presentationStyles.advancedGroupLabel}>Verification data</p>
     <TechnicalEvidenceRow label="Quote data" value={exactJson} preview="View exact data" />
     {route.policy?.reviewedAction?.expectedActionDataFingerprint && <TechnicalEvidenceRow label="Action fingerprint" value={route.policy.reviewedAction.expectedActionDataFingerprint} />}
   </section>;

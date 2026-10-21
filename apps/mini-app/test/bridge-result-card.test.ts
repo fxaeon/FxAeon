@@ -20,43 +20,43 @@ const render = (props: Partial<React.ComponentProps<typeof BridgeResultCard>> = 
 
 test('bridge outcome uses verified source and destination amounts, never the requested quote', () => {
   const html = render({ state: 'destination_verified', sourceAmount: '100.1234', receivedAmount: '99.9876', destinationTxHash: DEST });
-  const primary = html.slice(0, html.indexOf('<details'));
-  assert.match(primary, /Bridge complete/);
+  const primary = html.slice(0, html.indexOf('<details class="advanced">'));
+  assert.match(primary, /fxUSD received on Base/);
   assert.match(primary, />Sent</);
   assert.match(primary, />Received</);
-  assert.match(primary, /title="100.1234 fxUSD"/);
-  assert.match(primary, /title="99.9876 fxUSD"/);
+  assert.match(primary, /Show exact sent amount: 100.1234 fxUSD/);
+  assert.match(primary, /Show exact received amount: 99.9876 fxUSD/);
   assert.doesNotMatch(primary, /100.123456789|You receive|estimated|Requested|Action 2/);
   assert.match(html, new RegExp(`https://basescan.org/tx/${DEST}`));
   assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
-  assert.equal((html.match(/<details\b/g) ?? []).length, 1);
-  assert.ok(html.indexOf('99.9876 fxUSD</dd>') > html.indexOf('<details'), 'unrounded verified amount is in flat Advanced');
+  assert.equal((html.match(/<details\b/g) ?? []).length, 3);
+  assert.ok(html.indexOf('99.9876 fxUSD</dd>') > html.indexOf('<details class="advanced">'), 'unrounded verified amount is in flat Advanced');
   assert.match(html, /Copy full recipient/);
 });
 
 test('pending, source-only, failed and legacy amount-less proofs stay honest', () => {
   for (const state of ['pending', 'source_confirmed', 'failed'] as const) {
     const html = render({ state, receivedAmount: '999', destinationTxHash: DEST });
-    const primary = html.slice(0, html.indexOf('<details'));
-    assert.doesNotMatch(primary, /Bridge complete|>Received<|999/);
+    const primary = html.slice(0, html.indexOf('<details class="advanced">'));
+    assert.doesNotMatch(primary, /fxUSD received on Base|>Received<|999/);
     assert.match(primary, state === 'failed' ? /Not verified/ : /Awaiting delivery/);
     assert.match(html, /Confirming/);
     assert.doesNotMatch(html, /Bridge to Base<\/span><small>Confirmed/);
   }
   const legacy = render({ state: 'destination_verified' });
-  assert.match(legacy, /Bridge complete/);
+  assert.match(legacy, /fxUSD received on Base/);
   assert.match(legacy, /Amount unavailable/);
-  assert.doesNotMatch(legacy.slice(0, legacy.indexOf('<details')), /100.123456789/);
-  assert.match(render({ state: 'failed', sourceReverted: true }), /source transaction reverted/);
+  assert.doesNotMatch(legacy.slice(0, legacy.indexOf('<details class="advanced">')), /100.123456789/);
+  assert.match(render({ state: 'failed', sourceReverted: true }), /Source reverted/);
 });
 
 test('simulation has distinct disclosure and no fake on-chain links', () => {
   const html = render({ state: 'destination_verified', sourceAmount: '10', receivedAmount: '9.99', destinationTxHash: DEST, simulated: true });
-  assert.match(html, /Simulation complete/);
+  assert.match(html, /aria-label="Simulated result: Bridge complete"[^>]*>Bridge complete<\/h3>/);
   assert.match(html, /Simulation · no real funds moved/);
   assert.match(html, />Received</);
   assert.match(html, /Simulated · confirmed/);
-  assert.doesNotMatch(html, /<a\b|No on-chain link|Bridge complete/);
+  assert.doesNotMatch(html, /<a\b|No on-chain link/);
 });
 
 test('fxSAVE and very small or large exact amounts retain precision without fake prices', () => {
@@ -89,20 +89,24 @@ test('bridge Advanced keeps receipt fees in aligned rows with partial Base cavea
 });
 
 
-test('completed bridge stays compact, with full details retained only for pending delivery', () => {
+test('completed bridge stays compact with one shared Execution details disclosure', () => {
   const html = render({ state: 'destination_verified', sourceAmount: '10', receivedAmount: '9.99', completionContent: React.createElement('p', null, 'Transaction Confirmed: receipt · Source gas fee'), advancedContent: React.createElement('p', null, 'Full route diagnostics') });
   assert.match(html, /Transaction Confirmed: receipt/);
-  assert.doesNotMatch(html, /Full route diagnostics|Bridge receipts|Advanced|Recipient|Copy full recipient/);
+  assert.match(html, /Execution details/);
+  assert.match(html, /Full route diagnostics/);
+  assert.ok(html.indexOf('Full route diagnostics') > html.indexOf('<details class="advanced">'));
+  assert.doesNotMatch(html, /<span>Advanced<\/span>/);
   assert.match(html, /Show exact sent amount: 10 fxUSD/);
   assert.match(html, /Show exact received amount: 9.99 fxUSD/);
   assert.match(html, /Exact received/);
-  assert.equal((html.match(/<details\b/g) ?? []).length, 2, 'only native exact amount controls remain');
+  assert.equal((html.match(/<details\b/g) ?? []).length, 3, 'native exact controls and one shared Execution details');
 });
 
 test('compact simulated completion avoids a duplicate badge and preserves touch targets', () => {
   const html = render({ state: 'destination_verified', sourceAmount: '10', receivedAmount: '10', token: 'fxSAVE', simulated: true,
     completionContent: React.createElement('section', { 'aria-label': 'Simulated transaction receipt' }, 'Simulation complete · Source gas fee') });
-  assert.match(html, /Simulation complete/);
+  assert.match(html, /aria-label="Simulated result: Bridge complete"[^>]*>Bridge complete<\/h3>/);
+  assert.equal((html.match(/Simulation complete/g) ?? []).length, 1);
   assert.doesNotMatch(html, /Simulation · no real funds moved/);
   assert.match(html, /class="completion"/);
   const css = readFileSync(new URL('../src/components/review/BridgeResultCard.module.css', import.meta.url), 'utf8');
@@ -111,4 +115,15 @@ test('compact simulated completion avoids a duplicate badge and preserves touch 
   assert.match(css, /\.completion > section \{ margin-top: 0; \}/);
   assert.match(css, /\.exactAmount > summary \{[^}]*min-height: 44px/);
   assert.match(render({ simulated: true, state: 'source_confirmed' }), /Simulation · no real funds moved/);
+});
+
+
+test('all bridge lifecycle states remove amount carets while retaining exact phone values and uncertainty', () => {
+ for(const state of ['pending','source_confirmed','destination_verified','failed'] as const){
+  const html=render({state,sourceAmount:'720.89147659306640625',receivedAmount:'720.89147659306640625',completionContent:state==='destination_verified'?React.createElement('p',null,'Receipt'):undefined});
+  assert.match(html,/≈ 720.89/); assert.match(html,/720.89147659306640625 fxUSD/);
+  assert.equal((html.match(/lucide-chevron-down/g)||[]).length,1);
+  assert.match(html,/Execution details/);
+  if(state==='failed')assert.match(html,/Delivery unverified · do not repeat/);
+ }
 });

@@ -22,3 +22,16 @@
 .body:has([data-review-viewport]) { display: flex; flex-direction: column; overflow: hidden; }
 .body:has([data-review-viewport]) > :global([data-review-surface]) { display: flex; flex-direction: column; min-height: 0; }
 .body :global([data-review-viewport]) { min-height: 0; }
+
+/* Compact, content-height reference sheet. Long or enlarged content scrolls
+   inside the sheet; it must never push the decision beyond the viewport. */
+.sheet { max-height: min(86dvh, calc(100dvh - 76px)); border-radius: 29px 29px 0 0; }
+.header { padding: 22px 13px 8px 23px; }
+.header h2 { font-size: 18px; font-weight: 720; letter-spacing: -.03em; }
+.handle { width: 48px; left: calc(50% - 24px); top: 11px; }
+.body { padding: 0 23px calc(22px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 410px) { .header { padding-left: 17px; padding-right: 7px; } .body { padding-inline: 17px; } }
+@media (max-height: 620px) { .sheet { max-height: calc(100dvh - 48px); } .body { padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); } }
+
+/* The transaction identity carries the visible context; retain the dialog name. */
+.quietHeader { padding-top: 15px; padding-bottom: 0; }

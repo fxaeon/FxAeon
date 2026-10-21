@@ -45,10 +45,11 @@ export async function readReviewedTransactions(
     const headingRow = card.locator(':scope > div').first();
     const displayedHeading = (await headingRow.locator(':scope > span').first().textContent() ?? '').trim();
     const statusBadge = headingRow.locator(':scope > span').nth(1);
-    const headingMatch = displayedHeading.match(/^(\d+)\.\s+(.+)$/);
+    const headingNumber = (await headingRow.locator(':scope > span > span[aria-hidden="true"]').textContent() ?? '').trim();
+    const headingTitle = displayedHeading.slice(headingNumber.length).trim();
     const transaction: ReviewedTransaction = {
       // Keep the fork extractor's established `${title} ${index}` format.
-      heading: headingMatch ? `${headingMatch[2]} ${headingMatch[1]}` : displayedHeading,
+      heading: `${headingTitle} ${headingNumber}`,
       // A prepared transaction has no receipt or status badge yet.
       status: await statusBadge.count() ? (await statusBadge.textContent() ?? '').trim() : '',
       contract: await exactEvidence('Contract'),

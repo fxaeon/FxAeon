@@ -1,6 +1,7 @@
 import { formatUnits, parseUnits } from 'viem';
 import type { TransactionExecutionResult } from '@/lib/fx';
 import type { ReceiptPresentation } from '@/lib/receiptPresentation';
+import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { transactionExplorerUrl, transactionStepProgress } from '@/lib/transactionProgress';
 import { formatUsd, type UsdPriceSnapshot } from '@/lib/prices';
 import { amountUsdValue } from './transactionAmountPresentation';
@@ -13,6 +14,50 @@ export function hasCompactConfirmedTransaction(result: TransactionExecutionResul
   return result.status === 'confirmed'
     && result.steps.some(step => step.transaction.kind === 'action')
     && result.steps.every(step => step.transaction.chainId === result.chainId && transactionStepProgress(step).state === 'confirmed');
+}
+
+export type CompactReceiptOutcomeRow = {
+  label: string;
+  amount: string;
+  symbol: string;
+  direction: 'sent' | 'received';
+};
+
+/**
+ * Only verified receipt values belong in the result's primary amount group.
+ * Reviewed amounts, debt changes and collateral estimates are not transfers.
+ * Unknown token units (including unrecognized Base tokens) stay technical.
+ */
+export function compactTransactionOutcomeModel(
+  result: TransactionExecutionResult,
+  receipts: readonly ReceiptPresentation[],
+  reviewedFacts: readonly ReviewFact[] = [],
+) {
+  if (!hasCompactConfirmedTransaction(result)) return null;
+  const actionReceipts = receipts.filter(receipt => receipt.transactionKind === 'action');
+  // These presentations are ordered, not hash-addressed. If any is missing or
+  // mismatched, do not associate its amount with a different transaction.
+  const alignedReceipts = receipts.length === result.steps.length
+    && receipts.every((receipt, index) => receipt.transactionKind === result.steps[index]?.transaction.kind);
+  const queuedWithdrawal = result.chainId === 1 && result.operation === 'withdrawFxSave'
+    && reviewedFacts.some(fact => fact.label === 'Availability' && /cooldown/i.test(fact.value));
+  const rows: CompactReceiptOutcomeRow[] = (alignedReceipts ? actionReceipts : []).flatMap(receipt => [
+    ...(receipt.exactNativeValue && receipt.nativeValueLabel === 'Native value sent'
+      ? [{ direction: 'sent' as const, amount: receipt.exactNativeValue, symbol: 'ETH' }] : []),
+    ...(receipt.exactMovements ?? []),
+  ]).filter(movement => /^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(movement.amount)
+    && /^[A-Za-z][A-Za-z0-9]*$/.test(movement.symbol))
+    .map(movement => ({
+      ...movement,
+      label: movement.direction === 'received' ? 'You received'
+        : result.operation === 'depositFxSave' ? 'You deposited'
+        : result.operation === 'withdrawFxSave' ? 'You redeemed'
+        : result.operation === 'depositAndMint' ? 'Collateral sent'
+        : result.operation === 'repayAndWithdraw' ? 'You repaid' : 'You paid',
+    })).sort((a, b) => Number(a.direction === 'received') - Number(b.direction === 'received'));
+  const hasTechnicalMovements = actionReceipts.some(receipt => receipt.technicalMovements.length > 0);
+  const hasUnresolvedMovements = actionReceipts.some(receipt => receipt.movements.length > (receipt.exactMovements?.length ?? 0));
+  return { rows, queuedWithdrawal, hasTechnicalMovements, hasUnresolvedMovements };
 }
 
 function exactFeeWei(value: string | undefined): bigint | null {
@@ -68,7 +113,7 @@ export function compactTransactionFooterModel(
     simulated,
     explorerUrl: simulated ? null : transactionExplorerUrl(result.chainId, action.hash),
     destinationExplorerUrl: simulated ? null : destinationUrl,
-    confirmationLabel: simulated ? 'Simulation complete' : 'Transaction Confirmed',
+    confirmationLabel: simulated ? 'Simulation complete' : 'Transaction confirmed',
     gasLabel,
     feeState: fee.exactNative === null ? 'incomplete' as const : usd === null ? 'price-unavailable' as const : 'priced' as const,
     feeValue: fee.exactNative === null ? 'Unavailable'

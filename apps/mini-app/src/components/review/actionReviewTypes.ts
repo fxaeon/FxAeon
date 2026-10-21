@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { PlannedRoute, TransactionExecutionResult } from '@/lib/fx';
 import type { SignatureDraftState } from '@/lib/fx';
+import type { ConfirmedPositionReadback } from './positionReview';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 
 export type ActionPlanBuilder = () => Promise<PlannedRoute | readonly PlannedRoute[]>;
@@ -29,6 +30,10 @@ export interface ActionReviewProps {
    * "ETH:long:42", and its page.
    */
   onViewNewPosition?: (position: { key: string; href: string }) => void;
+  /** Return to the same managed position without a route change or new history entry. */
+  onReturnToPosition?: (position: { key: string; href: string }) => void;
+  /** Fresh read bound to this action's confirmed receipt, never a projected quote. */
+  confirmedPosition?: ConfirmedPositionReadback | null;
   operationLabel?: string;
   destructive?: boolean;
   onStageChange?: (stage: ActionReviewStage) => void;

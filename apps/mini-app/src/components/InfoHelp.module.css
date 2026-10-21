@@ -1,0 +1,15 @@
+/* Optional definitions use one quiet, touchable disclosure across products. */
+.label { display: inline-flex; align-items: center; gap: 2px; min-width: 0; max-width: 100%; vertical-align: middle; }
+.label > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.trigger, .close { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; padding: 0; border: 0; border-radius: 50%; color: var(--mut); background: transparent; cursor: pointer; vertical-align: middle; }
+.trigger svg, .close svg { flex: 0 0 auto; width: 16px; height: 16px; }
+.trigger:hover, .trigger[aria-expanded='true'], .close:hover { color: var(--text); background: var(--surface-2); }
+.trigger:focus-visible, .close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.panel { position: fixed; inset: auto; z-index: 110; box-sizing: border-box; margin: 0; padding: 12px; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: var(--radius-md, 12px); background: var(--surface); color: var(--text); box-shadow: var(--elevation-2); font-size: .8125rem; font-weight: 400; line-height: 1.5; letter-spacing: normal; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.panel::backdrop { background: transparent; pointer-events: none; }
+.panel:focus { outline: none; }
+.panel:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding-bottom: 5px; }
+.heading strong { min-width: 0; padding-top: 5px; font-size: inherit; font-weight: 600; }
+.close { margin: -3px -3px 0 0; }
+.content { display: block; color: var(--mut); }

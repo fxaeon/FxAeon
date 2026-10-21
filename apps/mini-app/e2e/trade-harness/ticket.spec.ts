@@ -80,9 +80,14 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+    const previewPrice = fact(page, 'Execution price');
+    await previewPrice.locator('summary').click();
+    const executionPriceExact = await previewPrice.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last().textContent();
+    expect(executionPriceExact).toMatch(/^[\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
+    await previewPrice.locator('summary').click();
     const preview = {
       executionPrice: await figure(page, 'Execution price'),
-      executionPriceExact: await fact(page, 'Execution price').locator('span').first().getAttribute('title'),
+      executionPriceExact,
       liquidationPrice: await figure(page, 'Liquidation price'),
       fee: await figure(page, 'f(x) fee'),
     };
@@ -96,20 +101,27 @@ test.describe('the ticket’s outcome preview', () => {
 
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
-    // Quote details retain every source digit; the compact ticket carries that same exact quote in its title.
+    // Ticket and review disclosures retain the same complete source quote.
     expect(preview.executionPriceExact).toBeTruthy();
-    await expect(reviewFact(page, 'Execution price')).toHaveText(preview.executionPrice);
+    await expect(reviewFact(page, 'Execution price').locator('summary > span')).toHaveText(preview.executionPrice);
+    await reviewFact(page, 'Execution price').locator('summary').click();
+    await expect(reviewFact(page, 'Execution price').getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(preview.executionPriceExact!);
+    await reviewFact(page, 'Execution price').locator('summary').click();
     await expect(reviewFact(page, 'Execution price')).toHaveAttribute('title', preview.executionPriceExact!);
-    const collateral = page.locator('[data-review-fact="Estimated collateral"]');
-    const collateralSummary = collateral.locator('summary');
-    await expect(collateralSummary).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
-    await expect(collateralSummary).toHaveAccessibleName(/^Show full estimate: [\d,]+(?:\.\d+)? stETH$/);
-    const collateralExact = (await collateralSummary.getAttribute('aria-label'))!.replace('Show full estimate: ', '');
-    await collateralSummary.click();
-    await expect(collateral.locator('p')).toContainText(`Unrounded estimate${collateralExact} (`);
-    await expect(collateral.locator('p')).toHaveText(/wstETH at [\d,]+(?:\.\d+)? stETH per wstETH\)$/);
-    await collateralSummary.click();
-    await page.getByLabel('Advanced transaction details', { exact: true }).locator(':scope > summary').click();
+    const collateral = page.locator('[data-review-fact="Estimated collateral"]').first();
+    await expect(collateral).toContainText('Position size · collateral');
+    const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
+    await expect(collateralValue).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
+    const collateralSource = (await collateralValue.getAttribute('title'))!.split('. USD value unavailable:')[0];
+    expect(collateralSource).toMatch(/^[\d,]+(?:\.\d+)? stETH \([\d,]+(?:\.\d+)? wstETH at [\d,]+(?:\.\d+)? stETH per wstETH\)$/);
+    await expect(collateralValue).toHaveAttribute('title', /USD value unavailable: no fresh matching wstETH price\.$/);
+    const details = page.getByLabel('Advanced transaction details', { exact: true });
+    await details.locator(':scope > summary').click();
+    const quotedCollateral = details.locator('[data-review-fact="Estimated collateral"]');
+    await expect(quotedCollateral).toContainText('Quoted collateral · native');
+    // The full accepted amount and conversion rate are unchanged, not parsed
+    // back out of the compact display or the unrelated USD estimate.
+    await expect(quotedCollateral.locator(':scope > span').last()).toHaveText(collateralSource);
     await expect(reviewFact(page, 'Estimated debt')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
     await expect(reviewFact(page, 'f(x) fee')).toHaveText(preview.fee);
     // The signed floor stays exact in wstETH, with its stETH equivalent muted beneath it.
@@ -172,7 +184,7 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
     expect(await planCount(page)).toBe(1);
-    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('[data-review-edit]').click();
     // Same inputs, same figures, never a placeholder flash; a fresh warm-up runs behind them.
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     await expect(fact(page, 'Liquidation price')).toHaveText(liquidationPrice);

@@ -223,7 +223,7 @@ function SendForm() {
     {quote ? <>
       <header className={styles.reviewHeader}>
         <button type="button" className={styles.back} aria-label="Edit transfer" disabled={busy} onClick={() => { setQuote(null); setError(''); }}><ArrowLeft aria-hidden="true" /></button>
-        <h2>Review send</h2>
+        <h2 className="sr-only">Review send</h2>
       </header>
       <div className={styles.reviewHero}>
         <TokenIcon symbol={quote.symbol} size={48} />

@@ -6,6 +6,7 @@ import { ChevronRight, Fuel, Percent, RotateCcw, SlidersHorizontal } from 'lucid
 import { ChainIcon } from '@/components/TokenIcon';
 import { SettingsPopover } from '@/components/SettingsPopover';
 import { DecimalInput } from '@/components/DecimalInput';
+import { MetricLabel } from '@/components/InfoHelp';
 import { fetchGasTierQuotes, type GasTierQuotes } from '@/lib/fx/gasFeePolicy';
 import { usePrivyWallet } from '@/lib/wallet';
 import { useWalletProviderMode } from '@/lib/wallet/providerMode';
@@ -163,10 +164,10 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
   return <div className={styles.panel}>
     {slippage && <section className={styles.section} aria-labelledby={`${id}-slippage`}>
       <div className={styles.heading}>
-        <h3 id={`${id}-slippage`}><Percent size={17} aria-hidden="true" />Max slippage</h3>
+        <h3 id={`${id}-slippage`}><Percent size={17} aria-hidden="true" /><MetricLabel label="Max slippage" definition="maxSlippage" /></h3>
         <span className={styles.value}>{percent}%</span>
       </div>
-      <p className={styles.help} id={`${id}-slippage-help`}>The transaction reverts if price moves past this limit before confirmation.</p>
+      <p className={styles.help} id={`${id}-slippage-help`}>Reverts if price moves beyond the displayed slippage limit before confirmation.</p>
       <div className={styles.choices} role="radiogroup" aria-labelledby={`${id}-slippage`} data-thumb={presetIndex >= 0 || undefined}
         style={{ '--seg-index': Math.max(presetIndex, 0), '--seg-count': SLIPPAGE_PRESETS_BPS.length } as CSSProperties}>
         {SLIPPAGE_PRESETS_BPS.map((value, index) => <button key={value} type="button" role="radio" aria-checked={value / 100 === Number(percent)}
@@ -189,10 +190,10 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
     </section>}
     {!walletSetsFees && <section className={styles.section} aria-labelledby={`${id}-speed`}>
       <div className={styles.heading}>
-        <h3 id={`${id}-speed`}><Fuel size={17} aria-hidden="true" />Network speed</h3>
+        <h3 id={`${id}-speed`}><Fuel size={17} aria-hidden="true" /><MetricLabel label="Network speed" definition="networkSpeed" /></h3>
         <span className={styles.value}>{SPEED_LABELS[tier]}</span>
       </div>
-      <p className={styles.help}>A higher priority fee can speed up inclusion on {chainId === 8453 ? 'Base' : 'Ethereum'}. Rates below are in Gwei.</p>
+      <p className={styles.help}>Gas prices in gwei on {chainId === 8453 ? 'Base' : 'Ethereum'}.</p>
       <div className={styles.speeds} role="radiogroup" aria-labelledby={`${id}-speed`} data-thumb=""
         style={{ '--seg-index': GAS_TIERS.indexOf(tier), '--seg-count': GAS_TIERS.length } as CSSProperties}>
         {GAS_TIERS.map((value, index) => <button key={value} type="button" role="radio" aria-checked={tier === value} onClick={() => chooseTier(value)}

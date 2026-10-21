@@ -112,7 +112,7 @@
 .outcomeRows { margin: 0; font-size: var(--fs-small); }
 .outcomeRows > div { display: flex; justify-content: space-between; gap: 12px; }
 .outcomeRows dt { color: var(--mut); }
-.outcomeRows dd { min-width: 0; margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.outcomeRows dd { display: flex; align-items: baseline; gap: 4px; min-width: 0; margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .outcomeRows dd > span { color: var(--mut); }
 .outcomeRows strong { font-weight: 500; }
 .fundingHint { margin: 0; padding-block: 10px 0; border-top: 1px solid var(--line); color: var(--mut); font-size: 12px; line-height: 1.6; }
@@ -123,3 +123,7 @@
 .limitMeter[data-tone='over'] .limitTrack > span { background: var(--danger); }
 .limitMeter[data-tone='over'] .limitMeterRow strong { color: var(--danger); }
 @media (prefers-reduced-motion: reduce) { .limitTrack > span, .limitMeterRow strong { transition: none; } }
+
+.metrics dd.rateUnavailable { font-size: clamp(20px, 3.5vw, 27px); letter-spacing: -.025em; line-height: 1.3; color: var(--mut); }
+.metrics dt { min-height: 30px; }
+.metrics small { max-width: 26ch; }

@@ -36,7 +36,7 @@ test('records usable quote and refreshed account timings in the deterministic Ac
     'One explicit harness confirmation until the refreshed account fixture is visible; harness inserts 225 ms before invalidation resolves.',
     async () => {
       await confirm.click();
-      await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
       await expect(page.getByLabel('Refreshed account value')).toHaveText('1.25 ETH');
     },
   );

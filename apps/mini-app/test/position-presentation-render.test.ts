@@ -132,8 +132,9 @@ test('Borrow renders exact small debt, rational LTV and visible exact amounts be
   assert.doesNotMatch(card, /<details|Loading/);
   const tiny = position('BTC', 'long', 1n, 1n);
   const compact = render(React.createElement(BorrowPositionCard, { position: tiny, stale: false, onOpen: () => undefined }));
-  assert.match(compact, /<span aria-hidden="true">&lt;0\.00000001/);
-  assert.match(compact, /<span class="sr-only">Exact amount: 0\.000000000000000001 WBTC/);
+  assert.match(visibleText(compact), /0\.000000000000000001 WBTC/);
+  assert.match(visibleText(compact), /0\.000000000000000001 fxUSD/);
+  assert.match(compact, /title="0\.000000000000000001 WBTC"/);
   const manager = render(React.createElement(BorrowPositionManager, { position: tiny, stale: false, inputStage: true, locked: false, triggerRef: { current: null }, onClose: () => undefined, children: null }));
   const facts = manager.slice(manager.indexOf('<dl>'));
   assert.match(visibleText(facts), /Collateral 0\.000000000000000001 WBTC/);

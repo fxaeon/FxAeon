@@ -1,6 +1,10 @@
+import { ReviewFactValue } from './ReviewFactValue';
+import { MetricLabel } from '../InfoHelp';
+import { reviewHelpDefinition } from './reviewHelp';
+import { formatReviewFactValue } from './reviewFactFormatting';
 import { AmountUsd, FeeUsd } from './AmountUsd';
 import { reviewFactLabel } from './reviewHierarchy';
-import type { ChangedReviewFact } from './actionReviewModel';
+import type { ChangedReviewFact, PairedPositionFact } from './actionReviewModel';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { receiptMovementLines, shouldShowReceiptMovementFallback, type ReceiptPresentation } from '@/lib/receiptPresentation';
 import { StatusNotice, TransactionHashLink } from '@/components/review/ReviewProgress';
@@ -30,14 +34,14 @@ export function CompactQuoteMetrics({ facts, gasStatus }: {
   return <div className={presentationStyles.quoteMetrics} aria-label="Current quote estimates">
     {metrics.map((fact) => <div className={presentationStyles.quoteMetric} key={fact.label}>
       <span className={presentationStyles.quoteMetricLabel}>{fact.label}</span>
-      <span className={presentationStyles.quoteMetricValue} title={fact.title}>{fact.label === 'Gas tier' ? fact.value : <ValueOrSkeleton value={fact.value} width="sm" status={gasStatus === 'refreshing' ? 'loading' : 'unavailable'} label={fact.label} />}{['Gas fee', 'Network fee max'].includes(fact.label) && <FeeUsd fact={fact} />}</span>
+      <span className={presentationStyles.quoteMetricValue} title={fact.title}>{fact.label === 'Gas tier' ? fact.value : fact.value !== '—' ? <ReviewFactValue fact={fact} /> : <ValueOrSkeleton value={fact.value} width="sm" status={gasStatus === 'refreshing' ? 'loading' : 'unavailable'} label={fact.label} />}{['Gas fee', 'Network fee max'].includes(fact.label) && <FeeUsd fact={fact} />}</span>
     </div>)}
   </div>;
 }
 
 function SummaryRow({ label, value, title }: { label: string; value: string; title?: string }) {
   return <div className="grid min-w-0 grid-cols-[minmax(84px,.72fr)_minmax(0,1.28fr)] gap-x-3 py-1 text-[13px] leading-snug">
-    <span className="text-mut">{reviewFactLabel(label)}</span><span className="min-w-0 break-words text-right font-semibold tabular-nums" title={title}>{value}{['Gas fee', 'Bridge fee', 'Total cost'].includes(label) && <FeeUsd fact={{ value, title }} />}</span>
+    <span className="text-mut">{reviewFactLabel(label)}</span><span className="min-w-0 break-words text-right font-semibold tabular-nums" title={title}><ReviewFactValue fact={{ label, value, title }} />{['Gas fee', 'Bridge fee', 'Total cost'].includes(label) && <FeeUsd fact={{ value, title }} />}</span>
   </div>;
 }
 
@@ -54,7 +58,7 @@ export function UpdatedQuoteSummary({ changes }: { changes: readonly ChangedRevi
       <div className="mt-1.5 flex flex-col gap-1.5">
         {visibleChanges.map((change) => <div key={change.label} className="grid grid-cols-[minmax(84px,.7fr)_minmax(0,1.3fr)] gap-x-3 text-[13px]">
           <span className="text-mut">{reviewFactLabel(change.label)}</span>
-          <span className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere]">{change.before ? `${change.before} → ` : ''}{change.after ?? 'No longer included'}{change.after && ['Gas fee', 'Bridge fee', 'Total cost'].includes(change.label) && <FeeUsd fact={{ value: change.after }} />}</span>
+          <span className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere]">{change.before && <><ReviewFactValue fact={{ label: `${change.label} before`, value: change.before }} /> → </>}{change.after ? <ReviewFactValue fact={{ label: `${change.label} after`, value: change.after }} /> : 'No longer included'}{change.after && ['Gas fee', 'Bridge fee', 'Total cost'].includes(change.label) && <FeeUsd fact={{ value: change.after }} />}</span>
         </div>)}
       </div>
     </section>
@@ -73,13 +77,18 @@ export function ActionConsequenceSummary({ facts }: { facts: readonly ReviewFact
   );
 }
 
-export function PositionOutcomeSummary({ facts }: { facts: readonly { label: string; before: string; after: string }[] }) {
+export function PositionOutcomeSummary({ facts }: { facts: readonly PairedPositionFact[] }) {
   if (!facts.length) return null;
+  const display = (value: string) => formatReviewFactValue({ label: 'Position value', value }).display;
   return (
     <section className={presentationStyles.positionOutcome} aria-label="Current and expected position values">
-      <p>Position outcome</p>
+      <div className={presentationStyles.positionOutcomeHeading}><span>Current → estimated</span></div>
       <dl>{facts.map((fact) => <div key={fact.label}>
-        <dt>{fact.label}</dt><dd>{fact.before} → {fact.after}</dd>
+        <dt><MetricLabel label={fact.label === 'Debt' ? 'Total debt' : fact.label === 'Loan-to-value' ? 'LTV' : fact.label} definition={reviewHelpDefinition(fact.label)} /></dt>
+        <dd><details className={presentationStyles.positionPair}>
+          <summary aria-label={`Show full ${fact.label.toLowerCase()} before and after`}><span>{display(fact.before)}</span><span aria-hidden="true">→</span><strong>{display(fact.after)}</strong></summary>
+          <p><span>Before: {fact.before}{fact.beforeTitle && fact.beforeTitle !== fact.before && <><br />Source detail: {fact.beforeTitle}</>}</span><span>Estimated after: {fact.after}{fact.afterTitle && fact.afterTitle !== fact.after && <><br />Estimate detail: {fact.afterTitle}</>}</span></p>
+        </details></dd>
       </div>)}</dl>
     </section>
   );
@@ -99,7 +108,7 @@ export function ReceiptSummary({ receipts, variant = 'default' }: { receipts: re
         const fact = /^(sent|received) (.+) ([A-Za-z][A-Za-z0-9]*)$/.exec(movement);
         return fact ? <div key={index} data-direction={fact[1]}>
           <dt>{fact[1] === 'received' ? 'Received' : 'Sent'}</dt>
-          <dd><TokenIcon symbol={fact[3]} size={24} /><span>{fact[2]} <span>{fact[3]}</span></span></dd>
+          <dd><TokenIcon symbol={fact[3]} size={24} /><ReviewFactValue fact={{ label: fact[1] === 'received' ? 'Received' : 'Sent', value: `${fact[2]} ${fact[3]}` }} /></dd>
         </div> : <div key={index}><dd className={presentationStyles.receiptCaveat}>{movement}</dd></div>;
       })}</dl>
     </section>;

@@ -4,6 +4,12 @@
 .panel :global(.sticky-action)::before { display: none; }
 .vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'information'; gap: 18px; align-items: start; }
 .vaultLayout[data-review='true'] { width: min(100%, 480px); min-width: 0; margin-inline: auto; grid-template-areas: 'action'; grid-template-columns: minmax(0, 1fr); }
+.summarySlot { grid-area: summary; min-width: 0; }
+.summarySlot[data-claim-background='true'] { display: none; }
+/* A mobile claim portal is no longer below .workspace, so keep its existing
+   transparent surface styling local rather than nesting a second card. */
+.panel[data-claim-flow='true'] { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.panel[data-claim-flow='true'] > :global([data-review-surface]) { display: flex; flex-direction: column; min-height: 0; }
 .vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 40px; }
 .vaultIdentity > div { min-width: 0; flex: 1 1 160px; }
 .vaultIdentity h2 { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 40px; line-height: 1.12; font-weight: 600; letter-spacing: -.025em; }
@@ -19,7 +25,7 @@
 .rate { min-width: 0; padding: 0; border: 0; background: transparent; }
 .rate > strong { display: block; font-size: clamp(30px, 4vw, 44px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
 .rate > small { display: block; margin-bottom: 6px; color: var(--mut); font-size: 14px; font-weight: 400; }
-.vaultHoldings { margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
+.vaultHoldings { display: grid; gap: 10px; margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
 .vaultHoldings > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .vaultHoldings dt { color: var(--mut); }
 .vaultHoldings dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -57,6 +63,20 @@
 .receiveRow > div { min-width: 0; max-width: 66%; }
 .pendingTask { min-width: 0; margin-top: 18px; }
 .pendingTask > :global([role='status']) { width: 100%; }
+.readyClaim { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--mint) 25%, var(--line)); border-radius: 14px; background: var(--mint-dim); }
+.readyClaim > span { display: flex; min-width: 0; align-items: center; gap: 7px; color: var(--mint-text, var(--mint)); }
+.readyClaim svg { flex-shrink: 0; }
+.readyClaim strong { font-size: 13px; line-height: 1.35; font-weight: 500; }
+.readyClaim button { flex: 0 0 auto; min-height: 44px; padding: 8px; color: var(--mint-text, var(--mint)); font-size: 12px; line-height: 1.35; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; border-radius: 8px; }
+.readyClaim button:hover { background: color-mix(in srgb, var(--mint) 12%, transparent); }
+.readyClaim button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+.unavailableMetric { color: var(--mut); font-size: var(--fs-caption); font-weight: 400; }
+.marketFreshness { display: block; margin-top: 4px; color: var(--warn); font-size: var(--fs-caption); line-height: 1.4; }
+.riskSummary { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.riskSummary p { margin: 0; }
+.riskSummary nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 4px; }
+.riskSummary a { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
+.riskSummary a:hover { color: var(--text); }
 .retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--warn); background: color-mix(in srgb, var(--warn-dim) 68%, var(--surface)); }
 .retryButton:hover { background: var(--warn-dim); }
 .retryButton:disabled { cursor: not-allowed; opacity: .55; }
@@ -72,7 +92,27 @@
 .workspace > details p { margin-bottom: 16px; }
 .claimHeading { margin-bottom: 18px; }
 .claimHeading h2 { font-size: 20px; font-weight: 600; letter-spacing: -.025em; margin: 6px 0 0; }
+.claimState { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
+.claimResultHeading { display: flex; min-width: 0; align-items: flex-start; gap: 12px; padding-block: 4px 2px; }
+.claimResultIcon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; margin-top: 1px; border-radius: 50%; color: #5bd09a; background: #1a3c32; }
+.claimResultCopy { min-width: 0; }
+.claimResultCopy h3 { margin: 0; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: 21px; line-height: 1.2; font-weight: 700; letter-spacing: -.035em; }
+.claimResultCopy p { margin: 6px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
+.claimProduct { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.claimRows { display: flex; flex-direction: column; gap: 14px; min-width: 0; margin: 0; padding: 16px; border-radius: 19px; background: #202328; }
+.claimRows > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: baseline; gap: 12px; font-size: 13px; line-height: 1.45; }
+.claimRows dt { color: var(--mut); }
+.claimRows dd { min-width: 0; margin: 0; color: var(--text); font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.claimRows dd.claimReady { color: #5bd09a; }
+.claimRows > .claimPreviewStart { padding-top: 13px; border-top: 1px solid var(--line); }
+.claimCaveat { margin: 0; padding-inline: 2px; color: var(--mut); font-size: 11px; line-height: 1.5; text-align: center; }
 .back { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; }
+
+@media (max-width: 600px) {
+  .vaultLayout[data-claim-flow='true'] { grid-template-areas: 'summary' 'action'; }
+  .summarySlot[data-claim-background='true'] { display: block; }
+  .claimHeading { display: none; }
+}
 
 @media (min-width: 840px) {
   .workspace { min-height: calc(var(--tg-viewport-height, 100dvh) - var(--header-height) - var(--header-gap) - var(--shell-top-padding)); justify-content: center; padding-block: 32px; }

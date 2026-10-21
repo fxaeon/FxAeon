@@ -18,13 +18,14 @@ function subscribeToPhone(onChange: () => void) {
 const isPhone = () => window.matchMedia(phoneQuery).matches;
 const serverPhone = () => false;
 
-export function MobileFlowSheet({ children, title, subtitle, onClose, triggerRef, dismissible = true }: {
+export function MobileFlowSheet({ children, title, subtitle, onClose, triggerRef, dismissible = true, hideTitle = false }: {
   children: ReactNode;
   title: string;
   subtitle?: ReactNode;
   onClose: () => void;
   triggerRef: RefObject<HTMLElement | null>;
   dismissible?: boolean;
+  hideTitle?: boolean;
 }) {
   const phone = useSyncExternalStore(subscribeToPhone, isPhone, serverPhone);
   const insideSheet = useContext(MobileFlowSheetContext);
@@ -55,9 +56,9 @@ export function MobileFlowSheet({ children, title, subtitle, onClose, triggerRef
     <div data-product-ui="v2" className={styles.backdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) close(); }}>
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}
         data-mobile-review-sheet className={styles.sheet}>
-        <header className={styles.header}>
+        <header className={`${styles.header} ${hideTitle ? styles.quietHeader : ''}`}>
           <span className={styles.handle} aria-hidden="true" />
-          <div className={styles.heading}><h2 ref={headingRef} id={titleId} tabIndex={-1}>{title}</h2>{subtitle}</div>
+          <div className={styles.heading}><h2 ref={headingRef} id={titleId} tabIndex={-1} className={hideTitle ? 'sr-only' : undefined}>{title}</h2>{subtitle}</div>
           <button ref={closeRef} type="button" onClick={close} disabled={!dismissible} aria-label="Close transaction review" className={styles.close}>
             <X size={22} aria-hidden="true" />
           </button>

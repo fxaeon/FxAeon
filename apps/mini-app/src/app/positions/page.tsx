@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronRight, CircleAlert, Layers2, RefreshCw, WalletCards, 
 import { PositionsPageHeader } from '@/components/PositionsPageHeader';
 import Link from 'next/link';
 import { AppShell, Card, EmptyState } from '@/components/ui';
+import { confirmedPositionReadback, type ConfirmedPositionReadback } from '@/components/review/positionReview';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import WalletConnectCTA from '@/components/WalletConnectCTA';
 import { MissingValue } from '@/components/MissingValue';
@@ -32,7 +33,7 @@ import { useExitPresence } from '@/lib/useExitPresence';
 import { MobileFlowSheetContext } from '@/components/MobileFlowSheet';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 import { positiveDecimal } from '@/lib/amount';
-import { positionTokenPresentation } from '@/lib/positionPresentation';
+import { positionLeveragePresentation, positionTokenPresentation } from '@/lib/positionPresentation';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { priceKeyForSymbol } from '@/lib/prices';
@@ -149,6 +150,7 @@ export default function PositionsPage() {
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
+  const [confirmedPosition, setConfirmedPosition] = useState<ConfirmedPositionReadback | null>(null);
   const [reviewPosition, setReviewPosition] = useState<UiPosition | null>(null);
   // On phones the page shows the list or one position. `?position=` names the
   // open one, so links, refreshes, browser Back and Telegram Back agree.
@@ -408,6 +410,7 @@ export default function PositionsPage() {
   const selectedStale = selected ? positionIsStale(selected, positionState.failedGroups) : false;
   const selectedSplit = selected ? { side: selected.side } : undefined;
   const decisionBefore = useMemo(() => managerPosition ? [
+    { label: 'Leverage', value: positionLeveragePresentation(managerPosition).text },
     { label: 'Collateral', value: `${positionTokenPresentation(managerPosition.info.rawColls, positionCollateralDecimals(managerPosition)).text} ${positionCollateralSymbol(managerPosition)}` },
     { label: 'Debt', value: `${positionTokenPresentation(managerPosition.info.rawDebts, positionDebtDecimals(managerPosition)).text} ${managerPosition.info.rawDebtsToken}` },
   ] : undefined, [managerPosition]);
@@ -713,6 +716,15 @@ export default function PositionsPage() {
                   draftResumePath={draftResumePath}
                   resumeReview={resumeReview}
                   decisionBefore={decisionBefore}
+                  confirmedPosition={confirmedPosition}
+                  onReturnToPosition={({ key }) => {
+                    // Same surface and history entry; the provider supplies new values.
+                    setSelectedKey(key);
+                    const latest = positions.find(position => positionKey(position) === key);
+                    resetTransactionContext('increase', tokenForPositionAction(latest, 'increase'));
+                    setPositionViewOpen(true);
+                    requestAnimationFrame(() => document.getElementById('manage-position-heading')?.focus({ preventScroll: true }));
+                  }}
                   editor={(
                     <div className={styles.positionEditor}>
                       {action === 'increase' && <div className={styles.fieldStack}><AmountField compact showPercentages={false} label="Amount to add" symbol={token} value={amount} onChange={setAmount} maxDecimals={tokenDecimals(token)} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={marketTokens} onChange={changeToken} {...tokenBalanceProps} />} /><LeverageField compact collapseSlider label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
@@ -721,8 +733,10 @@ export default function PositionsPage() {
                       {action === 'leverage' && <div className={styles.fieldStack}><LeverageField compact label="Target leverage" value={leverage} onChange={setLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} split={selectedSplit} /></div>}
                     </div>
                   )}
-                  onComplete={async (_execution, confirmedRoute) => {
-                    await Promise.all([positionState.refresh(), walletBalances.refresh()]);
+                  onComplete={async (execution, confirmedRoute) => {
+                    const confirmedAt = Date.now();
+                    const [read] = await Promise.all([positionState.refresh({ afterConfirmation: true }), walletBalances.refresh()]);
+                    setConfirmedPosition(confirmedPositionReadback(execution, confirmedRoute, read, confirmedAt));
                     const completedPosition = reviewPosition ?? selected;
                     if (action === 'close' && completedPosition && confirmedRoute.details?.positionId === completedPosition.info.positionId) {
                       await positionState.reconcileClosedPosition(completedPosition);

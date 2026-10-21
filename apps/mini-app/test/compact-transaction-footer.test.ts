@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { TransactionExecutionResult, TransactionStepResult } from '../src/lib/fx';
 import { buildReceiptPresentation } from '../src/lib/receiptPresentation';
 import { USD_PRICE_MAX_AGE_MS, type UsdPriceSnapshot } from '../src/lib/prices';
-import { compactTransactionFooterModel, compactTransactionGasFee, hasCompactConfirmedTransaction } from '../src/components/review/compactTransactionReceipt';
+import { compactTransactionFooterModel, compactTransactionGasFee, compactTransactionOutcomeModel, hasCompactConfirmedTransaction } from '../src/components/review/compactTransactionReceipt';
 
 const WALLET = '0x1111111111111111111111111111111111111111';
 const ACTION = `0x${'a'.repeat(64)}`;
@@ -55,7 +55,7 @@ test('links the last confirmed action, never the approval, using the submitted c
   const value = result([step('approval'), step('action', extraAction), step()]);
   const model = compactTransactionFooterModel(value, [receipt(1n, 'approval'), receipt(2n), receipt(3n)], 'live', quote, now)!;
   assert.equal(model.explorerUrl, `https://etherscan.io/tx/${ACTION}`);
-  assert.equal(model.confirmationLabel, 'Transaction Confirmed');
+  assert.equal(model.confirmationLabel, 'Transaction confirmed');
   assert.equal(model.gasLabel, 'Gas fee');
   assert.match(model.feeDescription, /Includes token approvals/);
   assert.equal(model.feeValue, '<$0.01');
@@ -164,14 +164,16 @@ test('renders just two compact rows with accessible native fee fallback and one 
   const { CompactTransactionFooter } = await import('../src/components/review/CompactTransactionFooter');
   const html = renderToStaticMarkup(React.createElement(CompactTransactionFooter, { result: result(), receipts: [receipt(1n)] }));
   assert.equal((html.match(/class="test-row"/g) ?? []).length, 2);
-  assert.match(html, /Transaction Confirmed/);
+  assert.match(html, /Transaction confirmed/);
   assert.match(html, /Gas fee/);
   assert.match(html, /USD unavailable/);
   assert.match(html, /aria-label="Gas paid: 0\.000000000000000001 ETH/);
   assert.match(html, new RegExp(`href="https://etherscan.io/tx/${ACTION}"`));
   assert.match(html, /rel="noopener noreferrer"/);
   assert.doesNotMatch(html, /Advanced|<details|Action 1/);
-  assert.match(html, /<h3 data-review-focus="true" tabindex="-1">Transaction Confirmed<\/h3>/);
+  assert.match(html, /class="test-confirmation"/);
+  assert.match(html, /View transaction/);
+  assert.doesNotMatch(html, /<h3/);
 });
 
 test('rendered simulation and incomplete results never leak a fake confirmation link', async () => {
@@ -183,7 +185,7 @@ test('rendered simulation and incomplete results never leak a fake confirmation 
     React.createElement(CompactTransactionFooter, { result: result(), receipts: [receipt(1n)] })));
   assert.match(simulated, /Simulation complete/);
   assert.match(simulated, /No on-chain link/);
-  assert.doesNotMatch(simulated, /<a |Transaction Confirmed|etherscan/);
+  assert.doesNotMatch(simulated, /<a |Transaction confirmed|etherscan/);
   const unknown = renderToStaticMarkup(React.createElement(CompactTransactionFooter, {
     result: result([{ ...step(), receipt: undefined }]), receipts: [receipt(1n)],
   }));
@@ -199,7 +201,7 @@ test('Wallet Send submission keeps the compact pattern without inventing confirm
     assert.match(html, /Gas fee/);
     assert.match(html, /Pending confirmation/);
     assert.match(html, new RegExp(`href="https://${chainId === 1 ? 'etherscan.io' : 'basescan.org'}/tx/${ACTION}"`));
-    assert.doesNotMatch(html, /Transaction Confirmed|\$0\.00|Gas paid|Advanced|<details/);
+    assert.doesNotMatch(html, /Transaction confirmed|\$0\.00|Gas paid|Advanced|<details/);
   }
   const unknown = renderToStaticMarkup(React.createElement(CompactSubmissionFooter, { chainId: 1, hash: 'unknown' }));
   assert.match(unknown, /Explorer unavailable/);
@@ -216,5 +218,50 @@ test('Wallet Send simulation footer never publishes a simulated hash as an explo
   assert.match(html, /Simulation submitted/);
   assert.match(html, /Simulated gas fee/);
   assert.match(html, /No on-chain link/);
-  assert.doesNotMatch(html, /<a |Transaction Confirmed/);
+  assert.doesNotMatch(html, /<a |Transaction confirmed/);
+});
+
+
+test('receipt outcome rows use action observations, not approval movements or reviewed estimates', () => {
+  const actionReceipt = { ...receipt(1n), exactNativeValue: '0.25', exactMovements: [{ direction: 'received' as const, amount: '299.85', symbol: 'fxUSD' }] };
+  const approvalReceipt = { ...receipt(1n, 'approval'), exactMovements: [{ direction: 'sent' as const, amount: '999', symbol: 'USDC' }] };
+  const model = compactTransactionOutcomeModel(result([step('approval'), step()]), [approvalReceipt, actionReceipt], [{ label: 'Debt added', value: '300 fxUSD' }])!;
+  assert.deepEqual(model.rows, [
+    { direction: 'sent', amount: '0.25', symbol: 'ETH', label: 'Collateral sent' },
+    { direction: 'received', amount: '299.85', symbol: 'fxUSD', label: 'You received' },
+  ]);
+  assert.equal(model.queuedWithdrawal, false);
+  assert.equal(compactTransactionOutcomeModel({ ...result(), status: 'partial' }, [actionReceipt]), null);
+  assert.equal(compactTransactionOutcomeModel(result([step('approval')]), [approvalReceipt]), null);
+});
+
+test('queued withdrawal needs confirmed action proof and never converts fxSAVE into pending fxSP', () => {
+  const queued = { ...result(), operation: 'withdrawFxSave' as const };
+  const reviewed = [{ label: 'Availability', value: 'After cooldown · claim required' }, { label: 'fxSAVE', value: '200 fxSAVE' }];
+  const burned = { ...receipt(1n), exactMovements: [{ direction: 'sent' as const, amount: '199.999', symbol: 'fxSAVE' }] };
+  const model = compactTransactionOutcomeModel(queued, [burned], reviewed)!;
+  assert.equal(model.queuedWithdrawal, true);
+  assert.deepEqual(model.rows, [{ direction: 'sent', amount: '199.999', symbol: 'fxSAVE', label: 'You redeemed' }]);
+  assert.equal(compactTransactionOutcomeModel({ ...queued, status: 'failed' }, [burned], reviewed), null);
+  assert.equal(compactTransactionOutcomeModel(result(), [burned], reviewed)!.queuedWithdrawal, false);
+  assert.equal(compactTransactionOutcomeModel(queued, [burned], [{ label: 'Availability', value: 'After confirmation' }])!.queuedWithdrawal, false);
+  assert.equal(compactTransactionOutcomeModel({ ...result([step('action', ACTION, 8453)], 8453), operation: 'withdrawFxSave' }, [burned], reviewed)!.queuedWithdrawal, false);
+});
+
+test('unknown units and compact-only strings cannot become exact outcome amounts', () => {
+  const technical = { ...receipt(1n), movements: ['Token movement available in technical details'], technicalMovements: ['token 0x2222, 123 base units'] };
+  const model = compactTransactionOutcomeModel(result(), [technical], [{ label: 'Deposit', value: '10 fxUSD' }])!;
+  assert.deepEqual(model.rows, []);
+  assert.equal(model.hasTechnicalMovements, true);
+  assert.equal(model.hasUnresolvedMovements, true);
+  const malformed = { ...receipt(1n), exactMovements: [{ direction: 'received' as const, amount: '≈ 10', symbol: 'fxUSD' }, { direction: 'received' as const, amount: '<0.001', symbol: 'fxUSD' }] };
+  assert.deepEqual(compactTransactionOutcomeModel(result(), [malformed])!.rows, []);
+  const bridgeFee = { ...receipt(1n), exactNativeValue: '1', nativeValueLabel: 'Bridge fee' as const };
+  assert.deepEqual(compactTransactionOutcomeModel(result(), [bridgeFee])!.rows, []);
+});
+
+test('receipt amount provenance requires an aligned presentation for every confirmed step', () => {
+  const actionReceipt = { ...receipt(1n), exactMovements: [{ direction: 'received' as const, amount: '10', symbol: 'fxUSD' }] };
+  assert.deepEqual(compactTransactionOutcomeModel(result([step('approval'), step()]), [actionReceipt])!.rows, []);
+  assert.deepEqual(compactTransactionOutcomeModel(result([step('approval'), step()]), [actionReceipt, receipt(1n, 'approval')])!.rows, []);
 });

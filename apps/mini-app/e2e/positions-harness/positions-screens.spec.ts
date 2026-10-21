@@ -74,7 +74,6 @@ export const useFxSaveClaimable = () => ({ data: null, status: 'idle', isFetchin
   '@/lib/confirmedPositions': `export const receiptMintedPositionIdentity=()=>null;`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
   '@/components/review/ReviewProgress': `import React from 'react'; export const chainName=id=>id===8453?'Base':'Ethereum'; export const stepProgress=()=>({label:'Ready',className:'',icon:null}); export const CalldataDisclosure=({data})=><pre>{data}</pre>; export const StatusNotice=({label,body})=><div role="status"><strong>{label}</strong>{body}</div>; export const InlineError=({message})=><div role="alert">{message}</div>; export const TransactionHashLink=({step})=><a href={"https://etherscan.io/tx/"+step.hash}>Receipt</a>;`,
-  '@/components/review/executionResult': `export const resultPresentation=()=>({title:'Confirmed',body:'Fixture result',tone:'success',icon:()=>null}); export const resultBodyDuringRefresh=({body})=>body;`,
   '@/components/review/actionReviewStatusModel': `export const buildStatusPresentation=()=>({icon:'clock',label:'Ready',body:'Reviewed terms'});`,
   // CommonJS behind a Proxy: the planners the page calls are live; every
   // other name the graph imports resolves to an inert stub.

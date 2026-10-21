@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { TokenIcon } from '@/components/TokenIcon';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import { USD_PRICE_MAX_AGE_MS, formatUsd, priceKeyForSymbol, usdValueForDecimal } from '@/lib/prices';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
+import { groupDigits } from '@/lib/amount';
 import { readableReviewAmount } from './reviewHierarchy';
 import styles from './ActionReviewPresentation.module.css';
 
@@ -33,7 +33,7 @@ export function ReviewAmount({ fact, trade = false }: { fact: ReviewFact; trade?
     <div className={styles.amountLine}>
       <div className={styles.amountValue}>
         {display && unit ? <details className={styles.exactAmount}>
-          <summary aria-label={`Show exact amount: ${fact.value}`}><span>{display.shortened ? '≈ ' : ''}{display.value} <span className={styles.amountUnit}>{unit}</span></span><ChevronDown size={14} aria-hidden="true" /></summary>
+          <summary aria-label={`Show exact amount: ${fact.value}`}><span>{display.shortened ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.amountUnit}>{unit}</span></span></summary>
           <p><span>Exact amount</span>{fact.value}</p>
         </details> : <ValueOrSkeleton value={fact.value} width="lg" announce={false} label="Loading amount" />}
         {usd !== null && <span className={styles.amountUsd}>{usd > 0 && usd < 0.01 ? formatUsd(usd) : `≈ ${formatUsd(usd)}`}</span>}

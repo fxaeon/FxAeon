@@ -1,0 +1,211 @@
+'use client';
+
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { Info, X } from 'lucide-react';
+import { INFO_HELP_CONTENT, type InfoHelpKey } from './infoHelpContent';
+import styles from './InfoHelp.module.css';
+
+export type InfoHelpViewport = { left: number; top: number; width: number; height: number };
+type HelpAnchor = { left: number; right: number; top: number; bottom: number };
+
+/** Pure positioning contract, also used by narrow-screen and zoom tests. */
+export function getInfoHelpPosition(anchor: HelpAnchor, contentHeight: number, viewport: InfoHelpViewport) {
+  const gutter = Math.min(12, Math.max(0, viewport.width / 4), Math.max(0, viewport.height / 4));
+  const width = Math.max(0, Math.min(320, viewport.width - gutter * 2));
+  const maxHeight = Math.max(0, viewport.height - gutter * 2);
+  const height = Math.min(Math.max(0, contentHeight), maxHeight);
+  const minLeft = viewport.left + gutter;
+  const minTop = viewport.top + gutter;
+  const bottom = viewport.top + viewport.height - gutter;
+  const below = anchor.bottom + 6;
+  const above = anchor.top - 6 - height;
+  const preferredTop = below + height <= bottom ? below : above >= minTop ? above : below;
+  return {
+    left: Math.max(minLeft, Math.min(anchor.right - width, viewport.left + viewport.width - gutter - width)),
+    top: Math.max(minTop, Math.min(preferredTop, bottom - height)),
+    width,
+    maxHeight,
+  };
+}
+
+let activeHelp: { id: string; close: (restoreFocus?: boolean) => void } | null = null;
+
+type InfoHelpProps = {
+  label: string;
+  children?: ReactNode;
+  definition?: InfoHelpKey;
+  className?: string;
+};
+
+/** A deliberate tap/keyboard disclosure, not hover-only or a native title.
+ * Native popover keeps the panel in the top layer AND in its sheet's DOM tree,
+ * so overflow cannot clip it and the sheet's existing focus trap remains valid.
+ * Older browsers portal into the nearest dialog, never outside its focus trap.
+ * This lightweight disclosure owns no browser-history entry. */
+export function InfoHelp({ label, children, definition, className }: InfoHelpProps) {
+  const id = useId();
+  const panelId = `${id}-help`;
+  const content = children ?? (definition ? INFO_HELP_CONTENT[definition] : undefined);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<CSSProperties>({ visibility: 'hidden' });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLSpanElement>(null);
+  const nativePopover = typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
+  const portalTarget = open && !nativePopover ? triggerRef.current?.closest<HTMLElement>('[role="dialog"], dialog') ?? document.body : null;
+
+  const close = (restoreFocus = false) => {
+    if (activeHelp?.id === id) activeHelp = null;
+    setOpen(false);
+    if (restoreFocus && triggerRef.current?.isConnected) triggerRef.current.focus({ preventScroll: true });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    if (!panel || !trigger) return;
+    if (activeHelp?.id !== id) { activeHelp?.close(); activeHelp = { id, close }; }
+    let topLayer = false;
+    if (nativePopover) {
+      try { panel.showPopover(); topLayer = true; }
+      catch { panel.removeAttribute('popover'); }
+    }
+    const isParentInactive = () => {
+      const dialog = trigger.closest('dialog');
+      return !trigger.isConnected || Boolean(trigger.closest('[inert],[hidden],[aria-hidden="true"]'))
+        || Boolean(dialog && !dialog.hasAttribute('open'));
+    };
+    const place = () => {
+      if (isParentInactive()) { close(); return; }
+      const visual = window.visualViewport;
+      const viewport: InfoHelpViewport = {
+        left: visual?.offsetLeft ?? 0, top: visual?.offsetTop ?? 0,
+        width: visual?.width ?? window.innerWidth, height: visual?.height ?? window.innerHeight,
+      };
+      let offsetLeft = 0;
+      let offsetTop = 0;
+      if (!topLayer) {
+        // A transformed sheet establishes the containing block for fixed
+        // descendants. Clamp the fallback to that sheet and convert coordinates.
+        const owner = trigger.closest<HTMLElement>('[role="dialog"], dialog');
+        if (owner) {
+          const rect = owner.getBoundingClientRect();
+          const right = Math.min(viewport.left + viewport.width, rect.right);
+          const bottom = Math.min(viewport.top + viewport.height, rect.bottom);
+          viewport.left = Math.max(viewport.left, rect.left);
+          viewport.top = Math.max(viewport.top, rect.top);
+          viewport.width = Math.max(0, right - viewport.left);
+          viewport.height = Math.max(0, bottom - viewport.top);
+        }
+        for (let ancestor = panel.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+          const css = window.getComputedStyle(ancestor);
+          if (css.transform !== 'none' || css.perspective !== 'none' || css.filter !== 'none' || /paint|layout|strict|content/.test(css.contain) || /transform|perspective|filter/.test(css.willChange)) {
+            const rect = ancestor.getBoundingClientRect();
+            offsetLeft = rect.left + ancestor.clientLeft - ancestor.scrollLeft;
+            offsetTop = rect.top + ancestor.clientTop - ancestor.scrollTop;
+            break;
+          }
+        }
+      }
+      const anchor = trigger.getBoundingClientRect();
+      // Measure after assigning width so 200% text wrapping sets the real height.
+      const initial = getInfoHelpPosition(anchor, 0, viewport);
+      panel.style.width = `${initial.width}px`;
+      panel.style.maxHeight = `${initial.maxHeight}px`;
+      const next = getInfoHelpPosition(anchor, panel.getBoundingClientRect().height, viewport);
+      const left = next.left - offsetLeft;
+      const top = next.top - offsetTop;
+      Object.assign(panel.style, { left: `${left}px`, top: `${top}px`, visibility: 'visible' });
+      setPosition({ ...next, left, top, visibility: 'visible' });
+    };
+    place();
+    // Focus the description, rather than opening a second modal. Its close
+    // control is next in DOM order; Tab can still leave this non-modal help.
+    panel.focus({ preventScroll: true });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || activeHelp?.id !== id) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      close(true);
+    };
+    const onTelegramBack = (event: Event) => {
+      const detail = (event as CustomEvent<{ consume?: () => void; isConsumed?: () => boolean }>).detail;
+      if (activeHelp?.id !== id || detail?.isConsumed?.()) return;
+      event.stopImmediatePropagation();
+      detail?.consume?.();
+      close(true);
+    };
+    const onOutside = (event: Event) => {
+      if (!(event.target instanceof Node) || panel.contains(event.target) || trigger.contains(event.target)) return;
+      close(); // Do not steal focus from the outside control the person chose.
+    };
+    // Window capture runs before the parent sheet's document Escape listener.
+    window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('fxaeon:telegram-back', onTelegramBack, true);
+    document.addEventListener('pointerdown', onOutside, true);
+    document.addEventListener('focusin', onOutside);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    window.visualViewport?.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('scroll', place);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(place);
+    observer?.observe(panel);
+    observer?.observe(trigger);
+    // Exit-presence keeps a closing sheet mounted briefly. Hide help as soon
+    // as that sheet becomes inert/hidden, rather than waiting for its removal.
+    const parentObserver = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { if (isParentInactive()) close(); });
+    for (let ancestor: HTMLElement | null = trigger; ancestor; ancestor = ancestor.parentElement) {
+      parentObserver?.observe(ancestor, { attributes: true, attributeFilter: ['inert', 'hidden', 'aria-hidden', 'open'] });
+    }
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('fxaeon:telegram-back', onTelegramBack, true);
+      document.removeEventListener('pointerdown', onOutside, true);
+      document.removeEventListener('focusin', onOutside);
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      window.visualViewport?.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('scroll', place);
+      observer?.disconnect();
+      parentObserver?.disconnect();
+      if (activeHelp?.id === id) activeHelp = null;
+      // React removes the panel, which also removes its native top-layer entry.
+      // Do not call hidePopover(): its implicit focus restoration can steal
+      // focus from an outside click before that click's default action runs.
+    };
+  }, [open, nativePopover, id]);
+
+  if (content === undefined || content === null || content === '') return null;
+  const panel = open ? <span ref={panelRef} id={panelId} role="dialog" aria-modal="false" aria-labelledby={`${id}-heading`} aria-describedby={`${id}-content`}
+    tabIndex={-1} popover={nativePopover ? 'manual' : undefined} className={styles.panel} style={position} data-info-help-panel=""
+    onClick={event => event.stopPropagation()}>
+    <span className={styles.heading}><strong id={`${id}-heading`}>{label}</strong>
+      <button type="button" className={styles.close} aria-label={`Close ${label} help`} onClick={() => close(true)}><X size={16} aria-hidden="true" /></button>
+    </span>
+    <span id={`${id}-content`} className={styles.content}>{content}</span>
+  </span> : null;
+  return <>
+    <button ref={triggerRef} type="button" className={[styles.trigger, className].filter(Boolean).join(' ')} aria-label={`About ${label}`}
+      aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? panelId : undefined} data-info-help-trigger=""
+      onClick={event => {
+        event.preventDefault(); event.stopPropagation();
+        if (open) { close(); return; }
+        activeHelp?.close();
+        activeHelp = { id, close };
+        setPosition({ visibility: 'hidden' });
+        setOpen(true);
+      }}><Info size={15} aria-hidden="true" /></button>
+    {portalTarget ? createPortal(panel, portalTarget) : panel}
+  </>;
+}
+
+/** The label remains visible and meaningful without opening its explanation. */
+export function MetricLabel({ label, help, definition, className }: {
+  label: string; help?: ReactNode; definition?: InfoHelpKey; className?: string;
+}) {
+  return <span className={[styles.label, className].filter(Boolean).join(' ')}>
+    <span>{label}</span><InfoHelp label={label} definition={definition}>{help}</InfoHelp>
+  </span>;
+}

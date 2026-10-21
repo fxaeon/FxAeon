@@ -1,10 +1,12 @@
 'use client';
 
+import { MetricLabel, InfoHelp } from '@/components/InfoHelp';
+import { reviewHelpDefinition } from '@/components/review/reviewHelp';
 import { FeeUsd } from '@/components/review/AmountUsd';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeftRight, ChevronDown, Code2, UserRound } from 'lucide-react';
+import { AlertTriangle, ArrowLeftRight, Code2, UserRound } from 'lucide-react';
 import { formatUnits, isAddress, type Address } from 'viem';
 import { amountBlocker } from '@/lib/formBlockers';
 import { TransactionSettings } from '@/components/TransactionSettings';
@@ -584,11 +586,10 @@ export default function MovePage() {
                 <QuoteRow label="Bridge fee" value={preview ? `${displayBridgeAmount(preview.nativeFee)} ETH` : 'Unavailable'} title={preview ? `${formatUnits(preview.nativeFee, 18)} ETH` : undefined} />
               </dl>
             </section>}
-            {Boolean(amountWei) && <p className={moveStyles.gasNote} data-shortfall={nativeShortfall || undefined} role={nativeShortfall ? 'alert' : undefined}>
-              {nativeShortfall ? preview?.sourceGas !== undefined
+            {Boolean(amountWei) && nativeShortfall && <p className={moveStyles.gasNote} data-shortfall role="alert">
+              {preview?.sourceGas !== undefined
                 ? `Add ETH on ${sourceName}. Your balance does not cover the bridge fee and estimated transaction gas.`
-                : `Add ETH on ${sourceName}. Your balance does not cover the bridge fee; transaction gas is also required.`
-                : `Keep ETH on ${sourceName} for bridge fees and gas.`}
+                : `Add ETH on ${sourceName}. Your balance does not cover the bridge fee; transaction gas is also required.`}
             </p>}
 
             <div className={moveStyles.recipientSection}>
@@ -686,17 +687,8 @@ function AdvancedRiskSummary() {
     <div className={`${moveStyles.expertRisk} mt-3 rounded-xl border border-[rgba(255,194,102,.28)] bg-[var(--warn-dim)] p-3 text-[11.5px] leading-relaxed text-warn`}>
       <div className="flex gap-2.5">
         <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>Custom contracts are checked live before signing. Both networks must have deployed 18-decimal metadata, matching cross-chain peers, quote support, and the exact send target.</p>
+        <p>Custom contracts can put your funds at risk. Live checks do not establish that a token is safe. <InfoHelp label="Custom contract checks">Both networks must have deployed 18-decimal metadata, matching non-zero cross-chain peers, quote support and the exact send target. Source confirmation is not destination delivery.</InfoHelp></p>
       </div>
-      <details className="mt-2 border-t border-[rgba(255,194,102,.18)] pt-1">
-        <summary className="flex min-h-11 cursor-pointer items-center gap-1.5 text-[11px] font-semibold">What gets checked<ChevronDown aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0 disclosure-chevron" /></summary>
-        <ul className="space-y-1 pb-1 pl-4 text-mut">
-          <li>Checksummed, deployed contracts with 18-decimal token metadata</li>
-          <li>Matching, non-zero cross-chain peers in both directions</li>
-          <li>Exact send target and approval token when required</li>
-          <li>Source confirmation and destination delivery remain separate</li>
-        </ul>
-      </details>
     </div>
   );
 }
@@ -733,5 +725,5 @@ function displayBridgeAmount(value: bigint): string {
   return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
 }
 function QuoteRow({ label, value, title }: { label: string; value: string; title?: string }) {
-  return <div><dt>{label}</dt><dd title={title}><span>{value}{label === 'Bridge fee' && <FeeUsd fact={{ value, title }} />}</span></dd></div>;
+  return <div><dt><MetricLabel label={label} definition={reviewHelpDefinition(label)} /></dt><dd title={title}><span>{value}{label === 'Bridge fee' && <FeeUsd fact={{ value, title }} />}</span></dd></div>;
 }

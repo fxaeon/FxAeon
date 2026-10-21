@@ -78,7 +78,7 @@ const routeFor = (version: number): HarnessRoute => ({
   ...(H.bridgeRecipient ? { quote: { nativeFee: 1000000000000000n, destinationChainId: 8453, bridgeToken: 'fxUSD', bridgeAmount: 250000000000000000n, recipient: '0x00000000000000000000000000000000000000aa' } } : {}),
   ...(initialOptions?.presentationMode || H.stableTradeReview ? { policy: { walletAddress: H.wallet.address! as Address, chainId: 1, reviewedAction: {
     kind: 'position-increase', poolAddress: '0x00000000000000000000000000000000000000bb' as Address,
-    positionId: 41 + version, inputTokenAddress: '0x00000000000000000000000000000000000000c1' as Address,
+    positionId: H.stableTradeReview ? 0 : 41 + version, inputTokenAddress: '0x00000000000000000000000000000000000000c1' as Address,
     inputAmount: H.longAmount ? LONG_AMOUNT_WEI : BigInt(version) * 250000000000000000n, nativeInput: false,
     collateralTokenAddress: '0x00000000000000000000000000000000000000c1' as Address,
     debtTokenAddress: '0x00000000000000000000000000000000000000c2' as Address,
@@ -207,7 +207,7 @@ function Harness() {
       preparationFacts={H.stableTradeReview ? [
         { label: 'Amount', value: `${H.longAmount ? LONG_AMOUNT : preparationVersion * 0.25} fxUSD` },
         { label: 'Target leverage', value: `${preparationVersion + 2}×` },
-        { label: 'Position', value: `#${preparationVersion + 41}` },
+        { label: 'Position', value: 'New position' },
         { label: 'Slippage', value: `${preparationVersion * 0.5}%` },
       ] : undefined}
       disabled={disabled}

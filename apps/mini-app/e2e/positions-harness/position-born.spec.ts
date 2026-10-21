@@ -226,8 +226,9 @@ test.describe('a position opened on Trade', () => {
       await page.setViewportSize({ width, height: 844 });
       await open(page);
       const receipt = page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true });
-      await expect(receipt.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
-      await expect(page.getByRole('region', { name: 'Observed token movements', exact: true })).toContainText('0.5 ETH');
+      await expect(page.getByRole('heading', { name: 'ETH Long opened', exact: true })).toBeVisible();
+      await expect(receipt.getByText('Transaction confirmed', { exact: true })).toBeVisible();
+      await expect(page.getByLabel('Confirmed transaction amounts', { exact: true })).toContainText('0.5 ETH');
       await expect(receipt.getByRole('link', { name: 'View confirmed action transaction on explorer', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${ACTION_HASH}`);
       await expect(receipt.getByLabel(/^Gas paid: 0\.000372 ETH\./)).toBeVisible();
       await expect(source(page)).toHaveCount(0);
@@ -244,7 +245,7 @@ test.describe('a position opened on Trade', () => {
     await page.setViewportSize({ width, height: width > 800 ? 900 : 844 });
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await open(page);
-    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
     await expect(source(page)).toHaveCount(0);
     await viewPosition(page).click();
     await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242$/);
@@ -284,7 +285,7 @@ test.describe('a position opened on Trade', () => {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await open(page, { readable: false });
     // The receipt is confirmed even while the position read is still pending.
-    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
     await expect(source(page)).toHaveCount(0);
     await viewPosition(page).click();
     await expect(page).toHaveURL(/\/positions\?position=ETH%3Along%3A4242/);
@@ -306,7 +307,7 @@ test.describe('a position opened on Trade', () => {
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page, { closedPosition: true });
-    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'View confirmed action transaction on explorer', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${ACTION_HASH}`);
     await expect(page.getByRole('button', { name: 'View positions', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'View positions', exact: true }).click();
@@ -328,7 +329,7 @@ test('screenshots: the compact result and the landed position in dark appearance
   for (const [theme, width] of [['dark', 390], ['dark', 320]] as const) {
     await page.setViewportSize({ width, height: 844 });
     await open(page, { theme });
-    await expect(page.getByRole('heading', { name: 'Transaction Confirmed', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
     await page.screenshot({ path: resolve(shotsDir!, `born-${theme}-${width}-result.png`), animations: 'disabled' });
     await viewPosition(page).click();
     await expect(details(page)).toBeVisible();

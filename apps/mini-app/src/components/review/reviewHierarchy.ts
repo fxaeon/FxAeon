@@ -6,6 +6,14 @@ export function reviewFactLabel(label: string): string {
   return label === 'Total cost' ? 'ETH needed' : label;
 }
 
+/** Borrow shows net proceeds before the separately named gross debt and risk. */
+export function orderCompactReviewFacts(facts: ReviewFact[], borrowing: boolean): ReviewFact[] {
+  if (!borrowing) return facts;
+  const order = ['Estimated received', 'Estimated fxUSD received', 'Debt added', 'Estimated debt', 'Loan-to-value'];
+  const rank = (label: string) => order.includes(label) ? order.indexOf(label) : order.length;
+  return [...facts].sort((left, right) => rank(left.label) - rank(right.label));
+}
+
 const SECONDARY = new Set(['Slippage', 'Minimum converted input', 'Minimum converted deposit', 'Gas tier', 'Mode']);
 const TRADE_SECONDARY = new Set(['Position', 'Estimated collateral', 'Estimated debt', 'Route', 'Quoted leverage']);
 const NEW_BORROW_SECONDARY = new Set(['Position', 'Route', 'Quoted leverage', 'Estimated collateral']);

@@ -382,7 +382,7 @@ export function BridgeTracker({
       </div>
       {compact && <p className="mt-2 text-[12px] leading-relaxed text-mut">{delivered ? `Delivery verified on ${destinationChain}.` : failed ? 'Destination delivery is not verified. Check the details before trying again.' : sourceDone ? `Destination delivery on ${destinationChain} is not verified yet.` : 'Waiting for source confirmation.'}{simulated && ' Simulated receipts only.'}</p>}
       <details open={compact ? undefined : true} className={compact ? 'mt-2' : ''}>
-      <summary style={compact ? undefined : { display: 'none' }} className="flex min-h-11 cursor-pointer items-center justify-between text-[12px] text-mut">Advanced<ChevronDown size={14} aria-hidden="true" /></summary>
+      <summary style={compact ? undefined : { display: 'none' }} className="flex min-h-11 cursor-pointer items-center justify-between text-[12px] text-mut">Execution details<ChevronDown size={14} aria-hidden="true" /></summary>
       {advancedContent}
       <div className="mt-4 flex flex-col gap-3">
         <TimelineRow

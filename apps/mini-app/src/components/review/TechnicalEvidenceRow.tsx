@@ -22,7 +22,7 @@ export function TechnicalEvidenceRow({ label, value, preview }: { label: string;
       <button type="button" className={styles.evidenceValue} onClick={() => dialog.current?.showModal()} aria-label={`View full ${label.toLowerCase()}`} title={value}>{display}</button>
       <button type="button" className={styles.evidenceCopy} onClick={() => void copy()} disabled={copyState === 'copying'} aria-label={`Copy full ${label.toLowerCase()}`}>
         {copyState === 'copied' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-        {copyState === 'copied' ? 'Copied' : copyState === 'copying' ? 'Copying' : 'Copy full'}
+        <span className="sr-only">{copyState === 'copied' ? 'Copied' : copyState === 'copying' ? 'Copying' : 'Copy full'}</span>
       </button>
     </div>
     {copyState === 'failed' && <p role="status">Copy not confirmed. Tap the value to select the full text.</p>}

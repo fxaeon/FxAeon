@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type Ref } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Check } from 'lucide-react';
 import type { TransactionExecutionResult } from '@/lib/fx';
 import type { ReceiptPresentation } from '@/lib/receiptPresentation';
 import { useUsdPrices } from '@/components/PriceProvider';
@@ -35,10 +35,13 @@ export function CompactTransactionFooter({ result, receipts, destinationReceipt,
   if (!model) return null;
   return <section className={styles.footer} aria-label={model.simulated ? 'Simulated transaction receipt' : 'Confirmed transaction receipt'}>
     <div className={styles.row}>
-      <h3 ref={headingRef} data-review-focus tabIndex={-1}>{model.confirmationLabel}</h3>
+      <div className={styles.confirmation}>
+        <Check size={14} aria-hidden="true" />
+        {headingRef ? <h3 ref={headingRef} data-review-focus tabIndex={-1}>{model.confirmationLabel}</h3> : <span>{model.confirmationLabel}</span>}
+      </div>
       <div className={styles.links}>{model.explorerUrl
         ? <>
-          <a className={styles.link} href={model.explorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View confirmed action transaction on explorer">{model.destinationExplorerUrl ? 'Source' : 'View'} <ArrowUpRight size={14} aria-hidden="true" /></a>
+          <a className={styles.link} href={model.explorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View confirmed action transaction on explorer">{model.destinationExplorerUrl ? 'Source' : 'View transaction'} <ArrowUpRight size={14} aria-hidden="true" /></a>
           {model.destinationExplorerUrl && <a className={styles.link} href={model.destinationExplorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View confirmed destination transaction on explorer">Destination <ArrowUpRight size={14} aria-hidden="true" /></a>}
         </>
         : <span className={styles.note}>{model.simulated ? 'No on-chain link' : 'Explorer unavailable'}</span>}</div>

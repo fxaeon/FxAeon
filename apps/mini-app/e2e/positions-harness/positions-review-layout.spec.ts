@@ -39,7 +39,6 @@ const mocks: Record<string, string> = {
   '@/lib/taskState': `export const selectExecutionTask=()=>null;`,
   '@/lib/confirmedPositions': `export const receiptMintedPositionIdentity=()=>null;`,
   '@/components/BridgeTracker': `export const BridgeTracker=()=>null;`,
-  '@/components/review/executionResult': `export const resultPresentation=()=>({title:'Confirmed',body:'Fixture result',tone:'success',icon:()=>null}); export const resultBodyDuringRefresh=({body})=>body;`,
   '@/components/review/actionReviewStatusModel': `export const buildStatusPresentation=({status})=>status==='submitted'?({icon:'clock',label:'Transaction submitted',body:'Waiting for confirmation on-chain.'}):({icon:'clock',label:'Ready',body:'Reviewed terms'});`,
   '@/components/WalletConnectCTA': `import React from 'react'; export default ({body}) => <section>{body}</section>;`,
   '@/components/ProtocolPositionCard': `import React from 'react'; export const positionIsStale = () => false;
@@ -207,7 +206,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.getByRole('radiogroup', { name: 'Position action', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 
-  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.locator('[data-review-edit]').click();
   // Edit returns to the position the review came from, with its actions.
   await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
   await expect(actions).toBeVisible();
@@ -317,7 +316,7 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
     await expect(page.getByRole('dialog', { name: 'Manage position', exact: true })).toBeVisible();
     await expect(positionsColumn).toBeVisible();
     expect(await positionsColumn.evaluate(node => Boolean(node.closest('[inert]')))).toBe(true);
-    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await page.locator('[data-review-edit]').click();
     // The linked position stays open with its actions; the list waits behind it.
     await expect(page.locator('[data-position-details="ETH:long:11"]')).toBeVisible();
     await expect(positionsColumn).toBeVisible();
@@ -358,7 +357,7 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
     h.wallet = { ...h.wallet, address: '0xcccccccccccccccccccccccccccccccccccccccc', connectionVersion: h.wallet.connectionVersion + 1 };
     h.rerender?.();
   });
-  await expect(page.getByRole('heading', { name: 'Confirmed', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Confirmation unknown', exact: true })).toBeVisible();
   const preservedManager = page.locator('section[aria-label="Add to ETH long position review"]');
   await expect(preservedManager).toBeVisible();
   await page.evaluate(() => {
@@ -371,7 +370,7 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
   // Advanced evidence instead of claiming compact verified success. The
   // submitting wallet must survive a later connected-account change.
   await expect(preservedManager.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
-  const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Advanced', { exact: true }) });
+  const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Execution details', { exact: true }) });
   await resultDetails.locator(':scope > summary').click();
   await expect(preservedManager.locator('[title="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]')).toBeVisible();
   await expect(preservedManager.getByRole('link', { name: /^Action 2: Submitted\. View transaction/ })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
@@ -424,9 +423,9 @@ test('submitted transaction status and explorer link remain reachable inside the
     await openAdvanced(page);
     await expect(advanced).toHaveJSProperty('open', true);
 
-    const progress = page.getByRole('region', { name: 'Submitted transactions', exact: true });
+    const progress = page.getByRole('region', { name: 'Transaction progress', exact: true });
     await expect(progress).toBeVisible();
-    await expect(progress.getByText('Transaction submitted', { exact: true })).toBeVisible();
+    await expect(progress.getByText('Submitted', { exact: true }).first()).toBeVisible();
     const receipt = progress.locator(`a[href="https://etherscan.io/tx/${hash}"]`);
     await expect(receipt).toBeVisible();
     await expect(receipt).toHaveAttribute('href', `https://etherscan.io/tx/${hash}`);

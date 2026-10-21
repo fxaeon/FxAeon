@@ -13,6 +13,7 @@ import { freshDisplayPrices } from '@/lib/displayPrices';
 import { priceKeyForSymbol } from '@/lib/prices';
 import { calculatePositionUsdPresentation, debtCollateralRatioPercent } from '@/lib/positionValuation';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
+import { BorrowPositionAmount } from './review/BorrowPositionAmount';
 import { PositionTokenAmount } from '@/components/PositionPresentation';
 import { positionCollateralDecimals, positionDebtDecimals, type UiPosition } from '@/app/trade/fxUi';
 import styles from './BorrowPositionCards.module.css';
@@ -55,11 +56,11 @@ export function BorrowPositionCard({ position, stale, onOpen }: { position: UiPo
       <span><strong>{position.market} collateral</strong><small>Position #{position.info.positionId}</small></span>
       <ChevronRight size={18} aria-hidden="true" />
     </span>
-    <span id={`${figuresId}-debt`} className={styles.debt}><span>Outstanding debt</span><strong><PositionTokenAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} compact smallUnit /></strong>
+    <span id={`${figuresId}-debt`} className={styles.debt}><span>Outstanding debt</span><strong><BorrowPositionAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} /></strong>
       <DollarEquivalent value={figures.debtUsdText} status={figures.status} label="Debt value" />
     </span>
     <span id={`${figuresId}-facts`} className={styles.facts}>
-      <span><span>Collateral</span><strong><PositionTokenAmount raw={position.info.rawColls} decimals={positionCollateralDecimals(position)} symbol={positionCollateralSymbol(position)} compact /></strong><DollarEquivalent value={figures.collateralUsdText} status={figures.status} label="Collateral value" /></span>
+      <span><span>Collateral</span><strong><BorrowPositionAmount raw={position.info.rawColls} decimals={positionCollateralDecimals(position)} symbol={positionCollateralSymbol(position)} /></strong><DollarEquivalent value={figures.collateralUsdText} status={figures.status} label="Collateral value" /></span>
       <span><span>Loan-to-value</span><strong><ValueOrSkeleton value={figures.ltv ?? '—'} status={figures.status} label="Loan-to-value unavailable" /></strong></span>
     </span>
     {stale && <span className={styles.stale}><CircleAlert size={14} aria-hidden="true" />Update needed before managing</span>}
@@ -109,7 +110,7 @@ export function BorrowPositionManager({ position, stale, inputStage, locked, tri
         {inputStage && <>
           <details className={styles.details}><summary><span className="sr-only">Position details: </span>
             <span className={styles.managerMetrics}>
-              <span><span>Outstanding debt</span><strong><PositionTokenAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} compact smallUnit /></strong><DollarEquivalent value={figures.debtUsdText} status={figures.status} label="Debt value" /></span>
+              <span><span>Outstanding debt</span><strong><BorrowPositionAmount raw={position.info.rawDebts} decimals={positionDebtDecimals(position)} symbol={position.info.rawDebtsToken} /></strong><DollarEquivalent value={figures.debtUsdText} status={figures.status} label="Debt value" /></span>
               <span><span>Loan-to-value</span><strong><ValueOrSkeleton value={figures.ltv ?? '—'} status={figures.status} label="Loan-to-value unavailable" /></strong></span>
             </span><ChevronDown size={15} aria-hidden="true" />
           </summary>

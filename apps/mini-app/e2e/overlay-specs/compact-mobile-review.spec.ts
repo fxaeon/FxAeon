@@ -61,10 +61,10 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
       const amounts = review.getByRole('region', { name: 'Bridge amounts and terms' });
       const sent = amounts.locator('[data-review-fact="Amount"]');
       const received = amounts.locator('[data-review-fact="Estimated received"]');
-      await expect(sent.locator('summary')).toHaveText('2500 fxUSD');
+      await expect(sent.locator('summary')).toHaveText('2,500 fxUSD');
       await expect(sent.locator('summary')).toHaveAccessibleName('Show exact sent amount: 2500 fxUSD');
       await expect(sent.getByText('Ethereum', { exact: true })).toBeVisible();
-      await expect(received.locator('summary')).toHaveText('2497.5 fxUSD');
+      await expect(received.locator('summary')).toHaveText('2,497.5 fxUSD');
       await expect(received.locator('summary')).toHaveAccessibleName('Show full receive estimate: 2497.5 fxUSD');
       await expect(received.getByText('Base', { exact: true })).toBeVisible();
       await expect(review.locator('[data-review-fact="Networks"]')).toHaveCount(0);
@@ -74,11 +74,15 @@ for (const kind of ['borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'mov
       await expect(review.locator('[data-review-fact="Recipient"] > div')).toContainText('0x00000000000000000000000000000000000000aa');
       await expect(action).toBeInViewport({ ratio: 1 });
       await review.locator('[data-review-fact="Recipient"] > summary').click();
-      await expect(review.locator('[data-review-fact="Bridge fee"]')).toContainText('0.0001 ETH');
+      await expect(review.locator('[data-review-fact="Bridge fee"] summary')).toContainText('0.0001 ETH');
       await expect(review.locator('[data-review-fact="Delivery estimate"]')).toHaveCount(0);
     }
     if (kind === 'earn-instant') {
-      await expect(review.locator('[data-review-fact="f(x) fee"]')).toHaveText('f(x) fee1%');
+      const fee = review.locator('[data-review-value="f(x) fee"]');
+      await expect(fee.locator('summary')).toHaveText('1%');
+      await fee.locator('summary').click();
+      await expect(fee.getByText('Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.', { exact: true })).toBeVisible();
+      await fee.locator('summary').click();
       const received = review.locator('[data-review-fact="Estimated received"]');
       await expect(received.getByText('You receive · estimated', { exact: true })).toBeVisible();
       await expect(received.locator('summary')).toHaveText('99 USDC');

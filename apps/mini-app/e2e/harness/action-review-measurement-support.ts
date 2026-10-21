@@ -198,7 +198,6 @@ export const useInvalidateWalletData = () => async () => {
     export const InlineError = ({ message }) => <div role="alert">{message}</div>;
     export const TransactionHashLink = ({ step }) => <span>{step.hash}</span>;
   `,
-  '@/components/review/executionResult': `export const resultPresentation = (result) => { const approvalOnly = result.status === 'partial' && result.steps.some((step) => step.transaction.kind === 'approval' && step.status === 'confirmed') && !result.steps.some((step) => step.transaction.kind === 'action' && (step.status === 'confirmed' || step.hash)); if (approvalOnly) return { title: 'Approval confirmed', body: 'Action not submitted. The approval is on-chain; review each step before continuing.', tone: 'warning', icon: () => null }; return result.status === 'partial' ? ({ title: 'Partially completed', body: 'An earlier step confirmed before the action stopped.', tone: 'warning', icon: () => null }) : result.status === 'failed' ? ({ title: 'Not completed', body: result.error ?? 'Mock failed.', tone: 'danger', icon: () => null }) : ({ title: 'Confirmed', body: 'Mock confirmed.', tone: 'success', icon: () => null }); }; export const resultBodyDuringRefresh = ({ status, refreshing, positionAction, body }) => status === 'confirmed' && refreshing && positionAction ? 'Transaction confirmed. Position details are refreshing.' : body;`,
   '@/lib/fx/reviewFormatting': `
     export const rawQuoteReviewFacts = () => [];
     import { routeFinancialReviewFacts as acceptedFacts } from './src/lib/fx/reviewFormatting';
