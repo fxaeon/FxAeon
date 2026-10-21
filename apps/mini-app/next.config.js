@@ -32,14 +32,14 @@ const nextConfig = {
     // check both the largest chunk and the full raw/gzipped JavaScript total.
     if (!isServer && config.optimization?.splitChunks) {
       config.optimization.splitChunks.maxSize = 1_900_000;
-      // These small shared explainers otherwise repeat in all four action
-      // routes, below Next's normal shared-chunk size threshold. Keep one
-      // cached copy when moving between Trade, Earn, Borrow and Move.
+      // Privy's shared presentation wrapper otherwise repeats in dozens of
+      // lazy authentication screens, below Next's shared-chunk size threshold.
+      // Keep the original module once; authentication screens stay lazy.
       config.optimization.splitChunks.cacheGroups = {
         ...config.optimization.splitChunks.cacheGroups,
-        productSections: {
-          test: /[\\/]src[\\/]components[\\/]ProductSections\.tsx$/,
-          name: 'product-sections',
+        privyScreen: {
+          test: /[\\/]@privy-io[\\/]react-auth[\\/]dist[\\/]esm[\\/]Screen-[^\\/]+\.mjs$/,
+          name: 'privy-screen',
           chunks: 'all',
           minChunks: 2,
           enforce: true,
