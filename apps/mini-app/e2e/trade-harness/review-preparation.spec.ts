@@ -93,9 +93,10 @@ const advanced = (page: Page) => page.getByLabel('Advanced transaction details',
 async function expectReachableReview(page: Page) {
   const information = page.getByRole('region', { name: 'Review information', exact: true });
   const decision = page.locator('[data-review-actions] > button');
+  const desktop = page.viewportSize()!.width > 600;
   // Desktop can scroll the surrounding page; the phone decision must already
   // be visible in its modal without moving the page or the review's terms.
-  if (page.viewportSize()!.width > 600) await decision.scrollIntoViewIfNeeded();
+  if (desktop) await decision.scrollIntoViewIfNeeded();
   await expect(decision).toBeInViewport({ ratio: 1 });
   const layout = await information.evaluate(body => {
     const viewport = body.closest('[data-review-viewport]')!;
@@ -130,7 +131,8 @@ async function expectReachableReview(page: Page) {
     // The total is intentionally secondary. Open its actual disclosure before
     // applying the same full-row clipping and footer visibility contract.
     if (label === 'Total cost' && !detailsWereOpen) await advanced(page).locator(':scope > summary').click();
-    const row = information.locator(`[data-review-fact="${label}"]`).first();
+    const row = information.locator(label === 'Total cost' ? '[data-review-evidence="Total cost"]' : `[data-review-fact="${label}"]`).first();
+    await expect(row).toBeVisible();
     await row.scrollIntoViewIfNeeded();
     // IntersectionObserver rounds fractional scroll offsets differently from
     // DOMRect. The explicit one-pixel bounds below remain the fit contract.
@@ -142,6 +144,14 @@ async function expectReachableReview(page: Page) {
         && row.left >= body.left - 1 && row.right <= body.right + 1;
     });
     expect(fits, `${label} is fully readable inside the scrolling terms`).toBe(true);
+    // The desktop document has natural height. Read the term, then reach its
+    // decision by scrolling; the phone must keep both visible simultaneously.
+    await expect.poll(() => row.evaluate(node => {
+      const rect = node.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit !== null && node.contains(hit);
+    }), { message: `${label} is unobscured while being read` }).toBe(true);
+    if (desktop) await decision.scrollIntoViewIfNeeded();
     await expect(decision).toBeInViewport({ ratio: 1 });
   }
   if (!detailsWereOpen) await advanced(page).locator(':scope > summary').click();
@@ -183,6 +193,7 @@ async function expectReachableReview(page: Page) {
     if (errors.length) errors.push(`Scrollports: ${JSON.stringify(scrollports)}`);
     return errors;
   }), { message: 'Execution details has an unclipped 44px target and unobscured center and edges' }).toEqual([]);
+  if (desktop) await decision.scrollIntoViewIfNeeded();
   await expect(decision).toBeInViewport({ ratio: 1 });
   await information.evaluate(node => { node.scrollTop = 0; });
 }
@@ -223,7 +234,7 @@ for (const theme of ['dark']) {
     await fill(page, '0.0003'); await review(page);
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
     await expect(page.getByRole('heading', { name: '2.8× ETH Long', exact: true })).toBeVisible();
-    const sheet = page.getByRole('dialog', { name: 'Review position' });
+    const sheet = page.getByRole('dialog', { name: '2.8× ETH Long', exact: true });
     const sheetBounds = (await sheet.boundingBox())!;
     expect(sheetBounds.y).toBeGreaterThanOrEqual(0);
     expect(sheetBounds.height).toBeLessThanOrEqual(844 * 0.92 + 1);
@@ -253,18 +264,24 @@ for (const theme of ['dark']) {
     await expect(advanced(page).getByText('3 Gwei', { exact: true })).toBeVisible();
     await expect(advanced(page).getByRole('radio', { name: 'Standard 3 Gwei', exact: true })).toBeChecked();
     await expect(page.locator('[data-review-fact="Slippage"]')).toBeVisible();
-    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(2);
-    const nativeCollateral = advanced(page).locator('[data-review-fact="Estimated collateral"]');
-    await expect(nativeCollateral).toContainText('Quoted collateral · native');
-    await expect(nativeCollateral.locator(':scope > span').last()).toHaveText(collateralSource);
-    await expect(page.locator('[data-review-fact="Estimated debt"]')).toHaveCount(1);
+    // The primary amount owns its complete native quote; technical evidence
+    // must not repeat the same collateral as a second decision row.
+    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
+    await collateral.locator('summary').click();
+    await expect(collateral.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(collateralSource);
+    await collateral.locator('summary').click();
+    await expect(advanced(page).locator('[data-review-evidence="Estimated debt"]')).toHaveCount(1);
     await page.getByRole('button', { name: 'Open ETH Long', exact: true }).scrollIntoViewIfNeeded();
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeInViewport();
     await page.screenshot({ path: resolve(output, `review-details-${theme}-390.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     await page.clock.fastForward(31_000);
-    await expect(page.locator('[data-review-fact="Liquidation price"]')).toContainText('Unavailable');
-    await expect(page.locator('[data-review-fact="Rebalance price"]')).toContainText('Unavailable');
+    await expect(page.locator('[data-review-fact="Liquidation price"]')).toHaveCount(0);
+    await expect(page.locator('[data-review-fact="Rebalance price"]')).toHaveCount(0);
+    const expiredRisk = page.locator('[data-review-fact="Risk estimates"]');
+    await expect(expiredRisk).toContainText('Unavailable');
+    await expiredRisk.getByRole('button', { name: 'About Risk estimates', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Risk estimates', exact: true })).toContainText(/fresh|expired/i);
   });
 }
 
@@ -319,7 +336,7 @@ test('Cancel abandons preparation and late results cannot reopen review', async 
 test('mobile review traps focus, survives a desktop resize, and closes back to the input', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mount(page, { funded: true }); await fill(page); await review(page);
-  const dialog = page.getByRole('dialog', { name: 'Review position' });
+  const dialog = page.getByRole('dialog', { name: '2.8× ETH Long', exact: true });
   await expect(dialog).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Close transaction review' })).toBeFocused();
@@ -384,7 +401,7 @@ for (const viewport of stabilityViewports) {
     await expect(page.locator('[data-review-viewport] .skeleton')).toHaveCount(0);
     await expect(page.getByRole('button',{name:'Checking network fees…',exact:true})).toHaveCount(0);
     if (viewport.width <= 600) {
-      await expect(page.getByRole('dialog', { name: 'Review position' })).toBeVisible();
+      await expect(page.getByRole('dialog', { name: '2.8× ETH Long', exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
     } else await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('button', { name: 'Not enough ETH', exact: true }).scrollIntoViewIfNeeded();
@@ -445,13 +462,15 @@ test('a Max-length amount remains in the input then fits the complete review at 
   };
   const gasValue = page.locator('[data-review-fact="Gas fee"] > span').last();
   await expect(gasValue.locator('summary [data-usd-state="unavailable"]')).toHaveText(/^(?:≈ )?[\d,]+(?:\.\d+)? ETH max$/);
-  const exactGas = (await gasValue.getAttribute('title'))!;
+  const gasControl = gasValue.locator('summary');
+  const exactGas = (await gasControl.getAttribute('aria-label'))!.replace(/^Show exact network cost: /, '');
+  expect(exactGas).toMatch(/^[\d,]+(?:\.\d+)? ETH \(max\)\./);
   await gasValue.locator('summary').click();
   await expect(gasValue.locator('p')).toBeVisible();
   await expect(gasValue.locator('p')).toHaveText(`${exactGas}USD is a current-price estimate. The native amount governs the transaction.`);
   await gasValue.locator('summary').click();
   await advanced(page).locator(':scope > summary').click();
-  const totalValue = page.locator('[data-review-fact="Total cost"] > span').last();
+  const totalValue = page.locator('[data-review-evidence="Total cost"] > span').last();
   await expect(totalValue.locator('summary > span')).toHaveText(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
   await expect(totalValue).toHaveAttribute('title', /^[\d,]+(?:\.\d+)? ETH \(native value \+ max network fee\)$/);
   const exactTotalText = (await totalValue.getAttribute('title'))!;

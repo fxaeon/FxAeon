@@ -154,7 +154,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     if (viewport.width <= 600) await expectDecisionReachable(decision);
     await openAdvanced(page);
     const information = page.getByRole('region', { name: 'Review information', exact: true });
-    await expect(information).toHaveCSS('overflow-y', 'auto');
+    await expect(information).toHaveCSS('overflow-y', viewport.width <= 600 ? 'auto' : 'visible');
     if (viewport.width <= 600) {
       await expect(page.locator('[data-inline-review-sheet]')).toHaveCount(1);
       await expect.poll(() => information.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
@@ -163,6 +163,12 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     // Advanced animates its height. Keep requesting the actual end while it
     // expands rather than testing a scroll offset captured mid-animation.
     const finalNote = information.getByText('USD uses current prices, not transaction limits or receipt-time prices.', { exact: true });
+    if (viewport.width > 600) {
+      // Desktop lets the surrounding page scroll instead of clipping a second
+      // scroll region. The final evidence must still be fully reachable.
+      await finalNote.scrollIntoViewIfNeeded();
+      await expect(finalNote).toBeInViewport({ ratio: 1 });
+    }
     await expect.poll(async () => {
       await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
       const [body, note] = await Promise.all([information.boundingBox(), finalNote.boundingBox()]);
@@ -224,8 +230,12 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.getByText('Gas tier', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const minimum = page.locator('[data-review-fact="Minimum received"]');
-  await expect(minimum.getByText('You receive · minimum', { exact: true })).toBeVisible();
-  await expect(minimum.getByLabel('Show full reviewed amount: 99 USDC', { exact: true })).toBeVisible();
+  await expect(minimum.getByText('Minimum received', { exact: true })).toBeVisible();
+  const exactMinimum = minimum.getByLabel('Show exact amount: 99 USDC', { exact: true });
+  await expect(exactMinimum).toBeVisible();
+  await exactMinimum.click();
+  await expect(minimum.locator('details > p > span').last()).toHaveText('99 USDC');
+  await exactMinimum.click();
   await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
   const confirmFitsAboveNavigation = async () => confirm.evaluate((button) => {
     const nav = document.querySelector('[data-app-navigation]')!.getBoundingClientRect();

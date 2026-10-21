@@ -70,7 +70,7 @@ const displayedFact = (page: Page, label: string) => fact(page, label).locator('
 /** A preview row's estimate, as displayed on the ticket. */
 const figure = async (page: Page, label: string) => (await displayedFact(page, label).textContent()) ?? '';
 /** The review's plain fact value; token amounts use their own exact-value disclosure. */
-const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"]`).first().locator('> span').last();
+const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"], [data-review-evidence="${label}"]`).first().locator('> span').last();
 const slider = (page: Page) => page.getByRole('slider', { name: 'Target leverage slider', exact: true });
 const leverageField = (page: Page) => page.getByRole('textbox', { name: 'Target leverage', exact: true });
 
@@ -108,7 +108,6 @@ test.describe('the ticket’s outcome preview', () => {
     await reviewFact(page, 'Execution price').locator('summary').click();
     await expect(reviewFact(page, 'Execution price').getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(preview.executionPriceExact!);
     await reviewFact(page, 'Execution price').locator('summary').click();
-    await expect(reviewFact(page, 'Execution price')).toHaveAttribute('title', preview.executionPriceExact!);
     const collateral = page.locator('[data-review-fact="Estimated collateral"]').first();
     await expect(collateral).toContainText('Position size · collateral');
     const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
@@ -118,11 +117,12 @@ test.describe('the ticket’s outcome preview', () => {
     await expect(collateralValue).toHaveAttribute('title', /USD value unavailable: no fresh matching wstETH price\.$/);
     const details = page.getByLabel('Advanced transaction details', { exact: true });
     await details.locator(':scope > summary').click();
-    const quotedCollateral = details.locator('[data-review-fact="Estimated collateral"]');
-    await expect(quotedCollateral).toContainText('Quoted collateral · native');
+    await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
     // The full accepted amount and conversion rate are unchanged, not parsed
     // back out of the compact display or the unrelated USD estimate.
-    await expect(quotedCollateral.locator(':scope > span').last()).toHaveText(collateralSource);
+    await collateral.locator('summary').click();
+    await expect(collateral.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(collateralSource);
+    await collateral.locator('summary').click();
     const debt = reviewFact(page, 'Estimated debt');
     await expect(debt.locator('summary > span')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
     const exactDebt = (await debt.getAttribute('title'))!;
