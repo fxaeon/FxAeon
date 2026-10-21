@@ -2,10 +2,13 @@
 
 import { MetricLabel, InfoHelp } from '@/components/InfoHelp';
 import { reviewHelpDefinition } from '@/components/review/reviewHelp';
-import { FeeUsd } from '@/components/review/AmountUsd';
+import { AmountUsd, FeeUsd } from '@/components/review/AmountUsd';
+import { ReviewFactValue } from '@/components/review/ReviewFactValue';
+import { readableReviewAmount } from '@/components/review/reviewHierarchy';
+import { groupDigits } from '@/lib/amount';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AlertTriangle, ArrowLeftRight, Code2, UserRound } from 'lucide-react';
 import { formatUnits, isAddress, type Address } from 'viem';
 import { amountBlocker } from '@/lib/formBlockers';
@@ -179,6 +182,10 @@ export default function MovePage() {
   const previewKey = `${wallet.address}:${sourceChainId}:${token}:${amountWei}:${recipientValue}:${advanced}:${previewRevision}`;
   const preview = previewState?.key === previewKey && previewState.status === 'ready' && isFreshBridgePreview(previewState.data) ? previewState.data : undefined;
   const previewStatus = previewState?.key === previewKey ? previewState.status : undefined;
+  const receiveFigure = preview?.estimatedReceived !== undefined
+    ? readableReviewAmount(formatUnits(preview.estimatedReceived, 18)) : undefined;
+  const receiveDisplay = receiveFigure
+    ? `${receiveFigure.shortened ? '≈ ' : ''}${groupDigits(receiveFigure.value)}` : '';
   const nativeShortfall = preview?.nativeBalance !== undefined && preview.nativeBalance < preview.nativeFee + (preview.sourceGas ?? 0n);
   useEffect(() => {
     if (advanced || !wallet.address || !amountWei || !isAddress(recipientValue) || /^0x0{40}$/i.test(recipientValue) || reviewStage !== 'input') return;
@@ -548,9 +555,9 @@ export default function MovePage() {
             editor={<>
           <div className={`${styles.moveFormFields} ${moveStyles.moveFormFields}`}>
             <section className={moveStyles.sourcePanel} aria-label="Send assets">
-            <NetworkField label="Send" name={sourceName} chainId={sourceChainId} />
               <AmountField compact label="Amount" symbol={advanced ? 'OFT' : token} value={amount} onChange={setAmount}
-                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false}
+                labelContent={<NetworkField label="Send" name={sourceName} chainId={sourceChainId} />}
+                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false} showPercentages={false}
                 tokenSelector={!advanced ? <TokenSelect compact label="Asset" value={token} options={['fxUSD', 'fxSAVE'] as const} onChange={changeToken} balances={moveBalances} balanceStatus={wallet.address ? moveBalanceStatusForPicker : 'disconnected'} /> : undefined} />
             </section>
             <button
@@ -565,13 +572,14 @@ export default function MovePage() {
             <section className={moveStyles.destinationPanel} aria-label="Receive assets">
             <NetworkField label="Receive" name={destinationName} chainId={destinationChainId} />
               <div className={moveStyles.receiveLine}>
-                <strong className={moveStyles.receiveAmount} title={preview?.estimatedReceived !== undefined ? formatUnits(preview.estimatedReceived, 18) : undefined}>
-                  {!amountWei ? '0.00' : preview?.estimatedReceived !== undefined ? displayBridgeAmount(preview.estimatedReceived) : '—'}
-                </strong>
+                {preview?.estimatedReceived !== undefined ? <details className={moveStyles.receiveValue}>
+                  <summary aria-label={`Show exact receive estimate: ${formatUnits(preview.estimatedReceived, 18)} ${token}`}><strong className={moveStyles.receiveAmount} style={{ '--receive-length': receiveDisplay.length } as CSSProperties}>{receiveDisplay}</strong></summary>
+                  <p><span>Unrounded estimate</span>{formatUnits(preview.estimatedReceived, 18)} {token}</p>
+                </details> : <strong className={moveStyles.receiveAmount} data-empty="true" aria-label="Receive estimate unavailable">—</strong>}
                 <span className={moveStyles.receiveAsset}>{!advanced && <TokenIcon symbol={token} size={24} />}<strong>{advanced ? 'Custom token' : token}</strong></span>
               </div>
               <p className={moveStyles.receiveCaption} role="status">
-                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? 'Estimated amount received'
+                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <><span>Estimated</span><span aria-hidden="true"> · </span><AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} /></>
                   : advanced ? 'Custom route checked at review' : !wallet.address ? 'Connect to preview this route'
                   : recipientError ? 'Check the destination address' : previewStatus === 'loading' ? 'Getting a live quote…'
                   : previewStatus === 'expired' ? 'Quote expired — refresh below' : 'Receipt estimate unavailable'}
@@ -600,7 +608,7 @@ export default function MovePage() {
                 <button
                   type="button"
                   onClick={changeRecipientMode}
-                  className="min-h-11 rounded-lg px-2 text-[12px] font-medium text-mint transition-colors hover:bg-[var(--mint-dim)]"
+                  className={moveStyles.recipientChange}
                 >
                   {customRecipient ? 'Use your wallet' : 'Change'}
                 </button>
@@ -710,10 +718,10 @@ function AddressField({ label, hint, value, onChange, placeholder, error }: { la
 
 function NetworkField({ label, name, chainId }: { label: 'Send' | 'Receive'; name: string; chainId: FxChainId }) {
   return (
-    <div className={`${styles.networkNode} ${moveStyles.routeNode}`}>
-      <span className="block text-[12px] font-medium text-mut">{label}</span>
-      <span className={`${moveStyles.routeIdentity} mt-1.5 flex items-center text-[15px] font-semibold`}><ChainIcon chainId={chainId} size={26} className={moveStyles.chainLogo} /><span className={moveStyles.routeName}>{name}</span></span>
-    </div>
+    <span className={moveStyles.routeNode}>
+      <span>{label}</span>
+      <span className={moveStyles.routeIdentity}><ChainIcon chainId={chainId} size={18} className={moveStyles.chainLogo} /><span className={moveStyles.routeName}>{name}</span></span>
+    </span>
   );
 }
 
@@ -725,5 +733,5 @@ function displayBridgeAmount(value: bigint): string {
   return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
 }
 function QuoteRow({ label, value, title }: { label: string; value: string; title?: string }) {
-  return <div><dt><MetricLabel label={label} definition={reviewHelpDefinition(label)} /></dt><dd title={title}><span>{value}{label === 'Bridge fee' && <FeeUsd fact={{ value, title }} />}</span></dd></div>;
+  return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd><ReviewFactValue fact={{ label, value, title }} />{label === 'Bridge fee' && value !== 'Unavailable' && <FeeUsd fact={{ value, title }} />}</dd></div>;
 }
