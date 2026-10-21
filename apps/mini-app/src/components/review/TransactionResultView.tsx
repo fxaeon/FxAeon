@@ -9,6 +9,7 @@ import { TransactionIdentity } from './TransactionIdentity';
 import type { transactionCardIdentity } from './transactionCardIdentity';
 import { compactTransactionOutcomeModel } from './compactTransactionReceipt';
 import { ReviewFactValue } from './ReviewFactValue';
+import { TransactionAmountFlow } from './TransactionAmountFlow';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import { BridgeResultDetails } from './BridgeResultDetails';
 import { CompactTransactionFooter, hasCompactConfirmedTransaction } from './CompactTransactionFooter';
@@ -136,6 +137,7 @@ export function TransactionResultView({
     {observedFacts.length > 0 && <p className={styles.reviewExplanation}>{simulated ? 'Amounts are simulated.' : 'Amounts are from verified receipts.'} USD uses current prices, not receipt-time prices.</p>}
     <ReceiptSummary receipts={receipts} variant="details" />
     {readbackSection}
+    {positionAction && !positionClosed && !positionReadback && <p className={styles.resultStatNote} data-position-readback={refreshing ? 'refreshing' : 'unavailable'} role="status">{refreshing ? 'Refreshing position values.' : 'Post-confirmation position values are unavailable. The amounts above come from the confirmed receipt.'}</p>}
     {!conciseSuccess && transactionLinks && <section className={styles.receiptLinks} aria-label="Transaction receipts">{transactionLinks}</section>}
     {reviewedFacts.length > 0 && <section className={styles.advancedGroup} aria-label="Reviewed terms"><p className={styles.advancedGroupLabel}>Reviewed terms</p><p className={styles.resultStatNote}>Reviewed amounts, not final outcomes.</p><dl>{reviewedFacts.map((fact, index) => <div className={styles.resultStatRow} key={`${fact.label}-${index}`}><dt>{fact.label}</dt><dd><ReviewFactValue fact={fact} /></dd></div>)}</dl></section>}
   </>;
@@ -151,17 +153,18 @@ export function TransactionResultView({
                 <p>{subtitle}</p>
               </div>
             </div>
-            {(outcome.rows.length > 0 || queuedWithdrawal) && <dl className={styles.resultStats} aria-label={simulated ? 'Simulated token movements' : 'Confirmed transaction amounts'} data-amount-provenance={simulated ? 'simulation' : 'receipt'}>
-              {outcome.rows.map((row, index) => <div className={styles.resultStatRow} key={`${row.direction}-${row.symbol}-${index}`} data-review-fact={row.direction === 'sent' ? 'Sent' : 'Received'}>
-                <dt>{row.label}</dt><dd><ResultAmount amount={row.amount} symbol={row.symbol} /></dd>
-              </div>)}
-              {queuedWithdrawal && <div className={styles.resultStatRow}><dt>Claim status</dt><dd>Check live status</dd></div>}
-            </dl>}
+            {outcome.rows.length > 0 && <TransactionAmountFlow
+              facts={outcome.rows.map(row => ({ label: row.direction === 'sent' ? 'Sent' : 'Received', value: `${row.amount} ${row.symbol}` }))}
+              labels={Object.fromEntries(outcome.rows.map(row => [row.direction === 'sent' ? 'Sent' : 'Received', row.label]))}
+              chainId={result.chainId} receipt simulated={simulated} showNetwork={false}
+              ariaLabel={simulated ? 'Simulated token movements' : 'Confirmed transaction amounts'}
+            />}
+            {queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>Claim status</dt><dd>Check live status</dd></dl>}
             {!outcome.rows.length && !queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>{noTransferAdjustment ? 'Token transfers' : 'Token amounts'}</dt><dd>{noTransferAdjustment ? 'None' : 'Unavailable'}</dd></dl>}
             {needsReceiptDetails && <dl className={styles.resultPositionStatus}><dt>Additional movements</dt><dd>See details</dd></dl>}
             {queuedWithdrawal && <dl className={styles.resultPositionStatus} role="status"><dt>Payout</dt><dd>After cooldown</dd></dl>}
             {refreshing && !positionAction && <dl className={styles.resultPositionStatus} role="status"><dt>Balances</dt><dd>Refreshing</dd></dl>}
-            {positionAction && !positionClosed && <dl className={styles.resultPositionStatus} aria-label="Position read status" data-position-readback={positionReadback ? 'verified' : refreshing ? 'refreshing' : 'unavailable'} role="status"><dt>{positionReadback ? `Position #${positionReadback.key.split(':')[2]}` : newPosition ? `Position #${newPosition.positionId}` : 'Position values'}</dt><dd>{positionReadback ? 'Updated' : refreshing ? 'Refreshing' : 'Unavailable'}</dd></dl>}
+            {positionAction && !positionClosed && positionReadback && <dl className={styles.resultPositionStatus} aria-label="Position read status" data-position-readback="verified" role="status"><dt>Position #{positionReadback.key.split(':')[2]}</dt><dd>Updated</dd></dl>}
             <CompactTransactionFooter result={result} receipts={receipts} />
           </>}
           {bridgeTracker?.(advancedContent, provenSuccess ? destinationTxHash => <CompactTransactionFooter result={result} receipts={receipts} headingRef={headingRef} destinationReceipt={{ chainId: result.chainId === 1 ? 8453 : 1, hash: destinationTxHash }} /> : undefined)}

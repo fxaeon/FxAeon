@@ -29,8 +29,8 @@ function useMatchingDisplayQuote(symbol: string) {
 export function AmountUsd({ amount, symbol, receipt = false, fallback = 'USD value unavailable' }: { amount: string; symbol: string; receipt?: boolean; fallback?: string }) {
   const { quote, timestamp } = useMatchingDisplayQuote(symbol);
   const usd = amountUsdValue(amount, symbol, quote);
-  return <span className={styles.amountUsd} data-usd-state={usd === null ? 'unavailable' : 'estimate'} title={usd === null ? 'No fresh display price is available for this asset.' : `Display-price estimate, not a signed or receipt-time value. Price checked ${new Date(timestamp!).toISOString()}.`}>
-    {usd === null ? fallback : `${usd > 0 && usd < .01 ? '' : '≈ '}${formatUsd(usd)}${receipt ? ' now' : ''}`}
+  return <span className={styles.amountUsd} data-usd-state={usd === null ? 'unavailable' : 'estimate'} aria-label={receipt && usd !== null ? `${formatUsd(usd)} at current prices` : undefined} title={usd === null ? 'No fresh display price is available for this asset.' : `Display-price estimate, not a signed or receipt-time value. Price checked ${new Date(timestamp!).toISOString()}.`}>
+    {usd === null ? fallback : `${usd > 0 && usd < .01 ? '' : '≈ '}${formatUsd(usd)}`}
   </span>;
 }
 

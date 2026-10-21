@@ -165,7 +165,7 @@ test('renders just two compact rows with accessible native fee fallback and one 
   const html = renderToStaticMarkup(React.createElement(CompactTransactionFooter, { result: result(), receipts: [receipt(1n)] }));
   assert.equal((html.match(/class="test-row"/g) ?? []).length, 2);
   assert.match(html, /Transaction confirmed/);
-  assert.match(html, /Gas fee/);
+  assert.match(html, /Network fee/);
   assert.match(html, /USD unavailable/);
   assert.match(html, /aria-label="Gas paid: 0\.000000000000000001 ETH/);
   assert.match(html, new RegExp(`href="https://etherscan.io/tx/${ACTION}"`));
@@ -198,7 +198,7 @@ test('Wallet Send submission keeps the compact pattern without inventing confirm
     const html = renderToStaticMarkup(React.createElement(CompactSubmissionFooter, { chainId, hash: ACTION }));
     assert.equal((html.match(/class="test-row"/g) ?? []).length, 2);
     assert.match(html, /Transaction submitted/);
-    assert.match(html, /Gas fee/);
+    assert.match(html, /Network fee/);
     assert.match(html, /Pending confirmation/);
     assert.match(html, new RegExp(`href="https://${chainId === 1 ? 'etherscan.io' : 'basescan.org'}/tx/${ACTION}"`));
     assert.doesNotMatch(html, /Transaction confirmed|\$0\.00|Gas paid|Advanced|<details/);
@@ -216,7 +216,7 @@ test('Wallet Send simulation footer never publishes a simulated hash as an explo
   const html = renderToStaticMarkup(React.createElement(TransactionEvidenceContext.Provider, { value: 'simulation' },
     React.createElement(CompactSubmissionFooter, { chainId: 1, hash: ACTION })));
   assert.match(html, /Simulation submitted/);
-  assert.match(html, /Simulated gas fee/);
+  assert.match(html, /Simulated network fee/);
   assert.match(html, /No on-chain link/);
   assert.doesNotMatch(html, /<a |Transaction confirmed/);
 });
@@ -227,7 +227,7 @@ test('receipt outcome rows use action observations, not approval movements or re
   const approvalReceipt = { ...receipt(1n, 'approval'), exactMovements: [{ direction: 'sent' as const, amount: '999', symbol: 'USDC' }] };
   const model = compactTransactionOutcomeModel(result([step('approval'), step()]), [approvalReceipt, actionReceipt], [{ label: 'Debt added', value: '300 fxUSD' }])!;
   assert.deepEqual(model.rows, [
-    { direction: 'sent', amount: '0.25', symbol: 'ETH', label: 'Collateral sent' },
+    { direction: 'sent', amount: '0.25', symbol: 'ETH', label: 'You deposited' },
     { direction: 'received', amount: '299.85', symbol: 'fxUSD', label: 'You received' },
   ]);
   assert.equal(model.queuedWithdrawal, false);

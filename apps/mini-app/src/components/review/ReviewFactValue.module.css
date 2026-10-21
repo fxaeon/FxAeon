@@ -8,8 +8,11 @@
 }
 
 .summary {
-  display: block;
-  min-block-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-block-size: 44px;
+  min-inline-size: 44px;
   padding-block: 2px;
   list-style: none;
   cursor: pointer;

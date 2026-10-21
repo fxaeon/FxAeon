@@ -20,7 +20,7 @@ export function CompactSubmissionFooter({ chainId, hash }: { chainId: number; ha
         : <span className={styles.note}>{simulated ? 'No on-chain link' : 'Explorer unavailable'}</span>}</dd>
     </div>
     <div className={styles.row}>
-      <dt>{simulated ? 'Simulated gas fee' : 'Gas fee'}</dt>
+      <dt>{simulated ? 'Simulated network fee' : 'Network fee'}</dt>
       <dd className={styles.fee}>Pending confirmation</dd>
     </div>
   </dl>;

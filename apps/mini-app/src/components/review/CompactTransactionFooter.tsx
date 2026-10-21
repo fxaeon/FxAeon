@@ -44,14 +44,15 @@ export function CompactTransactionFooter({ result, receipts, destinationReceipt,
           <a className={styles.link} href={model.explorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View confirmed action transaction on explorer">{model.destinationExplorerUrl ? 'Source' : 'View transaction'} <ArrowUpRight size={14} aria-hidden="true" /></a>
           {model.destinationExplorerUrl && <a className={styles.link} href={model.destinationExplorerUrl} target="_blank" rel="noopener noreferrer" aria-label="View confirmed destination transaction on explorer">Destination <ArrowUpRight size={14} aria-hidden="true" /></a>}
         </>
-        : <span className={styles.note}>{model.simulated ? 'No on-chain link' : 'Explorer unavailable'}</span>}</div>
+        : model.simulated ? <span className={styles.note}>No on-chain link</span> : null}</div>
     </div>
     <dl className={styles.row}>
-      <dt>{model.gasLabel}</dt>
+      <dt>{model.gasLabel === 'Source gas fee' ? 'Source network fee' : 'Network fee'}</dt>
       <dd className={styles.fee} data-fee-state={model.feeState} title={model.feeDescription} aria-label={model.feeDescription} tabIndex={0}>
         <span>{model.feeValue}</span>
-        {model.feeNote && <small className={styles.note}>{model.feeNote}</small>}
+        {model.feeNote && model.feeNote !== 'now' && <small className={styles.note}>{model.feeNote}</small>}
       </dd>
     </dl>
+    {model.feeState === 'priced' && <p className={styles.valuationNote}>USD values at current prices</p>}
   </section>;
 }

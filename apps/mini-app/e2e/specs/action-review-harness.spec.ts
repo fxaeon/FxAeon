@@ -32,7 +32,7 @@ async function harnessMetrics(page: import('@playwright/test').Page): Promise<Re
 }
 
 async function expectReviewHeadingLeverage(page: import('@playwright/test').Page, value: string) {
-  const heading = page.locator('[data-review-scroll]').getByText(`${value} ETH Long`, { exact: true }).first();
+  const heading = page.getByRole('heading', { name: `${value} ETH Long`, exact: true });
   await expect(heading).toBeVisible();
   await expect(heading).toContainText(value);
 }
@@ -76,8 +76,9 @@ for (const width of [320, 1280]) for (const theme of ['dark']) for (const declin
       h.deferWalletResponse = true;
     });
     await confirm.click();
-    const waiting = page.getByRole('button', { name: 'Confirm in wallet', exact: true });
-    await expect(waiting).toBeDisabled();
+    const waiting = page.getByRole('region', { name: 'Transaction progress', exact: true });
+    await expect(waiting).toContainText('Confirm in wallet');
+    await expect(page.locator('[data-review-actions]')).toHaveCount(0);
     await waiting.scrollIntoViewIfNeeded();
     await expect(waiting).toBeInViewport();
     await screenshot('signature');
@@ -217,13 +218,15 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await expect(review.locator('[data-review-fact="Estimated received"] summary > span')).toHaveText('99 USDC');
   await expect(review.getByText('You receive · estimated', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-value="f(x) fee"]');
+  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(fee.locator('summary')).toHaveText('1%');
   await fee.locator('summary').click();
   await expect(fee.getByText('Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.', { exact: true })).toBeVisible();
   await fee.locator('summary').click();
   await expect(review.locator('[data-review-fact="Availability"]')).toContainText('After confirmation');
+  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(review.getByText('Execution details', { exact: true })).toBeVisible();
-  await expect(review.locator('[data-review-fact="Mode"]')).toBeHidden();
+  await expect(review.locator('[data-review-evidence="Mode"]')).toBeHidden();
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await expectReviewInside(review);
@@ -348,15 +351,15 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(requests.map(request => request.heading)).toEqual(['Approve fxUSD 1', 'Confirm 2']);
     const progress = page.getByRole('region', { name: 'Transaction progress', exact: true });
     await page.getByRole('button', { name: 'Approve fxUSD', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Confirm in wallet', exact: true })).toBeDisabled();
-    await expect(progress.getByRole('status')).toHaveText('Approve in wallet');
+    await expect(page.locator('[data-review-actions]')).toHaveCount(0);
+    await expect(progress.getByRole('status')).toContainText('Approve in wallet');
     expect(await metric(page, 'send')).toBe(1);
     await harnessControl(page, 'Defer wallet response');
     await harnessControl(page, 'Resolve wallet response');
-    await expect(progress.getByRole('status')).toHaveText('Confirm in wallet');
+    await expect(progress.getByRole('status')).toContainText('Confirm in wallet');
     const steps = await readReviewedTransactions(page.locator('[data-review-viewport]'));
     expect(steps.map(request => request.status)).toEqual(['Confirmed', '']);
-    await expect(page.getByRole('button', { name: 'Confirm in wallet', exact: true })).toBeDisabled();
+    await expect(page.locator('[data-review-actions]')).toHaveCount(0);
     expect(await metric(page, 'send')).toBe(2);
     await harnessControl(page, 'Resolve wallet response');
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
@@ -408,9 +411,9 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(confirm).toBeVisible();
     const sheet = page.locator('[data-mobile-review-sheet]');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole('heading', { level: 2, name: 'Review position', exact: true })).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Transaction summary', exact: true })).toContainText('Position #42');
-    const reviewedAmount = page.getByRole('region', { name: 'Transaction summary', exact: true }).getByLabel('Show full reviewed amount: 0.25 fxUSD', { exact: true });
+    await expect(sheet.getByRole('heading', { level: 2, name: 'Add to ETH Long', exact: true })).toBeVisible();
+    await expect(sheet.getByText('Position #42', { exact: true })).toBeVisible();
+    const reviewedAmount = page.getByRole('region', { name: 'Transaction amounts', exact: true }).getByLabel('Show exact amount: 0.25 fxUSD', { exact: true });
     await expect(reviewedAmount).toBeVisible();
     await expect(reviewedAmount).toHaveText('0.25 fxUSD');
     await expect(page.locator('[data-review-fact="Gas fee"] summary')).toHaveAccessibleName(/Show exact network cost: 0\.001008 ETH/);
@@ -490,7 +493,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await expect(sheet).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Add to ETH Long', exact: true })).toBeVisible();
-    await expect(review.getByRole('region', { name: 'Transaction summary', exact: true })).toContainText('Position #42');
+    await expect(review.getByText('Position #42', { exact: true })).toBeVisible();
     // Crossing the breakpoint remounts the review outside the portal, then its
     // layout effect measures the desktop scroll region. Visible copy alone is
     // not evidence that those dimensions have settled. Allow no overflow once
@@ -538,7 +541,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(progressDetails).toHaveJSProperty('open', false);
 
     await harnessControl(page, 'Change terms');
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await expect(await reviewExitControl(page)).toBeDisabled();
     expect(await metric(page, 'send')).toBe(1);
     expect(await metric(page, 'runner')).toBe(1);
@@ -559,22 +562,23 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('status').getByText('Confirm in wallet', { exact: true })).toBeVisible();
     // The compact pending summary keeps the accepted action and the exact
     // prepared requests available without inventing on-chain progress.
-    await expect(page.getByRole('region', { name: 'Transaction progress', exact: true })).toContainText('Open position v1');
+    await expect(page.getByRole('heading', { name: 'Open position v1', exact: true })).toBeVisible();
     const requests = await readReviewedTransactions(page.locator('[data-review-viewport]'));
     expect(requests.map(request => request.heading)).toEqual(['Confirm 1', 'Confirm 2']);
     expect(requests.map(request => request.status)).toEqual(['', '']);
 
     await harnessControl(page, 'Switch account');
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('selected wallet changed during this action');
     await harnessControl(page, 'Resolve wallet response');
     await expect(page.getByRole('heading', { name: 'Partially completed', exact: true })).toBeVisible();
-    // This orchestration harness renders transaction hashes, not live explorer links.
+    // The real receipt link retains the exact submitted hash; the fixture
+    // never follows it or contacts a chain.
     const receipts = page.getByRole('region', { name: 'Transaction receipts', exact: true });
     await page.locator('[data-review-viewport] details').filter({ has: page.getByText('Execution details', { exact: true }) }).locator(':scope > summary').click();
     await expect(receipts).toBeVisible();
-    await expect(receipts.getByText('0x1111111111111111111111111111111111111111111111111111111111111111', { exact: true })).toBeVisible();
-    await expect(receipts.locator('span')).toHaveCount(1);
+    await expect(receipts.getByRole('link')).toHaveCount(1);
+    await expect(receipts.getByRole('link')).toHaveAttribute('href', 'https://etherscan.io/tx/0x1111111111111111111111111111111111111111111111111111111111111111');
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
     expect(await metric(page, 'send')).toBe(1);
     const callbacks = await page.evaluate(() => {
@@ -593,7 +597,7 @@ test.describe('ActionReview isolated orchestration', () => {
 
     await harnessControl(page, 'Disconnect');
     await harnessControl(page, 'Reconnect');
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await harnessControl(page, 'Resolve wallet response');
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
     expect(await metric(page, 'send')).toBe(1);
@@ -731,8 +735,9 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(confirm).toBeEnabled();
     await harnessControl(page, 'Defer wallet response');
     await confirm.click();
-    const awaitingWallet = page.getByRole('button', { name: 'Confirm in wallet', exact: true });
-    await expect(awaitingWallet).toBeDisabled();
+    const awaitingWallet = page.getByRole('region', { name: 'Transaction progress', exact: true });
+    await expect(awaitingWallet).toContainText('Confirm in wallet');
+    await expect(page.locator('[data-review-actions]')).toHaveCount(0);
     await expect.poll(async () => (await draftState()).walletWaiting).toBe(1);
     expect(await metric(page, 'draftSave')).toBe(2);
     const removedBeforeOldCompletion = (await draftState()).removed;
@@ -743,7 +748,8 @@ test.describe('ActionReview isolated orchestration', () => {
     // before checking that B's still-pending draft survived their cleanup.
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
     expect(await draftState()).toEqual({ removed: removedBeforeOldCompletion, walletWaiting: 1, completionWaiting: 0 });
-    await expect(awaitingWallet).toBeDisabled();
+    await expect(awaitingWallet).toContainText('Confirm in wallet');
+    await expect(page.locator('[data-review-actions]')).toHaveCount(0);
     await expect(await reviewExitControl(page)).toBeDisabled();
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
     expect(await metric(page, 'runner')).toBe(2);
@@ -783,7 +789,7 @@ test.describe('ActionReview isolated orchestration', () => {
     const originalFacts = { Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' };
     const expectOriginalFacts = async () => {
       for (const [label, value] of Object.entries(originalFacts)) {
-        await expect(review.locator(label === "Amount" ? `[data-review-fact="Amount"] summary > span` : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
     };
@@ -799,7 +805,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Change terms');
     await harnessControl(page, 'Switch account');
     await expectOriginalFacts();
-    await expect(page.locator('[data-review-scroll]').getByText('3× ETH Long', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: '3× ETH Long', exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('selected wallet changed during this action');
     expect(await metric(page, 'send')).toBe(1);
     await harnessControl(page, 'Resolve wallet response');
@@ -948,7 +954,7 @@ test.describe('ActionReview isolated orchestration', () => {
     });
     const expectCheckedRoute = async () => {
       for (const [label, value] of Object.entries({ Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' })) {
-        await expect(review.locator(label === "Amount" ? `[data-review-fact="Amount"] summary > span` : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
       expect(await liveStatuses.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent))).toEqual(baselineStatuses);
@@ -1026,13 +1032,13 @@ test.describe('ActionReview isolated orchestration', () => {
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole('heading', { level: 2, name: 'Review position', exact: true })).toBeVisible();
+    await expect(sheet.getByRole('heading', { level: 2, name: '3× ETH Long', exact: true })).toBeVisible();
     const review = page.locator('[data-review-viewport]');
     const amount = review.locator('[data-review-fact="Amount"] summary > span').last();
     const expectFits = async () => {
       await expectReviewInside(review);
       await expect(amount).toHaveText('≈ 0.0002444 fxUSD');
-      await expect(review.locator('[data-review-fact="Amount"] summary')).toHaveAttribute('aria-label', 'Show full reviewed amount: 0.00024443113696627 fxUSD');
+      await expect(review.locator('[data-review-fact="Amount"] summary')).toHaveAttribute('aria-label', 'Show exact amount: 0.00024443113696627 fxUSD');
       await expectReviewHeadingLeverage(page, '3×');
     };
     await expectFits();
@@ -1134,7 +1140,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'plan')).toBe(2);
     expect(await metric(page, 'prepare')).toBe(1);
     // A failed refresh retains the accepted route as non-signable evidence.
-    await expect(page.locator('[data-review-scroll]').getByText('3× ETH Long', { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: '3× ETH Long', exact: true })).toBeVisible();
     await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.25 fxUSD');
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
@@ -1188,9 +1194,9 @@ test.describe('ActionReview isolated orchestration', () => {
   test('keeps accepted calldata when a rerender recreates the planner for the same form intent', async ({ page }) => {
     await openHarness(page);
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await harnessControl(page, 'Recreate planner');
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toBeVisible();
@@ -1206,12 +1212,12 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(confirm).toBeEnabled();
     await harnessControl(page, 'Disable action');
     await expect(confirm).toBeDisabled();
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await metric(page, 'send')).toBe(0);
     await harnessControl(page, 'Enable action');
     await harnessControl(page, 'Remove planner');
     await expect(confirm).toBeDisabled();
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await metric(page, 'send')).toBe(0);
     await harnessControl(page, 'Restore planner');
     await expect(confirm).toBeEnabled();
@@ -1223,10 +1229,10 @@ test.describe('ActionReview isolated orchestration', () => {
   test('invalidates the accepted route when the logical form intent really changes', async ({ page }) => {
     await openHarness(page);
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await harnessControl(page, 'Change terms');
     await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toHaveCount(0);
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toHaveCount(0);
     const refresh = page.getByRole('button', { name: 'Review updated quote', exact: true });
     await expect(refresh).toBeEnabled();
     await refresh.click();
@@ -1404,7 +1410,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(confirm).toHaveCount(0);
     const refresh = page.getByRole('button', { name: 'Review updated quote', exact: true });
     await expect(refresh).toBeVisible();
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     expect(await metric(page, 'runner')).toBe(0);
     expect(await metric(page, 'send')).toBe(0);
     await harnessControl(page, 'Change quote terms to v2');
@@ -1463,7 +1469,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect.poll(() => metric(page, 'runner')).toBe(1);
     await harnessControl(page, 'Disconnect');
     await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(0);
-    await expect(page.locator('[data-review-scroll]').getByText('Open position v1', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
     await harnessControl(page, 'Resolve execution');
     await expect(page.getByRole('heading', { name: 'Not submitted', exact: true })).toBeVisible();
     expect(await metric(page, 'runner')).toBe(1);

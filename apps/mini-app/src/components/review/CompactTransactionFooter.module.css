@@ -14,4 +14,5 @@
 .note { color: var(--mut); font-size: 11px; font-weight: 400; }
 .fee .note { display: block; margin-top: 1px; }
 .fee[data-fee-state='priced'] .note { display: inline; margin-left: 4px; }
+.valuationNote { margin: 2px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
 @media (max-width: 360px) { .row { column-gap: 10px; font-size: 12px; } }
