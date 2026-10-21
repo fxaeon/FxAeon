@@ -1,6 +1,6 @@
 # Security policy
 
-FxAeon is unaudited application software that prepares financial transactions in a static browser client. Protocol audits do not audit FxAeon's UI, wallet configuration, dependency lockfile, deployment, or transaction validation. Treat every release as software that must be independently reviewed before use with funds.
+FxAeon prepares financial transactions in a static browser client. f(x) protocol audits do not audit FxAeon's UI, wallet configuration, dependency lockfile, deployment, or transaction validation. Using the protocols involves risks, including smart contract failures, oracle failures, and other risks. Check each approval before you sign, because onchain transactions are irreversible.
 
 ## Report a vulnerability privately
 
