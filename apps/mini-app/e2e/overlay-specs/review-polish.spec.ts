@@ -63,12 +63,21 @@ for (const width of [320, 390, 768, 1280]) test(`context help is keyboard/touch 
   await expect(help).toBeFocused();
   await expect(review).toBeVisible();
   await help.click();
-  await review.getByRole('button', { name: 'About Price impact', exact: true }).click();
+  // At wider widths the non-modal description can legitimately cover the
+  // following row. Move keyboard focus to that row rather than force-clicking
+  // through the visible panel; focus-out must dismiss the previous help.
+  const priceImpactHelp = review.getByRole('button', { name: 'About Price impact', exact: true });
+  await priceImpactHelp.focus();
+  await expect(panel).toHaveCount(0);
+  await priceImpactHelp.press('Enter');
   await expect(panel).toHaveCount(1);
   await expect(panel).toHaveAccessibleName('Price impact');
-  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
+  const advancedSummary = review.locator('details[aria-label="Advanced transaction details"] > summary');
+  await advancedSummary.focus();
   await expect(panel).toHaveCount(0);
+  await advancedSummary.press('Enter');
   await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveAttribute('open');
+  expect(await page.evaluate(() => history.length)).toBe(beforeHistory);
   // Help should reflow at enlarged text, not reduce the font to fit.
   await page.evaluate(() => document.documentElement.style.fontSize = '200%');
   await help.click();

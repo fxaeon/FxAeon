@@ -81,10 +81,12 @@ test.describe('Earn entry and honest unavailable state', () => {
 
   test('claim deep links remain available without a permanent empty tab', async ({ page, requests }) => {
     await page.goto('/earn?mode=claim', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: 'Withdrawal details', exact: true })).toBeVisible();
-    await expect(page.getByText('Connect the requesting wallet to view its withdrawal.')).toBeVisible();
+    const claimDetails = page.getByRole('dialog', { name: 'Withdrawal details', exact: true });
+    await expect(claimDetails.getByRole('heading', { name: 'Withdrawal details', exact: true })).toBeVisible();
+    await expect(claimDetails.getByText('Connect the requesting wallet to view its withdrawal.')).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Claim', exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Back to fxSAVE' }).click();
+    await claimDetails.getByRole('button', { name: 'Close transaction review', exact: true }).click();
+    await expect(claimDetails).toHaveCount(0);
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toHaveAttribute('aria-checked', 'true');
     assertNoBackendRequests(requests);
   });

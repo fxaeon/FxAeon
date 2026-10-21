@@ -139,7 +139,7 @@ test('collateral and debt show dollar equivalents without guessing missing or st
   await page.getByRole('button', { name: 'Your positions' }).click();
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
   await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
-  await expect(card.getByText('Exact amount: 100 fxUSD', { exact: true })).toHaveCount(1);
+  await expect(card.getByText('100 fxUSD', { exact: true })).toHaveAttribute('title', '100 fxUSD');
   await expect(card).toContainText('≈ $99.00');
   await expect(card).toContainText('2 stETH');
   await expect(card).toContainText('≈ $4,800.00');
@@ -195,7 +195,7 @@ test('a failed first price read resolves the skeleton into explicit missing valu
   await changeSnapshot(page, (harness) => { harness.pricesPending = false; });
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
   await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
-  await expect(card.getByText('Exact amount: 100 fxUSD', { exact: true })).toHaveCount(1);
+  await expect(card.getByText('100 fxUSD', { exact: true })).toHaveAttribute('title', '100 fxUSD');
   await expect(card.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
   await expect(card).not.toContainText('$0.00');
 });
@@ -420,10 +420,13 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   await expect(review).toHaveAttribute('data-blocker', 'Borrow at least 31.34 fxUSD');
   await borrow.fill('31.34');
   await expect(review).toBeEnabled();
-  // 800 of 1,200 is 66.67%: shown as 66.7%; the 83.79% limit is shown as 83.7%.
+  // 800 of 1,200 is 66.66…%: the display states an upper bound, while the limit keeps its exact basis points.
   await borrow.fill('800');
-  await expect(page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' })).toHaveAttribute('aria-valuetext', '66.7% of a 83.7% limit');
-  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('0.0% → 66.7%');
+  const meter = page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' });
+  await expect(meter).toHaveAttribute('aria-valuetext', '≤ 66.67% of a 83.79% limit');
+  await expect(meter).toHaveAttribute('aria-valuemax', '83.79');
+  // No starting collateral means no prior ratio, rather than a fabricated zero LTV.
+  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
 });
 
 test('the withdrawal field names how much collateral can leave before review', async ({ page }) => {
@@ -453,8 +456,8 @@ test('an existing position hands the review its loan-to-value against the live l
   await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('button', { name: 'Borrow more' }).click();
   const before = page.locator('[data-decision-before]');
-  // 100 fxUSD against 2 ETH at $2,400 is 2.083…%, shown as 2.1%; the 83.79% limit is shown as 83.7%.
-  await expect(before).toContainText('Loan-to-value: 2.1% of 83.7% limit');
+  // 100 fxUSD against 2 ETH at $2,400 is 2.083…%, bounded above by 2.09%; the limit remains exactly 83.79%.
+  await expect(before).toContainText('Loan-to-value: ≤ 2.09% of 83.79% limit');
   await expect(before).toContainText('Debt: 100 fxUSD');
   // Without a fresh price there is no verified figure to hand over.
   await changeSnapshot(page, (harness) => { harness.prices = {}; });
@@ -499,7 +502,7 @@ test('borrowing previews debt separately from net proceeds and clears invalid or
   await page.getByLabel('Collateral', { exact: true }).fill('0.5');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
   const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome' });
-  await expect(outcome).toContainText('Total debt0 → 800 fxUSD');
+  await expect(outcome).toContainText('Total debt0 fxUSD → 800 fxUSD');
   await expect(outcome).not.toContainText('Before conversion and fees');
   await expect(page.getByText('The amount borrowed is added to your debt. You receive fxUSD after the f(x) fee.')).toHaveCount(0);
   await expect(page.getByText('Collateral can be liquidated. Keep room below the borrowing limit.')).toHaveCount(0);
@@ -527,10 +530,10 @@ test('repayment outcomes use the selected position debt and clear invalid input'
   await expect(page.getByRole('heading', { name: 'Repay debt', exact: true })).toBeVisible();
   const outcome = page.getByRole('region', { name: 'Estimated position changes' });
   await page.getByLabel('Repay amount', { exact: true }).fill('40');
-  await expect(outcome).toContainText('Total debt100 → 60 fxUSD');
+  await expect(outcome).toContainText('Total debt100 fxUSD → 60 fxUSD');
   await expect(outcome).not.toContainText('Before conversion and fees');
   await page.getByLabel('Repay amount', { exact: true }).fill('all');
-  await expect(outcome).toContainText('Total debt100 → 0 fxUSD');
+  await expect(outcome).toContainText('Total debt100 fxUSD → 0 fxUSD');
   await page.getByLabel('Repay amount', { exact: true }).fill('101');
   await expect(outcome).toHaveCount(0);
   await page.getByLabel('Repay amount', { exact: true }).fill('bad');

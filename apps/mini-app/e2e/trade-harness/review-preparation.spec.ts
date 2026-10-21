@@ -146,14 +146,44 @@ async function expectReachableReview(page: Page) {
   }
   if (!detailsWereOpen) await advanced(page).locator(':scope > summary').click();
   const disclosure = advanced(page).locator(':scope > summary');
-  await disclosure.scrollIntoViewIfNeeded();
-  await expect(disclosure).toBeInViewport({ ratio: 0.99 });
-  expect(await disclosure.evaluate(node => {
-    const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
+  // Collapsing the last child changes the scroll range. Request a fresh normal
+  // scroll, then check physical edges instead of an opaque intersection ratio.
+  await disclosure.evaluate(node => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
+  await expect.poll(() => disclosure.evaluate(node => {
     const summary = node.getBoundingClientRect();
-    return summary.top >= body.top - 1 && summary.bottom <= body.bottom + 1
-      && summary.left >= body.left - 1 && summary.right <= body.right + 1;
-  }), 'Advanced stays within the scrolling terms, allowing only pixel rounding').toBe(true);
+    const bounds = { top: 0, left: 0, right: innerWidth, bottom: innerHeight };
+    const scrollports: unknown[] = [];
+    for (let ancestor = node.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const rect = ancestor.getBoundingClientRect();
+      const scaleX = ancestor.offsetWidth ? rect.width / ancestor.offsetWidth : 1;
+      const scaleY = ancestor.offsetHeight ? rect.height / ancestor.offsetHeight : 1;
+      const left = rect.left + ancestor.clientLeft * scaleX;
+      const top = rect.top + ancestor.clientTop * scaleY;
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        bounds.left = Math.max(bounds.left, left);
+        bounds.right = Math.min(bounds.right, left + ancestor.clientWidth * scaleX);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        bounds.top = Math.max(bounds.top, top);
+        bounds.bottom = Math.min(bounds.bottom, top + ancestor.clientHeight * scaleY);
+        scrollports.push({ top, height: ancestor.clientHeight * scaleY, scrollTop: ancestor.scrollTop, scrollHeight: ancestor.scrollHeight, clientHeight: ancestor.clientHeight });
+      }
+    }
+    const errors: string[] = [];
+    if (summary.width < 44 || summary.height < 44) errors.push(`Target ${summary.width}×${summary.height}`);
+    for (const edge of ['top', 'left'] as const) if (summary[edge] < bounds[edge] - 0.5) errors.push(`${edge}: ${summary[edge]} < ${bounds[edge]}`);
+    for (const edge of ['bottom', 'right'] as const) if (summary[edge] > bounds[edge] + 0.5) errors.push(`${edge}: ${summary[edge]} > ${bounds[edge]}`);
+    const x = summary.left + summary.width / 2;
+    const y = summary.top + summary.height / 2;
+    for (const [px, py] of [[x, y], [summary.left + 1, y], [summary.right - 1, y], [x, summary.top + 1], [x, summary.bottom - 1]]) {
+      const hit = document.elementFromPoint(px, py);
+      if (!hit || !node.contains(hit)) errors.push(`Blocked hit at ${px},${py}`);
+    }
+    if (errors.length) errors.push(`Scrollports: ${JSON.stringify(scrollports)}`);
+    return errors;
+  }), { message: 'Execution details has an unclipped 44px target and unobscured center and edges' }).toEqual([]);
+  await expect(decision).toBeInViewport({ ratio: 1 });
   await information.evaluate(node => { node.scrollTop = 0; });
 }
 
