@@ -62,9 +62,9 @@ const now = Date.now();
 const PRICES = { ETH: 2400, WETH: 2400, stETH: 2400, wstETH: 2900, WBTC: 104000, fxUSD: 1, USDC: 1, USDT: 1, FXN: 26, fxSAVE: 1.05, fxUSDBasePool: 1 };
 export function useUsdPrices() {
   const loading = stage() === 'reads' || stage() === 'wallet' || stage() === 'timeout';
-  const prices = loading || stage() === 'unavailable' ? {} : stage() === 'partial'
+  const prices = loading || stage() === 'unavailable' || harness().publicData === 'unavailable' ? {} : stage() === 'partial'
     ? Object.fromEntries(Object.entries(PRICES).filter(([key]) => key !== 'fxUSD')) : PRICES;
-  return { prices, status: loading ? 'loading' : stage() === 'unavailable' ? 'unavailable' : 'live', updatedAt: loading ? null : now,
+  return { prices, status: loading ? 'loading' : stage() === 'unavailable' || harness().publicData === 'unavailable' ? 'unavailable' : 'live', updatedAt: loading ? null : now,
     updatedAts: Object.fromEntries(Object.keys(prices).map((key) => [key, now])), refreshing: false, refresh: async () => {} };
 }
 export const useUsdPrice = (key) => useUsdPrices().prices[key];
@@ -144,7 +144,7 @@ export const LIVE_QUOTE_MAX_AGE_MS = 20000;
 export const liveQuoteCandle = () => null;
 export function fetchMarketHistoryWithCoinbaseFallback(market, range) {
   if (!settled()) return never();
-  if (stage() === 'unavailable') return Promise.reject(new Error('market history failed'));
+  if (stage() === 'unavailable' || harness().publicData === 'unavailable') return Promise.reject(new Error('market history failed'));
   return Promise.resolve(globalThis.__portfolioFixtures.history(market, range));
 }
 export function fetchMarketCandles() { return settled() && stage() !== 'unavailable' ? never() : stage() === 'unavailable' ? Promise.reject(new Error('candles failed')) : never(); }`,

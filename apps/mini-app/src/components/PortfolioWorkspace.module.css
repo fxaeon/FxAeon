@@ -1,10 +1,9 @@
 /* A wallet overview: the balance leads, then wallet and protocol holdings. */
 .workspace { --portfolio-row: #1b1b1f; --portfolio-row-hover: #232327; width: min(100%, 840px); margin-inline: auto; }
 :global(.app-content) > .continued { animation: none; }
-.dashboard, .primary, .secondary { display: flex; min-width: 0; flex-direction: column; }
+.dashboard, .primary { display: flex; min-width: 0; flex-direction: column; }
 .dashboard { gap: 30px; }
 .primary { gap: 24px; }
-.secondary { gap: 16px; padding-top: 24px; border-top: 1px solid var(--line); }
 .valueCard { display: flex; min-width: 0; flex-direction: column; gap: 26px; padding: 12px 0 0; }
 .valueTop { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
 .valueLabel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: var(--mut); font-size: 14px; }
@@ -41,7 +40,7 @@
 .quickAction > span > svg { width: 21px; height: 21px; stroke-width: 1.7; }
 .quickAction > strong { font-weight: 500; }
 .quickAction:hover > span { background: var(--line-strong); }
-.quickAction:focus-visible, .productCard:focus-visible, .valueDetails summary:focus-visible, .sectionNav button:focus-visible, .protocolGroup > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.quickAction:focus-visible, .valueDetails summary:focus-visible, .sectionNav button:focus-visible, .protocolGroup > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 
 .sectionToolbar { position: sticky; top: 0; z-index: 25; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding-block: 8px; background: var(--bg); }
 .sectionFilter { flex: 0 0 auto; }
@@ -112,22 +111,6 @@
 .earnActions a:hover { background: var(--surface-2); }
 .earnActions a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .savingsNote { margin: -2px 0 0; color: var(--mut); font-size: 11px; line-height: 1.55; }
-.welcome { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 24px; padding: 44px 16px 38px; text-align: center; }
-.welcomeIcon { display: grid; width: 68px; height: 68px; place-items: center; border-radius: 22px; background: var(--portfolio-row); color: var(--text); }
-.welcome .welcomeConnect { min-width: 200px; min-height: 52px; border-radius: 16px; }
-.welcome h2 { margin: 0; font-size: clamp(34px, 5vw, 48px); line-height: 1.15; font-weight: 550; letter-spacing: -.04em; }
-.welcome p { max-width: 32ch; margin: 14px auto 0; color: var(--mut); font-size: 15px; line-height: 1.6; }
-.disconnectedPrimary { gap: 24px; }
-.productOverview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.productCard { display: flex; min-width: 0; flex-direction: column; gap: 24px; border: 0; border-radius: 22px; padding: 22px; background: var(--portfolio-row); transition: background-color var(--dur-fast); }
-.productCard > div { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.productCard > div strong { min-width: 0; flex: 1; font-size: 17px; font-weight: 550; }
-.productIcon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; background: var(--surface-3); }
-.productCard > div > svg { flex: 0 0 auto; color: var(--mut); }
-.productCard p { margin: 0; color: var(--mut); font-size: 13px; line-height: 1.55; }
-.productCard p strong { color: var(--text); font-size: 22px; font-weight: 550; font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
-.productCard:hover { background: var(--surface-2); }
-.marketTimeframe { color: var(--mut); font-size: 12px; font-weight: 400; }
 .moreBackdrop { position: fixed; z-index: 1000; inset: 0; display: grid; align-items: end; justify-items: center; padding: 0; background: rgb(0 0 0 / 64%); }
 .moreDialog { width: min(100%, 440px); max-height: min(86dvh, 620px); overflow: auto; overscroll-behavior: contain; border: 0; border-radius: 26px 26px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); background: #131416; box-shadow: 0 20px 56px rgb(0 0 0 / 30%); }
 .moreHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
@@ -155,10 +138,6 @@
 }
 @media (max-width: 600px) {
   .primary { gap: 22px; }
-  .welcome { padding: 26px 8px 24px; gap: 20px; }
-  .productOverview { grid-template-columns: 1fr; gap: 8px; }
-  .productCard { gap: 10px; padding: 18px 20px; }
-  .productCard p { padding-left: 44px; }
   .sectionNav button { font-size: 14px; }
   .protocolBody { padding: 0; }
   .holdingsHeading { margin-bottom: 10px; }
@@ -173,7 +152,6 @@
   .quickAction { min-height: 74px; padding-inline: 2px; font-size: 12px; }
   .valueBreakdown { gap: 12px; }
   .valueBreakdown dd { font-size: 16px; }
-  .productCard { padding: 16px; }
   .protocolGroup > summary { padding: 14px; }
   .protocolBody { padding: 0; }
   .earnTop { grid-template-columns: 44px minmax(0, 1fr) auto 12px; gap: 7px; padding-inline: 12px; }
@@ -181,5 +159,5 @@
   .earnActions { padding-left: 63px; padding-right: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .quickAction > span, .valueTop button, .productCard, .earnTop > svg { transition: none; }
+  .quickAction > span, .valueTop button, .earnTop > svg { transition: none; }
 }

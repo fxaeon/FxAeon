@@ -125,7 +125,7 @@ export function createLandingMarketDataHandler({
   cacheTtlMs = CACHE_TTL_MS,
 } = {}) {
   let cacheEntry;
-  let inFlight;
+  let nextReadId = 0;
 
   const fetchSource = async (url, source) => {
     try {
@@ -147,16 +147,24 @@ export function createLandingMarketDataHandler({
 
   const readSnapshot = async (timestamp) => {
     if (cacheEntry && cacheEntry.expiresAt > timestamp) return cacheEntry.raw;
-    if (inFlight) return inFlight;
-    const request = fetchSnapshot();
-    inFlight = request;
-    try {
-      const raw = await request;
-      cacheEntry = { raw, expiresAt: now() + cacheTtlMs };
-      return raw;
-    } finally {
-      if (inFlight === request) inFlight = undefined;
+    // Worker I/O and timers belong to the request that created them. A shared
+    // pending promise can outlive a disconnected caller and stall later visits.
+    // Cache only completed data; each cache miss owns its bounded source reads.
+    const readId = ++nextReadId;
+    const raw = await fetchSnapshot();
+    const checked = normalizeLandingMarketData({
+      pricePayload: raw.prices.payload,
+      priceFetchedAt: raw.prices.fetchedAt ?? undefined,
+      fxSavePayload: raw.fxSave.payload,
+      fxSaveFetchedAt: raw.fxSave.fetchedAt ?? undefined,
+      now: now(),
+    });
+    // A failed or partial read may be returned to its caller, but must not
+    // poison a healthy completed snapshot or prevent the next visit retrying.
+    if (checked.status === 'ready' && (!cacheEntry || readId > cacheEntry.readId)) {
+      cacheEntry = { raw, readId, expiresAt: now() + cacheTtlMs };
     }
+    return raw;
   };
 
   const get = async (request) => {

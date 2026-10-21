@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import localFont from 'next/font/local';
 import Script from 'next/script';
 import './globals.css';
 import './product-shell.css';
@@ -10,7 +10,9 @@ import { LocaleProvider } from '@/lib/i18n';
 import { SHELL_INITIALIZER } from './shellInitializer';
 import { BRAND_DESCRIPTION, BRAND_TITLE, pageMetadata } from './routeMetadata';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+// The complete interface is English. Keep its licensed variable Inter font
+// local so every production build emits the same bytes without a font API.
+const inter = localFont({ src: './fonts/inter-latin.woff2', weight: '100 900', style: 'normal', display: 'swap', variable: '--font-sans' });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://fxaeon.com'),

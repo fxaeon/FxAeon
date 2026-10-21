@@ -27,7 +27,9 @@ const ROUTE_METADATA = [
 ] as const;
 
 function decodeHtmlText(text: string): string {
-  return text.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#x27;', "'").replaceAll('&#39;', "'");
+  const entities: Record<string, string> = { amp: '&', quot: '"', '#x27': "'", '#39': "'" };
+  // Decode one layer only: &amp;quot; must remain &quot;, not become a quote.
+  return text.replace(/&(amp|quot|#x27|#39);/g, (_match, entity: string) => entities[entity]);
 }
 
 function attributes(tag: string): Record<string, string> {
@@ -40,6 +42,10 @@ function metaContent(html: string, attribute: 'name' | 'property', value: string
 }
 
 test.describe('server-rendered route metadata', () => {
+  test('decodes HTML metadata entities once without reinterpreting escaped text', () => {
+    expect(decodeHtmlText('Wallet &amp; account &quot;name&quot; &#39;value&#x27;')).toBe('Wallet & account "name" \'value\'');
+    expect(decodeHtmlText('&amp;quot; &amp;#39; &amp;amp;')).toBe('&quot; &#39; &amp;');
+  });
   for (const [route, title, descriptionKeyword, canonicalPath] of ROUTE_METADATA) {
     test(route + ' exposes complete route-specific share metadata before hydration', async ({ request }) => {
       const response = await request.get(route);

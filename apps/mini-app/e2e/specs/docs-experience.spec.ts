@@ -157,6 +157,10 @@ test.describe('documentation experience', () => {
 
   test('has readable examples and method anchors without requesting wallet access', async ({ page }) => {
     await page.goto('/docs/sdk#sdk-setup');
+    // The legacy index replaces this URL after hydration. Wait for its real
+    // destination before interacting with a shell that navigation will replace.
+    await expect(page).toHaveURL(/\/docs\/sdk\/setup\/?#docs-page-heading$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Read-only quickstart', exact: true })).toBeVisible();
     await expect(await openDocsSearch(page)).toBeEnabled();
     const example = page.locator('pre[aria-label="FxAeon app wrapper"]');
     await expect(example).toContainText('getFxReadFacade()');
