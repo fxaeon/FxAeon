@@ -393,9 +393,12 @@ for (const viewport of stabilityViewports) {
       const review = document.querySelector<HTMLElement>('[data-review-viewport]')!;
       const body = review.querySelector<HTMLElement>('[aria-label="Review information"]')!;
       const status = review.querySelector<HTMLElement>('[aria-live="off"]')!;
-      return { horizontalOverflow: document.documentElement.scrollWidth > innerWidth, blankBody: body.getBoundingClientRect().bottom - body.lastElementChild!.getBoundingClientRect().bottom, statusHeight: status.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(status).lineHeight) };
+      const scrollEndInset = Number.parseFloat(getComputedStyle(body).paddingBottom);
+      return { horizontalOverflow: document.documentElement.scrollWidth > innerWidth, scrollEndInset, blankBody: body.getBoundingClientRect().bottom - body.lastElementChild!.getBoundingClientRect().bottom - scrollEndInset, statusHeight: status.getBoundingClientRect().height, lineHeight: Number.parseFloat(getComputedStyle(status).lineHeight) };
     });
     expect(fit.horizontalOverflow).toBe(false);
+    // The deliberate scroll-end rounding inset is not unused content space.
+    expect(fit.scrollEndInset).toBe(2);
     expect(fit.blankBody).toBeLessThanOrEqual(1);
     // Settled status is content-sized, not a reserved three-line slot.
     expect(fit.statusHeight).toBeLessThanOrEqual(fit.lineHeight * 2 + 1);
