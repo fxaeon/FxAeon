@@ -52,30 +52,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.previewFacts {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  padding-block: 1px;
-}
-
 .amountUnit { color: var(--mut); font-size: .7em; letter-spacing: 0; }
-
-.previewFactRow {
-  flex-direction: row;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.previewFactRow > span:first-child { min-width: 0; color: var(--mut); line-height: 1.4; }
-
-.previewFactRow > span:last-child {
-  max-width: 68%;
-  text-align: right;
-  font-size: var(--fs-small);
-  line-height: 1.4;
-  font-variant-numeric: tabular-nums;
-}
 
 .actualProgress {
   display: flex;
@@ -99,13 +76,6 @@
 .reviewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .reviewHeader > div { min-width: 0; }
 .reviewHeader h3 { margin: 0; font-size: 20px; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; overflow-wrap: anywhere; }
-/* The network is a plain caption with its mark, never a pill or a status dot. */
-.reviewNetwork { display: flex; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--mut); font-size: var(--fs-caption); font-weight: 600; line-height: 1.3; }
-.reviewNetwork > span { display: inline-flex; flex: 0 0 auto; }
-.planningBar { display: flex; justify-content: flex-end; }
-.planningStep { min-height: 1.45em; margin: 6px 0 0; color: var(--mut); font-size: var(--fs-small); line-height: 1.45; }
-/* Each preparation stage arrives once; reduced motion shows it in place. */
-.planningStep > span, .stepText { display: inline-block; animation: status-enter var(--dur-base) var(--ease-out) both; }
 .reviewNotice { margin: 8px 0 0; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-dim); color: var(--warn); font-size: var(--fs-caption); line-height: 1.5; }
 .editButton { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; min-height: 44px; min-width: 64px; margin: -6px 0 0; padding: 0 12px; border-radius: 999px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .editButton:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
@@ -131,16 +101,9 @@
 }
 .statusContent { display: flex; align-items: center; gap: 12px; animation: status-enter var(--dur-base) var(--ease-out) both; }
 @keyframes status-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .statusContent, .planningStep > span, .stepText { animation: none; } }
-.stepDetails > summary { list-style: none; }
-.stepDetails > summary::-webkit-details-marker { display: none; }
-/* Inset so the chevron's box stays inside the card while it turns. */
-.stepDetails > summary > svg { flex: 0 0 16px; margin-right: 4px; transition: transform var(--dur-base) var(--ease-out); }
-.stepDetails[open] > summary > svg { transform: rotate(180deg); }
-@media (prefers-reduced-motion: reduce) { .stepDetails > summary > svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .statusContent { animation: none; } }
 @media (prefers-reduced-motion: reduce) {
   .reviewDetails > summary > span > svg, .reviewDetails::details-content, .disclosures > details::details-content { transition: none; }
-  .primaryAmount { animation: none; }
 }
 .disclosures > details { margin: 0; border: 0; border-radius: 0; background: transparent; }
 .disclosures > details + details { border-top: 1px solid var(--line); }
@@ -277,16 +240,6 @@
 .resultDetails .resultMeta { margin: 0 0 12px; }
 .receiptDetails { margin: 0 0 14px; text-align: left; }
 .resultSuccess > button { margin-top: 16px; box-shadow: none; }
-/* A position just opened, as a borderless row: token, name and number, its
-   target, then the split chosen on the ticket in the row's own bar. */
-.newPosition { width: 100%; min-width: 0; margin-top: 16px; text-align: left; }
-.newPositionLine { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-small); line-height: 20px; }
-.newPositionToken { display: flex; flex: 0 0 auto; }
-.newPositionName { min-width: 0; flex: 1 1 auto; color: var(--text); font-weight: 650; overflow-wrap: anywhere; }
-.newPositionId { color: var(--mut); font-weight: 500; font-variant-numeric: tabular-nums; }
-.newPositionTarget { flex: 0 0 auto; color: var(--mut); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.newPositionTarget b { color: var(--text); font-weight: 650; }
-.newPosition > [data-position-born-source] { margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) {
   .resultMark, .resultMark::after { animation: none !important; }
   .resultMark circle, .resultMark path { animation: none !important; stroke-dashoffset: 0; }
@@ -318,57 +271,28 @@
 .bridgeToken { position: relative; display: flex; flex: 0 0 34px; width: 34px; height: 34px; }
 .bridgeToken > span { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: var(--surface-2); }
 .bridgeAmountText { min-width: 0; flex: 1; }
-.bridgeAmountLabel { display: block; color: var(--mut); font-size: var(--fs-caption); line-height: 1.3; }
 .bridgeExactAmount > summary { display: flex; min-height: 44px; align-items: center; gap: 6px; cursor: pointer; list-style: none; font-size: clamp(23px, 6.4vw, 29px); line-height: 1.25; font-weight: 650; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
 .bridgeExactAmount > summary > span { min-width: 0; overflow-wrap: anywhere; }
 .bridgeExactAmount summary svg { flex-shrink: 0; color: var(--mut); }
-.bridgeExactAmount p, .bridgeExactFact > p { margin: 5px 0 8px; padding: 8px; border-radius: 8px; background: var(--surface); font-size: var(--fs-small); line-height: 1.4; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.bridgeExactAmount p { margin: 5px 0 8px; padding: 8px; border-radius: 8px; background: var(--surface); font-size: var(--fs-small); line-height: 1.4; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .bridgeExactAmount p > span { display: block; margin-bottom: 3px; color: var(--mut); font-size: var(--fs-caption); }
 .bridgeAssetNetwork { display: block; color: var(--mut); font-size: var(--fs-small); line-height: 1.35; }
 .bridgeDirection { margin: 2px 0 2px 8px; color: var(--mut); }
 .bridgeTerms { display: grid; gap: 2px; margin-top: 14px; }
-.bridgeFact, .bridgeExactFact > summary, .bridgeRecipient > summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding-block: 4px; font-size: var(--fs-small); line-height: 1.4; }
-.bridgeFact > span:first-child, .bridgeExactFact > summary > span:first-child, .bridgeRecipient > summary > span:first-child { color: var(--mut); }
-.bridgeFact > span:last-child, .bridgeExactFact > summary > span:last-child, .bridgeRecipient > summary > span:last-child { min-width: 0; max-width: 66%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.bridgeFact small, .bridgeExactFact small { display: block; font-size: var(--fs-caption); color: var(--mut); font-weight: 500; }
-.bridgeRecipient > summary, .bridgeExactFact > summary { min-height: 44px; align-items: center; cursor: pointer; list-style: none; }
-.bridgeRecipient > summary > span:last-child { display: inline-flex; align-items: center; gap: 5px; }
-.bridgeExactFact > summary svg { display: inline; vertical-align: middle; margin-left: 4px; }
-.bridgeRecipient > div { padding: 4px 0 8px; }
-.bridgeRecipient p { margin: 0; user-select: all; font-size: var(--fs-small); line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.bridgeRecipient button { display: inline-flex; min-height: 44px; align-items: center; gap: 7px; padding-inline: 8px; margin-top: 4px; color: var(--mint-text); font-size: var(--fs-small); }
+.bridgeFact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding-block: 4px; font-size: var(--fs-small); line-height: 1.4; }
+.bridgeFact > span:first-child { color: var(--mut); }
+.bridgeFact > span:last-child { min-width: 0; max-width: 66%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bridgeFact small { display: block; font-size: var(--fs-caption); color: var(--mut); font-weight: 500; }
 .bridgeSummary summary::-webkit-details-marker { display: none; }
-.bridgeSummary summary:focus-visible, .bridgeRecipient button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
+.bridgeSummary summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
 .bridgeSummary details[open] > summary svg { transform: rotate(180deg); }
-@media (max-width: 350px) { .bridgeSummary { padding: 12px; } .bridgeAmount { gap: 10px; } .bridgeFact, .bridgeExactFact > summary, .bridgeRecipient > summary { gap: 8px; } }
+@media (max-width: 350px) { .bridgeSummary { padding: 12px; } .bridgeAmount { gap: 10px; } .bridgeFact { gap: 8px; } }
 .facts { gap: 0; padding-bottom: 4px; }
 .facts > [data-review-fact]:not(.amountSummary) { padding-block: 8px; }
 .facts > [data-review-fact]:not(.amountSummary) + [data-review-fact]:not(.amountSummary) { border-top: 1px solid var(--line); }
 .actions.actions { margin-top: 6px; padding-top: 10px; padding-bottom: 0; }
 .actions > button { border-radius: 12px; }
-.riskPrices { display: grid; gap: 6px; padding: 2px 0; container: review-risk-prices / inline-size; }
-.riskPrices > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: var(--fs-small); }
-.riskPrices > div > span:first-child { color: var(--mut); }
-.riskPrices > div > span:last-child { max-width: 60%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-/* Narrow reviews keep the same label width while an estimate replaces its
-   skeleton. Wider system fonts otherwise squeeze a known label onto a second
-   line only when the quote arrives. Prices retain their complete units. */
-@container review-risk-prices (max-width: 300px) {
-  .riskPrices > div { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px; font-size: var(--fs-caption); }
-  .riskPrices > div > span:last-child { min-width: 0; max-width: none; }
-}
-.riskExplanation { color: var(--mut); font-size: var(--fs-caption); }
-.riskExplanation > summary { display: flex; align-items: center; gap: 5px; min-height: 44px; cursor: pointer; list-style: none; }
-.riskExplanation p { margin: 0 0 8px; line-height: 1.5; }
-.feeDisclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; list-style: none; color: var(--mut); font-size: var(--fs-small); }
-.feeDisclosure > summary > span:last-child { display: flex; align-items: center; gap: 6px; text-transform: capitalize; color: var(--text); }
-.feeDisclosure > summary::-webkit-details-marker, .riskExplanation > summary::-webkit-details-marker { display: none; }
-.feeDisclosure > summary:focus-visible, .riskExplanation > summary:focus-visible, .technicalDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: 4px; }
-.feeDisclosure[open] > summary svg { transform: rotate(180deg); }
 .moreFacts { display: grid; gap: 10px; padding: 14px 0; }
-.technicalDetails { margin-top: 2px; color: var(--mut); }
-.technicalDetails > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-size: var(--fs-caption); cursor: pointer; list-style: none; }
-.technicalDetails > summary::-webkit-details-marker { display: none; }
 
 /* Keep one Trade card and reserve unknown values only during preparation. */
 /* Fit the verified content without reserving empty space in the card. */
@@ -450,7 +374,6 @@
 .bridgeSummary { padding: 18px 16px; border-radius: 20px; }
 .bridgeToken { width: 40px; height: 40px; flex-basis: 40px; }
 .bridgeToken > img, .bridgeToken > svg { width: 40px; height: 40px; }
-.bridgeAmountLabel { font-size: 12px; }
 .bridgeExactAmount > summary { min-height: 38px; font-size: clamp(23px, 6.8vw, 29px); letter-spacing: -.035em; }
 .bridgeAssetNetwork { display: flex; flex-wrap: wrap; gap: 2px 5px; font-size: 12px; }
 .bridgeAssetNetwork .amountUsd { font-size: inherit; }
@@ -466,7 +389,6 @@
 .resultStatus .resultMark svg { width: 21px; height: 21px; }
 .resultStatus .resultMark circle, .resultStatus .resultMark path { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
 .resultStatus .resultMark::after { display: none; }
-.resultAction { margin: 16px 0 10px; color: var(--mut); font-size: 13px; font-weight: 550; }
 .resultDetails { margin-top: 14px; }
 .positionOutcome { padding: 12px 0; border-radius: 0; background: transparent; font-size: 12px; }
 @media (max-width: 350px) {
@@ -481,19 +403,12 @@
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) { border: 0; border-radius: 18px; padding: 14px; background: var(--surface-2); }
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) > :first-child { align-items: flex-start; flex-wrap: wrap; }
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) :global(.text-\[10\.5px\]) { font-size: 12px; }
-.receiptFallback { margin-top: 12px; color: var(--mut); font-size: 12px; line-height: 1.5; }
-.receiptFallback p { margin: 5px 0; }
 .flowExact > summary[data-long], .bridgeExactAmount > summary[data-long] { font-size: clamp(16px, 4.8vw, 21px); letter-spacing: -.03em; }
 .receiptLinks { margin-top: 14px; }
 .receiptLinks .hashLink { min-height: 44px; border-radius: 12px; padding: 8px 12px; font-size: 12px; background: var(--surface-2); }
 .receiptLinks .hashLink > span:first-child > span:last-child { font-size: 11px; }
 .resultStatus + .amountFlow, .resultStatus + .bridgeSummary, .result :global([data-compact-bridge]) + .bridgeSummary { margin-top: 14px; }
 .result :global([data-compact-bridge]) { margin-top: 0; }
-.bridgeReviewedTerms { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--line); }
-.bridgeReviewedTerms > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: var(--mut); font-size: 12px; cursor: pointer; list-style: none; }
-.bridgeReviewedTerms .bridgeTerms { margin-top: 8px; }
-.bridgeReviewedTerms > summary::-webkit-details-marker { display: none; }
-.bridgeReviewedTerms[open] > summary > svg { transform: rotate(180deg); }
 .reviewViewport { scroll-margin-top: 88px; }
 
 .leverageTarget { display: block; margin: 0 0 14px; font-size: 29px; font-weight: 650; line-height: 1.2; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
@@ -501,7 +416,6 @@
 .leverageSummary dl > div { display: grid; grid-template-columns: minmax(54px, .4fr) minmax(0, 1.6fr); gap: 8px; }
 .leverageSummary dt { color: var(--mut); }
 .leverageSummary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
-.leverageCaveat { margin: 12px 0 0; color: var(--mut); font-size: 11px; line-height: 1.5; }
 .resultStatus + .leverageSummary { margin-top: 14px; }
 
 .leveragePair > summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; min-height: 28px; cursor: pointer; list-style: none; }
@@ -522,21 +436,18 @@
 .flowToken > img, .flowToken > svg, .bridgeToken > img, .bridgeToken > svg { width: 44px; height: 44px; }
 .flowExact > summary, .bridgeExactAmount > summary { min-height: 42px; font-size: clamp(25px, 5.5vw, 32px); font-weight: 600; letter-spacing: -.04em; line-height: 1.18; gap: 7px; }
 .flowUnit { font-size: .62em; font-weight: 500; color: var(--text); letter-spacing: -.02em; white-space: nowrap; }
-.flowLabel, .bridgeAmountLabel { font-size: 12px; line-height: 1.4; margin-bottom: 2px; }
+.flowLabel { font-size: 12px; line-height: 1.4; margin-bottom: 2px; }
 .flowSubline, .bridgeAssetNetwork { font-size: 13px; line-height: 1.4; }
 .flowArrow, .bridgeDirection { display: block; margin: 8px 0 8px 14px; width: 16px; height: 16px; opacity: .65; }
 .consequenceGroup { display: grid; gap: 10px; margin-top: 22px; font-size: 13px; }
 .consequenceGroup:empty, .costGroup:empty { display: none; }
 .costGroup { display: grid; gap: 10px; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
 .consequenceGroup > div, .costGroup > div { line-height: 1.4; }
-.riskPrices { gap: 10px; padding: 0; }
-.riskPrices > div { font-size: 13px; line-height: 1.4; }
-.consequenceGroup [data-review-fact] > span:last-child, .costGroup [data-review-fact] > span:last-child, .riskPrices > div > span:last-child { font-weight: 550; }
+.consequenceGroup [data-review-fact] > span:last-child, .costGroup [data-review-fact] > span:last-child { font-weight: 550; }
 .reviewDetails { margin-top: 8px; border-top: 0; }
 .reviewDetails > summary { min-height: 48px; padding: 0 4px; font-size: 13px; }
 .reviewHeader { align-items: center; margin-bottom: 20px; }
 .reviewHeader h3 { font-size: 22px; font-weight: 600; letter-spacing: -.035em; }
-.reviewNetwork { font-size: 12px; font-weight: 450; margin-top: 6px; }
 .actions.actions { padding: 10px 0 0; margin-top: 4px; border-top: 0; }
 .actions > button { min-height: 52px; border-radius: 16px; font-size: 15px; font-weight: 600; }
 .statusNotice, .resultStatus { padding: 14px 16px; border-radius: 16px; background: transparent; border: 1px solid var(--line); }
@@ -551,11 +462,10 @@
 .resultDetails { border-top: 0; margin-top: 6px; }
 .resultDetails > summary { padding-inline: 4px; font-size: 13px; }
 .bridgeTerms { gap: 4px; margin-top: 22px; }
-.bridgeFact, .bridgeExactFact > summary, .bridgeRecipient > summary { font-size: 13px; }
+.bridgeFact { font-size: 13px; }
 .leverageTarget { font-size: 36px; font-weight: 600; }
 .leverageSummary dl { font-size: 13px; gap: 10px; }
 .leverageSummary dd { font-weight: 550; }
-.leverageCaveat { font-size: 12px; }
 @media (min-width: 601px) {
   .reviewViewport { max-height: var(--review-available-height, calc(100dvh - 240px)); min-height: 0; }
   .reviewScrollBody { overflow-y: auto; min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; }
@@ -629,8 +539,8 @@
 .consequenceGroup { gap: 10px; margin: 0; font-size: 12.8px; }
 .riskGroup { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
 .costGroup { gap: 10px; padding-top: 12px; margin-top: 12px; }
-.facts [data-review-fact], .riskPrices > div { font-size: 12.8px; line-height: 1.35; }
-.facts [data-review-fact] > span:last-child, .riskPrices > div > span:last-child { font-size: 12.9px; font-weight: 600; }
+.facts [data-review-fact] { font-size: 12.8px; line-height: 1.35; }
+.facts [data-review-fact] > span:last-child { font-size: 12.9px; font-weight: 600; }
 .facts .amountUsd { font-size: 10px; }
 .facts .positionOutcome { padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); }
 .reviewHeader { align-items: center; margin-bottom: 12px; }
@@ -645,11 +555,6 @@
 .statusIcon { width: 34px; height: 34px; border-radius: 50%; background: var(--mint-dim); }
 .statusText > span:first-child { font-size: 15px; font-weight: 740; letter-spacing: -.02em; }
 .statusText > span:last-child { font-size: 12px; line-height: 1.5; }
-.bridgeReference { min-width: 0; }
-.bridgeReference .bridgeExactFact > summary, .bridgeReference .bridgeRecipient > summary { min-height: 0; padding: 0; font-size: 12.8px; }
-.bridgeReference .bridgeFact { padding: 0; font-size: 12.8px; }
-.bridgeReference .costGroup .bridgeRecipient > summary { min-height: 28px; }
-.bridgeReference .bridgeExactFact > summary > span:last-child, .bridgeReference .bridgeRecipient > summary > span:last-child { font-weight: 670; }
 .resultHeading { display: flex; align-items: flex-start; gap: 12px; padding: 9px 0 16px; }
 .resultHeadingIcon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; background: var(--success-dim, var(--mint-dim)); color: var(--success); }
 .resultHeadingIcon svg { width: 23px; height: 23px; }
@@ -660,7 +565,6 @@
 .resultStatRow { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; font-size: 13px; }
 .resultStatRow dt { color: var(--mut); }
 .resultStatRow dd { min-width: 0; margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.resultStatValue { font: inherit; }
 .resultStatNote { margin: 0; font-size: 12px; color: var(--mut); line-height: 1.5; }
 @media (max-width: 410px) {
   .identityCopy h4 { font-size: 16px; }
@@ -675,14 +579,10 @@
   .identityExact > summary, .identityAmount > strong { font-size: 12.5px; }
   .identityAmount .amountUsd, .identitySecondary { font-size: 10px; }
   .facts.facts { padding: 13px; }
-  .facts [data-review-fact], .facts [data-review-fact] > span:last-child, .riskPrices > div, .riskPrices > div > span:last-child { font-size: 12px; }
+  .facts [data-review-fact], .facts [data-review-fact] > span:last-child { font-size: 12px; }
 }
 .resultStats { margin: 0; width: 100%; min-width: 0; }
 .resultStats > dl { margin: 0; display: grid; gap: 15px; }
-.resultStatValue > summary { display: flex; align-items: center; justify-content: flex-end; gap: 4px; list-style: none; cursor: pointer; }
-.resultStatValue > summary::-webkit-details-marker { display: none; }
-.resultStatValue > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
-.resultStatValue p { font-size: 12px; font-weight: 400; margin: 8px 0 0; overflow-wrap: anywhere; }
 .resultHeadingCopy h3 { outline: none; }
 .resultRecoveryStatus { background: var(--surface-2); border-radius: 19px; padding: 16px; margin-bottom: 14px; }
 .resultRecoveryStatus .resultStatus { background: transparent; border: 0; padding: 0; }
@@ -760,15 +660,6 @@
 .bridgeDecision .riskGroup { margin-top: 8px; padding-top: 8px; gap: 5px; }
 .bridgeDecision .costGroup { margin-top: 8px; padding-top: 8px; gap: 6px; }
 .bridgeDecision .bridgeFact { padding: 0; align-items: center; gap: 12px; }
-.bridgeDecision .bridgeRecipient > summary { min-height: 44px; }
-.bridgeValueDetails { max-width: 64%; min-width: 0; text-align: right; }
-.bridgeValueDetails > summary { display: flex; align-items: center; justify-content: flex-end; min-height: 30px; gap: 5px; list-style: none; cursor: pointer; font-weight: 650; }
-.bridgeValueDetails > summary > span { min-width: 0; overflow-wrap: anywhere; }
-.bridgeValueDetails > summary > svg { flex: 0 0 auto; color: var(--mut); }
-.bridgeValueDetails > summary::-webkit-details-marker { display: none; }
-.bridgeValueDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); border-radius: 4px; }
-.bridgeValueDetails[open] > summary > svg { transform: rotate(180deg); }
-.bridgeValueDetails > p { padding: 8px; margin: 5px 0 0; background: var(--surface); border-radius: 8px; color: var(--mut); font-size: 12px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
 .positionOutcomeHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 8px; margin-bottom: 4px; }
 .positionOutcomeHeading p { margin: 0; color: var(--text); font-size: 12px; font-weight: 600; }
 .positionOutcomeHeading > span { color: var(--mut); font-size: 11px; }
@@ -782,8 +673,6 @@
 .positionPair > summary:focus-visible { outline: 2px solid var(--focus-ring); border-radius: 4px; }
 .positionPair p { margin: 4px 0 0; padding: 8px; border-radius: 8px; background: var(--surface); font-size: 11px; line-height: 1.5; font-weight: 400; color: var(--mut); }
 .positionPair p > span { display: block; overflow-wrap: anywhere; }
-.positionBasis, .riskNotice { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--mut); }
-.riskNotice { margin-top: 2px; }
 .positionReadback { margin: 12px 0 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; }
 .positionReadback > p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--mut); }
 .positionReadback > p > span { float: right; font-variant-numeric: tabular-nums; }
@@ -802,7 +691,6 @@
   .positionOutcome dl > div { grid-template-columns: minmax(60px, .55fr) minmax(0, 1.45fr); gap: 5px; }
   .positionPair > summary { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; }
   .positionOutcomeHeading { gap: 3px; }
-  .bridgeValueDetails { max-width: 60%; }
 }
 
 /* Phone review correction: labels/amounts, quiet exact-value targets, one details section. */
@@ -860,7 +748,7 @@
 .compactRisk { min-width: 0; }
 .flowAmount, .bridgeAmount { align-items: flex-start; }
 .flowToken, .bridgeToken { margin-top: 3px; }
-.flowLabel, .bridgeAmountLabel { font-size: 12px; }
+.flowLabel { font-size: 12px; }
 .amountContext { margin-bottom: 10px; }
 .flowExact > p, .bridgeExactAmount > p { font-size: 12px; }
 .bridgeContext { min-width: 0; }

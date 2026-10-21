@@ -32,6 +32,21 @@ const nextConfig = {
     // check both the largest chunk and the full raw/gzipped JavaScript total.
     if (!isServer && config.optimization?.splitChunks) {
       config.optimization.splitChunks.maxSize = 1_900_000;
+      // These small shared explainers otherwise repeat in all four action
+      // routes, below Next's normal shared-chunk size threshold. Keep one
+      // cached copy when moving between Trade, Earn, Borrow and Move.
+      config.optimization.splitChunks.cacheGroups = {
+        ...config.optimization.splitChunks.cacheGroups,
+        productSections: {
+          test: /[\\/]src[\\/]components[\\/]ProductSections\.tsx$/,
+          name: 'product-sections',
+          chunks: 'all',
+          minChunks: 2,
+          enforce: true,
+          reuseExistingChunk: true,
+          priority: 10,
+        },
+      };
     }
     // Privy's optional CAPTCHA screen imports @hcaptcha/loader. The upstream
     // loader bundles a hCaptcha-owned Sentry client and DSN; FxAeon has no
