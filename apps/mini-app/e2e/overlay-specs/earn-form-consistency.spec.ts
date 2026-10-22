@@ -329,8 +329,9 @@ test('changed stored slippage reaches a restored form while unrelated storage ch
   const input = dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' });
   await input.fill('3');
   await input.press('Enter');
-  await expect(dialog.getByRole('alert')).toBeVisible();
-  await expect(input).toHaveValue('0.75');
+  await expect(dialog.getByRole('alert')).toContainText('Enter 0.1% to 2% in steps of 0.01%.');
+  await expect(input).toHaveValue('3');
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(await storedSlippage(page)).toBe(75);
   await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
   await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();

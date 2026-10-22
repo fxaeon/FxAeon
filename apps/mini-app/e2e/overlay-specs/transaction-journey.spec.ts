@@ -58,16 +58,18 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   expect(await page.locator('[data-review-viewport] img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await page.screenshot({ path: info.outputPath('review.png'), animations: 'disabled' });
   if (scenario.width === 390 && !scenario.reduced) {
-    const borrowRateHelp = viewport.getByRole('button', { name: 'About Borrow rate', exact: true });
+    const borrowRateHelp = viewport.getByRole('button', { name: 'About Temporary funding', exact: true });
     const target = await borrowRateHelp.boundingBox();
     expect(target!.width).toBeGreaterThanOrEqual(44);
     expect(target!.height).toBeGreaterThanOrEqual(44);
     const before = await viewport.locator('[data-review-fact="Debt added"]').boundingBox();
     await borrowRateHelp.click();
-    const help = page.getByRole('dialog', { name: 'Borrow rate', exact: true });
-    await expect(help).toContainText('A zero base rate does not establish the current funding cost.');
+    const help = page.getByRole('dialog', { name: 'Temporary funding', exact: true });
+    await expect(help).toContainText('charged against the whole collateral, not just the fxUSD borrowed');
+    await expect(help).toContainText('The current rate could not be verified.');
+    await expect(help.getByRole('link', { name: 'Verify on f(x) Protocol' })).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
     expect(await viewport.locator('[data-review-fact="Debt added"]').boundingBox()).toEqual(before);
-    await page.screenshot({ path: info.outputPath('borrow-rate-help.png'), animations: 'disabled' });
+    await page.screenshot({ path: info.outputPath('temporary-funding-help.png'), animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(borrowRateHelp).toBeFocused();
     const details = viewport.locator('details[aria-label="Advanced transaction details"]');

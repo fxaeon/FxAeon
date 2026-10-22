@@ -17,7 +17,8 @@ jobs:
     name: Build and deploy Cloudflare Pages
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Allow browser installation, complete verification, and the production rebuild.
+    timeout-minutes: 40
     environment: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

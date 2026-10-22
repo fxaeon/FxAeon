@@ -111,11 +111,14 @@ const mocks: Record<string, string> = {
   '@/lib/fx/gasFeePolicy': `
     export async function fetchGasTierQuotes(chainId) {
       globalThis.__providerBoundaryHarness.gasQuoteChains.push(chainId);
-      return { tiers: {
-        standard: { gasPriceWei: 1200000000n },
-        fast: { gasPriceWei: 1500000000n },
-        rapid: { gasPriceWei: 2100000000n },
-      } };
+      const fetchedAt = Date.now();
+      const baseFeePerGasWei = 1000000000n;
+      const prices = { standard: 1200000000n, fast: 1500000000n, rapid: 2100000000n };
+      const tiers = Object.fromEntries(Object.entries(prices).map(([tier, gasPriceWei]) => [tier, {
+        tier, gasPriceWei, maxFeePerGas: baseFeePerGasWei + gasPriceWei,
+        maxPriorityFeePerGas: gasPriceWei - baseFeePerGasWei, source: 'rpc',
+      }]));
+      return { chainId, fetchedAt, validUntil: fetchedAt + 30000, source: 'rpc', baseFeePerGasWei, tiers };
     }
   `,
 };

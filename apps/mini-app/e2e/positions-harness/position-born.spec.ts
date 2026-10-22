@@ -227,7 +227,9 @@ test.describe('a position opened on Trade', () => {
       await open(page);
       const receipt = page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true });
       await expect(page.getByRole('region', { name: 'Transaction result', exact: true }).getByRole('heading', { name: 'ETH Long opened', exact: true })).toBeVisible();
-      await expect(receipt.getByText('Transaction confirmed', { exact: true })).toBeVisible();
+      // The result heading establishes success once; the receipt contains
+      // confirmed amounts, the fee, and its verified explorer destination.
+      await expect(receipt.getByText('Transaction confirmed', { exact: true })).toHaveCount(0);
       await expect(page.getByLabel('Confirmed transaction amounts', { exact: true })).toContainText('0.5 ETH');
       await expect(receipt.getByRole('link', { name: 'View confirmed action transaction on explorer', exact: true })).toHaveAttribute('href', `https://etherscan.io/tx/${ACTION_HASH}`);
       await expect(receipt.getByLabel(/^Gas paid: 0\.000372 ETH\./)).toBeVisible();

@@ -145,7 +145,6 @@ test.describe('shared amount shortcuts', () => {
   test.use({ telegram: false });
   for (const { route, labels } of [
     { route: '/trade', labels: ['25%', '50%', '75%', 'Max'] },
-    { route: '/earn', labels: ['25%', '50%', '75%', 'Max'] },
     { route: '/borrow', labels: ['25%', '50%', '75%', 'Max'] },
     { route: '/move', labels: ['Max'] },
   ]) {
@@ -163,4 +162,13 @@ test.describe('shared amount shortcuts', () => {
       expect(await page.getByRole('main').evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
     });
   }
+  test('disconnected Earn keeps balance shortcuts out of both forms', async ({ page }) => {
+    await page.goto('/earn', { waitUntil: 'domcontentloaded' });
+    for (const action of ['Deposit', 'Withdraw']) {
+      await page.getByRole('radio', { name: action, exact: true }).click();
+      await expect(page.getByRole('group', { name: 'Amount shortcuts', exact: true })).toHaveCount(0);
+      await expect(page.getByRole('textbox', { name: /^Amount in / })).toBeEnabled();
+      await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+    }
+  });
 });
