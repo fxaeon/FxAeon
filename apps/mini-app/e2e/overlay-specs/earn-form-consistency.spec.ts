@@ -15,6 +15,8 @@ const mocks: Record<string, string> = {
   '@/components/ui': `export const AppShell = ({children}) => <main style={{padding:16}}>{children}</main>;`,
   '@/components/ProductUI': `export const PageHeading = ({title}) => <h1>{title}</h1>; export const ProductNav = () => <nav>Products</nav>; export const ProductSurface = ({children,...props}) => <section {...props}>{children}</section>; export const Disclosure = ({title,children}) => <section aria-label={title}>{children}</section>; export const MetricRows = ({rows}) => <dl>{rows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>; export const StatusNotice = ({title}) => <p>{title}</p>; export { ChoiceCards } from 'real:components/ProductUI';`,
   '@/components/ProductSections': `export const EarnSections = () => null;`,
+  // History has its own built-route data/keyboard tests; this fixture owns settings.
+  '@/components/FxSaveHistory': `export const FxSaveHistory = () => null;`,
   '@/components/TokenIcon': `export default () => <span />; export const ChainIcon = () => <span aria-hidden="true" />;`,
   '@/components/MissingValue': `export const MissingValue = () => <span>Unavailable</span>; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({status:'ready',prices:{fxUSDBasePool:1,fxUSD:1},refresh:async () => {}});`,

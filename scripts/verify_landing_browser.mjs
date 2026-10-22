@@ -123,6 +123,7 @@ try {
   browser = await chromium.launch({ headless: true, ...(browserChannel ? { channel: browserChannel } : {}) });
   const errors = [];
   const externalRequests = [];
+  const fontRequests = new Set();
   const failedResponses = [];
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   await context.addInitScript(() => {
@@ -142,6 +143,7 @@ try {
   page.on('request', (request) => {
     const url = new URL(request.url());
     if (url.origin !== origin) externalRequests.push(url.href);
+    if (request.resourceType() === 'font') fontRequests.add(url.pathname);
   });
   page.on('response', response => { if (response.status() >= 400 && !response.url().endsWith('/api/market-data')) failedResponses.push(response.url()); });
   await page.goto(origin, { waitUntil: 'networkidle' });
@@ -294,6 +296,16 @@ try {
     await page.keyboard.press('Tab');
     await expect(menuLinks.nth(index)).toBeFocused();
   }
+  const menuLaunches = dialog.locator('.menu-actions a');
+  assert.deepEqual(await visibleRoutes(page, 'dialog .menu-actions a'), [WEB, TELEGRAM]);
+  for (let index = 0; index < 2; index += 1) {
+    await page.keyboard.press('Tab');
+    await expect(menuLaunches.nth(index)).toBeFocused();
+  }
+  await page.keyboard.press('Shift+Tab');
+  await expect(menuLaunches.first()).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(menuLinks.last()).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(menuLinks.nth(menuLinkCount - 2)).toBeFocused();
   await page.keyboard.press('Escape');
@@ -309,6 +321,13 @@ try {
   await sectionLink.click();
   await page.waitForFunction((hash) => !document.querySelector('dialog').open && location.hash === hash, destination);
   await checkNoOverflow(page, 390);
+  await opener.click();
+  await page.setViewportSize({ width: 820, height: 900 });
+  await expect(page.locator('.site-menu')).not.toBeVisible();
+  await expect(opener).toHaveAttribute('aria-expanded', 'false');
+  assert.notEqual(await page.evaluate(() => getComputedStyle(document.body).overflow), 'hidden', 'Resizing an open menu restores page scrolling');
+  await expect(page.locator('.nav-links a').first()).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
 
   // Old light-theme preferences are cleared and the landing stays dark-only.
   assert.equal(await page.locator('.theme-toggle').count(), 0);
@@ -327,7 +346,7 @@ try {
     assert.equal(await page.locator('.site-header a[href="https://fxaeon.com/"]').count(), 0, `The header remains free of a duplicate app action at ${width}px`);
     assert.deepEqual(await visibleRoutes(page, '.hero .actions a'), [WEB, TELEGRAM], `Web app and Mini App remain visible at ${width}px`);
     assert.equal(await page.locator('.site-header button[aria-haspopup="dialog"]').isVisible(), width <= 760, `Menu breakpoint at ${width}px`);
-    const visibleNavigationCount = await page.locator('.site-header .nav-side').evaluateAll((elements) => elements.filter((element) => {
+    const visibleNavigationCount = await page.locator('.site-header .nav-links').evaluateAll((elements) => elements.filter((element) => {
       const style = getComputedStyle(element);
       return style.display !== 'none' && style.visibility !== 'hidden' && element.getBoundingClientRect().width > 0;
     }).length);
@@ -344,7 +363,7 @@ try {
     await checkNoOverflow(page, width);
     await amount.fill('1000');
     assert.deepEqual((await visibleRoutes(page, '#products .product-link')).sort(), routes.map(route => `https://fxaeon.com/${route}`).sort(), `All four product links remain reachable at ${width}px`);
-    const smallTargets = await page.locator('button:visible, .actions a:visible, .outcome-cta:visible, .footer-launch:visible, summary').evaluateAll(nodes => nodes.filter(node => node.getBoundingClientRect().height < 44).map(node => node.textContent));
+    const smallTargets = await page.locator('button:visible, .actions a:visible, .outcome-cta:visible, .footer-launch:visible, .footer-directory a:visible, summary').evaluateAll(nodes => nodes.filter(node => node.getBoundingClientRect().height < 44).map(node => node.textContent));
     assert.deepEqual(smallTargets, [], `Touch targets remain44px at ${width}px`);
   }
 
@@ -435,6 +454,18 @@ try {
   assert.deepEqual(errors, [], 'Landing threw browser errors');
   assert.deepEqual(failedResponses, [], 'No missing page assets');
   assert.deepEqual(externalRequests, [], 'Landing requested no external services');
+  assert.deepEqual([...fontRequests].sort(), ['/assets/inter-latin.woff2', '/assets/manrope-variable.ttf'], 'Body and footer share Inter; display text uses Manrope');
+
+  const staticContext = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 700 } });
+  const staticPage = await staticContext.newPage();
+  await staticPage.goto(origin, { waitUntil: 'networkidle' });
+  assert.deepEqual(await visibleRoutes(staticPage, '.site-header .nav-links a'), ['#products', '#outcomes', '#telegram', 'https://fxaeon.com/docs'], 'Phone navigation remains available without JavaScript');
+  await expect(staticPage.locator('.menu-toggle')).toBeHidden();
+  assert.deepEqual(await visibleRoutes(staticPage, '.hero .actions a'), [WEB, TELEGRAM]);
+  await checkNoOverflow(staticPage, 320);
+  await staticPage.locator('.nav-links a[href="#products"]').click();
+  await expect(staticPage).toHaveURL(`${origin}/#products`);
+  await staticContext.close();
 
   await mkdir(captures, { recursive: true });
   await page.emulateMedia({ reducedMotion: 'reduce' });

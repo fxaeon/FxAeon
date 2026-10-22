@@ -106,6 +106,24 @@ async function changeSnapshot(page: import('@playwright/test').Page, update: (ha
   }, update.toString());
 }
 
+test('collateral sensitivity illustrates entered amounts without changing borrowing intent', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
+  const sensitivity = page.getByRole('region', { name: 'Collateral sensitivity', exact: true });
+  await expect(sensitivity).toHaveCount(0);
+  await page.getByLabel('Collateral', { exact: true }).fill('1');
+  await page.getByLabel('fxUSD to borrow', { exact: true }).fill('1200');
+  await expect(sensitivity).toContainText('50.00% LTV');
+  const slider = sensitivity.getByRole('slider', { name: 'Illustrated collateral value change' });
+  await slider.fill('-20');
+  await expect(sensitivity).toContainText('62.50% LTV');
+  await expect(slider).toHaveAttribute('aria-valuetext', /−20% collateral value, 62.50% loan-to-value/);
+  await expect(page.getByLabel('Collateral', { exact: true })).toHaveValue('1');
+  await expect(page.getByLabel('fxUSD to borrow', { exact: true })).toHaveValue('1200');
+  await page.getByLabel('fxUSD to borrow', { exact: true }).fill('');
+  await expect(sensitivity).toHaveCount(0);
+});
+
 test('same-wallet disappearance removes the selected position and review action', async ({ page }) => {
   await mount(page);
   await page.getByRole('button', { name: 'Your positions' }).click();

@@ -13,11 +13,13 @@ async function runPhase(phase, failCommand = '', { serial = false, separator = f
   const directory = await mkdtemp(join(tmpdir(), 'fxaeon-verify-phase-'));
   const log = join(directory, 'commands.log');
   const activityLog = join(directory, 'activity.log');
+  const settingsLog = join(directory, 'unit-settings.log');
   const fakePnpmCli = join(directory, 'pnpm-mock.mjs');
   await writeFile(fakePnpmCli, `import { appendFileSync } from 'node:fs';
 const command = process.argv.slice(2).join(' ');
 const record = (event) => appendFileSync(process.env.VERIFY_PHASE_ACTIVITY_LOG, process.hrtime.bigint() + ' ' + event + '\\n');
 appendFileSync(process.env.VERIFY_PHASE_LOG, command + '\\n');
+if (command === 'test') appendFileSync(process.env.VERIFY_PHASE_SETTINGS_LOG, process.env.FX_UNIT_TEST_CONCURRENCY ?? 'unset');
 record('start');
 await new Promise((resolve) => setTimeout(resolve, Number(process.env.VERIFY_PHASE_DELAY_MS) || 0));
 record('end');
@@ -32,15 +34,18 @@ if (command === process.env.VERIFY_PHASE_FAIL_COMMAND) process.exit(7);
       npm_execpath: fakePnpmCli,
       VERIFY_PHASE_LOG: log,
       VERIFY_PHASE_ACTIVITY_LOG: activityLog,
+      VERIFY_PHASE_SETTINGS_LOG: settingsLog,
       VERIFY_PHASE_FAIL_COMMAND: failCommand,
       VERIFY_PHASE_DELAY_MS: String(delayMs),
     },
   });
   const commands = await readFile(log, 'utf8').catch(() => '');
   const activity = await readFile(activityLog, 'utf8').catch(() => '');
+  const unitConcurrency = await readFile(settingsLog, 'utf8').catch(() => '');
   await rm(directory, { recursive: true, force: true });
   return {
     ...result,
+    unitConcurrency,
     commands: commands.split(/\r?\n/).filter(Boolean),
     activity: activity.split(/\r?\n/).filter(Boolean).map((line) => {
       const [time, event] = line.split(' ');
@@ -73,6 +78,7 @@ test('serial verification preserves source gates while limiting local process ov
   const result = await runPhase('--ci-source', '', { serial: true, separator: true, delayMs: 20 });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(maxConcurrentProcesses(result.activity), 1);
+  assert.equal(result.unitConcurrency, '1', 'serial verification also limits the unit runner to one process');
   for (const required of ['verify:scope', 'verify:architecture', 'build:landing', 'lint', 'test', 'run audit:all', 'test:landing:browser']) {
     assert.ok(result.commands.some((command) => command.includes(required)), `missing ${required}`);
   }

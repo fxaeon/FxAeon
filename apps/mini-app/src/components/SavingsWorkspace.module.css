@@ -2,9 +2,10 @@
 .workspace .panel { grid-area: action; min-width: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .panel :global(.sticky-action) { position: static; }
 .panel :global(.sticky-action)::before { display: none; }
-.vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'information'; gap: 18px; align-items: start; }
+.vaultLayout { display: grid; grid-template-areas: 'summary' 'action' 'history' 'information'; gap: 18px; align-items: start; }
 .vaultLayout[data-review='true'] { width: min(100%, 480px); min-width: 0; margin-inline: auto; grid-template-areas: 'action'; grid-template-columns: minmax(0, 1fr); }
 .summarySlot { grid-area: summary; min-width: 0; }
+.historySlot { grid-area: history; min-width: 0; }
 .summarySlot[data-claim-background='true'] { display: none; }
 /* A mobile claim portal is no longer below .workspace, so keep its existing
    transparent surface styling local rather than nesting a second card. */
@@ -120,7 +121,7 @@
 
 @media (min-width: 840px) {
   .workspace { min-height: calc(var(--tg-viewport-height, 100dvh) - var(--header-height) - var(--header-gap) - var(--shell-top-padding)); justify-content: flex-start; padding-block: 36px; }
-  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: min-content 1fr; grid-template-areas: 'summary action' 'information action'; column-gap: 64px; row-gap: 0; }
+  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: min-content min-content 1fr; grid-template-areas: 'summary action' 'history action' 'information action'; column-gap: 64px; row-gap: 0; }
   .vaultLayout[data-review='true'] { grid-template-columns: minmax(0, 1fr); justify-content: center; }
   .overview { padding-bottom: 36px; }
   .workspace { --page-sections-width: 100%; }

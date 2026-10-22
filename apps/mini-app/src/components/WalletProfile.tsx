@@ -12,7 +12,7 @@ import { ActionRow } from '@/components/ProductUI';
 import presentation from '@/components/WalletProfile.module.css';
 import balancePresentation from '@/components/BalanceSummary.module.css';
 import { WalletAvatar } from '@/components/WalletAvatar';
-import { AddressChip } from '@/components/ui';
+import { AddressChip } from '@/components/AddressChip';
 import { useFxSaveClaimable, useWalletAssets, useWalletBalances } from '@/components/WalletDataProvider';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { useProtocolPositions } from '@/components/ProtocolPositionProvider';

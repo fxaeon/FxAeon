@@ -32,6 +32,8 @@ Local startup builds a fresh export by default. The server fixture supplies empt
 
 CI builds once and downloads that artifact for four built-route shards. The complete local verification runner also tests its just-built export without server reuse. Do not let a stale process or old output stand in for current source.
 
+CI browser jobs use a digest-pinned Playwright image matching the installed package version, with browsers and system dependencies already present. This changes setup only; it keeps every browser shard and isolated project. Local runs still use the installation command above. Run `pnpm typecheck:e2e` from the repository root to check browser-file coverage and strict E2E TypeScript through the shared Node/compiler runner.
+
 ## Failures and visual changes
 
 Inspect the trace, screenshot, console, and relevant fixture before changing assertions. Keep meaningful checks for exact values, approval/fee evidence, quote expiry, cancellation, keyboard focus, long inputs, 44px targets, footer clearance, overflow, and enlarged text.

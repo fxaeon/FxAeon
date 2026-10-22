@@ -47,6 +47,7 @@ import { useRefreshAction } from '@/lib/useRefreshAction';
 import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 import { MobileFlowSheet } from '@/components/MobileFlowSheet';
 import { MetricLabel } from '@/components/InfoHelp';
+import { FxSaveHistory } from '@/components/FxSaveHistory';
 
 type EarnMode = 'deposit' | 'withdraw' | 'claim';
 
@@ -527,6 +528,7 @@ export default function EarnPage() {
           />
         </ProductSurface>
         </EarnClaimSheet>
+        {inputStage && mode !== 'claim' && <div className={presentation.historySlot}><FxSaveHistory /></div>}
         {inputStage && mode !== 'claim' && <div className={presentation.vaultInfo}>
           <EarnSections cooldown={config && !readWarnings.includes('vault configuration') ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config && !readWarnings.includes('vault configuration') ? formatRatio(config.instantRedeemFeeRatio) : null}
             vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} showWithdrawalTerms={mode !== 'withdraw'}

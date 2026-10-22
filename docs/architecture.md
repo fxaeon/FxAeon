@@ -97,6 +97,33 @@ Claimability must be fresh, match the current wallet, and not be fetching or fai
 
 Portfolio preserves known holdings during refresh and distinguishes zero, partial, stale, and unavailable data. A headline total requires complete applicable valuation. Position value is collateral value minus debt when validated inputs exist; it is not P&L, ROI, health, or liquidation value.
 
+### Product analytics
+
+[`fxSaveHistory`](../apps/mini-app/src/lib/fxSaveHistory.ts) reads only the fixed
+Ethereum fxSAVE pool on DefiLlama. The chart requests data near the viewport,
+omits credentials, shares a ten-second abort deadline across at most two
+endpoints, and treats cached samples as fresh for ten minutes. Inactive samples
+are discarded after fifteen minutes; a mounted chart also expires at the
+three-day source freshness limit. Validation
+rejects malformed, future, nonfinite, insufficient, or stale series; the newest
+sample must be no older than three days. Gaps over three days break the line.
+Neither this series nor its average can supply a transaction quote.
+
+DefiLlama [announces an API migration on November 13, 2026](https://defillama.com/yields).
+As checked on October 23, the existing `yields.llama.fi` pool endpoint is live;
+the replacement `api.llama.fi` endpoint in the [free API documentation](https://api-docs.defillama.com/llms-free.txt)
+returns 404. The client uses the live endpoint first and tries the documented
+replacement only after failure, with the same validation. Both exact origins
+are covered by CSP and isolated browser fixtures. Recheck the migration before
+removing the old endpoint; do not weaken validation to accommodate changed data.
+
+[`BorrowSensitivity`](../apps/mini-app/src/components/BorrowSensitivity.tsx)
+uses entered debt and current display collateral value. Integer arithmetic
+rounds illustrated LTV upward to a basis point. It owns only the scenario slider;
+it has no planner, wallet, or form setter. The dashed borrowing guard does not
+represent a liquidation threshold. Both analytics use small responsive SVGs,
+with no chart-library dependency or animation loop.
+
 ## Bounded performance work
 
 Performance changes must preserve the financial and ownership boundaries:

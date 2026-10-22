@@ -65,6 +65,7 @@ import { priceKeyForSymbol } from '@/lib/prices';
 import { resetTransactionAmounts } from '@/lib/transactionState';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { BorrowSections } from '@/components/ProductSections';
+import { BorrowSensitivity } from '@/components/BorrowSensitivity';
 import { borrowCapacity, borrowMaximumPreset, BORROW_LIMIT_GUARD_BPS, collateralUsdWad, loanToValueBps, tokenAmountForUsdWad, withdrawableCollateralUsd } from '@/lib/fx/borrowLimits';
 import { formatSignificantDecimal, formatSignificantDecimalUp } from '@/lib/amount';
 import { amountBlocker } from '@/lib/formBlockers';
@@ -763,7 +764,10 @@ export default function BorrowPage() {
       {review}
       </ProductSurface>
       {/* A limit, so rounded down to the tenth of a percent. */}
-      {inputStage && <div className={presentation.details}><BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} /></div>}
+      {inputStage && <div className={presentation.details}>
+        {ltvBps !== null && collateralAfterUsd !== null && debtAfter > 0n && limitBps > 0n && <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} />}
+        <BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} />
+      </div>}
       </div>
       </>}
     </ActionWorkspace>

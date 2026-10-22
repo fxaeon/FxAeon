@@ -10,7 +10,7 @@ import {
 import { formatUnits, type Address, type Hex } from 'viem';
 import { useQuery } from '@tanstack/react-query';
 import TokenIcon, { ChainIcon } from './TokenIcon';
-import { SectionTitle } from './ui';
+import { SectionTitle } from './SectionTitle';
 import { FilterSelect } from './FilterSelect';
 import { BridgeTracker } from './BridgeTracker';
 import { AmountUsd } from '@/components/review/AmountUsd';

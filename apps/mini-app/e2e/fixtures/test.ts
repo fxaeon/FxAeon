@@ -30,6 +30,9 @@ async function installTelegram(page: Page, telegram: boolean | TelegramShimOptio
 }
 
 export async function installMarketPrices(page: Page, enabled: boolean): Promise<void> {
+  // Historical yields are tested with explicit daily samples in their own suite.
+  await page.route('https://yields.llama.fi/**', route => route.abort('blockedbyclient'));
+  await page.route('https://api.llama.fi/chart/**', route => route.abort('blockedbyclient'));
   if (enabled) {
     // Keep price-context E2E assertions deterministic. The production app
     // still owns the Coinbase socket; this fixture only prevents a live

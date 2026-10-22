@@ -46,6 +46,8 @@ Disable automatic production Git deployments for the financial app before using 
 
 The [deployment workflow](../.github/workflows/deploy-mini-app.yml) runs on a `main` push or manual dispatch. Dispatch must target current `main`.
 
+Verification runs in a digest-pinned official Playwright image with browsers and system libraries already installed. The workflow still selects Node 22 and pnpm 11.19.0, and explicitly uses Bash for deployment conditionals. Keep its image version aligned with `@playwright/test`; the [testing guide](testing.md#ci-topology) describes the version contract.
+
 1. Install the pinned toolchain and frozen dependency graph.
 2. Validate protected production inputs.
 3. Run `pnpm verify` using its credential-free test configuration.
@@ -58,6 +60,8 @@ The [deployment workflow](../.github/workflows/deploy-mini-app.yml) runs on a `m
 10. Synchronize Telegram bot metadata and its default Mini App menu.
 
 This uploads an existing export; Cloudflare does not rebuild it. Custom domains and bindings remain attached to the Pages project. Never replace this sequence with an unverified local upload during routine release work.
+
+The verification export and production-configured export intentionally remain separate. Sharing the browser runtime does not make a credential-free verification bundle suitable for deployment. The typecheck stage uses the [direct compiler runner](../scripts/typecheck.mjs), which retains app, fork, and E2E checks while avoiding nested package-manager resolution.
 
 [verify_built_rpc_config.mjs](../scripts/verify_built_rpc_config.mjs) requires each supplied RPC to appear as a complete string literal in exported browser JavaScript. HTML, source maps, manifests, and server output are insufficient. Diagnostics identify names/counts rather than endpoint values. The check proves inclusion, not live provider health, billing, or successful failover.
 

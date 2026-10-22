@@ -51,6 +51,7 @@
     <script src="sculpture.js" defer></script>
     <script type="module" src="dollar-outcomes.js"></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
+    <link rel="preload" href="assets/inter-latin.woff2" as="font" type="font/woff2" crossorigin="" />
     <link
       rel="preload"
       href="assets/manrope-variable.ttf"
@@ -69,15 +70,10 @@
           >FxAeon</span
         ></a
       >
-      <div class="nav-links">
-        <nav class="nav-side nav-left" aria-label="Main navigation">
-          <a href="#products">Explore</a><a href="#outcomes">Try an amount</a>
-        </nav>
-        <nav class="nav-side nav-right" aria-label="More navigation">
-          <a href="#telegram">Telegram</a
-          ><a href="https://fxaeon.com/docs">Docs</a>
-        </nav>
-      </div>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#products">Explore</a><a href="#outcomes">Try an amount</a>
+        <a href="#telegram">Telegram</a><a href="https://fxaeon.com/docs">Docs</a>
+      </nav>
       <button
         class="menu-toggle icon-button"
         type="button"
@@ -130,6 +126,10 @@
             <path d="M5 12h14m-6-6 6 6-6 6"></path></svg
         ></a>
       </nav>
+      <div class="menu-actions">
+        <a class="button primary" href="https://fxaeon.com/">Open web app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
+        <a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
+      </div>
     </dialog>
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
