@@ -9,8 +9,9 @@ The existing application is evidence, never source to copy into the rebuild.
 Branch: `rebuild/fxaeon-foundation-20261022`.
 Baseline: `b69d9ce1be59f982fca3ac43a8b037f7037269d4` (`origin/main` when cloned).
 
-**Stop after milestone 3 and present the specification, decisions, and complete
-leveraged-long vertical slice.** Continue milestones 4–6 after that checkpoint.
+**The milestone-3 checkpoint was presented and the user authorized continuation
+on 22 October 2026.** Continue milestones 4–6 autonomously, incorporating the
+new Phantom/ChatGPT visual direction and supplied reference screenshots.
 Do not replace the original application tree before the milestone 5 parity gate.
 Do not merge, deploy, or submit transactions using production funds.
 
@@ -32,23 +33,23 @@ Do not merge, deploy, or submit transactions using production funds.
 | 0 | Isolated branch, baseline revision, resumable plan and issue ledger | Complete; local and remote milestone `247d9f3` |
 | 1 | Read README, DESIGN, security, docs and tests; run original `pnpm verify`; produce `BEHAVIOR_SPEC.md` with source evidence and gaps | Complete with explicit evidence limits: 3,373 overlapping records, all 243 inventoried test files / 46 docs mapped; original aggregate failed on registry timeout; separate build passed |
 | 2 | Purposeful reference map covering every supplied repository/organization; adopt/avoid findings with sources | Complete: 14 references, 38 inspected source files, commit-pinned adopt/avoid map; source study, not live app review |
-| 3 | `DECISIONS.md`; new implementation in isolated staging tree; long input → simulation → explicit review → wallet → verified receipt → history, including failures; tests and running preview | Complete for the native-ETH new-long scope: 164 named unit/integration cases and 30 browser cases pass; strict build, SDK/signing boundaries, budgets and current dependency audit pass. Actual local-fork execution remains unverified. See `rebuild/docs/CHECKPOINT.md` |
-| Checkpoint | Show user spec, decisions and slice; state exact verification limits | Reached; stop here for the requested review |
-| 4 | Bounded modules for remaining surfaces, each with acceptance and evidence | Deferred until checkpoint |
+| 3 | `DECISIONS.md`; new implementation in isolated staging tree; long input → simulation → explicit review → wallet → verified receipt → history, including failures; tests and running preview | Complete for the native-ETH new-long scope: 164 named unit/integration cases and 30 browser cases pass; strict build, SDK/signing boundaries, budgets and current dependency audit pass. Actual native-long local-fork execution subsequently passed; broader lifecycle proof remains open. See `rebuild/docs/CHECKPOINT.md` |
+| Checkpoint | Show user spec, decisions and slice; state exact verification limits | Completed at `6af7e95`; user explicitly authorized continuation |
+| 4 | Bounded modules for remaining surfaces, each with acceptance and evidence | Active: shared product contracts, complete interface, selected-wallet/Telegram adapters and local-fork infrastructure |
 | 5 | Complete behavior-to-new-test map; full verify and real protocol transactions on disposable local fork | Deferred; must pass before replacing old tree |
 | 6 | Independent running-app review, repair blockers, final verification report | Deferred |
 
 ## Current work allocation
 
-- Integrator: domain/controller/journal, shared contracts, isolated toolchain,
-  landing, verification gates, documentation, issue repair and milestone commits.
-- Protocol specialist: completed strict SDK/RPC/economic/receipt adapter and
-  installed-bundle regressions; independently reviewed domain defects and repairs.
-- Wallet/host specialist: completed adapters; independently reviewed the running
-  built interface and final 30-case browser acceptance evidence.
-- Interface specialist: completed UI, original vector mark and design-system
-  documentation; independently measured landing accessibility and production load.
-- One integrator applies shared changes; no agent expands deferred products.
+- Integrator: product controller/journal, shared contracts, Borrow/Bridge/Send,
+  dependency isolation, runtime integration, gates, documentation and commits.
+- Protocol specialist: four-market Trade/Positions, installed-SDK regressions,
+  real local-fork runner and lifecycle evidence.
+- Wallet/host specialist: selected-wallet and native Telegram/Privy adapters
+  completed with 92 focused cases; now owns the seven-method Earn adapter.
+- Interface specialist: all nine product routes, independent Privy review,
+  separate product simulation build and running-browser acceptance.
+- Subagents own independent files. The integrator reconciles shared changes.
 
 ## Resume instructions
 
@@ -61,8 +62,7 @@ Do not merge, deploy, or submit transactions using production funds.
    evidence is in `rebuild/docs/evidence/`. Preserve the original baseline result.
 4. No unrecorded waiver: a blocked check stays blocked; an existing bug is not
    silently promoted to intended behavior.
-5. The checkpoint is the user's explicit stopping point. Do not begin the
-   deferred modules until that review. Afterward, use the bounded acceptance
+5. The user approved continuing after the checkpoint. Use the bounded acceptance
    plan in D-015 and track all IDs in `rebuild/docs/SLICE_ACCEPTANCE.json`.
    Obtain a working authorized archive RPC before claiming local-fork proof.
    Keep every original file intact until the full step-5 gate passes.
@@ -108,3 +108,21 @@ Do not merge, deploy, or submit transactions using production funds.
   All 919 originally tracked files remain unchanged. No real funds, public
   financial transactions, deployment, cutover or full-product parity claim.
   Step-3 evidence and acceptance mapping are saved; stop at the user checkpoint.
+- 2026-10-22: user authorized autonomous continuation to completion and supplied
+  20 Phantom phone screenshots as visual references; ChatGPT cleanliness is an
+  additional stated preference. All uploads are locally readable despite the
+  attachment error text. Screenshot account data is not product fixture data.
+  Assigned separate UI, wallet/host and fork work; root integrates shared
+  product contracts and transaction execution. Original-tree cutover gate holds.
+
+- 2026-10-22: archive access established using the existing authorized Node proxy
+  and the SDK-documented public endpoint. The actual native-long fork case passed
+  with exact amount/calldata, minted ownership/accounting, actual fee and no-resend
+  recovery. A source-manifest digest binds its dirty-tree inputs; Anvil 1.7.1
+  remains explicitly different from retained CI 1.8.1. This is one lifecycle case.
+- 2026-10-22: selected-wallet/Telegram adapters pass 92 focused named cases and
+  scoped strict types; independent Privy source review found no blocking issue.
+  Pinned Privy/query-string reviewed patches are retained, WalletConnect disabled,
+  optional native install scripts denied. Updated 607-dependency graph audit
+  reports zero advisories at all levels. Native authentication remains untested
+  without configured app IDs and an actual Telegram/device session.

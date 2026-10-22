@@ -1,0 +1,262 @@
+TAP version 13
+# Subtest: wallet discovery is passive, uses local labels, and never reads a provider icon
+ok 1 - wallet discovery is passive, uses local labels, and never reads a provider icon
+  ---
+  duration_ms: 5.909068
+  type: 'test'
+  ...
+# Subtest: generic injection is explicit and permits only an unambiguous provider object
+ok 2 - generic injection is explicit and permits only an unambiguous provider object
+  ---
+  duration_ms: 0.823511
+  type: 'test'
+  ...
+# Subtest: throwing or revoked discovery getters fail closed without a provider prompt
+ok 3 - throwing or revoked discovery getters fail closed without a provider prompt
+  ---
+  duration_ms: 0.486703
+  type: 'test'
+  ...
+# Subtest: duplicate exact-object announcements deduplicate, while same-brand collisions block both
+ok 4 - duplicate exact-object announcements deduplicate, while same-brand collisions block both
+  ---
+  duration_ms: 0.407124
+  type: 'test'
+  ...
+# Subtest: UUID substitution and conflicting local brand claims retire an accepted provider
+ok 5 - UUID substitution and conflicting local brand claims retire an accepted provider
+  ---
+  duration_ms: 0.53054
+  type: 'test'
+  ...
+# Subtest: unknown announcements receive a neutral authored label and never borrow known-wallet branding
+ok 6 - unknown announcements receive a neutral authored label and never borrow known-wallet branding
+  ---
+  duration_ms: 0.207122
+  type: 'test'
+  ...
+# Subtest: duplicate connect callers share one prompt and cancellation retains the native prompt lock
+ok 7 - duplicate connect callers share one prompt and cancellation retains the native prompt lock
+  ---
+  duration_ms: 5.937827
+  type: 'test'
+  ...
+# Subtest: cancelling a replacement chooser preserves the previously accepted wallet
+ok 8 - cancelling a replacement chooser preserves the previously accepted wallet
+  ---
+  duration_ms: 2.770331
+  type: 'test'
+  ...
+# Subtest: disconnect during a connection ignores the late authorization and cannot revive it
+ok 9 - disconnect during a connection ignores the late authorization and cannot revive it
+  ---
+  duration_ms: 0.984354
+  type: 'test'
+  ...
+# Subtest: provider rejection stays authored and code 4001 survives connection retirement
+ok 10 - provider rejection stays authored and code 4001 survives connection retirement
+  ---
+  duration_ms: 0.618783
+  type: 'test'
+  ...
+# Subtest: hostile subscription getters are rejected before requesting wallet accounts
+ok 11 - hostile subscription getters are rejected before requesting wallet accounts
+  ---
+  duration_ms: 0.21875
+  type: 'test'
+  ...
+# Subtest: account and chain away-and-back events permanently retire the original session
+ok 12 - account and chain away-and-back events permanently retire the original session
+  ---
+  duration_ms: 0.521647
+  type: 'test'
+  ...
+# Subtest: fresh double reads reject eventless account or chain drift before any send
+ok 13 - fresh double reads reject eventless account or chain drift before any send
+  ---
+  duration_ms: 0.86245
+  type: 'test'
+  ...
+# Subtest: requestAccounts and fresh accounts must agree even when no change event is emitted
+ok 14 - requestAccounts and fresh accounts must agree even when no change event is emitted
+  ---
+  duration_ms: 0.321555
+  type: 'test'
+  ...
+# Subtest: injected object and request-function replacement cannot reuse an accepted same-address session
+ok 15 - injected object and request-function replacement cannot reuse an accepted same-address session
+  ---
+  duration_ms: 0.830722
+  type: 'test'
+  ...
+# Subtest: disconnect while a fresh read is pending fences the undispatched transaction
+ok 16 - disconnect while a fresh read is pending fences the undispatched transaction
+  ---
+  duration_ms: 0.53716
+  type: 'test'
+  ...
+# Subtest: a duplicate event during the double read invalidates that attempt even if values match
+ok 17 - a duplicate event during the double read invalidates that attempt even if values match
+  ---
+  duration_ms: 0.425211
+  type: 'test'
+  ...
+# Subtest: concurrent send callers dispatch only once and no fee fields are supplied to the wallet
+ok 18 - concurrent send callers dispatch only once and no fee fields are supplied to the wallet
+  ---
+  duration_ms: 0.495587
+  type: 'test'
+  ...
+# Subtest: transaction snapshot cannot be mutated by its caller during preflight
+ok 19 - transaction snapshot cannot be mutated by its caller during preflight
+  ---
+  duration_ms: 0.564461
+  type: 'test'
+  ...
+# Subtest: a settled send cannot be replayed by the original caller or an equivalent call object
+ok 20 - a settled send cannot be replayed by the original caller or an equivalent call object
+  ---
+  duration_ms: 1.000669
+  type: 'test'
+  ...
+# Subtest: a definite rejection permits a fresh explicit review with the same bytes but never the old reviewed call
+ok 21 - a definite rejection permits a fresh explicit review with the same bytes but never the old reviewed call
+  ---
+  duration_ms: 0.586625
+  type: 'test'
+  ...
+# Subtest: an uncertain issued outcome blocks a same-byte new review and cannot be retried after reconnect
+ok 22 - an uncertain issued outcome blocks a same-byte new review and cannot be retried after reconnect
+  ---
+  duration_ms: 0.447154
+  type: 'test'
+  ...
+# Subtest: invalid transaction fields fail before any send and leave valid session usable
+ok 23 - invalid transaction fields fail before any send and leave valid session usable
+  ---
+  duration_ms: 0.618242
+  type: 'test'
+  ...
+# Subtest: already-issued request retains its hash through disconnect, replacement, and disposal without replay
+ok 24 - already-issued request retains its hash through disconnect, replacement, and disposal without replay
+  ---
+  duration_ms: 10.271725
+  type: 'test'
+  ...
+# Subtest: invalid or missing issued hash and unclassified issued failures remain submission-unknown
+ok 25 - invalid or missing issued hash and unclassified issued failures remain submission-unknown
+  ---
+  duration_ms: 2.126506
+  type: 'test'
+  ...
+# Subtest: issued explicit rejection stays user-rejected while hostile error-code getters reveal nothing
+ok 26 - issued explicit rejection stays user-rejected while hostile error-code getters reveal nothing
+  ---
+  duration_ms: 0.773977
+  type: 'test'
+  ...
+# Subtest: wrong chain is visible after connect and only explicit switch prompts for Ethereum
+ok 27 - wrong chain is visible after connect and only explicit switch prompts for Ethereum
+  ---
+  duration_ms: 0.619564
+  type: 'test'
+  ...
+# Subtest: concurrent network-switch callers cannot open duplicate prompts
+ok 28 - concurrent network-switch callers cannot open duplicate prompts
+  ---
+  duration_ms: 0.47756
+  type: 'test'
+  ...
+# Subtest: unknown-chain switch failure never adds a chain or retries another provider
+ok 29 - unknown-chain switch failure never adds a chain or retries another provider
+  ---
+  duration_ms: 0.290428
+  type: 'test'
+  ...
+# Subtest: observer exceptions and disposed late announcements cannot change signing authority
+ok 30 - observer exceptions and disposed late announcements cannot change signing authority
+  ---
+  duration_ms: 0.394154
+  type: 'test'
+  ...
+# Subtest: final synchronous review guard runs after awaited reads and blocks expired authority without consuming the call
+ok 31 - final synchronous review guard runs after awaited reads and blocks expired authority without consuming the call
+  ---
+  duration_ms: 0.40445
+  type: 'test'
+  ...
+# Subtest: cancelled and timed-out final reads release the send reservation without issuing a wallet transaction
+ok 32 - cancelled and timed-out final reads release the send reservation without issuing a wallet transaction
+  ---
+  duration_ms: 11.972619
+  type: 'test'
+  ...
+# Subtest: the read deadline never abandons an already issued wallet prompt
+ok 33 - the read deadline never abandons an already issued wallet prompt
+  ---
+  duration_ms: 21.424968
+  type: 'test'
+  ...
+# Subtest: simple picker exposes four authored wallet actions without any discovery account request
+ok 34 - simple picker exposes four authored wallet actions without any discovery account request
+  ---
+  duration_ms: 0.424079
+  type: 'test'
+  ...
+# Subtest: MetaMask mobile rdns alias deduplicates only the same object and blocks a second claimed object
+ok 35 - MetaMask mobile rdns alias deduplicates only the same object and blocks a second claimed object
+  ---
+  duration_ms: 0.598763
+  type: 'test'
+  ...
+# Subtest: explicit Base switch creates fresh authority and identical bytes on another chain are independent
+ok 36 - explicit Base switch creates fresh authority and identical bytes on another chain are independent
+  ---
+  duration_ms: 0.60376
+  type: 'test'
+  ...
+# Subtest: foreground and provider reconnect silently recheck the selected account without reviving disconnect
+ok 37 - foreground and provider reconnect silently recheck the selected account without reviving disconnect
+  ---
+  duration_ms: 3.085772
+  type: 'test'
+  ...
+# Subtest: silent restoration reads only the saved unique announced provider and remembered authorized account
+ok 38 - silent restoration reads only the saved unique announced provider and remembered authorized account
+  ---
+  duration_ms: 0.801468
+  type: 'test'
+  ...
+# Subtest: partial invalid and unknown preferences never trigger unscoped silent provider reads
+ok 39 - partial invalid and unknown preferences never trigger unscoped silent provider reads
+  ---
+  duration_ms: 0.787497
+  type: 'test'
+  ...
+# Subtest: manual disconnect clears restoration and late provider announcements never revive it
+ok 40 - manual disconnect clears restoration and late provider announcements never revive it
+  ---
+  duration_ms: 0.32488
+  type: 'test'
+  ...
+# Subtest: an explicit choice supersedes pending silent restoration and a late read cannot replace it
+ok 41 - an explicit choice supersedes pending silent restoration and a late read cannot replace it
+  ---
+  duration_ms: 0.675518
+  type: 'test'
+  ...
+# Subtest: restoration ambiguity retires its candidate without asking either provider for approval
+ok 42 - restoration ambiguity retires its candidate without asking either provider for approval
+  ---
+  duration_ms: 0.535397
+  type: 'test'
+  ...
+1..42
+# tests 42
+# suites 0
+# pass 42
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 93.659476

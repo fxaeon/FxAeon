@@ -1,0 +1,142 @@
+TAP version 13
+# Subtest: Telegram detection requires nonempty launch data and never trusts unsafe user data or stubs
+ok 1 - Telegram detection requires nonempty launch data and never trusts unsafe user data or stubs
+  ---
+  duration_ms: 1.869238
+  type: 'test'
+  ...
+# Subtest: ordinary browser keeps browser sizing and never loads the Telegram SDK
+ok 2 - ordinary browser keeps browser sizing and never loads the Telegram SDK
+  ---
+  duration_ms: 5.997816
+  type: 'test'
+  ...
+# Subtest: conditional async Telegram load attaches a previously registered native Back handler
+ok 3 - conditional async Telegram load attaches a previously registered native Back handler
+  ---
+  duration_ms: 6.740461
+  type: 'test'
+  ...
+# Subtest: Telegram layout uses stable height only on stable events and combines finite insets
+ok 4 - Telegram layout uses stable height only on stable events and combines finite insets
+  ---
+  duration_ms: 0.580825
+  type: 'test'
+  ...
+# Subtest: user-selected theme remains authoritative across untrusted Telegram theme events
+ok 5 - user-selected theme remains authoritative across untrusted Telegram theme events
+  ---
+  duration_ms: 0.911474
+  type: 'test'
+  ...
+# Subtest: native Back hides when unconsumed and never closes or navigates the host
+ok 6 - native Back hides when unconsumed and never closes or navigates the host
+  ---
+  duration_ms: 0.333854
+  type: 'test'
+  ...
+# Subtest: foreground refresh is coalesced, payload-free, and gated by document and Telegram visibility
+ok 7 - foreground refresh is coalesced, payload-free, and gated by document and Telegram visibility
+  ---
+  duration_ms: 1.732992
+  type: 'test'
+  ...
+# Subtest: disposal removes exact bridge callbacks and restores prior styles
+ok 8 - disposal removes exact bridge callbacks and restores prior styles
+  ---
+  duration_ms: 0.259461
+  type: 'test'
+  ...
+# Subtest: late SDK resolution after disposal cannot attach bridge listeners
+ok 9 - late SDK resolution after disposal cannot attach bridge listeners
+  ---
+  duration_ms: 6.782295
+  type: 'test'
+  ...
+# Subtest: failed optional SDK load and hostile bridge properties preserve browser-like usability
+ok 10 - failed optional SDK load and hostile bridge properties preserve browser-like usability
+  ---
+  duration_ms: 1.986705
+  type: 'test'
+  ...
+# Subtest: wallet handoff preserves only a reviewed route and strips every query and fragment
+ok 11 - wallet handoff preserves only a reviewed route and strips every query and fragment
+  ---
+  duration_ms: 0.272671
+  type: 'test'
+  ...
+# Subtest: nested target queries are discarded entirely without forwarding drafts or credentials
+ok 12 - nested target queries are discarded entirely without forwarding drafts or credentials
+  ---
+  duration_ms: 0.405281
+  type: 'test'
+  ...
+# Subtest: handoff rejects insecure, credential-bearing, cross-origin, and ambiguous paths
+ok 13 - handoff rejects insecure, credential-bearing, cross-origin, and ambiguous paths
+  ---
+  duration_ms: 1.023323
+  type: 'test'
+  ...
+# Subtest: MetaMask handoff uses the fixed official navigation endpoint with one encoded dapp target
+ok 14 - MetaMask handoff uses the fixed official navigation endpoint with one encoded dapp target
+  ---
+  duration_ms: 0.169246
+  type: 'test'
+  ...
+# Subtest: explicit Telegram handoff uses openLink once and cannot fall back after an issued error
+ok 15 - explicit Telegram handoff uses openLink once and cannot fall back after an issued error
+  ---
+  duration_ms: 0.533725
+  type: 'test'
+  ...
+# Subtest: captured trusted origin rejects a later origin substitution before opening a wallet
+ok 16 - captured trusted origin rejects a later origin substitution before opening a wallet
+  ---
+  duration_ms: 0.270318
+  type: 'test'
+  ...
+# Subtest: named mobile handoffs and installation actions use only reviewed fixed HTTPS hosts
+ok 17 - named mobile handoffs and installation actions use only reviewed fixed HTTPS hosts
+  ---
+  duration_ms: 0.518101
+  type: 'test'
+  ...
+# Subtest: unreviewed routes fall back to the app without forwarding path data
+ok 18 - unreviewed routes fall back to the app without forwarding path data
+  ---
+  duration_ms: 0.122044
+  type: 'test'
+  ...
+# Subtest: ordinary web bootstrap does not wait or load Telegram from platform hints or a stub
+ok 19 - ordinary web bootstrap does not wait or load Telegram from platform hints or a stub
+  ---
+  duration_ms: 0.397409
+  type: 'test'
+  ...
+# Subtest: a permitted native or exact-parent wait cannot establish Telegram without nonempty launch data
+ok 20 - a permitted native or exact-parent wait cannot establish Telegram without nonempty launch data
+  ---
+  duration_ms: 3.452225
+  type: 'test'
+  ...
+# Subtest: bounded reload bootstrap recognizes launch data restored by the official bridge and retains only host mode
+ok 21 - bounded reload bootstrap recognizes launch data restored by the official bridge and retains only host mode
+  ---
+  duration_ms: 0.513344
+  type: 'test'
+  ...
+# Subtest: launch-bearing bootstrap remains a Telegram host when the optional SDK cannot load, never authenticated
+ok 22 - launch-bearing bootstrap remains a Telegram host when the optional SDK cannot load, never authenticated
+  ---
+  duration_ms: 0.355416
+  type: 'test'
+  ...
+1..22
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 46.327456

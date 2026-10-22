@@ -8,6 +8,7 @@ export interface RpcPort {
 
 export interface RpcOptions {
   rpcUrls: readonly string[];
+  chainId?: 1 | 8453;
   allowLocalFork?: boolean;
   fetch?: typeof globalThis.fetch;
   now?: () => number;
@@ -19,13 +20,14 @@ const READ_METHODS = new Set([
   'eth_getTransactionCount', 'eth_blockNumber', 'eth_getBlockByNumber',
   'eth_getBlockByHash', 'eth_getTransactionByHash', 'eth_getTransactionReceipt',
   'eth_feeHistory', 'eth_gasPrice', 'eth_maxPriorityFeePerGas',
+  'eth_getLogs', 'eth_getCode', 'eth_simulateV1',
 ]);
 
 class RpcFault extends Error {
   constructor(readonly terminal: boolean) { super('RPC request failed'); }
 }
 
-export function validatedUrls(input: readonly string[], fork = false): readonly string[] {
+export function validatedUrls(input: readonly string[], fork = false, chainId: 1 | 8453 = 1): readonly string[] {
   if (input.length < 1 || input.length > 3 || (fork && input.length !== 1)) {
     throw new AppError('unavailable', 'Configure a reviewed Ethereum RPC endpoint to prepare a trade.');
   }
@@ -35,8 +37,8 @@ export function validatedUrls(input: readonly string[], fork = false): readonly 
     const noCredentials = !url.username && !url.password && !url.search && !url.hash;
     const local = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
     const production = url.protocol === 'https:' && !url.port && (
-      (url.hostname === 'eth-mainnet.g.alchemy.com' && /^\/v2\/[A-Za-z0-9_-]+$/.test(url.pathname))
-      || (url.hostname === 'mainnet.infura.io' && /^\/v3\/[A-Za-z0-9_-]+$/.test(url.pathname))
+      (url.hostname === (chainId === 1 ? 'eth-mainnet.g.alchemy.com' : 'base-mainnet.g.alchemy.com') && /^\/v2\/[A-Za-z0-9_-]+$/.test(url.pathname))
+      || (url.hostname === (chainId === 1 ? 'mainnet.infura.io' : 'base-mainnet.infura.io') && /^\/v3\/[A-Za-z0-9_-]+$/.test(url.pathname))
     );
     if (!noCredentials || (fork ? !local || url.protocol !== 'http:' || url.pathname !== '/' : !production)) {
       throw new AppError('policy', 'The Ethereum RPC configuration is not supported.');
@@ -48,7 +50,8 @@ export function validatedUrls(input: readonly string[], fork = false): readonly 
 
 /** Read-only ordered transport. Every endpoint proves its own Ethereum identity. */
 export function createRpc(options: RpcOptions): RpcPort {
-  const urls = validatedUrls(options.rpcUrls, options.allowLocalFork);
+  const expectedChain = options.chainId ?? 1;
+  const urls = validatedUrls(options.rpcUrls, options.allowLocalFork, expectedChain);
   const fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
   const now = options.now ?? Date.now;
   const timeout = options.requestTimeoutMs ?? 5_000;
@@ -101,13 +104,13 @@ export function createRpc(options: RpcOptions): RpcPort {
   async function proveAt(url: string, signal: AbortSignal): Promise<void> {
     proofs.delete(url);
     const chain = await exchange(url, 'eth_chainId', [], signal, options.allowLocalFork ? timeout : Math.min(timeout, 1_500));
-    if (quantity(chain) !== 1n) throw new AppError('wrong-chain', 'The RPC endpoint did not prove Ethereum.');
+    if (quantity(chain) !== BigInt(expectedChain)) throw new AppError('wrong-chain', 'The RPC endpoint did not prove the requested network.');
     if (options.allowLocalFork) {
       const metadata = object(await exchange(url, 'anvil_metadata', [], signal));
       const fork = object(metadata.forkedNetwork);
       const chainId = typeof metadata.chainId === 'number' ? metadata.chainId : safeNumber(quantity(metadata.chainId));
       const forkChain = typeof fork.chainId === 'number' ? fork.chainId : safeNumber(quantity(fork.chainId));
-      if (chainId !== 1 || forkChain !== 1 || typeof metadata.clientVersion !== 'string' || !/^anvil\b/i.test(metadata.clientVersion)
+      if (chainId !== expectedChain || forkChain !== expectedChain || typeof metadata.clientVersion !== 'string' || !/^anvil\b/i.test(metadata.clientVersion)
         || typeof fork.forkBlockHash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(fork.forkBlockHash)) {
         throw new AppError('wrong-chain', 'The local endpoint did not prove an Ethereum Anvil fork.');
       }
@@ -124,7 +127,7 @@ export function createRpc(options: RpcOptions): RpcPort {
       try {
         const provenAt = proofs.get(url);
         if (method === 'eth_chainId' || provenAt === undefined || now() - provenAt >= 60_000 || now() < provenAt) await proveAt(url, signal);
-        if (method === 'eth_chainId') return '0x1';
+        if (method === 'eth_chainId') return `0x${expectedChain.toString(16)}`;
         return await exchange(url, method, params, signal);
       } catch (error) {
         proofs.delete(url);

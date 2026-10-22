@@ -1,0 +1,73 @@
+{
+  "milestone": "M4a wallet and host",
+  "recordedAt": "2026-10-22T05:35:38.011244+00:00",
+  "toolchain": {
+    "node": "22.23.4",
+    "pnpm": "11.19.0",
+    "privy": "3.45.0 with root-reviewed vendor patches"
+  },
+  "namedCases": 92,
+  "passed": 92,
+  "failed": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "file": "test/wallet-browser.test.ts",
+      "namedCases": 42,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "command": "env PATH=/tmp/fxaeon-toolchain/node_modules/node/bin:/tmp/fxaeon-toolchain/node_modules/.bin:$PATH node --import tsx test/wallet-browser.test.ts",
+      "log": "docs/evidence/m4-wallet-browser.tap"
+    },
+    {
+      "file": "test/wallet-privy.test.ts",
+      "namedCases": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "command": "env PATH=/tmp/fxaeon-toolchain/node_modules/node/bin:/tmp/fxaeon-toolchain/node_modules/.bin:$PATH node --import tsx test/wallet-privy.test.ts",
+      "log": "docs/evidence/m4-wallet-privy.tap"
+    },
+    {
+      "file": "test/host-browser.test.ts",
+      "namedCases": 22,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "command": "env PATH=/tmp/fxaeon-toolchain/node_modules/node/bin:/tmp/fxaeon-toolchain/node_modules/.bin:$PATH node --import tsx test/host-browser.test.ts",
+      "log": "docs/evidence/m4-host-browser.tap"
+    }
+  ],
+  "typecheck": {
+    "exitCode": 0,
+    "scope": [
+      "src/wallet/*.ts",
+      "src/wallet/*.tsx",
+      "src/host/*.ts",
+      "test/wallet*.test.ts",
+      "test/host*.test.ts"
+    ],
+    "command": "env PATH=/tmp/fxaeon-toolchain/node_modules/node/bin:/tmp/fxaeon-toolchain/node_modules/.bin:$PATH node node_modules/typescript/bin/tsc --noEmit --target ES2022 --lib ES2022,DOM,DOM.Iterable --module ESNext --moduleResolution Bundler --jsx react-jsx --strict --noUncheckedIndexedAccess --noUnusedLocals --noUnusedParameters --skipLibCheck --allowImportingTsExtensions --types node,vite/client src/wallet/*.ts src/wallet/*.tsx src/host/*.ts test/wallet*.test.ts test/host*.test.ts"
+  },
+  "scope": [
+    "Exact injected-provider authority and selected-account/chain generation races",
+    "Scoped passive reconnection without approval requests",
+    "Privy user-bound wallet preference and provider reacquisition",
+    "Cancellation, native modal overlap, late SDK callback and uncertain-send handling",
+    "Telegram host proof, bounded readiness, safe area/theme/Back and explicit sanitized handoff"
+  ],
+  "limits": [
+    "Unit tests use deterministic provider, SDK bridge and host doubles; these are not physical-device proofs.",
+    "No configured public Privy application ID was evidenced. Live Telegram authentication, backup/export and logout were not exercised against the remote service.",
+    "No public transaction was sent.",
+    "Independent Privy review by orchestration_review was requested and remained in progress when this record was written.",
+    "The package-wide build and current multi-product integration are separate root-owned gates; this evidence claims only the listed scoped checks."
+  ],
+  "independentReview": {
+    "reviewer": "orchestration_review",
+    "method": "Read privy.ts and privy-react.tsx after implementation; provider identity, attach/detach epochs, final raw dispatch guard, explicit selected address and no automatic retry reviewed.",
+    "blockingIssues": 0,
+    "limits": "Source and deterministic tests only; no configured live Privy ID, native Telegram or physical wallet proof."
+  }
+}

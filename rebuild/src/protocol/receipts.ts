@@ -21,7 +21,7 @@ export function verifyReceipt(hashValue: Hash, call: ReviewedCall, receiptRaw: u
   invariant(address(receipt.to) === address(call.to) && address(transaction.to) === address(call.to));
   invariant(bytes(transaction.input) === bytes(call.data) && quantity(transaction.value) === call.value
     && quantity(transaction.nonce) === BigInt(call.nonce));
-  if (transaction.chainId !== undefined) invariant(quantity(transaction.chainId) === 1n);
+  if (transaction.chainId !== undefined) invariant(quantity(transaction.chainId) === BigInt(call.chainId));
   const blockHash = hash(receipt.blockHash);
   const blockNumber = quantity(receipt.blockNumber);
   invariant(blockNumber > 0n && hash(transaction.blockHash) === blockHash && quantity(transaction.blockNumber) === blockNumber);

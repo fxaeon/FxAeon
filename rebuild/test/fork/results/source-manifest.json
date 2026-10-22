@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "sha256",
+  "digest": "8a5309cab9ccfcbe2e532f82752e08b3e2b058daec993d828fb886498334be24",
+  "files": [
+    {
+      "path": "node_modules/@aladdindao/fx-sdk/dist/index.cjs",
+      "sha256": "b4db0d546ceca0bd288368de43c3810c8fda168a423fe5c20222220a59593730"
+    },
+    {
+      "path": "node_modules/@aladdindao/fx-sdk/dist/index.js",
+      "sha256": "f3a56ad062b35fa7274517e6cf7f57a1153f8c7cd5b9c71d7c24025b1991f08b"
+    },
+    {
+      "path": "node_modules/@aladdindao/fx-sdk/package.json",
+      "sha256": "2232ae972ffa3285c6bccb603dcfeeef5e10d9bff5ea0a7b730aee2984dca4e5"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f67fa4ac8ec142e2fa250030b79592dc02029bda2ade99d3ce6a38f88b65e24e"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "sha256": "acb4a986ac9945a8c667d74ff453e0bd219bc65223fae1c63ae24f306dcc4b59"
+    },
+    {
+      "path": "pnpm-workspace.yaml",
+      "sha256": "01f59345a92d6a6d11327ddebec81c4570712fa9550cb2a3cb693f38ec1aa3a0"
+    },
+    {
+      "path": "scripts/fork-process.mjs",
+      "sha256": "c89b847074e4fa40dbd70c47edb29dc1044e4f459ed1eeb488959d3cece3f5f9"
+    },
+    {
+      "path": "scripts/fork-run.mjs",
+      "sha256": "79fff6cca0e7a6d9132051cc392d2f2e1ac38ed5643a49cf62c624998c833b84"
+    },
+    {
+      "path": "scripts/fork-source.mjs",
+      "sha256": "715973f60782d038fdf976a94544e4faaaf26057ecb550d08145063b5885a0c3"
+    },
+    {
+      "path": "src/domain/amount.ts",
+      "sha256": "3fe0b0a39867e0a41a2251c4249f2923a0d8e164d823bddedc26317d24952ecc"
+    },
+    {
+      "path": "src/domain/controller.ts",
+      "sha256": "93b828a6b0aee7d77d78618bcf4e94c87f19086975e0a1e61f9cb5a9a68fb1eb"
+    },
+    {
+      "path": "src/domain/errors.ts",
+      "sha256": "e5b018df1b338405843d3c97dda9ed880507af701133f44e1a0010c0e3471d18"
+    },
+    {
+      "path": "src/domain/journal.ts",
+      "sha256": "736dc5c6699fa613a810a498ac9432d3df990a470c06a69bc48d34e37d81fd5a"
+    },
+    {
+      "path": "src/domain/ports.ts",
+      "sha256": "5d2289cc31cbb1460701809aade0dad3e10991183bcad6a8aed6c59f0d51f2ab"
+    },
+    {
+      "path": "src/domain/view.ts",
+      "sha256": "6820644620ee6ea7188a4d3ac3c884fef0a0a82d84fdd72f1c0db2f7171a1467"
+    },
+    {
+      "path": "src/protocol/contracts.ts",
+      "sha256": "d1050c63a9a926ab3f7291d92d4a70e971c8e6edbd671ab027f39bf1ee7ba5a1"
+    },
+    {
+      "path": "src/protocol/index.ts",
+      "sha256": "bdc83ee43a98ce0ba1613ad4e8262af681ef17e15675c5cc4aa70e3bd43eaa48"
+    },
+    {
+      "path": "src/protocol/policy.ts",
+      "sha256": "a90747b61912b674e4d70c2883b122f281ba33c26f4c2bb277ffdb83b9ca1f72"
+    },
+    {
+      "path": "src/protocol/preflight.ts",
+      "sha256": "f9911dcdcd872fd2c296b20d0399c29756212d6e7276fd09c875afe8b67086c4"
+    },
+    {
+      "path": "src/protocol/reads.ts",
+      "sha256": "8b3feb8c791d27c05032e7f3be9066b4dcb2ae7c8762cc82ad5260440befed49"
+    },
+    {
+      "path": "src/protocol/receipts.ts",
+      "sha256": "4509f1419f113de2f7df34e3f59931b15b62dd47c27276ece960cfb36e69eb88"
+    },
+    {
+      "path": "src/protocol/rpc.ts",
+      "sha256": "76ce03dff1010b42cc9b31650a86f289552ee81aafa73b763ad8151eb8097397"
+    },
+    {
+      "path": "src/protocol/values.ts",
+      "sha256": "cbf45549a38b8a6f246f7b80668630c9365932003c521da1bc17fdc3f0efb0aa"
+    },
+    {
+      "path": "src/wallet/browser.ts",
+      "sha256": "7e7be7b02bb9481a603830828db20d3751622d4ec697d99b1afbcb96f391a1bc"
+    },
+    {
+      "path": "test/fork/guard.ts",
+      "sha256": "7ea9983f3a09a5088c03ed716139b98c8244f36b28860e067cf88be70d1b3ad9"
+    },
+    {
+      "path": "test/fork/manifest.ts",
+      "sha256": "7eb345f6af08e2b127110a2f86fce615330e82e64c23de0bebcddf8555c6cb4c"
+    },
+    {
+      "path": "test/fork/native-long.test.ts",
+      "sha256": "8f6f0d360d5a98114e3062d46751eadad87b4df9d2b9c66738f71583ea5af7a7"
+    },
+    {
+      "path": "test/fork/provider.ts",
+      "sha256": "77f4ccbc572c0704ffc1d299bf9de3257e9b9cd195d7906e44f90a95fae5289d"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "2760d81ef1d835e52af7cbb782ca2bbf46126092bc186c7b920981ca8a5eb38b"
+    },
+    {
+      "path": "vendor/fx-sdk-1.0.5.patch",
+      "sha256": "f5eae53f531d39df2a6cc8985054b13c7b69a57d0670914ec8402aa95cb9c17c"
+    }
+  ]
+}

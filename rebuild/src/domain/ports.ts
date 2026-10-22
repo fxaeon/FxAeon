@@ -13,6 +13,9 @@ export interface WalletChoice {
   readonly id: string;
   readonly name: string;
   readonly available: boolean;
+  readonly action?: 'connect' | 'handoff' | 'install';
+  /** Authored local asset only; provider-supplied URLs are never rendered. */
+  readonly icon?: string;
 }
 
 export interface LongIntent {
@@ -26,7 +29,7 @@ export interface LongIntent {
 }
 
 export interface ReviewedCall {
-  readonly chainId: 1;
+  readonly chainId: 1 | 8453;
   readonly from: Address;
   readonly to: Address;
   readonly data: Hash;
@@ -107,12 +110,14 @@ export interface WalletPort {
   session(): WalletSession | null;
   subscribe(listener: () => void): () => void;
   connect(choiceId: string): Promise<WalletSession>;
+  cancelConnect?(): void;
   disconnect(): void;
   /** Fresh account/chain/object checks immediately before dispatch. */
   assertSession(expected: WalletSession, signal?: AbortSignal, maxReadMs?: number): Promise<void>;
   /** Guard runs synchronously after final reads and immediately before the raw wallet request. */
   send(call: ReviewedCall, expected: WalletSession, guard: { readonly signal: AbortSignal; readonly maxReadMs: number; beforeDispatch(): void }): Promise<Hash>;
   switchToEthereum(): Promise<void>;
+  switchChain?(chainId: 1 | 8453): Promise<void>;
   dispose(): void;
 }
 
@@ -128,6 +133,6 @@ export interface HostPort {
   /** Back handler returns true if it consumed the action. */
   setBackHandler(handler: (() => boolean) | null): void;
   setTheme(theme: 'dark' | 'light'): void;
-  openWallet(): void;
+  openWallet(choiceId?: string): void;
   dispose(): void;
 }

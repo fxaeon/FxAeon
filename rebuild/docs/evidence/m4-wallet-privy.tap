@@ -1,0 +1,178 @@
+TAP version 13
+# Subtest: missing or malformed public app ID exposes unavailable authentication without SDK initialization
+ok 1 - missing or malformed public app ID exposes unavailable authentication without SDK initialization
+  ---
+  duration_ms: 3.360476
+  type: 'test'
+  ...
+# Subtest: initial unique embedded wallet hydrates silently only after user and wallet readiness
+ok 2 - initial unique embedded wallet hydrates silently only after user and wallet readiness
+  ---
+  duration_ms: 10.457776
+  type: 'test'
+  ...
+# Subtest: available external wallets never become selected until an explicit choice
+ok 3 - available external wallets never become selected until an explicit choice
+  ---
+  duration_ms: 2.014027
+  type: 'test'
+  ...
+# Subtest: cloned reordered descriptors and same-document remount preserve only a semantic preference
+ok 4 - cloned reordered descriptors and same-document remount preserve only a semantic preference
+  ---
+  duration_ms: 2.165685
+  type: 'test'
+  ...
+# Subtest: hydration withholds signing authority without forgetting the selected identity
+ok 5 - hydration withholds signing authority without forgetting the selected identity
+  ---
+  duration_ms: 1.192138
+  type: 'test'
+  ...
+# Subtest: a definitively missing or ambiguously duplicated identity requires explicit selection after reappearance
+ok 6 - a definitively missing or ambiguously duplicated identity requires explicit selection after reappearance
+  ---
+  duration_ms: 2.295531
+  type: 'test'
+  ...
+# Subtest: same-address descriptor collisions fail closed even with different wallet metadata
+ok 7 - same-address descriptor collisions fail closed even with different wallet metadata
+  ---
+  duration_ms: 0.588377
+  type: 'test'
+  ...
+# Subtest: A to B to A authentication changes cannot silently re-adopt an embedded wallet
+ok 8 - A to B to A authentication changes cannot silently re-adopt an embedded wallet
+  ---
+  duration_ms: 1.081631
+  type: 'test'
+  ...
+# Subtest: manual logout blocks immediately and delayed SDK authentication cannot revive selection
+ok 9 - manual logout blocks immediately and delayed SDK authentication cannot revive selection
+  ---
+  duration_ms: 1.487031
+  type: 'test'
+  ...
+# Subtest: duplicate explicit choice callers share one acquisition and cancelled replacement preserves the funded wallet
+ok 10 - duplicate explicit choice callers share one acquisition and cancelled replacement preserves the funded wallet
+  ---
+  duration_ms: 1.158436
+  type: 'test'
+  ...
+# Subtest: connection modal callers join one wait and late available wallets never become accepted
+ok 11 - connection modal callers join one wait and late available wallets never become accepted
+  ---
+  duration_ms: 0.662168
+  type: 'test'
+  ...
+# Subtest: modal dismissal without a callback completes availability flow without choosing an external wallet
+ok 12 - modal dismissal without a callback completes availability flow without choosing an external wallet
+  ---
+  duration_ms: 0.160752
+  type: 'test'
+  ...
+# Subtest: a connection modal that never opens has a bounded authored error
+ok 13 - a connection modal that never opens has a bounded authored error
+  ---
+  duration_ms: 3.899719
+  type: 'test'
+  ...
+# Subtest: embedded sends use the selected address and SDK authority; external sends use only the exact provider
+ok 14 - embedded sends use the selected address and SDK authority; external sends use only the exact provider
+  ---
+  duration_ms: 2.204824
+  type: 'test'
+  ...
+# Subtest: recreated embedded provider wrappers are allowed but replacement external objects are rejected
+ok 15 - recreated embedded provider wrappers are allowed but replacement external objects are rejected
+  ---
+  duration_ms: 1.528405
+  type: 'test'
+  ...
+# Subtest: selected account and chain away-and-back events permanently retire held authority
+ok 16 - selected account and chain away-and-back events permanently retire held authority
+  ---
+  duration_ms: 1.475635
+  type: 'test'
+  ...
+# Subtest: a user change while provider acquisition is held produces no signing request
+ok 17 - a user change while provider acquisition is held produces no signing request
+  ---
+  duration_ms: 0.51758
+  type: 'test'
+  ...
+# Subtest: final synchronous authorization runs after reads and expiry does not consume a new review
+ok 18 - final synchronous authorization runs after reads and expiry does not consume a new review
+  ---
+  duration_ms: 0.844073
+  type: 'test'
+  ...
+# Subtest: a hostile request getter that logs out during the final identity fence cannot sign
+ok 19 - a hostile request getter that logs out during the final identity fence cannot sign
+  ---
+  duration_ms: 0.778354
+  type: 'test'
+  ...
+# Subtest: concurrent confirms and equivalent reviewed calls can issue only one transaction
+ok 20 - concurrent confirms and equivalent reviewed calls can issue only one transaction
+  ---
+  duration_ms: 2.546448
+  type: 'test'
+  ...
+# Subtest: issued embedded results survive logout and disposal without becoming new session authority
+ok 21 - issued embedded results survive logout and disposal without becoming new session authority
+  ---
+  duration_ms: 0.845485
+  type: 'test'
+  ...
+# Subtest: unknown and invalid-hash outcomes remain consumed while a definite rejection allows a fresh review
+ok 22 - unknown and invalid-hash outcomes remain consumed while a definite rejection allows a fresh review
+  ---
+  duration_ms: 1.847575
+  type: 'test'
+  ...
+# Subtest: explicit supported-chain switch obtains fresh authority and same nonce on another chain is independent
+ok 23 - explicit supported-chain switch obtains fresh authority and same nonce on another chain is independent
+  ---
+  duration_ms: 1.866234
+  type: 'test'
+  ...
+# Subtest: export opens only the selected embedded address without login or reconnect
+ok 24 - export opens only the selected embedded address without login or reconnect
+  ---
+  duration_ms: 0.791643
+  type: 'test'
+  ...
+# Subtest: cancelled or timed-out asynchronous reads cannot produce a late transaction
+ok 25 - cancelled or timed-out asynchronous reads cannot produce a late transaction
+  ---
+  duration_ms: 3.161556
+  type: 'test'
+  ...
+# Subtest: a changed live connection timestamp invalidates authority while semantic wallet identity stays unchanged
+ok 26 - a changed live connection timestamp invalidates authority while semantic wallet identity stays unchanged
+  ---
+  duration_ms: 0.622528
+  type: 'test'
+  ...
+# Subtest: fresh isConnected false and hostile event getters fail closed without a transaction
+ok 27 - fresh isConnected false and hostile event getters fail closed without a transaction
+  ---
+  duration_ms: 0.613024
+  type: 'test'
+  ...
+# Subtest: an already open SDK confirmation blocks new signing until it closes and never replays the old action
+ok 28 - an already open SDK confirmation blocks new signing until it closes and never replays the old action
+  ---
+  duration_ms: 1.089212
+  type: 'test'
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 60.567419

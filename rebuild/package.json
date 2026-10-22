@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.19.0",
-  "engines": { "node": "22.x", "pnpm": "11.19.0" },
+  "engines": {
+    "node": "22.x",
+    "pnpm": "11.19.0"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
     "build": "tsc --noEmit && vite build",
@@ -19,7 +22,8 @@
     "@aladdindao/fx-sdk": "1.0.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "viem": "2.57.7"
+    "viem": "2.57.7",
+    "@privy-io/react-auth": "3.45.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.11.0",

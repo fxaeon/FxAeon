@@ -1,6 +1,6 @@
 # FxAeon rebuild decisions
 
-Status: step-3 vertical-slice checkpoint complete; later release gates open.
+Status: step-3 checkpoint complete and continuation authorized; step 4 active.
 Date: 22 October 2026.
 Baseline specification: [BEHAVIOR_SPEC.md](BEHAVIOR_SPEC.md).
 Reference evidence: [REFERENCES.md](docs/rebuild/REFERENCES.md).
@@ -317,3 +317,66 @@ promises remain observed even when a provider synchronously retires a session.
 with the active review. Late receipt work can update History but cannot replace
 the new review. Failed re-verification withdraws current proof. A fresh outer
 receipt without a verified position is retained as receipt evidence only.
+
+## D-017 — Apply the supplied mobile reference direction
+
+**Decision.** Use the supplied Phantom phone screenshots as concrete visual
+evidence: strong value/title hierarchy, quiet neutral surfaces, grouped settings
+rows, restrained separators, compact navigation and one-purpose sheets. Retain
+an original FxAeon identity and one owned mint accent. ChatGPT's cleanliness is
+a stated preference; no ChatGPT screenshot was in the first twenty attachments.
+Do not reproduce reference account data, personal identifiers or brand assets.
+
+**Application.** All product screens share one shell and one transaction review
+surface. Amounts, fees, chain, expected effects and unresolved outcomes remain
+readable. Cleaner layout does not justify replacing missing evidence with zero
+or hiding a required financial disclosure. Static screenshots establish no
+motion timing or live-data correctness. The reference study is recorded in
+`rebuild/docs/REFERENCE_DIRECTION.md`.
+
+## D-018 — Generalize execution without adding protocol methods
+
+**Decision.** The remaining products use a typed operation intent, immutable
+ordered plan and per-step receipt state. Exactly the approved SDK facade plans
+protocol writes. Read-only canonical verification, native/ERC-20 wallet sends
+and the existing OFT approval behavior remain within the audited baseline.
+Every action after an approval requires that approval's canonical receipt and
+fresh context/simulation before a new prompt. Unknown submission never advances
+or automatically repeats a step. The existing independently authored long slice
+remains regression evidence during integration.
+
+**Gate.** Expanded UI and deterministic evidence do not authorize production
+release. The full behavior map and actual local-fork transactions remain
+mandatory before removing the original tree. User continuation approval does
+not waive those gates or authorize use of real funds.
+
+## D-019 — Borrow withdrawal units and reviewable SDK limits
+
+**Decision:** Repay-and-withdraw presents the canonical pool collateral token:
+`wstETH` for ETH longs and wallet-unit `WBTC` for BTC longs. Deposits retain the
+reviewed converter routes; Trade reductions retain their independently verified
+output conversions. This does not change the 15-method surface or SDK patch.
+
+**Reason:** In pinned SDK `Position.repayAndWithdraw`, cross-asset withdrawal
+conversion divides the entered output amount by its decimal scale and the
+collateral rate without an independent cross-asset price conversion. A nominal
+USDC withdrawal can therefore imply unrelated collateral exposure. The adapter
+must not silently reinterpret the user's amount or rewrite the SDK transaction.
+The product rejects that ambiguity and states the supported collateral unit.
+The explicit freedom to cut product options authorizes this narrower control;
+it is not an invariant waiver or a claim of identical old UI behavior.
+
+**Accounting source:** Official
+[PositionOperateFacet.sol](https://github.com/AladdinDAO/fx-protocol-contracts/blob/5e198e93657db008a57129e7eea21a996618f17f/contracts/periphery/facets/PositionOperateFacet.sol)
+and
+[PoolManager.sol](https://github.com/AladdinDAO/fx-protocol-contracts/blob/5e198e93657db008a57129e7eea21a996618f17f/contracts/core/PoolManager.sol).
+Supply/withdraw/borrow/repay fee ratios in these paths use 1e9. fxSP's separate
+instant-redemption fee uses 1e18; an initial suspicion of a vendor defect was
+rejected after primary-source verification. No SDK change was made.
+
+**Acceptance:** Independently decode exact withdrawal token/amount, bind scaling
+and current mint-router fee tuple, distinguish borrowed principal from fxUSD
+received, preserve zero-leg operations, test both 18-decimal accounting and
+8-decimal wallet WBTC, reject ambiguous output-token requests, and prove receipt
+accounting on a local fork. Implementation is active; this decision alone does
+not satisfy those checks.

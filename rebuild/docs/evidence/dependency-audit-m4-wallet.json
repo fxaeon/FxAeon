@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-10-22T05:26:21.411Z",
+  "status": 0,
+  "report": {
+    "advisories": {},
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0
+      },
+      "dependencies": 528,
+      "devDependencies": 78,
+      "optionalDependencies": 54,
+      "totalDependencies": 607
+    }
+  },
+  "stderr": ""
+}

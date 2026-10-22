@@ -41,7 +41,7 @@ class Provider extends EventEmitter {
     if (request.method === 'eth_chainId') return this.chainId;
     if (request.method === 'eth_sendTransaction') return HASH;
     if (request.method === 'wallet_switchEthereumChain') {
-      this.chainId = '0x1';
+      this.chainId = (request.params?.[0] as { chainId: string }).chainId;
       this.emit('chainChanged', this.chainId);
       return null;
     }
@@ -78,7 +78,7 @@ test('wallet discovery is passive, uses local labels, and never reads a provider
   let iconReads = 0;
   announce(events, metaMask, UUID_A, 'io.metamask', 'MetaMask', () => { iconReads += 1; throw new Error('Remote icon'); });
   announce(events, rabby, UUID_B, 'io.rabby', 'Rabby Wallet');
-  assert.deepEqual(wallet.choices().map(item => item.name), ['MetaMask', 'Rabby']);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect').map(item => item.name), ['MetaMask', 'Rabby']);
   assert.equal(iconReads, 0);
   assert.equal(metaMask.calls.length + rabby.calls.length, 0);
   const session = await wallet.connect(`eip6963:${UUID_A}`);
@@ -94,10 +94,10 @@ test('generic injection is explicit and permits only an unambiguous provider obj
   const first = new Provider();
   const second = new Provider();
   const { wallet, inject } = setup({ providers: [first, second] });
-  assert.deepEqual(wallet.choices(), []);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect'), []);
   await assert.rejects(wallet.connect(GENERIC), code('unavailable'));
   inject({ providers: [first] });
-  assert.equal(wallet.choices()[0]?.name, 'Injected browser wallet (unverified)');
+  assert.equal(wallet.choices().filter(item => item.action === 'connect')[0]?.name, 'Injected browser wallet (unverified)');
   await wallet.connect(GENERIC);
   assert.equal(first.count('eth_requestAccounts'), 1);
   assert.equal(second.calls.length, 0);
@@ -106,15 +106,15 @@ test('generic injection is explicit and permits only an unambiguous provider obj
 
 test('throwing or revoked discovery getters fail closed without a provider prompt', async () => {
   const { wallet, inject, events } = setup({ get providers() { throw new Error('Provider secret'); } });
-  assert.deepEqual(wallet.choices(), []);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect'), []);
   inject({ get request() { throw new Error('Provider secret'); } });
-  assert.deepEqual(wallet.choices(), []);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect'), []);
   const revoked = Proxy.revocable({}, {});
   revoked.revoke();
   inject(revoked.proxy);
-  assert.deepEqual(wallet.choices(), []);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect'), []);
   events.dispatchEvent(Object.defineProperty(new Event('eip6963:announceProvider'), 'detail', { get() { throw new Error('malformed'); } }));
-  assert.deepEqual(wallet.choices(), []);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect'), []);
   await assert.rejects(wallet.connect(GENERIC), code('unavailable'));
   wallet.dispose();
 });
@@ -125,10 +125,10 @@ test('duplicate exact-object announcements deduplicate, while same-brand collisi
   const { wallet, events } = setup(first);
   announce(events, first);
   announce(events, first, UUID_B, 'io.metamask', 'MetaMask Mobile');
-  assert.equal(wallet.choices().length, 1);
+  assert.equal(wallet.choices().filter(item => item.action === 'connect').length, 1);
   announce(events, other, UUID_C);
-  assert.equal(wallet.choices().length, 2);
-  assert.ok(wallet.choices().every(item => !item.available));
+  assert.equal(wallet.choices().filter(item => item.action === 'connect').length, 1, 'One row represents an ambiguous brand; no provider can be selected');
+  assert.ok(wallet.choices().filter(item => item.action === 'connect').every(item => !item.available));
   await assert.rejects(wallet.connect(GENERIC), code('unavailable'));
   await assert.rejects(wallet.connect(`eip6963:${UUID_A}`), code('unavailable'));
   assert.equal(first.calls.length + other.calls.length, 0);
@@ -145,7 +145,7 @@ test('UUID substitution and conflicting local brand claims retire an accepted pr
   assert.equal(wallet.session(), null);
   await assert.rejects(wallet.send(call(), session, authorization()), code('wallet-changed'));
   announce(events, original, UUID_C, 'io.rabby', 'Rabby');
-  assert.ok(wallet.choices().every(item => !item.available));
+  assert.ok(wallet.choices().filter(item => item.action === 'connect').every(item => !item.available));
   assert.equal(original.count('eth_sendTransaction') + replacement.count('eth_sendTransaction'), 0);
   wallet.dispose();
 });
@@ -153,9 +153,9 @@ test('UUID substitution and conflicting local brand claims retire an accepted pr
 test('unknown announcements receive a neutral authored label and never borrow known-wallet branding', () => {
   const { wallet, events } = setup();
   announce(events, new Provider(), UUID_A, 'evil.example', '<script>MetaMask</script>');
-  assert.equal(wallet.choices()[0]?.name, 'Announced browser wallet 1');
+  assert.equal(wallet.choices().filter(item => item.action === 'connect')[0]?.name, 'Announced browser wallet 1');
   announce(events, new Provider(), UUID_B, 'io.metamask', 'MetaMask\u0000');
-  assert.equal(wallet.choices()[1]?.available, false);
+  assert.equal(wallet.choices().find(item => item.name === 'MetaMask')?.available, false);
   wallet.dispose();
 });
 
@@ -511,7 +511,7 @@ test('observer exceptions and disposed late announcements cannot change signing 
   await wallet.assertSession(session);
   wallet.dispose();
   announce(events, new Provider());
-  assert.deepEqual(wallet.choices(), []);
+  assert.deepEqual(wallet.choices().filter(item => item.action === 'connect'), []);
   assert.equal(provider.listenerCount('disconnect'), 0);
   await assert.rejects(wallet.connect(GENERIC), code('cancelled'));
 });
@@ -554,4 +554,90 @@ test('the read deadline never abandons an already issued wallet prompt', async (
   await tick(); assert.equal(provider.count('eth_sendTransaction'), 1);
   await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(settled, false);
   answer.resolve(HASH); assert.equal(await sending, HASH); wallet.dispose();
+});
+
+test('simple picker exposes four authored wallet actions without any discovery account request', () => {
+  for (const platform of ['mobile', 'desktop', 'unknown'] as const) {
+    const wallet = createBrowserWallet({ events: new EventTarget(), injected: () => undefined, platform: () => platform });
+    assert.deepEqual(wallet.choices().map(choice => choice.name), ['MetaMask', 'Rabby', 'OKX', 'Base']);
+    assert.deepEqual(wallet.choices().map(choice => choice.action), platform === 'mobile' ? ['handoff', 'handoff', 'install', 'install'] : ['install', 'install', 'install', 'install']);
+    assert.equal(wallet.session(), null); wallet.dispose();
+  }
+});
+
+test('MetaMask mobile rdns alias deduplicates only the same object and blocks a second claimed object', async () => {
+  const provider = new Provider(); const other = new Provider(); const { wallet, events } = setup();
+  announce(events, provider); announce(events, provider, UUID_B, 'io.metamask.mobile', 'MetaMask Mobile');
+  assert.equal(wallet.choices().filter(choice => choice.action === 'connect').length, 1);
+  const accepted = await wallet.connect(`eip6963:${UUID_A}`);
+  announce(events, other, UUID_C, 'io.metamask.mobile', 'MetaMask Mobile');
+  assert.equal(wallet.session(), null); assert.equal(wallet.choices().find(choice => choice.name === 'MetaMask')?.available, false);
+  await assert.rejects(wallet.send(call(), accepted, authorization()), code('wallet-changed')); wallet.dispose();
+});
+
+test('explicit Base switch creates fresh authority and identical bytes on another chain are independent', async () => {
+  const provider = new Provider(); const { wallet } = setup(provider);
+  const ethereum = await wallet.connect(GENERIC); assert.equal(await wallet.send(call(), ethereum, authorization()), HASH);
+  await wallet.switchChain!(8453); const base = wallet.session()!;
+  assert.equal(base.chainId, 8453); assert.notEqual(base.id, ethereum.id);
+  await assert.rejects(wallet.send(call({ chainId: 8453 }), ethereum, authorization()), code('wallet-changed'));
+  assert.equal(await wallet.send(call({ chainId: 8453 }), base, authorization()), HASH);
+  assert.equal((provider.calls.filter(item => item.method === 'eth_sendTransaction').at(-1)?.params?.[0] as { chainId: string }).chainId, '0x2105');
+  assert.equal(provider.count('wallet_switchEthereumChain'), 1); wallet.dispose();
+});
+
+test('foreground and provider reconnect silently recheck the selected account without reviving disconnect', async () => {
+  const provider = new Provider(); const { wallet, events } = setup(provider);
+  await wallet.connect(GENERIC); const authorizations = provider.count('eth_requestAccounts');
+  events.dispatchEvent(new Event('focus')); await tick();
+  assert.equal(provider.count('eth_requestAccounts'), authorizations); assert.ok(wallet.session());
+  provider.address = B; provider.emit('connect', { chainId: '0x1' }); await tick();
+  assert.equal(wallet.session(), null); assert.equal(provider.count('eth_requestAccounts'), authorizations);
+  provider.address = A; provider.emit('connect', { chainId: '0x1' }); events.dispatchEvent(new Event('focus')); await tick();
+  assert.equal(wallet.session(), null); wallet.dispose();
+});
+
+test('silent restoration reads only the saved unique announced provider and remembered authorized account', async () => {
+  const selected = new Provider(); const other = new Provider(); other.address = B;
+  selected.hook = request => request.method === 'eth_accounts' ? [B, A] : selected.answer(request);
+  const events = new EventTarget(); const writes: unknown[] = [];
+  const wallet = createBrowserWallet({ events, injected: () => other, preference: { load: () => ({ provider: 'io.metamask', address: A }), save: value => { writes.push(value); } } });
+  assert.equal(selected.calls.length + other.calls.length, 0);
+  announce(events, other, UUID_B, 'io.rabby', 'Rabby'); await tick(); assert.equal(other.calls.length, 0);
+  announce(events, selected); await tick(); assert.equal(wallet.session()?.address, A);
+  assert.equal(selected.count('eth_requestAccounts'), 0); assert.equal(other.calls.length, 0);
+  assert.equal(await wallet.send(call(), wallet.session()!, authorization()), HASH);
+  wallet.dispose(); assert.deepEqual(writes, [], 'Disposal preserves only the original public preference');
+});
+
+test('partial invalid and unknown preferences never trigger unscoped silent provider reads', async () => {
+  for (const saved of [{ provider: 'io.metamask' }, { address: A }, { provider: 'evil.example', address: A }, { provider: 'io.metamask', address: 'invalid' }]) {
+    const provider = new Provider(); const events = new EventTarget();
+    const wallet = createBrowserWallet({ events, injected: () => provider, preference: { load: () => saved, save() {} } });
+    announce(events, provider); await tick(); assert.equal(provider.calls.length, 0); assert.equal(wallet.session(), null); wallet.dispose();
+  }
+});
+
+test('manual disconnect clears restoration and late provider announcements never revive it', async () => {
+  const provider = new Provider(); const events = new EventTarget(); const saved: unknown[] = [];
+  const wallet = createBrowserWallet({ events, injected: () => provider, preference: { load: () => ({ provider: 'io.metamask', address: A }), save: value => { saved.push(value); } } });
+  wallet.disconnect(); announce(events, provider); await tick();
+  assert.equal(wallet.session(), null); assert.equal(provider.calls.length, 0); assert.deepEqual(saved, [null]); wallet.dispose();
+});
+
+test('an explicit choice supersedes pending silent restoration and a late read cannot replace it', async () => {
+  const provider = new Provider(); const gate = deferred<unknown>(); let held = true;
+  provider.hook = request => request.method === 'eth_accounts' && held ? gate.promise : provider.answer(request);
+  const events = new EventTarget();
+  const wallet = createBrowserWallet({ events, injected: () => provider, preference: { load: () => ({ provider: 'io.metamask', address: A }), save() {} } });
+  announce(events, provider); held = false;
+  const selected = await wallet.connect(`eip6963:${UUID_A}`); gate.resolve([B]); await tick();
+  assert.equal(wallet.session(), selected); assert.equal(provider.count('eth_requestAccounts'), 1); wallet.dispose();
+});
+
+test('restoration ambiguity retires its candidate without asking either provider for approval', async () => {
+  const first = new Provider(); const second = new Provider(); const events = new EventTarget();
+  const wallet = createBrowserWallet({ events, injected: () => first, preference: { load: () => ({ provider: 'io.metamask', address: A }), save() {} } });
+  announce(events, first); announce(events, second, UUID_B); await tick();
+  assert.equal(wallet.session(), null); assert.equal(first.count('eth_requestAccounts') + second.count('eth_requestAccounts'), 0); wallet.dispose();
 });

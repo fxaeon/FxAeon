@@ -9,5 +9,26 @@
     "dist/index.cjs": "b4db0d546ceca0bd288368de43c3810c8fda168a423fe5c20222220a59593730",
     "dist/index.d.ts": "3f5e641fc68b65354d4ce743f56cd736abd83587c689cc61cb3e423c575f6862"
   },
-  "note": "Reviewed vendor correction input preserved byte-for-byte. New application code and replacement tests are independently authored."
+  "note": "Reviewed vendor correction input preserved byte-for-byte. New application code and replacement tests are independently authored.",
+  "walletDependencies": [
+    {
+      "package": "@privy-io/react-auth@3.45.0",
+      "baselinePatch": "patches/@privy-io__react-auth@3.45.0.patch",
+      "patch": "privy-react-auth-3.45.0.patch",
+      "patchSha256": "97a50dffbfa6efef31b5e881483bd060f91fabd7ee0ff9e1fb5d5bb6ef086f25",
+      "installed": {
+        "dist/cjs/index-BJnyd0R8.js": "f579d95598bb02346927e32ac28d2198acccd8a9b4fd2962bbf5dcb7e9b9546d",
+        "dist/esm/index-DEvxmE29.mjs": "81330346db0c1f1d56891838dabf2930b29d86a94a5111e5d7eef934090ddd66"
+      }
+    },
+    {
+      "package": "query-string@7.1.3",
+      "baselinePatch": "patches/query-string@7.1.3.patch",
+      "patch": "query-string-7.1.3.patch",
+      "patchSha256": "8cf93ecf8b1c3d495bed8d4e8e723569a358e9da0615fb1fbee180f1f41fc33d",
+      "installed": {
+        "index.js": "895ebb192d78427820c879ff85eaf0870ba183dada7b4e401c6457fd470bce6d"
+      }
+    }
+  ]
 }

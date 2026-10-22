@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "runId": "35bd90f4-1075-4250-85db-228cd34b2e34",
+  "startedAt": "2026-10-22T05:29:26.209Z",
+  "status": "passed",
+  "realProtocolVerified": true,
+  "node": "v22.23.4",
+  "scope": "native ETH new ETH long only",
+  "checks": [
+    "Ethereum archive chain, pinned header, deployed contract code and historical pool read proved",
+    "Owned loopback Anvil, Ethereum chain, fork base/hash and instance identity proved",
+    "Real installed SDK, production protocol, controller, browser wallet, canonical receipt/accounting and reload without resend proved"
+  ],
+  "transactionsSent": 1,
+  "revision": "6af7e95331992e86e486b9aa06be0dea027071ba",
+  "anvilVersion": "1.7.1",
+  "retainedCiAnvilVersion": "1.8.1",
+  "anvilVersionMatchesRetainedCi": false,
+  "sdkVersion": "1.0.5",
+  "sourceManifestHash": "8a5309cab9ccfcbe2e532f82752e08b3e2b058daec993d828fb886498334be24",
+  "archiveSource": "installed SDK documented PublicNode default",
+  "archiveBlock": {
+    "number": "26246005",
+    "hash": "0xa15bbe4076825bc82a430007dfd7fbb38c50b6e577a4dffe03843dc2a4e16a9f"
+  },
+  "proof": {
+    "transactionHash": "0x4c1a351b6c1a60b5640311835716e97c52e55f6200e6678fcd9c6f196a605c16",
+    "positionId": "2039",
+    "file": "native-long-proof.json"
+  },
+  "completedAt": "2026-10-22T05:29:40.355Z"
+}

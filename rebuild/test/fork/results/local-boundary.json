@@ -1,0 +1,11 @@
+{
+  "kind": "actual-local-nonfork-rejection",
+  "realProtocolVerified": false,
+  "generatedAt": "2026-10-22T05:19:32.460Z",
+  "status": "passed",
+  "accountFundings": 0,
+  "signatures": 0,
+  "sends": 0,
+  "anvilVersion": "1.7.1",
+  "boundary": "Anvil chain 1 without fork metadata rejected before funding or signing"
+}

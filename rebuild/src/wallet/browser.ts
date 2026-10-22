@@ -1,5 +1,7 @@
 import { AppError } from '../domain/errors.ts';
 import type { Address, Hash, ReviewedCall, WalletChoice, WalletPort, WalletSession } from '../domain/ports.ts';
+import { absentWalletAction, walletCatalog, walletPlatform } from './catalog.ts';
+import type { WalletPlatform } from './catalog.ts';
 
 type Method = (...args: unknown[]) => unknown;
 type Request = { method: string; params?: readonly unknown[] };
@@ -10,8 +12,9 @@ type Binding = Capability & {
   label: string;
   version: number;
   retired: boolean;
-  switching: boolean;
+  switching: 1 | 8453 | null;
   session: WalletSession | null;
+  rememberedAccount: boolean;
   remove: () => void;
 };
 
@@ -19,6 +22,9 @@ export interface BrowserWalletEnvironment {
   readonly events: EventTarget;
   /** Accessed afresh at each boundary. Never captured as signer authority. */
   readonly injected: () => unknown;
+  readonly platform?: () => WalletPlatform;
+  /** Only a public provider identity and public address may be persisted. */
+  readonly preference?: { load(): unknown; save(value: { provider: string; address: Address } | null): void };
 }
 
 export interface BrowserWalletPort extends WalletPort {
@@ -75,11 +81,12 @@ async function readBoundary<T>(work: Promise<T>, signal: AbortSignal | undefined
   finally { clearTimeout(timer); if (cancel) signal?.removeEventListener('abort', cancel); }
 }
 
-function firstAccount(value: unknown): Address {
+function firstAccount(value: unknown, remembered?: Address): Address {
   try {
     if (!Array.isArray(value) || value.length === 0 || value.length > 100) throw unavailable();
     for (const item of value) if (typeof item !== 'string' || !addressPattern.test(item)) throw unavailable();
-    return (value[0] as string).toLowerCase() as Address;
+    const selected = remembered && value.find(item => item.toLowerCase() === remembered);
+    return ((selected || value[0]) as string).toLowerCase() as Address;
   } catch { throw unavailable(); }
 }
 
@@ -93,7 +100,10 @@ function chain(value: unknown): number {
 function defaultEnvironment(): BrowserWalletEnvironment {
   return typeof window === 'undefined'
     ? { events: new EventTarget(), injected: () => undefined }
-    : { events: window, injected: () => property(window, 'ethereum').value };
+    : { events: window, injected: () => property(window, 'ethereum').value, preference: {
+      load() { try { const value = window.localStorage.getItem('fxaeon.wallet.preference.v1'); return value && value.length < 1024 ? JSON.parse(value) : null; } catch { return null; } },
+      save(value) { try { if (value) window.localStorage.setItem('fxaeon.wallet.preference.v1', JSON.stringify(value)); else window.localStorage.removeItem('fxaeon.wallet.preference.v1'); } catch { /* Memory-only explicit selection remains available. */ } },
+    } };
 }
 
 /** EIP-6963 metadata is a display claim. Only the selected raw capability signs. */
@@ -109,7 +119,21 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
   let active: Binding | null = null;
   let sending = false;
   let switching = false;
-  let pending: { id: string; binding: Binding; promise: Promise<WalletSession>; cancelled: boolean; reject: (error: AppError) => void } | null = null;
+  let refreshing = false;
+  let restoreAttempted = false;
+  let remembered: { provider: string; address: Address } | null = null;
+  try {
+    const saved = environment.preference?.load();
+    const rdns = property(saved, 'provider').value;
+    const address = property(saved, 'address').value;
+    if (typeof rdns === 'string' && Object.hasOwn(brands, rdns) && typeof address === 'string' && addressPattern.test(address)) remembered = { provider: rdns, address: address.toLowerCase() as Address };
+  } catch { /* Invalid local preferences cannot initiate a provider request. */ }
+  let pending: { id: string; binding: Binding; promise: Promise<WalletSession>; cancelled: boolean; automatic: boolean; reject: (error: AppError) => void } | null = null;
+
+  function savePreference(value: { provider: string; address: Address } | null): void {
+    remembered = value;
+    try { environment.preference?.save(value); } catch { /* No wallet authority depends on storage. */ }
+  }
 
   function notify(): void {
     if (disposed) return;
@@ -145,12 +169,12 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
     return !disposed && !binding.retired && current?.raw === binding.raw && current.request === binding.request;
   }
 
-  function retire(binding: Binding): void {
+  function retire(binding: Binding, preservePreference = false): void {
     if (binding.retired) return;
     binding.retired = true;
     binding.version += 1;
     binding.remove();
-    if (active === binding) { active = null; notify(); }
+    if (active === binding) { active = null; if (!preservePreference) savePreference(null); notify(); }
     if (pending?.binding === binding && !pending.cancelled) {
       pending.cancelled = true;
       pending.reject(changed());
@@ -171,7 +195,8 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
     const suppliedName = property(info, 'name').value;
     const raw = capability(property(detail, 'provider').value);
     if (!raw || typeof uuid !== 'string' || !uuidPattern.test(uuid) || typeof rdns !== 'string' || rdns.length > 253) return;
-    const brand = Object.hasOwn(brands, rdns) ? rdns : null;
+    const canonicalRdns = rdns === 'io.metamask.mobile' ? 'io.metamask' : rdns;
+    const brand = Object.hasOwn(brands, canonicalRdns) ? canonicalRdns : null;
     const known = brand === null ? undefined : brands[brand];
     const conflictingName = known !== undefined && (typeof suppliedName !== 'string' || !known.aliases.includes(suppliedName));
     const sameObject = [...announcements.values()].filter(entry => entry.raw === raw.raw);
@@ -189,15 +214,24 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
     if (brand && [...announcements.values()].some(entry => entry.brand === brand && entry.raw !== raw.raw)) blockedBrands.add(brand);
     checkDiscovery();
     notify();
+    restoreSelected();
   }
 
   function requestDiscovery(): void {
     checkDiscovery();
     if (!disposed) environment.events.dispatchEvent(new Event('eip6963:requestProvider'));
+    refreshSelected();
+  }
+
+  function refreshSelected(): void {
+    const expected = active?.session;
+    if (!expected || pending || sending || switching || refreshing || disposed) return;
+    refreshing = true;
+    void wallet.assertSession(expected).catch(() => { /* Fresh send checks still fail closed; no reconnect or replay. */ }).finally(() => { refreshing = false; });
   }
 
   function bind(choiceId: string, selected: Capability, label: string): Binding {
-    const binding: Binding = { ...selected, choiceId, label, version: 0, retired: false, switching: false, session: null, remove: () => undefined };
+    const binding: Binding = { ...selected, choiceId, label, version: 0, retired: false, switching: null, session: null, rememberedAccount: false, remove: () => undefined };
     const on = property(selected.raw, 'on');
     const off = property(selected.raw, 'removeListener');
     if (!on.ok || !off.ok) throw unavailable();
@@ -208,7 +242,7 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
         if (binding.retired) return;
         binding.version += 1;
         if (!binding.session) return;
-        try { if (firstAccount(value) !== binding.session.address) retire(binding); }
+        try { if (firstAccount(value, binding.rememberedAccount ? binding.session.address : undefined) !== binding.session.address) retire(binding); }
         catch { retire(binding); }
       }],
       ['chainChanged', value => {
@@ -217,11 +251,12 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
         if (!binding.session) return;
         try {
           const next = chain(value);
-          if (binding.switching && next === 1) return;
+          if (binding.switching === next) return;
           if (next !== binding.session.chainId) retire(binding);
         } catch { retire(binding); }
       }],
       ['disconnect', () => retire(binding)],
+      ['connect', () => { if (!binding.retired) { binding.version += 1; refreshSelected(); } }],
     ];
     binding.remove = () => {
       for (const [name, listener] of subscriptions) {
@@ -246,16 +281,16 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
       guard(); // A hostile property getter may have retired the session.
     };
     check();
-    const first = firstAccount(await read(binding, 'eth_accounts'));
+    const first = firstAccount(await read(binding, 'eth_accounts'), binding.rememberedAccount ? address : undefined);
     check();
     const firstChain = chain(await read(binding, 'eth_chainId'));
     check();
-    const second = firstAccount(await read(binding, 'eth_accounts'));
+    const second = firstAccount(await read(binding, 'eth_accounts'), binding.rememberedAccount ? address : undefined);
     check();
     const secondChain = chain(await read(binding, 'eth_chainId'));
     check();
     if (first !== second || (address !== undefined && second !== address)) throw changed();
-    if (firstChain !== secondChain || (chainId !== undefined && secondChain !== chainId)) throw new AppError('wrong-chain', 'The wallet network changed. Reconnect and review on Ethereum.');
+    if (firstChain !== secondChain || (chainId !== undefined && secondChain !== chainId)) throw new AppError('wrong-chain', 'The wallet network changed. Choose the required network and review again.');
     return { address: second, chainId: secondChain };
   }
 
@@ -281,29 +316,66 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
     // cannot close a wallet's native modal or justify opening a second one.
   }
 
+  function restoreSelected(): void {
+    if (!remembered || restoreAttempted || active || pending || disposed) return;
+    const saved = remembered;
+    const candidates = [...announcements.values()].filter(entry => entry.brand === saved.provider && resolve(entry.id));
+    if (candidates.length !== 1) return;
+    const selected = candidates[0]!;
+    restoreAttempted = true;
+    let binding: Binding;
+    try { binding = bind(selected.id, selected, selected.name); binding.rememberedAccount = true; }
+    catch { return; }
+    let resolvePromise!: (value: WalletSession) => void;
+    let rejectPromise!: (error: AppError) => void;
+    const promise = new Promise<WalletSession>((yes, no) => { resolvePromise = yes; rejectPromise = no; });
+    void promise.catch(() => undefined);
+    const attempt = { id: selected.id, binding, promise, cancelled: false, automatic: true, reject: rejectPromise };
+    pending = attempt;
+    const guard = () => { if (disposed || pending !== attempt || attempt.cancelled || binding.retired || remembered !== saved) throw cancelled(); };
+    void doubleRead(binding, guard, saved.address).then(fresh => {
+      guard();
+      if (fresh.chainId !== 1 && fresh.chainId !== 8453) throw new AppError('wrong-chain', 'Choose a supported network before restoring this wallet.');
+      binding.session = sessionFor(binding, fresh.address, fresh.chainId);
+      active = binding; pending = null; notify();
+      if (active !== binding || binding.retired) throw changed();
+      resolvePromise(binding.session);
+    }).catch(error => { retire(binding); rejectPromise(error instanceof AppError ? error : unavailable()); }).finally(() => { if (pending === attempt) pending = null; });
+  }
+
   const wallet: BrowserWalletPort = {
     choices() {
       checkDiscovery();
       if (disposed) return [];
-      const choices: WalletChoice[] = [...announcements.values()].map(entry => Object.freeze({ id: entry.id, name: entry.name, available: resolve(entry.id) !== null }));
-      if (fallback()) choices.push(Object.freeze({ id: INJECTED_ID, name: 'Injected browser wallet (unverified)', available: true }));
+      const platform = environment.platform?.() ?? walletPlatform();
+      const entries = [...announcements.values()];
+      const choices: WalletChoice[] = walletCatalog.map(item => {
+        const found = entries.find(entry => entry.brand === item.rdns);
+        if (found) return Object.freeze({ id: found.id, name: item.name, available: resolve(found.id) !== null, action: 'connect' as const });
+        return Object.freeze({ id: `wallet:${item.id}`, name: item.name, available: true, action: absentWalletAction(item.id, platform) });
+      });
+      for (const entry of entries) {
+        if (!walletCatalog.some(item => item.rdns === entry.brand)) choices.push(Object.freeze({ id: entry.id, name: entry.name, available: resolve(entry.id) !== null, action: 'connect' }));
+      }
+      if (fallback()) choices.push(Object.freeze({ id: INJECTED_ID, name: 'Injected browser wallet (unverified)', available: true, action: 'connect' }));
       return Object.freeze(choices);
     },
     session() { checkDiscovery(); return active?.session ?? null; },
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     connect(choiceId) {
       if (disposed) return Promise.reject(cancelled());
+      if (pending?.automatic) { cancelConnect(); pending = null; }
       if (pending) return pending.id === choiceId && !pending.cancelled ? pending.promise : Promise.reject(busy());
       if (switching) return Promise.reject(busy());
       const selected = resolve(choiceId);
-      const choice = wallet.choices().find(item => item.id === choiceId && item.available);
+      const choice = wallet.choices().find(item => item.id === choiceId && item.available && item.action === 'connect');
       if (!selected || !choice) return Promise.reject(unavailable());
       let binding: Binding;
       try { binding = bind(choiceId, selected, choice.name); } catch (error) { return Promise.reject(error); }
       let resolvePromise!: (value: WalletSession) => void;
       let rejectPromise!: (error: AppError) => void;
       const promise = new Promise<WalletSession>((resolveValue, rejectValue) => { resolvePromise = resolveValue; rejectPromise = rejectValue; });
-      const attempt = { id: choiceId, binding, promise, cancelled: false, reject: rejectPromise };
+      const attempt = { id: choiceId, binding, promise, cancelled: false, automatic: false, reject: rejectPromise };
       pending = attempt;
       const guard = () => { if (disposed || attempt.cancelled || pending !== attempt || binding.retired) throw cancelled(); };
       void (async () => {
@@ -319,6 +391,8 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
           guard();
           binding.session = sessionFor(binding, fresh.address, fresh.chainId);
           active = binding;
+          const brand = announcements.get(choiceId)?.brand;
+          savePreference(brand ? { provider: brand, address: fresh.address } : null);
           pending = null;
           notify();
           if (active !== binding || binding.retired) throw changed();
@@ -333,7 +407,7 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
       return promise;
     },
     cancelConnect,
-    disconnect() { cancelConnect(); if (active) retire(active); },
+    disconnect() { restoreAttempted = true; savePreference(null); cancelConnect(); if (active) retire(active); },
     async assertSession(expected, signal, maxReadMs = 15_000) {
       if (signal?.aborted) throw new AppError('cancelled', 'The wallet check was cancelled before a transaction request.');
       if (!Number.isFinite(maxReadMs) || maxReadMs <= 0 || maxReadMs > 15_000) throw new AppError('expired', 'This review is no longer current. Refresh before signing.');
@@ -350,13 +424,13 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
       if (!guard || typeof guard.beforeDispatch !== 'function' || !guard.signal) throw new AppError('policy', 'The wallet request is missing its review authorization.');
       const binding = expectedBinding(expected);
       const snapshot: ReviewedCall = { chainId: call.chainId, from: call.from, to: call.to, data: call.data, value: call.value, nonce: call.nonce };
-      if (snapshot.chainId !== 1 || expected.chainId !== 1) throw new AppError('wrong-chain', 'Switch to Ethereum before reviewing this trade.');
+      if (![1, 8453].includes(snapshot.chainId) || expected.chainId !== snapshot.chainId) throw new AppError('wrong-chain', 'Choose the reviewed network before confirming this transaction.');
       if (typeof snapshot.from !== 'string' || !addressPattern.test(snapshot.from) || snapshot.from.toLowerCase() !== expected.address.toLowerCase()
         || typeof snapshot.to !== 'string' || !addressPattern.test(snapshot.to)
         || typeof snapshot.data !== 'string' || !/^0x(?:[0-9a-f]{2})*$/i.test(snapshot.data)
         || typeof snapshot.value !== 'bigint' || snapshot.value < 0n || snapshot.value >= 2n ** 256n
         || !Number.isSafeInteger(snapshot.nonce) || snapshot.nonce < 0) throw new AppError('policy', 'The transaction does not match the selected wallet or valid Ethereum transaction fields.');
-      const fingerprint = [snapshot.from.toLowerCase(), snapshot.to.toLowerCase(), snapshot.data.toLowerCase(), snapshot.value.toString(), snapshot.nonce].join(':');
+      const fingerprint = [snapshot.chainId, snapshot.from.toLowerCase(), snapshot.to.toLowerCase(), snapshot.data.toLowerCase(), snapshot.value.toString(), snapshot.nonce].join(':');
       if (issuedObjects.has(call) || unresolvedOrSubmittedCalls.has(fingerprint)) throw new AppError('policy', 'This reviewed wallet request has already been issued. Check its original outcome before starting another trade.');
       sending = true;
       try {
@@ -364,7 +438,7 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
         if (expectedBinding(expected) !== binding) throw changed();
         // No await or alternate-provider lookup between the final fence and
         // this exact raw method dispatch. Fees remain the external wallet's.
-        const transaction = Object.freeze({ from: snapshot.from, to: snapshot.to, data: snapshot.data, value: `0x${snapshot.value.toString(16)}`, nonce: `0x${snapshot.nonce.toString(16)}`, chainId: '0x1' });
+        const transaction = Object.freeze({ from: snapshot.from, to: snapshot.to, data: snapshot.data, value: `0x${snapshot.value.toString(16)}`, nonce: `0x${snapshot.nonce.toString(16)}`, chainId: `0x${snapshot.chainId.toString(16)}` });
         guard.beforeDispatch();
         if (expectedBinding(expected) !== binding) throw changed();
         issuedObjects.add(call);
@@ -384,33 +458,35 @@ export function createBrowserWallet(environment: BrowserWalletEnvironment = defa
         return result.toLowerCase() as Hash;
       } finally { sending = false; }
     },
-    async switchToEthereum() {
+    switchToEthereum() { return wallet.switchChain!(1); },
+    async switchChain(chainId) {
+      if (chainId !== 1 && chainId !== 8453) throw new AppError('wrong-chain', 'This network is not supported.');
       if (sending || switching || pending) throw busy();
       const expected = wallet.session();
       if (!expected) throw changed();
       const binding = expectedBinding(expected);
       await wallet.assertSession(expected);
-      if (expected.chainId === 1) return;
+      if (expected.chainId === chainId) return;
       if (sending || switching || pending || expectedBinding(expected) !== binding) throw busy();
       switching = true;
-      binding.switching = true;
+      binding.switching = chainId;
       try {
         if (expectedBinding(expected, true) !== binding) throw changed();
-        try { await Reflect.apply(binding.request, binding.raw, [{ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x1' }] } satisfies Request]); }
+        try { await Reflect.apply(binding.request, binding.raw, [{ method: 'wallet_switchEthereumChain', params: [{ chainId: `0x${chainId.toString(16)}` }] } satisfies Request]); }
         catch (error) { throw rpcError(error); }
         const guard = () => { if (active !== binding || binding.retired || disposed || pending) throw changed(); };
-        const fresh = await doubleRead(binding, guard, expected.address, 1);
+        const fresh = await doubleRead(binding, guard, expected.address, chainId);
         guard();
         binding.session = sessionFor(binding, fresh.address, fresh.chainId);
         notify();
       } catch (error) {
         retire(binding);
         throw error;
-      } finally { binding.switching = false; switching = false; }
+      } finally { binding.switching = null; switching = false; }
     },
     dispose() {
       if (disposed) return;
-      wallet.disconnect();
+      cancelConnect(); if (active) retire(active, true);
       disposed = true;
       listeners.clear();
       environment.events.removeEventListener('eip6963:announceProvider', announce);

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setImmediate as tick } from 'node:timers/promises';
-import { createHost, hasTelegramLaunchData } from '../src/host/browser.ts';
+import { createHost, hasTelegramLaunchData, resolveHostEnvironment } from '../src/host/browser.ts';
 import type { HostEnvironment } from '../src/host/browser.ts';
-import { metaMaskBrowserLink, sanitizeWalletTarget } from '../src/host/handoff.ts';
+import { metaMaskBrowserLink, sanitizeWalletTarget, walletNavigation } from '../src/host/handoff.ts';
 import { AppError } from '../src/domain/errors.ts';
 
 const ORIGIN = 'https://fxaeon.example';
@@ -167,9 +167,9 @@ test('user-selected theme remains authoritative across untrusted Telegram theme 
   host.setTheme('light');
   bridge.emit('themeChanged', { colorScheme: 'dark', background_color: 'url(https://evil.example/)' });
   assert.equal(state.attributes.get('data-theme'), 'light');
-  assert.deepEqual(bridge.calls.filter(call => call[0] === 'header').at(-1), ['header', '#f5f4ee']);
+  assert.deepEqual(bridge.calls.filter(call => call[0] === 'header').at(-1), ['header', '#fbfcfa']);
   host.setTheme('dark');
-  assert.deepEqual(bridge.calls.filter(call => call[0] === 'background').at(-1), ['background', '#101412']);
+  assert.deepEqual(bridge.calls.filter(call => call[0] === 'background').at(-1), ['background', '#0b0d0e']);
   host.dispose();
 });
 
@@ -261,21 +261,21 @@ test('failed optional SDK load and hostile bridge properties preserve browser-li
   host.dispose();
 });
 
-test('wallet handoff strips launch and OAuth credentials while retaining safe route state', () => {
+test('wallet handoff preserves only a reviewed route and strips every query and fragment', () => {
   const source = `${ORIGIN}/trade?market=ETH&tgWebAppData=secret&tgWebAppThemeParams=secret&access_token=secret&code=secret&state=secret#history?tab=recent&initData=secret&signature=secret`;
-  assert.equal(sanitizeWalletTarget(source, ORIGIN), `${ORIGIN}/trade?market=ETH#history?tab=recent`);
+  assert.equal(sanitizeWalletTarget(source, ORIGIN), `${ORIGIN}/trade`);
   assert.equal(sanitizeWalletTarget(`${ORIGIN}/#tgWebAppData=secret&tgWebAppVersion=9.0`, ORIGIN), `${ORIGIN}/`);
 });
 
-test('nested same-origin targets are sanitized recursively and cross-origin or executable targets are dropped', () => {
+test('nested target queries are discarded entirely without forwarding drafts or credentials', () => {
   const source = new URL(`${ORIGIN}/`);
   source.searchParams.set('next', `${ORIGIN}/history?tab=recent&access_token=secret#tgWebAppData=secret`);
   source.searchParams.set('external', 'https://evil.example/?token=secret');
   source.searchParams.set('scheme', 'javascript:alert(1)');
   source.searchParams.set('encoded', encodeURIComponent(encodeURIComponent(`${ORIGIN}/trade?tgWebAppData=secret&market=ETH`)));
   const cleaned = new URL(sanitizeWalletTarget(source.href, ORIGIN));
-  assert.equal(cleaned.searchParams.get('next'), `${ORIGIN}/history?tab=recent`);
-  assert.equal(cleaned.searchParams.get('encoded'), `${ORIGIN}/trade?market=ETH`);
+  assert.equal(cleaned.searchParams.get('next'), null);
+  assert.equal(cleaned.searchParams.get('encoded'), null);
   assert.equal(cleaned.searchParams.has('external'), false);
   assert.equal(cleaned.searchParams.has('scheme'), false);
   assert.ok(!cleaned.href.includes('secret'));
@@ -295,7 +295,7 @@ test('MetaMask handoff uses the fixed official navigation endpoint with one enco
   const url = new URL(metaMaskBrowserLink(target, ORIGIN));
   assert.equal(url.origin, 'https://link.metamask.io');
   assert.ok(url.pathname.startsWith('/dapp/'));
-  assert.equal(decodeURIComponent(url.pathname.slice('/dapp/'.length)), 'fxaeon.example/trade?market=ETH#history');
+  assert.equal(decodeURIComponent(url.pathname.slice('/dapp/'.length)), 'fxaeon.example/trade');
   assert.equal(url.search, '');
   assert.equal(url.hash, '');
 });
@@ -323,4 +323,52 @@ test('captured trusted origin rejects a later origin substitution before opening
   assert.throws(() => host.openWallet());
   assert.deepEqual(state.opened, []);
   host.dispose();
+});
+
+test('named mobile handoffs and installation actions use only reviewed fixed HTTPS hosts', () => {
+  const source = `${ORIGIN}/app/?tgWebAppData=secret&amount=123#trade`;
+  const metamask = new URL(walletNavigation('wallet:metamask', source, ORIGIN, 'mobile'));
+  assert.equal(metamask.origin, 'https://link.metamask.io'); assert.equal(decodeURIComponent(metamask.pathname.slice(6)), 'fxaeon.example/app/');
+  const rabby = new URL(walletNavigation('wallet:rabby', source, ORIGIN, 'mobile'));
+  assert.equal(rabby.origin, 'https://go.rabby.io'); assert.equal(rabby.pathname, '/mobile/');
+  assert.equal(rabby.searchParams.get('_cmd'), 'open-dapp'); assert.equal(rabby.searchParams.get('dapp'), `${ORIGIN}/app/`);
+  assert.equal(walletNavigation('wallet:okx', source, ORIGIN, 'mobile'), 'https://web3.okx.com/download');
+  assert.equal(walletNavigation('wallet:coinbase', source, ORIGIN, 'mobile'), 'https://www.coinbase.com/wallet/downloads');
+  assert.equal(walletNavigation('wallet:metamask', source, ORIGIN, 'desktop'), 'https://metamask.io/download/');
+  assert.equal(walletNavigation('wallet:rabby', source, ORIGIN, 'unknown'), 'https://rabby.io/');
+  assert.throws(() => walletNavigation('https://evil.example', source, ORIGIN, 'mobile'));
+});
+
+test('unreviewed routes fall back to the app without forwarding path data', () => {
+  assert.equal(sanitizeWalletTarget(`${ORIGIN}/private-address-or-draft?token=secret#secret`, ORIGIN), `${ORIGIN}/app/`);
+});
+
+test('ordinary web bootstrap does not wait or load Telegram from platform hints or a stub', async () => {
+  const state = setup(`${ORIGIN}/?tgWebAppPlatform=android`, { initData: '', platform: 'android' });
+  const resolved = await resolveHostEnvironment(state.environment, 3);
+  assert.equal(resolved.resolvedKind, 'browser'); assert.equal(state.loadCount(), 0);
+  state.setBridge(new Telegram());
+  const host = createHost(resolved); assert.equal(host.kind, 'browser', 'Document host selection is fixed'); host.dispose();
+});
+
+test('a permitted native or exact-parent wait cannot establish Telegram without nonempty launch data', async () => {
+  const state = setup();
+  const resolved = await resolveHostEnvironment({ ...state.environment, mayRestoreTelegram: () => true }, 3);
+  assert.equal(state.loadCount(), 1); assert.equal(resolved.resolvedKind, 'browser');
+});
+
+test('bounded reload bootstrap recognizes launch data restored by the official bridge and retains only host mode', async () => {
+  const state = setup();
+  state.setLoader(async () => { state.setBridge(new Telegram()); });
+  const resolved = await resolveHostEnvironment({ ...state.environment, mayRestoreTelegram: () => true }, 20);
+  assert.equal(resolved.resolvedKind, 'telegram'); assert.equal(state.loadCount(), 1);
+  assert.equal(Object.values(resolved).some(value => value === 'host-only-test-value'), false);
+  const host = createHost(resolved); assert.equal(host.kind, 'telegram'); host.dispose();
+});
+
+test('launch-bearing bootstrap remains a Telegram host when the optional SDK cannot load, never authenticated', async () => {
+  const state = setup(`${ORIGIN}/#tgWebAppData=opaque`); state.setLoader(async () => { throw new Error('Offline'); });
+  const resolved = await resolveHostEnvironment(state.environment, 3);
+  assert.equal(resolved.resolvedKind, 'telegram');
+  assert.equal('authenticated' in resolved, false); assert.equal('initData' in resolved, false);
 });

@@ -1,6 +1,8 @@
 import type { HostPort } from '../domain/ports.ts';
 import { AppError } from '../domain/errors.ts';
-import { metaMaskBrowserLink } from './handoff.ts';
+import { metaMaskBrowserLink, walletNavigation } from './handoff.ts';
+import { walletPlatform } from '../wallet/catalog.ts';
+import type { WalletPlatform } from '../wallet/catalog.ts';
 
 type Method = (...args: unknown[]) => unknown;
 type Style = Pick<CSSStyleDeclaration, 'setProperty' | 'removeProperty' | 'getPropertyValue'>;
@@ -16,6 +18,10 @@ export interface HostEnvironment {
   readonly openExternal: (url: string) => void;
   readonly setAttribute: (name: string, value: string) => void;
   readonly loadTelegram?: () => Promise<void>;
+  readonly platform?: () => WalletPlatform;
+  /** A native bridge or exact Telegram iframe permits waiting, never login. */
+  readonly mayRestoreTelegram?: () => boolean;
+  readonly resolvedKind?: 'browser' | 'telegram';
 }
 
 function get(value: unknown, key: string): unknown {
@@ -88,7 +94,44 @@ function defaultEnvironment(): HostEnvironment {
     openExternal: url => { window.open(url, '_blank', 'noopener,noreferrer'); },
     setAttribute: (name, value) => document.documentElement.setAttribute(name, value),
     loadTelegram: () => loadOfficialTelegram(document),
+    mayRestoreTelegram: () => {
+      if (typeof get(get(window, 'TelegramWebviewProxy'), 'postEvent') === 'function') return true;
+      try { return window.top !== window && new URL(document.referrer).origin === 'https://web.telegram.org'; }
+      catch { return false; }
+    },
   };
+}
+
+/** Resolve the document's host once, before routing can replace a launch hash. */
+export async function resolveHostEnvironment(environment: HostEnvironment = defaultEnvironment(), maxWaitMs = 8_000): Promise<HostEnvironment> {
+  const present = () => hasTelegramLaunchData(environment.href(), environment.bridge());
+  const detected = present();
+  let mayWait = detected;
+  try { mayWait ||= environment.mayRestoreTelegram?.() === true; } catch { /* No evidence means ordinary web. */ }
+  if (!mayWait) return { ...environment, resolvedKind: 'browser' };
+  const limit = Number.isFinite(maxWaitMs) && maxWaitMs > 0 ? Math.min(maxWaitMs, 8_000) : 8_000;
+  if (detected && typeof get(environment.bridge(), 'onEvent') === 'function') return { ...environment, resolvedKind: 'telegram' };
+  let stop: (() => void) | undefined;
+  await new Promise<void>(resolve => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true; clearTimeout(timer); clearInterval(interval);
+      environment.events.removeEventListener('message', inspect);
+      resolve();
+    };
+    const inspect = () => { if (present() && typeof get(environment.bridge(), 'onEvent') === 'function') finish(); };
+    const timer = setTimeout(finish, limit);
+    const interval = setInterval(inspect, Math.min(25, limit));
+    stop = finish;
+    environment.events.addEventListener('message', inspect);
+    try { void environment.loadTelegram?.().then(inspect).catch(() => { if (detected) finish(); }); }
+    catch { if (detected) finish(); }
+    inspect();
+  });
+  stop?.();
+  // Only the boolean survives. No launch-bearing URL or signed payload is kept.
+  return { ...environment, resolvedKind: detected || present() ? 'telegram' : 'browser' };
 }
 
 function pixels(value: unknown, maximum = 16_384): number | null {
@@ -97,7 +140,7 @@ function pixels(value: unknown, maximum = 16_384): number | null {
 
 /** Browser layout remains usable if the optional Telegram API cannot load. */
 export function createHost(environment: HostEnvironment = defaultEnvironment()): HostPort {
-  const kind = hasTelegramLaunchData(environment.href(), environment.bridge()) ? 'telegram' : 'browser';
+  const kind = environment.resolvedKind ?? (hasTelegramLaunchData(environment.href(), environment.bridge()) ? 'telegram' : 'browser');
   // Retain the origin and host boolean only, never the launch-bearing href.
   let trustedOrigin = '';
   try { trustedOrigin = new URL(environment.href()).origin; } catch { /* Handoff fails closed. */ }
@@ -134,7 +177,7 @@ export function createHost(environment: HostEnvironment = defaultEnvironment()):
   function applyTheme(): void {
     if (disposed) return;
     environment.setAttribute('data-theme', theme);
-    const color = theme === 'dark' ? '#101412' : '#f5f4ee';
+    const color = theme === 'dark' ? '#0b0d0e' : '#fbfcfa';
     invoke(bridge, 'setHeaderColor', color);
     invoke(bridge, 'setBackgroundColor', color);
     invoke(bridge, 'setBottomBarColor', color);
@@ -207,9 +250,11 @@ export function createHost(environment: HostEnvironment = defaultEnvironment()):
     kind,
     setBackHandler(handler) { if (!disposed) { backHandler = handler; attachBridge(); updateBack(); } },
     setTheme(value) { if (!disposed) { theme = value; applyTheme(); } },
-    openWallet() {
+    openWallet(choiceId) {
       if (disposed) return;
-      const destination = metaMaskBrowserLink(environment.href(), trustedOrigin);
+      const destination = choiceId
+        ? walletNavigation(choiceId, environment.href(), trustedOrigin, environment.platform?.() ?? walletPlatform())
+        : metaMaskBrowserLink(environment.href(), trustedOrigin);
       const openLink = get(bridge, 'openLink');
       if (kind === 'telegram' && typeof openLink === 'function') {
         try { Reflect.apply(openLink as Method, bridge, [destination, { try_instant_view: false }]); }
