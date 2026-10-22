@@ -797,7 +797,6 @@ function VaultDetails({ config }: { config: SaveConfig | null }) {
 
 function VaultRiskNotice() {
   return <aside className={presentation.riskSummary} aria-label="fxSAVE risks">
-    <p>Capital is at risk. FxAeon is unaudited.</p>
     <nav aria-label="Protocol risk and audit resources">
       <a href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/stability-pool" target="_blank" rel="noopener noreferrer">Protocol risks<ExternalLink size={12} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
       <a href="https://fxprotocol.gitbook.io/fx-docs/risk-management/audit-reports" target="_blank" rel="noopener noreferrer">Protocol audits<ExternalLink size={12} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a>
