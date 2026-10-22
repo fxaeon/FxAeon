@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { collateralScenarioLtv } from '@/lib/borrowSensitivity';
 import { MetricLabel } from './InfoHelp';
 import { useChartWidth } from './useChartWidth';
@@ -30,7 +30,7 @@ export function BorrowSensitivity({ debt, collateralUsd, limitBps }: { debt: big
       <path d={curve} className={styles.trace} vectorEffect="non-scaling-stroke" />
       <circle cx={x(change)} cy={y(stressed)} r="4" className={styles.dot} vectorEffect="non-scaling-stroke" />
     </svg>
-    <input className={styles.slider} type="range" min={-30} max={30} step={1} value={change} aria-label="Illustrated collateral value change" aria-valuetext={`${scenario}, ${stressed.toFixed(2)}% loan-to-value`} onChange={event => setChange(Number(event.target.value))} />
+    <input className={`lever ${styles.slider}`} style={{ '--fill': `${(change + 30) / 60 * 100}%` } as CSSProperties} type="range" min={-30} max={30} step={1} value={change} aria-label="Illustrated collateral value change" aria-valuetext={`${scenario}, ${stressed.toFixed(2)}% loan-to-value`} onChange={event => setChange(Number(event.target.value))} />
     <div className={styles.dates}><span>−30%</span><span>0%</span><span>+30%</span></div>
     <p className={styles.note}>Price-only illustration. Funding, fees and protocol interventions are excluded.</p>
   </section>;
