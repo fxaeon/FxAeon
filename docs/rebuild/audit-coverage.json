@@ -1,0 +1,43 @@
+{
+  "baseline": "b69d9ce1be59f982fca3ac43a8b037f7037269d4",
+  "checkedAt": "2026-10-22",
+  "ledgers": [
+    {
+      "path": "docs/rebuild/delivery-behaviors.json",
+      "records": 348,
+      "statuses": {
+        "test-backed": 282,
+        "documented": 57,
+        "gap": 9
+      },
+      "sha256": "0773f64bd4412ebf708e841202e517add9ee33a2171fcac6f4cf79ed29b5bfd8"
+    },
+    {
+      "path": "docs/rebuild/product-behaviors.json",
+      "records": 1754,
+      "statuses": {
+        "test-backed": 1708,
+        "documented": 30,
+        "gap": 16
+      },
+      "sha256": "d594b4a6036bd464b37d6fd7aa9c28a622393da0f8ff570771b986a3217bc3fb"
+    },
+    {
+      "path": "docs/rebuild/security-behaviors.json",
+      "records": 1271,
+      "statuses": {
+        "test-backed": 1225,
+        "documented": 32,
+        "gap": 14
+      },
+      "sha256": "f6e42b73fb131b9de47b78c9211ddd6b3f0ae827bea755b7e26510c4ce83d794"
+    }
+  ],
+  "totalRecords": 3373,
+  "testFiles": 243,
+  "documentFiles": 46,
+  "unmappedTestFiles": [],
+  "unmappedDocumentFiles": [],
+  "baselineSourceHashesUnchanged": true,
+  "note": "File-level evidence coverage and schema/hash verification. Records overlap. Static declarations include groups/templates; source coverage is not execution or complete assertion-body review. Four deliberately vulnerable negative controls are not product requirements."
+}

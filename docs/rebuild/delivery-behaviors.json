@@ -1,0 +1,4242 @@
+[
+  {
+    "id": "DEL-0001",
+    "area": "Landing data lifecycle",
+    "requirement": "Only the newest overlapping market-data refresh may publish values.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: only the newest overlapping refresh may publish or schedule the next poll (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0002",
+    "area": "Landing data lifecycle",
+    "requirement": "Only the current refresh generation may schedule the next poll.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: only the newest overlapping refresh may publish or schedule the next poll (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0003",
+    "area": "Landing data lifecycle",
+    "requirement": "Returning a hidden page to the foreground must expire stale displayed metrics synchronously before its new network request completes.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: foreground resume expires old values synchronously before starting its request (declaration line 86)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0004",
+    "area": "Landing data lifecycle",
+    "requirement": "A successful foreground refresh may publish fresh data after the previous values have expired.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: foreground resume expires old values synchronously before starting its request (declaration line 86)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0005",
+    "area": "Landing data lifecycle",
+    "requirement": "Going offline must mark metrics unavailable and cancel polling timers.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: offline and stopped clients never publish cancelled responses or leave polling timers (declaration line 113)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0006",
+    "area": "Landing data lifecycle",
+    "requirement": "Responses from cancelled requests must never publish after the client goes offline.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: offline and stopped clients never publish cancelled responses or leave polling timers (declaration line 113)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0007",
+    "area": "Landing data lifecycle",
+    "requirement": "Returning online must resume refresh; stopping the client must cancel timers and prevent subsequent refresh results from publishing.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-client.test.mjs",
+        "anchor": "test title: offline and stopped clients never publish cancelled responses or leave polling timers (declaration line 113)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0008",
+    "area": "Landing market endpoint",
+    "requirement": "The landing market endpoint must accept GET only, return 405 with Allow: GET for other methods, and perform no upstream fetch for a rejected method.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: GET endpoint is fixed-source, rejects methods and query parameters before fetching (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0009",
+    "area": "Landing market endpoint",
+    "requirement": "The market endpoint must reject query parameters with 400 before any upstream request; callers cannot select a source.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: GET endpoint is fixed-source, rejects methods and query parameters before fetching (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0010",
+    "area": "Landing market endpoint",
+    "requirement": "The endpoint must request its two fixed, verified upstream sources in parallel.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: fetches verified sources in parallel and keeps only fixed upstream URLs (declaration line 41)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0011",
+    "area": "Landing market endpoint",
+    "requirement": "The endpoint must expose only normalized metrics from its fixed upstream URLs.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: fetches verified sources in parallel and keeps only fixed upstream URLs (declaration line 41)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0012",
+    "area": "Landing market endpoint",
+    "requirement": "The endpoint must not return an Access-Control-Allow-Origin header.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: fetches verified sources in parallel and keeps only fixed upstream URLs (declaration line 41)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0013",
+    "area": "Landing market endpoint",
+    "requirement": "Failure of one upstream must leave independently valid metrics from the other source available.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: partial upstream failure leaves the healthy source available (declaration line 65)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0014",
+    "area": "Landing market endpoint",
+    "requirement": "A partial result must return HTTP 200 with missing metrics null/unavailable and fixed per-source diagnostic categories.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: partial upstream failure leaves the healthy source available (declaration line 65)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0015",
+    "area": "Landing market endpoint",
+    "requirement": "The Cloudflare Worker global fetch function must retain its required receiver.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: uses Worker global fetch with its receiver and exposes only fixed diagnostic categories (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0016",
+    "area": "Landing market endpoint",
+    "requirement": "Upstream failures must be exposed only through fixed diagnostic categories, without leaking arbitrary upstream response text into the JSON body.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: uses Worker global fetch with its receiver and exposes only fixed diagnostic categories (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0017",
+    "area": "Landing market endpoint",
+    "requirement": "Upstream redirects must not be followed.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: does not follow upstream redirects and reports only their status category (declaration line 107)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0018",
+    "area": "Landing market endpoint",
+    "requirement": "A redirect failure must produce an unavailable metric and fixed HTTP-status category without disclosing its destination.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: does not follow upstream redirects and reports only their status category (declaration line 107)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0019",
+    "area": "Landing market endpoint",
+    "requirement": "Source reads may be cached for at most the configured interval, tested at 60 seconds.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: caches source reads for at most the configured interval and revalidates timestamps (declaration line 125)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0020",
+    "area": "Landing market endpoint",
+    "requirement": "Cached and newly fetched data must be revalidated against source timestamps; a fresh fetch cannot make an old source price fresh.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: caches source reads for at most the configured interval and revalidates timestamps (declaration line 125)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0021",
+    "area": "Landing market endpoint",
+    "requirement": "An oversized Content-Length must be rejected before reading the upstream body.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: rejects an oversized Content-Length before reading the body and caps chunked reads (declaration line 154)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0022",
+    "area": "Landing market endpoint",
+    "requirement": "Chunked upstream bodies must be limited by bytes read, with the body stream cancelled after the limit.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: rejects an oversized Content-Length before reading the body and caps chunked reads (declaration line 154)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0023",
+    "area": "Landing market endpoint",
+    "requirement": "The upstream deadline must include response-body consumption, not just receipt of response headers.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: deadline covers stalled response bodies and cancels the stream (declaration line 181)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0024",
+    "area": "Landing market endpoint",
+    "requirement": "A stalled response body must be cancelled and return an unavailable result within the bounded deadline.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data-server.test.mjs",
+        "anchor": "test title: deadline covers stalled response bodies and cancels the stream (declaration line 181)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0025",
+    "area": "Landing metric validity",
+    "requirement": "fxSAVE APY and TVL must be accepted only for the verified vault address 0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: normalizes verified fxSAVE APY/TVL and timestamped ETH/WBTC USD prices (declaration line 28)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0026",
+    "area": "Landing metric validity",
+    "requirement": "ETH and BTC display prices must derive from the fixed Ethereum WETH and WBTC asset identifiers, with provider identity and source timestamps preserved.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: normalizes verified fxSAVE APY/TVL and timestamped ETH/WBTC USD prices (declaration line 28)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0027",
+    "area": "Landing metric validity",
+    "requirement": "Normalized metrics must retain source URL, source identity, fetchedAt and applicable upstream sourceAt metadata.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: normalizes verified fxSAVE APY/TVL and timestamped ETH/WBTC USD prices (declaration line 28)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0028",
+    "area": "Landing metric validity",
+    "requirement": "An invalid or unavailable fxSAVE source must not invalidate independently valid token prices.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: keeps independently validated metrics when one upstream is unavailable or invalid (declaration line 42)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0029",
+    "area": "Landing metric validity",
+    "requirement": "A low-confidence BTC price must be rejected without suppressing independently valid ETH and vault metrics.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: keeps independently validated metrics when one upstream is unavailable or invalid (declaration line 42)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0030",
+    "area": "Landing metric validity",
+    "requirement": "Prices older than five minutes or more than two minutes in the future must be unavailable.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: rejects stale and future market prices without refreshing their source times (declaration line 54)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0031",
+    "area": "Landing metric validity",
+    "requirement": "Refreshing or normalizing a price must retain its upstream timestamp instead of substituting the local fetch time.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: rejects stale and future market prices without refreshing their source times (declaration line 54)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0032",
+    "area": "Landing metric validity",
+    "requirement": "Verified zero APY and zero TVL must remain valid numeric zero values.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: allows real zero APY or vault TVL and preserves percentage-point units (declaration line 66)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0033",
+    "area": "Landing metric validity",
+    "requirement": "APY must retain percentage-point units; a missing metric must not be silently converted to zero.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: allows real zero APY or vault TVL and preserves percentage-point units (declaration line 66)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0034",
+    "area": "Landing metric validity",
+    "requirement": "The browser must independently revalidate each metric's allowed source identity and source URL.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: browser validation enforces source identity, values, and per-feed freshness (declaration line 75)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0035",
+    "area": "Landing metric validity",
+    "requirement": "The browser must reject non-finite metric values.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: browser validation enforces source identity, values, and per-feed freshness (declaration line 75)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0036",
+    "area": "Landing metric validity",
+    "requirement": "The browser must expire each metric according to its own freshness metadata while retaining still-valid independent metrics.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/market-data.test.mjs",
+        "anchor": "test title: browser validation enforces source identity, values, and per-feed freshness (declaration line 75)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0037",
+    "area": "Landing brand and assets",
+    "requirement": "Landing metadata must identify English content, the dark theme, and canonical https://fxaeon.xyz/ with consistent social preview metadata.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: brand metadata, product artwork, and the official protocol mark stay in sync (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0038",
+    "area": "Landing brand and assets",
+    "requirement": "Required FxAeon, product and token artwork must resolve to local assets.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: brand metadata, product artwork, and the official protocol mark stay in sync (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0039",
+    "area": "Landing brand and assets",
+    "requirement": "Inter, Manrope and Poppins font assets must have their corresponding bundled license notices.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: brand metadata, product artwork, and the official protocol mark stay in sync (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0040",
+    "area": "Landing brand and assets",
+    "requirement": "The generated official f(x) protocol mark must match the canonical source mark byte for byte.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: brand metadata, product artwork, and the official protocol mark stay in sync (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0041",
+    "area": "Landing brand and assets",
+    "requirement": "Retired hero-field and hero-shader assets must not be shipped.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: brand metadata, product artwork, and the official protocol mark stay in sync (declaration line 62)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0042",
+    "area": "Landing navigation",
+    "requirement": "The landing must contain exactly one primary heading and four product cards: Trade, Earn, Borrow and Move.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the four product cards link to their web routes and the three-use calculator (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0043",
+    "area": "Landing navigation",
+    "requirement": "Each product card must have a heading, description and named link to its corresponding https://fxaeon.com route.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the four product cards link to their web routes and the three-use calculator (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0044",
+    "area": "Landing navigation",
+    "requirement": "The outcome calculator must expose Earn, Borrow and Trade as three accessible panels and tabs.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the four product cards link to their web routes and the three-use calculator (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0045",
+    "area": "Landing navigation",
+    "requirement": "The document must preserve hero, products and outcomes ordering plus the Telegram section and footer.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the four product cards link to their web routes and the three-use calculator (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0046",
+    "area": "Landing navigation",
+    "requirement": "Landing Telegram start parameters must exist in the financial application's canonical start-parameter route mapping.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the four product cards link to their web routes and the three-use calculator (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0047",
+    "area": "Landing navigation",
+    "requirement": "Product cards must not introduce extra details/summary disclosure controls.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the four product cards link to their web routes and the three-use calculator (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0048",
+    "area": "Landing calculator",
+    "requirement": "Live APY and TVL must start blank with an em dash, never with fabricated live values.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0049",
+    "area": "Landing calculator",
+    "requirement": "An accessible US-dollar amount input and $100, $1,000 and $10,000 presets must drive the calculator.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0050",
+    "area": "Landing calculator",
+    "requirement": "The landing Trade illustration must constrain leverage to 1.1–5 and express token exposure as dollar exposure divided by a valid ETH price.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0051",
+    "area": "Landing calculator",
+    "requirement": "The Earn illustration must use amount × (1 + APY / 100) for its annual projection and hide that projection when live APY is unavailable.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0052",
+    "area": "Landing calculator",
+    "requirement": "The landing Borrow calculator must calculate and display a 50% loan-to-value scenario.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "Marketing calculator math; this is not evidence of the protocol's executable borrowing limit."
+  },
+  {
+    "id": "DEL-0053",
+    "area": "Landing calculator",
+    "requirement": "The Trade illustration must show the gain and loss from a ±10% asset-price move using dollar exposure × 0.1.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0054",
+    "area": "Landing calculator",
+    "requirement": "Unavailable states must use explicit availability copy, while visible and accessible labels remain concise.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: calculator figures start blank where live data is required, use concise labels, and preserve their math (declaration line 121)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0055",
+    "area": "Landing navigation",
+    "requirement": "Web-app launch actions must remain available on every device.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: web app actions work on every device and Telegram remains an explicit choice (declaration line 154)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0056",
+    "area": "Landing navigation",
+    "requirement": "Telegram must remain an explicit separate launch choice rather than a user-agent or touch-detection redirect.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: web app actions work on every device and Telegram remains an explicit choice (declaration line 154)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0057",
+    "area": "Landing navigation",
+    "requirement": "Hero actions must place the web app before Telegram; the footer must retain a web-app link.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: web app actions work on every device and Telegram remains an explicit choice (declaration line 154)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0058",
+    "area": "Landing navigation",
+    "requirement": "New-tab external links must include noreferrer.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: web app actions work on every device and Telegram remains an explicit choice (declaration line 154)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0059",
+    "area": "Landing market presentation",
+    "requirement": "The hero must place the 'Powered By f(x) SDK' credit after its lede.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: hero credit, market metadata, and retry affordance stay quiet until needed (declaration line 169)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0060",
+    "area": "Landing market presentation",
+    "requirement": "The market refresh control must remain hidden during healthy idle operation, become available when data is unavailable, and be disabled while checking.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: hero credit, market metadata, and retry affordance stay quiet until needed (declaration line 169)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0061",
+    "area": "Landing market presentation",
+    "requirement": "Metric provenance must link to the official fxSAVE source and DefiLlama price source.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: hero credit, market metadata, and retry affordance stay quiet until needed (declaration line 169)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0062",
+    "area": "Landing market presentation",
+    "requirement": "Price source timestamps must be labelled as price updates, while vault retrieval time must be labelled as a check time.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: hero credit, market metadata, and retry affordance stay quiet until needed (declaration line 169)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0063",
+    "area": "Landing accessibility and motion",
+    "requirement": "The mobile menu must use one named native dialog, a named close control and an opener with correct aria-controls and aria-expanded state.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the menu stays keyboard accessible and the page enforces its single dark theme (declaration line 187)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0064",
+    "area": "Landing accessibility and motion",
+    "requirement": "The menu must open through showModal, close from its close control or a navigation link, and reset expanded state when closed.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the menu stays keyboard accessible and the page enforces its single dark theme (declaration line 187)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0065",
+    "area": "Landing accessibility and motion",
+    "requirement": "The landing must enforce its single dark theme and #101214 theme-color metadata.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the menu stays keyboard accessible and the page enforces its single dark theme (declaration line 187)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0066",
+    "area": "Landing accessibility and motion",
+    "requirement": "Legacy stored theme and motion preferences must be removed rather than overriding the current single-theme and system-motion policies.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the menu stays keyboard accessible and the page enforces its single dark theme (declaration line 187)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0067",
+    "area": "Landing accessibility and motion",
+    "requirement": "Motion behavior must follow prefers-reduced-motion initially and on preference changes.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the menu stays keyboard accessible and the page enforces its single dark theme (declaration line 187)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0068",
+    "area": "Landing accessibility and motion",
+    "requirement": "Reduced-motion styles must disable transitions and smooth scrolling; no separate motion or theme toggle is retained.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the menu stays keyboard accessible and the page enforces its single dark theme (declaration line 187)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0069",
+    "area": "Landing accessibility and CSP",
+    "requirement": "The landing must provide a skip link to main, visible keyboard focus, image alternatives and accessible button names.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: markup, local assets, and built headers meet accessibility and CSP requirements (declaration line 218)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0070",
+    "area": "Landing accessibility and CSP",
+    "requirement": "Landing markup must not contain inline styles, style elements or inline event handlers.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: markup, local assets, and built headers meet accessibility and CSP requirements (declaration line 218)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0071",
+    "area": "Landing accessibility and CSP",
+    "requirement": "Landing behavior must load from the approved local script/module entries; the retired aurora script must not load.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: markup, local assets, and built headers meet accessibility and CSP requirements (declaration line 218)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0072",
+    "area": "Landing accessibility and CSP",
+    "requirement": "The general static interaction script must not contain network APIs, dynamic import, eval or new Function.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: markup, local assets, and built headers meet accessibility and CSP requirements (declaration line 218)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0073",
+    "area": "Landing accessibility and CSP",
+    "requirement": "Every local asset URL in the built page must resolve.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: markup, local assets, and built headers meet accessibility and CSP requirements (declaration line 218)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0074",
+    "area": "Landing accessibility and CSP",
+    "requirement": "Landing response headers must enforce same-origin defaults, scripts, styles and connections, together with nosniff and one-year HSTS.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: markup, local assets, and built headers meet accessibility and CSP requirements (declaration line 218)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0075",
+    "area": "Landing build output",
+    "requirement": "Built landing launchers and product routes must use validated Telegram and web destinations.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0076",
+    "area": "Landing build output",
+    "requirement": "The generated Telegram QR must encode exactly the configured launcher.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0077",
+    "area": "Landing build output",
+    "requirement": "The build must retain required runtime modules, token artwork, local fonts and their licenses.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0078",
+    "area": "Landing build output",
+    "requirement": "The Pages route manifest must include only /api/market-data and must not ship the functions source directory into static dist.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0079",
+    "area": "Landing build output",
+    "requirement": "Unreferenced retired assets, including the unused USDC token asset, must stay out of the output.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0080",
+    "area": "Landing build output",
+    "requirement": "Landing robots and sitemap metadata must target only the marketing origin and root page.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0081",
+    "area": "Landing build output",
+    "requirement": "The static 404 must contain noindex, a heading and a working home link.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: built output includes safe Telegram routes, the exact QR, font licenses, crawl metadata, and static 404 (declaration line 250)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0082",
+    "area": "Landing launcher security",
+    "requirement": "Telegram launcher validation must accept only reviewed HTTPS t.me destinations with the expected bot/app path shape.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: launcher accepts reviewed Telegram URLs and rejects unsafe or ambiguous destinations (declaration line 271)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0083",
+    "area": "Landing launcher security",
+    "requirement": "Launcher validation must reject credentials, custom ports, fragments, foreign hosts, HTTP URLs, unknown query keys and duplicate startapp parameters.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: launcher accepts reviewed Telegram URLs and rejects unsafe or ambiguous destinations (declaration line 271)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0084",
+    "area": "Landing launcher security",
+    "requirement": "Launcher validation must reject injection characters and ambiguous destinations before the URL is embedded in HTML.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: launcher accepts reviewed Telegram URLs and rejects unsafe or ambiguous destinations (declaration line 271)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0085",
+    "area": "Landing launcher security",
+    "requirement": "A generated product deep link must replace the launcher's start parameter while preserving a configured /app path.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: launcher accepts reviewed Telegram URLs and rejects unsafe or ambiguous destinations (declaration line 271)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0086",
+    "area": "Landing launcher security",
+    "requirement": "Product start parameters must be lowercase safe identifiers of at most 32 characters and reject traversal, slashes, spaces, query syntax and quotes.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: launcher accepts reviewed Telegram URLs and rejects unsafe or ambiguous destinations (declaration line 271)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0087",
+    "area": "Landing QR integrity",
+    "requirement": "The dependency-free QR encoder must match qrcode.react module for module for configured launchers, all four correction levels and the tested payload sizes.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the Telegram QR encoder matches the app renderer module for module (declaration line 283)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0088",
+    "area": "Landing QR integrity",
+    "requirement": "Rendered QR output must include a four-module quiet zone and white background.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the Telegram QR encoder matches the app renderer module for module (declaration line 283)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0089",
+    "area": "Landing QR integrity",
+    "requirement": "QR SVG must contain no scripts, styles, inline style, event handlers or links.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the Telegram QR encoder matches the app renderer module for module (declaration line 283)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0090",
+    "area": "Landing standalone build",
+    "requirement": "The landing must build through node build.mjs without node_modules or a dependency install.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0091",
+    "area": "Landing standalone build",
+    "requirement": "A standalone landing source export must explicitly supply the sibling canonical protocol-mark asset needed by the build.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0092",
+    "area": "Landing standalone build",
+    "requirement": "The build must ship only referenced assets plus required license notices.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0093",
+    "area": "Landing standalone build",
+    "requirement": "Every browser entry and imported module must use the same deterministic 16-hex asset-version digest.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0094",
+    "area": "Landing standalone build",
+    "requirement": "Unchanged source must produce a stable version digest.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0095",
+    "area": "Landing standalone build",
+    "requirement": "Changing a leaf market-data module must invalidate entry-point and import URLs, including the static 404 stylesheet reference.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0096",
+    "area": "Landing icon integrity",
+    "requirement": "Checked-in receive, trade and earn icons must match the selected app Lucide renderer output.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: checked-in icons match the app renderer and preserve their license (declaration line 369)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0097",
+    "area": "Landing icon integrity",
+    "requirement": "The checked-in Lucide license must match the installed renderer package's normalized license.",
+    "evidence": [
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: checked-in icons match the app renderer and preserve their license (declaration line 369)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0098",
+    "area": "Build environment isolation",
+    "requirement": "Local-only build configuration coverage must be derived from the application's actual environment references rather than a silently stale handwritten list.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: the local-only variable list comes from the app source (declaration line 19)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0099",
+    "area": "Build environment isolation",
+    "requirement": "The production guard must reject every populated NEXT_PUBLIC_FX_SCREENSHOT_*, NEXT_PUBLIC_FX_LOCAL_FORK_* and NEXT_PUBLIC_FX_ANVIL_* prefix, including future variables in those families.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: the local-only variable list comes from the app source (declaration line 19)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0100",
+    "area": "Build environment isolation",
+    "requirement": "Deterministic browser verification must explicitly clear every configured RPC provider environment variable.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: deterministic browser verification clears every configured RPC provider (declaration line 39)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0101",
+    "area": "Build environment isolation",
+    "requirement": "Production configuration validation must accept the complete normal configuration and treat empty local-only values as unset.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: production validation accepts normal config and empty local-only variables (declaration line 46)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0102",
+    "area": "Build environment isolation",
+    "requirement": "A populated local-only build variable must make production validation fail.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: production validation rejects populated local-only build variables without printing values (declaration line 51)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0103",
+    "area": "Build environment isolation",
+    "requirement": "Production environment rejection messages may identify variable names but must not disclose their values.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: production validation rejects populated local-only build variables without printing values (declaration line 51)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0104",
+    "area": "Build environment isolation",
+    "requirement": "An optional Infura endpoint containing a placeholder project identifier must fail production validation before the production build.",
+    "evidence": [
+      {
+        "path": "scripts/build_environment.contract.test.mjs",
+        "anchor": "test title: optional Infura endpoints reject placeholder project identifiers before a production build (declaration line 61)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0105",
+    "area": "Deployment gas health",
+    "requirement": "A gas-health response must match the public Etherscan/Ethereum schema before the verifier reports configured: true.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: recognizes a valid public gas-oracle snapshot without logging its payload (declaration line 14)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0106",
+    "area": "Deployment gas health",
+    "requirement": "The health verifier must return an availability classification without returning or logging the source payload.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: recognizes a valid public gas-oracle snapshot without logging its payload (declaration line 14)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0107",
+    "area": "Deployment gas health",
+    "requirement": "The health request must use its configured URL with GET, redirect: error and cache: no-store.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: requests the configured oracle URL and reports the shared unavailable response without diagnosing its cause (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0108",
+    "area": "Deployment gas health",
+    "requirement": "The shared 'gas oracle unavailable' response must be reported as unavailable without claiming whether a missing binding or upstream failure caused it.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: requests the configured oracle URL and reports the shared unavailable response without diagnosing its cause (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0109",
+    "area": "Deployment gas health",
+    "requirement": "The legacy HTTP 502 form of the shared unavailable response must remain a non-configured result while old deployments drain.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: treats the shared unavailable response as not currently serving a valid snapshot (declaration line 34)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0110",
+    "area": "Deployment gas health",
+    "requirement": "An unrelated HTTP 503 response, malformed JSON or invalid public schema must fail the gas health check.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: fails closed for upstream failures, invalid schemas, and unrelated 503 responses (declaration line 38)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0111",
+    "area": "Deployment gas health",
+    "requirement": "A zero gas-price value must fail public gas schema validation.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: fails closed for upstream failures, invalid schemas, and unrelated 503 responses (declaration line 38)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0112",
+    "area": "Deployment gas health",
+    "requirement": "A required configured-oracle check must retry propagation only to its supplied bound and stop early when a valid response arrives.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: post-deploy health check retries propagation briefly and stops at its configured bound (declaration line 44)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0113",
+    "area": "Deployment gas health",
+    "requirement": "A required configured-oracle check must fail when the shared unavailable response persists through its attempt bound.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: post-deploy health check retries propagation briefly and stops at its configured bound (declaration line 44)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0114",
+    "area": "Deployment gas health",
+    "requirement": "The gas verifier must reject retry counts outside the allowed one-to-ten range.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.contract.test.mjs",
+        "anchor": "test title: post-deploy health check retries propagation briefly and stops at its configured bound (declaration line 44)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0115",
+    "area": "CSP artifact parsing",
+    "requirement": "The headers parser must find the global /* rule even when earlier header values occur inside the same rule block.",
+    "evidence": [
+      {
+        "path": "scripts/cloudflare_headers.contract.test.mjs",
+        "anchor": "test title: finds a global selector across earlier header values in the same rule block (declaration line 5)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0116",
+    "area": "CSP artifact parsing",
+    "requirement": "A route-specific CSP rule must not be mistaken for the required global /* CSP rule.",
+    "evidence": [
+      {
+        "path": "scripts/cloudflare_headers.contract.test.mjs",
+        "anchor": "test title: does not mistake a route-specific selector for the global CSP rule (declaration line 19)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0117",
+    "area": "Production deployment order",
+    "requirement": "Production release order must be configuration validation, full deterministic verification, production rebuild, artifact checks, revision stamp, optional gas-secret sync, Pages upload, deployed revision verification, gas checks, wallet configuration check and Telegram synchronization.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: production validation, deterministic verification, and deployment build are ordered (declaration line 19)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0118",
+    "area": "Build environment isolation",
+    "requirement": "The complete deterministic verification step must not receive protected production public Privy, RPC or Telegram values.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: complete verification has no production public variables in scope (declaration line 39)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0119",
+    "area": "Production build inputs",
+    "requirement": "The deployable artifact must be rebuilt with the protected production Privy ID, both primary Alchemy endpoints, the Data API key and Telegram launcher.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the deployed artifact is rebuilt with every required production public variable (declaration line 45)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0120",
+    "area": "Production build inputs",
+    "requirement": "The production rebuild must include every supplied secondary Alchemy and Infura endpoint for Ethereum and Base.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the deployed artifact is rebuilt with every required production public variable (declaration line 45)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0121",
+    "area": "Production deployment integrity",
+    "requirement": "The deployment job must run only on main with contents: read permission.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0122",
+    "area": "Production deployment integrity",
+    "requirement": "Production artifact validation must run the built frontend-secret scan, exact configured-RPC inclusion check and bundle budget check before upload.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0123",
+    "area": "Production deployment integrity",
+    "requirement": "The production artifact must receive a marker for the validated GITHUB_SHA.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0124",
+    "area": "Production deployment integrity",
+    "requirement": "Immediately before upload, the deployment must compare GITHUB_SHA to the remote main head and reject an obsolete candidate.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0125",
+    "area": "Production deployment integrity",
+    "requirement": "Upload must use Wrangler Pages with the verified apps/mini-app/dist artifact, project fxaeon, branch main and the exact commit hash.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0126",
+    "area": "Production deployment integrity",
+    "requirement": "Wrangler must execute from repository root so root Pages Functions accompany the static artifact.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0127",
+    "area": "Production deployment integrity",
+    "requirement": "The workflow must verify the deployed marker equals the candidate revision after upload.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0128",
+    "area": "Production deployment integrity",
+    "requirement": "Production deployment concurrency must use one fxaeon-production group with cancel-in-progress: false.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0129",
+    "area": "Production deployment integrity",
+    "requirement": "Cloudflare account and API credentials must come from CI secrets, and Wrangler telemetry must be disabled.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0130",
+    "area": "Production deployment integrity",
+    "requirement": "The optional Etherscan secret must be sent to Wrangler through stdin, never interpolated as a CLI argument.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0131",
+    "area": "Production deployment integrity",
+    "requirement": "Missing or unauthorized optional gas-secret synchronization must preserve deployment with explicit configured: false and the app's RPC fallback.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0132",
+    "area": "Production deployment integrity",
+    "requirement": "A configured: true gas-secret result must require a successful configured live-oracle check after deployment.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0133",
+    "area": "Production deployment integrity",
+    "requirement": "Gas-secret synchronization must precede the single Pages upload and must not trigger an unnecessary second deployment.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0134",
+    "area": "Production deployment integrity",
+    "requirement": "The Pages project configuration must identify fxaeon and apps/mini-app/dist.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0135",
+    "area": "Production deployment integrity",
+    "requirement": "The gas Pages Function must access Etherscan credentials from server environment only.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0136",
+    "area": "Production deployment integrity",
+    "requirement": "Cloudflare upload credentials must not become requirements of frontend public-environment validation.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0137",
+    "area": "Production deployment integrity",
+    "requirement": "Deployment must run its own complete verification rather than trusting an obsolete wait-for-check workflow.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the verified production artifact is revision-stamped and uploaded only for the current main head (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0138",
+    "area": "Deployment gas health",
+    "requirement": "The gas probe fallback must recognize only the explicit shared unavailable response, must not follow redirects or use caches, and must not log response bodies.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: gas-oracle probe accepts only the explicit missing-binding response for its fallback (declaration line 127)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0139",
+    "area": "Deployment gas health",
+    "requirement": "The gas probe's explicit unavailable response must not be interpreted as proof that the binding is absent.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: gas-oracle probe accepts only the explicit missing-binding response for its fallback (declaration line 127)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This test title still says 'missing-binding', but the implementation and gas-probe behavioral test deliberately use one response for both missing binding and upstream failure."
+  },
+  {
+    "id": "DEL-0140",
+    "area": "Production public configuration",
+    "requirement": "After revision verification, production must check the live wallet bundle for the protected expected public Privy ID and candidate revision context.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the published Cloudflare bundle is checked for the protected public wallet configuration (declaration line 136)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0141",
+    "area": "Production public configuration",
+    "requirement": "Production wallet and Telegram menu checks must target the fixed fxaeon.com app origin.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: the published Cloudflare bundle is checked for the protected public wallet configuration (declaration line 136)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0142",
+    "area": "Production public configuration",
+    "requirement": "The reserved local-development Privy application ID must be rejected from production builds.",
+    "evidence": [
+      {
+        "path": "scripts/deploy_workflow.contract.test.mjs",
+        "anchor": "test title: production validation keeps the local development Privy application out (declaration line 145)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0143",
+    "area": "Verification type coverage",
+    "requirement": "The E2E compiler's effective input set must include every TypeScript suite, fixture, harness and Playwright configuration, including .ts, .tsx, .mts and .cts.",
+    "evidence": [
+      {
+        "path": "scripts/e2e_typecheck.contract.test.mjs",
+        "anchor": "test title: E2E compiler includes every TypeScript suite, fixture, harness and Playwright config (declaration line 26)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0144",
+    "area": "Verification type coverage",
+    "requirement": "E2E typechecking must preserve strict checking and noEmit without noCheck or weakened strict sub-options.",
+    "evidence": [
+      {
+        "path": "scripts/e2e_typecheck.contract.test.mjs",
+        "anchor": "test title: E2E compiler preserves strict no-emit checking with an isolated incremental cache (declaration line 37)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0145",
+    "area": "Verification type coverage",
+    "requirement": "E2E and fork TypeScript compilers must use separate incremental cache files.",
+    "evidence": [
+      {
+        "path": "scripts/e2e_typecheck.contract.test.mjs",
+        "anchor": "test title: E2E compiler preserves strict no-emit checking with an isolated incremental cache (declaration line 37)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0146",
+    "area": "Verification type coverage",
+    "requirement": "Root release typechecking must run both the E2E coverage contract and the E2E compiler; full verification must invoke root typechecking.",
+    "evidence": [
+      {
+        "path": "scripts/e2e_typecheck.contract.test.mjs",
+        "anchor": "test title: release typecheck runs the E2E coverage contract and compiler (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0147",
+    "area": "CSP generation",
+    "requirement": "CSP generation for an isolated export directory must leave the default served export untouched.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: isolated export generation leaves the concurrently served default export untouched (declaration line 25)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0148",
+    "area": "CSP generation",
+    "requirement": "An isolated export directory must be a simple permitted name and must reject traversal paths.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: isolated export generation leaves the concurrently served default export untouched (declaration line 25)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0149",
+    "area": "CSP generation",
+    "requirement": "The HTTP CSP must fit the 2,000-character header-line limit and retain frame-ancestors.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: splits CSP into a short HTTP policy and a strict early per-document meta policy (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0150",
+    "area": "CSP generation",
+    "requirement": "The HTTP policy must omit default-src and script-src so it does not intersect incorrectly with per-document inline-script hashes.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: splits CSP into a short HTTP policy and a strict early per-document meta policy (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0151",
+    "area": "CSP generation",
+    "requirement": "Every document must receive a strict CSP meta policy with the approved script sources and no unsafe-inline script allowance.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: splits CSP into a short HTTP policy and a strict early per-document meta policy (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0152",
+    "area": "CSP generation",
+    "requirement": "The document CSP must contain exactly the deduplicated hashes of its own inline scripts.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: splits CSP into a short HTTP policy and a strict early per-document meta policy (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0153",
+    "area": "CSP generation",
+    "requirement": "The document CSP must omit unsupported meta directives: frame-ancestors, report-uri, report-to and sandbox.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: splits CSP into a short HTTP policy and a strict early per-document meta policy (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0154",
+    "area": "CSP generation",
+    "requirement": "The CSP meta element must follow charset and precede executable scripts or script preloads.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: splits CSP into a short HTTP policy and a strict early per-document meta policy (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0155",
+    "area": "CSP generation",
+    "requirement": "CSP generation must be idempotent and replace only its own marked CSP meta element.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: generation is idempotent and replaces only the generator-owned meta element (declaration line 76)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0156",
+    "area": "CSP generation",
+    "requirement": "Repeated generation must leave exactly one generated policy per document.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: generation is idempotent and replaces only the generator-owned meta element (declaration line 76)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0157",
+    "area": "CSP generation",
+    "requirement": "CSP generation must reject header lines longer than 2,000 characters.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: Cloudflare header contract rejects oversized lines and unmanaged CSP metas (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0158",
+    "area": "CSP generation",
+    "requirement": "The source headers must contain exactly one CSP header.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: Cloudflare header contract rejects oversized lines and unmanaged CSP metas (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0159",
+    "area": "CSP generation",
+    "requirement": "An unmanaged pre-existing CSP meta element must fail generation instead of being silently overwritten.",
+    "evidence": [
+      {
+        "path": "scripts/generate_csp_headers.contract.test.mjs",
+        "anchor": "test title: Cloudflare header contract rejects oversized lines and unmanaged CSP metas (declaration line 85)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0160",
+    "area": "Public discovery and disclosure",
+    "requirement": "Every financial-app sitemap URL must use fxaeon.com and resolve to an existing public page.",
+    "evidence": [
+      {
+        "path": "scripts/launch_readiness.test.mjs",
+        "anchor": "test title: app sitemap URLs resolve to public app pages and omit compatibility/login routes (declaration line 9)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0161",
+    "area": "Public discovery and disclosure",
+    "requirement": "The financial sitemap must omit compatibility aliases and login routes, including /portfolio, /login and /activity.",
+    "evidence": [
+      {
+        "path": "scripts/launch_readiness.test.mjs",
+        "anchor": "test title: app sitemap URLs resolve to public app pages and omit compatibility/login routes (declaration line 9)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0162",
+    "area": "Public discovery and disclosure",
+    "requirement": "The app robots file must point to its canonical sitemap.",
+    "evidence": [
+      {
+        "path": "scripts/launch_readiness.test.mjs",
+        "anchor": "test title: app sitemap URLs resolve to public app pages and omit compatibility/login routes (declaration line 9)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0163",
+    "area": "Public discovery and disclosure",
+    "requirement": "Privacy disclosure must be reachable from the docs page and app shell and use the shared document presentation.",
+    "evidence": [
+      {
+        "path": "scripts/launch_readiness.test.mjs",
+        "anchor": "test title: privacy disclosure remains reachable and accurately separates device and provider data (declaration line 24)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0164",
+    "area": "Public discovery and disclosure",
+    "requirement": "Privacy copy must distinguish browser storage and public blockchain visibility and must not make unsupported anonymity or legal-compliance promises.",
+    "evidence": [
+      {
+        "path": "scripts/launch_readiness.test.mjs",
+        "anchor": "test title: privacy disclosure remains reachable and accurately separates device and provider data (declaration line 24)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0165",
+    "area": "Public discovery and disclosure",
+    "requirement": "Privacy assets must resolve locally.",
+    "evidence": [
+      {
+        "path": "scripts/launch_readiness.test.mjs",
+        "anchor": "test title: privacy disclosure remains reachable and accurately separates device and provider data (declaration line 24)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0166",
+    "area": "Release revision proof",
+    "requirement": "Release revision identifiers must contain exactly 40 hexadecimal characters and be normalized to lowercase.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: revision validation requires exactly forty hexadecimal characters (declaration line 24)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0167",
+    "area": "Release revision proof",
+    "requirement": "Empty, short, overlong, non-hexadecimal and absent revision identifiers must be rejected.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: revision validation requires exactly forty hexadecimal characters (declaration line 24)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0168",
+    "area": "Release revision proof",
+    "requirement": "The revision writer must write only the validated revision object into apps/mini-app/dist/release.json.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: write emits only the validated revision into an existing mini-app dist directory (declaration line 31)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0169",
+    "area": "Release revision proof",
+    "requirement": "An invalid revision must not be stamped into the artifact.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: write emits only the validated revision into an existing mini-app dist directory (declaration line 31)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0170",
+    "area": "Release revision proof",
+    "requirement": "Revision stamping must fail when the production build directory does not already exist.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: write refuses to create a missing production build directory (declaration line 43)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0171",
+    "area": "Release revision proof",
+    "requirement": "The deployed-revision verifier must retry stale markers and succeed only on the requested exact revision.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify retries stale content and succeeds only on the requested revision (declaration line 49)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0172",
+    "area": "Release revision proof",
+    "requirement": "Revision probes must target https://fxaeon.com/release.json with a new cache-busting value on each attempt.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify retries stale content and succeeds only on the requested revision (declaration line 49)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0173",
+    "area": "Release revision proof",
+    "requirement": "Revision probes must reject redirects, bypass caches and omit credentials.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify retries stale content and succeeds only on the requested revision (declaration line 49)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0174",
+    "area": "Release revision proof",
+    "requirement": "A persistently stale deployed revision must fail after the bounded attempt count.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify never passes on persistent mismatch, malformed marker, redirect, or fetch failure (declaration line 73); nested case: stale revision"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0175",
+    "area": "Release revision proof",
+    "requirement": "Malformed release-marker JSON must fail after the bounded attempt count.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify never passes on persistent mismatch, malformed marker, redirect, or fetch failure (declaration line 73); nested case: malformed JSON"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0176",
+    "area": "Release revision proof",
+    "requirement": "A non-success release-marker HTTP status must fail even when its body contains the expected revision.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify never passes on persistent mismatch, malformed marker, redirect, or fetch failure (declaration line 73); nested case: non-success HTTP status"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0177",
+    "area": "Release revision proof",
+    "requirement": "A release-marker response flagged as redirected must fail.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify never passes on persistent mismatch, malformed marker, redirect, or fetch failure (declaration line 73); nested case: redirect response"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0178",
+    "area": "Release revision proof",
+    "requirement": "A release-marker response whose final URL has an unexpected origin must fail.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify never passes on persistent mismatch, malformed marker, redirect, or fetch failure (declaration line 73); nested case: unexpected final URL"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0179",
+    "area": "Release revision proof",
+    "requirement": "A network failure must not satisfy deployed-revision verification.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify never passes on persistent mismatch, malformed marker, redirect, or fetch failure (declaration line 73); nested case: fetch failure"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0180",
+    "area": "Release revision proof",
+    "requirement": "Release verification must enforce a finite timeout even when the fetch implementation ignores AbortSignal.",
+    "evidence": [
+      {
+        "path": "scripts/release_revision.test.mjs",
+        "anchor": "test title: verify has a bounded timeout even when the fetch implementation ignores abort (declaration line 93)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0181",
+    "area": "Fork safety and evidence",
+    "requirement": "The fork harness must mine idle blocks at a positive validated block interval, defaulting to one second, so receipt finality can progress without a second wallet action.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: fork harness enables deterministic idle blocks for strict finality (declaration line 12)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0182",
+    "area": "Fork safety and evidence",
+    "requirement": "The funded manual preview must use separate default Anvil and browser ports from automated fork proof: 8548/4326 versus 8547/4325.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: manual funded preview is isolated from the hidden automation defaults (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0183",
+    "area": "Fork safety and evidence",
+    "requirement": "The funded preview must use its own export directory so later automated builds cannot replace the served manual artifact.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: manual funded preview is isolated from the hidden automation defaults (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0184",
+    "area": "Fork safety and evidence",
+    "requirement": "The preview must identify itself as a local fork using disposable funds and must submit only to localhost.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: manual funded preview is isolated from the hidden automation defaults (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0185",
+    "area": "Fork safety and evidence",
+    "requirement": "The preview must clean up its owned session on browser close or disconnect.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: manual funded preview is isolated from the hidden automation defaults (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0186",
+    "area": "Fork safety and evidence",
+    "requirement": "The interactive preview must record submitted transactions and discover actual router-event recipients and position owners.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: manual funded preview is isolated from the hidden automation defaults (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0187",
+    "area": "Fork safety and evidence",
+    "requirement": "The preview must not run automated receipt-holding, tracing or test-group behavior.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: manual funded preview is isolated from the hidden automation defaults (declaration line 18)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0188",
+    "area": "Fork safety and evidence",
+    "requirement": "Browser, protocol and Earn proofs must validate the configured fork base using anvil_metadata.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: fork proofs validate the configured base through Anvil metadata (declaration line 44)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0189",
+    "area": "Fork safety and evidence",
+    "requirement": "A progressing fork head may exceed its pinned base block; proof must not require the current head to equal the base.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: fork proofs validate the configured base through Anvil metadata (declaration line 44)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0190",
+    "area": "Fork transaction proof",
+    "requirement": "The browser proof must re-review an expired quote before its first signature and stop after the bounded three preparation attempts.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof revalidates changed quotes before the first signature (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0191",
+    "area": "Fork transaction proof",
+    "requirement": "Read-only action details and read-only alternate sessions must never request a signature or send a transaction.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof revalidates changed quotes before the first signature (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0192",
+    "area": "Fork transaction proof",
+    "requirement": "The actual transaction sender, target and calldata must match the reviewed action details.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof revalidates changed quotes before the first signature (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0193",
+    "area": "Fork transaction proof",
+    "requirement": "The number of actual signatures must equal the reviewed transaction count.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof revalidates changed quotes before the first signature (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0194",
+    "area": "Fork transaction proof",
+    "requirement": "A later step must not request a signature until the preceding real submitted transaction's receipt is delivered.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof revalidates changed quotes before the first signature (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0195",
+    "area": "Fork transaction proof",
+    "requirement": "Receipt-delay testing may hold only the actual submitted receipt and must release every held response.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof revalidates changed quotes before the first signature (declaration line 53)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0196",
+    "area": "Fork transaction proof",
+    "requirement": "The browser proof may accept a partial-empty position presentation only after proving that every expected position was canonically closed.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.contract.test.mjs",
+        "anchor": "test title: browser proof accepts honest partial-empty state only after exhaustive close proof (declaration line 75)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0197",
+    "area": "Telegram release synchronization",
+    "requirement": "Telegram menu destinations must be constrained to the approved production static app origins.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync is constrained to the production static origin (declaration line 12)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0198",
+    "area": "Telegram release synchronization",
+    "requirement": "Bot synchronization must cover name, short description, description, command list and menu button with bounded requests.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync is constrained to the production static origin (declaration line 12)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0199",
+    "area": "Telegram release synchronization",
+    "requirement": "Unsupported bot commands must not be advertised.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync is constrained to the production static origin (declaration line 12)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0200",
+    "area": "Telegram release synchronization",
+    "requirement": "Each bot setting must be read, changed only when needed, and read back to verify persistence.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync clears unhandled commands and verifies every persisted setting (declaration line 27)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0201",
+    "area": "Telegram release synchronization",
+    "requirement": "Bot settings must be processed in sequence rather than racing dependent writes.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync clears unhandled commands and verifies every persisted setting (declaration line 27)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0202",
+    "area": "Telegram release synchronization",
+    "requirement": "Stale command registrations must be cleared.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync clears unhandled commands and verifies every persisted setting (declaration line 27)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0203",
+    "area": "Telegram release synchronization",
+    "requirement": "Descriptions and menu metadata must point to the actual product and docs routes.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync clears unhandled commands and verifies every persisted setting (declaration line 27)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0204",
+    "area": "Telegram release synchronization",
+    "requirement": "When all persisted bot settings already match, synchronization must perform no writes.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync makes no writes when every setting already matches (declaration line 78)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0205",
+    "area": "Telegram release synchronization",
+    "requirement": "A menu mismatch must cause at most one changed-setting write followed by bounded readback checks.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: persistent menu readback mismatch is bounded and has secret-free diagnostics (declaration line 103)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0206",
+    "area": "Telegram release synchronization",
+    "requirement": "Persistent mismatch diagnostics must describe categories without disclosing bot tokens or request URLs.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: persistent menu readback mismatch is bounded and has secret-free diagnostics (declaration line 103)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0207",
+    "area": "Telegram release synchronization",
+    "requirement": "A stalled Telegram request must time out, and the resulting error must exclude the bot token.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync bounds a stalled request and excludes the bot token from errors (declaration line 140)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0208",
+    "area": "Telegram release synchronization",
+    "requirement": "A failed persisted-setting readback must stop synchronization before later settings are written.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync stops before later writes when a readback mismatches (declaration line 156)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0209",
+    "area": "Telegram release synchronization",
+    "requirement": "A rejected Telegram write, including rate limiting, must fail synchronization and stop later writes.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: Telegram sync fails when a changed setting write is rejected (declaration line 174)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0210",
+    "area": "Telegram release synchronization",
+    "requirement": "An explicit Telegram menu URL must be validated before any API request is made.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: explicit Telegram menu URLs are validated before any API request (declaration line 190)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0211",
+    "area": "Telegram release synchronization",
+    "requirement": "The approved app origin must normalize its trailing slash consistently; a foreign menu destination must be rejected.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: explicit Telegram menu URLs are validated before any API request (declaration line 190)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0212",
+    "area": "Telegram release synchronization",
+    "requirement": "Production bot synchronization must occur only after Pages upload, exact revision verification and live wallet-configuration verification.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: deployment sync uses only the CI secret after Pages deploy (declaration line 202)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0213",
+    "area": "Telegram release synchronization",
+    "requirement": "The bot token must be provided only through the CI secret, never a NEXT_PUBLIC variable or logged output.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: deployment sync uses only the CI secret after Pages deploy (declaration line 202)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0214",
+    "area": "Telegram authentication sequencing",
+    "requirement": "Configured Telegram authentication must wait for the delayed bridge, restore the launch hash and settle before mounting the Privy provider.",
+    "evidence": [
+      {
+        "path": "scripts/telegram_bot_sync.contract.test.mjs",
+        "anchor": "test title: configured Telegram auth waits for a delayed bridge before mounting Privy (declaration line 215)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0215",
+    "area": "Architecture enforcement",
+    "requirement": "SDK-boundary detection must ignore SDK mentions in documentation strings, captions and comments.",
+    "evidence": [
+      {
+        "path": "scripts/verify_architecture.contract.test.mjs",
+        "anchor": "test title: architecture import detector ignores documentation copy (declaration line 5)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0216",
+    "area": "Architecture enforcement",
+    "requirement": "SDK-boundary detection must recognize static imports, type-only imports, re-exports, require calls, dynamic imports and import-type declarations.",
+    "evidence": [
+      {
+        "path": "scripts/verify_architecture.contract.test.mjs",
+        "anchor": "test title: architecture import detector catches direct module declarations (declaration line 12)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0217",
+    "area": "Production public configuration",
+    "requirement": "Every configured RPC endpoint must appear as a complete string literal in emitted browser JavaScript.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: all configured providers must appear as complete browser string literals (declaration line 40)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0218",
+    "area": "Production public configuration",
+    "requirement": "Every supplied optional provider endpoint must be checked independently even when primary provider endpoints are already present.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: each supplied optional endpoint is checked independently of the primary providers (declaration line 47)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0219",
+    "area": "Production public configuration",
+    "requirement": "Absent or empty optional provider inputs must remain optional.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: absent optional inputs stay optional and surrounding input whitespace is ignored (declaration line 56)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0220",
+    "area": "Production public configuration",
+    "requirement": "Whitespace around configured provider inputs must be trimmed before exact inclusion checks.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: absent optional inputs stay optional and surrounding input whitespace is ignored (declaration line 56)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0221",
+    "area": "Production public configuration",
+    "requirement": "Single-quoted and escaped-slash browser string literals must decode to the same configured endpoint.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: single quotes and escaped slashes retain the same configured endpoint (declaration line 71)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0222",
+    "area": "Production public configuration",
+    "requirement": "A longer replacement key sharing an expected prefix must not satisfy the configured endpoint check.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: a longer replacement key does not satisfy the configured key (declaration line 83)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0223",
+    "area": "Production public configuration",
+    "requirement": "Source maps, server output, HTML and manifest files must not count as proof that a configured provider was included in browser JavaScript.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: source maps, server output, HTML and manifests cannot satisfy browser inclusion (declaration line 89)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0224",
+    "area": "Production public configuration",
+    "requirement": "Missing or empty browser chunk output must fail provider inclusion validation even when optional configuration is absent.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: missing or empty browser output fails even when optional configuration is absent (declaration line 101)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0225",
+    "area": "Production public configuration",
+    "requirement": "The built-provider CLI must exit nonzero when a supplied endpoint is missing.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: CLI fails with names-only diagnostics when supplied endpoints are missing (declaration line 108)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0226",
+    "area": "Production public configuration",
+    "requirement": "Built-provider diagnostics must identify only variable names and counts, never the endpoint URLs or values.",
+    "evidence": [
+      {
+        "path": "scripts/verify_built_rpc_config.test.mjs",
+        "anchor": "test title: CLI fails with names-only diagnostics when supplied endpoints are missing (declaration line 108)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0227",
+    "area": "Frontend credential exclusion",
+    "requirement": "The frontend scanner must recognize Privy app-secret, Telegram bot-token, private-key-block and server-credential literal shapes.",
+    "evidence": [
+      {
+        "path": "scripts/verify_frontend_secrets.test.mjs",
+        "anchor": "test title: recognizes credential shapes without returning their values (declaration line 5)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0228",
+    "area": "Frontend credential exclusion",
+    "requirement": "Credential findings must return their categories without returning their secret values.",
+    "evidence": [
+      {
+        "path": "scripts/verify_frontend_secrets.test.mjs",
+        "anchor": "test title: recognizes credential shapes without returning their values (declaration line 5)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0229",
+    "area": "Frontend credential exclusion",
+    "requirement": "Public Privy identifiers, environment-variable references and arbitrary 64-hex values must not be falsely classified as server credentials.",
+    "evidence": [
+      {
+        "path": "scripts/verify_frontend_secrets.test.mjs",
+        "anchor": "test title: public identifiers and environment references are not credentials (declaration line 13)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0230",
+    "area": "Production public configuration",
+    "requirement": "The live public-configuration verifier must probe the explicit /portfolio wallet-app route relative to the validated app origin.",
+    "evidence": [
+      {
+        "path": "scripts/verify_live_public_config.contract.test.mjs",
+        "anchor": "test title: live public configuration verification probes the wallet app route (declaration line 7)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0231",
+    "area": "Production public configuration",
+    "requirement": "The live probe must check that route's deployment content for the expected Privy ID with candidate revision context.",
+    "evidence": [
+      {
+        "path": "scripts/verify_live_public_config.contract.test.mjs",
+        "anchor": "test title: live public configuration verification probes the wallet app route (declaration line 7)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0232",
+    "area": "Verification phase integrity",
+    "requirement": "The CI source phase must retain scope, architecture, landing build, lint, unit tests, dependency audit and landing-browser verification.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI source phase runs every source gate and no production/browser route suite (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0233",
+    "area": "Verification phase integrity",
+    "requirement": "The source phase must not run the production export or production-route browser suite.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI source phase runs every source gate and no production/browser route suite (declaration line 63)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0234",
+    "area": "Verification phase integrity",
+    "requirement": "Serial mode must retain every source gate while limiting child-process overlap to one.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: serial verification preserves source gates while limiting local process overlap to one (declaration line 72)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0235",
+    "area": "Verification phase integrity",
+    "requirement": "Serial mode must be accepted through the package-manager '-- --serial' argument form.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: serial verification preserves source gates while limiting local process overlap to one (declaration line 72)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0236",
+    "area": "Verification phase integrity",
+    "requirement": "The three isolated CI phases must partition all nine browser harnesses exactly once.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: isolated CI phases partition all nine browser harnesses exactly once (declaration line 82)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0237",
+    "area": "Verification phase integrity",
+    "requirement": "The nine isolated suites must cover Borrow, Move, Positions, Privy send, Trade, wallet-provider routing, mobile wallet, overlays and state lab.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: isolated CI phases partition all nine browser harnesses exactly once (declaration line 82)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0238",
+    "area": "Verification phase integrity",
+    "requirement": "Isolated phases must retain the same suites in serial mode without duplicating source checks or the production build.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: isolated CI phases partition all nine browser harnesses exactly once (declaration line 82)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0239",
+    "area": "Verification phase integrity",
+    "requirement": "Unknown verification phase arguments must fail with exit code 2 before launching any checks.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: unknown CI phases fail before launching checks (declaration line 104)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0240",
+    "area": "Verification phase integrity",
+    "requirement": "A failed scope check must preserve its failure exit status and prevent dependent source work.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: phase failures remain failures and stop dependent source work (declaration line 109)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0241",
+    "area": "Verification phase integrity",
+    "requirement": "A failed isolated-browser gate must remain a failing phase.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: phase failures remain failures and stop dependent source work (declaration line 109)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0242",
+    "area": "Verification phase integrity",
+    "requirement": "The CI build phase must retain landing build, production export, built-secret scan, strict typechecking and bundle checks.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI build phase keeps production gates while route E2E is sharded (declaration line 119)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0243",
+    "area": "Verification phase integrity",
+    "requirement": "The full default verification command must retain production-route browser checks in addition to build checks.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI build phase keeps production gates while route E2E is sharded (declaration line 119)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0244",
+    "area": "Verification phase integrity",
+    "requirement": "Serial build verification must reduce build-check concurrency to one and run production browser checks with one worker.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI build phase keeps production gates while route E2E is sharded (declaration line 119)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0245",
+    "area": "Verification phase integrity",
+    "requirement": "CI must run four production-route browser shards against the built artifact.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI build phase keeps production gates while route E2E is sharded (declaration line 119)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0246",
+    "area": "Verification phase integrity",
+    "requirement": "Artifact upload and download actions must be pinned to commit SHAs.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI build phase keeps production gates while route E2E is sharded (declaration line 119)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0247",
+    "area": "Verification phase integrity",
+    "requirement": "The CI summary job must require success from every source, build, production-browser and isolated-browser phase.",
+    "evidence": [
+      {
+        "path": "scripts/verify_phases.contract.test.mjs",
+        "anchor": "test title: CI build phase keeps production gates while route E2E is sharded (declaration line 119)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0248",
+    "area": "Static browser-test server",
+    "requirement": "The static browser-test server must resolve only routes present in the export manifest.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/test/e2e-serve.test.mjs",
+        "anchor": "test title: static export server only resolves manifest routes and preserves clean URL behavior (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0249",
+    "area": "Static browser-test server",
+    "requirement": "Clean routes, query-bearing routes, trailing slashes and nested index routes must return their correct exported HTML.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/test/e2e-serve.test.mjs",
+        "anchor": "test title: static export server only resolves manifest routes and preserves clean URL behavior (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0250",
+    "area": "Static browser-test server",
+    "requirement": "HTML responses must use no-store while versioned _next/static JavaScript assets receive immutable one-year caching and the appropriate content type.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/test/e2e-serve.test.mjs",
+        "anchor": "test title: static export server only resolves manifest routes and preserves clean URL behavior (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0251",
+    "area": "Static browser-test server",
+    "requirement": "Encoded traversal, slash/backslash traversal and malformed percent-encoding must be rejected during request-path normalization.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/test/e2e-serve.test.mjs",
+        "anchor": "test title: static export server only resolves manifest routes and preserves clean URL behavior (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0252",
+    "area": "Static browser-test server",
+    "requirement": "Traversal and unknown-route requests must return the actual static 404 document with HTTP 404.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/test/e2e-serve.test.mjs",
+        "anchor": "test title: static export server only resolves manifest routes and preserves clean URL behavior (declaration line 30)"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0253",
+    "area": "Dependency integrity",
+    "requirement": "Only the specifically verified braces@3.0.3 backport for GHSA-vfj7-8cjw-p6xm may be excepted at the high-severity threshold.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.test.mjs",
+        "anchor": "parameterized test case: verified backport is the only permitted high finding (case-table line 13; test(name) declaration line 20)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This named case is not enumerated by the static declaration inventory."
+  },
+  {
+    "id": "DEL-0254",
+    "area": "Dependency integrity",
+    "requirement": "Any other high-severity advisory must fail the dependency audit.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.test.mjs",
+        "anchor": "parameterized test case: another high advisory remains blocking (case-table line 14; test(name) declaration line 20)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This named case is not enumerated by the static declaration inventory."
+  },
+  {
+    "id": "DEL-0255",
+    "area": "Dependency integrity",
+    "requirement": "Any other critical-severity advisory must fail the dependency audit.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.test.mjs",
+        "anchor": "parameterized test case: another critical advisory remains blocking (case-table line 15; test(name) declaration line 20)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This named case is not enumerated by the static declaration inventory."
+  },
+  {
+    "id": "DEL-0256",
+    "area": "Dependency integrity",
+    "requirement": "The exception must not extend to another braces version.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.test.mjs",
+        "anchor": "parameterized test case: different vulnerable version remains blocking (case-table line 16; test(name) declaration line 20)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This named case is not enumerated by the static declaration inventory."
+  },
+  {
+    "id": "DEL-0257",
+    "area": "Dependency integrity",
+    "requirement": "Moderate findings must retain the existing audit severity threshold rather than being silently reclassified as blocking high findings.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.test.mjs",
+        "anchor": "parameterized test case: moderate findings retain the existing high threshold (case-table line 17; test(name) declaration line 20)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This named case is not enumerated by the static declaration inventory."
+  },
+  {
+    "id": "DEL-0258",
+    "area": "Dependency integrity",
+    "requirement": "A registry error response must fail the dependency audit.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.test.mjs",
+        "anchor": "parameterized test case: an error response cannot pass (case-table line 18; test(name) declaration line 20)"
+      }
+    ],
+    "status": "test-backed",
+    "notes": "This named case is not enumerated by the static declaration inventory."
+  },
+  {
+    "id": "DEL-0259",
+    "area": "Dependency integrity",
+    "requirement": "The temporary braces advisory exception must fail on or after 2026-11-03T00:00:00Z pending a fresh review.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.mjs",
+        "anchor": "expiry assertion at line 11"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0260",
+    "area": "Dependency integrity",
+    "requirement": "Persistent ignoreGhsas/ignoreCves exceptions must not be written into the pnpm workspace configuration.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.mjs",
+        "anchor": "global-exception guard and raw audit invocation"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0261",
+    "area": "Dependency integrity",
+    "requirement": "The advisory exception must first verify every locked braces version, all four installed dependency paths and hashes of the patched implementation files.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.mjs",
+        "anchor": "version, four resolver paths and expected file SHA-256 assertions"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0262",
+    "area": "Dependency integrity",
+    "requirement": "The installed backport must reject excessive string and AST depth across the affected APIs, including attempts to bypass maxDepth, while preserving valid depth and expansion behavior.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.mjs",
+        "anchor": "depth 101/4000, maxDepth bypass, AST and valid-expansion assertions"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0263",
+    "area": "Dependency integrity",
+    "requirement": "Registry audit must complete with a recognized report; unrecognized severities outside info/low/moderate must block unless the exact verified exception applies.",
+    "evidence": [
+      {
+        "path": "scripts/audit_dependencies.mjs",
+        "anchor": "result.status, report metadata and final severity classifier"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0264",
+    "area": "Dependency integrity",
+    "requirement": "Supply-chain CI must audit runtime and development dependencies and publish a CycloneDX JSON SBOM.",
+    "evidence": [
+      {
+        "path": ".github/workflows/supply-chain.yml",
+        "anchor": "audit and sbom jobs"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0265",
+    "area": "Dependency integrity",
+    "requirement": "Upstream SDK/skill drift must produce a review issue rather than automatically changing the pinned financial scope.",
+    "evidence": [
+      {
+        "path": ".github/workflows/fx-upgrade-monitor.yml",
+        "anchor": "Compare pinned upstream commits and Open review issue"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0266",
+    "area": "CI controls",
+    "requirement": "Build and verification must use Node 22, pnpm 11.19.0 and the frozen lockfile.",
+    "evidence": [
+      {
+        "path": "package.json",
+        "anchor": "engines and packageManager"
+      },
+      {
+        "path": ".github/workflows/ci.yml",
+        "anchor": "setup-node, pnpm/action-setup and install steps"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0267",
+    "area": "CI controls",
+    "requirement": "The required CI summary must fail when any needed phase fails, is skipped or is cancelled, instead of allowing an unrun phase to appear successful.",
+    "evidence": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "anchor": "verify job with always() and four result comparisons"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0268",
+    "area": "CI controls",
+    "requirement": "Source and build caches may accelerate checks, but each revision must still run the gates using configuration/toolchain fingerprints.",
+    "evidence": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "anchor": "Restore lint cache, Restore Next.js build cache and Restore isolated TypeScript caches"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0269",
+    "area": "CI controls",
+    "requirement": "Production-route E2E shards must consume the same uploaded static export, rather than independently rebuilding four potentially different artifacts.",
+    "evidence": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "anchor": "build upload and built-e2e download; E2E_BUILD=0"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0270",
+    "area": "CI controls",
+    "requirement": "A local machine with less than 12 GiB RAM must retain every gate while using serial verification scheduling.",
+    "evidence": [
+      {
+        "path": "scripts/verify.mjs",
+        "anchor": "constrainedLocal and serial"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0271",
+    "area": "CI controls",
+    "requirement": "Built-route E2E must reuse the artifact but start a fresh server, with E2E_BUILD=0 and E2E_REUSE_SERVER=0.",
+    "evidence": [
+      {
+        "path": "scripts/run_built_e2e.mjs",
+        "anchor": "spawnSync environment"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0272",
+    "area": "CI controls",
+    "requirement": "Release tags must complete full verification before the release job receives contents: write and creates a release.",
+    "evidence": [
+      {
+        "path": ".github/workflows/release.yml",
+        "anchor": "verify job, release.needs and job permissions"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0273",
+    "area": "CI controls",
+    "requirement": "The protected Anvil workflow must remain a separate manual job using a production environment, pinned Foundry and redacted proof-artifact uploads.",
+    "evidence": [
+      {
+        "path": ".github/workflows/anvil-fork.yml",
+        "anchor": "workflow_dispatch, ethereum-fork job and Upload redacted protocol proof"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0274",
+    "area": "CI controls",
+    "requirement": "Secret scanning, CodeQL and supply-chain checks must remain distinct automated controls, with commit-pinned third-party actions.",
+    "evidence": [
+      {
+        "path": ".github/workflows/gitleaks.yml",
+        "anchor": "Secret Scan job"
+      },
+      {
+        "path": ".github/workflows/codeql.yml",
+        "anchor": "Analyze JavaScript and TypeScript job"
+      },
+      {
+        "path": ".github/workflows/supply-chain.yml",
+        "anchor": "audit and sbom jobs"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0275",
+    "area": "Architecture enforcement",
+    "requirement": "Direct official-SDK imports must be confined to the façade and explicitly listed audited adapters.",
+    "evidence": [
+      {
+        "path": "scripts/verify_architecture.mjs",
+        "anchor": "directSdkAllowlist and isFacade checks"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0276",
+    "area": "Architecture enforcement",
+    "requirement": "Code outside the façade must not import the SDK singleton or invoke SDK/facade factories even through the barrel.",
+    "evidence": [
+      {
+        "path": "scripts/verify_architecture.mjs",
+        "anchor": "singleton import and getFxSdk/createFxSdkFacade checks"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0277",
+    "area": "Architecture enforcement",
+    "requirement": "Worker, SharedWorker, service-worker registration and importScripts usage must remain inside the allowed financial boundary.",
+    "evidence": [
+      {
+        "path": "scripts/verify_architecture.mjs",
+        "anchor": "worker constructor, service-worker and importScripts checks"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0278",
+    "area": "Bundle and browser security",
+    "requirement": "The complete static export must remain at or below 12 MiB.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "MAX_STATIC_BYTES and staticBytes comparison"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0279",
+    "area": "Bundle and browser security",
+    "requirement": "Total emitted JavaScript must remain at or below 8 MiB raw.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "MAX_JS_BYTES and jsBytes comparison"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0280",
+    "area": "Bundle and browser security",
+    "requirement": "The sum of per-file JavaScript gzip sizes at level 9 must remain at or below 3 MiB.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "MAX_JS_GZIP_BYTES and gzipSync level 9"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0281",
+    "area": "Bundle and browser security",
+    "requirement": "No single emitted JavaScript file may exceed 2 MiB.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "MAX_SINGLE_JS_BYTES and largest asset comparison"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0282",
+    "area": "Bundle and browser security",
+    "requirement": "Published static output must not contain source maps.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "sourceMaps and no-published-source-maps failure"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0283",
+    "area": "Bundle and browser security",
+    "requirement": "Emitted JavaScript must not include the prohibited hCaptcha/Sentry telemetry patterns.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "forbiddenTelemetryPattern"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0284",
+    "area": "Bundle and browser security",
+    "requirement": "Artifact inspection must validate every exported HTML document's single CSP, exact inline-script hash coverage and early placement, plus the single global header policy.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "verifyCspArtifacts and HTML iteration"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0285",
+    "area": "Bundle and browser security",
+    "requirement": "Built frontend secret scanning must inspect both mini-app and landing exports; source scanning must cover client source, public assets and landing source.",
+    "evidence": [
+      {
+        "path": "scripts/verify_frontend_secrets.mjs",
+        "anchor": "CLI targets and scanFrontend"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0286",
+    "area": "Build environment isolation",
+    "requirement": "Production validation must require clean HTTPS provider URLs on the approved Ethereum/Base Alchemy or Infura hosts and reject credential, port, query, fragment and endpoint-shape ambiguity.",
+    "evidence": [
+      {
+        "path": "scripts/validate_production_env.mjs",
+        "anchor": "assertAlchemyRpc and assertOptionalInfuraRpc"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0287",
+    "area": "Build environment isolation",
+    "requirement": "Production public inputs must reject placeholders; Privy IDs must reject whitespace and Data API keys and bot tokens must satisfy their structural formats.",
+    "evidence": [
+      {
+        "path": "scripts/validate_production_env.mjs",
+        "anchor": "requireValue, Privy check, assertAlchemyDataKey and assertTelegramBotToken"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0288",
+    "area": "Build environment isolation",
+    "requirement": "Production and preview configuration must keep local screenshot/fork/Anvil families unset in deployment dashboards as well as in process environment.",
+    "evidence": [
+      {
+        "path": "docs/deployment.md",
+        "anchor": "Build configuration; validator scope paragraph"
+      }
+    ],
+    "status": "documented",
+    "notes": "The validator inspects supplied process.env; it does not inspect dashboards or load Next.js .env files."
+  },
+  {
+    "id": "DEL-0289",
+    "area": "Production deployment integrity",
+    "requirement": "Production deployment must use the declared GitHub production environment.",
+    "evidence": [
+      {
+        "path": ".github/workflows/deploy-mini-app.yml",
+        "anchor": "jobs.deploy.environment"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0290",
+    "area": "Production deployment integrity",
+    "requirement": "Automatic production Git deployments must be disabled before enabling the verified-artifact release path, preventing an independent provider build from overwriting it.",
+    "evidence": [
+      {
+        "path": "docs/deployment.md",
+        "anchor": "Release workflow opening paragraph"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0291",
+    "area": "Production deployment integrity",
+    "requirement": "Financial and marketing Pages projects, roots, outputs and domains must remain independent.",
+    "evidence": [
+      {
+        "path": "docs/deployment.md",
+        "anchor": "two-site deployment table"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0292",
+    "area": "Production deployment integrity",
+    "requirement": "Pages preview builds must receive their own explicit public configuration and must not be assumed to inherit GitHub production secrets.",
+    "evidence": [
+      {
+        "path": "docs/deployment.md",
+        "anchor": "Build configuration; Cloudflare Git previews"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0293",
+    "area": "Production deployment integrity",
+    "requirement": "A rollback must select a known-good Pages deployment and be followed by a corrective main commit that restores repository/deployment agreement.",
+    "evidence": [
+      {
+        "path": "docs/deployment.md",
+        "anchor": "rollback paragraph"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0294",
+    "area": "Landing standalone build",
+    "requirement": "The landing Pages project must build from apps/landing with node build.mjs, use its own dist, skip dependency installation and retain its Node image pin.",
+    "evidence": [
+      {
+        "path": "apps/landing/wrangler.toml",
+        "anchor": "name, pages_build_output_dir and vars"
+      },
+      {
+        "path": "apps/landing/README.md",
+        "anchor": "Preview and build"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0295",
+    "area": "Landing standalone build",
+    "requirement": "Landing deployment must include apps/landing/functions/api/market-data.ts by deploying from the landing project root; a static-only dist upload does not provide its data endpoint.",
+    "evidence": [
+      {
+        "path": "apps/landing/README.md",
+        "anchor": "Preview and build; Pages Functions discovery"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0296",
+    "area": "Landing market endpoint",
+    "requirement": "The landing upstream request budget is eight seconds, a 256 KiB body cap and at most 60 seconds of cache retention.",
+    "evidence": [
+      {
+        "path": "apps/landing/market-data-server.mjs",
+        "anchor": "REQUEST_TIMEOUT_MS, MAX_RESPONSE_BYTES and CACHE_TTL_MS"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0297",
+    "area": "Landing metric validity",
+    "requirement": "Landing outcome math must remain display-only and must not be described as account balances, an executable quote, borrowing capacity or a liquidation estimate.",
+    "evidence": [
+      {
+        "path": "apps/landing/README.md",
+        "anchor": "Visual and performance notes; calculator scenario limits"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0298",
+    "area": "Landing market presentation",
+    "requirement": "The normal-condition 0% base-interest statement must retain fee and peg-stress qualifications and must not imply zero total borrowing cost.",
+    "evidence": [
+      {
+        "path": "apps/landing/README.md",
+        "anchor": "0% statement qualification"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0299",
+    "area": "Landing motion budget",
+    "requirement": "Decorative WebGL rendering must cap frame rate at 30 FPS and raster density at 1.5 device pixels per CSS pixel.",
+    "evidence": [
+      {
+        "path": "apps/landing/sculpture.js",
+        "anchor": "resize dpr cap and tick interval"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0300",
+    "area": "Fork safety and evidence",
+    "requirement": "The fork launcher must validate a clean HTTPS upstream, bind its disposable node to 127.0.0.1 and refuse already occupied local ports.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "assertForkUrl, assertLoopbackPortAvailable and anvilArgs"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0301",
+    "area": "Fork safety and evidence",
+    "requirement": "The spawned fork process must identify as Anvil on Ethereum chain ID 1 before tests start.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "waitForAnvil"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0302",
+    "area": "Fork safety and evidence",
+    "requirement": "Child test environments must remove production RPC, wallet, bot and deployment credentials, allowing only the explicitly designated local endpoints.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "scrubChildEnvironment"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0303",
+    "area": "Fork safety and evidence",
+    "requirement": "Fork output redaction must buffer incomplete stream lines so a credential split across chunks cannot bypass redaction.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "redacted and spawnWithRedaction pipe"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0304",
+    "area": "Fork safety and evidence",
+    "requirement": "Proof files must remain below the repository root and must reject upstream URLs and credential-shaped fields.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "resolveManifestPath, validateProtocolManifest and validateEarnManifest"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0305",
+    "area": "Fork safety and evidence",
+    "requirement": "A passing fork process must still fail release-evidence validation if its required position/Earn proof manifest is missing or incomplete.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "validateProtocolManifest, validateEarnManifest and successful-exit branch"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0306",
+    "area": "Fork safety and evidence",
+    "requirement": "Fork cleanup must stop only process trees owned by this run, stop test descendants before the fork, and execute on failure and termination signals.",
+    "evidence": [
+      {
+        "path": "scripts/run_anvil_tests.mjs",
+        "anchor": "stopOwnedProcessTree, cleanup and SIGINT/SIGTERM handlers"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0307",
+    "area": "Evidence provenance",
+    "requirement": "Source coverage, deterministic browser fixtures, local fork transactions and live production checks must be reported as separate kinds of evidence tied to their tested revisions.",
+    "evidence": [
+      {
+        "path": "docs/release-validation.md",
+        "anchor": "Historical source and test evidence; Latest deployed release; Release boundary"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0308",
+    "area": "Evidence provenance",
+    "requirement": "A successful automated browser or Ethereum fork run must not be claimed as native Telegram authentication, wallet handoff or actual Base bridge delivery.",
+    "evidence": [
+      {
+        "path": "docs/testing.md",
+        "anchor": "Protected Ethereum fork tests and final evidence limitation"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0309",
+    "area": "Evidence provenance",
+    "requirement": "Screenshot galleries must identify fixture context and do not substitute for transaction assertions.",
+    "evidence": [
+      {
+        "path": "docs/testing.md",
+        "anchor": "Screenshot evidence"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0310",
+    "area": "Evidence provenance",
+    "requirement": "Performance results must name the route, viewport, fixture delays, measurement boundaries and absence of live RPC/wallet/chain execution.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/e2e/performance-evidence.md",
+        "anchor": "Performance evidence; first paragraph's three stages and fixed harness delays"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0311",
+    "area": "Evidence provenance",
+    "requirement": "Historical timings without a before baseline must not be described as an improvement, production latency or physical-device results.",
+    "evidence": [
+      {
+        "path": "apps/mini-app/e2e/performance-evidence.md",
+        "anchor": "Performance evidence; desktop/mobile comparison and no before-change baseline"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0312",
+    "area": "Landing rendered accessibility",
+    "requirement": "Selected visible landing text must meet the browser test's computed contrast ratio of at least 4.5:1.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "assertTextContrast at line 62 and calls for hero, menu, outcomes and footer"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0313",
+    "area": "Landing rendered accessibility",
+    "requirement": "The rendered landing must have no horizontal page overflow at the tested widths 320, 360, 390, 430, 760, 820, 860, 861, 1024 and 1440 pixels.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "responsive width loop at line 324 and checkNoOverflow"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0314",
+    "area": "Landing rendered accessibility",
+    "requirement": "Interactive landing controls covered by the gate must remain at least 44 CSS pixels tall, with the footer launch control also at least 44 pixels wide.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "footerAppBox at line 159 and smallTargets at line 347"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0315",
+    "area": "Landing rendered accessibility",
+    "requirement": "Both web and Telegram launch actions and all four product links must remain visible and reachable across the viewport matrix.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "visibleRoutes assertions in responsive loop"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0316",
+    "area": "Landing rendered accessibility",
+    "requirement": "Mobile navigation must replace inline navigation at widths up to 760 pixels and preserve a full-width compact header.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "responsive breakpoint/header assertions at lines 329–338"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0317",
+    "area": "Landing rendered accessibility",
+    "requirement": "The rendered menu must contain keyboard focus, support forward and reverse traversal, close on Escape and restore focus to its opener.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "native dialog keyboard sequence at lines 272–304"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0318",
+    "area": "Landing rendered accessibility",
+    "requirement": "Menu section links must close the dialog and reach their actual anchor destination.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "section-link click at lines 305–311"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0319",
+    "area": "Landing rendered accessibility",
+    "requirement": "Amount entry must expose one visible focus ring, while preset-button focus must not falsely outline the amount container.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "amount focus assertions at lines 196–201"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0320",
+    "area": "Landing rendered accessibility",
+    "requirement": "Outcome tabs must support ArrowRight and End keyboard navigation.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "keyboard tab sequence at lines 204–209"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0321",
+    "area": "Landing calculator behavior",
+    "requirement": "Blank, zero, negative, scientific-notation, over-limit and malformed decimal/grouped amounts must set aria-invalid, expose an error and clear the result.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "invalid amount loop at line 217"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0322",
+    "area": "Landing calculator behavior",
+    "requirement": "Valid two-decimal amounts, presets and leverage changes must update the rendered outcome values correctly.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "fixture calculation assertions at lines 190–227"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0323",
+    "area": "Landing data lifecycle",
+    "requirement": "Partial, stale and failed feeds must hide unavailable Earn projections without erasing a still-valid Trade price.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "partial/stale/offline/ready mode loop at line 230"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0324",
+    "area": "Landing data lifecycle",
+    "requirement": "Metrics must visibly expire while the page remains open, and explicit retry must recover fresh values and hide the retry control again.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "clock expiry and refresh assertions at lines 254–267"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0325",
+    "area": "Landing data lifecycle",
+    "requirement": "Publishing a data update must preserve the user's focused amount field.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "fxaeon:market-data event and focus assertion at lines 268–270"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0326",
+    "area": "Landing rendered motion",
+    "requirement": "Reduced motion must render a complete sculpture still without a continuing WebGL loop.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "draw count assertions at lines 149–152"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0327",
+    "area": "Landing rendered motion",
+    "requirement": "Enabled decorative motion must produce actual rendered pixel changes while leaving the hero headline still.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "heroMotion and canvas screenshot comparison at lines 362–372"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0328",
+    "area": "Landing rendered motion",
+    "requirement": "The sculpture must stop rendering when the document is hidden and when the artwork is offscreen.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "visibility and offscreen draw counts at lines 373–391"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0329",
+    "area": "Landing rendered motion",
+    "requirement": "Decorative CSS motion must pause outside its visible section and respond immediately to system reduced-motion changes.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "chart/footer visibility and media preference checks at lines 384–408"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0330",
+    "area": "Landing rendered motion",
+    "requirement": "A reduced-motion preference must disable smooth scrolling, button transition duration and CSS animations.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "reduced styles at lines 351–358"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0331",
+    "area": "Landing graphics fallback",
+    "requirement": "WebGL context loss must reveal the responsive still image and hide the canvas.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "WEBGL_lose_context assertions at lines 461–466"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0332",
+    "area": "Landing graphics fallback",
+    "requirement": "No-WebGL, save-data and disabled-JavaScript modes must display a loaded responsive still at phone and desktop widths.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "fallback mode loop at lines 468–488"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0333",
+    "area": "Landing graphics fallback",
+    "requirement": "Graphics fallbacks must preserve launch actions and avoid horizontal overflow.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "visibleRoutes and checkNoOverflow inside fallback loop"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0334",
+    "area": "Landing runtime integrity",
+    "requirement": "The landing browser gate must report no page errors, missing assets or external browser requests.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "errors, failedResponses and externalRequests assertions at lines 435–437"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0335",
+    "area": "Landing evidence provenance",
+    "requirement": "Generated landing screenshots must include a fixture note naming their deterministic values and stating that they are not current market data.",
+    "evidence": [
+      {
+        "path": "scripts/verify_landing_browser.mjs",
+        "anchor": "fixture-note.txt write at line 459"
+      }
+    ],
+    "status": "test-backed"
+  },
+  {
+    "id": "DEL-0336",
+    "area": "Audit gap or decision",
+    "requirement": "Testing documentation must be reconciled with the current nine-harness partition and bounded parallel execution.",
+    "evidence": [
+      {
+        "path": "docs/testing.md",
+        "anchor": "Browser checks have separate gates; seven harnesses; sequential statement"
+      },
+      {
+        "path": "scripts/verify.mjs",
+        "anchor": "isolatedBrowserChecks, isolatedGroups and runLimited concurrency"
+      },
+      {
+        "path": "docs/browser-test-gates.md",
+        "anchor": "gate table and sequential execution paragraph"
+      }
+    ],
+    "status": "gap",
+    "notes": "Current scripts/verify.mjs has nine harnesses and concurrency two (or one in serial mode). docs/browser-test-gates.md also omits the wallet-provider and mobile-wallet rows."
+  },
+  {
+    "id": "DEL-0337",
+    "area": "Audit gap or decision",
+    "requirement": "The live wallet-configuration probe needs behavioral failure-path evidence before being treated as strong deployed-artifact provenance proof.",
+    "evidence": [
+      {
+        "path": "scripts/verify_live_public_config.contract.test.mjs",
+        "anchor": "single source-regex test at line 7"
+      },
+      {
+        "path": "scripts/verify_live_public_config.mjs",
+        "anchor": "fetchText and deploymentContains"
+      }
+    ],
+    "status": "gap",
+    "notes": "The current test asserts three source strings. verify_live_public_config.mjs uses substring inclusion and default fetch redirect handling; its revision query is cache context, not proof binding every fetched chunk to that revision. New runtime tests should cover false/stale matches, redirects, unexpected final origins and bounded body completion."
+  },
+  {
+    "id": "DEL-0338",
+    "area": "Audit gap or decision",
+    "requirement": "Gas-health reporting must distinguish schema validity from a freshness guarantee.",
+    "evidence": [
+      {
+        "path": "scripts/check_live_gas_oracle.mjs",
+        "anchor": "inspectGasOracleResponse"
+      }
+    ],
+    "status": "gap",
+    "notes": "The verifier accepts any boolean stale value and nonnegative safe-integer fetchedAt; it does not reject stale=true or compare age to the current clock. Do not claim that this health check independently proves a current gas estimate."
+  },
+  {
+    "id": "DEL-0339",
+    "area": "Audit gap or decision",
+    "requirement": "The current full verification run must pass before build/browser/release readiness is claimed.",
+    "evidence": [
+      {
+        "path": "scripts/verify.mjs",
+        "anchor": "sourceResult failure exit before build phase"
+      }
+    ],
+    "status": "gap",
+    "notes": "Root reported full pnpm verify exit 1 from a registry audit timeout; unit/chaos results were 1,611 pass, four fork skips, zero failures. Build and browser gates were not reached. This agent did not rerun these gates."
+  },
+  {
+    "id": "DEL-0340",
+    "area": "Audit gap or decision",
+    "requirement": "Browser and fork evidence must record actual runtime versions and any deviations from the pinned release environment.",
+    "evidence": [
+      {
+        "path": ".github/workflows/anvil-fork.yml",
+        "anchor": "foundry version v1.8.1"
+      },
+      {
+        "path": ".github/workflows/ci.yml",
+        "anchor": "Playwright Chromium install steps"
+      }
+    ],
+    "status": "gap",
+    "notes": "Root reported pinned Chromium 156 download truncation, a working Chromium 153.0.8010.0 executablePath fallback, and local Anvil 1.7.1 versus CI 1.8.1. These are setup facts, not passing browser or fork proof."
+  },
+  {
+    "id": "DEL-0341",
+    "area": "Audit gap or decision",
+    "requirement": "Protected fork acceptance requires a successful authorized read-only upstream and redacted proof manifests for the actual candidate.",
+    "evidence": [
+      {
+        "path": "docs/testing.md",
+        "anchor": "Protected Ethereum fork tests"
+      }
+    ],
+    "status": "gap",
+    "notes": "Root reported the tested Publicnode read-only RPC returned HTTP 403. No current fork evidence was available at this audit milestone; historical manifests must not fill that gap."
+  },
+  {
+    "id": "DEL-0342",
+    "area": "Audit gap or decision",
+    "requirement": "GitHub protection settings and Cloudflare production deployment exclusivity require separate release-time verification.",
+    "evidence": [
+      {
+        "path": "docs/deployment.md",
+        "anchor": "Release workflow prerequisites"
+      },
+      {
+        "path": ".github/workflows/deploy-mini-app.yml",
+        "anchor": "jobs.deploy.environment and current-main upload guard"
+      }
+    ],
+    "status": "gap",
+    "notes": "Source declares a production environment and documents disabling automatic production Git deployments; this audit did not inspect remote environment reviewers, branch protections, dashboard settings or provider origin restrictions."
+  },
+  {
+    "id": "DEL-0343",
+    "area": "Audit gap or decision",
+    "requirement": "Static asset budgets must not be presented as measured responsiveness or a production performance improvement.",
+    "evidence": [
+      {
+        "path": "scripts/check_bundle_size.mjs",
+        "anchor": "numeric size budgets"
+      },
+      {
+        "path": "apps/mini-app/e2e/performance-evidence.md",
+        "anchor": "fixture delays and no comparable before-change baseline"
+      }
+    ],
+    "status": "gap",
+    "notes": "The size guardrails are source-enforced release limits. Current device/network performance and a comparable before baseline are not established by them."
+  },
+  {
+    "id": "DEL-0344",
+    "area": "Audit gap or decision",
+    "requirement": "The landing's sibling canonical-mark dependency must be decided explicitly if the rebuild separates its source tree.",
+    "evidence": [
+      {
+        "path": "apps/landing/build.mjs",
+        "anchor": "asset source for assets/fx-protocol.svg"
+      },
+      {
+        "path": "apps/landing/test/static.test.mjs",
+        "anchor": "test title: the standalone build needs no node_modules and ships only referenced assets (declaration line 304)"
+      }
+    ],
+    "status": "gap",
+    "notes": "The dependency-free build test supplies ../mini-app/public/brand/fx-official-mark.svg. No node_modules is required, but a bare landing directory without that asset is not self-contained."
+  },
+  {
+    "id": "DEL-0345",
+    "area": "Repository contribution contract",
+    "requirement": "Development must use the pinned toolchain and frozen lock, keep public build keys distinct from server secrets, and restrict local RPC configuration to explicit fork builds.",
+    "evidence": [
+      {
+        "path": "SETUP.md",
+        "anchor": "Requirements; Run the app; Verify a change"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0346",
+    "area": "Repository contribution contract",
+    "requirement": "Financial changes must preserve explicit wallet authorization, fresh review context and fail-stop execution semantics; local storage remains a recovery hint and display data is separate from transaction authority.",
+    "evidence": [
+      {
+        "path": "CONTRIBUTING.md",
+        "anchor": "Before opening a change; Workspace map; Transaction changes"
+      }
+    ],
+    "status": "documented",
+    "notes": "Delivery classification only; the product/security ledgers contain the atomic transaction requirements."
+  },
+  {
+    "id": "DEL-0347",
+    "area": "Release review",
+    "requirement": "Production release review must require full verification, relevant protected fork proof, explicit configuration review and separate evidence for native Telegram or bridge claims.",
+    "evidence": [
+      {
+        "path": "docs/launch-readiness.md",
+        "anchor": "Release checklist"
+      }
+    ],
+    "status": "documented"
+  },
+  {
+    "id": "DEL-0348",
+    "area": "Release review",
+    "requirement": "The pull-request review template must continue to ask for a change description, test/type/lint evidence, documentation updates and self-review.",
+    "evidence": [
+      {
+        "path": ".github/pull_request_template.md",
+        "anchor": "Description, Testing and Checklist"
+      }
+    ],
+    "status": "documented",
+    "notes": "This template is a review prompt; its checked boxes are not a machine-enforced release gate."
+  }
+]

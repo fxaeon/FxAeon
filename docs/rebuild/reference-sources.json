@@ -1,0 +1,576 @@
+{
+  "researchedAt": "2026-10-22",
+  "scope": "Targeted read-only source inspection, relevant ranges of 38 files. No live UI inspection or execution of reference apps. No reference application code copied. Financial/protocol mechanics require separate authoritative f(x) verification.",
+  "items": [
+    {
+      "requested": "jumperexchange/jumper-exchange",
+      "repo": "jumperexchange/jumper-exchange",
+      "areas": [
+        "Move",
+        "History",
+        "design system",
+        "CI"
+      ],
+      "observed": [
+        "Source and destination token amounts use the same display field primitive.",
+        "Processing cards preserve token and chain identities, status, description and an optional timer.",
+        "Mobile history reuses column definitions while composing stacked sections.",
+        "CI builds once, shares the production build across Playwright shards, and merges reports."
+      ],
+      "adopt": [
+        "Give Move an explicit from/to summary and a persistent progress record.",
+        "Use the same semantic transaction record in responsive desktop rows and mobile cards.",
+        "Test the same production build that reviewers inspect."
+      ],
+      "avoid": [
+        "Repository is archived; source patterns are not evidence of the current deployed Jumper experience.",
+        "Do not copy its widget dependency stack, partner themes or cross-chain routing mechanics into f(x).",
+        "Do not show timer precision without a reliable estimate."
+      ],
+      "commit": "eee099c8390dc8841179f80eaed027756a447e66",
+      "archived": true,
+      "sources": [
+        {
+          "path": "src/components/composite/JumperWidget/components/Summary.tsx",
+          "url": "https://github.com/jumperexchange/jumper-exchange/blob/eee099c8390dc8841179f80eaed027756a447e66/src/components/composite/JumperWidget/components/Summary.tsx"
+        },
+        {
+          "path": "src/components/composite/cards/ProcessingTransactionCard/ProcessingTransactionCard.tsx",
+          "url": "https://github.com/jumperexchange/jumper-exchange/blob/eee099c8390dc8841179f80eaed027756a447e66/src/components/composite/cards/ProcessingTransactionCard/ProcessingTransactionCard.tsx"
+        },
+        {
+          "path": "src/components/composite/TransactionTable/components/TransactionSummaryRowMobile.tsx",
+          "url": "https://github.com/jumperexchange/jumper-exchange/blob/eee099c8390dc8841179f80eaed027756a447e66/src/components/composite/TransactionTable/components/TransactionSummaryRowMobile.tsx"
+        },
+        {
+          "path": ".github/workflows/playwright.yml",
+          "url": "https://github.com/jumperexchange/jumper-exchange/blob/eee099c8390dc8841179f80eaed027756a447e66/.github/workflows/playwright.yml"
+        }
+      ]
+    },
+    {
+      "requested": "aave/interface",
+      "repo": "aave/interface",
+      "areas": [
+        "Borrow",
+        "Earn",
+        "Positions",
+        "History",
+        "design system",
+        "performance"
+      ],
+      "observed": [
+        "Overview fields support before/after values, token/USD amounts and per-field loading placeholders.",
+        "The action wrapper distinguishes approval and main-action state and blocks on wrong network, missing amount, pending data and action-blocking errors.",
+        "History adapts into stacked cards and memoizes stable transaction rows."
+      ],
+      "adopt": [
+        "Use common amount, cost and before/after primitives across transaction reviews.",
+        "Drive the action button from transaction state and verified prerequisites.",
+        "Keep one normalized history entry with responsive presentation."
+      ],
+      "avoid": [
+        "Do not import Aave health-factor math or liquidation thresholds into f(x).",
+        "Do not reproduce a pair of stacked approval/action buttons if FxAeon's agreed design calls for a single changing primary button.",
+        "Do not turn unknown fee data into a displayed zero."
+      ],
+      "commit": "10ee93718548922a87324d9861cb90dcda70415b",
+      "archived": false,
+      "sources": [
+        {
+          "path": "src/components/transactions/FlowCommons/TxModalDetails.tsx",
+          "url": "https://github.com/aave/interface/blob/10ee93718548922a87324d9861cb90dcda70415b/src/components/transactions/FlowCommons/TxModalDetails.tsx"
+        },
+        {
+          "path": "src/components/transactions/TxActionsWrapper.tsx",
+          "url": "https://github.com/aave/interface/blob/10ee93718548922a87324d9861cb90dcda70415b/src/components/transactions/TxActionsWrapper.tsx"
+        },
+        {
+          "path": "src/modules/history/TransactionRowItem.tsx",
+          "url": "https://github.com/aave/interface/blob/10ee93718548922a87324d9861cb90dcda70415b/src/modules/history/TransactionRowItem.tsx"
+        }
+      ]
+    },
+    {
+      "requested": "balancer/frontend-monorepo",
+      "repo": "balancer/frontend-monorepo",
+      "areas": [
+        "Trade",
+        "Earn",
+        "transaction system",
+        "CI",
+        "performance"
+      ],
+      "observed": [
+        "Transaction state separates preparing/simulation, waiting for wallet, confirming, completed and errors.",
+        "Quote refetches are frozen during wallet confirmation, chain confirmation, completion and error.",
+        "Approval logic distinguishes native assets, required amount, requested amount and reset-to-zero tokens.",
+        "CI separates lint, types/unit, integration, production smoke and fixed-block Anvil-backed browser tests."
+      ],
+      "adopt": [
+        "Use an explicit transaction state machine shared across features.",
+        "Keep the accepted review snapshot stable while signing and confirming; separately enforce freshness before sending.",
+        "Derive the exact approval steps from on-chain allowance and token behavior.",
+        "Use reproducible fork tests for the leveraged-long path when RPC access is available."
+      ],
+      "avoid": [
+        "Do not copy the very broad monorepo or every transaction type.",
+        "The source defaults to maximum approvals; FxAeon's allowance policy must be explicit rather than inherited.",
+        "A frozen quote is not permission to submit an expired or changed transaction."
+      ],
+      "commit": "dd7d76a0f9c0ec07c40a9f800165a12ee90b33ce",
+      "archived": false,
+      "sources": [
+        {
+          "path": "packages/lib/modules/transactions/transaction-steps/lib.tsx",
+          "url": "https://github.com/balancer/frontend-monorepo/blob/dd7d76a0f9c0ec07c40a9f800165a12ee90b33ce/packages/lib/modules/transactions/transaction-steps/lib.tsx"
+        },
+        {
+          "path": "packages/lib/modules/transactions/transaction-steps/useShouldFreezeQuote.ts",
+          "url": "https://github.com/balancer/frontend-monorepo/blob/dd7d76a0f9c0ec07c40a9f800165a12ee90b33ce/packages/lib/modules/transactions/transaction-steps/useShouldFreezeQuote.ts"
+        },
+        {
+          "path": "packages/lib/modules/tokens/approvals/approval-rules.ts",
+          "url": "https://github.com/balancer/frontend-monorepo/blob/dd7d76a0f9c0ec07c40a9f800165a12ee90b33ce/packages/lib/modules/tokens/approvals/approval-rules.ts"
+        },
+        {
+          "path": ".github/workflows/checks.yml",
+          "url": "https://github.com/balancer/frontend-monorepo/blob/dd7d76a0f9c0ec07c40a9f800165a12ee90b33ce/.github/workflows/checks.yml"
+        }
+      ]
+    },
+    {
+      "requested": "curvefi/curve-frontend",
+      "repo": "curvefi/curve-frontend",
+      "areas": [
+        "Trade",
+        "Borrow",
+        "Positions",
+        "History",
+        "CI",
+        "performance"
+      ],
+      "observed": [
+        "Loan summaries assemble independent queries for collateral, debt, leverage, LTV, gas and risk data.",
+        "Action information supports current and future values rather than replacing existing position data silently.",
+        "History defines explicit empty and error states, sortable data and expanded transaction actions.",
+        "CI separates unit/build/type checks and browser component checks; RPC checks are a distinct, more expensive job."
+      ],
+      "adopt": [
+        "Present borrowed versus user-funded amounts and the resulting exposure together.",
+        "Use typed per-field pending/error/value states and gate expensive preview queries to active input.",
+        "Keep no-history and failed-history-load states distinct.",
+        "Separate inexpensive deterministic checks from network/fork checks."
+      ],
+      "avoid": [
+        "Do not copy LLAMMA liquidation ranges or loan-health formulas into f(x).",
+        "Do not expose every advanced loan metric by default.",
+        "Do not inherit abbreviated financial labels without clear product wording."
+      ],
+      "commit": "641769e455027718a7bc666230b982356308528f",
+      "archived": false,
+      "sources": [
+        {
+          "path": "apps/main/src/llamalend/features/borrow/components/CreateLoanInfoList.tsx",
+          "url": "https://github.com/curvefi/curve-frontend/blob/641769e455027718a7bc666230b982356308528f/apps/main/src/llamalend/features/borrow/components/CreateLoanInfoList.tsx"
+        },
+        {
+          "path": "apps/main/src/llamalend/widgets/action-card/LoanActionInfoList.tsx",
+          "url": "https://github.com/curvefi/curve-frontend/blob/641769e455027718a7bc666230b982356308528f/apps/main/src/llamalend/widgets/action-card/LoanActionInfoList.tsx"
+        },
+        {
+          "path": "apps/main/src/llamalend/features/user-position-history/UserEventsTable.tsx",
+          "url": "https://github.com/curvefi/curve-frontend/blob/641769e455027718a7bc666230b982356308528f/apps/main/src/llamalend/features/user-position-history/UserEventsTable.tsx"
+        },
+        {
+          "path": ".github/workflows/ci.yaml",
+          "url": "https://github.com/curvefi/curve-frontend/blob/641769e455027718a7bc666230b982356308528f/.github/workflows/ci.yaml"
+        }
+      ]
+    },
+    {
+      "requested": "Uniswap/interface",
+      "repo": "Uniswap/interface",
+      "areas": [
+        "Trade",
+        "Move",
+        "transaction system",
+        "design system",
+        "performance"
+      ],
+      "observed": [
+        "Review renders acceptedDerivedSwapInfo and tracks whether a new trade requires acceptance.",
+        "Submit disabling includes new-trade acceptance, invalid transaction context, blocking warnings and submitting state.",
+        "Resetting gas overrides returns to the form to avoid submitting calldata prepared with obsolete gas parameters.",
+        "A quote guard test asserts invalid oversized quote values produce no transaction request."
+      ],
+      "adopt": [
+        "Bind the review to the exact accepted intent and prepared call.",
+        "Invalidate acceptance after changes to account, chain, amount, leverage, slippage or material quote data.",
+        "Validate external quote amounts before constructing calldata; reject invalid values.",
+        "Protect against double submission and state changes during wallet handoff."
+      ],
+      "avoid": [
+        "Do not reproduce its cross-platform provider/store hierarchy for a small initial slice.",
+        "Do not treat its swap math or routing as a model for f(x) leverage.",
+        "Do not use render animations to hide incomplete state management."
+      ],
+      "commit": "c76a14a089f9a25c3a65da8490efdc37bfe3587d",
+      "archived": false,
+      "sources": [
+        {
+          "path": "packages/uniswap/src/features/transactions/swap/review/SwapReviewScreen/SwapReviewScreen.tsx",
+          "url": "https://github.com/Uniswap/interface/blob/c76a14a089f9a25c3a65da8490efdc37bfe3587d/packages/uniswap/src/features/transactions/swap/review/SwapReviewScreen/SwapReviewScreen.tsx"
+        },
+        {
+          "path": "packages/uniswap/src/features/transactions/swap/review/SwapReviewScreen/SwapReviewFooter/SwapReviewFooter.tsx",
+          "url": "https://github.com/Uniswap/interface/blob/c76a14a089f9a25c3a65da8490efdc37bfe3587d/packages/uniswap/src/features/transactions/swap/review/SwapReviewScreen/SwapReviewFooter/SwapReviewFooter.tsx"
+        },
+        {
+          "path": "apps/web/src/pages/CreatePosition/CreatePositionTxContext.quoteGuard.test.tsx",
+          "url": "https://github.com/Uniswap/interface/blob/c76a14a089f9a25c3a65da8490efdc37bfe3587d/apps/web/src/pages/CreatePosition/CreatePositionTxContext.quoteGuard.test.tsx"
+        }
+      ]
+    },
+    {
+      "requested": "RabbyHub/Rabby",
+      "repo": "RabbyHub/Rabby",
+      "areas": [
+        "wallet integration",
+        "Trade",
+        "Borrow",
+        "transaction system",
+        "History"
+      ],
+      "observed": [
+        "Approval UI handles parsed actions and simulated balance changes separately.",
+        "Tests require an undispatchable approval kind to fail closed rather than crash or execute.",
+        "Security-gate tests preserve pending/error/risk blocks across fee-payment options."
+      ],
+      "adopt": [
+        "Show the expected token outflow/inflow and position effect of a prepared transaction.",
+        "Treat missing or failed simulation as its own state; do not render a success check.",
+        "Verify account/chain/intent identity again at wallet handoff and reject stale requests.",
+        "Test action gating independently from cosmetic button labels."
+      ],
+      "avoid": [
+        "Rabby is a wallet extension, not a dapp architecture template.",
+        "Do not imply FxAeon supplies Rabby's full security engine or account protection.",
+        "Do not add unnecessary wallet-provider labels, QR flows or extra categories."
+      ],
+      "commit": "c3aed73f4c5f1e7c88c31331b0b0b72c6e8f2f4a",
+      "archived": false,
+      "sources": [
+        {
+          "path": "src/ui/views/Approval/components/TxComponents/BalanceChangeWrapper.tsx",
+          "url": "https://github.com/RabbyHub/Rabby/blob/c3aed73f4c5f1e7c88c31331b0b0b72c6e8f2f4a/src/ui/views/Approval/components/TxComponents/BalanceChangeWrapper.tsx"
+        },
+        {
+          "path": "__tests__/ui/approvalRootFailClosed.test.ts",
+          "url": "https://github.com/RabbyHub/Rabby/blob/c3aed73f4c5f1e7c88c31331b0b0b72c6e8f2f4a/__tests__/ui/approvalRootFailClosed.test.ts"
+        },
+        {
+          "path": "__tests__/ui/approvalFooterSecurityGate.test.ts",
+          "url": "https://github.com/RabbyHub/Rabby/blob/c3aed73f4c5f1e7c88c31331b0b0b72c6e8f2f4a/__tests__/ui/approvalFooterSecurityGate.test.ts"
+        }
+      ]
+    },
+    {
+      "requested": "Synthetixio organization",
+      "repo": "Synthetixio/snx-loan-ui",
+      "areas": [
+        "Borrow",
+        "Positions",
+        "History",
+        "performance"
+      ],
+      "observed": [
+        "Loan reads separate collateral, debt and collateralization parameters and fetch independent contract values concurrently.",
+        "Closed-loan history keeps loan identity, amount/collateral and close time together.",
+        "The history source contains a literal 0.25% interest display."
+      ],
+      "adopt": [
+        "Preserve stable position identity through open, modify and close journeys.",
+        "Fetch independent read-only contract values concurrently where consistent state can be maintained.",
+        "Use action history rather than relying only on the current balance."
+      ],
+      "avoid": [
+        "Archived historical reference; not current Synthetix production behavior.",
+        "Do not inherit its literal interest rate, old contract adapters, collateral-ratio math or desktop-heavy table layout."
+      ],
+      "commit": "516baf06ba0fb6f1bd99194c1993cf330be02151",
+      "archived": true,
+      "sources": [
+        {
+          "path": "src/containers/Loans/getLoan.ts",
+          "url": "https://github.com/Synthetixio/snx-loan-ui/blob/516baf06ba0fb6f1bd99194c1993cf330be02151/src/containers/Loans/getLoan.ts"
+        },
+        {
+          "path": "src/section/Positions/LoanHistory.tsx",
+          "url": "https://github.com/Synthetixio/snx-loan-ui/blob/516baf06ba0fb6f1bd99194c1993cf330be02151/src/section/Positions/LoanHistory.tsx"
+        }
+      ]
+    },
+    {
+      "requested": "makerdao organization",
+      "repo": "sky-ecosystem/dai.js",
+      "areas": [
+        "Borrow",
+        "Positions",
+        "transaction system"
+      ],
+      "observed": [
+        "The requested makerdao/dai.js API returns a move response; the repository is available under sky-ecosystem/dai.js and archived.",
+        "Transaction transitions distinguish initialized, pending, mined and finalized.",
+        "ManagedCdp centralizes collateral amount/value, debt value, collateralization and liquidation-price derivation outside view components."
+      ],
+      "adopt": [
+        "Keep financial position calculations in a pure, testable domain boundary.",
+        "Separate transaction broadcast/receipt/finality status.",
+        "Represent borrowing and collateral changes as explicit commands."
+      ],
+      "avoid": [
+        "Do not copy archived Dai.js dependencies or cache behavior.",
+        "Do not transplant Maker collateralization, liquidation or stability-fee math into f(x).",
+        "Do not infer current Sky UI from this SDK."
+      ],
+      "commit": "6e9de6c44d7334d0bbd073a2f26d5751fe834f50",
+      "archived": true,
+      "sources": [
+        {
+          "path": "packages/dai/src/eth/TransactionTransitions.js",
+          "url": "https://github.com/sky-ecosystem/dai.js/blob/6e9de6c44d7334d0bbd073a2f26d5751fe834f50/packages/dai/src/eth/TransactionTransitions.js"
+        },
+        {
+          "path": "packages/dai-plugin-mcd/src/ManagedCdp.ts",
+          "url": "https://github.com/sky-ecosystem/dai.js/blob/6e9de6c44d7334d0bbd073a2f26d5751fe834f50/packages/dai-plugin-mcd/src/ManagedCdp.ts"
+        }
+      ]
+    },
+    {
+      "requested": "lidofinance organization",
+      "repo": "lidofinance/ethereum-staking-widget",
+      "areas": [
+        "Earn",
+        "Move",
+        "transaction system",
+        "CI"
+      ],
+      "observed": [
+        "Stake execution separates preparation, calls, signature, receipt, success and failure callbacks.",
+        "It handles a completed unwrap followed by a failed stake explicitly, refreshing balances and preserving the changed asset state.",
+        "Withdrawal items distinguish pending from ready and use finalization timing only when available.",
+        "Lint, type and unit checks are distinct CI jobs."
+      ],
+      "adopt": [
+        "Preserve completed steps when a later step fails; retry only the incomplete step.",
+        "Keep requested withdrawal, pending withdrawal and claimable payout as different product states.",
+        "Retain transaction hashes and refresh relevant balances after confirmed partial progress."
+      ],
+      "avoid": [
+        "Do not promise instant fxSAVE withdrawal or copy stETH queue guarantees.",
+        "Do not auto-retry wallet writes.",
+        "Do not adopt holiday effects or unrelated feature flags in a transaction flow."
+      ],
+      "commit": "35aaa541e98f8a9336e1acfa8463a80f8b9f8382",
+      "archived": false,
+      "sources": [
+        {
+          "path": "features/stake/stake-form/use-stake.ts",
+          "url": "https://github.com/lidofinance/ethereum-staking-widget/blob/35aaa541e98f8a9336e1acfa8463a80f8b9f8382/features/stake/stake-form/use-stake.ts"
+        },
+        {
+          "path": "features/withdrawals/claim/form/requests-list/request-item-status.tsx",
+          "url": "https://github.com/lidofinance/ethereum-staking-widget/blob/35aaa541e98f8a9336e1acfa8463a80f8b9f8382/features/withdrawals/claim/form/requests-list/request-item-status.tsx"
+        },
+        {
+          "path": ".github/workflows/checks.yml",
+          "url": "https://github.com/lidofinance/ethereum-staking-widget/blob/35aaa541e98f8a9336e1acfa8463a80f8b9f8382/.github/workflows/checks.yml"
+        }
+      ]
+    },
+    {
+      "requested": "jup-ag organization",
+      "repo": "jup-ag/plugin",
+      "areas": [
+        "Trade",
+        "Move",
+        "quote system",
+        "performance"
+      ],
+      "observed": [
+        "Searching terminal resolves to the plugin repository.",
+        "Quote queries key all initial parameters, pass AbortSignal to the request, disable empty input, and conditionally poll.",
+        "External quote fields are runtime-validated and raw amounts are converted to bigint."
+      ],
+      "adopt": [
+        "Use a complete quote key that includes all intent-changing parameters.",
+        "Abort superseded requests and discard responses that no longer match the input.",
+        "Validate provider responses at the boundary and retain integer token units."
+      ],
+      "avoid": [
+        "Do not import Solana transaction models or Ultra routing assumptions.",
+        "Do not adopt its polling interval or retry policy without FxAeon data-source measurements.",
+        "A cancelled old request alone is insufficient; late responses still need identity checks."
+      ],
+      "commit": "0bf757d986cdd1937afc49bfabba28c56d52ba47",
+      "archived": false,
+      "sources": [
+        {
+          "path": "src/queries/useQuoteQuery.ts",
+          "url": "https://github.com/jup-ag/plugin/blob/0bf757d986cdd1937afc49bfabba28c56d52ba47/src/queries/useQuoteQuery.ts"
+        },
+        {
+          "path": "src/entity/FormattedUltraQuoteResponse.ts",
+          "url": "https://github.com/jup-ag/plugin/blob/0bf757d986cdd1937afc49bfabba28c56d52ba47/src/entity/FormattedUltraQuoteResponse.ts"
+        }
+      ]
+    },
+    {
+      "requested": "DefiLlama organization",
+      "repo": "DefiLlama/yield-server",
+      "areas": [
+        "Earn",
+        "Borrow",
+        "analytics",
+        "data system"
+      ],
+      "observed": [
+        "Pool data separates base and reward yield, underlying/reward tokens, supply, borrow, price-per-share and LTV fields.",
+        "An f(x) adapter reads Aladdin TVL/APY endpoints, enriches underlying assets and Merkl rewards, and filters finite numeric output."
+      ],
+      "adopt": [
+        "Give APY figures provenance, timestamp, composition and explicit unavailable states.",
+        "Treat pool identity, token identity and chain identity as separate fields.",
+        "Use external yield aggregators for comparison/context, with protocol sources governing executable quotes."
+      ],
+      "avoid": [
+        "Do not treat aggregator APY as guaranteed or as transaction simulation data.",
+        "Do not combine differently defined yield figures without an explicit methodology.",
+        "Do not import the entire analytics pipeline into the long slice."
+      ],
+      "commit": "40307814aebd5f567963a57698e9fbf777389219",
+      "archived": false,
+      "sources": [
+        {
+          "path": "src/types/Pool.d.ts",
+          "url": "https://github.com/DefiLlama/yield-server/blob/40307814aebd5f567963a57698e9fbf777389219/src/types/Pool.d.ts"
+        },
+        {
+          "path": "src/adaptors/fx-protocol/index.js",
+          "url": "https://github.com/DefiLlama/yield-server/blob/40307814aebd5f567963a57698e9fbf777389219/src/adaptors/fx-protocol/index.js"
+        }
+      ]
+    },
+    {
+      "requested": "ourzora organization",
+      "repo": "ourzora/zora-protocol",
+      "areas": [
+        "transaction system",
+        "Trade",
+        "CI"
+      ],
+      "observed": [
+        "The SDK distinguishes native ETH from ERC20 trade currency and keeps amountIn as bigint.",
+        "Permit resolution collects approval calls separately so execution may be sequential for an EOA or batched for a smart wallet.",
+        "JS CI builds and tests packages with pinned workflow actions."
+      ],
+      "adopt": [
+        "Separate transaction planning from wallet-specific execution.",
+        "Use discriminated asset types rather than address heuristics scattered through UI.",
+        "Keep EOA and smart-account capability handling explicit and opt-in."
+      ],
+      "avoid": [
+        "Do not infer Zora's live visual design from a protocol SDK.",
+        "Do not reuse its Base-specific addresses, Permit2 signing sequence or maximum approval policy.",
+        "Smart-account batching should not be required for the first leveraged-long slice."
+      ],
+      "commit": "32c2931a444b4405b107a49016dff0059b05b06f",
+      "archived": false,
+      "sources": [
+        {
+          "path": "packages/coins-sdk/src/actions/tradeCoin.ts",
+          "url": "https://github.com/ourzora/zora-protocol/blob/32c2931a444b4405b107a49016dff0059b05b06f/packages/coins-sdk/src/actions/tradeCoin.ts"
+        },
+        {
+          "path": ".github/workflows/js.yml",
+          "url": "https://github.com/ourzora/zora-protocol/blob/32c2931a444b4405b107a49016dff0059b05b06f/.github/workflows/js.yml"
+        }
+      ]
+    },
+    {
+      "requested": "decentraland organization",
+      "repo": "decentraland/ui2",
+      "areas": [
+        "design system",
+        "UI states",
+        "CI"
+      ],
+      "observed": [
+        "Theme code centralizes palettes, typography, shape, breakpoints and component variants.",
+        "Button stories cover variant, semantic color, size, disabled and loading controls."
+      ],
+      "adopt": [
+        "Define a compact FxAeon token and component-state system before page expansion.",
+        "Create inspectable states for primary action, input, dialog, tabs, table/card and notices.",
+        "Keep loading/disabled behavior consistent across WebApp and MiniApp presentation."
+      ],
+      "avoid": [
+        "Do not reuse its brand fonts, palettes or desktop-biased breakpoints.",
+        "Do not import its metaverse/media components.",
+        "A Storybook inventory is not evidence of accessibility or mobile usability; verify those directly."
+      ],
+      "commit": "f9d85aa368a482f1ffe281c4dced9814625cde51",
+      "archived": false,
+      "sources": [
+        {
+          "path": "src/theme/index.ts",
+          "url": "https://github.com/decentraland/ui2/blob/f9d85aa368a482f1ffe281c4dced9814625cde51/src/theme/index.ts"
+        },
+        {
+          "path": "src/components/Button/Button.stories.tsx",
+          "url": "https://github.com/decentraland/ui2/blob/f9d85aa368a482f1ffe281c4dced9814625cde51/src/components/Button/Button.stories.tsx"
+        }
+      ]
+    },
+    {
+      "requested": "ProjectOpenSea organization",
+      "repo": "ProjectOpenSea/seaport-js",
+      "areas": [
+        "transaction system",
+        "Trade",
+        "Earn",
+        "CI"
+      ],
+      "observed": [
+        "Use cases expose ordered approval actions and a separate final action.",
+        "Approval execution waits for receipts and can complete without triggering the final action.",
+        "Transaction helpers expose build, static call, estimate gas and transact; estimation uses the actual built calldata when it includes an appended tag.",
+        "Tests cover executing approvals without performing the final action."
+      ],
+      "adopt": [
+        "Prepare an explicit ordered action plan rather than burying wallet calls in UI handlers.",
+        "Show Approve token only when required, then Open long after verified allowance.",
+        "Simulate and estimate the exact call that will be sent.",
+        "Keep approval success and trade success distinct in history and retry behavior."
+      ],
+      "avoid": [
+        "Do not copy NFT approval/order semantics or collection-wide allowance rules.",
+        "Do not call execute-all style helpers automatically when the product requires separate user approval.",
+        "Do not claim a finished position because an approval receipt succeeded."
+      ],
+      "commit": "b0cda76744adac17efb32bc6defdc9b157a834cd",
+      "archived": false,
+      "sources": [
+        {
+          "path": "src/utils/usecase.ts",
+          "url": "https://github.com/ProjectOpenSea/seaport-js/blob/b0cda76744adac17efb32bc6defdc9b157a834cd/src/utils/usecase.ts"
+        },
+        {
+          "path": "test/execute-approvals.spec.ts",
+          "url": "https://github.com/ProjectOpenSea/seaport-js/blob/b0cda76744adac17efb32bc6defdc9b157a834cd/test/execute-approvals.spec.ts"
+        }
+      ]
+    }
+  ]
+}

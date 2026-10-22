@@ -29,10 +29,10 @@ Do not merge, deploy, or submit transactions using production funds.
 
 | # | Deliverable and exit evidence | Status |
 |---|---|---|
-| 0 | Isolated branch, baseline revision, resumable plan and issue ledger | In progress |
-| 1 | Read README, DESIGN, security, docs and tests; run original `pnpm verify`; produce `BEHAVIOR_SPEC.md` with source evidence and gaps | In progress: three independent audit/research assignments; runtime setup |
-| 2 | Purposeful reference map covering every supplied repository/organization; adopt/avoid findings with sources | In progress |
-| 3 | `DECISIONS.md`; new implementation in isolated staging tree; long input → simulation → explicit review → wallet → verified receipt → history, including failures; tests and running preview | Not started; app code prohibited until audit recorded |
+| 0 | Isolated branch, baseline revision, resumable plan and issue ledger | Complete; local and remote milestone `247d9f3` |
+| 1 | Read README, DESIGN, security, docs and tests; run original `pnpm verify`; produce `BEHAVIOR_SPEC.md` with source evidence and gaps | Complete with explicit evidence limits: 3,373 overlapping records, all 243 inventoried test files / 46 docs mapped; original aggregate failed on registry timeout; separate build passed |
+| 2 | Purposeful reference map covering every supplied repository/organization; adopt/avoid findings with sources | Complete: 14 references, 38 inspected source files, commit-pinned adopt/avoid map; source study, not live app review |
+| 3 | `DECISIONS.md`; new implementation in isolated staging tree; long input → simulation → explicit review → wallet → verified receipt → history, including failures; tests and running preview | Next: audit milestone committed before application code; define architecture and bounded ownership |
 | Checkpoint | Show user spec, decisions and slice; state exact verification limits | Required stop |
 | 4 | Bounded modules for remaining surfaces, each with acceptance and evidence | Deferred until checkpoint |
 | 5 | Complete behavior-to-new-test map; full verify and real protocol transactions on disposable local fork | Deferred; must pass before replacing old tree |
@@ -67,3 +67,14 @@ Do not merge, deploy, or submit transactions using production funds.
   Read README, DESIGN, SECURITY, architecture, SDK scope, test gate definitions.
   Found runtime mismatch (host Node 24 / pnpm 11.25 vs required Node 22 /
   pnpm 11.19); provisioning an isolated matching toolchain.
+- 2026-10-22: pinned toolchain installed; frozen dependency installation passed.
+  Original `pnpm verify` failed on a dependency registry timeout; application
+  tests were 1,611 pass / four fork skips / zero failures. Independent
+  `pnpm verify --ci-build` passed. Browser/fork limitations are recorded in
+  `docs/rebuild/BASELINE.md`. Audit ledgers and reference research are being
+  reconciled before application implementation begins.
+- 2026-10-22: completed behavior specification with three normative ledgers.
+  Verified all 243 inventoried test files and 46 documents have evidence entries,
+  all IDs are unique and all inventoried baseline hashes are unchanged.
+  File coverage is not a claim of complete manual assertion review or execution.
+  Reference map covers every requested organization/repository.
