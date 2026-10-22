@@ -10,12 +10,12 @@ import styles from './ActionReviewPresentation.module.css';
 
 /** A decision term owns its definition and exact source value in place.
  * The technical panel does not need a second copy of the same term. */
-export function ReviewTermRow({ fact, displayLabel, displayValue, quiet = false }: {
-  fact: ReviewFact; displayLabel?: string; displayValue?: ReactNode; quiet?: boolean;
+export function ReviewTermRow({ fact, displayLabel, displayValue, help: helpOverride, quiet = false }: {
+  fact: ReviewFact; displayLabel?: string; displayValue?: ReactNode; help?: ReactNode; quiet?: boolean;
 }) {
   const definition = reviewHelpDefinition(fact.label);
   const unavailable = ['Unavailable', 'Not quoted', '—'].includes(fact.value);
-  const help = reviewTermHelp(fact);
+  const help = helpOverride ?? reviewTermHelp(fact);
   return <div data-review-fact={fact.label} className={styles.compactFact}>
     <MetricLabel minimalHelp label={displayLabel ?? fact.label} definition={definition} help={help} />
     <span>

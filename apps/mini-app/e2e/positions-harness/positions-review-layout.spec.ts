@@ -165,9 +165,14 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     const finalNote = information.getByText('USD uses current prices, not transaction limits or receipt-time prices.', { exact: true });
     if (viewport.width > 600) {
       // Desktop lets the surrounding page scroll instead of clipping a second
-      // scroll region. The final evidence must still be fully reachable.
-      await finalNote.scrollIntoViewIfNeeded();
-      await expect(finalNote).toBeInViewport({ ratio: 1 });
+      // scroll region. The disclosure's height animation can move the note
+      // after a one-shot scroll, so keep bringing it into view until its full
+      // bounds fit inside the viewport.
+      await expect.poll(async () => {
+        await finalNote.evaluate(node => node.scrollIntoView({ block: 'end', behavior: 'instant' }));
+        const bounds = await finalNote.boundingBox();
+        return Boolean(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height);
+      }).toBe(true);
     }
     await expect.poll(async () => {
       await information.evaluate(node => { node.scrollTop = node.scrollHeight; });

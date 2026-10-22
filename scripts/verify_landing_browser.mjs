@@ -158,7 +158,7 @@ try {
   await expect(footerApp).toHaveAttribute('href', WEB);
   const footerAppBox = await footerApp.boundingBox();
   assert.ok(footerAppBox?.width >= 44 && footerAppBox?.height >= 44, 'The footer app action remains touch-sized');
-  await expect(page.locator('.hero .lede + .hero-credit')).toHaveText('Powered By f(x) SDK');
+  await expect(page.locator('.hero .lede + .hero-credit')).toHaveText('Powered by f(x) SDK');
   assert.equal(await page.locator('.hero').getByText('Built on f(x) Protocol', { exact: true }).count(), 0);
   const productCards = page.locator('#products .product-card');
   assert.equal(await productCards.count(), 4);

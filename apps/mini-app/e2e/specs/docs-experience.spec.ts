@@ -35,6 +35,65 @@ async function openDocsSearch(page: import('@playwright/test').Page) {
 }
 
 test.describe('documentation experience', () => {
+  test('home skip link stays on the documentation home and focuses the reader', async ({ page }) => {
+    await page.goto('/docs');
+    const skip = page.getByRole('link', { name: 'Skip to main content', exact: true });
+    await skip.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/docs\/?#main-content$/);
+    await expect(page.locator('#main-content')).toBeFocused();
+    await expect(page.getByRole('heading', { name: 'FxAeon Documentation', exact: true })).toBeVisible();
+  });
+
+  test('mobile search contains focus and Escape closes it from any control', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 740 });
+    await page.goto('/docs');
+    const toggle = page.getByRole('button', { name: 'Search documentation', exact: true });
+    const main = page.locator('#main-content');
+    for (const target of ['clear', 'result'] as const) {
+      const search = await openDocsSearch(page);
+      await search.fill('getFxSaveBalance');
+      await expect(main).toHaveAttribute('inert', '');
+      const results = page.locator('#docs-contents a');
+      await expect(results.first()).toBeVisible();
+      await results.last().focus();
+      await page.keyboard.press('Tab');
+      await expect(page.locator('button[aria-controls="docs-contents"]')).toBeFocused();
+      if (target === 'clear') await page.getByRole('button', { name: 'Clear', exact: true }).focus();
+      else await results.first().focus();
+      await page.keyboard.press('Escape');
+      await expect(toggle).toBeFocused();
+      await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await expect(search).toBeHidden();
+      await expect(main).not.toHaveAttribute('inert', '');
+      await expect(page.getByRole('navigation', { name: 'Pages', exact: true })).toBeHidden();
+      await expect(page.locator('[class*="docsPage"]')).toHaveCSS('overflow-y', 'auto');
+    }
+  });
+
+  test('SDK topic headings, outlines, and copy controls remain usable', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/docs/sdk/earn');
+    await expect(page.getByRole('heading', { level: 1, name: 'fxSAVE methods', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'getFxSaveBalance', exact: true })).toBeVisible();
+    const outline = page.getByRole('navigation', { name: 'On this page', exact: true });
+    await outline.getByRole('link', { name: 'withdrawFxSave', exact: true }).click();
+    await expect(page.locator('#withdrawFxSave')).toBeInViewport();
+    await expect(page.locator('#withdrawFxSave')).toBeFocused();
+    await page.goto('/docs/sdk/setup');
+    // A deterministic clipboard verifies the exact source copied without an OS prompt.
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+        writeText: async (value: string) => { (window as unknown as { __copiedCode: string }).__copiedCode = value; },
+      } });
+    });
+    const copy = page.getByRole('button', { name: 'Copy FxAeon app wrapper', exact: true });
+    await copy.click();
+    await expect(copy).toContainText('Copied');
+    const code = await page.locator('pre[aria-label="FxAeon app wrapper"]').textContent();
+    expect(await page.evaluate(() => (window as unknown as { __copiedCode: string }).__copiedCode)).toBe(code);
+  });
+
   test('keeps the privacy disclosure reachable through the rendered product guide', async ({ page }) => {
     await page.goto('/docs#privacy');
     const link = page.getByRole('link', { name: 'How FxAeon handles your data', exact: true });
@@ -51,9 +110,9 @@ test.describe('documentation experience', () => {
     await page.setViewportSize({ width: 390, height: 500 });
     for (const id of legacyFragments) {
       await page.goto(`/docs#${id}`, { waitUntil: 'domcontentloaded' });
-      await expect(page).toHaveURL(new RegExp(`/docs/guide#${id}$`));
+      await expect(page).toHaveURL(new RegExp(`/docs/guide/${id === 'recovery' ? 'history' : id}#docs-page-heading$`));
       await expect(page.getByRole('button', { name: 'Open documentation menu', exact: true })).toHaveAttribute('aria-expanded', 'false');
-      const heading = page.locator(id === 'recovery' ? '#history-heading' : `#${id}-heading`);
+      const heading = page.locator('#docs-page-heading');
       await expect(heading).toBeInViewport();
       await expect.poll(async () => {
         const target = await heading.boundingBox();
@@ -63,20 +122,34 @@ test.describe('documentation experience', () => {
     }
   });
 
+  test('old nested and method bookmarks reach their exact current topic', async ({ page }) => {
+    for (const [old, current, heading] of [
+      ['/docs#start-wallet', '/docs/guide/getting-started#start-wallet', 'start-wallet'],
+      ['/docs/guide#trade-rebalancing', '/docs/guide/trade#trade-rebalancing', 'trade-rebalancing'],
+      ['/docs/guide#help-delivery', '/docs/guide/troubleshooting#help-delivery', 'help-delivery'],
+      ['/docs/sdk#depositFxSave', '/docs/sdk/earn#depositFxSave', 'depositFxSave'],
+    ]) {
+      await page.goto(old);
+      await expect(page).toHaveURL(new RegExp(current.replaceAll('/', '\\/') + '$'));
+      await expect(page.locator(`#${heading}`)).toBeInViewport();
+      await expect(page.locator(`#${heading}`)).toBeFocused();
+    }
+  });
+
   test('searches actual text across pages and preserves back navigation', async ({ page }) => {
     await page.goto('/docs/guide');
-    const nav = page.getByRole('navigation', { name: 'Documentation sections' });
+    const nav = page.getByRole('navigation', { name: 'Pages' });
     const search = await openDocsSearch(page);
     await expect(search).toBeEnabled();
-    await search.fill('repayments');
+    await search.fill('manage debt');
     await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
     await expect(nav.getByRole('link', { name: /^Overview/ })).toBeVisible();
     await search.fill('getFxSaveBalance');
     await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
-    await nav.getByRole('link', { name: /^fxSAVE/ }).click();
-    await expect(page).toHaveURL(/\/docs\/sdk\/?#sdk-earn$/);
-    await expect(page.locator('#sdk-earn-heading')).toBeInViewport();
-    await expect(page.locator('#sdk-earn-heading')).toBeFocused();
+    await nav.getByRole('link', { name: /^getFxSaveBalance/ }).click();
+    await expect(page).toHaveURL(/\/docs\/sdk\/earn\/?#getFxSaveBalance$/);
+    await expect(page.locator('#getFxSaveBalance')).toBeInViewport();
+    await expect(page.locator('#getFxSaveBalance')).toBeFocused();
     await page.goBack();
     await expect(page).toHaveURL(/\/docs\/guide\/?$/);
     await expect(page.getByRole('heading', { name: 'Product guide' })).toBeVisible();
@@ -84,6 +157,10 @@ test.describe('documentation experience', () => {
 
   test('has readable examples and method anchors without requesting wallet access', async ({ page }) => {
     await page.goto('/docs/sdk#sdk-setup');
+    // The legacy index replaces this URL after hydration. Wait for its real
+    // destination before interacting with a shell that navigation will replace.
+    await expect(page).toHaveURL(/\/docs\/sdk\/setup\/?#docs-page-heading$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Read-only quickstart', exact: true })).toBeVisible();
     await expect(await openDocsSearch(page)).toBeEnabled();
     const example = page.locator('pre[aria-label="FxAeon app wrapper"]');
     await expect(example).toContainText('getFxReadFacade()');
@@ -153,7 +230,7 @@ test.describe('documentation experience', () => {
     await search.fill('Borrow fxUSD');
     const pages = page.getByRole('navigation', { name: 'Pages', exact: true });
     await expect(pages.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
-    const result = pages.getByRole('link', { name: /Borrow fxUSD/ });
+    const result = pages.getByRole('link', { name: /^Borrow fxUSD/ });
     await expect(result).toBeVisible();
     await result.click();
     await expect(page).toHaveURL(/\/docs\/guide\/borrow\/?$/);
@@ -192,12 +269,12 @@ test.describe('documentation experience', () => {
 
   test('keyboard search can be cleared and navigation can be reopened repeatedly', async ({ page }) => {
     await page.goto('/docs/guide');
-    const nav = page.getByRole('navigation', { name: 'Documentation sections' });
+    const nav = page.getByRole('navigation', { name: 'Pages' });
     const search = page.getByRole('searchbox', { name: 'Search docs' });
     const searchToggle = page.getByRole('button', { name: 'Search documentation', exact: true });
     const optionsToggle = page.getByRole('button', { name: 'More documentation options', exact: true });
     const contentsToggle = page.locator('button[aria-controls="docs-contents"]');
-    const navElement = page.locator('nav[aria-label="Documentation sections"]');
+    const navElement = page.locator('nav[aria-label="Pages"]');
     await expect(page.locator('#docs-search')).toBeEnabled();
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.keyboard.press('Control+k');
@@ -226,15 +303,15 @@ test.describe('documentation experience', () => {
       await page.keyboard.press('Tab');
       await expect(optionsToggle).toBeFocused();
       await page.keyboard.press('Tab');
-      for (const name of ['FxAeon Documentation', 'Overview', 'Getting started', 'Browser & Telegram']) {
+      for (const name of ['FxAeon Documentation', 'Supported networks', 'Your first transaction', 'Telegram & browser']) {
         await expect(nav.getByRole('link', { name, exact: true })).toBeFocused();
         await page.keyboard.press('Tab');
       }
       await expect(nav.getByRole('link', { name: 'Wallets & signing', exact: true })).toBeFocused();
       await page.keyboard.press('Enter');
-      await expect(page).toHaveURL(/#wallets$/);
+      await expect(page).toHaveURL(/\/docs\/guide\/wallets\/?$/);
       await expect(navElement.locator('details')).toHaveJSProperty('open', false);
-      await expect(page.locator('#wallets-heading')).toBeInViewport();
+      await expect(page.locator('#docs-page-heading')).toBeInViewport();
     }
   });
 
@@ -247,7 +324,7 @@ test.describe('documentation experience', () => {
     });
     await page.goto('/docs/guide');
     const searchToggle = page.getByRole('button', { name: 'Search documentation', exact: true });
-    const nav = page.getByRole('navigation', { name: 'Documentation sections' });
+    const nav = page.getByRole('navigation', { name: 'Pages' });
     await expect(page.locator('#docs-search')).toBeEnabled();
     await searchToggle.click();
     const search = page.getByRole('searchbox', { name: 'Search docs' });
@@ -256,7 +333,7 @@ test.describe('documentation experience', () => {
     await expect(nav.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
     await nav.getByRole('button', { name: 'Try again', exact: true }).click();
     await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
-    await expect(page.locator('#docs-contents a[href="/docs/sdk#sdk-earn"]')).toBeVisible();
+    await expect(page.locator('#docs-contents a[href="/docs/sdk/earn#getFxSaveBalance"]')).toBeVisible();
     expect(requests).toBe(2);
   });
 
@@ -265,21 +342,21 @@ test.describe('documentation experience', () => {
     await page.goto('/docs/guide');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(page.getByRole('button', { name: /Switch to .* theme/ })).toHaveCount(0);
-    const nav = page.getByRole('navigation', { name: 'Documentation sections' });
+    const nav = page.getByRole('navigation', { name: 'Pages' });
     await page.getByRole('searchbox', { name: 'Search docs' }).fill('getfxsavebalance');
     await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
-    await nav.getByRole('link', { name: /^fxSAVE/ }).click();
-    await expect(page.locator('#sdk-earn-heading')).toBeFocused();
-    await nav.getByRole('link', { name: 'Read-only quickstart', exact: true }).click();
-    await expect(page.locator('#sdk-setup-heading')).toBeFocused();
+    await nav.getByRole('link', { name: /^getFxSaveBalance/ }).click();
+    await expect(page.locator('#getFxSaveBalance')).toBeFocused();
+    await page.getByRole('navigation', { name: 'Pages', exact: true }).getByRole('link', { name: 'Read-only quickstart', exact: true }).click();
+    await expect(page).toHaveURL(/\/docs\/sdk\/setup\/?$/);
+    await expect(page.getByRole('heading', { name: 'Read-only quickstart', exact: true })).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL(/#sdk-earn$/);
-    await expect(page.locator('#sdk-earn-heading')).toBeInViewport();
-    await expect(page.locator('#sdk-earn-heading')).toBeFocused();
+    await expect(page).toHaveURL(/\/docs\/sdk\/earn\/?#getFxSaveBalance$/);
+    await expect(page.locator('#getFxSaveBalance')).toBeInViewport();
+    await expect(page.locator('#getFxSaveBalance')).toBeFocused();
     await page.goForward();
-    await expect(page).toHaveURL(/#sdk-setup$/);
-    await expect(page.locator('#sdk-setup-heading')).toBeInViewport();
-    await expect(page.locator('#sdk-setup-heading')).toBeFocused();
+    await expect(page).toHaveURL(/\/docs\/sdk\/setup\/?$/);
+    await expect(page.getByRole('heading', { name: 'Read-only quickstart', exact: true })).toBeInViewport();
   });
 
 });

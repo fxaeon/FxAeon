@@ -151,6 +151,78 @@ test('caches source reads for at most the configured interval and revalidates ti
   assert.equal(staleSource.ethUsd.status, 'unavailable', 'old upstream timestamps are rejected after refresh');
 });
 
+test('a stalled earlier request cannot hold up a later visitor or replace its fresh cache', async () => {
+  const payloads = upstreamPayloads();
+  let calls = 0;
+  const handler = createLandingMarketDataHandler({
+    now: () => now,
+    timeoutMs: 40,
+    fetchImpl: async (url) => {
+      calls += 1;
+      // Model request-owned I/O that stops progressing after a caller leaves.
+      if (calls <= 2) return new Promise(() => {});
+      return upstreamResponse(url === PRICE_ENDPOINT ? payloads.prices : payloads.fxSave);
+    },
+  });
+  const request = () => handler({ request: new Request('https://landing.test/api/market-data') });
+  const abandoned = request();
+  const nextVisitor = await (await request()).json();
+  assert.equal(nextVisitor.status, 'ready', 'the new request owns its source reads');
+  assert.equal(calls, 4);
+  assert.equal((await (await abandoned).json()).status, 'unavailable');
+  const cached = await (await request()).json();
+  assert.equal(cached.status, 'ready', 'an older failed read cannot overwrite newer data');
+  assert.equal(calls, 4, 'completed data is still cached across requests');
+});
+
+test('a later failed request does not discard an earlier completed healthy read', async () => {
+  const payloads = upstreamPayloads();
+  let calls = 0;
+  let releaseEarlier;
+  const earlierReady = new Promise((resolve) => { releaseEarlier = resolve; });
+  const handler = createLandingMarketDataHandler({
+    now: () => now,
+    fetchImpl: async (url) => {
+      calls += 1;
+      if (calls > 2) return new Response(null, { status: 503 });
+      await earlierReady;
+      return upstreamResponse(url === PRICE_ENDPOINT ? payloads.prices : payloads.fxSave);
+    },
+  });
+  const request = () => handler({ request: new Request('https://landing.test/api/market-data') });
+  const earlier = request();
+  assert.equal((await (await request()).json()).status, 'unavailable');
+  releaseEarlier();
+  assert.equal((await (await earlier).json()).status, 'ready');
+  assert.equal((await (await request()).json()).status, 'ready');
+  assert.equal(calls, 4, 'the healthy completed read serves the next visitor');
+});
+
+test('an earlier healthy read cannot replace a newer completed healthy snapshot', async () => {
+  const earlierPayloads = upstreamPayloads();
+  const newerPayloads = upstreamPayloads();
+  newerPayloads.fxSave.data.fxSave.apy = '6.50';
+  let calls = 0;
+  let releaseEarlier;
+  const earlierReady = new Promise((resolve) => { releaseEarlier = resolve; });
+  const handler = createLandingMarketDataHandler({
+    now: () => now,
+    fetchImpl: async (url) => {
+      const earlier = ++calls <= 2;
+      if (earlier) await earlierReady;
+      const payloads = earlier ? earlierPayloads : newerPayloads;
+      return upstreamResponse(url === PRICE_ENDPOINT ? payloads.prices : payloads.fxSave);
+    },
+  });
+  const request = () => handler({ request: new Request('https://landing.test/api/market-data') });
+  const earlier = request();
+  assert.equal((await (await request()).json()).fxSaveApy.value, 6.50);
+  releaseEarlier();
+  assert.equal((await (await earlier).json()).fxSaveApy.value, 6.38);
+  assert.equal((await (await request()).json()).fxSaveApy.value, 6.50);
+  assert.equal(calls, 4);
+});
+
 test('rejects an oversized Content-Length before reading the body and caps chunked reads', async () => {
   let lengthCanceled = 0;
   const overLength = () => new Response(new ReadableStream({ cancel() { lengthCanceled += 1; } }), {

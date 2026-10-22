@@ -15,13 +15,12 @@ import {
   MoreHorizontal,
   PiggyBank,
   RefreshCw,
-  Wallet,
   X,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatUnits, type Address } from 'viem';
-import { MarketMiniCard } from '@/components/MarketChart';
+import PortfolioExplore from '@/components/PortfolioExplore';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { useFxSaveClaimable, useWalletBalances } from '@/components/WalletDataProvider';
 import { useWalletAssets, useRealtimeChainState } from '@/components/WalletDataProvider';
@@ -34,8 +33,7 @@ import { ConfirmedPositionCards } from '@/components/ConfirmedPositionCards';
 import RecentActivityPreview from '@/components/RecentActivityPreview';
 import { RecentActivitySkeleton } from '@/components/WalletActivity';
 import TokenIcon from '@/components/TokenIcon';
-import ConnectWalletButton from '@/components/ConnectWalletButton';
-import { AppShell, SectionTitle } from '@/components/ui';
+import { AppShell } from '@/components/ui';
 import { PageHeading, StatusNotice } from '@/components/ProductUI';
 import { formatExactDecimal } from '@/lib/amount';
 import { freshDisplayPrices } from '@/lib/displayPrices';
@@ -58,7 +56,6 @@ import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
 import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { claimAvailability, type ClaimableLike } from '@/lib/earnState';
 import { selectWalletTasks } from '@/lib/taskState';
-import styles from '@/app/AccountWorkspace.module.css';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import { PortfolioAssets, PortfolioNetworkTabs, type PortfolioNetwork } from '@/components/PortfolioAssets';
 import { PortfolioWorkspace } from '@/components/ProductLayout';
@@ -67,7 +64,6 @@ import { PortfolioPositionSkeleton } from '@/components/PortfolioPositionSkeleto
 import { providerFallbackOnScreen } from '@/components/ProviderLoadingState';
 import { SplitFigure } from '@/components/SplitFigure';
 import { useRefreshAction } from '@/lib/useRefreshAction';
-import { fetchFxSaveApy, type FxSaveApyResponse } from '@/lib/fxSaveApy';
 
 const EMPTY_FX_SAVE: FxSaveSnapshot = {
   status: 'idle',
@@ -373,95 +369,7 @@ function portfolioLoadingView({ timedOut, network, onNetworkChange, selectedTab,
 }
 
 function DisconnectedPortfolio() {
-  return <div id="overview" className={presentation.dashboard}>
-    <div className={`${presentation.primary} ${presentation.disconnectedPrimary}`}>
-      <section className={presentation.welcome} aria-label="Portfolio overview">
-        <span className={presentation.welcomeIcon} aria-hidden="true"><Wallet size={30} strokeWidth={1.5} /></span>
-        <div><h2>Your portfolio</h2><p>Connect your wallet to see your tokens and positions.</p></div>
-        <ConnectWalletButton className={`button button-primary ${presentation.welcomeConnect}`}>Connect wallet</ConnectWalletButton>
-      </section>
-      <ProductOverview />
-    </div>
-    <aside className={presentation.secondary}><MarketOverview /></aside>
-  </div>;
-}
-
-/** Public, display-only APY; a failed or expired read never becomes a promised yield. */
-function ProductOverview() {
-  const [apy, setApy] = useState<FxSaveApyResponse | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  useEffect(() => {
-    const maxAge = 5 * 60_000;
-    let active = true;
-    let controller: AbortController | null = null;
-    let observedAt = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const load = () => {
-      if (active && observedAt > 0 && Date.now() - observedAt >= maxAge) {
-        observedAt = 0;
-        setApy(null);
-        setStatus('unavailable');
-      }
-      if (!active || controller || document.visibilityState !== 'visible' || !navigator.onLine) return;
-      clearTimeout(timer);
-      const request = new AbortController();
-      controller = request;
-      setApy(null);
-      setStatus('loading');
-      void fetchFxSaveApy(request.signal).then((snapshot) => {
-        if (!active || request.signal.aborted) return;
-        observedAt = snapshot.observedAt;
-        setApy(snapshot);
-        setStatus('ready');
-      }).catch(() => {
-        if (!active) return;
-        observedAt = 0;
-        setApy(null);
-        setStatus('unavailable');
-      }).finally(() => {
-        controller = null;
-        if (active) {
-          const recovered = request.signal.aborted && navigator.onLine && document.visibilityState === 'visible';
-          timer = setTimeout(load, recovered ? 0 : observedAt > 0 ? Math.max(1, maxAge - (Date.now() - observedAt)) : maxAge);
-        }
-      });
-    };
-    const recover = () => {
-      if (!navigator.onLine) {
-        controller?.abort();
-        observedAt = 0;
-        setApy(null);
-        setStatus('unavailable');
-      } else if (Date.now() - observedAt >= maxAge) load();
-    };
-    recover();
-    document.addEventListener('visibilitychange', recover);
-    window.addEventListener('online', recover);
-    window.addEventListener('offline', recover);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-      controller?.abort();
-      document.removeEventListener('visibilitychange', recover);
-      window.removeEventListener('online', recover);
-      window.removeEventListener('offline', recover);
-    };
-  }, []);
-  return <section className={presentation.productOverview} aria-label="Explore FxAeon">
-    <Link href="/trade" className={presentation.productCard}>
-      <div><span className={presentation.productIcon}><CandlestickChart size={24} strokeWidth={1.6} aria-hidden="true" /></span><strong>Trade</strong><ChevronRight size={16} aria-hidden="true" /></div>
-      <p>Go long or short on ETH and BTC.</p>
-    </Link>
-    <Link href="/earn" className={presentation.productCard}>
-      <div><TokenIcon symbol="fxSAVE" size={36} /><strong>Earn</strong><ChevronRight size={16} aria-hidden="true" /></div>
-      <p>{apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> variable APY</>
-        : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading fxSAVE APY" /> : <span>Save with fxSAVE.</span>}</p>
-    </Link>
-    <Link href="/borrow" className={presentation.productCard}>
-      <div><TokenIcon symbol="fxUSD" size={36} /><strong>Borrow</strong><ChevronRight size={16} aria-hidden="true" /></div>
-      <p>Get fxUSD against your ETH or BTC.</p>
-    </Link>
-  </section>;
+  return <PortfolioExplore />;
 }
 
 /** Savings use the same holding-row hierarchy as open positions. */
@@ -564,20 +472,6 @@ function MoreActions({ onActivity }: { onActivity?: () => void }) {
       </div>
     </div>, document.body)}
   </>;
-}
-
-function MarketOverview() {
-  return (
-    <section aria-labelledby="market-overview-title">
-      <SectionTitle right={<span className={presentation.marketTimeframe}>24h change</span>}>
-        <span id="market-overview-title">Markets</span>
-      </SectionTitle>
-      <div className={`${styles.market} grid grid-cols-2 gap-2.5`}>
-        <MarketMiniCard market="ETH" />
-        <MarketMiniCard market="BTC" />
-      </div>
-    </section>
-  );
 }
 
 type FxSaveSnapshot = {

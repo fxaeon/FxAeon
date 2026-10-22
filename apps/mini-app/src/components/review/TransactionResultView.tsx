@@ -21,6 +21,7 @@ import { readbackMatchesResult, type ConfirmedPositionReadback } from './positio
 import { ReceiptSummary } from '@/components/review/ActionReviewSummary';
 import { chainName, TransactionHashLink } from '@/components/review/ReviewProgress';
 import styles from './ActionReviewPresentation.module.css';
+import receiptStyles from './TransactionReceipt.module.css';
 import flowStyles from '../FlowWorkspace.module.css';
 import { compactResultWarning, resultPresentation as executionResultPresentation } from '@/components/review/executionResult';
 
@@ -110,13 +111,15 @@ export function TransactionResultView({
   const actionReceipts = receipts.filter(receipt => receipt.transactionKind === 'action');
   const noTransferAdjustment = confirmedAction && result.operation === 'adjustPositionLeverage' && actionReceipts.length > 0
     && actionReceipts.every(receipt => receipt.movements.length === 0 && receipt.technicalMovements.length === 0 && !receipt.nativeValue);
-  const needsReceiptDetails = Boolean(outcome?.hasTechnicalMovements || outcome?.hasUnresolvedMovements);
+  const hasAdditionalMovements = Boolean(outcome?.hasTechnicalMovements || outcome?.hasUnresolvedMovements);
+  const needsReceiptDetails = hasAdditionalMovements || !outcome?.rows.length || receiptedSteps.length > 1
+    || verifiedReceipts.some(receipt => receipt.l1DataFee || receipt.operatorFee || receipt.feeCaveat);
   const outcomeTitle = queuedWithdrawal ? 'Withdrawal queued'
     : newPosition ? `${newPosition.market} ${newPosition.side === 'long' ? 'Long' : 'Short'} opened` : safePresentation.title;
   const simulatedTarget = newPosition ? `${newPosition.targetLeverage}×` : targetLeverage?.value;
   // The operation identifies the outcome; the footer and provenance label
   // identify simulation. A reviewed target never becomes achieved leverage.
-  const subtitle = simulated ? `${simulatedTarget ? `Target ${simulatedTarget}` : 'Simulation'} · ${chainName(result.chainId)}`
+  const subtitle = simulated ? `Simulation${simulatedTarget ? ` · Target ${simulatedTarget}` : ''} · ${chainName(result.chainId)}`
     : newPosition ? `Position #${newPosition.positionId} · ${chainName(result.chainId)}`
     : positionLabel ? `${positionLabel} · ${chainName(result.chainId)}`
     : queuedWithdrawal ? `fxSAVE · ${chainName(result.chainId)}` : chainName(result.chainId);
@@ -127,8 +130,8 @@ export function TransactionResultView({
     {result.steps.map((step: TransactionStepResult) => hasTransactionHash(step)
       ? <TransactionHashLink key={`${step.index}-${step.hash}`} step={step} chainId={result.chainId} /> : null)}
   </div>;
-  const readbackSection = positionReadback && <section className={styles.positionReadback} aria-label="Latest position read" data-position-readback="verified">
-    <p>{simulated ? 'Simulated position' : 'Position'} #{positionReadback.key.split(':')[2]} · post-confirmation read</p>
+  const readbackSection = positionReadback && <section className={conciseSuccess ? receiptStyles.position : styles.positionReadback} aria-label="Latest position read" data-position-readback="verified">
+    <p role="status">{simulated ? 'Simulated position' : 'Position'} #{positionReadback.key.split(':')[2]} · updated</p>
     <dl>{positionReadback.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd><ReviewFactValue fact={fact} /></dd></div>)}</dl>
   </section>;
   const recoveryWarning = compactResultWarning(safePresentation);
@@ -136,10 +139,10 @@ export function TransactionResultView({
     <p className={styles.resultMeta} title={result.walletAddress}>{chainName(result.chainId)} · {compactAddress(result.walletAddress)}</p>
     {observedFacts.length > 0 && <p className={styles.reviewExplanation}>{simulated ? 'Amounts are simulated.' : 'Amounts are from verified receipts.'} USD uses current prices, not receipt-time prices.</p>}
     <ReceiptSummary receipts={receipts} variant="details" />
-    {readbackSection}
-    {positionAction && !positionClosed && !positionReadback && <p className={styles.resultStatNote} data-position-readback={refreshing ? 'refreshing' : 'unavailable'} role="status">{refreshing ? 'Refreshing position values.' : 'Post-confirmation position values are unavailable. The amounts above come from the confirmed receipt.'}</p>}
+    {!conciseSuccess && readbackSection}
     {!conciseSuccess && transactionLinks && <section className={styles.receiptLinks} aria-label="Transaction receipts">{transactionLinks}</section>}
-    {reviewedFacts.length > 0 && <section className={styles.advancedGroup} aria-label="Reviewed terms"><p className={styles.advancedGroupLabel}>Reviewed terms</p><p className={styles.resultStatNote}>Reviewed amounts, not final outcomes.</p><dl>{reviewedFacts.map((fact, index) => <div className={styles.resultStatRow} key={`${fact.label}-${index}`}><dt>{fact.label}</dt><dd><ReviewFactValue fact={fact} /></dd></div>)}</dl></section>}
+    {conciseSuccess && receiptedSteps.length > 1 && <section className={styles.receiptLinks} aria-label="Earlier transaction receipts">{receiptedSteps.filter(step => step !== lastSubmitted).map(step => <TransactionHashLink key={`${step.index}-${step.hash}`} step={step} chainId={result.chainId} />)}</section>}
+    {!conciseSuccess && reviewedFacts.length > 0 && <section className={styles.advancedGroup} aria-label="Reviewed terms"><p className={styles.advancedGroupLabel}>Reviewed terms</p><p className={styles.resultStatNote}>Reviewed amounts, not final outcomes.</p><dl>{reviewedFacts.map((fact, index) => <div className={styles.resultStatRow} key={`${fact.label}-${index}`}><dt>{fact.label}</dt><dd><ReviewFactValue fact={fact} /></dd></div>)}</dl></section>}
   </>;
   return (
     <ReviewViewport phase="result">
@@ -153,19 +156,22 @@ export function TransactionResultView({
                 <p>{subtitle}</p>
               </div>
             </div>
+            <div className={receiptStyles.panel}>
             {outcome.rows.length > 0 && <TransactionAmountFlow
               facts={outcome.rows.map(row => ({ label: row.direction === 'sent' ? 'Sent' : 'Received', value: `${row.amount} ${row.symbol}` }))}
               labels={Object.fromEntries(outcome.rows.map(row => [row.direction === 'sent' ? 'Sent' : 'Received', row.label]))}
-              chainId={result.chainId} receipt simulated={simulated} showNetwork={false}
+              chainId={result.chainId} receipt simulated={simulated} showNetwork={false} embedded
               ariaLabel={simulated ? 'Simulated token movements' : 'Confirmed transaction amounts'}
             />}
             {queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>Claim status</dt><dd>Check live status</dd></dl>}
             {!outcome.rows.length && !queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>{noTransferAdjustment ? 'Token transfers' : 'Token amounts'}</dt><dd>{noTransferAdjustment ? 'None' : 'Unavailable'}</dd></dl>}
-            {needsReceiptDetails && <dl className={styles.resultPositionStatus}><dt>Additional movements</dt><dd>See details</dd></dl>}
+            {hasAdditionalMovements && <dl className={styles.resultPositionStatus}><dt>Additional movements</dt><dd>See receipt details</dd></dl>}
             {queuedWithdrawal && <dl className={styles.resultPositionStatus} role="status"><dt>Payout</dt><dd>After cooldown</dd></dl>}
             {refreshing && !positionAction && <dl className={styles.resultPositionStatus} role="status"><dt>Balances</dt><dd>Refreshing</dd></dl>}
-            {positionAction && !positionClosed && positionReadback && <dl className={styles.resultPositionStatus} aria-label="Position read status" data-position-readback="verified" role="status"><dt>Position #{positionReadback.key.split(':')[2]}</dt><dd>Updated</dd></dl>}
-            <CompactTransactionFooter result={result} receipts={receipts} />
+            {positionAction && !positionClosed && readbackSection}
+            {positionAction && !positionClosed && !positionReadback && <p className={receiptStyles.status} data-position-readback={refreshing ? 'refreshing' : 'unavailable'} role="status">{refreshing ? 'Position updating' : 'Position values unavailable'}</p>}
+            <CompactTransactionFooter result={result} receipts={receipts} embedded />
+            </div>
           </>}
           {bridgeTracker?.(advancedContent, provenSuccess ? destinationTxHash => <CompactTransactionFooter result={result} receipts={receipts} headingRef={headingRef} destinationReceipt={{ chainId: result.chainId === 1 ? 8453 : 1, hash: destinationTxHash }} /> : undefined)}
           {!bridgeTracker && !conciseSuccess && <section className={styles.resultRecoveryStatus} aria-label="Transaction status">
@@ -187,8 +193,8 @@ export function TransactionResultView({
             {reviewIdentity && <TransactionIdentity {...reviewIdentity} />}
 
           </>}
-          {!bridgeTracker && <details className={styles.resultDetails}>
-            <summary>Execution details <ChevronDown aria-hidden="true" className="h-4 w-4 disclosure-chevron" /></summary>
+          {!bridgeTracker && (!conciseSuccess || needsReceiptDetails) && <details className={styles.resultDetails}>
+            <summary>{conciseSuccess ? 'Receipt details' : 'Execution details'} <ChevronDown aria-hidden="true" className="h-4 w-4 disclosure-chevron" /></summary>
             {advancedContent}
           </details>}
         </div>

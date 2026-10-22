@@ -60,7 +60,7 @@ function referenceQr(value, level, boostLevel) {
 }
 
 test('brand metadata, product artwork, and the official protocol mark stay in sync', async () => {
-  for (const asset of ['assets/fxaeon-mark.svg', 'assets/fxaeon-banner.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
+  for (const asset of ['assets/fxaeon-mark.svg', 'assets/social-preview.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
     await access(resolve(root, asset));
   }
   assert.match(html, /<html lang="en" data-theme="dark">/);
@@ -169,7 +169,7 @@ test('web app actions work on every device and Telegram remains an explicit choi
 test('hero credit, market metadata, and retry affordance stay quiet until needed', () => {
   const hero = elementSource(html, /<section class="hero"/, 'section');
   assert.ok(hero.indexOf('class="lede"') < hero.indexOf('class="hero-credit"'), 'Protocol credit follows the hero lede');
-  assert.match(hero, /Powered By f\(x\) SDK/);
+  assert.match(hero, /Powered by f\(x\) SDK/);
   assert.doesNotMatch(hero, /Built on f\(x\) Protocol/);
   assert.match(html, /<button class="market-refresh"[^>]*hidden>Retry live data<\/button>/);
   const earn = elementSource(html, /<section class="outcome-panel" id="outcome-earn"/, 'section');

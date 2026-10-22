@@ -115,7 +115,8 @@ jobs:
   isolated-e2e:
     name: Isolated browser group ${{ matrix.group }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Package mirrors can consume most of 15 minutes before tests begin.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:

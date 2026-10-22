@@ -4,31 +4,6 @@
   margin-inline: auto;
 }
 
-.productSwitch {
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 32%, var(--line));
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-2) 78%, var(--bg));
-}
-
-.productSwitch > a,
-.productSwitch > span {
-  min-height: 44px;
-  border-radius: var(--radius-sm);
-  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
-}
-
-.productSwitch > [aria-current='page'] {
-  border: 1px solid color-mix(in srgb, var(--mint) 30%, var(--line));
-  background: var(--mint-dim);
-  box-shadow: none;
-  color: var(--text);
-}
-
-.productSwitch > a:hover { background-color: var(--surface-3); color: var(--text); }
-.productSwitch > a:active { transform: translateY(1px); }
-.productSwitch > a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-
 .focusCard {
   border-radius: var(--radius-md);
   border-color: color-mix(in srgb, var(--line-strong) 34%, var(--line));
@@ -37,27 +12,12 @@
   animation: flow-surface-in 220ms cubic-bezier(.2,.75,.25,1) both;
 }
 
-.formHeader { min-width: 0; }
-
 /* Move is intentionally a compact flow: the route, amount, recipient and
  * review trigger remain one viewport-sized workspace on Telegram phones. */
 .moveCard { min-width: 0; }
-.moveEyebrow,
-.moveSupportCopy { display: block; }
-.moveNetworkFlow { margin-top: 12px; }
 .moveFormFields { display: flex; flex-direction: column; gap: 10px; }
-.moveAmountHero { padding-block: 0; }
-.recipientSection { min-width: 0; }
 .advancedAddressGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .advancedAddressGrid > label:last-child { grid-column: 1 / -1; }
-.modeNotice { margin: -2px 0 0; }
-.bridgePreview { display: flex; flex-direction: column; gap: 7px; padding: 10px 0 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
-.bridgePreviewGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-
-.summaryCard {
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-}
 
 .reviewCard {
   border-radius: var(--radius-lg);
@@ -93,13 +53,6 @@
 .fundsNote {
   margin: 0 0 10px;
   color: var(--warn);
-  font-size: var(--fs-small);
-  line-height: 1.45;
-}
-
-.requestsNote {
-  margin: 0 0 10px;
-  color: var(--mut);
   font-size: var(--fs-small);
   line-height: 1.45;
 }
@@ -149,45 +102,6 @@
   margin-top: 4px;
 }
 
-.eyebrow {
-  color: var(--mint-text);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.sectionTitle {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -.02em;
-}
-
-.supportCopy {
-  color: var(--mut);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.metric {
-  border: 1px solid color-mix(in srgb, var(--line-strong) 28%, var(--line));
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-
-.networkFlow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 52px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.networkNode {
-  min-height: 58px;
-  padding: 8px 4px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
 .networkArrow {
   display: flex;
   min-height: 44px;
@@ -199,11 +113,6 @@
   color: var(--mut);
   background: transparent;
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
-}
-
-.amountHero {
-  padding: 0;
-  background: transparent;
 }
 
 /* The one primary decision per surface: tall, calm, unmistakable. */
@@ -233,24 +142,7 @@
 }
 .reviewFacts > * { min-width: 0; }
 
-.reviewStep {
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-}
-
-.advancedPanel {
-  border: 0;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-}
-.moveNetworkFlow .networkNode > span:first-child { font-size: 13px; line-height: 1.3; }
-
 @media (max-width: 560px) {
-  .networkFlow {
-    grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
-    gap: 6px;
-  }
   .networkArrow {
     justify-self: stretch;
     transform: none;
@@ -260,264 +152,35 @@
 @media (max-width: 640px) {
   .workspace { max-width: 100%; }
   .moveCard.moveCard { padding: 14px; border-radius: var(--radius-md); }
-  .moveNetworkFlow { margin-top: 10px; }
-  .networkNode { min-height: 54px; padding: 7px 2px; border-radius: 0; }
   .networkArrow { min-height: 44px; min-width: 44px; }
-  .moveCard .hairline { margin-block: 10px; }
   .moveFormFields { gap: 10px; }
   .moveFormFields > details > summary { min-height: 44px; }
   .moveFormFields > details > div { padding: 10px; }
   .advancedAddressGrid { gap: 8px; }
   .advancedAddressGrid label > span { margin-bottom: 5px; font-size: 12px; }
-  .advancedAddressGrid input, .recipientSection input { min-height: 48px; padding-inline: 12px; }
-  .moveAmountHero :global(.amount-control) { min-height: 76px; }
-  .recipientSection > div:first-child { margin-bottom: 5px; }
-  .recipientSection > div:last-child { min-height: 52px; }
-  .bridgePreview { padding: 9px; gap: 7px; }
-  .bridgePreviewGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .advancedAddressGrid input { min-height: 48px; padding-inline: 12px; }
   .reviewTrigger { margin-top: 8px; padding-top: 10px; }
   .reviewTrigger .primaryAction { min-height: 48px; }
 }
 
-/* Earn and Borrow share the same quiet controls while keeping their longer
-   forms readable at narrow widths. */
-.earnWorkspace,
-.borrowWorkspace { min-width: 0; }
-
-.earnWorkspace :global(.segmented),
-.borrowWorkspace :global(.segmented) { border-color: transparent; border-radius: var(--radius-md); background: transparent; }
-.earnWorkspace :global(.segmented-option),
-.borrowWorkspace :global(.segmented-option) { min-height: 44px; border-radius: var(--radius-sm); transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
-.earnWorkspace :global(.segmented-option-active),
-.borrowWorkspace :global(.segmented-option-active) { background: var(--mint-dim); box-shadow: none; color: var(--text); }
-.earnWorkspace :global(.segmented-option:hover),
-.borrowWorkspace :global(.segmented-option:hover) { color: var(--text); }
-.earnWorkspace :global(.segmented-option:active),
-.borrowWorkspace :global(.segmented-option:active) { transform: translateY(1px); }
-.earnWorkspace :global(.segmented-option:focus-visible),
-.borrowWorkspace :global(.segmented-option:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
-
-.earnWorkspace :global(.field-control), .borrowWorkspace :global(.field-control), .moveWorkspace :global(.field-control),
-.earnWorkspace :global(.amount-control), .borrowWorkspace :global(.amount-control), .moveWorkspace :global(.amount-control),
-.earnWorkspace :global(.range-control), .borrowWorkspace :global(.range-control), .moveWorkspace :global(.range-control) {
+.moveWorkspace :global(.field-control), .moveWorkspace :global(.amount-control), .moveWorkspace :global(.range-control) {
   border-color: color-mix(in srgb, var(--line-strong) 34%, var(--line));
   background: color-mix(in srgb, var(--input) 82%, var(--surface));
   transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
-.earnWorkspace :global(.field-control), .borrowWorkspace :global(.field-control), .moveWorkspace :global(.field-control) { border-radius: var(--radius-sm); }
-.earnWorkspace :global(.amount-control), .borrowWorkspace :global(.amount-control), .moveWorkspace :global(.amount-control) { border-radius: var(--radius-md); box-shadow: none; }
-.earnWorkspace :global(.token-pill), .borrowWorkspace :global(.token-pill), .moveWorkspace :global(.token-pill) { border-color: color-mix(in srgb, var(--line-strong) 34%, var(--line)); background: color-mix(in srgb, var(--surface-3) 76%, var(--surface)); }
-.earnHeading { margin: 0; color: var(--text); font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
-.borrowHeading { margin: 0; color: var(--text); font-size: 28px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
-
-.earnFlowGrid {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.earnContextColumn,
-.earnActionColumn { min-width: 0; }
-
-.earnContextColumn { display: flex; flex-direction: column; gap: 12px; }
-.earnActionColumn { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
-.advancedDetails { border-color: var(--line); background: var(--input); }
-.advancedDetails summary { min-height: 44px; padding-inline: 4px; color: var(--mut); }
-
-/* Keep paired financial inputs aligned and compact without sacrificing touch size. */
-.borrowAmountGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  min-width: 0;
-}
-
-.borrowAmountGrid > * { min-width: 0; }
-.borrowWorkspace .borrowAmountGrid { grid-column: 1 / -1; }
-.disconnectedBorrowFields .borrowAmountGrid { grid-column: 1 / -1; }
-.borrowCollateralField { min-width: 0; }
-.borrowMarketSwitch { min-width: 0; }
-.borrowWorkspace .disconnectedBorrowFields .borrowMarketSwitch { grid-column: 1 / -1; }
-.borrowWorkspace .disconnectedBorrowFields .borrowCollateralField { grid-column: 1 / -1; }
-.optionalWithdrawSettings { min-width: 0; }
-
-@media (max-width: 640px) {
-  .borrowAmountGrid { gap: 8px; }
-
-  /* Decision-critical withdrawal and borrowing context remains visible on
-     mobile. Secondary prose may wrap, but mode, fee, cooldown, and risk
-     controls must not disappear. */
-  .disconnectedEarnCard .optionalWithdrawSettings,
-  .disconnectedEarnCard :global(.info-note) { display: block; }
-  .earnWorkspace .optionalWithdrawSettings :global(.toggle-row) { min-height: 56px; }
-  .earnWorkspace .focusCard :global(.info-note),
-  .borrowWorkspace .focusCard :global(.info-note) { display: flex; }
-}
-
-@media (min-width: 840px) {
-  /* Disconnected borrow controls use the available width while retaining one
-     header and explanatory block across the ticket. */
-  .borrowWorkspace .disconnectedBorrowForm,
-  .borrowWorkspace .disconnectedBorrowFields { gap: 12px !important; }
-  .borrowWorkspace .disconnectedBorrowFields { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .borrowWorkspace .disconnectedBorrowFields > .formHeader { grid-column: 1 / -1; }
-  .borrowWorkspace .disconnectedBorrowFields > .formHeader p,
-  .borrowWorkspace .disconnectedBorrowFields :global(.info-note) { display: block; }
-  .borrowWorkspace .disconnectedBorrowFields > .formHeader + div { grid-column: 1 / -1; }
-  .earnWorkspace .focusCard { padding: 14px !important; }
-  .earnWorkspace .focusCard > div { gap: 12px !important; }
-  .earnWorkspace .focusCard .formHeader,
-  .earnWorkspace .focusCard :global(.info-note) { display: block; }
-  .earnWorkspace > :global(.ui-card:first-of-type) p:nth-child(2) { display: none; }
-  .earnWorkspace .focusCard :global(.field-control) { min-height: 50px !important; }
-  .earnWorkspace .focusCard :global(.amount-control) { min-height: 72px !important; }
-  .earnWorkspace .focusCard :global(.range-control) { min-height: 46px !important; }
-  /* Earn is a single savings rail. Keep the route heading, network tabs, APY,
-     and action card aligned instead of stretching the route across the app. */
-  .earnWorkspace { max-width: 560px; margin-inline: auto; }
-  .borrowWorkspace { max-width: 560px; margin-inline: auto; }
-  .earnFlowGrid {
-    display: flex;
-    align-items: stretch;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .earnContextColumn,
-  .earnActionColumn { min-width: 0; }
-  .earnContextColumn,
-  .earnActionColumn,
-  .earnFlowGridDisconnected .earnContextColumn,
-  .earnFlowGridDisconnected .earnActionColumn { width: 100%; }
-  .earnActionColumn { position: static; }
-  .earnFlowGridDisconnected {
-    display: flex;
-    align-items: stretch;
-  }
-  .earnFlowGridDisconnected .earnContextColumn { width: 100%; }
-  .earnFlowGridDisconnected .earnContextColumn:empty { display: none; }
-  .earnFlowGridDisconnected .earnActionColumn { width: 100%; }
-  .borrowWorkspace > .focusCard {
-    width: 100%;
-    max-width: 560px;
-    align-self: center;
-  }
-  .borrowWorkspace > .summaryCard,
-  .borrowWorkspace > :global([role='status']) { width: 100%; max-width: 560px; align-self: center; }
-}
-
-@media (min-width: 641px) and (max-width: 839px) {
-  /* Tablet shells have enough width for denser tickets but still retain the
-     fixed navigation clearance of the mobile host. */
-  .earnWorkspace,
-  .borrowWorkspace { gap: 10px; }
-  .borrowWorkspace .focusCard,
-  .earnWorkspace .focusCard { padding: 14px !important; }
-  .borrowWorkspace .disconnectedBorrowForm,
-  .borrowWorkspace .disconnectedBorrowFields { gap: 10px !important; }
-  .borrowWorkspace .disconnectedBorrowFields .formHeader p,
-  .borrowWorkspace .disconnectedBorrowFields :global(.info-note) { display: block; }
-}
-
-@media (max-width: 640px) {
-  .earnHeading,
-  .borrowHeading {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .earnWorkspace,
-  .borrowWorkspace { gap: 8px; }
-
-.earnWorkspace .focusCard,
-.borrowWorkspace .focusCard,
-.earnWorkspace .summaryCard,
-.borrowWorkspace .summaryCard { padding: 16px; border-radius: var(--radius-md); }
-
-  .earnWorkspace .focusCard > div,
-  .borrowWorkspace .focusCard > div { gap: 12px; }
-
-  .earnWorkspace :global(.field-control),
-  .borrowWorkspace :global(.field-control),
-  .earnWorkspace :global(.range-control),
-  .borrowWorkspace :global(.range-control) { min-height: 48px !important; padding-inline: 10px !important; }
-
-  .earnWorkspace :global(.amount-control),
-  .borrowWorkspace :global(.amount-control) { min-height: 64px !important; padding-inline: 10px !important; }
-
-  .earnWorkspace :global(.token-pill),
-  .borrowWorkspace :global(.token-pill) { padding: 7px 9px; font-size: 12px; }
-
-  .earnWorkspace :global(.info-note),
-  .borrowWorkspace :global(.info-note) { padding: 10px; font-size: 12px; line-height: 1.45; }
-
-  .earnWorkspace .sectionTitle,
-  .borrowWorkspace .sectionTitle { font-size: 15px; }
-  .earnWorkspace .supportCopy,
-  .borrowWorkspace .supportCopy { font-size: 13px; line-height: 1.45; }
-
-  .borrowWorkspace select { min-height: 48px !important; padding-inline: 10px !important; font-size: 14px !important; }
-  .borrowWorkspace .summaryCard h2 { margin-top: 4px; font-size: 16px; }
-  .borrowWorkspace .summaryCard [class*='mt-4'] { margin-top: 8px !important; }
-  .borrowWorkspace .summaryCard [class*='mt-3'] { margin-top: 6px !important; }
-
-  /* Keep disconnect-state guidance visible; the workspace can scroll when
-     the viewport is shorter than the complete form. */
-  .borrowWorkspace .disconnectedBorrowForm,
-  .borrowWorkspace .disconnectedBorrowFields { gap: 8px !important; }
-  .borrowWorkspace .disconnectedBorrowFields .formHeader p,
-  .borrowWorkspace .disconnectedBorrowFields > p,
-  .borrowWorkspace .disconnectedBorrowFields :global(.info-note) { display: block; }
-}
-
-
-
-/* Keep disconnected amounts legible beside their balance and token selector. */
-@media (max-width: 640px) {
-  .borrowWorkspace .disconnectedBorrowFields :global([class*='amountBalanceMeta']) { display: flex !important; }
-  .borrowWorkspace .disconnectedBorrowFields :global(.amount-control) {
-    gap: 3px !important;
-    padding-inline: 6px !important;
-  }
-
-  .borrowWorkspace .disconnectedBorrowFields :global(.amount-control) .token-pill {
-    gap: 3px;
-    padding: 5px 7px;
-    font-size: 12px;
-  }
-  .borrowWorkspace .disconnectedBorrowFields :global(.amount-control) .token-pill svg {
-    width: 17px;
-    height: 17px;
-  }
-}
-
-@media (max-width: 420px) {
-  .borrowAmountGrid { grid-template-columns: minmax(0, 1fr); }
-  .borrowAmountGrid > * { width: 100%; }
-  .earnWorkspace .focusCard :global(.amount-control),
-  .borrowWorkspace .focusCard :global(.amount-control) { min-height: 72px !important; }
-}
+.moveWorkspace :global(.field-control) { border-radius: var(--radius-sm); }
+.moveWorkspace :global(.amount-control) { border-radius: var(--radius-md); box-shadow: none; }
+.moveWorkspace :global(.token-pill) { border-color: color-mix(in srgb, var(--line-strong) 34%, var(--line)); background: color-mix(in srgb, var(--surface-3) 76%, var(--surface)); }
 
 @keyframes flow-surface-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (hover: hover) {
-  .earnWorkspace .focusCard:hover, .borrowWorkspace .focusCard:hover, .moveWorkspace .moveCard:hover { border-color: var(--line-strong); }
+  .moveWorkspace .moveCard:hover { border-color: var(--line-strong); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .earnWorkspace .focusCard, .borrowWorkspace .focusCard, .moveWorkspace .moveCard { animation: none; transition: none; }
-  .productSwitch > a, .productSwitch > span, .earnWorkspace :global(.segmented-option), .borrowWorkspace :global(.segmented-option),
-  .earnWorkspace :global(.field-control), .borrowWorkspace :global(.field-control), .moveWorkspace :global(.field-control),
-  .earnWorkspace :global(.amount-control), .borrowWorkspace :global(.amount-control), .moveWorkspace :global(.amount-control),
+  .moveWorkspace .moveCard { animation: none; transition: none; }
+  .moveWorkspace :global(.field-control), .moveWorkspace :global(.amount-control),
   .reviewTrigger .primaryAction:global(.button-primary), .reviewInlineActions .primaryAction:global(.button-primary), .networkArrow { transition: none; }
-  .productSwitch > a:active, .earnWorkspace :global(.segmented-option:active), .borrowWorkspace :global(.segmented-option:active),
   .reviewTrigger .primaryAction:global(.button-primary):active, .reviewInlineActions .primaryAction:global(.button-primary):active { transform: none; }
 }

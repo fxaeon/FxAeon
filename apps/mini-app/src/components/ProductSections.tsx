@@ -1,6 +1,7 @@
 'use client';
 
 import { ShieldAlert } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useLiveMarketQuote } from '@/components/PriceProvider';
 import { liveQuotePending } from '@/lib/liveMarket';
 import { ValueOrSkeleton } from '@/components/MissingValue';
@@ -63,19 +64,21 @@ export function TradeSections({ market, side, leverage, openPositions, positions
 }
 
 /** Below the fxSAVE form: vault facts and where its yield comes from. */
-export function EarnSections({ cooldown, instantFee, vaultStatus }: {
+export function EarnSections({ cooldown, instantFee, vaultStatus, showWithdrawalTerms = true, termsNotice }: {
   cooldown: string | null;
   instantFee: string | null;
   /** How the vault configuration read stands while its values are missing. */
   vaultStatus: 'loading' | 'unavailable';
+  showWithdrawalTerms?: boolean;
+  termsNotice?: ReactNode;
 }) {
   return <PageSections label="fxSAVE details">
-    <Section id="earn-glance" title="Withdrawal terms" expandable>
-      <StatGrid stats={[
+    {showWithdrawalTerms && <Section id="earn-glance" title="Withdrawal terms" expandable>
+      {!cooldown && !instantFee && termsNotice ? termsNotice : <StatGrid stats={[
         { label: 'Withdrawal cooldown', value: <ValueOrSkeleton value={cooldown ?? '—'} width="md" status={vaultStatus} label="Withdrawal cooldown" />, hint: 'For queued withdrawals' },
         { label: 'Instant withdrawal fee', value: <ValueOrSkeleton value={instantFee ?? '—'} width="md" status={vaultStatus} label="Instant withdrawal fee" />, hint: 'Skip the cooldown' },
-      ]} />
-    </Section>
+      ]} />}
+    </Section>}
     <Section id="earn-yield" title="How fxSAVE earns yield" expandable action={howItWorks('earn')}>
       <p className={styles.lede}>fxSAVE holds f(x) Protocol stability pool shares and compounds what they earn, so its value per share follows the vault. The APY is variable.</p>
       <YieldFlow />
@@ -90,7 +93,7 @@ export function BorrowSections({ ltvLimit }: { ltvLimit: string }) {
       <StatGrid stats={[
         // The displayed pool maximum is distinct from the guarded form ceiling.
         { label: 'Pool maximum LTV', value: ltvLimit, hint: 'The form keeps a buffer below this limit' },
-        { label: 'Annual interest', value: '0%', hint: 'In normal conditions; protocol fees apply' },
+        { label: 'Action fees', value: 'Opening · repayment', hint: 'Temporary funding is shown separately' },
         { label: 'Collateral', value: 'ETH · BTC', hint: 'ETH, WETH, stETH, wstETH, or WBTC' },
         { label: 'You borrow', value: 'fxUSD', hint: 'On Ethereum' },
       ]} />

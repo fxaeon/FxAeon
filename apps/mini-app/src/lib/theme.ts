@@ -2,7 +2,7 @@
  * globals.css owns the live application tokens. */
 import { applyTelegramChromeColors } from './telegram';
 
-export const APP_THEME = { id: 'dark', accent: '#2563eb', background: '#101214' } as const;
+export const APP_THEME = { id: 'dark', accent: '#2563eb', background: '#080808' } as const;
 
 /** Tokens earlier releases wrote inline; clearing them lets the stylesheet win. */
 const LEGACY_INLINE_TOKENS = ['--bg', '--bg-raised', '--surface', '--surface-2', '--surface-3', '--card', '--input', '--line',

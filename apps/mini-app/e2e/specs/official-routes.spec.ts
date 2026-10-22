@@ -550,7 +550,7 @@ test.describe("market price context", () => {
       }
       const markets = main.getByRole("region", { name: "Markets", exact: true });
       await expect(markets).toBeVisible();
-      await expect(markets.getByText("24h change", { exact: true })).toBeVisible();
+      await expect(markets.locator('[title="24-hour price change"]')).toHaveCount(2);
       await expect(markets.getByText("ETH", { exact: true })).toBeVisible();
       await expect(markets.getByText("BTC", { exact: true })).toBeVisible();
       assertNoBackendRequests(requests);

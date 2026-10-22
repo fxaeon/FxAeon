@@ -13,18 +13,18 @@
    The same roles apply to input, review and management in every theme. */
 :root {
   /* Neutral surfaces carry the interface; blue identifies actions. */
-  --bg: #101214;
-  --bg-raised: #14171b;
-  --surface: #171a1f;
-  --surface-2: #20242a;
-  --surface-3: #2a3038;
-  --card: #171a1f;
-  --input: #20242a;
-  --line: #2b3037;
-  --line-strong: #48515e;
-  --text: #f2f4f7;
-  --mut: #abb1bb;
-  --mut-2: #969eab;
+  --bg: #080808;
+  --bg-raised: #101010;
+  --surface: #151515;
+  --surface-2: #202020;
+  --surface-3: #2b2b2b;
+  --card: var(--surface);
+  --input: var(--surface-2);
+  --line: #2b2b2b;
+  --line-strong: #494949;
+  --text: #f4f4f4;
+  --mut: #b3b3b3;
+  --mut-2: #9b9b9b;
   --mint: #2563eb;
   --mint-bright: #7da5ff;
   --mint-text: #7da5ff;
@@ -39,8 +39,8 @@
   --danger-dim: rgba(179, 55, 80, 0.09);
   --warn: #f2b84b;
   --warn-dim: rgba(128, 89, 0, 0.09);
-  --feature-surface: #20242a;
-  --feature-warm: #20242a;
+  --feature-surface: var(--surface-2);
+  --feature-warm: var(--surface-2);
   --long: var(--success);
   --long-dim: var(--success-dim);
   --short: var(--danger);
@@ -448,31 +448,6 @@ main.utility-stage {
   .wallet-provider-option:active { transform: none; }
 }
 
-/* The living canvas: two soft lights drift behind every route on long, offset
-   loops, so the page breathes without ever competing with numbers. Transform-only
-   motion keeps it on the compositor; reduced motion holds the lights still. */
-body::before,
-body::after {
-  content: none;
-  position: fixed;
-  z-index: 0;
-  inset: -12vmax;
-  pointer-events: none;
-  will-change: transform;
-}
-body::before {
-  background:
-    radial-gradient(46vmax 30vmax at 50% 4%, var(--canvas-wash), transparent 68%),
-    radial-gradient(30vmax 24vmax at 88% 86%, var(--canvas-wash-secondary), transparent 72%);
-  animation: canvas-drift-a 42s var(--ease-in-out, ease-in-out) infinite alternate;
-}
-body::after {
-  background:
-    radial-gradient(30vmax 22vmax at 14% 22%, color-mix(in srgb, var(--brand-coral) 9%, transparent), transparent 70%),
-    radial-gradient(26vmax 20vmax at 76% 58%, color-mix(in srgb, var(--mint) 6%, transparent), transparent 72%);
-  animation: canvas-drift-b 56s var(--ease-in-out, ease-in-out) infinite alternate;
-}
-
 /* The first route heading of a session arrives lit, as the landing's headline
    does: one band of accent light crosses the word and leaves it in plain text.
    The band starts and ends beyond the word, so the first and last frames read
@@ -495,32 +470,6 @@ body::after {
 @media (forced-colors: active) {
   :is(.page-header, .trade-page-heading, [data-page-heading]) h1 { background: none; -webkit-text-fill-color: CanvasText; }
 }
-@keyframes canvas-drift-a {
-  from { transform: translate3d(-3vmax, -1vmax, 0) scale(1); }
-  to { transform: translate3d(4vmax, 3vmax, 0) scale(1.06); }
-}
-@keyframes canvas-drift-b {
-  from { transform: translate3d(3vmax, 2vmax, 0) rotate(0deg); }
-  to { transform: translate3d(-4vmax, -3vmax, 0) rotate(6deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  body::before, body::after { animation: none; }
-}
-/* The canvas rests when nobody is looking at it. With data saver on it stays
-   still from the first paint; while the page is hidden it holds its frame. */
-:root[data-save-data] body::before,
-:root[data-save-data] body::after { animation: none; will-change: auto; }
-:root[data-page-hidden] body::before,
-:root[data-page-hidden] body::after { animation-play-state: paused; }
-/* It also holds its frame under a sheet, dialog or transaction review, where
-   attention (and a backdrop blur) sits above it. Markers: overlays are
-   aria-modal; reviews render ActionReview's viewport, or mark their form with
-   data-review (Trade, Positions) or a data-flow-stage past input. */
-body:has([aria-modal='true'], [data-review-viewport], [data-review], [data-flow-stage]:not([data-flow-stage='input']))::before,
-body:has([aria-modal='true'], [data-review-viewport], [data-review], [data-flow-stage]:not([data-flow-stage='input']))::after {
-  animation-play-state: paused;
-}
-
 button,
 a,
 input,
@@ -1038,28 +987,15 @@ details[open] > summary .disclosure-closed-only { display: none; }
   background: var(--mint);
   border-color: transparent;
   color: var(--on-accent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 8px 24px color-mix(in srgb, var(--mint) 16%, transparent);
+  box-shadow: none;
+  border-radius: 26px;
 }
 
 .button-primary:hover:not(:disabled) {
   filter: brightness(1.06);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26), 0 12px 30px color-mix(in srgb, var(--mint) 28%, transparent);
+  box-shadow: none;
 }
 .button-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); transition-duration: var(--dur-press); }
-/* One light sweep across an enabled primary action on hover. */
-.button-primary { isolation: isolate; overflow: hidden; }
-.button-primary::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 28%, rgba(255, 255, 255, 0.28) 50%, transparent 72%);
-  transform: translateX(-130%);
-  pointer-events: none;
-}
-.button-primary:hover:not(:disabled)::after { transform: translateX(130%); transition: transform 900ms var(--ease-out); }
-.button-primary:disabled::after { content: none; }
 
 /* Sparklines draw in once; their fill settles beneath. */
 .sparkline-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: sparkline-draw 1100ms var(--ease-out) 80ms forwards; }
@@ -1983,10 +1919,10 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
   .app-content.utility-content { max-width: 560px; }
   .app-topbar { max-width: 1120px; margin: 0 auto var(--header-gap); }
   .desktop-navigation { display: flex; align-items: center; gap: 2px; margin-right: auto; margin-left: 12px; padding: 2px; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
-  .desktop-navigation a { position: relative; display: grid; min-height: 44px; place-items: center; padding: 0 12px; border-radius: 999px; font-size: var(--fs-small); font-weight: 600; color: var(--mut); white-space: nowrap; transition: background-color var(--dur-base) ease, color var(--dur-base) ease, transform var(--dur-slow) var(--ease-spring); }
-  .desktop-navigation a:hover { color: var(--text); }
-  .desktop-navigation a:active { transform: scale(0.96); transition-duration: var(--dur-press); }
-  .desktop-navigation a[aria-current='page'] { color: var(--mint-text); background: var(--mint-dim); box-shadow: none; }
+  .desktop-navigation a { position: relative; display: grid; min-height: 44px; place-items: center; padding: 0 14px; border-radius: 12px; font-size: var(--fs-small); font-weight: 500; color: var(--mut); white-space: nowrap; transition: background-color var(--dur-base) ease, color var(--dur-base) ease; }
+  .desktop-navigation a:hover { color: var(--text); background: var(--surface); }
+  .desktop-navigation a:active { background: var(--surface-2); }
+  .desktop-navigation a[aria-current='page'] { color: var(--text); background: var(--surface); box-shadow: none; }
   .page-header { max-width: 1120px; margin: 0 auto 20px; }
   .mobile-tabbar { display: none; }
   .app-content-tabs { padding-bottom: 0; scroll-padding-bottom: 0; }

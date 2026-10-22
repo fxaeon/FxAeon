@@ -1,40 +1,50 @@
 # UI state lab
 
-The permanent UI state lab lives under `apps/mini-app/e2e`. It bundles its entry in memory and runs on a small local fixture server. The dedicated Playwright config starts only that server; it never invokes the Next.js export, production E2E server, wallet, or chain. It uses the real global theme and product-shell styles, component CSS modules, Lucide icons, vendored token artwork, and the app’s Inter font asset with its OFL license. The amount editor is the real `AmountFieldView`. Transaction status uses `buildStatusPresentation`, the same pure model used by `ActionReview`, while final result notices use `ReviewProgress.StatusNotice` and `executionResult.resultPresentation`. The receipt fixtures call the real `buildReceiptPresentation` model to display a known USDC movement, a Base execution-fee caveat, and unknown token details. No signing or network calls are connected.
+The state lab is a deterministic local component catalog under `apps/mini-app/e2e/`. It bundles its entry in memory and uses a loopback fixture server, not the Next.js export or a production wallet/chain.
 
-Run the catalog and its behavioral checks from the repository root:
+## Run
 
-```sh
-pnpm --dir apps/mini-app test:e2e:state-lab
-```
+From the repository root:
 
-Open the interactive catalog in a browser without running tests:
+~~~sh
+pnpm test:e2e:state-lab
+~~~
 
-```sh
+For interactive inspection without running tests:
+
+~~~sh
 pnpm --dir apps/mini-app dev:state-lab
-```
+~~~
 
-Then visit `http://127.0.0.1:4322`. Stop the process with Ctrl+C when finished.
+Visit [127.0.0.1:4322](http://127.0.0.1:4322), or the configured `UI_STATE_LAB_PORT`. Stop the server with Ctrl+C. The dedicated [Playwright config](../apps/mini-app/playwright.state-lab.config.ts) starts only this fixture server.
 
-It covers loading, verified zero, positive, partial, stale, and unavailable data; eight transaction stages; long values and labels; official, dark, and light themes; keyboard focus; reduced motion; and narrow phone, short phone, tablet, and desktop viewports. Focused screenshots cover four AmountField states, a long amount, official/light themes, a narrow layout, the real consequence-summary component, six transaction progress/result presentations, and both receipt examples. The amount formatting, token metadata, receipt facts, and consequence rendering use production pure helpers/components; only price and haptic providers are stubbed. The existing `action-review-harness.spec.ts` separately exercises the real `ActionReview` controller through planning, review, wallet request, submission, confirmation, interruption, and uncertain/failure paths.
+## What is real
 
-Each run attaches focused images to the Playwright report. To save local review
-images under `apps/mini-app/e2e/state-lab/captures/`, set `UI_STATE_CAPTURE=1`
-when running the lab. On Windows, normal runs compare against the 17 approved
-references in `state-lab-snapshots/`; other platforms run behavior checks and
-attach images without comparing Windows pixels.
+The lab uses real global/product-shell styling, CSS modules, icons/token artwork and licensed Inter font. Amount entry uses `AmountFieldView`. Transaction status, result notices, receipt facts and consequence summaries use production models/components.
 
-To intentionally create or update all references after reviewing the images,
-run this approval command on the pinned Windows Playwright environment from the
-repository root:
+Fixtures supply deterministic values and synthetic service leaves. No signing or protocol network path is connected. The catalog covers loading, zero, positive, partial, stale and unavailable data; transaction stages; long values; keyboard focus; reduced motion; and phone/desktop sizes.
 
-```powershell
+Legacy theme inputs can remain as migration/compatibility fixtures. They do not establish current public appearance choices. The maintained product/design contract is dark-only.
+
+The separate built `action-review-harness.spec.ts` exercises the actual review controller through planning, review, wallet request, submission, confirmation and interruption/failure paths. A state-card screenshot is narrower evidence.
+
+## Captures and approved references
+
+Runs attach focused images to the Playwright report. Set `UI_STATE_CAPTURE=1` to additionally save review images under `apps/mini-app/e2e/state-lab/captures/`.
+
+On Windows, normal runs compare the committed approved references in `state-lab-snapshots/`. Other platforms run behavior and attach images without asserting Windows pixels. A missing/incomplete required set fails.
+
+Intentional baseline updates require visual review on the pinned Windows Playwright environment:
+
+~~~powershell
 $env:UI_STATE_APPROVE_BASELINES = '1'
 pnpm --dir apps/mini-app exec playwright test --config playwright.state-lab.config.ts --update-snapshots
-```
+~~~
 
-The approval command fails on non-Windows platforms. A missing or incomplete
-reference set fails the normal Windows gate. Use the pinned Playwright
-Chromium build, scale factor 1, `en-US` locale, and UTC timezone. The default
-viewport is 390×844 and the narrow capture is 320×568. Review generated image
-changes before approving an updated baseline.
+The approval command fails on other platforms. Use pinned Chromium, device scale 1, `en-US`, UTC, and the configured viewports. Do not update a baseline to conceal an unexplained failure.
+
+## Evidence limits
+
+Record the source revision, fixture state, platform/browser and intentional visual change. The lab validates its rendered and interactive states, not live balances, native Telegram identity, physical wallet dispatch, protocol execution or cross-chain settlement.
+
+Use the [browser gate map](browser-test-gates.md), [testing guide](testing.md), and [capture provenance](position-screenshot-fixture.md) for the wider verification path.

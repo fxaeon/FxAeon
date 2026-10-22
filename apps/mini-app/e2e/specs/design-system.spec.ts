@@ -158,92 +158,70 @@ test.describe('cohesive responsive design', () => {
     await page.locator('main').getByRole('link', { name: /FxAeon docs/i }).click();
     await expect(page).toHaveURL(/\/docs\/?$/);
     await expect(page.getByRole('heading', { name: 'FxAeon Documentation', exact: true })).toBeVisible();
-    const welcomeCards = page.getByRole('main').getByRole('link');
-    await expect(page.getByRole('heading', {name:'What is FxAeon?', exact:true})).toBeVisible();
-    expect(await welcomeCards.evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).getAttribute('href'))))
-      .toEqual(expect.arrayContaining(['/docs/guide/getting-started', '/docs/guide/trade', '/docs/guide/earn', '/docs/guide/borrow', '/docs/guide/move', '/docs/guide/access']));
-    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
-    const homeSearch = page.getByRole('searchbox', { name: 'Search docs' });
-    await homeSearch.fill('getFxSaveBalance');
-    const homeResults = page.getByRole('navigation', { name: 'Pages', exact: true });
-    await expect(homeResults.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
-    const homeFxSave = homeResults.getByRole('link', { name: /^fxSAVE/ });
-    await expect(homeResults).toBeVisible();
-    await expect(homeFxSave).toHaveAttribute('href', '/docs/sdk#sdk-earn');
-    await page.getByRole('button', { name: 'Clear', exact: true }).click();
-    await expect(homeSearch).toHaveValue('');
-    await expect(homeResults.getByRole('link')).toHaveCount(15);
-    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
-    await expect(homeResults).toBeHidden();
-    await page.getByRole('main').getByRole('link', {name:'Your first transaction', exact:true}).click();
-    await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
-    await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
-    // Keep the index/search assertions on the complete legacy guide route.
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto('/docs/guide');
-    await expect(page.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
-    const nav = page.getByRole('navigation', { name: 'Documentation sections' });
-    await expect(nav.getByRole('link', {name:'SDK reference',exact:true})).toHaveAttribute('href','/docs/sdk');
-    await page.setViewportSize({ width: 390, height: 844 });
-    const contents = nav.locator('details');
-    await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
-    await expect(contents).toHaveJSProperty('open', true);
-    await expect(nav.getByRole('link')).toHaveCount(15);
-    await page.getByRole('button', { name: 'Close documentation menu', exact: true }).click();
-    await expect(nav).toBeHidden();
-    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Use FxAeon', exact: true })).toBeVisible();
+    const home = page.locator('#main-content');
+    expect(await home.getByRole('link').evaluateAll(links => links.map(link => link.getAttribute('href'))))
+      .toEqual(expect.arrayContaining(['/docs/guide/getting-started', '/docs/guide/trade', '/docs/guide/earn', '/docs/guide/borrow', '/docs/guide/move', '/docs/sdk/setup']));
+
+    const searchToggle = page.getByRole('button', { name: 'Search documentation', exact: true });
+    const pages = page.getByRole('navigation', { name: 'Pages', exact: true });
     const search = page.getByRole('searchbox', { name: 'Search docs' });
-    await search.fill('network speed');
-    await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
-    await expect(nav.getByRole('link')).toHaveCount(1);
-    // The compact summary announces the filtered count.
-    await expect(nav.getByText('1 result', { exact: true })).toHaveCount(1);
-    // Search filters the index, never the underlying article or anchors.
-    await expect(page.getByRole('heading', { name: 'Getting started', exact: true })).toBeAttached();
-    await search.press('Tab');
-    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'More documentation options', exact: true })).toBeFocused();
-    const menuToggle = page.getByRole('button', { name: 'Close documentation menu', exact: true });
-    for (let step = 0; step < 5; step += 1) await page.keyboard.press('Shift+Tab');
-    await expect(menuToggle).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'FxAeon docs home', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
+    await searchToggle.click();
     await expect(search).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: 'More documentation options', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(nav.getByRole('link', { name: /^Fees & slippage/ })).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/docs\/guide#fees$/);
-    const articleHeading = page.getByRole('heading', { name: 'Fees & slippage', exact: true });
-    await expect(articleHeading).toBeInViewport();
-    await expect.poll(async () => {
-      const heading = await articleHeading.boundingBox();
-      const chrome = await page.locator('[class*="docsChrome"]').boundingBox();
-      return heading!.y >= chrome!.y + chrome!.height - 1;
-    }).toBe(true);
-    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
-    await search.fill('no-matching-section');
-    await expect(nav.locator('p[role="status"]')).toHaveText('0 documentation results found');
-    await expect(nav.getByRole('link')).toHaveCount(0);
-    await expect(nav.getByText(/Nothing found for .*no-matching-section/)).toBeVisible();
+    await search.fill('getFxSaveBalance');
+    await expect(pages.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
+    const method = pages.getByRole('link', { name: /^getFxSaveBalance/ });
+    await expect(method).toHaveAttribute('href', '/docs/sdk/earn#getFxSaveBalance');
     await page.getByRole('button', { name: 'Clear', exact: true }).click();
     await expect(search).toHaveValue('');
-    await expect(nav.getByRole('link')).toHaveCount(15);
-    await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toHaveAttribute('aria-expanded', 'false');
-    await expect(nav).toBeHidden();
+    await expect(pages.getByRole('link', { name: 'Your first transaction', exact: true })).toBeVisible();
+    await search.fill('getFxSaveBalance');
+    await expect(method).toBeVisible();
+    await expect(home).toHaveAttribute('inert', '');
+    // The background document stays intact while mobile search contains focus.
+    await expect(page.locator('#use-fxaeon')).toBeAttached();
+    await pages.getByRole('link').last().focus();
+    await page.keyboard.press('Tab');
+    await expect(page.locator('button[aria-controls="docs-contents"]')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(searchToggle).toBeFocused();
+    await expect(searchToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(pages).toBeHidden();
+    await expect(home).not.toHaveAttribute('inert', '');
+
+    await home.locator('a[href="/docs/guide/getting-started"]').click();
+    await expect(page).toHaveURL(/\/docs\/guide\/getting-started\/?$/);
+    await expect(page.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeVisible();
+    const menu = page.locator('button[aria-controls="docs-contents"]');
+    await menu.click();
+    await expect(pages.getByRole('link', { name: 'Your first transaction', exact: true })).toHaveAttribute('aria-current', 'location');
+    await expect(pages.getByRole('link', { name: 'Telegram & browser', exact: true })).toHaveAttribute('href', '/docs/guide/access');
+    await expect(pages.getByRole('link', { name: 'SDK reference', exact: true })).toHaveAttribute('href', '/docs/sdk/overview');
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeFocused();
+    await expect(pages).toBeHidden();
+
+    await searchToggle.click();
+    await search.fill('getFxSaveBalance');
+    await method.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/docs\/sdk\/earn\/?#getFxSaveBalance$/);
+    await expect(page.locator('#getFxSaveBalance')).toBeFocused();
+    await expect(page.locator('#getFxSaveBalance')).toBeInViewport();
+    await expect(pages).toBeHidden();
+
+    // A bookmark to the former complete guide still reaches its focused topic.
+    await page.goto('/docs/guide#fees');
+    await expect(page).toHaveURL(/\/docs\/guide\/fees\/?#docs-page-heading$/);
+    const heading = page.getByRole('heading', { name: 'Fees & slippage', level: 1, exact: true });
+    await expect(heading).toBeFocused();
+    await expect.poll(async () => {
+      const target = await heading.boundingBox();
+      const chrome = await page.locator('[class*="docsChrome"]').boundingBox();
+      return Boolean(target && chrome && target.y >= chrome.y + chrome.height - 1);
+    }).toBe(true);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(articleHeading).toBeInViewport();
+    await expect(heading).toBeInViewport();
     assertNoBackendRequests(requests);
   });
 

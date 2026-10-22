@@ -1,72 +1,73 @@
 # Product behavior
 
-FxAeon is a static browser and Telegram Mini App for managing f(x) positions,
-fxUSD borrowing, fxSAVE, and supported Ethereum/Base transfers. The app's
-product actions use the pinned official SDK and the selected wallet. See
-[`architecture.md`](architecture.md) for transaction and data ownership.
+This guide describes implemented product behavior. [Architecture](architecture.md) owns the technical boundaries; the [SDK contract](sdk-scope.md) owns the allowed methods and units.
 
-## Main areas
+## Product areas
 
-- **Portfolio** is the account overview for wallet assets and positions. It
-  keeps wallet value separate from position equity and treats partial or
-  unavailable data differently from a confirmed zero balance.
-- **Trade and Positions** cover ETH/BTC long and short positions. Trade's
-  leverage slider is drawn as the position's split between debt and the
-  trader's share. A connected, complete ticket previews the estimated
-  collateral, debt and protocol fee rate of the route its review would open;
-  those are the review's own figures, and any input change clears them. Trade
-  keeps the entered amount when its chart expands. A confirmed open is titled
-  after the action, such as "Opened ETH Long", and shows the new position as
-  its row.
-- **Position rows** are compact and borderless: market and side, leverage,
-  position number and value, the split between debt and the holder's share,
-  and a line saying how far the price can move before the pool rebalances the
-  position, read live from the pool (see
-  [Position brake](sdk-scope.md#position-brake)). Portfolio, Trade and
-  Positions list the same rows. On a phone a row opens that position with its
-  details and Add, Reduce, Leverage and Close (and Borrow against for a long);
-  "All positions", browser Back and Telegram Back return to the list. Wide
-  screens keep the list beside the selected position. Position management
-  keeps the selected position bound to the reviewed action. ETH long
-  collateral reads in stETH, the unit the pool records (see
-  [Collateral units](sdk-scope.md#collateral-units)).
-- **Borrow** asks for collateral first, then shows the fxUSD it can support
-  and the loan-to-value against the pool's limit as amounts change. It
-  supports adding collateral and borrowing fxUSD, repaying debt, withdrawing
-  collateral, and the available combined actions.
-- **Earn** supports fxSAVE deposits from fxUSD, USDC or fxSP, queued or
-  instant withdrawals, and a claim when the on-chain redemption is ready.
-- **Move** supports reviewed fxUSD and fxSAVE routes between Ethereum and
-  Base. Source confirmation and destination delivery have separate statuses.
-- **History, Settings, and More** provide transaction history and recovery,
-  preferences and wallet controls, and links to the remaining app areas.
-  History titles name positions as their rows do.
+| Area | Behavior and important limits |
+| --- | --- |
+| Portfolio | Wallet assets, positions and attention items; distinguishes confirmed zero, unavailable data and incomplete valuation |
+| Trade | Supported ETH/BTC long/short tickets within live pool limits; matching previews of collateral, debt and applicable protocol fee |
+| Positions | Shared rows and position-specific Add, Reduce, Leverage and Close actions; supported long positions can expose borrowing management |
+| Borrow | Collateral-first fxUSD borrowing with live limits/LTV, collateral addition, debt repayment and available combined actions |
+| Earn | fxSAVE deposits from supported fxUSD/USDC/fxSP paths; direct fxSP redemption without cooldown or queued claim, or fxUSD/USDC withdrawal instantly for the applicable fee or through a fresh on-chain claim after cooldown |
+| Move | Reviewed fxUSD/fxSAVE transfers between Ethereum and Base; separate source and destination status |
+| Send | Reviewed native/token wallet transfer on a supported network; returned hashes are submitted, not confirmed |
+| History | Verified activity plus distinct local drafts and transaction-recovery records |
+| Settings and More | Preferences, explicit wallet controls, and access to remaining app areas |
 
-## Reviews and mobile layout
+Positions, borrowing, and fxSAVE accounting use Ethereum. Base is a supported bridge network, not a second position or vault ledger.
 
-Product actions show a review of the current amount, wallet, and route before
-execution. A changed or expired review must be refreshed and accepted again;
-each transaction step still requires wallet approval. USD estimates and charts
-are display context only and do not determine transaction amounts.
+## Inputs and previews
 
-Reviews show what is signed exactly: entered amounts, approvals and enforced
-minimums. Estimates carry "≈", and cost estimates round up. The gas fee
-maximum is the fee the wallet must fund for every step; when the wallet holds
-less, the review says so before anything is signed, naming the network and,
-once the fee is fully estimated, the ETH to add. A route with several wallet
-requests says so before the first one.
+A preview describes its matching ticket. Amount, asset, direction, recipient, or wallet changes invalidate it; stale values must not describe a newer intent.
 
-At the compact 393×852 viewport, Trade, Borrow, Earn, and Move keep their
-primary review action visible above the mobile navigation without starting in
-a scrolled state. Amount shortcuts and other compact controls retain touch
-targets of at least 44px; primary actions use a 48px minimum height. Responsive
-behavior is covered by the production browser suite and the focused compact
-layout spec in `apps/mini-app/e2e/specs`.
+Trade's split shows debt and the trader's share, with preview context separate from a signed plan. Borrow derives its displayed limit and LTV from supported collateral and pool conditions. Move uses a live estimated receive amount when available; an unavailable quote is not zero.
 
-## Scope
+Amount fields preserve decimal text and token precision. A shortened number is presentation; full values remain reachable directly. USD equivalents use fresh matching display prices and never set transaction amounts or limits.
 
-Portfolio estimates, local drafts, and cached or discovered wallet data do not
-establish protocol state. The product has no transaction backend, delegated
-signer, or database. It makes no API or protocol-schema change to present these
-flows. See [`security.md`](security.md), [`sdk-scope.md`](sdk-scope.md), and
-[`testing.md`](testing.md) for the relevant boundaries and checks.
+## Position rows and units
+
+Portfolio, Trade, and Positions use the same names, units and rows. A row identifies market/side, leverage, position number, value, the debt/equity split, and a display estimate of distance to rebalance when fresh inputs are available.
+
+Phone rows open a position with its details/actions; list navigation and browser/Telegram Back return appropriately. Wide screens keep the list beside selection. A management review remains bound to its selected position.
+
+ETH long pool collateral uses stETH accounting even when backed by wstETH. Reviews preserve native quote values and conversion caveats. The rebalance marker and estimated position value are display context, not liquidation guarantees, P&L, ROI, or transaction authority. See [collateral units](sdk-scope.md#collateral-units) and [position brake](sdk-scope.md#position-brake).
+
+## Review and approval
+
+A product action prepares an explicit review before execution. Accepted routes are bound to current signing inputs and wallet session; expired/changed reviews require refresh and acceptance.
+
+The review leads with amount consequences, then relevant debt/LTV, limits, costs and risk. Contextual information controls explain terms; exact-value controls retain precision and source caveats. Additional contract/request/verification evidence lives in one technical disclosure rather than duplicating decision terms.
+
+Estimates are labelled. Rounded displays and USD equivalents retain appropriate approximation; minimums, accepted amounts and native fee caps remain inspectable. An unknown rate is not 0%, an unavailable fee is not free, and a displayed USD estimate is not a signed limit.
+
+The review checks native funding and names a shortfall before signing; when fully estimated, it can state the ETH to add. Approval requests and protocol actions remain distinct, and multiple wallet requests are disclosed. Every transaction still needs wallet approval.
+
+## Submission, receipts, and recovery
+
+Send has a separate wallet-transfer preparation path rather than an added f(x)
+SDK method. It rechecks the immutable accepted transfer, network cost, wallet
+context, and dispatch ownership before approval. A higher fresh network cost
+requires review again. Its completion screen says Submitted and points to
+History while confirmation remains unresolved.
+
+A wallet request is not submission. A returned hash is not confirmation. Results use verified receipt data and token movements when available; missing receipt facts stay unavailable.
+
+The next dependent step waits for its verified predecessor. Rejection, revert, timeout, canonical mismatch, or signing-session changes stop progression. Uncertain transactions remain inspectable and do not create an automatic retry/resubmit action.
+
+Drafts restore form values into a fresh review. They contain no executable authority and do not prove a prompt, signature, hash, or receipt. Local and indexed history remain distinct sources.
+
+A bridge source receipt does not establish destination delivery. Move matches the relevant cross-chain events and preserves pending/unverified states until delivery is proven.
+
+## Responsive and accessible behavior
+
+Phone reviews retain reachable decisions above navigation, with internal scrolling where needed. Desktop content can use natural page height. Controls keep complete 44px targets; amount/value disclosures support keyboard and touch, and focus remains visible.
+
+Layouts must handle short/narrow phones, large integers, long addresses, enlarged text, unavailable data and reduced motion. Test actual control bounds and hit areas as well as rendered appearance. [Browser gates](browser-test-gates.md) document the relevant contracts.
+
+The product uses the current shared dark appearance. Historical light/theme screenshots and older wording are evidence of earlier versions, not supported-current-theme claims.
+
+## Evidence scope
+
+UI fixtures can show deterministic balances and receipts. They do not prove live account state, real authentication, signing, or bridge settlement. Use [testing](testing.md#evidence-boundaries), [security](security.md), and the [release checklist](launch-readiness.md) when assessing a result. Evidence must identify the tested revision and environment.

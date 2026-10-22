@@ -66,6 +66,14 @@ export function borrowCapacity({ collateralUsd, existingDebt, range }: {
   };
 }
 
+/** A readable fxUSD preset, rounded down to six decimals without hiding dust
+ * or falling below the pool minimum. The full capacity remains the boundary. */
+export function borrowMaximumPreset(maximum: bigint, minimum: bigint): bigint {
+  const step = 10n ** 12n;
+  const rounded = maximum / step * step;
+  return rounded > 0n && rounded >= minimum ? rounded : maximum;
+}
+
 /** Collateral value (18-decimal USD) that can leave while `remainingDebt` stays inside the range. */
 export function withdrawableCollateralUsd(collateralUsd: bigint, remainingDebt: bigint, range: DebtRatioRange): bigint {
   if (collateralUsd <= 0n) return 0n;

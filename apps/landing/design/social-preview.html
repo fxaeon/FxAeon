@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>FxAeon social preview artwork</title>
+<style>
+  @font-face { font-family: Manrope; src: url('../assets/manrope-variable.ttf') format('truetype'); font-weight: 200 800; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body { background: #101214; color: #f5f6f8; font-family: Manrope, sans-serif; }
+  .brand { position: absolute; left: 68px; top: 54px; display: flex; align-items: center; gap: 12px; font-size: 29px; font-weight: 700; letter-spacing: -1.1px; }
+  .brand img { width: 36px; height: 36px; }
+  .art { position: absolute; left: 566px; top: 12px; width: 650px; height: 575px; }
+  .art::before { content: ''; position: absolute; inset: 60px -90px 10px 20px; background: radial-gradient(ellipse, #245bea20, transparent 66%); }
+  .art img { position: absolute; width: 1080px; height: auto; left: -240px; top: 38px; }
+  h1 { position: absolute; left: 66px; top: 172px; margin: 0; font-size: 82px; line-height: 1.09; letter-spacing: -4.8px; font-weight: 600; }
+  h1 span { color: #7da5ff; }
+  .description { position: absolute; left: 70px; top: 391px; width: 410px; margin: 0; color: #b7beca; font-size: 21px; line-height: 1.6; letter-spacing: -.3px; }
+  footer { position: absolute; bottom: 45px; left: 70px; right: 70px; display: flex; align-items: center; justify-content: space-between; padding-top: 25px; border-top: 1px solid #ffffff16; color: #a2aab7; font-size: 16px; letter-spacing: -.1px; }
+  .products { display: flex; gap: 22px; color: #d0d5de; }
+  .products span + span::before { content: '·'; margin-right: 22px; color: #647187; }
+</style>
+<div class="art"><img src="../assets/capital-sculpture-desktop.png" alt=""></div>
+<div class="brand"><img src="../assets/fxaeon-mark.svg" alt="">FxAeon</div>
+<h1>Your DeFi,<br><span>in motion.</span></h1>
+<p class="description">One place for your next move.<br>On the web and in Telegram.</p>
+<footer><div class="products"><span>Trade</span><span>Earn</span><span>Borrow</span><span>Move</span></div><span>Built on f(x) Protocol</span></footer>
+</html>

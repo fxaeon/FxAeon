@@ -587,7 +587,7 @@
 .resultRecoveryStatus { background: var(--surface-2); border-radius: 19px; padding: 16px; margin-bottom: 14px; }
 .resultRecoveryStatus .resultStatus { background: transparent; border: 0; padding: 0; }
 .resultStatusLinks { display: flex; justify-content: space-between; align-items: center; gap: 8px; border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; font-size: 12px; color: var(--mut); }
-.resultStatusLinks a { color: var(--mint-text); font-weight: 670; display: inline-flex; align-items: center; min-height: 28px; gap: 4px; }
+.resultStatusLinks a { color: var(--mint-text); font-weight: 600; display: inline-flex; align-items: center; min-height: 44px; gap: 4px; }
 .feePrimary { min-width: 0; }
 .feePrimary > summary { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 44px; min-width: 44px; cursor: pointer; list-style: none; }
 .feePrimary > summary::-webkit-details-marker { display: none; }
@@ -720,7 +720,7 @@
 .amountLedReview .flowSubline, .bridgeDecision .bridgeAssetNetwork { margin-top: 2px; }
 .flowArrow { margin-block: 9px; }
 .actions.actions { padding-top: 12px; }
-.actions > button { min-height: 52px; border-radius: var(--radius-md); font-weight: 600; }
+.actions > button { min-height: 52px; border-radius: 26px; font-weight: 600; }
 .resultHeadingCopy h3 { font-size: var(--fs-heading); font-weight: 600; letter-spacing: -.03em; }
 .resultHeadingIcon { animation: receipt-mark-in var(--dur-slow) var(--ease-spring) both; }
 .resultHeadingIcon path { stroke-dasharray: 32; stroke-dashoffset: 32; animation: mark-draw var(--dur-slow) var(--ease-out) 100ms forwards; }
@@ -754,8 +754,9 @@
 .bridgeContext { min-width: 0; }
 .recipientAddress { margin-top: 6px; padding-top: 2px; }
 .recipientAddress > span { font-size: 12px; line-height: 1.6; }
-.resultHeading { margin-bottom: 18px; }
+.resultHeading { margin-bottom: 0; }
 .result .amountFlow, .pendingSummary .amountFlow { padding: 16px; }
+.amountFlow.amountFlowEmbedded { padding: 0; border-radius: 0; background: transparent; }
 .result .flowArrow, .pendingSummary .flowArrow { margin-block: 3px; }
 .result .flowSubline, .pendingSummary .flowSubline { font-size: 13px; }
 .result .flowLabel, .pendingSummary .flowLabel { font-size: 12px; }

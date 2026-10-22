@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   borrowCapacity,
+  borrowMaximumPreset,
   borrowDebtBounds,
   collateralUsdWad,
   loanToValueBps,
@@ -17,6 +18,15 @@ const wad = (value: string) => {
   const [whole, fraction = ''] = value.split('.');
   return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
 };
+
+test('Borrow Max presets floor to six decimals without hiding dust or crossing the minimum', () => {
+  assert.equal(borrowMaximumPreset(wad('1992.600237723795'), wad('1')), wad('1992.600237'));
+  assert.equal(borrowMaximumPreset(wad('1005.48'), wad('31.3344')), wad('1005.48'));
+  assert.equal(borrowMaximumPreset(1n, 0n), 1n);
+  assert.equal(borrowMaximumPreset(999999999999n, 0n), 999999999999n);
+  assert.equal(borrowMaximumPreset(wad('1.0000009'), wad('1.0000001')), wad('1.0000009'));
+  assert.equal(borrowMaximumPreset(0n, 0n), 0n);
+});
 
 test('the reported case: 1 fxUSD against $0.88 of ETH is over the limit', () => {
   const { maxAdditional, minAdditional } = borrowCapacity({ collateralUsd: wad('0.88'), existingDebt: 0n, range: ETH_LONG });

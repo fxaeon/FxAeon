@@ -1,5 +1,6 @@
 import { expect, test, assertNoBackendRequests } from '../fixtures/test';
 import type { Locator } from '@playwright/test';
+import { productHref, productNavigation } from '../../src/app/docs/productNavigation';
 
 const WALLET = '0x930f0000000000000000000000000000000098b9';
 
@@ -137,51 +138,78 @@ test.describe('implementation regressions', () => {
     });
   });
 
-  test('Docs collapses contents into a compact reading region on short phones', async ({ page, requests }) => {
+  test('Docs keeps its reader visible and its menu reachable on short phones', async ({ page, requests }) => {
     const viewport = { width: 390, height: 500 } as const;
     await page.setViewportSize(viewport);
-    await page.goto('/docs/guide', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('main:visible')).toBeVisible();
+    await page.goto('/docs/guide/getting-started', { waitUntil: 'domcontentloaded' });
+    const main = page.locator('#main-content');
+    await expect(main).toBeVisible();
     const docsPage = page.locator('[class*="docsPage"]');
     const mainGeometry = await docsPage.evaluate((element) => ({
       width: element.getBoundingClientRect().width, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
     }));
     expect(mainGeometry.scrollWidth).toBeLessThanOrEqual(mainGeometry.clientWidth + 1);
     expect(mainGeometry.width).toBeLessThanOrEqual(391);
-    const docsNav = page.locator('nav[aria-label="Documentation sections"]');
+    const docsNav = page.locator('nav[aria-label="Pages"]');
     await expect(docsNav).toHaveAttribute('aria-busy', 'false');
-    const navGeometry = await docsNav.evaluate((element) => ({ height: element.getBoundingClientRect().height }));
-    expect(navGeometry.height, 'Compact contents must leave room for the guide').toBeLessThanOrEqual(100);
+    await expect(docsNav).toBeHidden();
+    await expect(main).not.toHaveAttribute('inert', '');
+    const menuToggle = page.locator('button[aria-controls="docs-contents"]');
+    await expect(menuToggle).toHaveAccessibleName('Open documentation menu');
+    await expect(menuToggle).toHaveAttribute('aria-expanded', 'false');
+    await expectReachable(menuToggle, viewport.height);
     const article = page.locator('article').first();
     await expect(article).toBeVisible();
     await expect(article.locator('header').first()).toBeVisible();
-    await expect(article.getByRole('heading', { name: 'Product guide', exact: true })).toBeVisible();
-    const helpGeometry = await article.locator('section#overview').evaluate((element) => {
-      const heading = element.closest('article')?.querySelector('h1')?.getBoundingClientRect();
-      const paragraph = element.closest('article')?.querySelector('header p[class*="lead"]')?.getBoundingClientRect();
-      return { headingTop: heading?.top ?? Infinity, paragraphTop: paragraph?.top ?? Infinity, paragraphBottom: paragraph?.bottom ?? Infinity };
+    await expect(article.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeInViewport();
+    const helpGeometry = await article.evaluate((element) => {
+      const chrome = document.querySelector('header[class*="docsChrome"]')!.getBoundingClientRect();
+      const heading = element.querySelector('h1')!.getBoundingClientRect();
+      const paragraph = element.querySelector('header p[class*="lead"]')!.getBoundingClientRect();
+      return { chromeHeight: chrome.height, chromeBottom: chrome.bottom, headingTop: heading.top,
+        paragraphTop: paragraph.top, paragraphBottom: paragraph.bottom };
     });
+    expect(helpGeometry.chromeHeight, 'The closed header must leave room for reading').toBeLessThanOrEqual(100);
+    expect(helpGeometry.headingTop).toBeGreaterThanOrEqual(helpGeometry.chromeBottom - 1);
     expect(helpGeometry.headingTop).toBeLessThan(viewport.height);
     expect(helpGeometry.paragraphTop).toBeLessThan(viewport.height);
     expect(helpGeometry.paragraphBottom).toBeLessThanOrEqual(viewport.height + 1);
-    const contents = page.locator('details').filter({ has: page.getByText('Contents', { exact: true }) });
-    await expect(contents).toHaveCount(1);
-    await expect(contents).toHaveJSProperty('open', false);
-    await page.getByRole('button', { name: 'Open documentation menu', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Close documentation menu', exact: true })).toHaveAttribute('aria-expanded', 'true');
-    await expect(contents).toHaveJSProperty('open', true);
-    await expect(contents.getByRole('link')).toHaveCount(15);
-    await expect(contents.getByRole('link', { name: 'Overview', exact: true })).toBeVisible();
+    await menuToggle.click();
+    await expect(menuToggle).toHaveAccessibleName('Close documentation menu');
+    await expect(menuToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(docsNav).toBeVisible();
+    await expect(main).toHaveAttribute('inert', '');
+    await expect(docsNav.getByRole('link')).toHaveCount(productNavigation.length + 2);
+    for (const topic of productNavigation) {
+      await expect(docsNav.getByRole('link', { name: topic.title, exact: true })).toHaveAttribute('href', productHref(topic.id));
+    }
+    await expectReachable(docsNav.getByRole('link', { name: 'Supported networks', exact: true }), viewport.height);
+    await expectReachable(docsNav.getByRole('link', { name: 'Troubleshooting', exact: true }), viewport.height);
+    await docsNav.getByRole('link').last().focus();
+    await page.keyboard.press('Tab');
+    await expect(menuToggle).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(menuToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(menuToggle).toBeFocused();
+    await expect(docsNav).toBeHidden();
+    await expect(main).not.toHaveAttribute('inert', '');
+    await menuToggle.click();
+    await expect(menuToggle).toHaveAccessibleName('Close documentation menu');
+    await expectReachable(menuToggle, viewport.height);
+    await menuToggle.click();
+    await expect(docsNav).toBeHidden();
+    await expect(main).not.toHaveAttribute('inert', '');
+    await expect(article.getByRole('heading', { name: 'Your first transaction', exact: true })).toBeInViewport();
     await page.setViewportSize({ width: 1024, height: 500 });
-    await page.goto('/docs/guide', { waitUntil: 'domcontentloaded' });
-    const docsRail = page.locator('nav[aria-label="Documentation sections"]');
+    await page.goto('/docs/guide/getting-started', { waitUntil: 'domcontentloaded' });
+    const docsRail = page.getByRole('navigation', { name: 'Pages', exact: true });
     await expect(docsRail).toHaveAttribute('aria-busy', 'false');
     const lastLink = docsRail.getByRole('link', { name: 'Troubleshooting', exact: true });
     await expect(lastLink).toBeVisible();
     await lastLink.scrollIntoViewIfNeeded();
     const railGeometry = await docsRail.evaluate((element) => {
       const rail = element.getBoundingClientRect();
-      const link = element.querySelector('a[href="#troubleshooting"]')!.getBoundingClientRect();
+      const link = element.querySelector('a[href="/docs/guide/troubleshooting"]')!.getBoundingClientRect();
       return { railTop: rail.top, railBottom: rail.bottom, linkTop: link.top, linkBottom: link.bottom };
     });
     expect(railGeometry.linkTop).toBeGreaterThanOrEqual(railGeometry.railTop - 1);

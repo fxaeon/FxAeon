@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { DocSection, CodeBlock, Callout } from '../DocsPrimitives';
+import { CodeBlock, Callout } from '../DocsPrimitives';
 import styles from '../Docs.module.css';
 import { ExternalLink } from '../ExternalLink';
 
@@ -77,7 +77,7 @@ export const sdkSections: { id: string; title: string; content: ReactNode }[] = 
           Upstream authorship does not imply endorsement of FxAeon.
         </p>
         <p>
-          Three parts of the patch are open as upstream pull requests:{' '}
+          Three parts of the patch are tracked in upstream pull requests:{' '}
           <ExternalLink href="https://github.com/AladdinDAO/fx-sdk/pull/15">exact debt-ratio packing (#15)</ExternalLink>,{' '}
           <ExternalLink href="https://github.com/AladdinDAO/fx-sdk/pull/16">concurrent pool reads (#16)</ExternalLink>, and{' '}
           <ExternalLink href="https://github.com/AladdinDAO/fx-sdk/pull/17">no delay after the last multicall batch (#17)</ExternalLink>.
@@ -439,8 +439,10 @@ export const sdkSections: { id: string; title: string; content: ReactNode }[] = 
           Internal SDK files, aggregator routes, contracts, and experiments are
           not automatically supported product features. Rebalance and liquidation
           distances come from each pool&apos;s live thresholds; global LTV
-          thresholds must not be hardcoded as per-position prices. Reviews do not
-          yet show post-action thresholds. The inspected scope exposes no
+          thresholds must not be hardcoded as per-position prices. Reviews show
+          estimated post-action rebalance and liquidation prices only when their
+          required inputs are available, with assumptions behind the info control.
+          The inspected scope exposes no
           per-position rebalancing opt-out. New transaction primitives require an
           explicit scope decision.
         </p>
@@ -454,13 +456,3 @@ export const sdkSections: { id: string; title: string; content: ReactNode }[] = 
     ),
   },
 ];
-
-export default function SdkArticle() {
-  return (
-    <>
-      {sdkSections.map(({ id, title, content }) => (
-        <DocSection key={id} id={id} title={title}>{content}</DocSection>
-      ))}
-    </>
-  );
-}

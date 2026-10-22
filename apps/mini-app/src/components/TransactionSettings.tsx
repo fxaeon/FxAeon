@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from 'react';
 import { formatUnits } from 'viem';
 import { ChevronRight, Fuel, Percent, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { ChainIcon } from '@/components/TokenIcon';
@@ -64,6 +64,7 @@ export function TransactionSettings({ slippage = false, slippagePercent, onSlipp
   const { bps: storedBps, tier } = useStoredSettings();
   const wallet = usePrivyWallet();
   const providerMode = useWalletProviderMode();
+  const doneRef = useRef<(() => boolean) | null>(null);
   const walletSetsFees = providerMode === 'browser' || (Boolean(wallet.address) && !wallet.isEmbedded);
   if (!slippage && walletSetsFees && !children) return null;
   // Keep a restored form's exact display text. Round-tripping through basis
@@ -75,16 +76,18 @@ export function TransactionSettings({ slippage = false, slippagePercent, onSlipp
     !walletSetsFees && tier !== DEFAULT_GAS_TIER ? SPEED_LABELS[tier] : null,
   ].filter(Boolean);
   return <SettingsPopover title={scope ? `${scope} settings` : 'Transaction settings'} summary={summary} chip={changes.length ? changes.join(' · ') : null}
+    onDone={() => doneRef.current?.() ?? true}
     placement={presentation === 'row' ? 'center' : 'anchor'}
     triggerClassName={presentation === 'row' ? styles.rowTrigger : undefined}
     triggerContent={presentation === 'row' ? <><SlidersHorizontal size={20} aria-hidden="true" /><span className={styles.rowCopy}><strong>Transaction settings</strong></span><span className={styles.rowValue}>{slippage ? `${percent}%` : SPEED_LABELS[tier]}</span><ChevronRight size={18} aria-hidden="true" /></> : undefined}>
     <div className={styles.context}><ChainIcon chainId={chainId} size={18} /><span>{chainId === 8453 ? 'Base' : 'Ethereum'}</span>{!walletSetsFees && <><span>·</span><span>App-managed fees</span></>}</div>
-    <TransactionSettingsPanel chainId={chainId} slippage={slippage} percent={percent} tier={tier} walletSetsFees={walletSetsFees} controlledSlippage={slippagePercent !== undefined} onSlippageChange={onSlippageChange} />
+    <TransactionSettingsPanel doneRef={doneRef} chainId={chainId} slippage={slippage} percent={percent} tier={tier} walletSetsFees={walletSetsFees} controlledSlippage={slippagePercent !== undefined} onSlippageChange={onSlippageChange} />
     {children}
   </SettingsPopover>;
 }
 
-function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, controlledSlippage, onSlippageChange, chainId }: {
+function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, controlledSlippage, onSlippageChange, chainId, doneRef }: {
+  doneRef: { current: (() => boolean) | null };
   chainId: 1 | 8453;
   slippage: boolean; percent: string; tier: GasTier; walletSetsFees: boolean; controlledSlippage: boolean; onSlippageChange?: (percent: string) => void;
 }) {
@@ -96,23 +99,56 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
   const [gasStatus, setGasStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [inputError, setInputError] = useState('');
   const [saveError, setSaveError] = useState('');
+  const customRef = useRef<HTMLLabelElement>(null);
   const presetIndex = SLIPPAGE_PRESETS_BPS.findIndex((value) => value / 100 === Number(percent));
+  const currentGas = gas && gas.chainId === chainId && gas.validUntil > Date.now() ? gas : null;
 
 
   useEffect(() => {
     if (walletSetsFees) return;
     let active = true;
     let inFlight = false;
+    let generation = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const load = () => {
-      if (inFlight || document.visibilityState === 'hidden' || !navigator.onLine) return;
+      if (!active || inFlight || document.visibilityState === 'hidden' || !navigator.onLine) return;
+      clearTimeout(timer);
+      const request = ++generation;
       inFlight = true; setGas(null); setGasStatus('loading');
-      void fetchGasTierQuotes(chainId).then((quotes) => { if (active) { setGas(quotes); setGasStatus('ready'); } })
-        .catch(() => { if (active) setGasStatus('unavailable'); })
-        .finally(() => { inFlight = false; });
+      void fetchGasTierQuotes(chainId).then((quotes) => {
+        if (!active || request !== generation) return;
+        if (quotes.chainId !== chainId || !Number.isSafeInteger(quotes.validUntil) || quotes.validUntil <= Date.now()) throw new Error('Network fee quote expired');
+        setGas(quotes); setGasStatus('ready');
+        timer = setTimeout(expire, Math.max(1, quotes.validUntil - Date.now()));
+      }).catch(() => {
+        if (!active || request !== generation) return;
+        setGas(null); setGasStatus('unavailable');
+        timer = setTimeout(load, 30_000);
+      }).finally(() => { if (request === generation) inFlight = false; });
     };
+    const expire = () => {
+      if (!active) return;
+      setGas(null); setGasStatus('unavailable');
+      load();
+    };
+    const recover = () => {
+      if (!navigator.onLine) {
+        ++generation; inFlight = false;
+        clearTimeout(timer);
+        setGas(null); setGasStatus('unavailable');
+      } else if (document.visibilityState === 'visible') load();
+    };
+    setGas(null); setGasStatus(navigator.onLine ? 'loading' : 'unavailable');
     load();
-    const timer = window.setInterval(load, 30_000);
-    return () => { active = false; window.clearInterval(timer); };
+    document.addEventListener('visibilitychange', recover);
+    window.addEventListener('online', recover);
+    window.addEventListener('offline', recover);
+    return () => {
+      active = false; ++generation; clearTimeout(timer);
+      document.removeEventListener('visibilitychange', recover);
+      window.removeEventListener('online', recover);
+      window.removeEventListener('offline', recover);
+    };
   }, [walletSetsFees, chainId]);
 
   const navigateRadios = (event: KeyboardEvent<HTMLButtonElement>, index: number, count: number, select: (index: number) => void) => {
@@ -131,20 +167,20 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
     else setSaveError('This browser could not save the setting. Your previous value is still active.');
   };
   const commit = () => {
-    if (draft === null) return;
+    if (draft === null) return !error && !inputError;
     // An untouched restored value is not a new saved preference. It can
     // legitimately have finer precision than the settings editor permits.
-    if (controlledSlippage && draft === percent) { setDraft(null); setError(''); return; }
+    if (controlledSlippage && draft === percent) { setDraft(null); setError(''); return true; }
     const text = draft.replace(',', '.');
     const value = Math.round(Number(text) * 100);
     if (!/^\d*\.?\d+$/.test(text) || !isSlippageBps(value) || Math.abs(Number(text) * 100 - value) > 1e-9) {
-      setDraft(null);
       setError(`Enter ${formatPercent(MIN_SLIPPAGE_BPS)} to ${formatPercent(MAX_SLIPPAGE_BPS)} in steps of 0.01%.`);
-      return;
+      return false;
     }
-    setError(''); setInputError(''); setDraft(null);
-    if (writeTransactionSettings({ slippageBps: value })) { setSaveError(''); onSlippageChange?.(percentNumber(value)); }
-    else setSaveError('This browser could not save the setting. Your previous value is still active.');
+    setError(''); setInputError('');
+    if (writeTransactionSettings({ slippageBps: value })) { setDraft(null); setSaveError(''); onSlippageChange?.(percentNumber(value)); return true; }
+    setSaveError('This browser could not save the setting. Your previous value is still active.');
+    return false;
   };
   const chooseTier = (value: GasTier) => {
     haptic('selection');
@@ -160,11 +196,20 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
     if (slippage) onSlippageChange?.(percentNumber(bps));
     haptic('selection');
   };
+  useLayoutEffect(() => {
+    const finish = () => {
+      const valid = commit();
+      if (!valid) customRef.current?.querySelector('input')?.focus();
+      return valid;
+    };
+    doneRef.current = finish;
+    return () => { if (doneRef.current === finish) doneRef.current = null; };
+  });
 
   return <div className={styles.panel}>
     {slippage && <section className={styles.section} aria-labelledby={`${id}-slippage`}>
       <div className={styles.heading}>
-        <h3 id={`${id}-slippage`}><Percent size={17} aria-hidden="true" /><MetricLabel label="Max slippage" definition="maxSlippage" /></h3>
+        <h3 id={`${id}-slippage`}><Percent size={17} aria-hidden="true" /><MetricLabel label="Max slippage" definition="maxSlippage" minimalHelp /></h3>
         <span className={styles.value}>{percent}%</span>
       </div>
       <p className={styles.help} id={`${id}-slippage-help`}>Reverts if price moves beyond the displayed slippage limit before confirmation.</p>
@@ -175,22 +220,22 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
           onKeyDown={event => navigateRadios(event, index, SLIPPAGE_PRESETS_BPS.length, next => choosePreset(SLIPPAGE_PRESETS_BPS[next]))}
           onClick={() => choosePreset(value)}>{formatPercent(value)}</button>)}
       </div>
-      <label data-focus-field className={styles.custom} data-active={presetIndex < 0 || undefined} data-invalid={Boolean(error || inputError) || undefined}>
+      <label ref={customRef} data-focus-field className={styles.custom} data-active={presetIndex < 0 || undefined} data-invalid={Boolean(error || inputError) || undefined}>
         <span>Custom</span>
         <DecimalInput enterKeyHint="done" autoComplete="off" value={draft ?? percent} aria-label="Slippage tolerance percentage" policy="comma-decimal"
-          aria-describedby={`${id}-slippage-help`} aria-invalid={Boolean(error || inputError)}
-          onFocus={() => setDraft(percent)} onInvalidInput={(message) => { if (message) { setDraft(''); setInputError(message); } else setInputError(''); }}
+          aria-describedby={[`${id}-slippage-help`, (error || inputError) && `${id}-slippage-error`].filter(Boolean).join(' ')} aria-invalid={Boolean(error || inputError)} aria-errormessage={error || inputError ? `${id}-slippage-error` : undefined}
+          onFocus={() => setDraft(previous => previous ?? percent)} onInvalidInput={(message) => { if (message) { setDraft(''); setInputError(message); } else setInputError(''); }}
           onValueChange={(next) => {
             setDraft(next); setError(''); setInputError('');
           }}
           onBlur={commit} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit(); (event.target as HTMLInputElement).blur(); } }} />
         <span aria-hidden="true">%</span>
       </label>
-      {(inputError || error) && <p className={styles.error} role="alert">{inputError || error}</p>}
+      {(inputError || error) && <p id={`${id}-slippage-error`} className={styles.error} role="alert">{inputError || error}</p>}
     </section>}
     {!walletSetsFees && <section className={styles.section} aria-labelledby={`${id}-speed`}>
       <div className={styles.heading}>
-        <h3 id={`${id}-speed`}><Fuel size={17} aria-hidden="true" /><MetricLabel label="Network speed" definition="networkSpeed" /></h3>
+        <h3 id={`${id}-speed`}><Fuel size={17} aria-hidden="true" /><MetricLabel label="Network speed" definition="networkSpeed" minimalHelp /></h3>
         <span className={styles.value}>{SPEED_LABELS[tier]}</span>
       </div>
       <p className={styles.help}>Gas prices in gwei on {chainId === 8453 ? 'Base' : 'Ethereum'}.</p>
@@ -199,10 +244,10 @@ function TransactionSettingsPanel({ slippage, percent, tier, walletSetsFees, con
         {GAS_TIERS.map((value, index) => <button key={value} type="button" role="radio" aria-checked={tier === value} onClick={() => chooseTier(value)}
           tabIndex={tier === value ? 0 : -1} onKeyDown={event => navigateRadios(event, index, GAS_TIERS.length, next => chooseTier(GAS_TIERS[next]))}>
           <span>{SPEED_LABELS[value]}</span>
-          <small>{gas ? formatGwei(gas.tiers[value].gasPriceWei) : gasStatus === 'loading' ? <span className={`${styles.rateSkeleton} skeleton`} aria-label="Loading fee" /> : '—'}</small>
+          <small>{currentGas ? formatGwei(currentGas.tiers[value].gasPriceWei) : gasStatus === 'loading' ? <span className={`${styles.rateSkeleton} skeleton`} aria-label="Loading fee" /> : '—'}</small>
         </button>)}
       </div>
-      {gasStatus === 'unavailable' && <p className={styles.help}>Live gas rates are unavailable. The fee will be checked again at review.</p>}
+      {(gasStatus === 'unavailable' || gasStatus === 'ready' && !currentGas) && <p className={styles.help} role="status">Live gas rates are unavailable. The fee will be checked again at review.</p>}
     </section>}
     {saveError && <p className={styles.error} role="alert">{saveError}</p>}
     {(slippage || !walletSetsFees) && <div className={styles.preferenceFooter}>

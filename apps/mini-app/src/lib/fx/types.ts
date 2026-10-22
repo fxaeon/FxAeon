@@ -65,6 +65,13 @@ export interface RouteDetails {
   positionEconomics?: import('./positionEconomics').PositionEconomics;
   /** Effective economic leverage independently calculated from the quote. */
   effectiveLeverage?: number;
+  /** Display-only current long-pool funding APR, bound to the reviewed pool.
+   * The 1e18-scaled ratio applies to collateral and can change after this read. */
+  borrowFundingQuote?: {
+    poolAddress: Address;
+    ratio: string;
+    readAt: number;
+  };
   /** Live fee tuple already read by the pinned SDK for this route's pool/router.
    * Display only; ratios use 1e9 precision and are not gas or swap fees. */
   protocolFeeQuote?: {

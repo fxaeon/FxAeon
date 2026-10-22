@@ -6,6 +6,80 @@ FxAeon exposes a deliberately narrow, reviewable surface from the official f(x) 
 - `AladdinDAO/fx-sdk` — commit `53c0b9805a169e75ad375c92c241e1292b66405f`
 - Installed package `@aladdindao/fx-sdk@1.0.5`, plus the reviewed short-pool correction, diagnostic-log removal, exact debt-ratio packing fix, chain-bound shared RPC transport support, multicall pacing, independent pool-view read scheduling, and protocol-fee review metadata in `patches/@aladdindao__fx-sdk@1.0.5.patch`
 
+Read the locked methods and capability matrix first. The implementation notes below retain the reviewed units, policy, patch rationale, and validation boundaries. Return to the [developer handbook](README.md) for setup and operations.
+
+## Locked public surface
+
+The active product exposes exactly these 15 methods:
+
+```text
+getPositions
+increasePosition
+reducePosition
+adjustPositionLeverage
+depositAndMint
+repayAndWithdraw
+getBridgeQuote
+buildBridgeTx
+getFxSaveBalance
+getFxSaveConfig
+getFxSaveRedeemStatus
+getFxSaveClaimable
+getRedeemTx
+depositFxSave
+withdrawFxSave
+```
+
+Internal SDK files, aggregators, contracts, or experiments are not product capabilities. Adding a sixteenth method, custom trading primitive, scheduler, alert, analytics system, or protocol reimplementation requires an explicit scope decision; it must never enter through a routine dependency update.
+
+Application reads pass through `apps/mini-app/src/lib/fx/readFacade.ts`, which
+exposes only the approved read subset above. It applies a 12-second deadline
+and rejects malformed SDK/indexer position records before they reach product
+state. Product routes must not import `getFxSdk` for reads; write planners may
+continue using the SDK adapter through the service boundary.
+
+The app-owned position fallback is read-only code, not a sixteenth SDK method.
+It reads the canonical pool `balanceOf` before the SDK index, keeps the index
+as a fast path, and when its IDs are incomplete scans at most 4,096 `ownerOf`
+IDs in batches of 128 with two concurrent batches under the shared 12-second
+deadline. Its 128-entry cache stores candidate IDs only; ownership and
+accounting are rechecked on every reuse. `canonicalPositionReader.ts` hydrates
+fallback IDs using the pinned SDK 1.0.5 pool configuration, rate/FxRoute quotes,
+and 18-decimal position accounting. BTC quotes compare both SDK FxRoute paths
+and select the greatest output independently for buying and selling. Regression
+coverage checks route selection and single-route failure. Protected browser
+fork tests exercise all four market/side groups; their procedure and evidence
+are described in [`testing.md`](testing.md). A fork harness may preload actual historical
+`ownerOf` storage read-only before the browser build to avoid cold-fork
+storage delay; this is functional setup, not a provider-performance benchmark.
+All writes remain on the official SDK methods above.
+
+## Capability matrix
+
+This matrix is the implementation contract for the locked surface. “Refresh” means a new read from the official SDK and chain after the action; local storage is never a source of financial truth.
+
+| Method | Product action | Chain | Read/write | Required inputs | SDK output | Signing and route behavior | Expected refresh |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `getPositions` | View ETH/BTC long/short positions | Ethereum | Read | wallet, market, side | Position records with raw collateral/debt, leverage, and token metadata | No signing | Reload positions when Portfolio/Positions opens or after a position action |
+| `increasePosition` | Open or add to a position | Ethereum | Write | market, side, position ID, wallet, leverage, input token, amount, slippage, reviewed route target | One or more ordered SDK routes | Each approval/action is explicitly signed; later steps wait for the prior receipt | Read positions after the canonical receipt |
+| `reducePosition` | Reduce or close a position | Ethereum | Write | market, side, position ID, wallet, output token, amount, close flag, slippage, reviewed route target | One or more ordered SDK routes with minimum-output data | Ordered per-step wallet approval; stop on rejection, revert, timeout, or nonce drift | Read positions after the canonical receipt |
+| `adjustPositionLeverage` | Change position leverage | Ethereum | Write | market, side, position ID, wallet, target leverage, slippage, reviewed route target | One or more ordered SDK routes | Explicit wallet approval for every returned step | Read positions after the canonical receipt |
+| `depositAndMint` | Add long collateral and mint fxUSD | Ethereum | Write | market, position ID, wallet, collateral token, deposit amount, mint amount | Ordered transaction array with route details | Exact token approval when returned, then action; no later submission before receipt | Read positions after the canonical receipt |
+| `repayAndWithdraw` | Repay fxUSD and/or withdraw long collateral | Ethereum | Write | market, position ID, wallet, repay amount, withdrawal amount, withdrawal token | Ordered transaction array with route details | Exact repayment approval when returned, then action; failure stops the route | Read positions after the canonical receipt |
+| `getBridgeQuote` | Preview Ethereum/Base bridge fee | Ethereum or Base source | Read | source/destination chain, token key or reviewed OFT, amount, recipient, source RPC | Native and LayerZero token fee | No signing; quote is informational until a fresh route is built | Requote whenever bridge inputs or source RPC change |
+| `buildBridgeTx` | Build a cross-chain bridge send | Ethereum or Base source | Write plan | source/destination chain, token, amount, recipient, optional refund address, source RPC | One source send transaction plus quote | Ethereum may prepend one exact approval; every step is signed in order; destination is separately GUID-verified | Read source receipt, then verify destination delivery from matching LayerZero events |
+| `getFxSaveBalance` | View the wallet's fxSAVE shares/assets | Ethereum | Read | wallet | Share balance and optional underlying assets | No signing | Reload after every fxSAVE write and on Earn/Portfolio open |
+| `getFxSaveConfig` | View fxSAVE vault details | Ethereum | Read | none | Supply, assets, cooldown, fee ratios, and threshold | No signing | Reload with the other Earn reads |
+| `getFxSaveRedeemStatus` | View pending redemption/cooldown | Ethereum | Read | wallet | Pending shares, cooldown, redeemable time, completion flag | No signing | Reload after withdrawal/claim and on Earn open |
+| `getFxSaveClaimable` | View claimable redemption preview | Ethereum | Read | wallet | Cooldown status plus fxUSD/USDC receive preview when available | No signing | Reload after withdrawal/claim and on Earn open |
+| `getRedeemTx` | Claim a completed fxSAVE redemption | Ethereum | Write plan | wallet, optional receiver | Ordered redemption transaction array | Explicit wallet approval; only offered after canonical cooldown state is complete | Reload balance, redeem status, and claimable state after the canonical receipt |
+| `depositFxSave` | Deposit USDC, fxUSD, or fxSP base-pool shares | Ethereum | Write | wallet, input token, amount, optional slippage | Ordered transaction array | Exact input-token approval when required, then action; each step is signed | Reload fxSAVE balance/status after the canonical receipt |
+| `withdrawFxSave` | Queue or instantly redeem fxSAVE shares | Ethereum | Write | wallet, output token, share amount, optional instant flag and slippage | Ordered transaction array | Explicit approval/action steps; queued paths remain pending until canonical claim state | Reload balance, redeem status, and claimable state after the canonical receipt |
+
+The matrix describes what the app can safely represent, not an independent protocol implementation. Raw calldata, contract addresses, and route fingerprints remain available only in the review disclosure for informed signing and recovery.
+
+## Implementation and patch notes
+
 The debt-ratio packing fix is a local correction, not a claim that the pinned
 upstream commit contains it. The SDK combines two 60-bit integer limits into
 one calldata field. Decimal arithmetic with its default precision can round
@@ -24,16 +98,17 @@ contracts' separate full-close handling.
 
 ## Upstream pull requests
 
-Three open pull requests to `AladdinDAO/fx-sdk` propose parts of the local
-patch upstream. Each part of the patch stands as follows:
+These upstream references document related changes. The table distinguishes
+them from the patch installed here; it does not assert the current status of
+a pull request or a newer package release.
 
 | Patch part | Upstream |
 | --- | --- |
-| Short-pool `getPoolData` field mapping | Already on fx-sdk `main` at the pinned commit (`53c0b98`, "fix: getPoolData"); not yet in an npm release |
+| Short-pool `getPoolData` field mapping | Present in the pinned upstream commit (`53c0b98`, "fix: getPoolData"); retained as a local correction for installed 1.0.5 |
 | Exact debt-ratio packing in `getEncodeMiscData` | [#15](https://github.com/AladdinDAO/fx-sdk/pull/15) packs the same value with `BigInt`. The patch's input checks (unsigned integer strings, each below 2^60, minimum not above maximum) stay FxAeon-only |
 | Pool data, rate and oracle reads started together in `Pool.getPoolInfo` | [#16](https://github.com/AladdinDAO/fx-sdk/pull/16): the same reads, awaited in the same order, with the same prompt pool-data failure |
 | No wait after the last `batchedMulticall` batch | [#17](https://github.com/AladdinDAO/fx-sdk/pull/17) drops the trailing 500 ms and keeps a quote search's spacing with one sequence per quote. The patch paces instead from when any previous batch ended, so its spacing also holds between separate callers |
-| Diagnostic `console.log` removal | FxAeon-only; the logs remain upstream |
+| Diagnostic `console.log` removal | FxAeon-only relative to the reviewed upstream snapshot |
 | Chain-bound RPC transport (`rpcUrls`, `rpcTransport`, the bridge's `sourceRpcUrls` and `sourceRpcTransport`, a 5-second default timeout without retries) | FxAeon-only |
 | Protocol fee quote (`protocolFeeQuote`, from fee ratios the SDK already read) | FxAeon-only |
 
@@ -132,8 +207,12 @@ automatic multicall, alongside the explicit pool-data multicall. No read is
 cached or removed, and no new atomic-block guarantee is implied: calls use
 `latest`, so changing chain state can produce different values than a serial
 schedule. Review validation and final transaction simulation remain required.
-See the [controlled benchmark](performance/sdk-pool-read-waterfall.md) for
-mock conditions and limitations; these are not live-provider latency claims.
+The installed-bundle regression in
+[`sdk-pool-read-concurrency.test.ts`](../apps/mini-app/test/sdk-pool-read-concurrency.test.ts)
+checks scheduling, error order, converter isolation, and exact outputs.
+[`measure_sdk_pool_reads.cjs`](../scripts/measure_sdk_pool_reads.cjs) measures
+the installed patch against deterministic delayed responses; its results are
+not live-provider latency claims.
 
 ## Protocol fee review data
 
@@ -184,7 +263,7 @@ and borrow planners read `wstETH.stEthPerToken()`, plus an existing position's
 SDK call (each read bounded at 4 seconds, never failing the plan), and attach
 them to the route as decimal strings (`stEthPerWstEth`, `currentColls`). The review shows held stETH plus the
 wstETH × rate, rounded down to the wei, marked "≈", with the wstETH amount and
-the rate in its title. Without a usable rate (a failed read, or anything
+the rate in its source detail. Without a usable rate (a failed read, or anything
 outside 1–10 stETH per wstETH, so never 1:1) a new position shows its wstETH
 figure labelled wstETH, and an existing position's mixed quote shows no
 estimate. Signed converter floors ("Minimum converted input", "Minimum
@@ -198,6 +277,30 @@ collateral by 1e10 too many (`withdraw / precision × rateRes` with an 8-decimal
 precision and a 1e18 rate). The local patch corrects leverage-down quote metadata
 for the economics guard. Reduce quotes retain the upstream behavior; the review
 omits a collateral figure it cannot read as a non-negative integer.
+
+## Post-action review risk estimates
+
+The review can display projected rebalance and liquidation thresholds for
+supported new-position Trade and Borrow routes. This is implemented in
+[`liquidationQuote.ts`](../apps/mini-app/src/lib/fx/liquidationQuote.ts) and
+[`ReviewRiskPrices.tsx`](../apps/mini-app/src/components/review/ReviewRiskPrices.tsx),
+not an additional SDK method or signing input.
+
+Read-only pool ratios and the required ETH wrapping rate start alongside the
+plan with a four-second bound; failures do not fail the plan. Estimates use the
+accepted route's validated positive collateral/debt, matching pool and token
+identities, fresh ratios, and applicable accounting conversion. Borrow estimates
+also require the supported router/action and a verified zero supply-fee ratio,
+because the SDK's Borrow collateral quote does not subtract that fee. Existing
+positions and unsupported/incomplete shapes do not receive invented thresholds.
+
+These are pool-native USD/stETH or USD/WBTC thresholds, not ETH/USD or BTC/USD
+spot quotes. Display rounding is toward the adverse threshold, and exact source
+detail remains accessible. Earlier rebalancing and later funding/rate changes
+can move the result. The quote expires with the route freshness window; known
+thresholds are shown individually, while missing or expired inputs are explicitly
+unavailable. Position-row distance-to-rebalance is the separate display model
+described below.
 
 ## Position brake
 
@@ -267,73 +370,3 @@ from the position's own (ticks are 0.15% apart); and funding accrues between
 pool updates. Neither the pinned SDK nor inspected contracts exposes a
 per-position rebalancing opt-out. Extending read-only review calculations is
 separate from introducing new transaction primitives.
-
-## Locked public surface
-
-The active product exposes exactly these 15 methods:
-
-```text
-getPositions
-increasePosition
-reducePosition
-adjustPositionLeverage
-depositAndMint
-repayAndWithdraw
-getBridgeQuote
-buildBridgeTx
-getFxSaveBalance
-getFxSaveConfig
-getFxSaveRedeemStatus
-getFxSaveClaimable
-getRedeemTx
-depositFxSave
-withdrawFxSave
-```
-
-Internal SDK files, aggregators, contracts, or experiments are not product capabilities. Adding a sixteenth method, custom trading primitive, scheduler, alert, analytics system, or protocol reimplementation requires an explicit scope decision; it must never enter through a routine dependency update.
-
-Application reads pass through `apps/mini-app/src/lib/fx/readFacade.ts`, which
-exposes only the approved read subset above. It applies a 12-second deadline
-and rejects malformed SDK/indexer position records before they reach product
-state. Product routes must not import `getFxSdk` for reads; write planners may
-continue using the SDK adapter through the service boundary.
-
-The app-owned position fallback is read-only code, not a sixteenth SDK method.
-It reads the canonical pool `balanceOf` before the SDK index, keeps the index
-as a fast path, and when its IDs are incomplete scans at most 4,096 `ownerOf`
-IDs in batches of 128 with two concurrent batches under the shared 12-second
-deadline. Its 128-entry cache stores candidate IDs only; ownership and
-accounting are rechecked on every reuse. `canonicalPositionReader.ts` hydrates
-fallback IDs using the pinned SDK 1.0.5 pool configuration, rate/FxRoute quotes,
-and 18-decimal position accounting. BTC quotes compare both SDK FxRoute paths
-and select the greatest output independently for buying and selling. Regression
-coverage checks route selection and single-route failure. Protected browser
-fork tests exercise all four market/side groups; their procedure and evidence
-are described in [`testing.md`](testing.md). A fork harness may preload actual historical
-`ownerOf` storage read-only before the browser build to avoid cold-fork
-storage delay; this is functional setup, not a provider-performance benchmark.
-All writes remain on the official SDK methods above.
-
-## Capability matrix
-
-This matrix is the implementation contract for the locked surface. “Refresh” means a new read from the official SDK and chain after the action; local storage is never a source of financial truth.
-
-| Method | Product action | Chain | Read/write | Required inputs | SDK output | Signing and route behavior | Expected refresh |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| `getPositions` | View ETH/BTC long/short positions | Ethereum | Read | wallet, market, side | Position records with raw collateral/debt, leverage, and token metadata | No signing | Reload positions when Portfolio/Positions opens or after a position action |
-| `increasePosition` | Open or add to a position | Ethereum | Write | market, side, position ID, wallet, leverage, input token, amount, slippage, reviewed route target | One or more ordered SDK routes | Each approval/action is explicitly signed; later steps wait for the prior receipt | Read positions after the canonical receipt |
-| `reducePosition` | Reduce or close a position | Ethereum | Write | market, side, position ID, wallet, output token, amount, close flag, slippage, reviewed route target | One or more ordered SDK routes with minimum-output data | Ordered per-step wallet approval; stop on rejection, revert, timeout, or nonce drift | Read positions after the canonical receipt |
-| `adjustPositionLeverage` | Change position leverage | Ethereum | Write | market, side, position ID, wallet, target leverage, slippage, reviewed route target | One or more ordered SDK routes | Explicit wallet approval for every returned step | Read positions after the canonical receipt |
-| `depositAndMint` | Add long collateral and mint fxUSD | Ethereum | Write | market, position ID, wallet, collateral token, deposit amount, mint amount | Ordered transaction array with route details | Exact token approval when returned, then action; no later submission before receipt | Read positions after the canonical receipt |
-| `repayAndWithdraw` | Repay fxUSD and/or withdraw long collateral | Ethereum | Write | market, position ID, wallet, repay amount, withdrawal amount, withdrawal token | Ordered transaction array with route details | Exact repayment approval when returned, then action; failure stops the route | Read positions after the canonical receipt |
-| `getBridgeQuote` | Preview Ethereum/Base bridge fee | Ethereum or Base source | Read | source/destination chain, token key or reviewed OFT, amount, recipient, source RPC | Native and LayerZero token fee | No signing; quote is informational until a fresh route is built | Requote whenever bridge inputs or source RPC change |
-| `buildBridgeTx` | Build a cross-chain bridge send | Ethereum or Base source | Write plan | source/destination chain, token, amount, recipient, optional refund address, source RPC | One source send transaction plus quote | Ethereum may prepend one exact approval; every step is signed in order; destination is separately GUID-verified | Read source receipt, then verify destination delivery from matching LayerZero events |
-| `getFxSaveBalance` | View the wallet's fxSAVE shares/assets | Ethereum | Read | wallet | Share balance and optional underlying assets | No signing | Reload after every fxSAVE write and on Earn/Portfolio open |
-| `getFxSaveConfig` | View fxSAVE vault details | Ethereum | Read | none | Supply, assets, cooldown, fee ratios, and threshold | No signing | Reload with the other Earn reads |
-| `getFxSaveRedeemStatus` | View pending redemption/cooldown | Ethereum | Read | wallet | Pending shares, cooldown, redeemable time, completion flag | No signing | Reload after withdrawal/claim and on Earn open |
-| `getFxSaveClaimable` | View claimable redemption preview | Ethereum | Read | wallet | Cooldown status plus fxUSD/USDC receive preview when available | No signing | Reload after withdrawal/claim and on Earn open |
-| `getRedeemTx` | Claim a completed fxSAVE redemption | Ethereum | Write plan | wallet, optional receiver | Ordered redemption transaction array | Explicit wallet approval; only offered after canonical cooldown state is complete | Reload balance, redeem status, and claimable state after the canonical receipt |
-| `depositFxSave` | Deposit USDC, fxUSD, or fxSP base-pool shares | Ethereum | Write | wallet, input token, amount, optional slippage | Ordered transaction array | Exact input-token approval when required, then action; each step is signed | Reload fxSAVE balance/status after the canonical receipt |
-| `withdrawFxSave` | Queue or instantly redeem fxSAVE shares | Ethereum | Write | wallet, output token, share amount, optional instant flag and slippage | Ordered transaction array | Explicit approval/action steps; queued paths remain pending until canonical claim state | Reload balance, redeem status, and claimable state after the canonical receipt |
-
-The matrix describes what the app can safely represent, not an independent protocol implementation. Raw calldata, contract addresses, and route fingerprints remain available only in the review disclosure for informed signing and recovery.

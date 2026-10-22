@@ -318,9 +318,9 @@ test('the decorative canvas remains absent while overlays and visibility change'
   expect(await canvasStates(page)).toEqual([]);
 });
 
-test('with data saver on, the canvas stays still from the first paint', async ({ page }) => {
+test('data saver needs no canvas marker for an absent background', async ({ page }) => {
   await open(page, { initScript: "Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true,addEventListener(){}}})" });
-  await expect(page.locator('html')).toHaveAttribute('data-save-data', '');
+  await expect(page.locator('html')).not.toHaveAttribute('data-save-data', '');
   expect(await canvasStates(page)).toEqual([]);
 });
 
@@ -383,7 +383,10 @@ test('docs search results stay in the app with an arrow; only links that leave c
   await expect(nav.locator('p[role="status"]')).toHaveText(/^\d+ documentation results? found$/);
   const results = nav.getByRole('link');
   await expect(results.first()).toBeVisible();
-  expect(await results.evaluateAll((links) => links.filter((link) => link.querySelector('.lucide-arrow-up-right')).length)).toBe(0);
+  const resultArrow = results.first().locator('[aria-hidden="true"]');
+  await expect(resultArrow).toHaveCount(1);
+  const resultArrowMask = await resultArrow.evaluate((icon) => getComputedStyle(icon).maskImage);
+  expect(resultArrowMask).not.toBe('none');
   expect(await results.evaluateAll((links) => links.every((link) => !link.getAttribute('target')))).toBe(true);
   await page.getByRole('button', { name: 'More documentation options', exact: true }).click();
   const options = page.getByRole('navigation', { name: 'Documentation options', exact: true });
@@ -391,7 +394,11 @@ test('docs search results stay in the app with an arrow; only links that leave c
   const leaving = options.locator('a[target="_blank"]');
   expect(await leaving.count()).toBeGreaterThan(0);
   for (const link of await leaving.all()) {
-    await expect(link.locator('.lucide-arrow-up-right')).toHaveCount(1);
+    const externalMark = link.locator(':scope > [aria-hidden="true"]');
+    await expect(externalMark).toHaveCount(1);
+    const externalMarkMask = await externalMark.evaluate((icon) => getComputedStyle(icon).maskImage);
+    expect(externalMarkMask).not.toBe('none');
+    expect(externalMarkMask).not.toBe(resultArrowMask);
     await expect(link).toContainText('(opens in a new tab)');
   }
   await expect(options.getByRole('link', { name: 'Open app', exact: true })).toHaveAttribute('href', '/');

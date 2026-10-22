@@ -16,9 +16,4 @@ const HEADING = `try{if(sessionStorage.getItem('${HEADING_LIT_KEY}'))r.dataset.h
   + "document.addEventListener('animationend',function l(e){if(e.animationName!=='heading-light')return;r.dataset.headingLit='';document.removeEventListener('animationend',l);"
   + `try{sessionStorage.setItem('${HEADING_LIT_KEY}','1');}catch{}});`;
 
-/** The living canvas (body::before/::after) rests with data saver on and
- * holds its frame while the page is hidden; globals.css reads these marks. */
-const CANVAS = "try{const c=navigator.connection;const d=()=>{if(c&&c.saveData)r.dataset.saveData='';else delete r.dataset.saveData;};d();if(c&&c.addEventListener)c.addEventListener('change',d);}catch{}"
-  + "const h=()=>{if(document.visibilityState==='hidden')r.dataset.pageHidden='';else delete r.dataset.pageHidden;};h();document.addEventListener('visibilitychange',h);";
-
-export const SHELL_INITIALIZER = `(()=>{const r=document.documentElement;${THEME}${HEADING}${CANVAS}})();`;
+export const SHELL_INITIALIZER = `(()=>{const r=document.documentElement;${THEME}${HEADING}})();`;

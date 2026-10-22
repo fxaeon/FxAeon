@@ -23,6 +23,8 @@ export type AmountFieldProps = {
   maxDecimals?: number; placeholder?: string; constraintError?: string | null;
   /** null means a route-aware maximum must be resolved before use. */
   maxAmount?: string | null; onMax?: () => void | Promise<void>; maxPending?: boolean;
+  /** Name an explicit route-owned maximum instead of a wallet balance. */
+  maxLabel?: string;
   tokenSelector?: ReactNode;
   inputPolicy?: 'dot-decimal' | 'comma-decimal';
 };
@@ -67,7 +69,7 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
   allowAll = false, allowZero = false, showPercentages = true, showMax = true,
   showUsdValue = true, showUnitPrice = false, compact = false, disabled = false,
   maxDecimals = 18, placeholder = '0.00', constraintError, maxAmount, onMax,
-  maxPending = false, tokenSelector, inputPolicy = 'dot-decimal', unitPrice: price, priceStatus = 'unavailable',
+  maxPending = false, maxLabel, tokenSelector, inputPolicy = 'dot-decimal', unitPrice: price, priceStatus = 'unavailable',
 }: AmountFieldViewProps) {
   const id = useId();
   const [hydrated, setHydrated] = useState(false);
@@ -99,7 +101,9 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
       : `This wallet has no ${tokenSymbol(symbol)}. Add some${tokenSelector ? ' or choose another asset' : ''} to continue.`);
   const showBalance = balanceState?.status !== 'disconnected' && (balance !== undefined || balanceState !== undefined);
   const canUseMax = allowAll ? hasBalance : hasMaximum || (maxAmount === null && hasBalance);
-  const hasShortcuts = showPercentages || showMax;
+  const percentagesVisible = showPercentages && balanceState?.status !== 'disconnected';
+  const maxVisible = showMax && (balanceState?.status !== 'disconnected' || typeof maxAmount === 'string');
+  const hasShortcuts = percentagesVisible || maxVisible;
   const isMax = allowAll ? value.toLowerCase() === 'all' : Boolean(maximum && hasMaximum && compareExactDecimals(value, maximum, maxDecimals) === 0);
   const describedBy = [hint && `${id}-hint`, showBalance && `${id}-balance`, error && `${id}-error`, maxError && `${id}-max-error`].filter(Boolean).join(' ') || undefined;
   const inactive = disabled || !hydrated;
@@ -121,11 +125,11 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
       <div className={styles.labelRow}>
         <label htmlFor={id}>{labelContent ?? label}</label>
       {hasShortcuts && <div role="group" aria-label={`${label} shortcuts`} className={styles.shortcuts}>
-        {showPercentages && [25, 50, 75].map((percent) => <button key={percent} type="button" disabled={inactive || !hasBalance} onClick={() => {
+        {percentagesVisible && [25, 50, 75].map((percent) => <button key={percent} type="button" disabled={inactive || !hasBalance} onClick={() => {
           haptic('selection'); const next = calculateFractionDecimal(available, percent, maxDecimals); if (next) change(next);
         }}><span>{percent}%</span></button>)}
-        {showMax && <button type="button" onClick={() => void chooseMax()} disabled={inactive || !canUseMax || maxPending || !allowAll && maxAmount === null && !onMax}
-          aria-busy={maxPending || undefined} aria-label={allowAll ? 'Use all' : onMax ? 'Calculate 100% after gas reserve' : 'Use 100% of available balance'}
+        {maxVisible && <button type="button" onClick={() => void chooseMax()} disabled={inactive || !canUseMax || maxPending || !allowAll && maxAmount === null && !onMax}
+          aria-busy={maxPending || undefined} aria-label={maxLabel ?? (allowAll ? 'Use all' : onMax ? 'Calculate 100% after gas reserve' : 'Use 100% of available balance')}
           title={onMax ? 'Reserve network fees before using the maximum' : undefined} data-selected={isMax || undefined}><span>Max{maxPending && <span className={styles.maxSpinner} aria-hidden="true" />}</span></button>}
       </div>}
       </div>

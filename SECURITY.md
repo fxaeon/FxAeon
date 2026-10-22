@@ -1,6 +1,6 @@
 # Security policy
 
-FxAeon is unaudited application software that prepares financial transactions in a static browser client. Protocol audits do not audit FxAeon's UI, wallet configuration, dependency lockfile, deployment, or transaction validation. Treat every release as software that must be independently reviewed before use with funds.
+FxAeon prepares financial transactions in a static browser client. f(x) protocol audits do not audit FxAeon's UI, wallet configuration, dependency lockfile, deployment, or transaction validation. Using the protocols involves risks, including smart contract failures, oracle failures, and other risks. Check each approval before you sign, because onchain transactions are irreversible.
 
 ## Report a vulnerability privately
 
@@ -10,9 +10,9 @@ Maintainers will acknowledge a valid report, coordinate a fix and disclosure win
 
 ## Security boundaries
 
-- FxAeon has no application backend, webhook, database, Redis, worker, queue, or delegated signer. A deployment may expose only the optional read-only `/api/gas` Pages Function, which has no wallet or protocol-state authority.
+- FxAeon has no protocol transaction backend, account database, or delegated signer. Two separate read-only Pages Functions serve the app's optional `/api/gas` endpoint and the landing site's `/api/market-data` endpoint. Neither plans or signs protocol actions or supplies authoritative wallet state.
 - Positions, Borrow, and fxSAVE financial state is Ethereum-authoritative; Move is the supported `fxUSD`/`fxSAVE` bridge between Ethereum and Base.
-- Privy is the wallet custody and explicit signing boundary. FxAeon never accepts or stores a private key.
+- The current accepted user wallet authorizes signing: an explicitly selected injected wallet on ordinary web, or the Privy wallet integration on configured Telegram launches. Every transaction requires wallet approval. FxAeon never accepts or stores a private key.
 - The official f(x) SDK is the only protocol planner. The client validates transaction targets, selectors, sender, chain, value, approvals, nonce, and order before every visible wallet prompt.
 - A rejected, reverted, timed-out, or nonce-drifted step stops the route; later steps are not submitted automatically.
 - Local storage is a UI and recovery hint only. It is never authoritative for balances, receipts, permissions, or bridge delivery.

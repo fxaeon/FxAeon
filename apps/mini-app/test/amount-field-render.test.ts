@@ -47,6 +47,24 @@ async function field(props: Partial<AmountFieldViewProps>) {
   return { html, text: textOf(html), usd: textOf(/^<span>([\s\S]*?)<\/span>/.exec(usd)?.[1] ?? '') };
 }
 
+test('a route maximum can name its own authority without changing wallet maximum defaults', async () => {
+  const borrowed = await field({ symbol: 'fxUSD', label: 'fxUSD to borrow', maxAmount: '1992.600237', maxLabel: 'Use borrowing maximum' });
+  assert.match(borrowed.html, /aria-label="Use borrowing maximum"/);
+  assert.doesNotMatch(borrowed.html, /Use 100% of available balance/);
+  const wallet = await field({ balance: '1' });
+  assert.match(wallet.html, /aria-label="Use 100% of available balance"/);
+});
+
+test('disconnected fields omit unusable balance shortcuts but preserve a verified public maximum', async () => {
+  const disconnected = { status: 'disconnected' as const };
+  const wallet = await field({ balanceState: disconnected, showPercentages: true });
+  assert.doesNotMatch(wallet.html, /shortcuts|Use 100% of available balance/);
+  const publicLimit = await field({ symbol: 'fxUSD', label: 'Borrow', balanceState: disconnected,
+    maxAmount: '1992.600237', maxLabel: 'Use borrowing maximum', showPercentages: true });
+  assert.match(publicLimit.html, /aria-label="Use borrowing maximum"/);
+  assert.doesNotMatch(publicLimit.text, /25%|50%|75%/);
+});
+
 test('the Available figure rounds down, so it never reads as more than the wallet holds', async () => {
   assert.match((await field({ balanceState: { status: 'ready', amount: '0.123456789' } })).text, /Available: 0\.12345678 ETH/);
   assert.match((await field({ balanceState: { status: 'ready', amount: '1.999999999999999999' } })).text, /Available: 1\.99999999 ETH/);

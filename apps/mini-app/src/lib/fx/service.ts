@@ -19,6 +19,7 @@ import { assertConfiguredPublicClientChain } from "./clients";
 import { validateReviewedAction } from "./actionValidation";
 import { readEthLongAccounting, type EthLongAccounting } from "./ethLongAccounting";
 import { readLiquidationQuote } from "./liquidationQuote";
+import { readBorrowFundingRate } from "./borrowFunding";
 import { capabilityPolicy, positionCollateralTokenAddress, positionDebtTokenAddress, positionPoolAddress } from "./policy";
 import { FX_TOKENS } from "./tokens";
 import {
@@ -386,6 +387,9 @@ export async function planDepositAndMint(request: DepositAndMintRequest): Promis
   }
   const depositTokenAddress = longCollateralToken(request.depositTokenAddress, request.market, "deposit token");
   await assertConfiguredPublicClientChain(1);
+  // Informational funding is read alongside planning. A failed read is unknown,
+  // never zero, and does not replace the SDK's transaction validation.
+  const funding = request.mintAmount > 0n ? Promise.resolve().then(() => readBorrowFundingRate(request.market)).catch(() => undefined) : undefined;
   // Its quote is already stETH; the rate states the wstETH deposit floor in stETH too.
   const accounting = ethLongAccounting(request.market, "long");
   const liquidation = request.positionId === 0 && request.mintAmount > 0n ? readLiquidationQuote({
@@ -398,6 +402,7 @@ export async function planDepositAndMint(request: DepositAndMintRequest): Promis
   });
   const accountingDetails = accounting ? await accounting : {};
   const liquidationQuote = liquidation ? await liquidation : undefined;
+  const fundingRate = funding ? await funding : undefined;
   return withRequestDetails(withReviewedPolicy(
     normalizeTxResult("depositAndMint", result, assertAddress(request.userAddress)),
     {
@@ -420,7 +425,8 @@ export async function planDepositAndMint(request: DepositAndMintRequest): Promis
         mintAmount: request.mintAmount,
       },
     },
-  ), { ...accountingDetails, ...(liquidationQuote === undefined ? {} : { liquidationQuote }) });
+  ), { ...accountingDetails, ...(liquidationQuote === undefined ? {} : { liquidationQuote }),
+    ...(fundingRate === undefined ? {} : { borrowFundingQuote: { poolAddress: fundingRate.pool, ratio: fundingRate.ratio.toString(), readAt: fundingRate.readAt } }) });
 }
 
 export async function planRepayAndWithdraw(request: RepayAndWithdrawRequest): Promise<PlannedRoute> {

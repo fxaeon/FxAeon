@@ -200,9 +200,9 @@ test('signature-required drafts preserve explicit method, amounts, token and sli
 
 function editor(token: 'fxUSD' | 'fxUSDBasePool', instant: boolean, config: object | null) {
   const props = { mode: 'withdraw', token, instant, shares: '2', amount: '', config, estimateConfig: config, walletData: null,
-    onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onInstantChange() {}, onDeposit() {}, balanceUnavailable: false };
+    configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onInstantChange() {}, onDeposit() {}, balanceUnavailable: false };
   const ChoiceCards = ({ options }: { options: { value: string; label: string; description: string }[] }) => React.createElement('fieldset', null, options.map(option => React.createElement('label', { key: option.value }, option.label, ' ', option.description)));
-  return renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
+  return renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'VaultTermsStatus'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
     props, ChoiceCards, AmountField: () => null, TokenSelect: () => null, labelToken: (key: string) => key === 'fxUSDBasePool' ? 'fxSP' : key,
     parseAmount: (value: string) => value ? parseUnits(value, 18) : null,
   }));
@@ -216,9 +216,9 @@ test('withdrawal fees, configured cooldown, queued payout units and unknown term
   assert.match(queued, /fxUSD \+ USDC/);
   assert.match(queued, /Network fees apply to the withdrawal request and claim/);
   const missing = editor('fxUSD', false, null);
-  assert.match(missing, /Cooldown unavailable/);
-  assert.match(missing, /Fee unavailable/);
-  assert.match(missing, /Withdrawal terms unavailable. Refresh before review/);
+  assert.match(missing, /Cooldown and fee unavailable/);
+  assert.equal((missing.match(/unavailable/g) ?? []).length, 1, 'missing terms have one shared explanation');
+  assert.match(missing, /aria-label="Retry vault terms"/);
   assert.doesNotMatch(missing, /24h|1% fee|0% fee/);
 });
 
@@ -233,7 +233,8 @@ test('direct fxSP redemption keeps no-cooldown terms visible outside optional es
 
 test('risk and audit access stays outside collapsed help and makes no UI audit claim', () => {
   const html = renderToStaticMarkup(evaluate<React.ReactNode>(`${declaration(page, 'VaultRiskNotice')}\nVaultRiskNotice();`));
-  assert.match(html, /Capital is at risk. FxAeon is unaudited/);
+  assert.match(html, /aria-label="fxSAVE risks"/);
+  assert.match(html, /aria-label="Protocol risk and audit resources"/);
   assert.match(html, /https:\/\/fxprotocol\.gitbook\.io\/fx-docs\/risk-management\/audit-reports/);
   assert.match(html, /https:\/\/fxprotocol\.gitbook\.io\/fx-docs\/f-x-protocol-mechanisms\/stability-pool/);
   assert.equal((html.match(/rel="noopener noreferrer"/g) ?? []).length, 2);

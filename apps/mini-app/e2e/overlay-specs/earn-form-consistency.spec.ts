@@ -21,7 +21,7 @@ const mocks: Record<string, string> = {
   '@/lib/displayPrices': `export const freshDisplayPrices = snapshot => snapshot.prices;`,
   '@/lib/fxSaveApy': `export const fetchFxSaveApy = async () => ({apy:6.25});`,
   '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
-  '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes = async () => ({tiers:{standard:{gasPriceWei:1n},fast:{gasPriceWei:2n},rapid:{gasPriceWei:3n}}});`,
+  '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes = async (chainId) => { globalThis.__settingsGasReads = (globalThis.__settingsGasReads ?? 0) + 1; if (globalThis.__settingsGasFailure) throw new Error('Fixture gas rates unavailable'); const price = globalThis.__settingsGasPriceWei ?? 1n; return {chainId,fetchedAt:Date.now(),validUntil:Date.now()+30000,tiers:{standard:{gasPriceWei:price},fast:{gasPriceWei:price*2n},rapid:{gasPriceWei:price*3n}}}; };`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({address:'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',chainId:1,isEmbedded:true});`,
   '@/components/WalletDataProvider': `const refresh = async () => {}; export const useFxSaveClaimable = () => ({status:'ready',data:{hasPendingRedeem:false},refresh});`,
   '@/components/ProtocolForm': `export const AmountField = ({label,value,onChange,tokenSelector,balanceState}) => <>{tokenSelector}<label>{label}<input aria-label={label} data-available={balanceState?.amount} value={value} onChange={event => onChange(event.target.value)} /></label></>; export const TokenSelect = ({value,onChange,options}) => <select aria-label="Earn asset" value={value} onChange={event => onChange(event.target.value)}>{options.map(token => <option key={token} value={token}>{token}</option>)}</select>; export const Segmented = ({options,onChange}) => <div>{options.map(option => <button key={option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; const refresh = async () => {}; const balancesFor = () => {const zero = new URLSearchParams(location.search).has('fixtureNoExternal'); const amount = zero ? '0' : '1000'; return {fxUSD:{status:'ready',amount},usdc:{status:'ready',amount},fxUSDBasePool:{status:'ready',amount}};}; export const useWalletTokenBalances = () => ({status:'ready',balances:balancesFor(),refresh});`,
@@ -37,7 +37,11 @@ const mocks: Record<string, string> = {
     export { resolveBridgeApprovalTokenAddress, resolveBridgeTokenAddress } from 'real:lib/fx/bridge';
     export const getPublicClient = () => { throw new Error('Live balance reads are outside the Earn form fixture'); };
     export const assertWalletAddress = () => {}; export const assertPublicClientChain = async () => {}; export const getEthereumClient = () => ({}); export const MAX_FX_SLIPPAGE_PERCENT = 2; export const assertConfiguredPublicClientChain = async () => {}; export const withReadDeadline = promise => promise;
-    export const getFxReadFacade = () => ({getFxSaveConfig:async () => ({cooldownPeriodSeconds:3600n,instantRedeemFeeRatio:1000000000000000n,expenseRatio:0n,harvesterRatio:100000n,threshold:100n*10n**18n,totalAssetsWei:1000n*10n**18n,totalSupplyWei:1000n*10n**18n}),getFxSaveBalance:async () => ({balanceWei:BigInt(new URLSearchParams(location.search).get('fixtureShares') ?? 600n*10n**18n),assetsWei:62045n*10n**16n}),getFxSaveRedeemStatus:async () => ({hasPendingRedeem:false})});
+    let configReads = 0;
+    export const getFxReadFacade = () => ({getFxSaveConfig:async () => {
+      if (new URLSearchParams(location.search).has('fixtureConfigFailure') && ++configReads === 1) throw new Error('Fixture vault read unavailable');
+      return {cooldownPeriodSeconds:3600n,instantRedeemFeeRatio:1000000000000000n,expenseRatio:0n,harvesterRatio:100000n,threshold:100n*10n**18n,totalAssetsWei:1000n*10n**18n,totalSupplyWei:1000n*10n**18n};
+    },getFxSaveBalance:async () => ({balanceWei:BigInt(new URLSearchParams(location.search).get('fixtureShares') ?? 600n*10n**18n),assetsWei:62045n*10n**16n}),getFxSaveRedeemStatus:async () => ({hasPendingRedeem:false})});
     export const signatureDraftIdFromSearch = search => new URLSearchParams(search).get('fxDraft');
     export const restoreSignatureRequiredDraftFromSearch = (search,scope) => new URLSearchParams(search).has('fxDraft') && scope.actionKey === (new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'earn:deposit' : 'earn:withdraw') ? ({draft:{resumePath:'/earn'},formState:{mode:new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'deposit' : 'withdraw',token:new URLSearchParams(search).get('fixtureToken') ?? 'fxUSD',amount:'10',shares:'10',instant:new URLSearchParams(search).get('fixtureInstant') !== 'false',slippage:new URLSearchParams(search).get('fixtureSlippage') ?? '2'}}) : undefined;
     export const planDepositFxSave = async input => {globalThis.__earnHarness.plans.push(input);return {};}; export const planWithdrawFxSave = planDepositFxSave; export const planRedeem = planDepositFxSave;`,
@@ -77,10 +81,10 @@ test.beforeAll(async () => {
   css=result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-async function mount(page:Page,resume=true,slippage='2',mode:'withdraw'|'deposit'='withdraw',fixture:{token?:string;instant?:boolean;shares?:string;noExternal?:boolean}={}) {
+async function mount(page:Page,resume=true,slippage='2',mode:'withdraw'|'deposit'='withdraw',fixture:{token?:string;instant?:boolean;shares?:string;noExternal?:boolean;configFailure?:boolean}={}) {
   await page.route('http://earn.test/**',route => route.fulfill({body:'<!doctype html><html><head></head><body><div id="root"></div></body></html>',contentType:'text/html'}));
   const shares = fixture.shares !== undefined ? `fixtureShares=${fixture.shares}` : '';
-  const external = fixture.noExternal ? 'fixtureNoExternal=1' : '';
+  const external = [fixture.noExternal ? 'fixtureNoExternal=1' : '', fixture.configFailure ? 'fixtureConfigFailure=1' : ''].filter(Boolean).join('&');
   await page.goto(`http://earn.test/earn${resume ? `?fxDraft=fixture${mode === 'deposit' ? '&fixtureMode=deposit' : ''}${slippage === '2' ? '' : `&fixtureSlippage=${slippage}`}${fixture.token ? `&fixtureToken=${fixture.token}` : ''}${fixture.instant === false ? '&fixtureInstant=false' : ''}${shares ? `&${shares}` : ''}${external ? `&${external}` : ''}` : shares || external ? `?${[shares, external].filter(Boolean).join('&')}` : ''}`);
   await page.evaluate(() => localStorage.setItem('fxaeon.settings.v1',JSON.stringify({slippageBps:50,gasTier:'standard'})));
   await page.addStyleTag({content:`*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;--fs-small:14px;--fs-caption:12px;--text:#111;--mut:#555;--surface:#fff;--surface-2:#eee;--line:#ccc;--success:#16803b;--radius-sm:8px;--dur-fast:0ms}button{font:inherit;border:0;padding:0;cursor:pointer;background:none}${css}`});
@@ -101,6 +105,24 @@ async function openSettings(page:Page,percent:string) {
 async function storedSlippage(page:Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1')!).slippageBps);
 }
+
+test('missing withdrawal terms have one retry and recover without losing the amount', async ({ page }) => {
+  await mount(page, false, '2', 'withdraw', { configFailure: true });
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('12.3456789');
+  await expect(page.getByText('Cooldown and fee unavailable.', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('Cooldown unavailable', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Fee unavailable', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeDisabled();
+  const retry = page.getByRole('button', { name: 'Retry vault terms', exact: true });
+  await expect(retry).toHaveCount(1);
+  await retry.click();
+  await expect(page.getByRole('radio', { name: /After cooldown.*1h/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: /Instant.*0.1% fee/ })).toBeVisible();
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12.3456789');
+  await expect(retry).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();
+});
 
 test('deposits never offer or forward an unused slippage setting', async ({ page }) => {
   await mount(page, false);
@@ -307,8 +329,9 @@ test('changed stored slippage reaches a restored form while unrelated storage ch
   const input = dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' });
   await input.fill('3');
   await input.press('Enter');
-  await expect(dialog.getByRole('alert')).toBeVisible();
-  await expect(input).toHaveValue('0.75');
+  await expect(dialog.getByRole('alert')).toContainText('Enter 0.1% to 2% in steps of 0.01%.');
+  await expect(input).toHaveValue('3');
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(await storedSlippage(page)).toBe(75);
   await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
   await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();
@@ -377,6 +400,114 @@ test('shared settings reset visible preferences and report blocked storage witho
   await expect(page.getByRole('button', { name: 'Transaction settings, 0.5% slippage', exact: true })).toBeFocused();
 });
 
+test('Done preserves an invalid custom draft and its accessible error until corrected', async ({ page }) => {
+  await mount(page, false);
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
+  const dialog = await openSettings(page, '0.5');
+  const input = dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' });
+  await input.fill('2.01');
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(input).toHaveValue('2.01');
+  await expect(input).toBeFocused();
+  await expect(input).toHaveAttribute('aria-invalid', 'true');
+  const error = dialog.getByRole('alert');
+  await expect(error).toContainText('Enter 0.1% to 2% in steps of 0.01%.');
+  await expect(input).toHaveAttribute('aria-errormessage', (await error.getAttribute('id'))!);
+  await expect(input).toHaveAccessibleDescription(/Enter 0.1% to 2%/);
+  expect(await storedSlippage(page)).toBe(50);
+  await input.fill('0.75');
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(await storedSlippage(page)).toBe(75);
+  await expect(page.getByRole('button', { name: 'Transaction settings, 0.75% slippage', exact: true })).toBeFocused();
+});
+
+test('failed custom preference storage keeps the draft and Done open until saving recovers', async ({ page }) => {
+  await mount(page, false);
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
+  const dialog = await openSettings(page, '0.5');
+  const input = dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' });
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Object.assign(window, { __restoreSettingsStorage: () => { Storage.prototype.setItem = original; } });
+    Storage.prototype.setItem = () => { throw new Error('Storage blocked by fixture'); };
+  });
+  await input.fill('0.75');
+  await input.blur();
+  await expect(dialog.getByRole('alert')).toContainText('could not save');
+  await expect(input).toHaveValue('0.75');
+  expect(await storedSlippage(page)).toBe(50);
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await expect(input).toHaveValue('0.75');
+  await expect(input).toBeFocused();
+  await expect(dialog.getByRole('alert')).toContainText('previous value is still active');
+  expect(await storedSlippage(page)).toBe(50);
+  await page.evaluate(() => (window as typeof window & { __restoreSettingsStorage: () => void }).__restoreSettingsStorage());
+  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(await storedSlippage(page)).toBe(75);
+  await expect(page.getByRole('button', { name: 'Transaction settings, 0.75% slippage', exact: true })).toBeFocused();
+});
+
+test('settings help stays compact and Escape closes only the nested explanation first', async ({ page }) => {
+  await mount(page, false);
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
+  const dialog = await openSettings(page, '0.5');
+  const trigger = dialog.getByRole('button', { name: 'About Max slippage', exact: true });
+  await trigger.focus();
+  await trigger.press('Enter');
+  const help = page.getByRole('dialog', { name: 'Max slippage', exact: true });
+  await expect(help).toBeVisible();
+  await expect(help).toBeFocused();
+  await expect(help.getByRole('button')).toHaveCount(0);
+  await expect(help).toHaveAccessibleDescription(/Raising it permits a larger difference/);
+  await page.keyboard.press('Escape');
+  await expect(help).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Transaction settings, 0.5% slippage', exact: true })).toBeFocused();
+});
+
+test('expired gas estimates disappear while hidden and recover on foreground and online events', async ({ page }) => {
+  await page.clock.install();
+  await mount(page, false);
+  await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
+  const dialog = await openSettings(page, '0.5');
+  const standard = dialog.getByRole('radiogroup', { name: 'Network speed' }).getByRole('radio', { name: /Standard/ });
+  await expect(standard).toContainText('<0.001 gwei');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.fastForward(30_001);
+  await expect(standard).not.toContainText('gwei');
+  await expect(dialog.getByRole('status')).toContainText('Live gas rates are unavailable');
+  await page.evaluate(() => {
+    Object.assign(window, { __settingsGasFailure: true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(dialog.getByRole('status')).toContainText('Live gas rates are unavailable');
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    window.dispatchEvent(new Event('offline'));
+    Object.assign(window, { __settingsGasFailure: false, __settingsGasPriceWei: 1000000000n });
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    window.dispatchEvent(new Event('online'));
+  });
+  await expect(standard).toContainText('1.00 gwei');
+  await expect(standard).toHaveAttribute('aria-checked', 'true');
+  await expect(dialog.getByText('Live gas rates are unavailable', { exact: false })).toHaveCount(0);
+});
+
 test('saved non-default settings hydrate without mismatch and restore the settings summary', async ({ page }) => {
   await mount(page, false);
   const result = await page.evaluate(() => {
@@ -402,7 +533,7 @@ test('editing a finer restored percentage still requires whole-basis-point prefe
   const input = dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' });
   await input.fill('0.292');
   await input.blur();
-  await expect(input).toHaveValue('0.291');
+  await expect(input).toHaveValue('0.292');
   await expect(input).toHaveAttribute('aria-invalid', 'true');
   await expect(dialog.getByRole('alert')).toContainText('steps of 0.01%');
   expect(await storedSlippage(page)).toBe(50);

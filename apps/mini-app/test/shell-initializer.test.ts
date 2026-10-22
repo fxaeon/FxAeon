@@ -6,8 +6,8 @@ import { HEADING_LIT_KEY, SHELL_INITIALIZER } from '../src/app/shellInitializer'
 type Listener = (event: Record<string, unknown>) => void;
 
 /** The smallest document the pre-hydration script touches. */
-function boot({ local = {}, session = {}, blockedStorage = false, connection, hidden = false }: {
-  local?: Record<string, string>; session?: Record<string, string>; blockedStorage?: boolean; connection?: { saveData?: boolean }; hidden?: boolean;
+function boot({ local = {}, session = {}, blockedStorage = false }: {
+  local?: Record<string, string>; session?: Record<string, string>; blockedStorage?: boolean;
 } = {}) {
   const listeners = new Map<string, Set<Listener>>();
   const listen = (type: string, listener: Listener) => { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type)!.add(listener); };
@@ -18,14 +18,12 @@ function boot({ local = {}, session = {}, blockedStorage = false, connection, hi
   const root = { dataset: {} as Record<string, string>, style: {} as Record<string, string> };
   const document = {
     documentElement: root,
-    visibilityState: hidden ? 'hidden' : 'visible',
     addEventListener: listen,
     removeEventListener: (type: string, listener: Listener) => { listeners.get(type)?.delete(listener); },
   };
-  const network = connection && { ...connection, addEventListener: (type: string, listener: Listener) => listen(`connection:${type}`, listener) };
-  runInNewContext(SHELL_INITIALIZER, { document, localStorage: storage(local), sessionStorage: storage(session), navigator: { connection: network } });
+  runInNewContext(SHELL_INITIALIZER, { document, localStorage: storage(local), sessionStorage: storage(session) });
   const dispatch = (type: string, event: Record<string, unknown> = {}) => { for (const listener of [...(listeners.get(type) ?? [])]) listener(event); };
-  return { root, local, session, listeners, dispatch, document, network };
+  return { root, local, session, listeners, dispatch, document };
 }
 
 test('dark applies before the first paint and replaces saved light preferences', () => {
@@ -53,22 +51,11 @@ test('route headings light once per session, and a later load starts plain', () 
   assert.equal(reload.root.dataset.headingLit, '', 'a reload in the same session shows plain titles from the first frame');
 });
 
-test('the canvas rests with data saver on, and holds while the page is hidden', () => {
-  assert.equal(boot().root.dataset.saveData, undefined);
-  const saver = boot({ connection: { saveData: true } });
-  assert.equal(saver.root.dataset.saveData, '', 'data saver is honoured before the first paint');
-  saver.network!.saveData = false;
-  saver.dispatch('connection:change');
-  assert.equal(saver.root.dataset.saveData, undefined, 'turning data saver off lets the canvas move again');
-
-  const page = boot({ hidden: true });
-  assert.equal(page.root.dataset.pageHidden, '');
-  page.document.visibilityState = 'visible';
-  page.dispatch('visibilitychange');
+test('startup registers no inactive canvas visibility or connection listeners', () => {
+  const page = boot();
+  assert.deepEqual([...page.listeners.keys()], ['animationend']);
+  assert.equal(page.root.dataset.saveData, undefined);
   assert.equal(page.root.dataset.pageHidden, undefined);
-  page.document.visibilityState = 'hidden';
-  page.dispatch('visibilitychange');
-  assert.equal(page.root.dataset.pageHidden, '');
 });
 
 test('blocked storage still lights the heading once for this page and keeps the default theme', () => {

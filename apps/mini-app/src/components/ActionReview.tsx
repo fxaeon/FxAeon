@@ -57,6 +57,8 @@ import { PendingTransactionSummary } from './review/PendingTransactionSummary';
 import { ReviewFactValue } from './review/ReviewFactValue';
 import { ReviewTermRow } from './review/ReviewTermRow';
 import { MetricLabel } from './InfoHelp';
+import { INFO_HELP_CONTENT } from './infoHelpContent';
+import { BORROW_FUNDING_MAX_AGE_MS } from '@/lib/fx/borrowFunding';
 import { reviewHelpDefinition } from './review/reviewHelp';
 import { transactionCardIdentity } from './review/transactionCardIdentity';
 import { AmountUsd, FeeUsd, FeeAmount, CollateralAmount } from './review/AmountUsd';
@@ -171,6 +173,12 @@ export function ActionReview(props: ActionReviewProps) {
     ? route.quote as { receiptReadAt?: unknown } : undefined;
   const bridgeReadAt = typeof bridgeQuote?.receiptReadAt === 'number' ? bridgeQuote.receiptReadAt : undefined;
   const savingsQuoteReadAt = route?.details?.fxSaveQuote?.readAt ?? bridgeReadAt;
+  const fundingReadAt = route?.details?.borrowFundingQuote?.readAt;
+  useEffect(() => {
+    if (fundingReadAt === undefined || !Number.isSafeInteger(fundingReadAt) || fundingReadAt > Date.now()) return;
+    const timer = window.setTimeout(() => refreshQuoteDisplay(value => value + 1), Math.max(0, fundingReadAt + BORROW_FUNDING_MAX_AGE_MS - Date.now() + 1));
+    return () => window.clearTimeout(timer);
+  }, [fundingReadAt]);
   useEffect(() => {
     if (savingsQuoteReadAt === undefined || !Number.isSafeInteger(savingsQuoteReadAt) || savingsQuoteReadAt > Date.now()) return;
     const timer = window.setTimeout(() => refreshQuoteDisplay(value => value + 1), Math.max(0, savingsQuoteReadAt + ROUTE_PREFETCH_TTL_MS - Date.now() + 1));
@@ -519,7 +527,9 @@ export function ActionReview(props: ActionReviewProps) {
           {!leverageReview && positionChangeRows.length > 0 && <PositionOutcomeSummary facts={positionChangeRows} />}
           {hierarchy.primary.filter(fact => fact.label === 'Claim payout').map(fact => <p key={fact.label} data-review-fact={fact.label} className={presentationStyles.claimCaveat} title={fact.title}>{fact.value}</p>)}
           {loanAction && <div className={presentationStyles.costGroup}>
-            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewRow compact label="Borrow rate" value={borrowRate?.value ?? 'Not quoted'} title={borrowRate ? borrowRate.title : 'The accepted route does not quote the current borrowing or funding rate. A zero base rate does not establish the current funding cost.'} />}
+            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewTermRow displayLabel="Temporary funding"
+              fact={borrowRate ?? { label: 'Borrow rate', value: 'Not quoted' }}
+              help={<>{INFO_HELP_CONTENT.borrowRate} {borrowRate ? borrowRate.title : <>The current rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">Verify on f(x) Protocol ↗</a></>}</>} />}
             {hierarchy.primary.filter(fact => ['f(x) fee', 'Protocol fee'].includes(fact.label)).map(fact => <ReviewRow compact key={fact.label} label={fact.label} value={fact.value} title={fact.title} />)}
           </div>}
           <div className={presentationStyles.costGroup}>

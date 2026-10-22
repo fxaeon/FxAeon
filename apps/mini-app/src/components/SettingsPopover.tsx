@@ -7,7 +7,7 @@ import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { useExitPresence } from '@/lib/useExitPresence';
 import styles from './SettingsPopover.module.css';
 
-export function SettingsPopover({ summary, chip, children, title = 'Transaction settings', triggerContent, triggerClassName, placement = 'anchor' }: { summary: string; chip?: string | null; children: ReactNode; title?: string; triggerContent?: ReactNode; triggerClassName?: string; placement?: 'anchor' | 'center' }) {
+export function SettingsPopover({ summary, chip, children, title = 'Transaction settings', triggerContent, triggerClassName, placement = 'anchor', onDone }: { summary: string; chip?: string | null; children: ReactNode; title?: string; triggerContent?: ReactNode; triggerClassName?: string; placement?: 'anchor' | 'center'; onDone?: () => boolean }) {
   const [open, setOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
@@ -78,7 +78,7 @@ export function SettingsPopover({ summary, chip, children, title = 'Transaction 
         <span className={styles.handle} aria-hidden="true" />
         <header><strong>{title}</strong><button ref={closeRef} type="button" aria-label="Close transaction settings" onClick={() => setOpen(false)}><X size={20} aria-hidden="true" /></button></header>
         <div className={styles.body}>{children}</div>
-        <footer className={styles.footer}><button type="button" onClick={() => setOpen(false)}>Done</button></footer>
+        <footer className={styles.footer}><button type="button" onClick={() => { if (onDone?.() !== false) setOpen(false); }}>Done</button></footer>
       </div>
     </div>, document.body)}
   </>;

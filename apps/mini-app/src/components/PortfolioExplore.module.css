@@ -1,0 +1,82 @@
+.explore { display: grid; min-width: 0; gap: 44px; padding-bottom: 16px; }
+.intro { padding: 22px 0 4px; }
+.intro h2 { max-width: 14ch; margin: 0; color: var(--text); font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(44px, 6.4vw, 68px); font-weight: 600; line-height: 1.03; letter-spacing: -.055em; }
+.intro > p { max-width: 34ch; margin: 22px 0 0; color: var(--mut); font-size: 16px; line-height: 1.6; text-wrap: balance; }
+.entryActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 26px; }
+.entryActions .connect { min-width: 172px; min-height: 52px; border-radius: 26px; }
+.entryActions > a { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; color: var(--mut); font-size: 14px; }
+.entryActions > a:hover { color: var(--text); }
+.sectionHeading { display: flex; min-height: 32px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
+.sectionHeading h2 { margin: 0; color: var(--text); font-size: 22px; font-weight: 550; line-height: 1.35; letter-spacing: -.03em; }
+.products { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.product { position: relative; display: flex; min-width: 0; flex-direction: column; padding: 22px; border: 1px solid transparent; border-radius: 24px; background: var(--surface); transition: background-color var(--dur-fast), border-color var(--dur-fast); }
+.product:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.productTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.productTop h3 { min-width: 0; margin: 0; font-size: 19px; line-height: 1.4; font-weight: 550; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.productTop > svg { flex: 0 0 auto; color: var(--mut-2); transition: color var(--dur-fast), transform var(--dur-base) var(--ease-out); }
+.product:is(:hover, :focus-visible) .productTop > svg { color: var(--text); transform: translate(2px, -2px); }
+.product p { margin: 8px 0 20px; color: var(--mut); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.productMeta, .apy { display: flex; min-height: 26px; align-items: center; flex-wrap: wrap; gap: 4px 5px; margin-top: auto; color: var(--mut-2); font-size: 12px; line-height: 1.6; }
+.apy strong { max-width: 100%; color: var(--text); font-size: 18px; font-weight: 550; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.art { --art-height: 96px; position: relative; display: flex; width: 100%; height: var(--art-height); align-items: center; justify-content: center; gap: 0; overflow: hidden; }
+.art :is(img, svg) { position: relative; z-index: 1; flex: 0 0 auto; }
+.tradeArt > :first-child { margin-right: -10px; transform: translateY(-6px); }
+.tradeArt > :last-child { transform: translateY(9px); box-shadow: 0 0 0 5px var(--surface); }
+.borrowArt { padding-right: 4px; }
+.borrowArt > :first-child { transform: translateY(-15px); }
+.borrowArt > :nth-child(2) { margin-left: -21px; transform: translateY(15px); box-shadow: 0 0 0 4px var(--surface); }
+.borrowArt > :last-child { margin-left: 18px; }
+.moveArt { gap: 14px; }
+.markets { padding-top: 6px; }
+.marketGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.explore :is(a, button):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; }
+@media (min-width: 1100px) {
+  .explore { grid-template-columns: 1.05fr 1fr; gap: 36px 48px; }
+  .intro { grid-column: 1; grid-row: 1; padding-bottom: 0; }
+  .intro h2 { font-size: 56px; }
+  .intro > p { font-size: 15px; }
+  .entryActions { gap: 10px 16px; }
+  .entryActions .connect { min-width: 158px; }
+  .entryActions > a { gap: 8px; font-size: 13px; }
+  .markets { grid-column: 2; grid-row: 1; align-self: end; padding-bottom: 3px; }
+  .productSection { grid-column: 1 / -1; }
+}
+@media (max-width: 900px) {
+  .products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .product { padding: 20px 24px; }
+}
+@media (max-width: 600px) {
+  .explore { gap: 32px; }
+  .intro { padding-top: 16px; }
+  .intro h2 { font-size: clamp(36px, 10vw, 40px); line-height: 1.08; letter-spacing: -.04em; }
+  .intro > p { margin-top: 18px; font-size: 14px; }
+  .entryActions { gap: 8px 18px; margin-top: 22px; }
+  .entryActions .connect { min-width: 154px; }
+  .entryActions > a { gap: 7px; font-size: 13px; }
+  .sectionHeading { margin-bottom: 12px; }
+  .sectionHeading h2 { font-size: 20px; }
+  .products { gap: 10px; }
+  .product { padding: 16px; border-radius: 20px; }
+  .productTop { gap: 6px; }
+  .productTop h3 { font-size: 18px; }
+  .productTop > svg { width: 17px; height: 17px; }
+  .product p { margin: 6px 0 12px; font-size: 13px; }
+  .art { --art-height: 90px; }
+  .marketGrid { gap: 10px; }
+}
+@media (max-width: 359px) {
+  .entryActions { gap: 4px 14px; }
+  .entryActions .connect { min-width: 142px; padding-inline: 16px; }
+  .entryActions > a { font-size: 12px; }
+  .product { padding: 14px; }
+  .art { --art-height: 84px; transform: scale(.9); transform-origin: center; }
+  .marketGrid { grid-template-columns: minmax(0, 1fr); }
+  .marketGrid :global(.portfolio-market-card) { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 6px 12px; }
+  .marketGrid :global(.portfolio-market-card) > div:first-child { grid-column: 1; grid-row: 1; }
+  .marketGrid :global(.portfolio-market-card) > p { grid-column: 1; grid-row: 2; margin: 0; }
+  .marketGrid :global(.portfolio-market-card) > div:last-child { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .product, .productTop > svg { transition: none; }
+  .product:is(:hover, :focus-visible) .productTop > svg { transform: none; }
+}

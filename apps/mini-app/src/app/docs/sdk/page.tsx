@@ -1,19 +1,20 @@
 import type { Metadata } from 'next';
 import { routeMetadata } from '@/app/routeMetadata';
 import DocsShell from '../DocsShell';
-import { productSections } from '../ProductArticle';
-import { createDocsEntries, docsNavigation } from '../docsSearch';
-import SdkArticle, { sdkSections } from './SdkArticle';
+import { legacyDocsDestinations } from '../docsSearch';
+import { sdkSections } from './SdkArticle';
+import { sdkHref, sdkNavigation } from '../sdkNavigation';
+import LegacyDocsRedirect from '../LegacyDocsRedirect';
+import Link from 'next/link';
+import styles from '../Docs.module.css';
 
-// The shared route metadata keeps the FxAeon banner on share cards. The title is
-// absolute because the docs layout's own title stops the root template here.
-const shared = routeMetadata('docsSdk');
-export const metadata: Metadata = { ...shared, title: { absolute: 'f(x) SDK reference · FxAeon' } };
+export const metadata: Metadata = routeMetadata('docsSdk');
 
 export default function SdkPage() {
-  const entries = [
-    ...createDocsEntries(productSections, 'Product guide', '/docs/guide'),
-    ...createDocsEntries(sdkSections, 'SDK reference', '/docs/sdk'),
-  ];
-  return <DocsShell page="SDK reference" entries={docsNavigation(entries, 'SDK reference')}><SdkArticle /></DocsShell>;
+  return <DocsShell page="SDK reference">
+    <LegacyDocsRedirect destinations={legacyDocsDestinations(sdkSections, sdkHref)} />
+    <div className={styles.topicGrid}>{sdkNavigation.map(item => <Link key={item.id} href={sdkHref(item.id)} className={styles.topicCard}>
+      <strong>{item.title}</strong><span>{item.description}</span>
+    </Link>)}</div>
+  </DocsShell>;
 }

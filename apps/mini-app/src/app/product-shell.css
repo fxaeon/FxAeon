@@ -1,14 +1,14 @@
 /* Shared geometry and hierarchy. Route modules own layouts;
    transaction controllers own amounts, limits and execution. */
-[data-product-ui='v2'] { --product-radius: 16px; --product-gap: 20px; font-family: var(--font-sans), sans-serif; font-variant-numeric: tabular-nums; }
+[data-product-ui='v2'] { --product-radius: 24px; --product-gap: 20px; font-family: var(--font-sans), sans-serif; font-variant-numeric: tabular-nums; }
 [data-product-ui='v2'] :where(h1, h2, h3) { font-family: inherit; }
 [data-product-ui='v2'] .brand-wordmark { font-family: Manrope, var(--font-sans), sans-serif; font-size: var(--fs-heading); font-weight: 650; letter-spacing: -.045em; text-shadow: none; }
 [data-product-ui='v2'] .app-topbar { min-height: 64px; padding-block: 10px; align-items: center; gap: 14px; }
 [data-product-ui='v2'] .app-topbar-actions { display: flex; align-items: center; gap: 8px; }
-[data-product-ui='v2'] .ui-card { border: 1px solid var(--line); border-radius: var(--product-radius); background: var(--surface); box-shadow: none; }
-[data-product-ui='v2'] .portfolio-market-card { border: 1px solid var(--line); border-radius: var(--product-radius); padding: 20px; background: var(--surface); box-shadow: none; }
+[data-product-ui='v2'] .ui-card { border: 1px solid transparent; border-radius: var(--product-radius); background: var(--surface); box-shadow: none; }
+[data-product-ui='v2'] .portfolio-market-card { border: 1px solid transparent; border-radius: var(--product-radius); padding: 20px; background: var(--surface); box-shadow: none; }
 [data-product-ui='v2'] .button { border-radius: 10px; min-height: 48px; font-weight: 600; }
-[data-product-ui='v2'] .button-primary { background: var(--mint); color: var(--on-accent); box-shadow: none; }
+[data-product-ui='v2'] .button-primary { min-height: 52px; border-radius: 26px; background: var(--mint); color: var(--on-accent); box-shadow: none; }
 [data-product-ui='v2'] .button:disabled:not([aria-busy='true']),
 [data-product-ui='v2'] .button[aria-disabled='true'] { background: var(--surface-2); color: var(--mut); box-shadow: none; filter: none; }
 [data-product-ui='v2'] .page-header { margin-bottom: 12px; }
@@ -22,15 +22,10 @@
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
 [data-product-ui='v2'] .segmented[data-thumb]:not(.segmented-sides)::before { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line-strong); }
 [data-product-ui='v2'] .segmented:not(.segmented-sides) .segmented-option-active { color: var(--text); font-weight: 600; }
-[data-product-ui='v2'] .desktop-navigation { background: transparent; box-shadow: none; }
-[data-product-ui='v2'] .desktop-navigation a { font-weight: 500; }
-[data-product-ui='v2'] .desktop-navigation a { min-height: 40px; border-radius: 10px; }
-[data-product-ui='v2'] .desktop-navigation a:hover { background: var(--surface); }
 [data-product-ui='v2'] .app-workspace[data-route='/more'] > .utility-content { max-width: 800px; }
 [data-product-ui='v2'] .app-workspace[data-route='/settings'] > .utility-content { max-width: 640px; }
 [data-product-ui='v2'] .app-workspace[data-route='/history'] > .utility-content { max-width: 720px; }
-[data-product-ui='v2'] .desktop-navigation a[aria-current='page'] { background: var(--mint-dim); color: var(--mint-text); box-shadow: none; }
-[data-product-ui='v2'] .tabbar { border-radius: 20px; border: 1px solid var(--line); background: var(--surface); box-shadow: 0 4px 16px color-mix(in srgb, var(--text) 5%, transparent); }
+[data-product-ui='v2'] .tabbar { border-radius: 24px; border: 1px solid var(--hairline); background: var(--surface); box-shadow: none; }
 [data-product-ui='v2'] .tabbar::before { border-radius: 16px; box-shadow: none; background: var(--mint-dim); }
 [data-product-ui='v2'] .nav-item-mobile { font-weight: 500; color: var(--mut); }
 [data-product-ui='v2'] .nav-item-mobile:is([aria-current='page'], .nav-item-active) { color: var(--mint-text); }
@@ -57,6 +52,6 @@
 @media (max-width: 360px) { [data-product-ui='v2'] .tabbar-safe { padding-inline: max(10px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-left, 0px)); } }
 @media (max-width: 420px) {
   [data-product-ui='v2'] .brand-wordmark { font-size: 20px; }
-  [data-product-ui='v2'] .app-topbar-actions > button { padding-inline: 8px; border-radius: 10px; }
+  [data-product-ui='v2'] .app-topbar-actions > button { padding-inline: 8px; border-radius: var(--radius-full); }
 }
 @media (prefers-reduced-motion: reduce) { [data-product-ui='v2'] :where(.glass-press, .button, .nav-item) { transition: none; } }

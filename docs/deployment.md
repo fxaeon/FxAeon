@@ -1,118 +1,104 @@
-# Deployment
+# Deployment and rollback
 
-FxAeon deploys as two independent Cloudflare Pages sites. Keep their roots,
-build outputs, environment variables, and custom domains separate.
+FxAeon uses two independent Cloudflare Pages projects. Keep their roots, output directories, Functions, configuration, and domains separate.
 
-| Site | Pages project | Root | Build | Output | Intended domain |
-| --- | --- | --- | --- | --- | --- |
-| Financial web and Telegram app | `fxaeon` | Repository root `/` | `pnpm --filter @fxaeon/mini-app build` | `apps/mini-app/dist` | `fxaeon.com`, `www.fxaeon.com` |
-| Marketing site | `fxaeon-landing` | `apps/landing` | `node build.mjs` | `dist` | `fxaeon.xyz` |
+| Application | Project | Build root and command | Output | Domain |
+| --- | --- | --- | --- | --- |
+| Financial web/Telegram app | `fxaeon` | Repository root; `pnpm build` | `apps/mini-app/dist` | `fxaeon.com`, `www.fxaeon.com` |
+| Landing | `fxaeon-landing` | `apps/landing`; `node build.mjs` | `dist` | `fxaeon.xyz` |
 
-The landing project watches `apps/landing/*`, as recorded in
-[`apps/landing/wrangler.toml`](../apps/landing/wrangler.toml). The app project
-uses the root [`wrangler.toml`](../wrangler.toml). Both deploy static Pages
-output; `wrangler deploy` is for Workers and is not the deployment command for
-these sites.
+Configuration lives in the [root Wrangler file](../wrangler.toml), [landing Wrangler file](../apps/landing/wrangler.toml), and [production workflow](../.github/workflows/deploy-mini-app.yml). These are Pages applications; `wrangler deploy` is a different Workers deployment path.
 
-## Build configuration
+## Configuration
 
-The financial app consumes public variables at build time. For production,
-GitHub Actions supplies the protected values while building, then uploads the
-finished static artifact. Cloudflare Pages does not rebuild that upload, so
-duplicating these public build variables in Cloudflare is unnecessary for this
-release path. Changes to GitHub build variables take effect on the next release
-build, not by changing a runtime Pages binding.
+The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect their configuration in Actions, but the compiled values are public. Restrict browser credentials by origin, chain, and quota. A Pages runtime variable cannot rewrite a previously built bundle.
 
-Cloudflare Git previews build independently. Set the desired public variables
-in the Pages **Preview** environment if using those builds; they do not inherit
-GitHub Actions secrets. A preview without optional fallback variables uses only
-its configured providers. Keep any separately enabled Pages build environment
-explicit rather than assuming it shares the production GitHub configuration.
-
-| Name | GitHub storage | Purpose |
+| Setting | Production storage | Use |
 | --- | --- | --- |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | Secret | Production Privy app; local-development ID is rejected |
-| `NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL` | Secret | Origin-restricted Ethereum RPC |
-| `NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL` | Secret | Origin-restricted Base RPC |
-| `NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL` | Optional secrets | Second Alchemy endpoints for Ethereum/Base HTTP and WebSocket failover |
-| `NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_INFURA_BASE_RPC_URL` | Optional secrets | Secondary Ethereum/Base HTTP fallback endpoints |
-| `NEXT_PUBLIC_ALCHEMY_DATA_API_KEY` | Secret | Browser-visible wallet-token discovery key, restricted by origin and quota |
-| `NEXT_PUBLIC_TELEGRAM_APP_URL` | Variable | `https://t.me/FxAeonBot` or a configured Mini App launcher |
-| `TELEGRAM_BOT_TOKEN` | Secret | Bot metadata and menu synchronization; never a `NEXT_PUBLIC_*` value |
-| `ETHERSCAN_API_KEY` | Optional secret | Read-only `/api/gas` Pages Function binding; when absent, the app uses its bounded RPC gas estimate fallback |
-| `LIVE_GAS_ORACLE_URL` | GitHub Actions environment value | URL the release workflow probes after deploying; it does not configure the Pages Function or replace `ETHERSCAN_API_KEY` |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Required secrets | Upload the verified Pages artifact and sync the optional gas-oracle secret; token requires Pages Edit on the deployment account |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | GitHub secret | Intended production Privy application |
+| `NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL` | GitHub secrets | Primary restricted chain endpoints |
+| `NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_ALCHEMY2_BASE_RPC_URL` | Optional GitHub secrets | Secondary Alchemy endpoints |
+| `NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_INFURA_BASE_RPC_URL` | Optional GitHub secrets | Secondary HTTP endpoints |
+| `NEXT_PUBLIC_ALCHEMY_DATA_API_KEY` | GitHub secret | Public wallet-token discovery credential |
+| `NEXT_PUBLIC_TELEGRAM_APP_URL` | GitHub variable | Clean bot/Mini App launcher |
+| `TELEGRAM_BOT_TOKEN` | GitHub secret | Bot metadata and menu synchronization; never a public build input |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | GitHub secrets | Pages artifact upload and optional secret synchronization |
+| `ETHERSCAN_API_KEY` | Optional GitHub/Pages production secret | Read-only app gas Function |
+| `LIVE_GAS_ORACLE_URL` | Workflow environment | Probe destination only; does not configure the Function |
 
-The `/api/gas` response uses the same `503 {"error":"gas oracle unavailable"}`
-for a missing `ETHERSCAN_API_KEY` binding and an unavailable Etherscan upstream.
-The public health check can confirm whether a valid snapshot is being served,
-but cannot tell which failure caused that response. Set `ETHERSCAN_API_KEY` as
-a Cloudflare Pages production secret; `LIVE_GAS_ORACLE_URL` only selects the
-public URL checked by GitHub Actions.
+The Cloudflare token needs Pages Edit on the deployment account. Privy must allow the intended origins and Ethereum/Base configuration. The local-development app ID in the example is rejected by production validation.
 
-All `NEXT_PUBLIC_*` values are exposed in the compiled client. The production
-validator requires the Privy ID, both Alchemy RPCs, Data API key, Telegram URL,
-and bot token. Configure Privy for the exact production and preview origins and
-Ethereum/Base networks. Do not reuse the local Privy application in production.
-For each chain, HTTP reads and SDK planning prefer primary Alchemy, then
-Infura, then Alchemy2. WebSockets start with primary Alchemy and rotate to
-Alchemy2 on reconnect. A provider plan upgrade changes its capacity and billing;
-it does not change this endpoint order or move healthy primary traffic to a
-paid fallback.
-The validator rejects any populated `NEXT_PUBLIC_FX_SCREENSHOT_*`,
-`NEXT_PUBLIC_FX_LOCAL_FORK_*` or `NEXT_PUBLIC_FX_ANVIL_*` variable, matched by
-prefix, and placeholder optional Infura endpoints. Keep all of those unset in
-production and preview deployment dashboards. The validator checks the process
-environment supplied to it; it does not inspect dashboard settings or load Next.js
-`.env` files. Local fork builds remain available for disposable testing.
+[validate_production_env.mjs](../scripts/validate_production_env.mjs) requires the intended Privy ID, both primary Alchemy endpoints, Data API key, Telegram URL, and bot token. It validates supplied optional endpoints and rejects placeholders. It also rejects populated `NEXT_PUBLIC_FX_SCREENSHOT_*`, `NEXT_PUBLIC_FX_LOCAL_FORK_*`, and `NEXT_PUBLIC_FX_ANVIL_*` families. Keep local fixture settings out of all deployed environments.
 
-The landing site only needs its optional Telegram URL when building. It has no
-wallet, Privy, RPC, or protocol configuration. The Pages build can use the
-defaults in its source when no Telegram URL is set.
+The validator checks its supplied process environment; it does not inspect dashboard values or load Next's local environment files. A structurally valid endpoint is not proof of live service health or quota.
 
-## Release workflow
+For each chain, HTTP/SDK reads prefer primary Alchemy, then Infura, then Alchemy2. WebSocket reconnects can rotate primary Alchemy to Alchemy2. Changing a subscription plan does not change this configured ordering.
 
-Before enabling the release workflow, turn off automatic production Git
-deployments for the `fxaeon` Pages project and ensure no main-branch build is
-still running. The Git integration can remain available for isolated preview
-deployments. This prevents a provider build from publishing over the artifact
-uploaded by GitHub Actions.
+## Preview environments
 
-`.github/workflows/deploy-mini-app.yml` runs for pushes to `main` or manual
-dispatch. Manual dispatch must target the latest `main` commit. The workflow
-validates production inputs, runs `pnpm verify`, builds the
-production static app, checks the built artifact, stamps its revision, and
-uploads `apps/mini-app/dist` with Wrangler Pages to project `fxaeon` on branch
-`main`. Immediately before uploading, it checks that the commit is still the
-remote `main` head. It verifies the deployed revision before checking the optional live
-gas-oracle binding, the public Privy configuration, and synchronizing the
-Telegram bot metadata and default Mini App menu. A Telegram sync does not
-configure the native Main Mini App or profile launch button; those remain
-BotFather settings.
+Cloudflare Git previews build independently and do not inherit GitHub Actions secrets. Set Preview variables deliberately. An empty Privy ID produces browser mode, even with Telegram launch hints; a passing placeholder/credential-free build does not prove configured Telegram authentication.
 
-The artifact check runs `node scripts/verify_built_rpc_config.mjs` with the same
-RPC inputs as the production build. Every supplied RPC endpoint must appear as
-a complete string literal in the exported `_next/static/**/*.js` browser
-chunks. Missing optional inputs remain allowed; supplied-but-missing endpoints
-fail before deployment. Source maps, server output, HTML and manifests do not
-satisfy this check. Diagnostics contain variable names and counts, never
-endpoint values. The check proves build-time inclusion, not live provider
-health, account billing or successful failover. The later live configuration
-probe separately checks the public Privy ID.
+Record the preview revision and which services are configured before testing. Browser/provider mocks and module-load checks can validate narrower behavior, but do not substitute for live authentication or device evidence.
 
-The upload uses the existing Pages project, so its custom domains and runtime
-bindings remain attached to that project. Wrangler uploads the repository's
-`functions/` directory along with the static output, including the `/api/gas`
-Pages Function; generated `_headers` and CSP files are part of the build output.
-The release workflow deploys the prebuilt artifact and does not run a Cloudflare
-build or deploy a Worker. The standalone landing build is tested in CI and is
-deployed by its separate Pages project.
+Disable automatic production Git deployments for the financial app before using the verified-artifact workflow. Ensure an older production build is not still running. Keeping Git previews enabled is compatible with that separation.
 
-If production needs a rollback, select a known-good deployment in the
-Cloudflare dashboard and roll back to it, then make a corrective commit on
-`main` so the repository and the next workflow deployment return to the same
-revision.
+## Production release sequence
 
-Protected fork testing is separate from deployment. It uses a disposable local
-Anvil fork and a protected Ethereum RPC secret; see
-[`testing.md`](testing.md).
+The [deployment workflow](../.github/workflows/deploy-mini-app.yml) runs on a `main` push or manual dispatch. Dispatch must target current `main`.
+
+1. Install the pinned toolchain and frozen dependency graph.
+2. Validate protected production inputs.
+3. Run `pnpm verify` using its credential-free test configuration.
+4. Build a separate production-configured static artifact.
+5. Scan the built output, verify supplied RPC endpoints are actually compiled into browser chunks, and enforce existing bundle/CSP budgets.
+6. Stamp the artifact with the source revision and synchronize the optional gas secret.
+7. Check that the revision is still remote `main` immediately before upload.
+8. Upload the prebuilt artifact with Wrangler Pages, including root Functions.
+9. Verify deployed revision, gas response/configuration, and expected public Privy configuration.
+10. Synchronize Telegram bot metadata and its default Mini App menu.
+
+This uploads an existing export; Cloudflare does not rebuild it. Custom domains and bindings remain attached to the Pages project. Never replace this sequence with an unverified local upload during routine release work.
+
+[verify_built_rpc_config.mjs](../scripts/verify_built_rpc_config.mjs) requires each supplied RPC to appear as a complete string literal in exported browser JavaScript. HTML, source maps, manifests, and server output are insufficient. Diagnostics identify names/counts rather than endpoint values. The check proves inclusion, not live provider health, billing, or successful failover.
+
+Current budgets in [check_bundle_size.mjs](../scripts/check_bundle_size.mjs) are 12 MiB total assets, 8 MiB raw JavaScript, 3 MiB gzipped JavaScript, and 2 MiB for one JavaScript asset. Source maps and forbidden telemetry also fail. These are guardrails, not performance benchmarks; do not raise them to bypass a regression.
+
+## Read-only Functions
+
+### Financial app gas
+
+The root `functions/` directory is deployed with the financial export. `/api/gas` reads a fixed Ethereum oracle and has no protocol planning/signing authority.
+
+A missing `ETHERSCAN_API_KEY` or unavailable upstream returns the same `503 {"error":"gas oracle unavailable"}`. The public response cannot distinguish these causes. The release workflow can continue with the app's bounded RPC gas fallback when the optional binding is unavailable; when secret synchronization succeeds it requires the configured oracle check.
+
+`LIVE_GAS_ORACLE_URL` selects a probe URL only. Changing it does not supply the API key.
+
+### Landing market data
+
+Deploy from `apps/landing` so Pages discovers `apps/landing/functions/api/market-data.ts`. Uploading only static `dist` from an unrelated root omits that Function.
+
+The endpoint uses fixed public display feeds without credentials. The browser calls the same origin; unavailable/expired values stay unavailable. The landing does not initialize the wallet or SDK. See the [landing package guide](../apps/landing/README.md) for exact data validation and cache bounds.
+
+The landing build image/install controls are recorded in its Wrangler configuration. Keep those controls there instead of duplicating conflicting dashboard values. Its only optional public build setting is the Telegram launcher.
+
+## Telegram settings
+
+Bot synchronization does not configure BotFather's native Main Mini App/profile launch button. Set those explicitly and verify real `startapp` entry on a phone.
+
+Public web mode and Telegram Privy mode have different configuration and identity paths. Changing provider settings does not migrate accounts or move funds. There is no admission/waitlist service or account database in this deployment.
+
+## Rollback and diagnosis
+
+Select a known-good Pages deployment for rollback, then make a corrective `main` commit so the next workflow and repository agree with the restored revision.
+
+| Failure | Investigate |
+| --- | --- |
+| Wrong deployed revision | Workflow source SHA, remote-head guard, artifact stamp, concurrent/automatic Git deployment |
+| Missing production RPC/Privy input | Build-time workflow environment and built-config verification; runtime bindings cannot repair static JS |
+| Preview has no Privy | Preview build variables, allowed origin, and actual Telegram launch data |
+| Gas unavailable | Optional Pages binding and upstream; keep the fallback/absence visible |
+| Landing figures unavailable | Correct Function root, fixed upstream health, validated freshness |
+| Telegram launcher/menu differs | BotFather Main Mini App plus workflow metadata/menu synchronization |
+| Bundle exceeds budget | Measure the production artifact and reduce real duplication/imports; preserve the gate |
+
+Finish with the [release checklist](launch-readiness.md). Record evidence for this exact revision using the [testing guide's evidence requirements](testing.md#evidence-boundaries).

@@ -12,6 +12,9 @@ import ConnectWalletButton from '@/components/ConnectWalletButton';
 import { PageHeading, ProductSurface, StatusNotice } from '@/components/ProductUI';
 import { BorrowPositionCard, BorrowPositionManager, BorrowPositionsState } from '@/components/BorrowPositionCards';
 import { freshDisplayPrices } from '@/lib/displayPrices';
+import { withReadDeadline } from '@/lib/fx/readFacade';
+import { formatBorrowFundingApr } from '@/lib/fx/borrowFunding';
+import { useBorrowFundingRate } from '@/lib/fx/useBorrowFundingRate';
 import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
 import { readGasTier } from '@/lib/settings';
@@ -28,7 +31,6 @@ import { ConfirmedPositionCards } from '@/components/ConfirmedPositionCards';
 import { AmountField, Segmented, TokenSelect, useWalletTokenBalances } from '@/components/ProtocolForm';
 import { useUsdPrices } from '@/components/PriceProvider';
 import {
-  fallbackDebtRatioRange,
   planDepositAndMint,
   planRepayAndWithdraw,
   readDebtRatioRange,
@@ -63,7 +65,7 @@ import { priceKeyForSymbol } from '@/lib/prices';
 import { resetTransactionAmounts } from '@/lib/transactionState';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { BorrowSections } from '@/components/ProductSections';
-import { borrowCapacity, BORROW_LIMIT_GUARD_BPS, collateralUsdWad, loanToValueBps, tokenAmountForUsdWad, withdrawableCollateralUsd } from '@/lib/fx/borrowLimits';
+import { borrowCapacity, borrowMaximumPreset, BORROW_LIMIT_GUARD_BPS, collateralUsdWad, loanToValueBps, tokenAmountForUsdWad, withdrawableCollateralUsd } from '@/lib/fx/borrowLimits';
 import { formatSignificantDecimal, formatSignificantDecimalUp } from '@/lib/amount';
 import { amountBlocker } from '@/lib/formBlockers';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
@@ -211,13 +213,23 @@ export default function BorrowPage() {
   // Borrowing limits come from the pool's own debt-ratio range (the one Trade's
   // leverage bounds use), applied to collateral at display prices with a guard.
   const limitMarket = selected?.market ?? market;
-  const [debtRange, setDebtRange] = useState<DebtRatioRange>(() => fallbackDebtRatioRange('ETH', 'long'));
+  const funding = useBorrowFundingRate(limitMarket);
+  const [limitRevision, setLimitRevision] = useState(0);
+  const [poolLimit, setPoolLimit] = useState<{ market: UiMarket; range: DebtRatioRange | null; pending: boolean }>({ market: 'ETH', range: null, pending: true });
+  // Never carry one pool's verified range into a newly selected market, even
+  // during the render before its effect starts the replacement read.
+  const debtRange = poolLimit.market === limitMarket ? poolLimit.range : null;
+  const limitPending = poolLimit.market !== limitMarket || poolLimit.pending;
   useEffect(() => {
     let active = true;
-    setDebtRange(fallbackDebtRatioRange(limitMarket, 'long'));
-    void readDebtRatioRange(limitMarket, 'long').then((range) => { if (active) setDebtRange(range); }).catch(() => undefined);
+    setPoolLimit({ market: limitMarket, range: null, pending: true });
+    void withReadDeadline(readDebtRatioRange(limitMarket, 'long')).then((range) => {
+      if (range.source !== 'live' || range.min < 0n || range.max <= range.min || range.max >= 10n ** 18n) throw new Error('Invalid live borrowing limit');
+      if (active) setPoolLimit({ market: limitMarket, range, pending: false });
+    }).catch(() => { if (active) setPoolLimit({ market: limitMarket, range: null, pending: false }); });
     return () => { active = false; };
-  }, [limitMarket]);
+  }, [limitMarket, limitRevision]);
+  const retryLimit = <button type="button" className={presentation.retryLimit} aria-label="Retry borrowing limit" disabled={limitPending} onClick={() => setLimitRevision(revision => revision + 1)}><RefreshCw size={14} aria-hidden="true" />Retry</button>;
   const limitPrices = freshDisplayPrices(useUsdPrices());
   const limitPrice = (symbol: string): number | undefined => {
     const key = priceKeyForSymbol(symbol);
@@ -542,15 +554,15 @@ export default function BorrowPage() {
   const mintWei = parseZeroAmount(mint, 'fxUSD');
   const depositUsd = depositWei === null ? null : valueUsd(depositWei, tokenDecimals(token), token);
   const collateralAfterUsd = mode === 'mint' && existingCollateralUsd !== null && depositUsd !== null ? existingCollateralUsd + depositUsd : null;
-  const capacity = collateralAfterUsd !== null && collateralAfterUsd > 0n ? borrowCapacity({ collateralUsd: collateralAfterUsd, existingDebt, range: debtRange }) : null;
+  const capacity = debtRange && collateralAfterUsd !== null && collateralAfterUsd > 0n ? borrowCapacity({ collateralUsd: collateralAfterUsd, existingDebt, range: debtRange }) : null;
   const collateralEntered = Boolean(depositWei && depositWei > 0n) || Boolean(selected && selected.info.rawColls > 0n);
-  const limitBps = debtRange.max * (10_000n - BORROW_LIMIT_GUARD_BPS) / 10n ** 18n;
+  const limitBps = debtRange ? debtRange.max * (10_000n - BORROW_LIMIT_GUARD_BPS) / 10n ** 18n : 0n;
   const debtAfter = existingDebt + (mintWei ?? 0n);
   const ltvBps = capacity && collateralAfterUsd !== null ? loanToValueBps(debtAfter, collateralAfterUsd) : null;
   // The position's loan-to-value now, against the live limit, stated as the
   // meter states them, so the review can show before → after. Verified figures
   // only: a current position, a fresh price and the pool's live range.
-  const currentLtv = selected && !selectedStale && debtRange.source === 'live' && existingCollateralUsd !== null && existingCollateralUsd > 0n && limitBps > 0n
+  const currentLtv = selected && !selectedStale && debtRange && existingCollateralUsd !== null && existingCollateralUsd > 0n && limitBps > 0n
     ? `${borrowLtvCeiling(existingDebt, existingCollateralUsd)} of ${formatBorrowBasisPoints(limitBps)} limit`
     : null;
   const reviewBefore = useMemo(() => decisionBefore && currentLtv
@@ -589,7 +601,7 @@ export default function BorrowPage() {
       const repayIssue = amountBlocker(repay, 18, 'fxUSD', balanceStateFor('fxUSD'));
       if (repayIssue?.startsWith('Insufficient')) return repayIssue;
     }
-    if (withdrawWei && existingCollateralUsd !== null) {
+    if (withdrawWei && existingCollateralUsd !== null && debtRange) {
       const withdrawableUsd = withdrawableCollateralUsd(existingCollateralUsd, selected.info.rawDebts - (repayWei ?? 0n), debtRange);
       const withdrawUsd = valueUsd(withdrawWei, tokenDecimals(token), token);
       if (withdrawUsd !== null && withdrawUsd > withdrawableUsd) {
@@ -606,6 +618,7 @@ export default function BorrowPage() {
     if (!selected || existingCollateralUsd === null) return null;
     const repaid = repay.trim().toLowerCase() === 'all' ? selected.info.rawDebts : parseZeroAmount(repay, 'fxUSD') ?? 0n;
     const remainingDebt = selected.info.rawDebts > repaid ? selected.info.rawDebts - repaid : 0n;
+    if (!debtRange) return remainingDebt === 0n ? tokenAmountForUsdWad(existingCollateralUsd, tokenDecimals(token), limitPrice(token)) : null;
     return tokenAmountForUsdWad(withdrawableCollateralUsd(existingCollateralUsd, remainingDebt, debtRange), tokenDecimals(token), limitPrice(token));
   })();
   // A BTC position has one collateral asset: the field then names it rather than offering a one-row picker.
@@ -637,23 +650,26 @@ export default function BorrowPage() {
       maxPending={token === 'ETH' && nativeMaxPending} constraintError={token === 'ETH' ? nativeMaxError : undefined} />}
     {showMint && <AmountField compact label={newPosition ? 'fxUSD to borrow' : 'Additional fxUSD to borrow'} symbol="fxUSD" value={mint}
       onChange={setMint} allowZero maxDecimals={18} showPercentages={false} showMax={Boolean(capacity && capacity.maxAdditional > 0n)}
-      maxAmount={capacity && capacity.maxAdditional > 0n ? formatUnits(capacity.maxAdditional, 18) : null}
+      maxLabel="Use borrowing maximum"
+      maxAmount={capacity && capacity.maxAdditional > 0n ? formatUnits(borrowMaximumPreset(capacity.maxAdditional, capacity.minAdditional), 18) : null}
       hint={capacity ? (capacity.maxAdditional > 0n ? `Up to ${fxUsdLimit(capacity.maxAdditional)} fxUSD with this collateral` : 'This collateral cannot borrow more')
+        : !debtRange ? limitPending ? 'Checking the live borrowing limit' : 'Live borrowing limit unavailable'
         : collateralEntered ? 'Your limit shows once prices are available'
         : newPosition ? 'Enter collateral above to see your limit' : undefined} />}
     {showRepay && <AmountField compact label="Repay amount" symbol="fxUSD" value={repay} onChange={setRepay} allowAll allowZero maxDecimals={18}
       balanceState={balanceStateFor('fxUSD')} showPercentages={false} hint={selected ? `Debt: ${formatReviewFactValue({ label: 'Debt', value: formatPositionDebt(selected) }).display}` : undefined} />}
     {showWithdraw && <AmountField compact label="Collateral to withdraw" symbol={token} value={withdraw} onChange={setWithdraw}
       allowZero maxDecimals={tokenDecimals(token)} showMax={false} showPercentages={false} tokenSelector={picker}
-      hint={withdrawLimitWei === null ? 'Your limit shows once prices are available'
+      hint={withdrawLimitWei === null ? !debtRange ? limitPending ? 'Checking the live borrowing limit' : 'Live borrowing limit unavailable' : 'Your limit shows once prices are available'
         : withdrawLimitWei > 0n ? `Up to ${formatSignificantDecimal(formatUnits(withdrawLimitWei, tokenDecimals(token)), 4)} ${symbol} at current prices`
         : 'Repay debt to withdraw collateral'} />}
+    {!newPosition && !debtRange && !limitPending && (showMint || showWithdraw) && <div className={presentation.helper}>{retryLimit}</div>}
     {showPositionEstimate && <section className={presentation.outcome} aria-label="Estimated borrowing outcome">
       <div className={presentation.outcomeHeading}><span>Current → estimated</span></div>
       <dl className={presentation.outcomeRows}>
         <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'Estimated debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} /></strong></dd></div>
       </dl>
-      {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange.source === 'live' && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
+      {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
     </section>}
     {showManageEstimate && <section className={presentation.outcome} aria-label="Estimated position changes">
       <div className={presentation.outcomeHeading}><span>Current → estimated</span></div>
@@ -733,8 +749,8 @@ export default function BorrowPage() {
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt><MetricLabel label="Current borrow rate" definition="borrowRate" /></dt><dd className={presentation.rateUnavailable}>Unavailable</dd><small>Base protocol rate 0%; funding charges may apply</small></div>
-          <div><dt><MetricLabel label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{debtRange.source !== 'live' && <small>Live limit unavailable</small>}</div>
+          <div><dt><MetricLabel minimalHelp label="Temporary funding" definition="borrowRate" help={!funding.rate && funding.status !== 'loading' ? <>The current temporary funding rate could not be verified. Funding is an annualized charge on the whole collateral and can change. It is separate from opening, repayment and network fees. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">Verify current funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined} /></dt><dd className={funding.rate ? undefined : presentation.rateUnavailable}>{funding.rate ? formatBorrowFundingApr(funding.rate.ratio) : '—'}</dd><small>APR on collateral</small><small role="status">{funding.rate ? funding.rate.ratio > 0n ? 'Active' : 'Not active · can change' : funding.status === 'loading' ? 'Checking rate' : 'Not quoted'}</small></div>
+          <div><dt><MetricLabel minimalHelp label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{!debtRange && <><small role="status">{limitPending ? 'Checking live limit' : 'Live limit unavailable'}</small>{!limitPending && retryLimit}</>}</div>
         </dl>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">
@@ -747,7 +763,7 @@ export default function BorrowPage() {
       {review}
       </ProductSurface>
       {/* A limit, so rounded down to the tenth of a percent. */}
-      {inputStage && <div className={presentation.details}><BorrowSections ltvLimit={debtRange.source === 'live' ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} /></div>}
+      {inputStage && <div className={presentation.details}><BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} /></div>}
       </div>
       </>}
     </ActionWorkspace>

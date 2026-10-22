@@ -21,17 +21,19 @@ const productCss = resolve(src, 'app/product-shell.css');
 const interFont = resolve(here, 'assets/inter-latin.woff2');
 
 const mocks = {
-  '@/components/PriceProvider': `export const useUsdPrices = () => ({ prices: {}, status: 'unavailable' });`,
-  '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
+  'next/navigation': `const router = { push: href => { history.pushState({}, '', href); } }; export const useRouter = () => router; export const usePathname = () => location.pathname;`,
+  '@/components/PriceProvider': `export const useUsdPrices = () => ({ prices: { ETH: 2400, fxUSD: 1, USDC: 1, fxSAVE: 1.05 }, status: 'ready', updatedAt: Date.now() }); export const useLiveMarketQuote = () => ({ quote: null, status: 'unavailable', isFresh: false });`,
+  '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false; export const isTelegramLaunchContext = () => false;`,
 };
 
 /** Bundle only the dev catalog and its real presentation components. */
 export async function buildUiStateLabBundle() {
   const result = await esbuild.build({
     entryPoints: [entry], outfile: resolve(appRoot, 'state-lab-bundle.js'), bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020',
+    define: { 'process.env.NODE_ENV': '"development"', 'process.env': '{}' },
     jsx: 'automatic', loader: { '.tsx': 'tsx', '.ts': 'ts', '.module.css': 'local-css' }, absWorkingDir: root,
     plugins: [{ name: 'ui-state-lab', setup(build) {
-      build.onResolve({ filter: /^@\// }, (args) => {
+      build.onResolve({ filter: /^(?:@\/|next\/navigation$)/ }, (args) => {
         if (mocks[args.path]) return { path: args.path, namespace: 'mock' };
         const candidate = resolve(src, args.path.slice(2));
         if (existsSync(candidate) && statSync(candidate).isFile()) return { path: candidate };

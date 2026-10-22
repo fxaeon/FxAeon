@@ -32,9 +32,11 @@ test('baseline forms keep their action above navigation and Move stays centered'
 
 test('amount shortcuts retain touch targets and never overlap the label', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
-  await page.goto('/earn');
-  await page.getByRole('radio', { name: 'Withdraw', exact: true }).click();
-  const field = page.locator('[data-amount-field]');
+  // Earn omits balance shortcuts while disconnected. Borrow's collateral
+  // field keeps the same shared controls available for this geometry check.
+  await page.goto('/borrow');
+  const field = page.locator('[data-amount-field]').first();
+  await expect(field.getByRole('group', { name: 'Collateral shortcuts' })).toBeVisible();
   const geometry = await field.evaluate(element => {
     const label = element.querySelector('label')!.getBoundingClientRect();
     const shortcuts = element.querySelector('[role="group"]')!.getBoundingClientRect();
