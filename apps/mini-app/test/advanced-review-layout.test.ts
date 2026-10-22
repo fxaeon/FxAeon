@@ -16,10 +16,11 @@ test('review has a single Execution details disclosure with flat transaction and
   assert.match(source, /AmountUsd amount=\{formatEther\(transaction.value\)\}/);
 });
 
-test('receipts keep technical facts and reviewed estimates flat inside Execution details', () => {
+test('receipts disclose extra evidence conditionally and reserve reviewed estimates for recovery', () => {
   const result = component('review/TransactionResultView.tsx');
   assert.equal((result.match(/<details\b/g) ?? []).length, 1, 'shared exact-value renderer and one flat Execution details');
-  assert.match(result, /<summary>Execution details/);
+  assert.match(result, /conciseSuccess \? 'Receipt details' : 'Execution details'/);
+  assert.match(result, /!conciseSuccess && reviewedFacts.length > 0/);
   assert.match(result, /Reviewed amounts, not final outcomes/);
   // Exact before/after controls belong to the review, not the receipt details.
   const receiptSummary = component('review/ActionReviewSummary.tsx').split('export function ReceiptSummary')[1];
@@ -39,7 +40,7 @@ test('bridge receipt consolidates reviewed terms and tracker proof into one Exec
   assert.match(card, /<details className=\{styles.advanced\}/);
   assert.doesNotMatch(component('review/BridgeResultDetails.tsx'), /<details\b/);
   assert.match(result, /bridgeTracker\?\.\(advancedContent,/);
-  assert.match(result, /!bridgeTracker && <details/);
+  assert.match(result, /!bridgeTracker && \(!conciseSuccess \|\| needsReceiptDetails\) && <details/);
   assert.match(tracker, /\{advancedContent\}/);
   assert.equal((tracker.match(/<details\b/g) ?? []).length, 1);
   assert.doesNotMatch(tracker, />Delivery details|>Verification details/);

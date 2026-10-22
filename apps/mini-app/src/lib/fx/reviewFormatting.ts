@@ -7,6 +7,7 @@ import { calculateProtocolFee } from './protocolFee';
 import { parseStEthPerWstEth, stEthForWstEth } from './wstEthRate';
 import { projectedLiquidationPrice } from './liquidationQuote';
 import { acceptedFxSaveQuote } from './fxSaveReviewQuote';
+import { borrowFundingIsFresh, formatBorrowFundingApr } from './borrowFunding';
 
 /**
  * `equivalent` is the same amount in another unit, shown muted beside the
@@ -235,6 +236,7 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
   if (pool) {
     add(protocolFeeReviewFact(route, intent));
     if (intent.kind === 'deposit-and-mint' && intent.mintAmount > 0n) {
+      add(borrowFundingReviewFact(route));
       const fee = protocolFeeReviewFact(route, intent);
       const quote = route.details?.protocolFeeQuote;
       if (fee && quote) {
@@ -313,6 +315,22 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
   }
   if (unsupportedLimits) add({ label: 'Additional limits', value: 'See advanced details' });
   return facts;
+}
+
+/** Current funding is pool-bound information, never a fixed loan rate. */
+export function borrowFundingReviewFact(route: PlannedRoute, now = Date.now()): ReviewFact | undefined {
+  const intent = route.policy?.reviewedAction;
+  if (route.chainId !== 1 || route.operation !== 'depositAndMint' || intent?.kind !== 'deposit-and-mint' || intent.mintAmount <= 0n) return undefined;
+  const pool = knownPool(intent);
+  const quote = route.details?.borrowFundingQuote;
+  if (!pool || pool.side !== 'long' || !quote || typeof quote.poolAddress !== 'string' || typeof quote.ratio !== 'string' || !/^\d{1,78}$/.test(quote.ratio)) return undefined;
+  const rate = { market: pool.market, pool: quote.poolAddress, ratio: BigInt(quote.ratio), readAt: quote.readAt };
+  if (!borrowFundingIsFresh(rate, pool.market, now)) return undefined;
+  return {
+    label: 'Borrow rate', value: `${formatBorrowFundingApr(rate.ratio)} APR`,
+    equivalent: rate.ratio > 0n ? 'Active · on collateral' : 'On collateral · variable',
+    title: `Checked ${new Date(rate.readAt).toISOString()}. Exact annual rate: ${formatUnits(rate.ratio, 16)}% of the whole collateral. Funding can change while the position is open; opening and repayment fees are separate.`,
+  };
 }
 
 export type PositionOutcomeFacts = {

@@ -1,5 +1,6 @@
 /* A wallet overview: the balance leads, then wallet and protocol holdings. */
-.workspace { --portfolio-row: #1b1b1f; --portfolio-row-hover: #232327; width: min(100%, 840px); margin-inline: auto; }
+.workspace { --portfolio-row: var(--surface); --portfolio-row-hover: var(--surface-2); width: min(100%, 840px); margin-inline: auto; }
+.workspace:has([data-portfolio-explore]) { width: min(100%, 1080px); padding-block: 16px 32px; }
 :global(.app-content) > .continued { animation: none; }
 .dashboard, .primary { display: flex; min-width: 0; flex-direction: column; }
 .dashboard { gap: 30px; }
@@ -46,10 +47,9 @@
 .sectionFilter { flex: 0 0 auto; }
 .sectionNav { display: flex; width: min(100%, 440px); min-width: 0; align-items: stretch; gap: 4px; border: 0; border-radius: 18px; padding: 4px; background: var(--portfolio-row, var(--surface)); }
 .sectionNav button { position: relative; display: flex; min-width: 0; min-height: 48px; flex: 1 1 0; align-items: center; justify-content: center; border-radius: 14px; padding: 8px 12px; color: var(--mut); font-size: 14px; font-weight: 500; white-space: nowrap; }
-.sectionNav button[aria-selected='true'] { background: #323238; color: var(--text); }
-.sectionNav button[aria-selected='true']::after { position: absolute; left: 50%; bottom: 5px; width: 24px; height: 3px; border-radius: 2px; background: #72a1ff; content: ''; transform: translateX(-50%); }
-.sectionNav button:hover { background: #29292e; color: var(--text); }
-.sectionNav button[aria-selected='true']:hover { background: #38383e; }
+.sectionNav button[aria-selected='true'] { background: var(--surface-3); color: var(--text); }
+.sectionNav button:hover { background: var(--surface-2); color: var(--text); }
+.sectionNav button[aria-selected='true']:hover { background: var(--surface-3); }
 .sectionNav button:focus-visible { outline-offset: -3px; }
 .tabPanel { min-width: 0; border-radius: 20px; }
 .tabPanel:focus { outline: none; }
@@ -112,18 +112,18 @@
 .earnActions a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .savingsNote { margin: -2px 0 0; color: var(--mut); font-size: 11px; line-height: 1.55; }
 .moreBackdrop { position: fixed; z-index: 1000; inset: 0; display: grid; align-items: end; justify-items: center; padding: 0; background: rgb(0 0 0 / 64%); }
-.moreDialog { width: min(100%, 440px); max-height: min(86dvh, 620px); overflow: auto; overscroll-behavior: contain; border: 0; border-radius: 26px 26px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); background: #131416; box-shadow: 0 20px 56px rgb(0 0 0 / 30%); }
+.moreDialog { width: min(100%, 440px); max-height: min(86dvh, 620px); overflow: auto; overscroll-behavior: contain; border: 0; border-radius: 26px 26px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--surface); box-shadow: 0 20px 56px rgb(0 0 0 / 30%); }
 .moreHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .moreHeading h2 { margin: 0; font-size: 20px; font-weight: 550; letter-spacing: -.025em; }
 .moreHeading button { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: var(--mut); }
 .moreHeading button:hover { background: var(--surface-2); color: var(--text); }
 .moreLinks { display: grid; gap: 8px; }
-.moreLinks > :is(a, button) { display: flex; min-width: 0; min-height: 64px; align-items: center; gap: 12px; border: 0; border-radius: 18px; padding: 10px 12px; background: #1b1b1f; color: var(--text); text-align: left; font-size: 16px; font-weight: 500; }
-.moreIcon { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 13px; background: #29292e; color: var(--text); }
+.moreLinks > :is(a, button) { display: flex; min-width: 0; min-height: 64px; align-items: center; gap: 12px; border: 0; border-radius: 18px; padding: 10px 12px; background: var(--surface-2); color: var(--text); text-align: left; font-size: 16px; font-weight: 500; }
+.moreIcon { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: 13px; background: var(--surface-3); color: var(--text); }
 .moreIcon > svg { width: 21px; height: 21px; stroke-width: 1.7; }
 .moreLinks > :is(a, button) > span:not(.moreIcon) { min-width: 0; flex: 1; }
 .moreLinks > :is(a, button) > svg:last-child { width: 16px; height: 16px; flex: 0 0 auto; margin-left: auto; color: var(--mut); }
-.moreLinks > :is(a, button):hover { background: #25252a; }
+.moreLinks > :is(a, button):hover { background: var(--surface-3); }
 .moreHeading button:focus-visible, .moreLinks > :is(a, button):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (min-width: 761px) {
   .valueCard { gap: 24px; padding-top: 18px; }

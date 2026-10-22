@@ -29,12 +29,12 @@ const server = createServer(async (request, response) => {
     response.end(html);
     return;
   }
-  if (request.url?.startsWith('/token-icons/') || request.url?.startsWith('/chain-icons/')) {
+  if (request.url?.startsWith('/token-icons/') || request.url?.startsWith('/chain-icons/') || request.url?.startsWith('/fonts/')) {
     const asset = resolve(publicRoot, decodeURIComponent(request.url.slice(1)));
     if (asset.startsWith(`${publicRoot}${sep}`)) {
       try {
         const body = await readFile(asset);
-        const mime = extname(asset) === '.svg' ? 'image/svg+xml' : extname(asset) === '.png' ? 'image/png' : 'application/octet-stream';
+        const mime = extname(asset) === '.svg' ? 'image/svg+xml' : extname(asset) === '.png' ? 'image/png' : extname(asset) === '.woff2' ? 'font/woff2' : 'application/octet-stream';
         response.writeHead(200, { 'content-type': mime, 'cache-control': 'no-store' });
         response.end(body);
         return;

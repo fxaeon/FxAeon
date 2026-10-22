@@ -13,5 +13,8 @@
 .heading strong { min-width: 0; padding-top: 5px; font-size: inherit; font-weight: 600; }
 .close { margin: -3px -3px 0 0; }
 .content { display: block; color: var(--mut); }
+.content a { color: var(--link, #98baff); text-decoration: underline; text-underline-offset: 3px; }
+.content a:hover { color: var(--text); }
+.content a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 3px; }
 .minimalPanel { padding: 14px 16px; border-color: var(--line); border-radius: 12px; background: var(--surface-2); font-size: .8125rem; line-height: 1.55; box-shadow: var(--elevation-2); }
 .minimalPanel .content { color: var(--text); }

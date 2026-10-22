@@ -67,7 +67,7 @@ a svg, button svg, .borrow-flow > svg { width: 18px; height: 18px; fill: none; s
 .hero h1 span { color: var(--text); }
 .lede { max-width: 380px; color: var(--muted); font-size: 20px; line-height: 1.65; }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 30px; }
-.hero .button { min-height: 52px; padding-inline: 24px; border-radius: 14px; }
+.hero .button { min-height: 52px; padding-inline: 24px; border-radius: 999px; }
 
 .market-refresh { display: inline-flex; min-height: 44px; align-items: center; margin-top: 10px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; }
 .market-refresh:hover:not(:disabled) { background: var(--surface-raised); color: var(--text); }
@@ -2197,26 +2197,26 @@ summary::-webkit-details-marker { display: none; }
   width: auto;
   display: inline-flex;
   justify-content: center;
-  min-height: 48px;
+  min-height: 52px;
   padding: 0 23px;
   gap: 14px;
   border-radius: 999px;
-  font-family: Poppins, Arial, sans-serif;
-  font-size: 13px;
+  font-family: inherit;
+  font-size: 14px;
   line-height: 1.5;
   font-weight: 500;
-  background: #2973ff;
-  color: #0b0c0e;
-  box-shadow: 0 0 0 7px #2973ff12;
+  background: #2563eb;
+  color: #fff;
+  box-shadow: none;
   margin-top: 8px;
 }
 :where(.footer-frame) .footer-launch > span {
   font-size: 19px;
 }
 .footer-frame .footer-launch:hover {
-  background: #2973ff;
-  box-shadow: 0 0 0 10px #2973ff18;
-  transform: translateY(-2px);
+  background: #1d4ed8;
+  box-shadow: none;
+  transform: none;
 }
 .footer-frame .footer-directory {
   max-width: 1200px;
@@ -2227,7 +2227,7 @@ summary::-webkit-details-marker { display: none; }
 }
 :where(.footer-frame) .footer-about .brand {
   font-size: 23px;
-  color: #2973ff;
+  color: var(--text);
   margin-bottom: 18px;
   gap: 6px;
 }

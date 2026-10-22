@@ -169,7 +169,7 @@ test('web app actions work on every device and Telegram remains an explicit choi
 test('hero credit, market metadata, and retry affordance stay quiet until needed', () => {
   const hero = elementSource(html, /<section class="hero"/, 'section');
   assert.ok(hero.indexOf('class="lede"') < hero.indexOf('class="hero-credit"'), 'Protocol credit follows the hero lede');
-  assert.match(hero, /Powered By f\(x\) SDK/);
+  assert.match(hero, /Powered by f\(x\) SDK/);
   assert.doesNotMatch(hero, /Built on f\(x\) Protocol/);
   assert.match(html, /<button class="market-refresh"[^>]*hidden>Retry live data<\/button>/);
   const earn = elementSource(html, /<section class="outcome-panel" id="outcome-earn"/, 'section');

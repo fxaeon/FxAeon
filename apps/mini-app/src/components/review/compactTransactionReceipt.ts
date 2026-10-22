@@ -107,7 +107,6 @@ export function compactTransactionFooterModel(
   if (destinationReceipt && (!destinationUrl || destinationReceipt.chainId === result.chainId)) return null;
   const fee = compactTransactionGasFee(result, receipts);
   const usd = fee.exactNative === null ? null : amountUsdValue(fee.exactNative, 'ETH', quote, now);
-  const priceTime = quote.updatedAts?.ETH ?? quote.updatedAt;
   const gasLabel = destinationReceipt ? 'Source gas fee' : 'Gas fee';
   return {
     simulated,
@@ -122,6 +121,6 @@ export function compactTransactionFooterModel(
     feeNote: fee.exactNative === null ? 'Fee data incomplete' : usd === null ? 'USD unavailable' : usd > 0 ? 'now' : null,
     feeDescription: fee.exactNative === null
       ? `${simulated ? 'Simulated fee data. ' : ''}The full gas fee is unavailable.${destinationReceipt ? ' Source-chain transactions only; excludes destination gas.' : ''}${fee.includesApprovals ? ' Includes token approvals.' : ''}${fee.knownNative === null ? '' : ` Known components total ${fee.knownNative} ETH; this is not the full fee.`}`
-      : `${simulated ? 'Simulated gas fee' : 'Gas paid'}: ${fee.exactNative} ETH.${destinationReceipt ? ' Source-chain transactions only; excludes destination gas.' : ''}${fee.includesApprovals ? ' Includes token approvals.' : ''}${usd === null ? ' No fresh USD price is available.' : ` USD is a current display-price estimate, not a receipt-time value. Price checked ${new Date(priceTime!).toISOString()}.`}`,
+      : `${simulated ? 'Simulated gas fee' : 'Gas paid'}: ${fee.exactNative} ETH.${destinationReceipt ? ' Source-chain transactions only; excludes destination gas.' : ''}${fee.includesApprovals ? ' Includes token approvals.' : ''}${usd === null ? ' No fresh USD price is available.' : ' Dollar value uses current prices.'}`,
   };
 }

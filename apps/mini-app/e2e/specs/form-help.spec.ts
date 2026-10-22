@@ -45,7 +45,8 @@ test.describe("protocol form help and picker keyboard behavior", () => {
     const helpBounds = await helpPanel.boundingBox();
     expect(helpBounds!.x).toBeGreaterThanOrEqual(0);
     expect(helpBounds!.x + helpBounds!.width).toBeLessThanOrEqual(320);
-    for (const control of [helpTrigger, helpPanel.getByRole("button", { name: "Close Max slippage help", exact: true })]) {
+    await expect(helpPanel.getByRole('button')).toHaveCount(0);
+    for (const control of [helpTrigger]) {
       const bounds = await control.boundingBox();
       expect(bounds!.width).toBeGreaterThanOrEqual(44);
       expect(bounds!.height).toBeGreaterThanOrEqual(44);

@@ -13,10 +13,10 @@ import styles from './PortfolioExplore.module.css';
 /** Discovery is public. No account balances or hypothetical returns stand in for a wallet. */
 export default function PortfolioExplore() {
   const { apy, status } = usePublicFxSaveApy();
-  return <div id="overview" className={styles.explore}>
+  return <div id="overview" data-portfolio-explore className={styles.explore}>
     <section className={styles.intro} aria-labelledby="portfolio-explore-heading">
       <h2 id="portfolio-explore-heading">Find your<br /> next move.</h2>
-      <p>Trade, earn, borrow and move.<br />Explore what you can do with f(x) Protocol.</p>
+      <p>Trade, earn, borrow and move with f(x) Protocol.</p>
       <div className={styles.entryActions}>
         <ConnectWalletButton className={`button button-primary ${styles.connect}`}>Connect wallet</ConnectWalletButton>
         <Link href="/docs/guide/getting-started">How it works <ArrowRight size={16} aria-hidden="true" /></Link>
@@ -28,13 +28,13 @@ export default function PortfolioExplore() {
       <div className={styles.products}>
         <Link href="/trade" className={styles.product}>
           <div className={styles.productTop}><h3>Trade</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
-          <div className={`${styles.art} ${styles.tradeArt}`} aria-hidden="true"><i /><TokenIcon symbol="ETH" size={56} /><TokenIcon symbol="WBTC" size={48} /></div>
+          <div className={`${styles.art} ${styles.tradeArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={56} /><TokenIcon symbol="WBTC" size={48} /></div>
           <p>Go long or short on ETH and BTC.</p>
           <span className={styles.productMeta}>Ethereum</span>
         </Link>
         <Link href="/earn" className={styles.product}>
           <div className={styles.productTop}><h3>Earn</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
-          <div className={`${styles.art} ${styles.earnArt}`} aria-hidden="true"><i /><i /><TokenIcon symbol="fxSAVE" size={58} /></div>
+          <div className={styles.art} aria-hidden="true"><TokenIcon symbol="fxSAVE" size={58} /></div>
           <p>Save in stablecoins with fxSAVE.</p>
           <span className={styles.apy}>
             {apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> variable APY</>
@@ -44,13 +44,13 @@ export default function PortfolioExplore() {
         </Link>
         <Link href="/borrow" className={styles.product}>
           <div className={styles.productTop}><h3>Borrow</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
-          <div className={`${styles.art} ${styles.borrowArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={32} /><TokenIcon symbol="WBTC" size={32} /><i /><TokenIcon symbol="fxUSD" size={52} /></div>
+          <div className={`${styles.art} ${styles.borrowArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={32} /><TokenIcon symbol="WBTC" size={32} /><TokenIcon symbol="fxUSD" size={52} /></div>
           <p>Borrow fxUSD against your collateral.</p>
           <span className={styles.productMeta}>Ethereum</span>
         </Link>
         <Link href="/move" className={styles.product}>
           <div className={styles.productTop}><h3>Move</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
-          <div className={`${styles.art} ${styles.moveArt}`} aria-hidden="true"><ChainIcon chainId={1} size={40} /><i /><ChainIcon chainId={8453} size={40} /></div>
+          <div className={`${styles.art} ${styles.moveArt}`} aria-hidden="true"><ChainIcon chainId={1} size={40} /><ChainIcon chainId={8453} size={40} /></div>
           <p>Bridge fxUSD and fxSAVE between networks.</p>
           <span className={styles.productMeta}>Ethereum ↔ Base</span>
         </Link>

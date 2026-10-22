@@ -39,7 +39,8 @@ test('all explicit definitions are explanatory and contain no transaction-specif
     assert.ok(value.length > 30, key);
     assert.doesNotMatch(value, /0x[a-f0-9]{40}|\$[\d,]+|\d+\.\d+ ETH/i, key);
   }
-  assert.match(INFO_HELP_CONTENT.borrowRate, /do not establish the current funding charge/);
+  assert.match(INFO_HELP_CONTENT.borrowRate, /charged against the whole collateral/);
+  assert.match(INFO_HELP_CONTENT.borrowRate, /zero reading applies only to the checked snapshot/);
   assert.match(INFO_HELP_CONTENT.minimumReceived, /limit, not the expected amount/);
   assert.doesNotMatch(source, /fact\.title|beginLocalHistoryEntry|history\.(pushState|back)|useOverlayDialog\(/);
 });
@@ -240,7 +241,10 @@ test('settings keep current limits, revert warning, gas units and unavailable-ra
   assert.match(settings, /Reverts if price moves beyond the displayed slippage limit/);
   assert.match(settings, /Gas prices in gwei/);
   assert.match(settings, /Live gas rates are unavailable/);
-  assert.match(settings, /aria-describedby=\{`\$\{id\}-slippage-help`\}/);
+  assert.match(settings, /aria-describedby=\{\[.*slippage-help.*slippage-error/);
+  assert.match(settings, /aria-errormessage=/);
+  assert.match(settings, /definition="maxSlippage" minimalHelp/);
+  assert.match(settings, /definition="networkSpeed" minimalHelp/);
 });
 
 

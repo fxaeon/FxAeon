@@ -14,12 +14,46 @@ async function select(page: import('@playwright/test').Page, name: string) {
   await page.getByRole('button', { name, exact: true }).click();
 }
 
+test('focused transaction preview uses the real phone sheet without a second card heading', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const product of ['borrow', 'earn']) {
+    for (const stage of ['review', 'submitted', 'confirmed']) {
+      await page.goto(`/?view=transaction&product=${product}&stage=${stage}`);
+      const sheet = page.locator('[data-mobile-review-sheet]');
+      await expect(sheet).toBeVisible();
+      await expect(sheet.getByText('Fixture preview · no transaction sent', { exact: true })).toBeVisible();
+      await expect(sheet.locator('.transaction-preview')).toHaveCount(1);
+      await expect(page.getByRole('heading', { name: 'Transaction stages', exact: true })).toHaveCount(0);
+      await expect(sheet.locator('[data-review-header]:visible')).toHaveCount(0);
+      expect(await sheet.locator('h1,h2,h3').evaluateAll(headings => headings.filter(heading => {
+        const box = heading.getBoundingClientRect();
+        return box.width > 2 && box.height > 2;
+      }).length)).toBe(1);
+      const geometry = await sheet.evaluate(element => ({ width: element.getBoundingClientRect().width, viewport: window.innerWidth, document: document.documentElement.scrollWidth }));
+      expect(geometry.width).toBeLessThanOrEqual(390);
+      expect(geometry.document).toBeLessThanOrEqual(geometry.viewport);
+      if (stage === 'review') {
+        await expect(sheet.locator('[data-review-actions]')).toBeVisible();
+        await expect(sheet.locator('[data-review-viewport] > [data-review-actions]')).toHaveCount(1);
+      }
+      if (stage === 'confirmed' && product === 'borrow') {
+        await expect(sheet.getByRole('region', { name: 'Latest position read', exact: true })).toContainText('Simulated position #42 · updated');
+        await expect(sheet.getByRole('link', { name: /explorer/i })).toHaveCount(0);
+      }
+      if (stage === 'confirmed') await page.screenshot({ animations: 'disabled', path: `./test-results/ui-state-lab-playwright/focused-${product}-confirmed-390.png` });
+      await sheet.getByRole('button', { name: 'Close transaction review' }).click();
+      await expect(sheet).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Show transaction preview', exact: true })).toBeVisible();
+    }
+  }
+});
+
 test('catalogs deterministic data states through the real provider-independent amount field', async ({ page }) => {
   await openLab(page);
   const input = page.getByRole('textbox', { name: 'Amount in ETH' });
   await expect(input).toHaveValue('1234.56789');
   expect(await page.locator('.amount-control').evaluate((element) => getComputedStyle(element).borderRadius)).toBe('12px');
-  await expect.poll(() => page.locator('img[aria-label="ETH logo"]').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await expect.poll(() => page.locator('.field-shell img[aria-label="ETH logo"]').evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
   await page.evaluate(() => document.fonts.ready);
   expect(await page.evaluate(() => document.fonts.check('14px Inter'))).toBe(true);
   await select(page, 'loading');
@@ -57,23 +91,46 @@ test('catalogs deterministic data states through the real provider-independent a
   await expect(technical).toContainText('9 base units');
 });
 
-test('exposes transaction stage fixtures, long values, and keyboard focus in dark appearance', async ({ page }) => {
+test('shows real Borrow and Earn transaction states without wallet or backend actions', async ({ page }) => {
+  const remote: string[] = [];
+  await page.route('**/*', route => {
+    if (!new URL(route.request().url()).hostname.match(/^(127\.0\.0\.1|localhost)$/)) { remote.push(route.request().url()); return route.abort(); }
+    return route.continue();
+  });
   await openLab(page);
-  await expect(page.locator('.lab')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByText(/Fixture preview · no transaction sent/)).toBeVisible();
   const stages = page.getByLabel('Transaction stage', { exact: true });
-  for (const stage of ['Editing', 'Preparing', 'Review', 'Wallet request', 'Submitted', 'Partial completion', 'Confirmed', 'Uncertain']) {
-    await stages.selectOption({ label: stage });
-    await expect(page.getByText(`Selected fixture: ${stage}.`)).toBeVisible();
-    if (stage === 'Partial completion') {
-      await expect(page.getByRole('status').getByText('Approval confirmed', { exact: true })).toBeVisible();
-      await expect(page.getByRole('status')).toContainText('Action not submitted. The approval is on-chain; review each step before continuing.');
+  const preview = page.locator('.transaction-preview');
+  for (const product of ['borrow', 'earn']) {
+    await page.getByLabel('Fixture product').selectOption(product);
+    for (const stage of ['Editing', 'Preparing', 'Review', 'Signature required', 'Wallet request', 'Submitted', 'Partial completion', 'Confirmed', 'Failed', 'Uncertain']) {
+      await stages.selectOption({ label: stage });
+      await expect(preview).toHaveAttribute('data-fixture-stage', stage);
+      await expect(preview).toHaveAttribute('data-fixture-product', product);
+      if (stage === 'Review') {
+        await preview.getByRole('button', { name: product === 'borrow' ? 'Borrow fxUSD' : 'Deposit USDC', exact: true }).click();
+        await expect(preview).toHaveAttribute('data-fixture-stage', 'Signature required');
+      }
+      if (stage === 'Signature required') await expect(preview).toContainText('Signature required · not submitted');
+      if (stage === 'Partial completion') {
+        await expect(preview.getByRole('heading', { name: 'Approval confirmed', exact: true })).toBeVisible();
+        await expect(preview).toContainText('Action not submitted');
+      }
+      if (stage === 'Confirmed') {
+        const title = preview.getByRole('heading', { name: product === 'borrow' ? 'Simulated result: fxUSD borrowed' : 'Simulated result: Deposited into fxSAVE', exact: true });
+        await expect(title).toBeVisible();
+        expect(await title.evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(20);
+        await expect(preview.getByRole('region', { name: 'Simulated transaction receipt', exact: true })).toBeVisible();
+      }
+      if (stage === 'Submitted') await expect(preview.getByRole('status')).toContainText('Submitted');
+      if (stage === 'Uncertain') await expect(preview.getByRole('heading', { name: 'Confirmation unknown', exact: true })).toBeVisible();
+      if (stage === 'Failed') await expect(preview.getByRole('heading', { name: 'Wallet request declined', exact: true })).toBeVisible();
+      await expect(preview.locator('a[href*="etherscan.io"], a[href*="basescan.org"]')).toHaveCount(0);
     }
-    if (stage === 'Confirmed') await expect(page.getByRole('status').getByText('Confirmed', { exact: true })).toBeVisible();
-    if (stage === 'Submitted') await expect(page.getByRole('status').getByText('Submitted', { exact: true })).toBeVisible();
-    if (stage === 'Uncertain') await expect(page.getByRole('status').getByText('Confirmation unknown', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: /wallet|submit|confirm/i })).toHaveCount(0);
+    await preview.getByRole('button', { name: 'Check History', exact: true }).click();
+    await expect(stages).toHaveValue('Review');
   }
-  await expect(page.getByRole('status').locator('svg')).toBeVisible();
+  expect(remote).toEqual([]);
   await expect(page.getByLabel('Long amount example')).toContainText('1234567890.123456789012345');
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();
@@ -139,7 +196,8 @@ test('captures focused components and compares approved Windows references when 
   const snapshotNames = [
     'amount-loading', 'amount-zero', 'amount-partial', 'amount-positive', 'amount-long-value',
     'amount-theme-dark', 'amount-narrow',
-    'progress-review', 'review-consequences', 'progress-wallet-request', 'progress-submitted', 'progress-partial', 'progress-confirmed', 'progress-uncertain',
+    'review-consequences',
+    ...['borrow', 'earn'].flatMap(product => ['review', 'signature-required', 'wallet-request', 'submitted', 'partial', 'confirmed', 'failed', 'uncertain'].map(stage => 'transaction-' + product + '-' + stage)),
     'receipt-known-usdc', 'receipt-base-technical',
   ];
   const forceCompare = process.env.UI_STATE_COMPARE === '1';
@@ -179,10 +237,13 @@ test('captures focused components and compares approved Windows references when 
   await compareOrCapture('amount-narrow', field);
   await page.setViewportSize({ width: 390, height: 844 });
   await compareOrCapture('review-consequences', page.getByRole('region', { name: 'Action consequences' }));
-  for (const stage of ['Review', 'Wallet request', 'Submitted', 'Partial completion', 'Confirmed', 'Uncertain']) {
-    await page.getByLabel('Transaction stage', { exact: true }).selectOption({ label: stage });
-    const name = stage === 'Partial completion' ? 'partial' : stage.toLowerCase().replaceAll(' ', '-');
-    await compareOrCapture(`progress-${name}`, page.locator('.presentation'));
+  for (const product of ['borrow', 'earn']) {
+    await page.getByLabel('Fixture product').selectOption(product);
+    for (const stage of ['Review', 'Signature required', 'Wallet request', 'Submitted', 'Partial completion', 'Confirmed', 'Failed', 'Uncertain']) {
+      await page.getByLabel('Transaction stage', { exact: true }).selectOption({ label: stage });
+      const name = stage === 'Partial completion' ? 'partial' : stage.toLowerCase().replaceAll(' ', '-');
+      await compareOrCapture('transaction-' + product + '-' + name, page.locator('.transaction-preview'));
+    }
   }
   await page.getByLabel('Transaction stage', { exact: true }).selectOption({ label: 'Uncertain' });
   await compareOrCapture('receipt-known-usdc', page.locator('.receipt-example').nth(0));

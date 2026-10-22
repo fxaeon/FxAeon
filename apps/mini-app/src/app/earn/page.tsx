@@ -512,7 +512,7 @@ export default function EarnPage() {
                 <button type="button" onClick={() => changeMode('withdraw')} className={presentation.back}><ArrowLeft size={17} aria-hidden="true" />Back to fxSAVE</button>
                 <h2>Withdrawal details</h2>
               </div>}
-              {wallet.address && (activeReadWarnings.length > 0 || error) && <StatusNotice tone="warning" title={warningTitle}
+              {wallet.address && (activeReadWarnings.some(warning => warning !== 'vault configuration') || mode === 'claim' && (activeReadWarnings.length > 0 || error)) && <StatusNotice tone="warning" title={warningTitle}
                 action={<button type="button" aria-label="Retry fxSAVE data" title="Retry fxSAVE data" className={presentation.retryButton}
                   disabled={loading || refreshAction.refreshing} onClick={() => void refreshEarn()}><RefreshCw size={16} aria-hidden="true" /></button>} />}
               {loading && !walletData && wallet.address && <span role="status" className="sr-only">Reading fxSAVE data</span>}
@@ -520,6 +520,7 @@ export default function EarnPage() {
                 shares={shares} onSharesChange={setShares} instant={instant} onInstantChange={setInstant}
                 config={activeReadWarnings.includes('vault configuration') ? null : config} walletData={walletData}
                 estimateConfig={activeReadWarnings.includes('vault configuration') ? null : config}
+                configLoading={loading} onRetryConfig={() => void load(true)}
                 onDeposit={() => changeMode('deposit')}
                 balances={saveBalances} balanceStatus={saveBalanceStatus} balanceUnavailable={readWarnings.includes('balance')} />
             </>}
@@ -528,7 +529,8 @@ export default function EarnPage() {
         </EarnClaimSheet>
         {inputStage && mode !== 'claim' && <div className={presentation.vaultInfo}>
           <EarnSections cooldown={config && !readWarnings.includes('vault configuration') ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config && !readWarnings.includes('vault configuration') ? formatRatio(config.instantRedeemFeeRatio) : null}
-            vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} />
+            vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} showWithdrawalTerms={mode !== 'withdraw'}
+            termsNotice={<VaultTermsStatus loading={loading} onRetry={() => void load(true)} />} />
           <VaultDetails config={readWarnings.includes('vault configuration') ? null : config} />
           <VaultRiskNotice />
         </div>}
@@ -593,14 +595,14 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
     </div>
     <div className={presentation.balanceTop}>
       <div className={presentation.rate}>
-        <small><MetricLabel label="Variable APY" definition="fxSaveApy" /></small>
+        <small><MetricLabel minimalHelp label="Variable APY" definition="fxSaveApy" /></small>
         <strong>{fxSaveApy
           ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
           : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
         {fxSaveApy && fxSaveApyStatus === 'unavailable' && <span className={presentation.marketFreshness}>Last verified APY · refresh unavailable</span>}
       </div>
       <div className={presentation.balanceCopy} data-connected={connected}>
-        <p><MetricLabel label={!connected ? 'Vault holdings' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'} definition={!connected ? 'vaultHoldings' : 'fxSaveShares'} /></p>
+        <p><MetricLabel minimalHelp label={!connected ? 'Vault holdings' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'} definition={!connected ? 'vaultHoldings' : 'fxSaveShares'} /></p>
         {!connected ? <>
           <h2 title={tvlUsd !== null ? formatUsd(tvlUsd) : undefined}>{tvlUsd !== null
             ? formatVaultUsd(tvlUsd)
@@ -620,11 +622,11 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
       </div>
     </div>
     <dl className={presentation.vaultHoldings}>
-      <div><dt><MetricLabel label="Value per fxSAVE" definition="fxSaveShares" /></dt><dd>{shareValueUsd !== null
+      <div><dt><MetricLabel minimalHelp label="Value per fxSAVE" definition="fxSaveShares" /></dt><dd>{shareValueUsd !== null
         ? formatUsd(shareValueUsd, 4)
         : snapshot.status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading value per fxSAVE" />
           : <span className={presentation.unavailableMetric}>Unavailable</span>}</dd></div>
-      {connected && <div><dt><MetricLabel label="Vault holdings" definition="vaultHoldings" /></dt><dd title={tvlUsd !== null ? formatUsd(tvlUsd) : undefined}>{tvlUsd !== null
+      {connected && <div><dt><MetricLabel minimalHelp label="Vault holdings" definition="vaultHoldings" /></dt><dd title={tvlUsd !== null ? formatUsd(tvlUsd) : undefined}>{tvlUsd !== null
         ? formatVaultUsd(tvlUsd)
         : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label="Vault holdings in USD" />}</dd></div>}
     </dl>
@@ -650,12 +652,20 @@ function ReadyClaimBanner({ onClaim, claimTriggerRef }: {
   </div>;
 }
 
+function VaultTermsStatus({ loading, onRetry, direct = false }: { loading: boolean; onRetry: () => void; direct?: boolean }) {
+  return <div className={presentation.termsStatus}>
+    <span role="status">{loading ? 'Checking vault terms…' : direct ? 'Vault terms unavailable.' : 'Cooldown and fee unavailable.'}</span>
+    <button type="button" onClick={onRetry} disabled={loading} aria-label="Retry vault terms">Retry</button>
+  </div>;
+}
+
 function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, shares, onSharesChange, instant, onInstantChange,
-  config, estimateConfig, onDeposit, walletData, balances, balanceStatus, balanceUnavailable,
+  config, estimateConfig, configLoading, onRetryConfig, onDeposit, walletData, balances, balanceStatus, balanceUnavailable,
 }: {
   mode: EarnMode; token: SaveToken; onTokenChange: (value: SaveToken) => void; amount: string; onAmountChange: (value: string) => void;
   shares: string; onSharesChange: (value: string) => void; instant: boolean; onInstantChange: (value: boolean) => void;
   config: SaveConfig | null; estimateConfig: SaveConfig | null; onDeposit: () => void; walletData?: SaveData | null;
+  configLoading: boolean; onRetryConfig: () => void;
   balances?: TokenBalanceMap; balanceStatus?: 'loading' | 'ready' | 'unavailable' | 'disconnected'; balanceUnavailable: boolean;
 }) {
   const disconnected = { status: 'disconnected' as const };
@@ -693,11 +703,11 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
       {token !== 'fxUSDBasePool' && <div className={presentation.withdrawOptions}>
         <ChoiceCards value={!instant ? 'cooldown' : 'instant'}
           onChange={(value) => onInstantChange(value === 'instant')} label="Withdrawal method" options={[
-            { value: 'cooldown', label: 'After cooldown', description: config ? `${formatCooldown(config.cooldownPeriodSeconds)} · no instant fee` : 'Cooldown unavailable' },
-            { value: 'instant', label: 'Instant', description: config ? `${formatRatio(config.instantRedeemFeeRatio)} fee` : 'Fee unavailable' },
+            { value: 'cooldown', label: 'After cooldown', description: config ? `${formatCooldown(config.cooldownPeriodSeconds)} · no instant fee` : undefined },
+            { value: 'instant', label: 'Instant', description: config ? `${formatRatio(config.instantRedeemFeeRatio)} fee` : undefined },
           ]} />
       </div>}
-      {!config && <p className={presentation.outcomeNote}>Withdrawal terms unavailable. Refresh before review.</p>}
+      {!config && <VaultTermsStatus loading={configLoading} onRetry={onRetryConfig} direct={token === 'fxUSDBasePool'} />}
       <section className={presentation.outcome} aria-label="Withdrawal outcome">
       {directEstimate && <EstimateRow label="Estimated fxSP received" value={directEstimate} note="Based on current vault assets and share supply." />}
       {!directEstimate && <div className={presentation.outcomeRow}><span>{token !== 'fxUSDBasePool' && !instant ? 'Claim later' : 'Receive'}</span><strong>{token !== 'fxUSDBasePool' && !instant ? 'fxUSD + USDC' : labelToken(token)}</strong></div>}
@@ -735,7 +745,7 @@ function directFxSaveEstimate(
 
 function EstimateRow({ label, value, note }: { label: string; value: string; note: string }) {
   return <div className={presentation.estimateRow}>
-    <div><span><MetricLabel label={label} help={note} /></span><strong>{value}</strong></div>
+    <div><span><MetricLabel minimalHelp label={label} help={note} /></span><strong>{value}</strong></div>
   </div>;
 }
 
