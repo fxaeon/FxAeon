@@ -16,6 +16,15 @@ function step(name) {
   return workflow.slice(start, next >= 0 ? next : workflow.length);
 }
 
+test('container shell steps trust only the checked-out workspace before verification', () => {
+  const trust = step('Trust the container checkout');
+  assert.match(trust, /git config --global --add safe\.directory "\$GITHUB_WORKSPACE"/);
+  assert.match(trust, /git remote get-url origin > \/dev\/null/);
+  assert.doesNotMatch(workflow, /safe\.directory[^\n]*\*/);
+  assert.ok(workflow.indexOf('uses: actions/checkout@') < workflow.indexOf(trust));
+  assert.ok(workflow.indexOf(trust) < workflow.indexOf('run: pnpm install --frozen-lockfile'));
+});
+
 test('production validation, deterministic verification, and deployment build are ordered', () => {
   const validation = workflow.indexOf('run: pnpm verify:production-env');
   const verification = workflow.indexOf('run: pnpm verify\n');
