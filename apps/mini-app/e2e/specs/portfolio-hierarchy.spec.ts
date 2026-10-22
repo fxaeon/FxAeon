@@ -242,7 +242,9 @@ test.describe('Disconnected Portfolio entry', () => {
     await expect(products.getByRole('link', { name: /Borrow/ })).toHaveAttribute('href', '/borrow');
     await expect(page.getByRole('heading', { name: 'Markets', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Markets', exact: true }).locator('[title="24-hour price change"]')).toHaveCount(2);
-    await expect(page.getByRole('link', { name: 'Trade ETH', exact: true })).toHaveAccessibleDescription(/over 24 hours/);
+    // This fixture deliberately has no market feed. The timeframe still needs
+    // to be announced without presenting a verified price or change.
+    await expect(page.getByRole('link', { name: 'Trade ETH', exact: true })).toHaveAccessibleDescription('Market price unavailable 24 hour change unavailable');
     const destinations = [['Trade', '/trade'], ['Earn', '/earn'], ['Borrow', '/borrow'], ['Move', '/move']] as const;
     for (const [label, href] of destinations) {
       const link = products.getByRole('link', { name: new RegExp(label) });

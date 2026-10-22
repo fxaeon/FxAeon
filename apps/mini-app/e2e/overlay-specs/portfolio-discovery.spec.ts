@@ -59,6 +59,7 @@ for (const width of [320, 390, 1280]) {
     await expect(markets.getByText('$2,400.00')).toBeVisible();
     await expect(markets.getByText('$104,000.00')).toBeVisible();
     for (const market of await markets.getByRole('link').all()) {
+      await expect(market).toHaveAccessibleDescription(/over 24 hours/);
       const bounds = await market.boundingBox();
       const contents = await market.locator('p').evaluate(node => {
         const range = document.createRange();

@@ -233,7 +233,8 @@ test('direct fxSP redemption keeps no-cooldown terms visible outside optional es
 
 test('risk and audit access stays outside collapsed help and makes no UI audit claim', () => {
   const html = renderToStaticMarkup(evaluate<React.ReactNode>(`${declaration(page, 'VaultRiskNotice')}\nVaultRiskNotice();`));
-  assert.match(html, /Capital is at risk. FxAeon is unaudited/);
+  assert.match(html, /aria-label="fxSAVE risks"/);
+  assert.match(html, /aria-label="Protocol risk and audit resources"/);
   assert.match(html, /https:\/\/fxprotocol\.gitbook\.io\/fx-docs\/risk-management\/audit-reports/);
   assert.match(html, /https:\/\/fxprotocol\.gitbook\.io\/fx-docs\/f-x-protocol-mechanisms\/stability-pool/);
   assert.equal((html.match(/rel="noopener noreferrer"/g) ?? []).length, 2);
