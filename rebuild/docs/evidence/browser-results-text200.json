@@ -1,0 +1,244 @@
+{
+  "config": {
+    "argv": [
+      "/tmp/fxaeon-toolchain/node_modules/node/bin/node",
+      "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/node_modules/@playwright/test/cli.js",
+      "test",
+      "--grep",
+      "200% text"
+    ],
+    "configFile": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/playwright.config.ts",
+    "rootDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "checkpoint": "Supplemental step-3 fixture acceptance; no public transactions or native-device proof",
+      "playwright": "1.64.1",
+      "pinnedChromium": "156",
+      "executable": "/tmp/fxaeon-chromium/chromium",
+      "browserLimitation": "Chromium 153.0.8010.0 fallback; pinned 156 download failed",
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/docs/evidence/browser-results-text200",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "checkpoint": "Supplemental step-3 fixture acceptance; no public transactions or native-device proof",
+          "playwright": "1.64.1",
+          "pinnedChromium": "156",
+          "executable": "/tmp/fxaeon-chromium/chromium",
+          "browserLimitation": "Chromium 153.0.8010.0 fallback; pinned 156 download failed",
+          "actualWorkers": 2
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/docs/evidence/browser-results-text200",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "checkpoint": "Supplemental step-3 fixture acceptance; no public transactions or native-device proof",
+          "playwright": "1.64.1",
+          "pinnedChromium": "156",
+          "executable": "/tmp/fxaeon-chromium/chromium",
+          "browserLimitation": "Chromium 153.0.8010.0 fallback; pinned 156 download failed",
+          "actualWorkers": 2
+        },
+        "name": "",
+        "testDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+        "snapshotDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.spec.ts",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://127.0.0.1:4173",
+          "browserName": "chromium",
+          "launchOptions": {
+            "executablePath": "/tmp/fxaeon-chromium/chromium"
+          },
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "locale": "en-US",
+          "timezoneId": "UTC",
+          "actionTimeout": 5000,
+          "navigationTimeout": 10000,
+          "screenshot": "only-on-failure",
+          "trace": "retain-on-failure",
+          "video": "off"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "./docs/evidence/browser-results-text200.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "./docs/evidence/browser-report-text200",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 2,
+    "webServer": {
+      "command": "node scripts/serve.mjs --dir dist-fixture --port 4173",
+      "url": "http://127.0.0.1:4173/app/",
+      "reuseExistingServer": false,
+      "timeout": 30000,
+      "stdout": "pipe",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "accessibility.spec.ts",
+      "file": "accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "dark theme at 320px with 200% text retains review content and usable actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2615,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:47:25.901Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-3dfe8a58be905edb5fc8",
+          "file": "accessibility.spec.ts",
+          "line": 99,
+          "column": 3
+        },
+        {
+          "title": "light theme at 320px with 200% text retains review content and usable actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2610,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:47:25.911Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-447806294f2081d7f9d2",
+          "file": "accessibility.spec.ts",
+          "line": 99,
+          "column": 3
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-22T03:47:25.199Z",
+    "duration": 3450.9919999999997,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

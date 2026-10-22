@@ -1,0 +1,13 @@
+{
+  "decision": "D-007",
+  "baseline": "b69d9ce1be59f982fca3ac43a8b037f7037269d4",
+  "package": "@aladdindao/fx-sdk@1.0.5",
+  "source": "patches/@aladdindao__fx-sdk@1.0.5.patch",
+  "patchSha256": "f5eae53f531d39df2a6cc8985054b13c7b69a57d0670914ec8402aa95cb9c17c",
+  "installed": {
+    "dist/index.js": "f3a56ad062b35fa7274517e6cf7f57a1153f8c7cd5b9c71d7c24025b1991f08b",
+    "dist/index.cjs": "b4db0d546ceca0bd288368de43c3810c8fda168a423fe5c20222220a59593730",
+    "dist/index.d.ts": "3f5e641fc68b65354d4ce743f56cd736abd83587c689cc61cb3e423c575f6862"
+  },
+  "note": "Reviewed vendor correction input preserved byte-for-byte. New application code and replacement tests are independently authored."
+}

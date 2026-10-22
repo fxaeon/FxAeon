@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-10-22T03:50:39.863Z",
+  "method": "gzip level9 over Vite manifest static imports; dynamic SDK excluded only from initial critical graph",
+  "appAssets": [
+    "assets/app-I8_rzXZF.js",
+    "assets/app-D0U3wuza.css"
+  ],
+  "landingAssets": [
+    "assets/landing-H8WE9mIu.css"
+  ],
+  "checks": [
+    {
+      "name": "Critical app JavaScript",
+      "bytes": 90616,
+      "limit": 184320
+    },
+    {
+      "name": "Critical app CSS",
+      "bytes": 8541,
+      "limit": 25600
+    },
+    {
+      "name": "Landing JavaScript",
+      "bytes": 0,
+      "limit": 40960
+    },
+    {
+      "name": "All lazy JavaScript combined",
+      "bytes": 242928,
+      "limit": 1572864
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "sdkPackage": "@aladdindao/fx-sdk@1.0.5",
+  "sdkCommit": "53c0b9805a169e75ad375c92c241e1292b66405f",
+  "methods": ["getPositions", "increasePosition", "reducePosition", "adjustPositionLeverage", "depositAndMint", "repayAndWithdraw", "getBridgeQuote", "buildBridgeTx", "getFxSaveBalance", "getFxSaveConfig", "getFxSaveRedeemStatus", "getFxSaveClaimable", "getRedeemTx", "depositFxSave", "withdrawFxSave"],
+  "checkpointImplementedMethods": ["increasePosition", "getPositions"],
+  "scope": "The approved fifteen-method surface is unchanged. This checkpoint implements only the native-ETH new-long slice; this manifest is not a claim of full product parity."
+}

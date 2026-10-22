@@ -1,0 +1,118 @@
+TAP version 13
+# Subtest: index.js: installed uint60 packing preserves both bounds and rejects overflow
+ok 1 - index.js: installed uint60 packing preserves both bounds and rejects overflow
+  ---
+  duration_ms: 3.012838
+  type: 'test'
+  ...
+# Subtest: index.js: installed borrowing search rejects unquoted dust and accepts only exact zero debt
+ok 2 - index.js: installed borrowing search rejects unquoted dust and accepts only exact zero debt
+  ---
+  duration_ms: 1.824615
+  type: 'test'
+  ...
+# Subtest: index.js: installed search returns an evaluated sufficient upper endpoint including remainders
+ok 3 - index.js: installed search returns an evaluated sufficient upper endpoint including remainders
+  ---
+  duration_ms: 1.703263
+  type: 'test'
+  ...
+# Subtest: index.js: installed search rejects flat, decreasing, failed and unbracketed quotes
+ok 4 - index.js: installed search rejects flat, decreasing, failed and unbracketed quotes
+  ---
+  duration_ms: 5.259044
+  type: 'test'
+  ...
+# Subtest: index.js: installed multicall keeps cross-call pacing without sleeping after the last batch
+ok 5 - index.js: installed multicall keeps cross-call pacing without sleeping after the last batch
+  ---
+  duration_ms: 1.627471
+  type: 'test'
+  ...
+# Subtest: index.js: installed pool starts independent views concurrently and preserves converter order
+ok 6 - index.js: installed pool starts independent views concurrently and preserves converter order
+  ---
+  duration_ms: 2.286735
+  type: 'test'
+  ...
+# Subtest: index.js: installed pool fails at the first relevant view without waiting for hung siblings
+ok 7 - index.js: installed pool fails at the first relevant view without waiting for hung siblings
+  ---
+  duration_ms: 1.182936
+  type: 'test'
+  ...
+# Subtest: index.js: installed short pool uses its four-field tuple without fabricating raw collateral
+ok 8 - index.js: installed short pool uses its four-field tuple without fabricating raw collateral
+  ---
+  duration_ms: 1.328765
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed uint60 packing preserves both bounds and rejects overflow
+ok 9 - index.cjs: installed uint60 packing preserves both bounds and rejects overflow
+  ---
+  duration_ms: 1.576104
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed borrowing search rejects unquoted dust and accepts only exact zero debt
+ok 10 - index.cjs: installed borrowing search rejects unquoted dust and accepts only exact zero debt
+  ---
+  duration_ms: 1.725226
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed search returns an evaluated sufficient upper endpoint including remainders
+ok 11 - index.cjs: installed search returns an evaluated sufficient upper endpoint including remainders
+  ---
+  duration_ms: 1.133212
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed search rejects flat, decreasing, failed and unbracketed quotes
+ok 12 - index.cjs: installed search rejects flat, decreasing, failed and unbracketed quotes
+  ---
+  duration_ms: 3.797821
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed multicall keeps cross-call pacing without sleeping after the last batch
+ok 13 - index.cjs: installed multicall keeps cross-call pacing without sleeping after the last batch
+  ---
+  duration_ms: 1.333462
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed pool starts independent views concurrently and preserves converter order
+ok 14 - index.cjs: installed pool starts independent views concurrently and preserves converter order
+  ---
+  duration_ms: 1.775001
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed pool fails at the first relevant view without waiting for hung siblings
+ok 15 - index.cjs: installed pool fails at the first relevant view without waiting for hung siblings
+  ---
+  duration_ms: 1.122035
+  type: 'test'
+  ...
+# Subtest: index.cjs: installed short pool uses its four-field tuple without fabricating raw collateral
+ok 16 - index.cjs: installed short pool uses its four-field tuple without fabricating raw collateral
+  ---
+  duration_ms: 0.958922
+  type: 'test'
+  ...
+# Subtest: index.js: real installed increasePosition produces a native quote accepted by independent decoding and accounting
+ok 17 - index.js: real installed increasePosition produces a native quote accepted by independent decoding and accounting
+  ---
+  duration_ms: 3515.770823
+  type: 'test'
+  ...
+# Subtest: index.cjs: real installed increasePosition produces a native quote accepted by independent decoding and accounting
+ok 18 - index.cjs: real installed increasePosition produces a native quote accepted by independent decoding and accounting
+  ---
+  duration_ms: 3386.456332
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6947.058337

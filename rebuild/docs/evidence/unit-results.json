@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-10-22T03:50:34.516Z",
+  "node": "v22.23.4",
+  "runner": "direct isolated module + named TAP counts + failing typed canary",
+  "canaryVerified": true,
+  "total": 164,
+  "results": [
+    {
+      "file": "amount.test.ts",
+      "cases": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 173,
+      "exitCode": 0
+    },
+    {
+      "file": "controller.test.ts",
+      "cases": 31,
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 291,
+      "exitCode": 0
+    },
+    {
+      "file": "host-browser.test.ts",
+      "cases": 16,
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 213,
+      "exitCode": 0
+    },
+    {
+      "file": "integration-long.test.ts",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 4191,
+      "exitCode": 0
+    },
+    {
+      "file": "protocol-vendor.test.ts",
+      "cases": 18,
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 7488,
+      "exitCode": 0
+    },
+    {
+      "file": "protocol.test.ts",
+      "cases": 62,
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 682,
+      "exitCode": 0
+    },
+    {
+      "file": "wallet-browser.test.ts",
+      "cases": 33,
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "todo": 0,
+      "valid": true,
+      "durationMs": 254,
+      "exitCode": 0
+    }
+  ]
+}

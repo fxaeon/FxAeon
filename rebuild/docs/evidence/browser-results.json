@@ -1,0 +1,1507 @@
+{
+  "config": {
+    "argv": [
+      "/tmp/fxaeon-toolchain/node_modules/node/bin/node",
+      "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/node_modules/@playwright/test/cli.js",
+      "test"
+    ],
+    "configFile": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/playwright.config.ts",
+    "rootDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "checkpoint": "Supplemental step-3 fixture acceptance; no public transactions or native-device proof",
+      "playwright": "1.64.1",
+      "pinnedChromium": "156",
+      "executable": "/tmp/fxaeon-chromium/chromium",
+      "browserLimitation": "Chromium 153.0.8010.0 fallback; pinned 156 download failed",
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/docs/evidence/browser-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "checkpoint": "Supplemental step-3 fixture acceptance; no public transactions or native-device proof",
+          "playwright": "1.64.1",
+          "pinnedChromium": "156",
+          "executable": "/tmp/fxaeon-chromium/chromium",
+          "browserLimitation": "Chromium 153.0.8010.0 fallback; pinned 156 download failed",
+          "actualWorkers": 2
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/docs/evidence/browser-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "checkpoint": "Supplemental step-3 fixture acceptance; no public transactions or native-device proof",
+          "playwright": "1.64.1",
+          "pinnedChromium": "156",
+          "executable": "/tmp/fxaeon-chromium/chromium",
+          "browserLimitation": "Chromium 153.0.8010.0 fallback; pinned 156 download failed",
+          "actualWorkers": 2
+        },
+        "name": "",
+        "testDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+        "snapshotDir": "/workspace/scratch/5d7686b5cd7a/FxAeon/rebuild/test/browser",
+        "testIgnore": [],
+        "testMatch": "**/*.spec.ts",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://127.0.0.1:4173",
+          "browserName": "chromium",
+          "launchOptions": {
+            "executablePath": "/tmp/fxaeon-chromium/chromium"
+          },
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "colorScheme": "dark",
+          "locale": "en-US",
+          "timezoneId": "UTC",
+          "actionTimeout": 5000,
+          "navigationTimeout": 10000,
+          "screenshot": "only-on-failure",
+          "trace": "retain-on-failure",
+          "video": "off"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "./docs/evidence/browser-results.json"
+        }
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "./docs/evidence/browser-report",
+          "open": "never"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 2,
+    "webServer": {
+      "command": "node scripts/serve.mjs --dir dist-fixture --port 4173",
+      "url": "http://127.0.0.1:4173/app/",
+      "reuseExistingServer": false,
+      "timeout": 30000,
+      "stdout": "pipe",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "accessibility.spec.ts",
+      "file": "accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "wallet keyboard focus is trapped, Escape restores the opener, and browser Back dismisses one overlay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1150,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:42.261Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-2f36fdad6fd7c4f27204",
+          "file": "accessibility.spec.ts",
+          "line": 13,
+          "column": 1
+        },
+        {
+          "title": "Escape closes an expanded review disclosure before the review and restores a usable editor",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1927,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:42.259Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-50358f450b2f422cb7b8",
+          "file": "accessibility.spec.ts",
+          "line": 38,
+          "column": 1
+        },
+        {
+          "title": "closing the signing view preserves the original attempt and verified history without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2352,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:43.510Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-3a4bc602bd3077f624d0",
+          "file": "accessibility.spec.ts",
+          "line": 57,
+          "column": 1
+        },
+        {
+          "title": "dark theme at 1280px: trade and exact review pass axe and horizontal overflow checks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2788,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:44.283Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-156596df07bebcbc8de5",
+          "file": "accessibility.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "dark theme at 393px: trade and exact review pass axe and horizontal overflow checks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2579,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:45.873Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-de0972030d2b58135943",
+          "file": "accessibility.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "dark theme at 320px: trade and exact review pass axe and horizontal overflow checks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2519,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:47.099Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-e74a5e84f7802c92c864",
+          "file": "accessibility.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "dark theme at 320px with 200% text retains review content and usable actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2546,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:48.464Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-3dfe8a58be905edb5fc8",
+          "file": "accessibility.spec.ts",
+          "line": 99,
+          "column": 3
+        },
+        {
+          "title": "light theme at 1280px: trade and exact review pass axe and horizontal overflow checks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2682,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:49.635Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-e6b24cc763fac23ff5a1",
+          "file": "accessibility.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "light theme at 393px: trade and exact review pass axe and horizontal overflow checks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2427,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:51.025Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-11c4d9dd535f7a281d07",
+          "file": "accessibility.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "light theme at 320px: trade and exact review pass axe and horizontal overflow checks",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2490,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:52.327Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-212006de69c47c3067b7",
+          "file": "accessibility.spec.ts",
+          "line": 72,
+          "column": 5
+        },
+        {
+          "title": "light theme at 320px with 200% text retains review content and usable actions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2576,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:53.464Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-447806294f2081d7f9d2",
+          "file": "accessibility.spec.ts",
+          "line": 99,
+          "column": 3
+        },
+        {
+          "title": "theme switching preserves the exact deposit, leverage, and explicit slippage preference",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 967,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:54.826Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-205838158e814d7b69f6",
+          "file": "accessibility.spec.ts",
+          "line": 125,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "discovery.spec.ts",
+      "file": "discovery.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "built fixture announces simulation, has a labelled trade editor, and makes no wallet request on load",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 535,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:55.808Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "actual-browser-version",
+                      "contentType": "text/plain",
+                      "body": "MTUzLjAuODAxMC4w"
+                    },
+                    {
+                      "name": "initial-accessibility-tree",
+                      "contentType": "text/plain",
+                      "body": "LSBsaW5rICJTa2lwIHRvIGNvbnRlbnQiOgogIC0gL3VybDogIiNtYWluLWNvbnRlbnQiCi0gcmVnaW9uICJFbnZpcm9ubWVudCI6IFNpbXVsYXRpb24gZW52aXJvbm1lbnQgUHJhY3RpY2UgdHJhbnNhY3Rpb25zLiBObyByZWFsIGZ1bmRzLgotIGJhbm5lcjoKICAtIGJ1dHRvbiAiRnhBZW9uIFRyYWRlIjogRnhBZW9uCiAgLSBuYXZpZ2F0aW9uICJNYWluIG5hdmlnYXRpb24iOgogICAgLSBidXR0b24gIlRyYWRlIgogICAgLSBidXR0b24gIkhpc3RvcnkiCiAgLSBidXR0b24gIlN3aXRjaCB0byBsaWdodCB0aGVtZSIKICAtIGJ1dHRvbiAiQ29ubmVjdCB3YWxsZXQiCi0gbWFpbjoKICAtIHRleHQ6IE9OIFlPVVIgVEVSTVMKICAtIHJlZ2lvbiAiTG9uZyBFdGhlcmV1bS4gWW91ciB0ZXJtcy4iOgogICAgLSB0ZXh0OiBFVEggLyBFVEhFUkVVTSBMb25nCiAgICAtIGhlYWRpbmcgIkxvbmcgRXRoZXJldW0uIFlvdXIgdGVybXMuIiBbbGV2ZWw9MV0KICAgIC0gcGFyYWdyYXBoOiBDaG9vc2UgeW91ciBleHBvc3VyZS4gUmV2aWV3IGV2ZXJ5IGRldGFpbC4gS2VlcCBjb250cm9sLgogICAgLSB0ZXh0OiBFVEggcmVmZXJlbmNlIHByaWNlCiAgICAtIGJ1dHRvbiAiUmVmcmVzaCBtYXJrZXQgZGF0YSIKICAgIC0gc3Ryb25nOiAkMyw1MjAuNDUKICAgIC0gdGV4dDogRml4dHVyZSBkYXRhIMK3IEp1c3QgY2hlY2tlZAogICAgLSB0ZXJtOiBDb2xsYXRlcmFsCiAgICAtIGRlZmluaXRpb246IHN0RVRICiAgICAtIHRlcm06IEJvcnJvd2VkIGFzc2V0CiAgICAtIGRlZmluaXRpb246IGZ4VVNECiAgICAtIHRlcm06IEF2YWlsYWJsZSBsZXZlcmFnZQogICAgLSBkZWZpbml0aW9uOiAxLjHDlyDigJMgNcOXCiAgICAtIHBhcmFncmFwaDoKICAgICAgLSBzdHJvbmc6IE9uZSBwb3NpdGlvbi4gTW9yZSBleHBvc3VyZS4KICAgICAgLSB0ZXh0OiBZb3VyIEVUSCBmdW5kcyBhIGxldmVyYWdlZCBsb25nIHRocm91Z2ggZih4KSBQcm90b2NvbC4gQWxsIHRlcm1zIGFyZSBjaGVja2VkIGJlZm9yZSB5b3VyIHdhbGxldCBvcGVucy4KICAgIC0gcGFyYWdyYXBoOiBMZXZlcmFnZSBpbmNyZWFzZXMgZ2FpbnMgYW5kIGxvc3Nlcy4gUmViYWxhbmNpbmcgYW5kIGxpcXVpZGF0aW9uIGNhbiByZWR1Y2UgeW91ciBwb3NpdGlvbi4KICAtIHJlZ2lvbiAiT3BlbiBhIGxvbmciOgogICAgLSB0ZXh0OiBFVEhFUkVVTQogICAgLSBoZWFkaW5nICJPcGVuIGEgbG9uZyIgW2xldmVsPTJdCiAgICAtIHRleHQ6IFlvdXIgZGVwb3NpdCBXYWxsZXQgZGlzY29ubmVjdGVkCiAgICAtIHRleHRib3ggIkFtb3VudCBpbiBFVEgiOgogICAgICAtIC9wbGFjZWhvbGRlcjogIjAuMDAiCiAgICAtIHRleHQ6IEVUSCBOYXRpdmUgRVRIIG9uIEV0aGVyZXVtCiAgICAtIGdyb3VwOgogICAgICAtIHRleHQ6IExldmVyYWdlCiAgICAgIC0gdGV4dGJveCAiUmVxdWVzdGVkIGxldmVyYWdlIjogIjMiCiAgICAgIC0gdGV4dDogw5cKICAgICAgLSBzbGlkZXIgIkxldmVyYWdlIHNsaWRlciI6ICIzIgogICAgICAtIHRleHQ6IDEuMcOXIDXDlwogICAgLSBncm91cDoKICAgICAgLSB0ZXh0OiBTbGlwcGFnZSB0b2xlcmFuY2UKICAgICAgLSBzdHJvbmc6IDAuNSUKICAgIC0gdGVybTogTmV0d29yayBmZWUKICAgIC0gZGVmaW5pdGlvbjogVW5hdmFpbGFibGUKICAgIC0gdGVybTogUmV2aWV3IGxpZmV0aW1lCiAgICAtIGRlZmluaXRpb246IDMwIHNlY29uZHMKICAgIC0gYnV0dG9uICJDb25uZWN0IHdhbGxldCIKICAgIC0gcGFyYWdyYXBoOiBSZXZpZXcgZmlyc3QuIFlvdXIgd2FsbGV0IGFwcHJvdmVzIHRoZSB0cmFuc2FjdGlvbi4KICAgIC0gdGV4dDogUG93ZXJlZCBieSBmKHgpIFByb3RvY29sIEVUSCBsb25nCiAgLSB0ZXh0OiBDbGVhciB0ZXJtcy4gRXhwbGljaXQgYXBwcm92YWwuIEVUSCBsb25nIG9uIEV0aGVyZXVtCi0gY29udGVudGluZm86CiAgLSB0ZXh0OiBGeEFlb24KICAtIHBhcmFncmFwaDogWW91ciB3YWxsZXQuIFlvdXIgcG9zaXRpb24uCiAgLSB0ZXh0OiBTaW11bGF0aW9u"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ea3dfd443fc52d1802e6-1c6db41541b516e2e911",
+          "file": "discovery.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "trade.spec.ts",
+      "file": "trade.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "exact deposit survives review, one wallet request, verified receipt, and account-scoped history",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3871,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:56.061Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "review-accessibility-tree",
+                      "contentType": "text/plain",
+                      "body": "LSBkaWFsb2cgIlJldmlldyBFVEggbG9uZyI6CiAgLSBiYW5uZXI6CiAgICAtIHRleHQ6IEVUSCBMT05HIFNpbXVsYXRpb24KICAgIC0gaGVhZGluZyAiUmV2aWV3IEVUSCBsb25nIiBbbGV2ZWw9Ml0KICAgIC0gcGFyYWdyYXBoOiBZb3VyIHdhbGxldCBvcGVucyBvbmx5IGFmdGVyIHlvdSBjb25maXJtIHRoZXNlIHRlcm1zLgogICAgLSBidXR0b24gIkNsb3NlIGRpYWxvZyIKICAtIHRleHQ6IFlvdSBwYXkKICAtIHN0cm9uZzogIjAuMTAwMDAwMDAwMDAwMDAwMDAxIgogIC0gdGV4dDogRVRIIDB4MTExMeKApjExMTEgb24gRXRoZXJldW0gVGVybXMgdmFsaWQgZm9yIDMwcwogIC0gcHJvZ3Jlc3NiYXIgIlJldmlldyB0aW1lIHJlbWFpbmluZyIKICAtIHRleHQ6IEVzdGltYXRlZCBjb2xsYXRlcmFsCiAgLSBzdHJvbmc6IOKJiCAwLjI5OTcgc3RFVEgKICAtIHRleHQ6IEVUSC1sb25nIGFjY291bnRpbmcgdW5pdHMgRXN0aW1hdGVkIGRlYnQKICAtIHN0cm9uZzog4omIIDcwNC4wOSBmeFVTRAogIC0gdGV4dDogQm9ycm93ZWQgYnkgdGhpcyBwb3NpdGlvbgogIC0gdGVybTogUmVxdWVzdGVkIGxldmVyYWdlCiAgLSBkZWZpbml0aW9uOiAzw5cKICAtIHRlcm06IEVzdGltYXRlZCBsZXZlcmFnZQogIC0gZGVmaW5pdGlvbjog4omIIDMuMDA2w5cKICAtIHRlcm06IEVzdGltYXRlZCBleGVjdXRpb24gcHJpY2UKICAtIGRlZmluaXRpb246ICQzLDUyMC40NQogIC0gdGVybTogTWluaW11bSByZWNlaXZlZAogIC0gZGVmaW5pdGlvbjogMC4wODI5MTY2NjY2NjY2NjY2Njcgd3N0RVRICiAgLSB0ZXJtOiBTbGlwcGFnZSB0b2xlcmFuY2UKICAtIGRlZmluaXRpb246IDAuNSUKICAtIHRlcm06IEVzdGltYXRlZCBuZXR3b3JrIGZlZQogIC0gZGVmaW5pdGlvbjog4omIIDAuMDAzNiBFVEgKICAtIHRlcm06IFJlcXVpcmVkIHdhbGxldCBiYWxhbmNlCiAgLSBkZWZpbml0aW9uOiAwLjEwMzYwMDAwMDAwMDAwMDAwMSBFVEgKICAtIGdyb3VwOiBGZWVzICYgcmlzayBlc3RpbWF0ZXMKICAtIHBhcmFncmFwaDogTGV2ZXJhZ2UgaW5jcmVhc2VzIGdhaW5zIGFuZCBsb3NzZXMuIFJlYmFsYW5jaW5nIG9yIGxpcXVpZGF0aW9uIGNhbiByZWR1Y2UgeW91ciBwb3NpdGlvbi4KICAtIHRleHQ6IFByYWN0aWNlIGNoZWNrcyBwYXNzZWQgTm8gdG9rZW4gYXBwcm92YWwgcmVxdWlyZWQKICAtIGdyb3VwOgogICAgLSBzdHJvbmc6IFRyYW5zYWN0aW9uIGRldGFpbHMKICAgIC0gdGV4dDogRXhhY3QgZGF0YSBzZW50IHRvIHlvdXIgd2FsbGV0CiAgICAtIHRlcm06IE5ldHdvcmsKICAgIC0gZGVmaW5pdGlvbjogRXRoZXJldW0gwrcgY2hhaW4gMQogICAgLSB0ZXJtOiBGcm9tCiAgICAtIGRlZmluaXRpb246CiAgICAgIC0gY29kZTogIjB4MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMSIKICAgICAgLSBidXR0b24gIkNvcHkgc2VuZGVyIGFkZHJlc3MiCiAgICAgIC0gc3RhdHVzCiAgICAtIHRlcm06IFRvCiAgICAtIGRlZmluaXRpb246CiAgICAgIC0gY29kZTogIjB4MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMiIKICAgICAgLSBidXR0b24gIkNvcHkgcmVjaXBpZW50IGNvbnRyYWN0IgogICAgICAtIHN0YXR1cwogICAgLSB0ZXJtOiBOYXRpdmUgdmFsdWUKICAgIC0gZGVmaW5pdGlvbjogMC4xMDAwMDAwMDAwMDAwMDAwMDEgRVRIIDEwMDAwMDAwMDAwMDAwMDAwMSB3ZWkKICAgIC0gdGVybTogTm9uY2UKICAgIC0gZGVmaW5pdGlvbjoKICAgICAgLSBjb2RlOiAiNyIKICAgIC0gdGVybTogR2FzIGxpbWl0CiAgICAtIGRlZmluaXRpb246CiAgICAgIC0gY29kZTogIjIwMDAwMCIKICAgIC0gdGVybTogRmVlIGVzdGltYXRlIGJhc2lzCiAgICAtIGRlZmluaXRpb246IDE4IGd3ZWkgWW91ciBleHRlcm5hbCB3YWxsZXQgY2hvb3NlcyBpdHMgZ2FzIHNldHRpbmdzLgogICAgLSB0ZXJtOiBQcmVwYXJlZCBhdCBibG9jawogICAgLSBkZWZpbml0aW9uOgogICAgICAtIGNvZGU6ICIyNjAwMDAwMCIKICAgIC0gdGV4dDogQ2FsbGRhdGEKICAgIC0gYnV0dG9uICJDb3B5IGNhbGxkYXRhIgogICAgLSBzdGF0dXMKICAgIC0gY29kZTogIjB4OTRhZDc0OTQwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIgogIC0gY29udGVudGluZm86CiAgICAtIGJ1dHRvbiAiRWRpdCBkZXBvc2l0IgogICAgLSBidXR0b24gIkNvbmZpcm0gaW4gd2FsbGV0Ig=="
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-b2fd8b120db2a115b088",
+          "file": "trade.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "a saved terminal label is not presented as current confirmation after reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 3164,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:56.364Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-4f4c3ca55e7f838012e6",
+          "file": "trade.spec.ts",
+          "line": 45,
+          "column": 1
+        },
+        {
+          "title": "duplicate confirm events dispatch exactly one wallet transaction",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2801,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:59.545Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-a4bfb7cea6d58e1e317c",
+          "file": "trade.spec.ts",
+          "line": 62,
+          "column": 1
+        },
+        {
+          "title": "reject: receipt and history language preserve the actual certainty without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2802,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:50:59.948Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-d10e332e020712be5991",
+          "file": "trade.spec.ts",
+          "line": 85,
+          "column": 3
+        },
+        {
+          "title": "unknown-send: receipt and history language preserve the actual certainty without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2645,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:02.365Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-2859171492798adfba91",
+          "file": "trade.spec.ts",
+          "line": 85,
+          "column": 3
+        },
+        {
+          "title": "pending: receipt and history language preserve the actual certainty without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2905,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:02.759Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-c09a7701bd5dd651ebd7",
+          "file": "trade.spec.ts",
+          "line": 85,
+          "column": 3
+        },
+        {
+          "title": "reverted: receipt and history language preserve the actual certainty without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2602,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:05.020Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-8108df6f0d6fec94dba2",
+          "file": "trade.spec.ts",
+          "line": 85,
+          "column": 3
+        },
+        {
+          "title": "missing-position: receipt and history language preserve the actual certainty without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2978,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:05.674Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-59b7a095e3413f3a13ec",
+          "file": "trade.spec.ts",
+          "line": 85,
+          "column": 3
+        },
+        {
+          "title": "receipt-error: receipt and history language preserve the actual certainty without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 2989,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:07.633Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-5d14bc6e914f336729f9",
+          "file": "trade.spec.ts",
+          "line": 85,
+          "column": 3
+        },
+        {
+          "title": "a declined request preserves the deposit and a new explicit review can ask the wallet again",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4373,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:08.665Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-6a1c28b8bca485cd3b9d",
+          "file": "trade.spec.ts",
+          "line": 120,
+          "column": 1
+        },
+        {
+          "title": "expired review offers refresh and makes no signing request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 3353,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:10.637Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-60250bf526d1620d3340",
+          "file": "trade.spec.ts",
+          "line": 135,
+          "column": 1
+        },
+        {
+          "title": "account change during preflight retires the review without a signing request",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1835,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:13.053Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-581074de2e76a2b23898",
+          "file": "trade.spec.ts",
+          "line": 147,
+          "column": 1
+        },
+        {
+          "title": "nonce change during preflight blocks the transaction and preserves editable input",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1832,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:14.002Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-9ea62482a4166a095dee",
+          "file": "trade.spec.ts",
+          "line": 158,
+          "column": 1
+        },
+        {
+          "title": "wrong network waits for explicit switch and never signs automatically",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 700,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:14.908Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-02a8bec08101736a808e",
+          "file": "trade.spec.ts",
+          "line": 170,
+          "column": 1
+        },
+        {
+          "title": "simulation-error: preparation failure keeps the editor and never opens the wallet",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1762,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:15.620Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-48719559d4802779e58e",
+          "file": "trade.spec.ts",
+          "line": 181,
+          "column": 3
+        },
+        {
+          "title": "insufficient-funds: preparation failure keeps the editor and never opens the wallet",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1588,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:15.846Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-a13e9bfd92b7acc3fdf2",
+          "file": "trade.spec.ts",
+          "line": 181,
+          "column": 3
+        },
+        {
+          "title": "cancelling a slow preparation rejects its late result",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "actual-browser-version",
+                  "description": "153.0.8010.0"
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 7002,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-22T03:51:17.392Z",
+                  "annotations": [
+                    {
+                      "type": "actual-browser-version",
+                      "description": "153.0.8010.0"
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ef5f1ce35bc01d4a63c0-79f88813d159d65ba904",
+          "file": "trade.spec.ts",
+          "line": 193,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-22T03:50:41.543Z",
+    "duration": 42920.849,
+    "expected": 30,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

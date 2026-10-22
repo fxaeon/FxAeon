@@ -1,0 +1,8 @@
+{
+  "baseline": "b69d9ce1be59f982fca3ac43a8b037f7037269d4",
+  "originalTrackedFiles": 919,
+  "modifiedOriginalPaths": [],
+  "method": "git ls-tree original baseline intersected with git diff --name-only baseline; new untracked rebuild files are outside the original set",
+  "applicationSourcesImportedFromOldTree": false,
+  "scope": "Original tracked file integrity before step-3 milestone; full behavioral parity remains false"
+}

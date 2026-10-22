@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-fixture/
+test-results/
+playwright-report/
+docs/evidence/browser-report*/
+docs/evidence/browser-results/
+docs/evidence/browser-results-*/
+!docs/evidence/checkpoint-verify.log
+.cache/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local

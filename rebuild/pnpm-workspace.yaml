@@ -1,0 +1,14 @@
+packages: []
+patchedDependencies:
+  '@aladdindao/fx-sdk@1.0.5': vendor/fx-sdk-1.0.5.patch
+minimumReleaseAge: 1440
+allowBuilds:
+  esbuild: true
+overrides:
+  'axios@>=1.0.0 <1.20.0': '1.20.0'
+  'follow-redirects@<1.16.1': '1.16.1'
+  'form-data@>=4.0.0 <4.0.6': '>=4.0.6'
+  'tsx>esbuild': '0.28.1'
+  'source-map-js@<1.2.2': '1.2.2'
+  postcss: '8.5.30'
+  ws: '8.21.3'

@@ -1,0 +1,17 @@
+{
+  "generatedAt": "2026-10-22T03:50:39.792Z",
+  "sourceFiles": 25,
+  "vendorHashes": "match",
+  "sdkPin": "@aladdindao/fx-sdk@1.0.5",
+  "approvedMethods": 15,
+  "implementedMethods": [
+    "getPositions",
+    "increasePosition"
+  ],
+  "signingSites": [
+    "src/wallet/browser.ts"
+  ],
+  "fixtureIsolation": "passed",
+  "securityHeaders": "passed",
+  "limitation": "Static boundary checks supplement behavioral tests; they do not prove absence of every possible secret or vulnerability."
+}

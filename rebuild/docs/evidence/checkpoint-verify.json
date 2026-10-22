@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-10-22T03:51:25.106Z",
+  "scope": "step3 native-ETH long checkpoint",
+  "node": "v22.23.4",
+  "passed": true,
+  "results": [
+    {
+      "name": "Named unit regressions",
+      "exitCode": 0,
+      "durationMs": 13521
+    },
+    {
+      "name": "Strict types and production build",
+      "exitCode": 0,
+      "durationMs": 4797
+    },
+    {
+      "name": "Pinned SDK, architecture, source and fixture boundaries",
+      "exitCode": 0,
+      "durationMs": 484
+    },
+    {
+      "name": "Measured production budgets",
+      "exitCode": 0,
+      "durationMs": 67
+    },
+    {
+      "name": "Separate deterministic browser build",
+      "exitCode": 0,
+      "durationMs": 764
+    },
+    {
+      "name": "Running browser acceptance",
+      "exitCode": 0,
+      "durationMs": 43898
+    },
+    {
+      "name": "Current locked dependency audit",
+      "exitCode": 0,
+      "durationMs": 576
+    }
+  ],
+  "excluded": [
+    "Full 3373-record product parity",
+    "Real f(x) protocol transactions on an Ethereum local fork",
+    "Native Telegram and physical wallet execution",
+    "Remaining product modules and final step6 review"
+  ]
+}

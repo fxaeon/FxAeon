@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: [STEP3-COMPOSITION] exact wei passes real SDK, protocol, controller and browser wallet; canonical history reload observes without replay
+ok 1 - [STEP3-COMPOSITION] exact wei passes real SDK, protocol, controller and browser wallet; canonical history reload observes without replay
+  ---
+  duration_ms: 3636.969661
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3641.711135

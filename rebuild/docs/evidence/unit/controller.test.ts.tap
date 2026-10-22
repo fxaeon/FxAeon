@@ -1,0 +1,196 @@
+TAP version 13
+# Subtest: [SEC-REVIEW-001][SEC-RUN-007] preparing and accepting a review sends nothing; explicit confirmation preserves exact bytes into receipt/history
+ok 1 - [SEC-REVIEW-001][SEC-RUN-007] preparing and accepting a review sends nothing; explicit confirmation preserves exact bytes into receipt/history
+  ---
+  duration_ms: 9.303009
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-003] cancel rejects a late planner even when it ignores AbortSignal
+ok 2 - [SEC-REVIEW-003] cancel rejects a late planner even when it ignores AbortSignal
+  ---
+  duration_ms: 4.846613
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-003] a shared preparation deadline closes a stalled quote without prompting
+ok 3 - [SEC-REVIEW-003] a shared preparation deadline closes a stalled quote without prompting
+  ---
+  duration_ms: 15.925672
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-002] expiry requires new explicit review and never confirm-time replans
+ok 4 - [SEC-REVIEW-002] expiry requires new explicit review and never confirm-time replans
+  ---
+  duration_ms: 1.065623
+  type: 'test'
+  ...
+# Subtest: [SEC-RUN-002] account retirement during preflight produces zero requests
+ok 5 - [SEC-RUN-002] account retirement during preflight produces zero requests
+  ---
+  duration_ms: 1.944255
+  type: 'test'
+  ...
+# Subtest: [SEC-WALLET-012] retirement after dispatch preserves the original receipt without publishing holdings into a new account
+ok 6 - [SEC-WALLET-012] retirement after dispatch preserves the original receipt without publishing holdings into a new account
+  ---
+  duration_ms: 1.278801
+  type: 'test'
+  ...
+# Subtest: [SEC-LOCK-001] repeated confirm while the wallet is open issues exactly one request
+ok 7 - [SEC-LOCK-001] repeated confirm while the wallet is open issues exactly one request
+  ---
+  duration_ms: 1.032343
+  type: 'test'
+  ...
+# Subtest: [SEC-RUN-002] a changed pending nonce blocks before dispatch
+ok 8 - [SEC-RUN-002] a changed pending nonce blocks before dispatch
+  ---
+  duration_ms: 0.656151
+  type: 'test'
+  ...
+# Subtest: [SEC-POLICY-004] a planner cannot replace the accepted input amount
+ok 9 - [SEC-POLICY-004] a planner cannot replace the accepted input amount
+  ---
+  duration_ms: 0.62237
+  type: 'test'
+  ...
+# Subtest: [SEC-RUN-008] throwing view observers cannot interrupt dispatch, journal or receipt proof
+ok 10 - [SEC-RUN-008] throwing view observers cannot interrupt dispatch, journal or receipt proof
+  ---
+  duration_ms: 0.831202
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-003][SEC-RECOVERY-006] unknown confirmation retains the hash and blocks resubmission
+ok 11 - [SEC-RECOVERY-003][SEC-RECOVERY-006] unknown confirmation retains the hash and blocks resubmission
+  ---
+  duration_ms: 2.274694
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-003] missing receipt stays pending, never becomes failed or automatically retryable
+ok 12 - [SEC-RECOVERY-003] missing receipt stays pending, never becomes failed or automatically retryable
+  ---
+  duration_ms: 0.614157
+  type: 'test'
+  ...
+# Subtest: [SEC-RUN-009] wrong-hash receipt cannot confirm a reviewed action
+ok 13 - [SEC-RUN-009] wrong-hash receipt cannot confirm a reviewed action
+  ---
+  duration_ms: 0.784933
+  type: 'test'
+  ...
+# Subtest: [SEC-MINT-001] outer transaction success without verified mint cannot say the position opened
+ok 14 - [SEC-MINT-001] outer transaction success without verified mint cannot say the position opened
+  ---
+  duration_ms: 0.73591
+  type: 'test'
+  ...
+# Subtest: [SEC-RECEIPT-002] canonical revert retains actual fee and hash without position success
+ok 15 - [SEC-RECEIPT-002] canonical revert retains actual fee and hash without position success
+  ---
+  duration_ms: 0.849159
+  type: 'test'
+  ...
+# Subtest: [SEC-RUN-007] explicit rejection and unknown dispatch have different recovery states
+ok 16 - [SEC-RUN-007] explicit rejection and unknown dispatch have different recovery states
+  ---
+  duration_ms: 0.985643
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-002] persisted success is downgraded to observation and cannot restore an executable review
+ok 17 - [SEC-RECOVERY-002] persisted success is downgraded to observation and cannot restore an executable review
+  ---
+  duration_ms: 0.839505
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-005] storage failure after dispatch does not erase the in-memory hash or the earlier unresolved intent
+ok 18 - [SEC-RECOVERY-005] storage failure after dispatch does not erase the in-memory hash or the earlier unresolved intent
+  ---
+  duration_ms: 0.705344
+  type: 'test'
+  ...
+# Subtest: [SEC-AMOUNT-003] invalid replacement clears a previous spend instead of silently retaining it
+ok 19 - [SEC-AMOUNT-003] invalid replacement clears a previous spend instead of silently retaining it
+  ---
+  duration_ms: 0.259448
+  type: 'test'
+  ...
+# Subtest: [SEC-POLICY-001] wrong network never reaches the planner
+ok 20 - [SEC-POLICY-001] wrong network never reaches the planner
+  ---
+  duration_ms: 0.351285
+  type: 'test'
+  ...
+# Subtest: [SEC-LOCK-002] an already open tab discovers another tab’s dispatch before its own wallet request
+ok 21 - [SEC-LOCK-002] an already open tab discovers another tab’s dispatch before its own wallet request
+  ---
+  duration_ms: 0.665365
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-002] a neighboring tab’s hash is discoverable but its success label is never proof
+ok 22 - [SEC-RECOVERY-002] a neighboring tab’s hash is discoverable but its success label is never proof
+  ---
+  duration_ms: 0.222293
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-002] the dispatch guard rejects expiry after the final asynchronous wallet checks
+ok 23 - [SEC-REVIEW-002] the dispatch guard rejects expiry after the final asynchronous wallet checks
+  ---
+  duration_ms: 0.549591
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-002] clock rollback cannot extend accepted review authority
+ok 24 - [SEC-REVIEW-002] clock rollback cannot extend accepted review authority
+  ---
+  duration_ms: 0.269873
+  type: 'test'
+  ...
+# Subtest: [SEC-LOCK-002][SEC-RECOVERY-005] denied pre-prompt persistence blocks both tabs before either wallet request
+ok 25 - [SEC-LOCK-002][SEC-RECOVERY-005] denied pre-prompt persistence blocks both tabs before either wallet request
+  ---
+  duration_ms: 0.673427
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-002] a stored declined label cannot clear an unknown no-hash submission
+ok 26 - [SEC-RECOVERY-002] a stored declined label cannot clear an unknown no-hash submission
+  ---
+  duration_ms: 0.211587
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-003] cancelling a hung read-only wallet check releases confirmation for a new review
+ok 27 - [SEC-REVIEW-003] cancelling a hung read-only wallet check releases confirmation for a new review
+  ---
+  duration_ms: 5.599278
+  type: 'test'
+  ...
+# Subtest: [SEC-RECOVERY-004] a late receipt for an older attempt updates history without replacing a new review
+ok 28 - [SEC-RECOVERY-004] a late receipt for an older attempt updates history without replacing a new review
+  ---
+  duration_ms: 1.556837
+  type: 'test'
+  ...
+# Subtest: [SEC-RECEIPT-001] a failed recheck withdraws current receipt proof instead of retaining verified position output
+ok 29 - [SEC-RECEIPT-001] a failed recheck withdraws current receipt proof instead of retaining verified position output
+  ---
+  duration_ms: 0.944291
+  type: 'test'
+  ...
+# Subtest: [SEC-MINT-001] fresh outer receipt proof survives a missing position while position success stays withheld
+ok 30 - [SEC-MINT-001] fresh outer receipt proof survives a missing position while position success stays withheld
+  ---
+  duration_ms: 0.678464
+  type: 'test'
+  ...
+# Subtest: [SEC-REVIEW-003] synchronous wallet retirement observes the already-started preparation rejection
+ok 31 - [SEC-REVIEW-003] synchronous wallet retirement observes the already-started preparation rejection
+  ---
+  duration_ms: 3.033975
+  type: 'test'
+  ...
+1..31
+# tests 31
+# suites 0
+# pass 31
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 110.063047

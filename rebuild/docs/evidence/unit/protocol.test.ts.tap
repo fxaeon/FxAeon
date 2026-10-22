@@ -1,0 +1,382 @@
+TAP version 13
+# Subtest: native ETH quote is decoded and economics are recomputed in exact units
+ok 1 - native ETH quote is decoded and economics are recomputed in exact units
+  ---
+  duration_ms: 7.76891
+  type: 'test'
+  ...
+# Subtest: quote rejects wrong sender
+ok 2 - quote rejects wrong sender
+  ---
+  duration_ms: 0.701708
+  type: 'test'
+  ...
+# Subtest: quote rejects wrong chain
+ok 3 - quote rejects wrong chain
+  ---
+  duration_ms: 0.604032
+  type: 'test'
+  ...
+# Subtest: quote rejects wrong value
+ok 4 - quote rejects wrong value
+  ---
+  duration_ms: 0.335161
+  type: 'test'
+  ...
+# Subtest: quote rejects negative nonce
+ok 5 - quote rejects negative nonce
+  ---
+  duration_ms: 0.53493
+  type: 'test'
+  ...
+# Subtest: quote rejects fractional nonce
+ok 6 - quote rejects fractional nonce
+  ---
+  duration_ms: 0.374319
+  type: 'test'
+  ...
+# Subtest: quote rejects approval before action
+ok 7 - quote rejects approval before action
+  ---
+  duration_ms: 0.356963
+  type: 'test'
+  ...
+# Subtest: quote rejects noncanonical calldata suffix
+ok 8 - quote rejects noncanonical calldata suffix
+  ---
+  duration_ms: 0.909259
+  type: 'test'
+  ...
+# Subtest: quote rejects wrong current position
+ok 9 - quote rejects wrong current position
+  ---
+  duration_ms: 1.743806
+  type: 'test'
+  ...
+# Subtest: quote rejects missing economic version
+ok 10 - quote rejects missing economic version
+  ---
+  duration_ms: 1.57278
+  type: 'test'
+  ...
+# Subtest: quote rejects zero quote price
+ok 11 - quote rejects zero quote price
+  ---
+  duration_ms: 1.608724
+  type: 'test'
+  ...
+# Subtest: quote rejects unmatched live rate
+ok 12 - quote rejects unmatched live rate
+  ---
+  duration_ms: 0.920395
+  type: 'test'
+  ...
+# Subtest: quote rejects unmatched fee
+ok 13 - quote rejects unmatched fee
+  ---
+  duration_ms: 0.951372
+  type: 'test'
+  ...
+# Subtest: quote rejects quote collateral alteration
+ok 14 - quote rejects quote collateral alteration
+  ---
+  duration_ms: 0.73639
+  type: 'test'
+  ...
+# Subtest: quote rejects debt display alteration
+ok 15 - quote rejects debt display alteration
+  ---
+  duration_ms: 0.823972
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects input token
+ok 16 - decoded policy rejects input token
+  ---
+  duration_ms: 1.454083
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects input converter
+ok 17 - decoded policy rejects input converter
+  ---
+  duration_ms: 1.361524
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects nonempty signature
+ok 18 - decoded policy rejects nonempty signature
+  ---
+  duration_ms: 1.337249
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects zero converter minimum
+ok 19 - decoded policy rejects zero converter minimum
+  ---
+  duration_ms: 1.446462
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects different pool
+ok 20 - decoded policy rejects different pool
+  ---
+  duration_ms: 1.205572
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects existing position
+ok 21 - decoded policy rejects existing position
+  ---
+  duration_ms: 1.269478
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects zero borrowed minimum
+ok 22 - decoded policy rejects zero borrowed minimum
+  ---
+  duration_ms: 1.75309
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects unsigned inner flags
+ok 23 - decoded policy rejects unsigned inner flags
+  ---
+  duration_ms: 4.26204
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects changed nested input amount
+ok 24 - decoded policy rejects changed nested input amount
+  ---
+  duration_ms: 1.408285
+  type: 'test'
+  ...
+# Subtest: decoded policy rejects unapproved converter route
+ok 25 - decoded policy rejects unapproved converter route
+  ---
+  duration_ms: 1.054075
+  type: 'test'
+  ...
+# Subtest: self-consistent half-sized borrowing cannot borrow authority from the leverage echo
+ok 26 - self-consistent half-sized borrowing cannot borrow authority from the leverage echo
+  ---
+  duration_ms: 1.199914
+  type: 'test'
+  ...
+# Subtest: native conversion metadata must match independent evidence for the exact input
+ok 27 - native conversion metadata must match independent evidence for the exact input
+  ---
+  duration_ms: 2.313597
+  type: 'test'
+  ...
+# Subtest: pool pause, capacity and debt-ratio boundaries are live authorization
+ok 28 - pool pause, capacity and debt-ratio boundaries are live authorization
+  ---
+  duration_ms: 2.039288
+  type: 'test'
+  ...
+# Subtest: prepare uses official method parameters, pins pool reads, and preflight never replans
+ok 29 - prepare uses official method parameters, pins pool reads, and preflight never replans
+  ---
+  duration_ms: 9.174201
+  type: 'test'
+  ...
+# Subtest: unavailable market balance stays absent; positive proof is required to fund a trade
+ok 30 - unavailable market balance stays absent; positive proof is required to fund a trade
+  ---
+  duration_ms: 4.377562
+  type: 'test'
+  ...
+# Subtest: preflight rejects changed pending nonce
+ok 31 - preflight rejects changed pending nonce
+  ---
+  duration_ms: 0.964912
+  type: 'test'
+  ...
+# Subtest: preflight rejects unknown nonce
+ok 32 - preflight rejects unknown nonce
+  ---
+  duration_ms: 0.932774
+  type: 'test'
+  ...
+# Subtest: preflight rejects insufficient gas funding
+ok 33 - preflight rejects insufficient gas funding
+  ---
+  duration_ms: 0.912133
+  type: 'test'
+  ...
+# Subtest: preflight rejects nonempty simulation return
+ok 34 - preflight rejects nonempty simulation return
+  ---
+  duration_ms: 0.816581
+  type: 'test'
+  ...
+# Subtest: preflight rejects impossible gas estimate
+ok 35 - preflight rejects impossible gas estimate
+  ---
+  duration_ms: 0.893926
+  type: 'test'
+  ...
+# Subtest: preflight rejects missing fee proof
+ok 36 - preflight rejects missing fee proof
+  ---
+  duration_ms: 0.825103
+  type: 'test'
+  ...
+# Subtest: fee-cap selection uses all five samples and refuses malformed reward history
+ok 37 - fee-cap selection uses all five samples and refuses malformed reward history
+  ---
+  duration_ms: 0.195502
+  type: 'test'
+  ...
+# Subtest: increased network requirements require a new review without replanning
+ok 38 - increased network requirements require a new review without replanning
+  ---
+  duration_ms: 4.498984
+  type: 'test'
+  ...
+# Subtest: receipt proves exact call, actual network fee and one unambiguous mint
+ok 39 - receipt proves exact call, actual network fee and one unambiguous mint
+  ---
+  duration_ms: 1.861462
+  type: 'test'
+  ...
+# Subtest: receipt rejects wrong transaction hash
+ok 40 - receipt rejects wrong transaction hash
+  ---
+  duration_ms: 1.479902
+  type: 'test'
+  ...
+# Subtest: receipt rejects wrong sender
+ok 41 - receipt rejects wrong sender
+  ---
+  duration_ms: 1.663797
+  type: 'test'
+  ...
+# Subtest: receipt rejects changed calldata
+ok 42 - receipt rejects changed calldata
+  ---
+  duration_ms: 1.401294
+  type: 'test'
+  ...
+# Subtest: receipt rejects changed native value
+ok 43 - receipt rejects changed native value
+  ---
+  duration_ms: 1.379412
+  type: 'test'
+  ...
+# Subtest: receipt rejects changed nonce
+ok 44 - receipt rejects changed nonce
+  ---
+  duration_ms: 1.577157
+  type: 'test'
+  ...
+# Subtest: receipt rejects wrong chain
+ok 45 - receipt rejects wrong chain
+  ---
+  duration_ms: 3.297909
+  type: 'test'
+  ...
+# Subtest: receipt rejects noncanonical block
+ok 46 - receipt rejects noncanonical block
+  ---
+  duration_ms: 1.177109
+  type: 'test'
+  ...
+# Subtest: receipt rejects unknown terminal status
+ok 47 - receipt rejects unknown terminal status
+  ---
+  duration_ms: 1.162507
+  type: 'test'
+  ...
+# Subtest: receipt rejects unknown actual fee
+ok 48 - receipt rejects unknown actual fee
+  ---
+  duration_ms: 1.443237
+  type: 'test'
+  ...
+# Subtest: ambiguous, malformed, removed and third-party mints never prove a position
+ok 49 - ambiguous, malformed, removed and third-party mints never prove a position
+  ---
+  duration_ms: 2.793465
+  type: 'test'
+  ...
+# Subtest: observer ignores stale SDK index, proves current ownership and fresh accounting
+ok 50 - observer ignores stale SDK index, proves current ownership and fresh accounting
+  ---
+  duration_ms: 3.196086
+  type: 'test'
+  ...
+# Subtest: confirmed ownership can precede accounting; missing facts are never zero
+ok 51 - confirmed ownership can precede accounting; missing facts are never zero
+  ---
+  duration_ms: 2.664662
+  type: 'test'
+  ...
+# Subtest: reorg during position refresh remains unresolved
+ok 52 - reorg during position refresh remains unresolved
+  ---
+  duration_ms: 2.583892
+  type: 'test'
+  ...
+# Subtest: a transfer before publication removes position authority without denying the receipt
+ok 53 - a transfer before publication removes position authority without denying the receipt
+  ---
+  duration_ms: 2.901386
+  type: 'test'
+  ...
+# Subtest: RPC configuration restricts endpoints and explicit local fork mode
+ok 54 - RPC configuration restricts endpoints and explicit local fork mode
+  ---
+  duration_ms: 0.567408
+  type: 'test'
+  ...
+# Subtest: each endpoint proves its own chain before any financial read
+ok 55 - each endpoint proves its own chain before any financial read
+  ---
+  duration_ms: 26.31315
+  type: 'test'
+  ...
+# Subtest: proof expiry and backward clock movement force fresh chain identity
+ok 56 - proof expiry and backward clock movement force fresh chain identity
+  ---
+  duration_ms: 2.758423
+  type: 'test'
+  ...
+# Subtest: terminal chain rejection never falls through to another endpoint
+ok 57 - terminal chain rejection never falls through to another endpoint
+  ---
+  duration_ms: 4.17894
+  type: 'test'
+  ...
+# Subtest: ambiguous envelopes and signing methods cannot cross the read transport
+ok 58 - ambiguous envelopes and signing methods cannot cross the read transport
+  ---
+  duration_ms: 1.447644
+  type: 'test'
+  ...
+# Subtest: local chain ID alone cannot prove an Anvil Ethereum fork
+ok 59 - local chain ID alone cannot prove an Anvil Ethereum fork
+  ---
+  duration_ms: 1.624277
+  type: 'test'
+  ...
+# Subtest: deadline covers an uncooperative dependency and late response body
+ok 60 - deadline covers an uncooperative dependency and late response body
+  ---
+  duration_ms: 26.274838
+  type: 'test'
+  ...
+# Subtest: abort cancels promptly even if the SDK ignores its caller
+ok 61 - abort cancels promptly even if the SDK ignores its caller
+  ---
+  duration_ms: 2.182352
+  type: 'test'
+  ...
+# Subtest: pinned entry selector is the documented five-argument V2 entry
+ok 62 - pinned entry selector is the documented five-argument V2 entry
+  ---
+  duration_ms: 4.203833
+  type: 'test'
+  ...
+1..62
+# tests 62
+# suites 0
+# pass 62
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 175.281191

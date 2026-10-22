@@ -1,0 +1,114 @@
+$ node scripts/verify.mjs
+FxAeon checkpoint verification. Full product parity, real protocol forks and native devices are separate, unfinished release gates.
+
+Named unit regressions
+PASS amount.test.ts: 3/3 named cases
+PASS controller.test.ts: 31/31 named cases
+PASS host-browser.test.ts: 16/16 named cases
+PASS integration-long.test.ts: 1/1 named cases
+PASS protocol-vendor.test.ts: 18/18 named cases
+PASS protocol.test.ts: 62/62 named cases
+PASS wallet-browser.test.ts: 33/33 named cases
+164 named cases across 7 isolated modules. Failing-test canary verified.
+
+Strict types and production build
+$ tsc --noEmit && vite build
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 1058 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/app/index.html                  0.82 kB │ gzip:   0.47 kB
+dist/.vite/manifest.json             2.87 kB │ gzip:   0.60 kB
+dist/index.html                      6.56 kB │ gzip:   2.58 kB
+dist/assets/landing-H8WE9mIu.css     5.99 kB │ gzip:   1.88 kB
+dist/assets/app-D0U3wuza.css        42.52 kB │ gzip:   8.62 kB
+dist/assets/secp256k1-D-9bOQuA.js    0.04 kB │ gzip:   0.06 kB
+dist/assets/utils-Bpv4vmSW.js        2.19 kB │ gzip:   0.97 kB
+dist/assets/ccip-B47E9LDO.js         2.55 kB │ gzip:   1.21 kB
+dist/assets/sha3-BxeSTuLA.js        17.04 kB │ gzip:   5.40 kB
+dist/assets/protocol-DV4E-AI-.js    63.91 kB │ gzip:  20.23 kB
+dist/assets/app-I8_rzXZF.js        300.30 kB │ gzip:  91.75 kB
+dist/assets/dist-deDwf78X.js       505.90 kB │ gzip: 126.08 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 238ms
+
+Pinned SDK, architecture, source and fixture boundaries
+Boundary checks passed: 25 source files; exact installed SDK hashes; 15 pinned methods; 2 used in checkpoint; one wallet send site; no fixture in production.
+
+Measured production budgets
+Critical app JavaScript: 88.49 KiB / 180 KiB gzip
+Critical app CSS: 8.34 KiB / 25 KiB gzip
+Landing JavaScript: 0.00 KiB / 40 KiB gzip
+All lazy JavaScript combined: 237.23 KiB / 1536 KiB gzip
+
+Separate deterministic browser build
+$ vite build --mode fixture --outDir dist-fixture
+vite v8.3.4 building client environment for fixture...
+transforming...
+✓ 29 modules transformed.
+rendering chunks...
+computing gzip size...
+dist-fixture/.vite/manifest.json            0.27 kB │ gzip:  0.17 kB
+dist-fixture/app/index.html                 0.82 kB │ gzip:  0.46 kB
+dist-fixture/index.html                     6.56 kB │ gzip:  2.58 kB
+dist-fixture/assets/landing-H8WE9mIu.css    5.99 kB │ gzip:  1.88 kB
+dist-fixture/assets/app-D0U3wuza.css       42.52 kB │ gzip:  8.62 kB
+dist-fixture/assets/app-CulnaTI5.js       301.92 kB │ gzip: 92.15 kB
+
+✓ built in 175ms
+
+Running browser acceptance
+$ playwright test
+[WebServer] (node:43893) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Local preview: http://127.0.0.1:4173 (dist-fixture)
+
+Running 30 tests using 2 workers
+
+(node:43903) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:43902) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   2 test/browser/accessibility.spec.ts:13:1 › wallet keyboard focus is trapped, Escape restores the opener, and browser Back dismisses one overlay (1.1s)
+  ✓   1 test/browser/accessibility.spec.ts:38:1 › Escape closes an expanded review disclosure before the review and restores a usable editor (1.9s)
+  ✓   3 test/browser/accessibility.spec.ts:57:1 › closing the signing view preserves the original attempt and verified history without replay (2.4s)
+  ✓   4 test/browser/accessibility.spec.ts:72:5 › dark theme at 1280px: trade and exact review pass axe and horizontal overflow checks (2.8s)
+  ✓   5 test/browser/accessibility.spec.ts:72:5 › dark theme at 393px: trade and exact review pass axe and horizontal overflow checks (2.6s)
+  ✓   6 test/browser/accessibility.spec.ts:72:5 › dark theme at 320px: trade and exact review pass axe and horizontal overflow checks (2.5s)
+  ✓   7 test/browser/accessibility.spec.ts:99:3 › dark theme at 320px with 200% text retains review content and usable actions (2.5s)
+  ✓   8 test/browser/accessibility.spec.ts:72:5 › light theme at 1280px: trade and exact review pass axe and horizontal overflow checks (2.7s)
+  ✓   9 test/browser/accessibility.spec.ts:72:5 › light theme at 393px: trade and exact review pass axe and horizontal overflow checks (2.4s)
+  ✓  10 test/browser/accessibility.spec.ts:72:5 › light theme at 320px: trade and exact review pass axe and horizontal overflow checks (2.5s)
+  ✓  12 test/browser/accessibility.spec.ts:125:1 › theme switching preserves the exact deposit, leverage, and explicit slippage preference (967ms)
+  ✓  11 test/browser/accessibility.spec.ts:99:3 › light theme at 320px with 200% text retains review content and usable actions (2.6s)
+  ✓  13 test/browser/discovery.spec.ts:3:1 › built fixture announces simulation, has a labelled trade editor, and makes no wallet request on load (535ms)
+  ✓  15 test/browser/trade.spec.ts:45:1 › a saved terminal label is not presented as current confirmation after reload (3.2s)
+  ✓  14 test/browser/trade.spec.ts:3:1 › exact deposit survives review, one wallet request, verified receipt, and account-scoped history (3.9s)
+  ✓  16 test/browser/trade.spec.ts:62:1 › duplicate confirm events dispatch exactly one wallet transaction (2.8s)
+  ✓  17 test/browser/trade.spec.ts:85:3 › reject: receipt and history language preserve the actual certainty without replay (2.8s)
+  ✓  18 test/browser/trade.spec.ts:85:3 › unknown-send: receipt and history language preserve the actual certainty without replay (2.6s)
+  ✓  19 test/browser/trade.spec.ts:85:3 › pending: receipt and history language preserve the actual certainty without replay (2.9s)
+  ✓  20 test/browser/trade.spec.ts:85:3 › reverted: receipt and history language preserve the actual certainty without replay (2.6s)
+  ✓  21 test/browser/trade.spec.ts:85:3 › missing-position: receipt and history language preserve the actual certainty without replay (3.0s)
+  ✓  22 test/browser/trade.spec.ts:85:3 › receipt-error: receipt and history language preserve the actual certainty without replay (3.0s)
+  ✓  23 test/browser/trade.spec.ts:120:1 › a declined request preserves the deposit and a new explicit review can ask the wallet again (4.4s)
+  ✓  24 test/browser/trade.spec.ts:135:1 › expired review offers refresh and makes no signing request (3.4s)
+  ✓  25 test/browser/trade.spec.ts:147:1 › account change during preflight retires the review without a signing request (1.8s)
+  ✓  27 test/browser/trade.spec.ts:170:1 › wrong network waits for explicit switch and never signs automatically (700ms)
+  ✓  26 test/browser/trade.spec.ts:158:1 › nonce change during preflight blocks the transaction and preserves editable input (1.8s)
+  ✓  28 test/browser/trade.spec.ts:181:3 › simulation-error: preparation failure keeps the editor and never opens the wallet (1.8s)
+  ✓  29 test/browser/trade.spec.ts:181:3 › insufficient-funds: preparation failure keeps the editor and never opens the wallet (1.6s)
+  ✓  30 test/browser/trade.spec.ts:193:1 › cancelling a slow preparation rejects its late result (7.0s)
+
+  30 passed (42.9s)
+
+Current locked dependency audit
+Dependency audit: {"info":0,"low":0,"moderate":0,"high":0,"critical":0} (129 graph dependencies).
+
+Checkpoint verification passed within the stated scope. This is not the step5 parity gate or permission to replace the old tree.

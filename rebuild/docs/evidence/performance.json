@@ -1,0 +1,1386 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-22T03:45:57.967Z",
+  "status": "complete",
+  "scope": "Local built production checkpoint; controlled laboratory observations, not device or mainnet claims",
+  "landing": {
+    "inspections": [
+      {
+        "id": "desktop",
+        "width": 1440,
+        "height": 1000,
+        "axe": [],
+        "layout": {
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "rootFontPx": "16px",
+          "documentWidth": 1440,
+          "clientWidth": 1440,
+          "overflowing": [],
+          "links": [
+            {
+              "name": "Skip to content",
+              "href": "#main",
+              "target": "",
+              "rel": "",
+              "height": 51
+            },
+            {
+              "name": "FxAeon home",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Our approach",
+              "href": "#principles",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Source ↗",
+              "href": "https://github.com/fxaeon/FxAeon/tree/rebuild/fxaeon-foundation-20261022",
+              "target": "_blank",
+              "rel": "noopener noreferrer",
+              "height": 44
+            },
+            {
+              "name": "Open app ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "Explore ETH long ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "Built around your control ↓",
+              "href": "#principles",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Open FxAeon ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "fxaeon",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Behavior & guarantees ↗",
+              "href": "https://github.com/fxaeon/FxAeon/blob/rebuild/fxaeon-foundation-20261022/BEHAVIOR_SPEC.md",
+              "target": "_blank",
+              "rel": "noopener noreferrer",
+              "height": 44
+            }
+          ]
+        },
+        "firstFocus": {
+          "text": "Skip to content",
+          "href": "#main"
+        },
+        "keyboardApproachAnchor": true,
+        "errors": [],
+        "blockedExternalRequests": [],
+        "screenshot": "docs/evidence/checkpoint-landing-desktop.png"
+      },
+      {
+        "id": "phone-393",
+        "width": 393,
+        "height": 852,
+        "axe": [],
+        "layout": {
+          "viewport": {
+            "width": 393,
+            "height": 852
+          },
+          "rootFontPx": "16px",
+          "documentWidth": 393,
+          "clientWidth": 393,
+          "overflowing": [],
+          "links": [
+            {
+              "name": "Skip to content",
+              "href": "#main",
+              "target": "",
+              "rel": "",
+              "height": 51
+            },
+            {
+              "name": "FxAeon home",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Open app ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 46
+            },
+            {
+              "name": "Explore ETH long ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "Built around your control ↓",
+              "href": "#principles",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Open FxAeon ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "fxaeon",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Behavior & guarantees ↗",
+              "href": "https://github.com/fxaeon/FxAeon/blob/rebuild/fxaeon-foundation-20261022/BEHAVIOR_SPEC.md",
+              "target": "_blank",
+              "rel": "noopener noreferrer",
+              "height": 44
+            }
+          ]
+        },
+        "firstFocus": {
+          "text": "Skip to content",
+          "href": "#main"
+        },
+        "keyboardApproachAnchor": true,
+        "errors": [],
+        "blockedExternalRequests": [],
+        "screenshot": "docs/evidence/checkpoint-landing-phone-393.png"
+      },
+      {
+        "id": "phone-320",
+        "width": 320,
+        "height": 568,
+        "axe": [],
+        "layout": {
+          "viewport": {
+            "width": 320,
+            "height": 568
+          },
+          "rootFontPx": "16px",
+          "documentWidth": 320,
+          "clientWidth": 320,
+          "overflowing": [],
+          "links": [
+            {
+              "name": "Skip to content",
+              "href": "#main",
+              "target": "",
+              "rel": "",
+              "height": 51
+            },
+            {
+              "name": "FxAeon home",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Open app ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 46
+            },
+            {
+              "name": "Explore ETH long ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "Built around your control ↓",
+              "href": "#principles",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Open FxAeon ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 52
+            },
+            {
+              "name": "fxaeon",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 44
+            },
+            {
+              "name": "Behavior & guarantees ↗",
+              "href": "https://github.com/fxaeon/FxAeon/blob/rebuild/fxaeon-foundation-20261022/BEHAVIOR_SPEC.md",
+              "target": "_blank",
+              "rel": "noopener noreferrer",
+              "height": 44
+            }
+          ]
+        },
+        "firstFocus": {
+          "text": "Skip to content",
+          "href": "#main"
+        },
+        "keyboardApproachAnchor": true,
+        "errors": [],
+        "blockedExternalRequests": [],
+        "screenshot": "docs/evidence/checkpoint-landing-phone-320.png"
+      },
+      {
+        "id": "phone-320-text200",
+        "width": 320,
+        "height": 568,
+        "text": true,
+        "axe": [],
+        "layout": {
+          "viewport": {
+            "width": 320,
+            "height": 568
+          },
+          "rootFontPx": "32px",
+          "documentWidth": 495,
+          "clientWidth": 320,
+          "overflowing": [
+            {
+              "tag": "A",
+              "className": "button button-dark",
+              "text": "Open app ↗",
+              "bounds": {
+                "x": 216.359375,
+                "y": 0,
+                "width": 168.296875,
+                "height": 108,
+                "top": 0,
+                "right": 384.65625,
+                "bottom": 108,
+                "left": 216.359375
+              }
+            },
+            {
+              "tag": "SPAN",
+              "className": null,
+              "text": "↗",
+              "bounds": {
+                "x": 335.140625,
+                "y": 34,
+                "width": 33.515625,
+                "height": 40,
+                "top": 34,
+                "right": 368.65625,
+                "bottom": 74,
+                "left": 335.140625
+              }
+            },
+            {
+              "tag": "SPAN",
+              "className": null,
+              "text": "exposure.",
+              "bounds": {
+                "x": 20,
+                "y": 504.75,
+                "width": 474.671875,
+                "height": 130,
+                "top": 504.75,
+                "right": 494.671875,
+                "bottom": 634.75,
+                "left": 20
+              }
+            },
+            {
+              "tag": "SPAN",
+              "className": null,
+              "text": "ILLUSTRATION / 01",
+              "bounds": {
+                "x": 211.34375,
+                "y": 1944.109375,
+                "width": 169.578125,
+                "height": 64,
+                "top": 1944.109375,
+                "right": 380.921875,
+                "bottom": 2008.109375,
+                "left": 211.34375
+              }
+            }
+          ],
+          "links": [
+            {
+              "name": "Skip to content",
+              "href": "#main",
+              "target": "",
+              "rel": "",
+              "height": 70
+            },
+            {
+              "name": "FxAeon home",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 50
+            },
+            {
+              "name": "Open app ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 108
+            },
+            {
+              "name": "Explore ETH long ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 114
+            },
+            {
+              "name": "Built around your control ↓",
+              "href": "#principles",
+              "target": "",
+              "rel": "",
+              "height": 60
+            },
+            {
+              "name": "Open FxAeon ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 114
+            },
+            {
+              "name": "fxaeon",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 46
+            },
+            {
+              "name": "Behavior & guarantees ↗",
+              "href": "https://github.com/fxaeon/FxAeon/blob/rebuild/fxaeon-foundation-20261022/BEHAVIOR_SPEC.md",
+              "target": "_blank",
+              "rel": "noopener noreferrer",
+              "height": 56
+            }
+          ]
+        },
+        "firstFocus": {
+          "text": "Skip to content",
+          "href": "#main"
+        },
+        "keyboardApproachAnchor": true,
+        "errors": [],
+        "blockedExternalRequests": [],
+        "screenshot": "docs/evidence/checkpoint-landing-phone-320-text200.png"
+      },
+      {
+        "id": "phone-393-text200",
+        "width": 393,
+        "height": 852,
+        "text": true,
+        "axe": [],
+        "layout": {
+          "viewport": {
+            "width": 393,
+            "height": 852
+          },
+          "rootFontPx": "32px",
+          "documentWidth": 495,
+          "clientWidth": 393,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "className": null,
+              "text": "exposure.",
+              "bounds": {
+                "x": 20,
+                "y": 468.75,
+                "width": 474.671875,
+                "height": 130,
+                "top": 468.75,
+                "right": 494.671875,
+                "bottom": 598.75,
+                "left": 20
+              }
+            }
+          ],
+          "links": [
+            {
+              "name": "Skip to content",
+              "href": "#main",
+              "target": "",
+              "rel": "",
+              "height": 70
+            },
+            {
+              "name": "FxAeon home",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 50
+            },
+            {
+              "name": "Open app ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 108
+            },
+            {
+              "name": "Explore ETH long ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 114
+            },
+            {
+              "name": "Built around your control ↓",
+              "href": "#principles",
+              "target": "",
+              "rel": "",
+              "height": 60
+            },
+            {
+              "name": "Open FxAeon ↗",
+              "href": "/app/",
+              "target": "",
+              "rel": "",
+              "height": 72
+            },
+            {
+              "name": "fxaeon",
+              "href": "/",
+              "target": "",
+              "rel": "",
+              "height": 46
+            },
+            {
+              "name": "Behavior & guarantees ↗",
+              "href": "https://github.com/fxaeon/FxAeon/blob/rebuild/fxaeon-foundation-20261022/BEHAVIOR_SPEC.md",
+              "target": "_blank",
+              "rel": "noopener noreferrer",
+              "height": 44
+            }
+          ]
+        },
+        "firstFocus": {
+          "text": "Skip to content",
+          "href": "#main"
+        },
+        "keyboardApproachAnchor": true,
+        "errors": [],
+        "blockedExternalRequests": [],
+        "screenshot": "docs/evidence/checkpoint-landing-phone-393-text200.png"
+      }
+    ],
+    "rechecks": [
+      {
+        "recordedAt": "2026-10-22T03:48:38.945Z",
+        "width": 320,
+        "textPercent": 200,
+        "axe": [],
+        "layout": {
+          "viewportWidth": 320,
+          "documentWidth": 320,
+          "rootFontPx": "32px",
+          "artOverflow": 0,
+          "headerOverflow": 0,
+          "offscreenControls": []
+        },
+        "keyboardOpenApp": true,
+        "errors": [],
+        "screenshot": "docs/evidence/checkpoint-landing-phone-320-text200-fixed.png"
+      },
+      {
+        "recordedAt": "2026-10-22T03:48:39.663Z",
+        "width": 393,
+        "textPercent": 200,
+        "axe": [],
+        "layout": {
+          "viewportWidth": 393,
+          "documentWidth": 393,
+          "rootFontPx": "32px",
+          "artOverflow": 0,
+          "headerOverflow": 0,
+          "offscreenControls": []
+        },
+        "keyboardOpenApp": true,
+        "errors": [],
+        "screenshot": "docs/evidence/checkpoint-landing-phone-393-text200-fixed.png"
+      }
+    ],
+    "enlargedTextIssue": {
+      "originalFinding": "At 200% text, headline, header action and art caption overflowed the 320px layout; headline overflowed 393px.",
+      "status": "resolved",
+      "fix": "Integrator added natural wrapping to heading, header and art metadata; font size was preserved.",
+      "recheckedArtifact": "d6966786609c817249d648c17b895babb7a7a07886b80854bd3a99ee93635e1d"
+    },
+    "manualVisualReview": {
+      "desktop": "Clear two-column hierarchy, original vector illustration, legible controls and no invented market metrics.",
+      "phone": "Content stacks without clipped controls at 320px and 393px; normal-size screenshots were inspected.",
+      "illustration": "Visible caption labels illustration; accessible description explicitly states it is not market data.",
+      "svgAria": "No axe findings in any inspected landing state; decorative SVG is aria-hidden within labelled role=img container.",
+      "keyboard": "Skip link first in tab sequence; approach anchor worked at all sizes; Open app activated with Enter after both enlarged-text corrections.",
+      "externalLinks": "Inspected href, target and noopener/noreferrer attributes; no external destinations were requested."
+    }
+  },
+  "browser": "153.0.8010.0",
+  "artifact": {
+    "landingHtmlSha256": "271312c891ccf65ebbeae1af8065d540ec87c7b48e37301489946bcaab3972c5"
+  },
+  "production": {
+    "recordedAt": "2026-10-22T03:48:43.114Z",
+    "url": "http://127.0.0.1:4175/app/",
+    "browser": "153.0.8010.0",
+    "node": "v22.23.4",
+    "host": {
+      "platform": "linux",
+      "architecture": "x64",
+      "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+      "logicalCpus": 9
+    },
+    "setup": {
+      "cpuSlowdown": 4,
+      "latencyMs": 100,
+      "downloadBitsPerSecond": 10000000,
+      "uploadBitsPerSecond": 10000000,
+      "cache": "Disabled via CDP; fresh browser context for every sample; service workers blocked",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "deviceScaleFactor": 1,
+      "reducedMotion": true,
+      "serverCompression": "none",
+      "rpc": "Unconfigured production build; all external origins blocked; no real wallet",
+      "formReadyDefinition": "Navigation start until amount input is mounted, enabled, nonzero height and survives two animation frames; successful controlled input then verified separately",
+      "samples": 3
+    },
+    "artifactBefore": {
+      "index.html": {
+        "sha256": "d6966786609c817249d648c17b895babb7a7a07886b80854bd3a99ee93635e1d",
+        "rawBytes": 6568,
+        "gzipBytes": 2577
+      },
+      "app/index.html": {
+        "sha256": "3964c5dddd8abe14f019da65dccd54618d4e9dcec224065c6c758dea8a5bbe79",
+        "rawBytes": 820,
+        "gzipBytes": 470
+      },
+      ".vite/manifest.json": {
+        "sha256": "514d812211f7e01f367ec8635237f7c6f7f95344e81336323964739f4f8f70dc",
+        "rawBytes": 2870,
+        "gzipBytes": 600
+      },
+      "assets/app-D0U3wuza.css": {
+        "sha256": "e7dccc4255858aaf2894eae3c80acfb3efb6a069ee07c5e8db9b472111bb4144",
+        "rawBytes": 42521,
+        "gzipBytes": 8541
+      },
+      "assets/app-I8_rzXZF.js": {
+        "sha256": "487822c5427061120ce432e927c36131aec78f8f33323d215c94879d9cc0e04a",
+        "rawBytes": 300306,
+        "gzipBytes": 90616
+      },
+      "assets/ccip-B47E9LDO.js": {
+        "sha256": "a2eb209864a324407ec53e8b349ac479dfa34e2991bb7a7b41974909ca71ebc9",
+        "rawBytes": 2551,
+        "gzipBytes": 1209
+      },
+      "assets/dist-deDwf78X.js": {
+        "sha256": "ff79a88d2338eca71190245538253a5312394f32ed22434358d64e87522b4888",
+        "rawBytes": 505907,
+        "gzipBytes": 124594
+      },
+      "assets/landing-H8WE9mIu.css": {
+        "sha256": "f65cea09e764e0f3f098b1668be2980760fd11bff5153ea577a38c12a170cfd3",
+        "rawBytes": 5993,
+        "gzipBytes": 1873
+      },
+      "assets/protocol-DV4E-AI-.js": {
+        "sha256": "7b9c407ec44a010003af0379bba5c12e485c7ceedc8764aaa6d75a4c1634b5f4",
+        "rawBytes": 63910,
+        "gzipBytes": 20087
+      },
+      "assets/secp256k1-D-9bOQuA.js": {
+        "sha256": "9e19b6cbd285a6a2f12a1ee8f8e830ce7bd0b53d9b8fa7441d80332e08feaf37",
+        "rawBytes": 47,
+        "gzipBytes": 67
+      },
+      "assets/sha3-BxeSTuLA.js": {
+        "sha256": "9665512b73c79e70e55a68eb76cd45fbf5234c603eb524ba4733e83151b8ffb6",
+        "rawBytes": 17042,
+        "gzipBytes": 5378
+      },
+      "assets/utils-Bpv4vmSW.js": {
+        "sha256": "5114638bb111b647e478a947be5beed5558487685dc8284144566df3fc03d851",
+        "rawBytes": 2194,
+        "gzipBytes": 977
+      }
+    },
+    "artifactUnchangedDuringSamples": true,
+    "samples": [
+      {
+        "sample": 1,
+        "formReadyMs": 748.3999999985099,
+        "longTasks": [
+          {
+            "startTimeMs": 581,
+            "durationMs": 146,
+            "name": "self"
+          }
+        ],
+        "inputStartedMs": 845,
+        "inputObservedMs": 871.2999999970198,
+        "navigation": {
+          "domContentLoadedMs": 575.2999999970198,
+          "loadEventMs": 577.2999999970198,
+          "transferSizeBytes": 1120,
+          "encodedBodySizeBytes": 820,
+          "decodedBodySizeBytes": 820
+        },
+        "resources": [
+          {
+            "path": "/assets/app-I8_rzXZF.js",
+            "initiatorType": "script",
+            "startTimeMs": 133.19999999925494,
+            "durationMs": 404,
+            "transferSizeBytes": 300606,
+            "encodedBodySizeBytes": 300306,
+            "decodedBodySizeBytes": 300306
+          },
+          {
+            "path": "/assets/app-D0U3wuza.css",
+            "initiatorType": "link",
+            "startTimeMs": 133.5,
+            "durationMs": 196.09999999776483,
+            "transferSizeBytes": 42821,
+            "encodedBodySizeBytes": 42521,
+            "decodedBodySizeBytes": 42521
+          }
+        ],
+        "totalTransferSizeBytes": 344547,
+        "totalEncodedBodySizeBytes": 343647,
+        "fixtureGlobalPresent": false,
+        "rpcConfigurationNotice": true,
+        "blockedExternalRequests": [],
+        "pageErrors": [],
+        "responseContentEncodings": [
+          {
+            "path": "/app/",
+            "contentEncoding": "none"
+          },
+          {
+            "path": "/assets/app-D0U3wuza.css",
+            "contentEncoding": "none"
+          },
+          {
+            "path": "/assets/app-I8_rzXZF.js",
+            "contentEncoding": "none"
+          }
+        ]
+      },
+      {
+        "sample": 2,
+        "formReadyMs": 828.6000000014901,
+        "longTasks": [
+          {
+            "startTimeMs": 582.9000000022352,
+            "durationMs": 229,
+            "name": "self"
+          }
+        ],
+        "inputStartedMs": 914.7000000029802,
+        "inputObservedMs": 939.3000000007451,
+        "navigation": {
+          "domContentLoadedMs": 576.9000000022352,
+          "loadEventMs": 578.1000000014901,
+          "transferSizeBytes": 1120,
+          "encodedBodySizeBytes": 820,
+          "decodedBodySizeBytes": 820
+        },
+        "resources": [
+          {
+            "path": "/assets/app-I8_rzXZF.js",
+            "initiatorType": "script",
+            "startTimeMs": 129.80000000074506,
+            "durationMs": 403.1000000014901,
+            "transferSizeBytes": 300606,
+            "encodedBodySizeBytes": 300306,
+            "decodedBodySizeBytes": 300306
+          },
+          {
+            "path": "/assets/app-D0U3wuza.css",
+            "initiatorType": "link",
+            "startTimeMs": 130.30000000074506,
+            "durationMs": 195.90000000223517,
+            "transferSizeBytes": 42821,
+            "encodedBodySizeBytes": 42521,
+            "decodedBodySizeBytes": 42521
+          }
+        ],
+        "totalTransferSizeBytes": 344547,
+        "totalEncodedBodySizeBytes": 343647,
+        "fixtureGlobalPresent": false,
+        "rpcConfigurationNotice": true,
+        "blockedExternalRequests": [],
+        "pageErrors": [],
+        "responseContentEncodings": [
+          {
+            "path": "/app/",
+            "contentEncoding": "none"
+          },
+          {
+            "path": "/assets/app-D0U3wuza.css",
+            "contentEncoding": "none"
+          },
+          {
+            "path": "/assets/app-I8_rzXZF.js",
+            "contentEncoding": "none"
+          }
+        ]
+      },
+      {
+        "sample": 3,
+        "formReadyMs": 768.5999999977648,
+        "longTasks": [
+          {
+            "startTimeMs": 573.5999999977648,
+            "durationMs": 173,
+            "name": "self"
+          }
+        ],
+        "inputStartedMs": 851.0999999977648,
+        "inputObservedMs": 870.3999999985099,
+        "navigation": {
+          "domContentLoadedMs": 568.8999999985099,
+          "loadEventMs": 570.5,
+          "transferSizeBytes": 1120,
+          "encodedBodySizeBytes": 820,
+          "decodedBodySizeBytes": 820
+        },
+        "resources": [
+          {
+            "path": "/assets/app-I8_rzXZF.js",
+            "initiatorType": "script",
+            "startTimeMs": 129.69999999925494,
+            "durationMs": 400.1000000014901,
+            "transferSizeBytes": 300606,
+            "encodedBodySizeBytes": 300306,
+            "decodedBodySizeBytes": 300306
+          },
+          {
+            "path": "/assets/app-D0U3wuza.css",
+            "initiatorType": "link",
+            "startTimeMs": 130.30000000074506,
+            "durationMs": 191.29999999701977,
+            "transferSizeBytes": 42821,
+            "encodedBodySizeBytes": 42521,
+            "decodedBodySizeBytes": 42521
+          }
+        ],
+        "totalTransferSizeBytes": 344547,
+        "totalEncodedBodySizeBytes": 343647,
+        "fixtureGlobalPresent": false,
+        "rpcConfigurationNotice": true,
+        "blockedExternalRequests": [],
+        "pageErrors": [],
+        "responseContentEncodings": [
+          {
+            "path": "/app/",
+            "contentEncoding": "none"
+          },
+          {
+            "path": "/assets/app-D0U3wuza.css",
+            "contentEncoding": "none"
+          },
+          {
+            "path": "/assets/app-I8_rzXZF.js",
+            "contentEncoding": "none"
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "formReadyMedianMs": 768.5999999977648,
+      "formReadyMaxMs": 828.6000000014901,
+      "startupLongTaskMedianOfSampleMaxMs": 173,
+      "startupLongTaskMaxMs": 229,
+      "formReadyThresholdMs": 2500,
+      "formReadyPass": true,
+      "resourceTransferSizeBytes": [
+        344547,
+        344547,
+        344547
+      ],
+      "resourceEncodedBodySizeBytes": [
+        343647,
+        343647,
+        343647
+      ]
+    }
+  },
+  "priorProductionRuns": [
+    {
+      "recordedAt": "2026-10-22T03:47:17.427Z",
+      "url": "http://127.0.0.1:4175/app/",
+      "browser": "153.0.8010.0",
+      "node": "v22.23.4",
+      "host": {
+        "platform": "linux",
+        "architecture": "x64",
+        "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+        "logicalCpus": 9
+      },
+      "setup": {
+        "cpuSlowdown": 4,
+        "latencyMs": 100,
+        "downloadBitsPerSecond": 10000000,
+        "uploadBitsPerSecond": 10000000,
+        "cache": "Disabled via CDP; fresh browser context for every sample; service workers blocked",
+        "viewport": {
+          "width": 393,
+          "height": 852
+        },
+        "deviceScaleFactor": 1,
+        "reducedMotion": true,
+        "serverCompression": "none",
+        "rpc": "Unconfigured production build; all external origins blocked; no real wallet",
+        "formReadyDefinition": "Navigation start until amount input is mounted, enabled, nonzero height and survives two animation frames; successful controlled input then verified separately",
+        "samples": 3
+      },
+      "artifactBefore": {
+        "app/index.html": {
+          "sha256": "3964c5dddd8abe14f019da65dccd54618d4e9dcec224065c6c758dea8a5bbe79",
+          "rawBytes": 820,
+          "gzipBytes": 470
+        },
+        ".vite/manifest.json": {
+          "sha256": "514d812211f7e01f367ec8635237f7c6f7f95344e81336323964739f4f8f70dc",
+          "rawBytes": 2870,
+          "gzipBytes": 600
+        },
+        "assets/app-D0U3wuza.css": {
+          "sha256": "e7dccc4255858aaf2894eae3c80acfb3efb6a069ee07c5e8db9b472111bb4144",
+          "rawBytes": 42521,
+          "gzipBytes": 8541
+        },
+        "assets/app-I8_rzXZF.js": {
+          "sha256": "487822c5427061120ce432e927c36131aec78f8f33323d215c94879d9cc0e04a",
+          "rawBytes": 300306,
+          "gzipBytes": 90616
+        },
+        "assets/ccip-B47E9LDO.js": {
+          "sha256": "a2eb209864a324407ec53e8b349ac479dfa34e2991bb7a7b41974909ca71ebc9",
+          "rawBytes": 2551,
+          "gzipBytes": 1209
+        },
+        "assets/dist-deDwf78X.js": {
+          "sha256": "ff79a88d2338eca71190245538253a5312394f32ed22434358d64e87522b4888",
+          "rawBytes": 505907,
+          "gzipBytes": 124594
+        },
+        "assets/landing-H8WE9mIu.css": {
+          "sha256": "f65cea09e764e0f3f098b1668be2980760fd11bff5153ea577a38c12a170cfd3",
+          "rawBytes": 5993,
+          "gzipBytes": 1873
+        },
+        "assets/protocol-DV4E-AI-.js": {
+          "sha256": "7b9c407ec44a010003af0379bba5c12e485c7ceedc8764aaa6d75a4c1634b5f4",
+          "rawBytes": 63910,
+          "gzipBytes": 20087
+        },
+        "assets/secp256k1-D-9bOQuA.js": {
+          "sha256": "9e19b6cbd285a6a2f12a1ee8f8e830ce7bd0b53d9b8fa7441d80332e08feaf37",
+          "rawBytes": 47,
+          "gzipBytes": 67
+        },
+        "assets/sha3-BxeSTuLA.js": {
+          "sha256": "9665512b73c79e70e55a68eb76cd45fbf5234c603eb524ba4733e83151b8ffb6",
+          "rawBytes": 17042,
+          "gzipBytes": 5378
+        },
+        "assets/utils-Bpv4vmSW.js": {
+          "sha256": "5114638bb111b647e478a947be5beed5558487685dc8284144566df3fc03d851",
+          "rawBytes": 2194,
+          "gzipBytes": 977
+        }
+      },
+      "artifactUnchangedDuringSamples": true,
+      "samples": [
+        {
+          "sample": 1,
+          "formReadyMs": 760.7999999970198,
+          "longTasks": [
+            {
+              "startTimeMs": 584.5,
+              "durationMs": 155,
+              "name": "self"
+            }
+          ],
+          "inputStartedMs": 904.3999999985099,
+          "inputObservedMs": 929.1999999992549,
+          "navigation": {
+            "domContentLoadedMs": 578.7999999970198,
+            "loadEventMs": 580.7999999970198,
+            "transferSizeBytes": 1120,
+            "encodedBodySizeBytes": 820,
+            "decodedBodySizeBytes": 820
+          },
+          "resources": [
+            {
+              "path": "/assets/app-I8_rzXZF.js",
+              "initiatorType": "script",
+              "startTimeMs": 134.69999999925494,
+              "durationMs": 410.80000000074506,
+              "transferSizeBytes": 300606,
+              "encodedBodySizeBytes": 300306,
+              "decodedBodySizeBytes": 300306
+            },
+            {
+              "path": "/assets/app-D0U3wuza.css",
+              "initiatorType": "link",
+              "startTimeMs": 135.39999999850988,
+              "durationMs": 198.39999999850988,
+              "transferSizeBytes": 42821,
+              "encodedBodySizeBytes": 42521,
+              "decodedBodySizeBytes": 42521
+            }
+          ],
+          "totalTransferSizeBytes": 344547,
+          "totalEncodedBodySizeBytes": 343647,
+          "fixtureGlobalPresent": false,
+          "bodyText": "RPC unconfigured",
+          "blockedExternalRequests": [],
+          "pageErrors": [],
+          "responseContentEncodings": [
+            {
+              "url": "/app/",
+              "contentEncoding": "none"
+            },
+            {
+              "url": "/assets/app-D0U3wuza.css",
+              "contentEncoding": "none"
+            },
+            {
+              "url": "/assets/app-I8_rzXZF.js",
+              "contentEncoding": "none"
+            }
+          ]
+        },
+        {
+          "sample": 2,
+          "formReadyMs": 759.6999999992549,
+          "longTasks": [
+            {
+              "startTimeMs": 588.6999999992549,
+              "durationMs": 149,
+              "name": "self"
+            }
+          ],
+          "inputStartedMs": 846.1000000014901,
+          "inputObservedMs": 871,
+          "navigation": {
+            "domContentLoadedMs": 583.6999999992549,
+            "loadEventMs": 584.3000000007451,
+            "transferSizeBytes": 1120,
+            "encodedBodySizeBytes": 820,
+            "decodedBodySizeBytes": 820
+          },
+          "resources": [
+            {
+              "path": "/assets/app-I8_rzXZF.js",
+              "initiatorType": "script",
+              "startTimeMs": 133.60000000149012,
+              "durationMs": 411.69999999925494,
+              "transferSizeBytes": 300606,
+              "encodedBodySizeBytes": 300306,
+              "decodedBodySizeBytes": 300306
+            },
+            {
+              "path": "/assets/app-D0U3wuza.css",
+              "initiatorType": "link",
+              "startTimeMs": 135.89999999850988,
+              "durationMs": 197.60000000149012,
+              "transferSizeBytes": 42821,
+              "encodedBodySizeBytes": 42521,
+              "decodedBodySizeBytes": 42521
+            }
+          ],
+          "totalTransferSizeBytes": 344547,
+          "totalEncodedBodySizeBytes": 343647,
+          "fixtureGlobalPresent": false,
+          "bodyText": "RPC unconfigured",
+          "blockedExternalRequests": [],
+          "pageErrors": [],
+          "responseContentEncodings": [
+            {
+              "url": "/app/",
+              "contentEncoding": "none"
+            },
+            {
+              "url": "/assets/app-D0U3wuza.css",
+              "contentEncoding": "none"
+            },
+            {
+              "url": "/assets/app-I8_rzXZF.js",
+              "contentEncoding": "none"
+            }
+          ]
+        },
+        {
+          "sample": 3,
+          "formReadyMs": 744.3999999985099,
+          "longTasks": [
+            {
+              "startTimeMs": 580,
+              "durationMs": 141,
+              "name": "self"
+            }
+          ],
+          "inputStartedMs": 841.7999999970198,
+          "inputObservedMs": 868.5999999977648,
+          "navigation": {
+            "domContentLoadedMs": 575.0999999977648,
+            "loadEventMs": 576.6999999992549,
+            "transferSizeBytes": 1120,
+            "encodedBodySizeBytes": 820,
+            "decodedBodySizeBytes": 820
+          },
+          "resources": [
+            {
+              "path": "/assets/app-I8_rzXZF.js",
+              "initiatorType": "script",
+              "startTimeMs": 131,
+              "durationMs": 404.5,
+              "transferSizeBytes": 300606,
+              "encodedBodySizeBytes": 300306,
+              "decodedBodySizeBytes": 300306
+            },
+            {
+              "path": "/assets/app-D0U3wuza.css",
+              "initiatorType": "link",
+              "startTimeMs": 131.19999999925494,
+              "durationMs": 197.39999999850988,
+              "transferSizeBytes": 42821,
+              "encodedBodySizeBytes": 42521,
+              "decodedBodySizeBytes": 42521
+            }
+          ],
+          "totalTransferSizeBytes": 344547,
+          "totalEncodedBodySizeBytes": 343647,
+          "fixtureGlobalPresent": false,
+          "bodyText": "RPC unconfigured",
+          "blockedExternalRequests": [],
+          "pageErrors": [],
+          "responseContentEncodings": [
+            {
+              "url": "/app/",
+              "contentEncoding": "none"
+            },
+            {
+              "url": "/assets/app-D0U3wuza.css",
+              "contentEncoding": "none"
+            },
+            {
+              "url": "/assets/app-I8_rzXZF.js",
+              "contentEncoding": "none"
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "formReadyMedianMs": 759.6999999992549,
+        "formReadyMaxMs": 760.7999999970198,
+        "startupLongTaskMedianOfSampleMaxMs": 149,
+        "startupLongTaskMaxMs": 155,
+        "formReadyThresholdMs": 2500,
+        "formReadyPass": true,
+        "resourceTransferSizeBytes": [
+          344547,
+          344547,
+          344547
+        ],
+        "resourceEncodedBodySizeBytes": [
+          343647,
+          343647,
+          343647
+        ]
+      }
+    }
+  ],
+  "syntheticInteraction": {
+    "recordedAt": "2026-10-22T03:50:38.690Z",
+    "url": "http://127.0.0.1:4174/app/?scenario=success",
+    "environment": "Development fixture build with React StrictMode; not production and not real protocol/wallet evidence",
+    "browser": "153.0.8010.0",
+    "setup": {
+      "cpuSlowdown": 4,
+      "latencyMs": 100,
+      "downloadBitsPerSecond": 10000000,
+      "uploadBitsPerSecond": 10000000,
+      "cache": "Disabled via CDP; fresh browser context for every sample; service workers blocked",
+      "viewport": {
+        "width": 393,
+        "height": 852
+      },
+      "deviceScaleFactor": 1,
+      "reducedMotion": true,
+      "serverCompression": "none",
+      "rpc": "Explicit local synthetic market and wallet; no external origins",
+      "samples": 3,
+      "journey": "After fixture connection: type an exact 18-decimal ETH amount, edit leverage, press ArrowRight on the slider, select 0.1% slippage, prepare review, and open exact-data and risk details; never confirm or send.",
+      "longTaskObservationThresholdMs": 50,
+      "measurementWindow": "First input until exact-data and risk disclosures rendered; startup and connection excluded"
+    },
+    "sourceHashes": {
+      "src/ui/App.tsx": "da6e61b27443d0eb260ac3e6a81d28eb20e850a5924b82a046f3277beb862781",
+      "src/ui/Dialog.tsx": "ba0143df2700b76aacb2d1191dddf24d2f0e86953622acdad49c22f5906408d3",
+      "src/ui/styles.css": "02d8baeeba52344183c199b96e31f54f7338580d337bb10cf127cc00ac3c6e31",
+      "src/domain/controller.ts": "93b828a6b0aee7d77d78618bcf4e94c87f19086975e0a1e61f9cb5a9a68fb1eb",
+      "test/fixtures/runtime.ts": "4c3ae67abd10fac06b1f8dd320cb664b96ee8f557c11e92adf645abedacfcf1c"
+    },
+    "samples": [
+      {
+        "sample": 1,
+        "startMs": 4647.10000000149,
+        "endMs": 7547.10000000149,
+        "windowDurationMs": 2900,
+        "reviewVisibleAfterRequestMs": 991.1000000014901,
+        "longTasks": [
+          {
+            "startTimeMs": 4846.400000002235,
+            "durationMs": 65,
+            "name": "self"
+          },
+          {
+            "startTimeMs": 6438.60000000149,
+            "durationMs": 68,
+            "name": "self"
+          },
+          {
+            "startTimeMs": 6994.400000002235,
+            "durationMs": 110,
+            "name": "self"
+          }
+        ],
+        "longTaskMaxMs": 110,
+        "fixtureSends": 0,
+        "acceptedDeposit": "0.100000000000000001",
+        "pageErrors": [],
+        "blockedExternalRequests": []
+      },
+      {
+        "sample": 2,
+        "startMs": 4672.800000000745,
+        "endMs": 7282.199999999255,
+        "windowDurationMs": 2609.39999999851,
+        "reviewVisibleAfterRequestMs": 910.2999999970198,
+        "longTasks": [
+          {
+            "startTimeMs": 6708.300000000745,
+            "durationMs": 51,
+            "name": "self"
+          },
+          {
+            "startTimeMs": 6774.60000000149,
+            "durationMs": 93,
+            "name": "self"
+          },
+          {
+            "startTimeMs": 6868.60000000149,
+            "durationMs": 61,
+            "name": "self"
+          }
+        ],
+        "longTaskMaxMs": 93,
+        "fixtureSends": 0,
+        "acceptedDeposit": "0.100000000000000001",
+        "pageErrors": [],
+        "blockedExternalRequests": []
+      },
+      {
+        "sample": 3,
+        "startMs": 4738.800000000745,
+        "endMs": 7337.800000000745,
+        "windowDurationMs": 2599,
+        "reviewVisibleAfterRequestMs": 896.3999999985099,
+        "longTasks": [
+          {
+            "startTimeMs": 6811.599999997765,
+            "durationMs": 54,
+            "name": "self"
+          }
+        ],
+        "longTaskMaxMs": 54,
+        "fixtureSends": 0,
+        "acceptedDeposit": "0.100000000000000001",
+        "pageErrors": [],
+        "blockedExternalRequests": []
+      }
+    ],
+    "summary": {
+      "longTaskMedianOfSampleMaxMs": 93,
+      "longTaskMaxMs": 110,
+      "thresholdMs": 200,
+      "pass": true,
+      "reviewVisibleAfterRequestMedianMs": 910.2999999970198,
+      "reviewVisibleAfterRequestMaxMs": 991.1000000014901,
+      "quoteLatencyMeaning": "Synthetic delay only; no claim about live quote latency",
+      "totalFixtureSends": 0
+    }
+  },
+  "screenshots": [
+    {
+      "path": "docs/evidence/checkpoint-landing-desktop.png",
+      "phase": "initial passing normal-size inspection",
+      "bytes": 255336,
+      "sha256": "f7aa5b0c661f06faf82cfe8aa593598f5503ed6825c92a7311557b43eeefd381"
+    },
+    {
+      "path": "docs/evidence/checkpoint-landing-phone-393.png",
+      "phase": "initial passing normal-size inspection",
+      "bytes": 177197,
+      "sha256": "8c224eabe9887acb6a9f539757a73db1dcecb6bbacf6537fedefe920f075b343"
+    },
+    {
+      "path": "docs/evidence/checkpoint-landing-phone-320.png",
+      "phase": "initial passing normal-size inspection",
+      "bytes": 165799,
+      "sha256": "b351c046c81982b552198ee8c54dbba7dd34d7a6f998e5833a6a490be0c797d9"
+    },
+    {
+      "path": "docs/evidence/checkpoint-landing-phone-320-text200.png",
+      "phase": "initial failing enlarged-text inspection",
+      "bytes": 369239,
+      "sha256": "715aeee98ed18492771229e465dc68d621e2a4270c82dae2b38e1c93734d410d"
+    },
+    {
+      "path": "docs/evidence/checkpoint-landing-phone-393-text200.png",
+      "phase": "initial failing enlarged-text inspection",
+      "bytes": 369524,
+      "sha256": "4a66dccef837a3e195a28440f0e4cfc5c6928f7f37f13be0ff8fecec600e3c1b"
+    },
+    {
+      "path": "docs/evidence/checkpoint-landing-phone-320-text200-fixed.png",
+      "phase": "passing enlarged-text inspection after integrator fix",
+      "bytes": 360324,
+      "sha256": "b2ab7947a56edc511f4010eb0748b39f15e285a7b37154bc3d650c5ac938bd36"
+    },
+    {
+      "path": "docs/evidence/checkpoint-landing-phone-393-text200-fixed.png",
+      "phase": "passing enlarged-text inspection after integrator fix",
+      "bytes": 366470,
+      "sha256": "727a715cd12d1e405323f5992026b6a1f85728739bd13353a9476e4f06af26b6"
+    }
+  ],
+  "bundleBudgets": {
+    "basis": "Computed gzip level 9 of emitted production artifacts; these are not compressed wire bytes. The measurement server sends uncompressed responses.",
+    "criticalAppJs": {
+      "gzipBytes": 90616,
+      "targetBytes": 184320,
+      "pass": true
+    },
+    "criticalAppCss": {
+      "gzipBytes": 8541,
+      "targetBytes": 25600,
+      "pass": true
+    },
+    "landingJs": {
+      "gzipBytes": 0,
+      "targetBytes": 40960,
+      "pass": true
+    },
+    "fullAppIncludingLazySdkGraph": {
+      "gzipBytes": 242928,
+      "targetBytes": 1572864,
+      "pass": true
+    }
+  },
+  "completedAt": "2026-10-22T03:51:31.678Z",
+  "gateResults": {
+    "formReady": {
+      "status": "pass",
+      "thresholdMs": 2500,
+      "medianMs": 768.5999999977648,
+      "maxMs": 828.6000000014901,
+      "samples": 3,
+      "scope": "Built production disconnected form with RPC unconfigured"
+    },
+    "ordinaryInputReviewLongTask": {
+      "status": "pass",
+      "thresholdMs": 200,
+      "medianOfSampleMaxMs": 93,
+      "maxMs": 110,
+      "samples": 3,
+      "scope": "Development synthetic fixture only; separate from production readiness"
+    },
+    "landingEnlargedText": {
+      "status": "pass",
+      "testedWidths": [
+        320,
+        393
+      ],
+      "textPercent": 200
+    },
+    "startupLongTask": {
+      "status": "limitation",
+      "observedMaxMs": 229,
+      "referenceMs": 200,
+      "explanation": "One startup task lasted 229ms. D-012 applies 200ms to ordinary input/review updates, whose measured window is separately reported. The startup result is retained and is not represented as below 200ms."
+    }
+  },
+  "limitations": [
+    "Controlled headless Chromium 153 on a shared Linux host with 4× CPU emulation is not a physical-device claim.",
+    "Only three samples per measured scenario; medians and maxima are observations, not a population estimate.",
+    "Production RPC is unconfigured and all external origins were blocked. Results do not measure public RPC, lazy SDK execution, live quote latency or real wallet behavior.",
+    "Synthetic input/review timing used the development fixture and React StrictMode on port 4174; it is not a built-production transaction-flow benchmark.",
+    "Reduced motion was enabled and is explicitly part of both timing setups.",
+    "The static server does not gzip. Resource transfer/body bytes are measured separately from computed artifact gzip sizes.",
+    "One production startup long task was 229ms; this is disclosed separately from the ordinary-input/review threshold.",
+    "No equivalent baseline was measured, so no claim of a speed improvement is made."
+  ],
+  "cleanup": {
+    "productionServerPort": 4175,
+    "productionServerExitCode": 0,
+    "fixtureDevServerPort": 4174,
+    "fixtureDevServerExitCode": 130,
+    "status": "Both owned preview servers were stopped after measurement; root-owned port 4173 was untouched."
+  }
+}
