@@ -42,6 +42,8 @@ On other hosts lightweight work is bounded to four concurrent checks, build-depe
 | `pnpm test:landing` | Static landing, market-data validation, and build contracts |
 | `pnpm test:landing:browser` | Rendered landing behavior and network checks |
 
+The [compiler runner](../scripts/typecheck.mjs) runs app and fork checks sequentially, followed by the browser-file coverage contract and E2E compiler. It invokes the installed TypeScript compiler with the same Node executable that started the runner, without nested package-manager or `tsc` PATH lookups. `pnpm typecheck:e2e` runs just the last two checks. A failed check stops the sequence; strict compiler settings and separate incremental caches remain in force. Start with the required Node 22 toolchain.
+
 To run a specific app test:
 
 ~~~sh
@@ -49,6 +51,13 @@ pnpm --dir apps/mini-app exec tsx --test test/review-hierarchy.test.ts
 ~~~
 
 Use the [browser gate map](browser-test-gates.md) for component and wallet work. Root scripts are the maintained entry points; package scripts and configurations define exact file collection.
+
+`pnpm test` runs the complete unit glob with two isolated Node test processes. To reduce memory use, set `FX_UNIT_TEST_CONCURRENCY=1`; only `1` and `2` are accepted. Serial verification also forces one unit process, including the automatic mode on hosts below 12 GiB. The worker limit changes scheduling only; it does not filter tests, alter seeds, or weaken failures.
+
+~~~powershell
+$env:FX_UNIT_TEST_CONCURRENCY = '1'
+pnpm test
+~~~
 
 ## Built-route browser tests
 
@@ -87,6 +96,8 @@ Reports and captures are generated evidence, not source. Inspect failure traces 
 | Aggregate required check | Fails unless all source, build, built-browser and isolated jobs succeed |
 
 The source phase includes landing browser checks. Built E2E jobs download the export produced by the build job; they do not independently rebuild it. The standalone [Mini App E2E workflow](../.github/workflows/e2e-mini-app.yml) is manually dispatched, while normal PR/main browser coverage runs through Client CI.
+
+Browser jobs use the official Playwright Ubuntu Noble image pinned by digest in the workflows. The image supplies browsers and system libraries, so these jobs do not repeat apt/browser installation. Node 22 and pnpm 11.19.0 are still selected explicitly. The [browser CI contract](../scripts/browser_ci.contract.test.mjs) requires the image version to match the installed `@playwright/test` version and preserves the shard/group matrix. Update the image tag and verified digest together when upgrading Playwright. Local browser installation and the protected Foundry/Anvil host workflow remain separate.
 
 Lint, TypeScript, and Next caches speed repeated checks without replacing them. Browser TypeScript uses separate ignored incremental caches and a coverage contract that checks its input set against browser files/configs. A skipped or missing required job is not success.
 

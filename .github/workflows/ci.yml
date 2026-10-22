@@ -13,6 +13,10 @@ jobs:
   source:
     name: Source checks
     runs-on: ubuntu-latest
+    container:
+      # Match @playwright/test exactly; browsers and system dependencies are baked in.
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+      options: --init --ipc=host
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -24,7 +28,6 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
       - name: Restore lint cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -87,6 +90,9 @@ jobs:
     name: Built E2E shard ${{ matrix.shard }}
     needs: build
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+      options: --init --ipc=host
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -106,7 +112,6 @@ jobs:
         with:
           name: mini-app-static-export
           path: apps/mini-app/dist
-      - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
       - name: Run built route browser shard
         run: pnpm --dir apps/mini-app exec playwright test --shard=${{ matrix.shard }}
         env:
@@ -115,7 +120,9 @@ jobs:
   isolated-e2e:
     name: Isolated browser group ${{ matrix.group }}
     runs-on: ubuntu-latest
-    # Package mirrors can consume most of 15 minutes before tests begin.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+      options: --init --ipc=host
     timeout-minutes: 25
     strategy:
       fail-fast: false
@@ -131,7 +138,6 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
       - name: Run isolated browser checks
         run: pnpm verify --${{ matrix.group }}
 

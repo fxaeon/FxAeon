@@ -17,7 +17,14 @@ jobs:
     name: Build and deploy Cloudflare Pages
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # Allow browser installation, complete verification, and the production rebuild.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+      options: --init --ipc=host
+    defaults:
+      run:
+        # Container jobs otherwise default to sh; deployment steps use Bash conditionals.
+        shell: bash
+    # Allow complete verification and the separate production-configured rebuild.
     timeout-minutes: 40
     environment: production
     steps:
@@ -30,8 +37,6 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install browser verification runtime
-        run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
       - name: Validate public build configuration
         env:
           NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}

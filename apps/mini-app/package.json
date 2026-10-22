@@ -8,7 +8,7 @@
     "start": "node e2e/serve.mjs",
     "typecheck": "tsc --noEmit",
     "typecheck:e2e": "tsc -p e2e/tsconfig.json",
-    "test": "tsx --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "test": "node ../../scripts/run_unit_tests.mjs",
     "test:chaos": "tsx --test \"test/chaos.test.ts\"",
     "test:anvil": "tsx --test --test-concurrency=1 \"test/anvil.integration.test.ts\" \"test/earn.anvil.test.ts\"",
     "test:e2e": "playwright test",

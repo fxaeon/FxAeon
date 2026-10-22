@@ -26,6 +26,21 @@ Trade's split shows debt and the trader's share, with preview context separate f
 
 Amount fields preserve decimal text and token precision. A shortened number is presentation; full values remain reachable directly. USD equivalents use fresh matching display prices and never set transaction amounts or limits.
 
+## Earn history and Borrow scenarios
+
+Earn includes 30- and 90-day views of daily fxSAVE APY reported by DefiLlama.
+The displayed average is the arithmetic mean of the visible samples, not a
+realized return or earnings forecast. The live APY above the chart remains an
+independent f(x) read. Pointer, touch, and keyboard controls expose each sample;
+missing days break the line. Unavailable or stale history never blocks the form.
+On phones, the deposit or withdrawal form appears before the chart.
+
+Borrow exposes a collateral-value scenario after valid amounts and a live form
+limit are available. Moving the slider changes only the illustration: debt stays
+constant while collateral value moves between −30% and +30%. The form limit is a
+borrowing guard, not a liquidation threshold. Funding, fees, rebalancing, and
+liquidation are excluded. The chart cannot change ticket values or a signed plan.
+
 ## Position rows and units
 
 Portfolio, Trade, and Positions use the same names, units and rows. A row identifies market/side, leverage, position number, value, the debt/equity split, and a display estimate of distance to rebalance when fresh inputs are available.

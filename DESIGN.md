@@ -69,6 +69,21 @@ Positions on a phone show one view at a time. The list carries no per-row button
 
 Forms keep labels attached to their controls, errors close to the affected field, and the primary action easy to find. A not-yet-actionable primary action reads as neutral, never as a dimmed accent. Disclosures may keep secondary detail collapsed, but their summaries must still communicate the relevant state. Notices show the state they announce. Icons supplement accessible names rather than replacing them.
 
+## Product analytics
+
+Earn's reported yield history sits below its headline facts on desktop and
+after its action on phones. Use an unfilled line, two quiet range controls, a
+single sample or average readout, and a direct source link. Do not smooth over
+missing data or present historical APY as earned return. Labels and markers
+retain their size at narrow widths; touch selection persists after the finger
+lifts, and keyboard controls expose the same samples.
+
+Borrow's collateral scenario appears only with usable debt, collateral value,
+and a live form guard. One slider illustrates a price change without editing
+the transaction. State the excluded funding, fees, and protocol interventions;
+keep the borrowing guard distinct from liquidation. Charts provide context,
+while the amount form and review remain the primary path.
+
 ## Transaction receipts and contextual controls
 
 A completed action has one outcome heading and one receipt panel: observed wallet movements, matching verified position values when available, network fee, and a direct transaction link. Show current USD estimates with “now.” Never repeat the complete pre-transaction quote beneath a successful receipt. Expose **Receipt details** only for additional movements, incomplete evidence, or multiple receipts. Approval-only, unknown, reverted, queued-withdrawal, and bridge-delivery states retain their distinct meanings. Every simulated result keeps a visible simulation label, including when a target leverage is shown.

@@ -105,6 +105,7 @@ const quickChecks = await runGroup([
   { args: ['exec', 'node', '--test', 'scripts/cloudflare_headers.contract.test.mjs'], label: 'Cloudflare headers contract' },
   { args: ['exec', 'node', '--test', 'apps/mini-app/test/e2e-serve.test.mjs'], label: 'Static E2E server route contract' },
   { args: ['exec', 'node', '--test', 'scripts/verify_phases.contract.test.mjs'], label: 'Verification runner phase contract' },
+  { args: ['exec', 'node', '--test', 'scripts/browser_ci.contract.test.mjs', 'scripts/typecheck.test.mjs', 'scripts/run_unit_tests.test.mjs'], label: 'Browser runtime and test/compiler orchestration contracts' },
   { args: ['test:landing'], label: 'Standalone landing contract' },
   { args: ['exec', 'node', '--test', 'scripts/verify_frontend_secrets.test.mjs', 'scripts/launch_readiness.test.mjs'], label: 'Launch readiness contracts' },
   { args: ['exec', 'node', 'scripts/verify_frontend_secrets.mjs'], label: 'Frontend secret scan' },
@@ -113,7 +114,7 @@ const quickChecks = await runGroup([
     label: 'dependency audit',
   },
 ], 'parallel lightweight checks');
-const tests = await pnpmRun(['test'], 'unit and chaos tests');
+const tests = await pnpmRun(['test'], 'unit and chaos tests', serial ? { FX_UNIT_TEST_CONCURRENCY: '1' } : {});
 if (!quickChecks || tests !== 0) {
   console.error('[verify] source checks failed');
   return 1;

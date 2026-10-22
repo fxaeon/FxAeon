@@ -24,6 +24,15 @@
       document.body.classList.remove("menu-open");
       opener.setAttribute("aria-expanded", "false");
     });
+    // A modal opened on a phone must not obscure the desktop navigation after
+    // rotating a tablet, zooming out, or widening a browser window.
+    const mobileNavigation = window.matchMedia("(max-width: 760px)");
+    mobileNavigation.addEventListener("change", () => {
+      if (!mobileNavigation.matches && menu.open) {
+        close();
+        document.querySelector(".nav-links a").focus({ preventScroll: true });
+      }
+    });
     document.getElementById("year").textContent = String(
       new Date().getFullYear(),
     );

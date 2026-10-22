@@ -13,8 +13,6 @@ import {
   PiggyBank,
   ArrowLeftRight,
   CircleDollarSign,
-  Copy,
-  Check,
   LucideIcon,
 } from 'lucide-react';
 import { haptic } from '@/lib/telegram';
@@ -23,7 +21,6 @@ import FxLogo from '@/components/FxLogo';
 import WalletProfile from '@/components/WalletProfile';
 import NetworkSelector from '@/components/NetworkSelector';
 import { ValueOrSkeleton } from '@/components/MissingValue';
-import { compactAddress } from '@/lib/addressPresentation';
 import { copyText } from '@/lib/clipboard';
 import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
 import { useOverlayDialog } from '@/lib/useOverlayDialog';
@@ -405,35 +402,7 @@ export function Stat({
 }
 
 export { copyText };
-
-export function AddressChip({ address, iconOnly = false }: { address: string; iconOnly?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  const short = compactAddress(address);
-  return (
-    <button
-      type="button"
-      aria-label={copied ? 'Address copied' : `Copy wallet address ${short}`}
-      title={address}
-      onClick={async () => {
-        if (await copyText(address)) {
-          haptic('success');
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1800);
-        } else {
-          haptic('error');
-        }
-      }}
-      className={`address-chip glass glass-press inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-1.5 font-mono text-[length:var(--fs-caption)] text-mut${iconOnly ? ' min-w-11' : ''}`}
-    >
-      {!iconOnly && short}
-      {copied ? (
-        <Check aria-hidden="true" className="h-3.5 w-3.5 text-success" />
-      ) : (
-        <Copy aria-hidden="true" className="h-3.5 w-3.5" />
-      )}
-    </button>
-  );
-}
+export { AddressChip } from './AddressChip';
 
 export function EmptyState({
   icon: Icon,
@@ -458,18 +427,7 @@ export function EmptyState({
   );
 }
 
-export function SectionTitle({ children, right, level = 2 }: { children: ReactNode; right?: ReactNode; level?: 2 | 3 }) {
-  // Nested surfaces (for example the wallet dialog) keep a single level-2 heading.
-  const Heading = level === 3 ? 'h3' : 'h2';
-  return (
-    <div className="section-heading mb-2 flex items-center justify-between">
-      <Heading className="text-[length:var(--fs-title)] font-semibold tracking-tight text-[var(--text)]">
-        {children}
-      </Heading>
-      {right}
-    </div>
-  );
-}
+export { SectionTitle } from './SectionTitle';
 
 export function Skeleton({ className = '' }: { className?: string }) {
   return <div aria-hidden="true" className={`skeleton ${className}`} />;

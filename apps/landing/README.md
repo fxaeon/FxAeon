@@ -58,7 +58,7 @@ Scenarios are not account balances, executable quotes, live borrowing limits, or
 
 ## Artwork, typography, and motion
 
-The dark-only site uses self-hosted Inter, Manrope, and footer Poppins with their OFL notices. Primary brand blue and contrast variants follow [brand guidance](../../docs/brand-assets.md). Retired artwork and unused legacy fonts are excluded from output.
+The dark-only site uses self-hosted Inter for body text and Manrope for display text, with their OFL notices. The footer shares those fonts, avoiding a third family. Primary brand blue and contrast variants follow [brand guidance](../../docs/brand-assets.md). Retired artwork and unused legacy fonts are excluded from output.
 
 [sculpture.js](sculpture.js) tessellates and curves the original two-part FxAeon mark into softly lit cobalt/light-blue forms. It has no graphics-library dependency. Eight-second motion rests, separates through depth, and settles; fine pointers add a restrained tilt.
 

@@ -60,7 +60,7 @@ function referenceQr(value, level, boostLevel) {
 }
 
 test('brand metadata, product artwork, and the official protocol mark stay in sync', async () => {
-  for (const asset of ['assets/fxaeon-mark.svg', 'assets/social-preview.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
+  for (const asset of ['assets/fxaeon-mark.svg', 'assets/social-preview.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
     await access(resolve(root, asset));
   }
   assert.match(html, /<html lang="en" data-theme="dark">/);
@@ -70,10 +70,12 @@ test('brand metadata, product artwork, and the official protocol mark stay in sy
   assert.match(html, /assets\/manrope-variable\.ttf/);
   assert.match(css, /font-family:\s*Inter;[\s\S]*?src:\s*url\("assets\/inter-latin\.woff2"\)/);
   assert.match(css, /font-family:\s*Manrope;[\s\S]*?src:\s*url\("assets\/manrope-variable\.ttf"\)/);
-  assert.match(css, /font-family:\s*Poppins;[\s\S]*?src:\s*url\("assets\/poppins-regular\.ttf"\)/);
-  assert.match(css, /font-family:\s*Poppins;[\s\S]*?src:\s*url\("assets\/poppins-medium\.ttf"\)/);
+  assert.doesNotMatch(css, /Poppins|poppins-/, 'The footer reuses the product font instead of requesting another family');
   assert.match(await readFile(resolve(root, 'assets/Manrope-LICENSE.txt'), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
-  assert.match(await readFile(resolve(root, 'assets/Poppins-LICENSE.txt'), 'utf8'), /SIL OPEN FONT LICENSE Version 1\.1/);
+  for (const asset of ['poppins-regular.ttf', 'poppins-medium.ttf', 'Poppins-LICENSE.txt']) {
+    await assert.rejects(access(resolve(root, 'assets', asset)), `${asset} is retired`);
+    await assert.rejects(access(resolve(root, 'dist/assets', asset)), `${asset} is not shipped`);
+  }
   assert.doesNotMatch(html, /hero-field\.js|hero-shader/, 'The static hero no longer ships the animated field');
   assert.deepEqual(
     await readFile(resolve(root, '../mini-app/public/brand/fx-official-mark.svg')),
@@ -191,6 +193,8 @@ test('the menu stays keyboard accessible and the page enforces its single dark t
   assert.match(menu, /<button\b[^>]*aria-label="[^"]+"[^>]*>/, 'The modal has a named close control');
   assert.match(html, /<button\b[^>]*aria-controls="[^"]+"[^>]*aria-expanded="false"[^>]*>/);
   const menuLinks = links(menu);
+  assert.ok(menuLinks.some(({ href }) => href === 'https://fxaeon.com/'), 'The mobile menu offers a direct web launch');
+  assert.ok(menuLinks.some(({ href }) => href === 'https://t.me/FxAeonBot'), 'Telegram remains an explicit menu choice');
   assert.ok(menuLinks.some(({ href }) => href?.startsWith('#')));
   for (const { href } of menuLinks.filter(({ href }) => href?.startsWith('#'))) assert.match(html, new RegExp(`id="${href.slice(1)}"`), `Menu anchor ${href} has a target`);
   assert.ok(scriptCompact.includes('menu.showModal()'));
@@ -252,7 +256,7 @@ test('built output includes safe Telegram routes, the exact QR, font licenses, c
   assert.ok(builtHtml.includes(`href="${escapeAttribute(launcher)}"`));
   for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="https://fxaeon.com/${route}"`), `${route} web route`);
   assert.equal(await readFile(resolve(root, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
-  for (const file of ['script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(root, 'dist', file));
+  for (const file of ['script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(root, 'dist', file));
   assert.deepEqual(JSON.parse(await readFile(resolve(root, 'dist/_routes.json'), 'utf8')), { version: 1, include: ['/api/market-data'], exclude: [] });
   await assert.rejects(access(resolve(root, 'dist/functions')));
   await assert.rejects(access(resolve(root, 'dist/hero-field.js')), 'The retired field renderer is not shipped');
@@ -321,7 +325,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
     execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
     await assert.rejects(access(resolve(tempRoot, 'node_modules')));
     await assert.rejects(access(resolve(tempLanding, 'node_modules')));
-    for (const file of ['script.js', 'sculpture.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/poppins-regular.ttf', 'assets/poppins-medium.ttf', 'assets/Poppins-LICENSE.txt', 'assets/telegram-qr.svg', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(tempLanding, 'dist', file));
+    for (const file of ['script.js', 'sculpture.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/telegram-qr.svg', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(tempLanding, 'dist', file));
     await assert.rejects(access(resolve(tempLanding, 'dist/hero-field.js')));
     await assert.rejects(access(resolve(tempLanding, 'dist/assets/tokens/usdc.png')));
     await assert.rejects(access(resolve(tempLanding, 'dist/aurora.js')));

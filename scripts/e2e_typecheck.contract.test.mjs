@@ -4,6 +4,7 @@ import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import ts from 'typescript';
+import { typecheckSteps } from './typecheck.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const app = resolve(root, 'apps/mini-app');
@@ -53,8 +54,9 @@ test('E2E compiler preserves strict no-emit checking with an isolated incrementa
 test('release typecheck runs the E2E coverage contract and compiler', () => {
   const scripts = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).scripts;
   const appScripts = JSON.parse(readFileSync(resolve(app, 'package.json'), 'utf8')).scripts;
-  assert.ok(scripts.typecheck.split(' && ').includes('pnpm typecheck:e2e'));
-  assert.equal(scripts['typecheck:e2e'], 'node --test scripts/e2e_typecheck.contract.test.mjs && pnpm --dir apps/mini-app typecheck:e2e');
+  assert.equal(scripts.typecheck, 'node scripts/typecheck.mjs');
+  assert.equal(scripts['typecheck:e2e'], 'node scripts/typecheck.mjs --e2e');
+  assert.deepEqual(typecheckSteps().slice(-2).map(step => step.args.slice(-1)[0]), ['scripts/e2e_typecheck.contract.test.mjs', 'apps/mini-app/e2e/tsconfig.json']);
   assert.equal(appScripts['typecheck:e2e'], 'tsc -p e2e/tsconfig.json');
   assert.match(readFileSync(resolve(root, 'scripts/verify.mjs'), 'utf8'), /pnpmRun\(\['typecheck'\], 'typecheck'\)/);
 });
