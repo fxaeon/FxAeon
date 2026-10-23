@@ -82,3 +82,26 @@ test('display retains price demand and matching-asset expiry redraw', () => {
   assert.match(source, /timestamp \+ USD_PRICE_MAX_AGE_MS - Date.now\(\) \+ 1/);
   assert.match(source, /collateralUsdEstimate\(collateral, freshDisplayPrices\(quote\)\)/);
 });
+
+test('compact review amounts preserve exact disclosures, network, estimates and receipt presentation', () => {
+  snapshot = fresh;
+  const { TransactionAmountFlow } = require('../src/components/review/TransactionAmountFlow') as typeof import('../src/components/review/TransactionAmountFlow');
+  const facts = [
+    { label: 'Deposit', value: '0.008793346701694145 ETH' },
+    { label: 'Estimated fxUSD received', value: '1.204548856269749526 fxUSD' },
+  ];
+  const normal = render(React.createElement(TransactionAmountFlow, { facts, chainId: 1 }));
+  const compact = render(React.createElement(TransactionAmountFlow, { facts, chainId: 1, compact: true }));
+  const disclosures = (html: string) => [...html.matchAll(/<summary[^>]*aria-label="([^"]+)"/g)].map(match => match[1]);
+  assert.deepEqual(disclosures(compact), disclosures(normal));
+  assert.match(compact, /data-amount-provenance="review"/);
+  assert.match(compact, /data-compact-amounts="2"/);
+  assert.match(visible(compact), /Deposit/);
+  assert.match(visible(compact), /Receive · estimated/);
+  assert.match(visible(compact), /Ethereum/);
+  assert.match(compact, /data-usd-state="estimate"/);
+  for (const fact of facts) assert.ok(compact.includes(fact.value));
+  const receipt = render(React.createElement(TransactionAmountFlow, { facts, chainId: 1, compact: true, receipt: true }));
+  assert.match(receipt, /data-amount-provenance="receipt"/);
+  assert.doesNotMatch(receipt, /data-compact-amounts/);
+});

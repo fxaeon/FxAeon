@@ -5,6 +5,108 @@ import { test, expect } from '@playwright/test';
 
 const root = resolve(__dirname, '../../../..');
 
+test('review network fees lead with dollars and disclose the exact native amount on tap', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 770 });
+  for (const product of ['borrow', 'earn']) {
+    await page.goto(`/?view=transaction&product=${product}&stage=review`);
+    const fee = page.locator('[data-review-fact="Gas fee"]');
+    const summary = fee.locator('summary');
+    await expect(fee).toContainText('Network fee');
+    await expect(summary).toHaveText('≈ $0.30');
+    await expect(summary.locator('[data-usd-state]')).toHaveAttribute('data-usd-state', 'estimate');
+    await expect(fee.locator('details')).not.toHaveAttribute('open');
+    await summary.click();
+    await expect(fee.locator('details')).toHaveAttribute('open', '');
+    await expect(fee.locator('details p')).toContainText('0.000125 ETH (simulated estimate, not a live gas quote)');
+    await expect(fee.locator('details p')).toContainText('USD is a current-price estimate. The native amount governs the transaction.');
+  }
+});
+
+test('unfocused long shortcuts stay compact until the exact amount is edited', async ({ page }) => {
+  const captures = resolve(root, 'artifacts/compact-amounts');
+  mkdirSync(captures, { recursive: true });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/?amountBalance=0.008793346701694145');
+    const input = page.getByRole('textbox', { name: 'Amount in ETH', exact: true });
+    const field = page.locator('[data-amount-field="unified"]');
+    const entry = field.locator('[data-amount-preview]');
+    await field.getByRole('button', { name: 'Use 100% of available balance', exact: true }).click();
+    await expect(input).toHaveValue('0.008793346701694145');
+    await expect(entry).not.toHaveAttribute('data-amount-expanded');
+    await expect(field.locator('[class*="entryPreview"]')).toBeVisible();
+    await field.screenshot({ path: resolve(captures, `amount-max-${width}.png`) });
+    await field.getByRole('button', { name: '50%', exact: true }).click();
+    await expect(input).toHaveValue('0.004396673350847072');
+    await expect(entry).not.toHaveAttribute('data-amount-expanded');
+    await input.focus();
+    await expect(entry).toHaveAttribute('data-amount-expanded', '');
+    await input.blur();
+    await expect(entry).toHaveAttribute('data-amount-expanded', '');
+  }
+});
+
+test('long amount previews preserve exact editing and focus/blur never rewrites the draft', async ({ page }) => {
+  const captures = resolve(root, 'artifacts/compact-amounts');
+  mkdirSync(captures, { recursive: true });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await openLab(page);
+    const input = page.getByRole('textbox', { name: 'Amount in ETH', exact: true });
+    const field = page.locator('[data-amount-field="unified"]');
+    const preview = field.locator('[aria-hidden="true"][class*="entryPreview"]');
+    for (const [value, copy] of [['0.008793346701694145', '≈ 0.0087933'], ['1.204548856269749526', '≈ 1.2045']]) {
+      await input.fill(value);
+      await expect(input).toHaveValue(value);
+      await expect(preview).toBeHidden();
+      await input.blur();
+      await expect(preview).toHaveText(copy);
+      await expect(preview).toBeVisible();
+      await expect(input).toHaveValue(value);
+      await input.focus();
+      await expect(preview).toBeHidden();
+      await expect(input).toHaveValue(value);
+      expect(await input.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      await input.press('ControlOrMeta+A');
+      expect(await input.evaluate((node: HTMLInputElement) => node.value.slice(node.selectionStart ?? 0, node.selectionEnd ?? 0))).toBe(value);
+      await input.press('End');
+      await input.press('Backspace');
+      await expect(input).toHaveValue(value.slice(0, -1));
+      await input.blur();
+      await expect(input).toHaveValue(value.slice(0, -1));
+    }
+    for (const value of ['0.000000000000000001', '0.000000000000012345']) {
+      await input.fill(value);
+      await input.blur();
+      await expect(input).toHaveValue(value);
+      await expect(preview).toHaveCount(0);
+      expect(await input.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    }
+    await field.evaluate(node => {
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.textContent = 'Continue amount test';
+      action.style.cssText = 'display:block;min-height:52px;width:100%';
+      action.addEventListener('click', () => action.setAttribute('data-clicked', 'true'));
+      node.after(action);
+    });
+    await input.fill('0.008793346701694145');
+    const continueAction = page.getByRole('button', { name: 'Continue amount test', exact: true });
+    await continueAction.click();
+    await expect(continueAction).toHaveAttribute('data-clicked', 'true');
+    const targets = await field.getByRole('button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().height));
+    expect(targets.every(height => height >= 44)).toBe(true);
+    const geometry = await field.evaluate(node => ({ right: node.getBoundingClientRect().right, scroll: document.documentElement.scrollWidth }));
+    expect(geometry.right).toBeLessThanOrEqual(width);
+    expect(geometry.scroll).toBeLessThanOrEqual(width);
+    await input.fill('0.008793346701694145');
+    await input.blur();
+    await field.screenshot({ path: resolve(captures, `amount-preview-${width}.png`) });
+    await input.focus();
+    await field.screenshot({ path: resolve(captures, `amount-exact-${width}.png`) });
+  }
+});
+
 async function openLab(page: import('@playwright/test').Page) {
   await page.goto('/');
   await expect(page.locator('[data-harness-ready="true"]')).toHaveCount(1);
@@ -187,6 +289,42 @@ test('keeps amount label and shortcut targets clear at enlarged text on narrow w
     }
     await page.screenshot({ animations: 'disabled', path: `./test-results/ui-state-lab-playwright/amount-enlarged-${width}.png` });
     await field.evaluate((root) => root.querySelectorAll<HTMLElement>('label, button, span, strong, input').forEach((element) => { element.style.fontSize = ''; }));
+  }
+});
+
+test('short transaction sheets keep the whole action visible while their details scroll', async ({ page }) => {
+  for (const viewport of [{ width: 390, height: 500 }, { width: 320, height: 568 }]) {
+    await page.setViewportSize(viewport);
+    for (const product of ['borrow', 'earn']) {
+      for (const stage of ['review', 'confirmed', 'failed', 'partial', 'uncertain']) {
+        await page.goto(`/?view=transaction&product=${product}&stage=${stage}`);
+        const sheet = page.locator('[data-mobile-review-sheet]');
+        const scroller = sheet.locator('[data-review-scroll]');
+        const action = sheet.locator('[data-review-actions] button').first();
+        await expect(action).toBeVisible();
+        const geometry = await action.evaluate(button => {
+          const rect = button.getBoundingClientRect();
+          const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+          return { top: rect.top, bottom: rect.bottom, height: rect.height, reachable: hit === button || button.contains(hit) };
+        });
+        const context = `${product}/${stage} at ${viewport.width}×${viewport.height}`;
+        expect(geometry.height, context).toBeGreaterThanOrEqual(44);
+        expect(geometry.top, context).toBeGreaterThanOrEqual(0);
+        expect(geometry.bottom, context).toBeLessThanOrEqual(viewport.height);
+        expect(geometry.reachable, context).toBe(true);
+        await expect(scroller).toBeVisible();
+        await scroller.evaluate(element => { element.scrollTop = element.scrollHeight; });
+        const details = await scroller.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          const last = element.lastElementChild?.getBoundingClientRect();
+          return { bottom: rect.bottom, lastBottom: last?.bottom, remaining: element.scrollHeight - element.clientHeight - element.scrollTop };
+        });
+        expect(details.bottom, context).toBeLessThanOrEqual(geometry.top);
+        expect(details.remaining, context).toBeLessThanOrEqual(1);
+        expect(details.lastBottom, context).toBeLessThanOrEqual(geometry.top);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), context).toBe(false);
+      }
+    }
   }
 });
 

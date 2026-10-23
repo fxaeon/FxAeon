@@ -11,15 +11,15 @@
 .facts {
   display: grid;
   min-height: 0;
-  gap: 4px;
+  gap: 0;
   margin: 0;
   overflow: hidden;
 }
 .row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: baseline;
-  column-gap: 12px;
+  align-items: center;
+  column-gap: 8px;
   font-size: var(--fs-caption);
   line-height: 16px;
 }

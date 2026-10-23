@@ -71,7 +71,7 @@ test.describe('cohesive responsive design', () => {
       }).toBe(true);
       let geometry: {
         pageOverflow: number; bodyOverflow: number; contentOverflow: number; overflowY: string;
-        bottomPadding: number; shellBottom: number; viewportBottom: number; mobileNavTop: number | null;
+        contentBottom: number; shellBottom: number; viewportBottom: number; mobileNavTop: number | null;
       } | undefined;
       let geometryError: unknown;
       for (let attempt = 0; !geometry && attempt < 25; attempt += 1) {
@@ -93,7 +93,7 @@ test.describe('cohesive responsive design', () => {
               bodyOverflow: body.scrollHeight - body.clientHeight,
               contentOverflow: main.scrollHeight - main.clientHeight,
               overflowY: style.overflowY,
-              bottomPadding: Number.parseFloat(style.paddingBottom),
+              contentBottom: main.getBoundingClientRect().bottom,
               shellBottom: shellRect.bottom,
               viewportBottom: window.innerHeight,
               mobileNavTop: mobileNavRect?.top ?? null,
@@ -111,30 +111,42 @@ test.describe('cohesive responsive design', () => {
       expect(geometry.shellBottom, `shell must fit at ${width}px`).toBeLessThanOrEqual(geometry.viewportBottom + 1);
       expect(geometry.overflowY).toBe('auto');
       expect(geometry.contentOverflow).toBeGreaterThanOrEqual(0);
-      if (width <= 640) expect(geometry.bottomPadding).toBeGreaterThan(68);
-      else if (width < 840) expect(geometry.bottomPadding).toBeGreaterThan(39);
-      else expect(geometry.bottomPadding).toBeGreaterThanOrEqual(0);
       if (geometry.mobileNavTop !== null) {
-        expect(geometry.bottomPadding).toBeGreaterThanOrEqual(geometry.viewportBottom - geometry.mobileNavTop - 1);
+        expect(geometry.contentBottom, `the entire scrollport clears navigation at ${width}px`)
+          .toBeLessThanOrEqual(geometry.mobileNavTop - 7);
       }
     }
     assertNoBackendRequests(requests);
   });
 
-  test('desktop top bar stays within the viewport at the compact desktop breakpoint', async ({ page, requests }) => {
-    await page.setViewportSize({ width: 1180, height: 900 });
-    await page.goto('/trade', { waitUntil: 'domcontentloaded' });
-    // Only the live <header> top bar: ProviderLoadingState's div.app-topbar
-    // fallback can share the DOM with it until React reveals the shell, and
-    // the hidden live bar would measure as an empty rect before that.
-    const topbar = page.locator('header.app-topbar');
-    await expect(topbar).toBeVisible();
-    const bounds = await topbar.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, viewport: window.innerWidth };
-    });
-    expect(bounds.left).toBeGreaterThanOrEqual(0);
-    expect(bounds.right).toBeLessThanOrEqual(bounds.viewport + 1);
+  test('desktop top bar spans the viewport while route content stays centered', async ({ page, requests }, testInfo) => {
+    for (const width of [840, 1180, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/earn', { waitUntil: 'domcontentloaded' });
+      // Only the live <header> top bar: ProviderLoadingState's div.app-topbar
+      // fallback can share the DOM with it until React reveals the shell, and
+      // the hidden live bar would measure as an empty rect before that.
+      const topbar = page.locator('header.app-topbar');
+      await expect(topbar).toBeVisible();
+      const bounds = await topbar.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const content = document.querySelector('main.app-content')!.getBoundingClientRect();
+        const brand = element.querySelector(':scope > a')!.getBoundingClientRect();
+        const nav = element.querySelector('nav')!.getBoundingClientRect();
+        const wallet = element.querySelector('.app-topbar-actions')!.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, viewport: window.innerWidth, content: { left: content.left, right: content.right, width: content.width },
+          brandRight: brand.right, navLeft: nav.left, navRight: nav.right, walletLeft: wallet.left, walletRight: wallet.right };
+      });
+      expect(bounds.left).toBeGreaterThanOrEqual(0);
+      expect(bounds.right).toBeLessThanOrEqual(bounds.viewport + 1);
+      expect(bounds.left).toBeLessThanOrEqual(40);
+      expect(bounds.viewport - bounds.walletRight).toBeLessThanOrEqual(40);
+      expect(bounds.brandRight).toBeLessThanOrEqual(bounds.navLeft);
+      expect(bounds.navRight).toBeLessThanOrEqual(bounds.walletLeft);
+      expect(bounds.content.width).toBeLessThanOrEqual(1120);
+      expect(Math.abs(bounds.content.left - (bounds.viewport - bounds.content.right))).toBeLessThanOrEqual(1);
+      if (width === 1920) await page.screenshot({ path: testInfo.outputPath('earn-wide-navigation.png') });
+    }
     assertNoBackendRequests(requests);
   });
 

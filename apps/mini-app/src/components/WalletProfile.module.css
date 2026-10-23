@@ -55,8 +55,8 @@
  * The light stays inside the summary (the sheet's scrolling body clips at its
  * top and sides): it fades to nothing at its box edge, and the drift never
  * lifts that box above its start or past the summary's width. */
-.summary { position: relative; isolation: isolate; padding: 12px 0 2px; margin-top: 2px; }
-.summary .total { font-size: 40px; font-weight: 550; letter-spacing: -.04em; margin-block: 8px 16px; }
+.summary { position: relative; isolation: isolate; padding: 6px 0 0; margin-top: 0; }
+.summary .total { font-size: 40px; font-weight: 550; letter-spacing: -.04em; margin-block: 4px 8px; }
 .summary::before { display: none; }
 @keyframes profile-light {
   from { transform: translate3d(0, 0, 0) scale(1); opacity: 0.7; }
@@ -65,8 +65,8 @@
 .summary .actions > a { background: var(--surface-2); }
 .summary .actions > a:hover { background: var(--surface-3); }
 @media (prefers-reduced-motion: reduce) { .summary::before { animation: none; } }
-.assets { margin-top: 20px; padding: 0; border-block: 1px solid var(--line); }
-.sectionHeading { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; border-radius: 10px; }
+.assets { margin-top: 12px; padding: 0; border-block: 1px solid var(--line); }
+.sectionHeading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; border-radius: 10px; }
 .sectionHeading::-webkit-details-marker { display: none; }
 .sectionHeading > span { display: flex; align-items: center; gap: 8px; }
 .assets[open] .sectionHeading > span > svg { transform: rotate(90deg); }

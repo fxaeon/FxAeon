@@ -1,0 +1,203 @@
+.summary {
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.amounts {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+}
+
+.amount {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.token {
+  position: relative;
+  display: flex;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  margin-top: 5px;
+}
+
+.token > span {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--surface-2);
+}
+
+.amountText {
+  flex: 1;
+  min-width: 0;
+}
+
+.exactAmount > summary {
+  display: flex;
+  min-width: 0;
+  min-height: 44px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  font-family: Manrope, var(--font-sans), sans-serif;
+  font-size: clamp(22px, 5.8vw, 28px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.exactAmount > summary::-webkit-details-marker,
+.recipientDetails > summary::-webkit-details-marker {
+  display: none;
+}
+
+.exactAmount > summary > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.exactAmount > summary[data-long] {
+  font-size: clamp(15px, 4.1vw, 20px);
+  letter-spacing: -.025em;
+}
+
+.exactAmount > summary:focus-visible,
+.recipientDetails > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.exactAmount > summary:hover { color: var(--mint-text); }
+.flowUnit { color: var(--mut); font-size: .66em; font-weight: 500; white-space: nowrap; }
+
+.exactAmount > p {
+  display: grid;
+  gap: 3px;
+  margin: 2px 0 6px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.exactAmount > p > span:first-child { color: var(--mut); font-size: 11px; }
+
+.networkLine {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0 5px;
+  margin-top: 0;
+  color: var(--mut);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.networkLine > span:last-child { overflow-wrap: anywhere; }
+.networkLine :global([data-usd-state]) { font-size: inherit; }
+
+.direction {
+  justify-self: center;
+  margin: 1px 0 1px 42px;
+  color: var(--mut);
+  opacity: .72;
+}
+
+.terms { display: grid; min-width: 0; gap: 0; margin-top: 5px; }
+.consequenceGroup, .costGroup, .context { display: grid; min-width: 0; gap: 0; }
+.costGroup { padding-top: 2px; border-top: 1px solid var(--line); }
+.context { padding-top: 2px; border-top: 1px solid var(--line); }
+
+.recipient { min-width: 0; }
+
+.recipientDetails > summary {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+}
+
+.recipientLabel { color: var(--mut); }
+.recipientPreview { min-width: 0; overflow: hidden; color: var(--text); font-family: var(--font-mono, ui-monospace, monospace); text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.recipientAction { display: inline-flex; min-height: 44px; align-items: center; color: var(--mut); }
+.recipientAction > span:last-child { display: none; }
+.recipientDetails[open] .recipientAction { color: var(--text); }
+.recipientDetails[open] .recipientAction > span:first-child { display: none; }
+.recipientDetails[open] .recipientAction > span:last-child { display: inline; }
+
+.recipientExpanded {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 3px 0 6px;
+}
+
+.recipientExpanded > :global([translate="no"]) { flex: 1 1 190px; min-width: 0; }
+.recipientExpanded > button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 6px;
+  border-radius: 10px;
+  color: var(--mut);
+  font-size: 12px;
+}
+.recipientExpanded > button:hover { color: var(--text); background: var(--surface); }
+.recipientExpanded > button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.copyStatus { margin: 0 0 4px; color: var(--warn); font-size: 11px; line-height: 1.4; }
+
+@media (min-width: 621px) {
+  .amounts { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); gap: 8px; }
+  .amount { gap: 8px; }
+  .token { flex-basis: 30px; width: 30px; height: 30px; }
+  .token > :global(img), .token > :global(svg) { width: 30px; height: 30px; }
+  .exactAmount > summary { font-size: clamp(20px, 3vw, 28px); }
+  .direction { width: 16px; height: 16px; margin: 0; transform: rotate(-90deg); }
+}
+
+@media (max-width: 620px) and (max-height: 620px) and (min-width: 360px) {
+  .summary { padding: 9px 10px; }
+  .amounts { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); gap: 4px; }
+  .amount { gap: 6px; }
+  .token { flex-basis: 28px; width: 28px; height: 28px; margin-top: 7px; }
+  .token > :global(img), .token > :global(svg) { width: 28px; height: 28px; }
+  .exactAmount > summary { font-size: clamp(18px, 5.3vw, 23px); }
+  .exactAmount > summary[data-long] { font-size: clamp(14px, 3.8vw, 17px); }
+  .direction { width: 14px; height: 14px; margin: 0; transform: rotate(-90deg); }
+  .terms { margin-top: 4px; }
+}
+
+@media (max-width: 359px) {
+  .summary { padding: 8px 10px; }
+  .amounts { gap: 0; }
+  .direction { width: 14px; height: 14px; margin: 0 0 0 40px; }
+  .recipientDetails > summary { gap: 6px; font-size: 11px; }
+}

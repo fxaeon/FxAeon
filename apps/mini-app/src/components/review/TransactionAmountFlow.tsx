@@ -9,29 +9,34 @@ import { plainAmountLabel, tokenAmountParts } from './transactionAmountPresentat
 import { formatReviewFactValue } from './reviewFactFormatting';
 import { readableReviewAmount } from './reviewHierarchy';
 import styles from './ActionReviewPresentation.module.css';
+import compactStyles from './TransactionAmountFlow.module.css';
 
 /** The same amount-led presentation for reviewed intent and observed transfers. */
-export function TransactionAmountFlow({ facts, chainId, caption, receipt = false, simulated = false, ariaLabel, labels, showNetwork = true, embedded = false }: {
+export function TransactionAmountFlow({ facts, chainId, caption, receipt = false, simulated = false, ariaLabel, labels, showNetwork = true, embedded = false, compact = false }: {
   facts: readonly ReviewFact[]; chainId: number; caption?: string; receipt?: boolean; simulated?: boolean;
   ariaLabel?: string; labels?: Readonly<Record<string, string>>;
   showNetwork?: boolean;
   embedded?: boolean;
+  /** Review-only density; pending and receipt presentations keep their rhythm. */
+  compact?: boolean;
 }) {
   if (!facts.length) return null;
-  return <section className={`${styles.amountFlow} ${embedded ? styles.amountFlowEmbedded : ''}`} aria-label={ariaLabel ?? (receipt ? 'Observed token movements' : 'Transaction amounts')} data-amount-provenance={simulated ? 'simulation' : receipt ? 'receipt' : 'review'}>
+  const dense = compact && !receipt;
+  const densityClass = (base: string, condensed: string) => dense ? `${base} ${condensed}` : base;
+  return <section className={`${styles.amountFlow} ${embedded ? styles.amountFlowEmbedded : ''} ${dense ? compactStyles.compact : ''}`} data-compact-amounts={dense ? facts.length : undefined} aria-label={ariaLabel ?? (receipt ? 'Observed token movements' : 'Transaction amounts')} data-amount-provenance={simulated ? 'simulation' : receipt ? 'receipt' : 'review'}>
     {caption && <p className={styles.flowCaption}>{caption}</p>}
     {facts.map((fact, index) => {
       const parts = tokenAmountParts(fact);
       if (!parts) return null;
       const display = readableReviewAmount(parts.amount);
       const estimate = !receipt && fact.label.startsWith('Estimated');
-      return <div key={`${fact.label}-${index}`}>
-        {index > 0 && (facts[index - 1].label === fact.label || facts.every(item => item.label.startsWith('Minimum received (') || /^Estimated (fxUSD|USDC) payout$/.test(item.label)) ? <Plus className={styles.flowArrow} size={16} aria-hidden="true" /> : <ArrowDown className={styles.flowArrow} size={18} aria-hidden="true" />)}
-        <div className={styles.flowAmount} data-review-fact={fact.label}>
-          <span className={styles.flowToken} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={40} />{index === 0 && showNetwork && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}</span>
-          <div className={styles.flowValue}>
-            <details className={styles.flowExact}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}><span>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span></summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${simulated ? 'simulated' : receipt ? 'receipt' : 'reviewed'} amount`}</span><span className={styles.selectableAmount}>{fact.title ?? fact.value}</span></p></details>
-            <div className={styles.flowSubline}><span>{amountCaption(labels?.[fact.label] ?? plainAmountLabel(fact.label))}</span><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && showNetwork && <><span aria-hidden="true">·</span><span>{chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span></>}</div>
+      return <div key={`${fact.label}-${index}`} className={dense ? compactStyles.leg : undefined}>
+        {index > 0 && (facts[index - 1].label === fact.label || facts.every(item => item.label.startsWith('Minimum received (') || /^Estimated (fxUSD|USDC) payout$/.test(item.label)) ? <Plus className={densityClass(styles.flowArrow, compactStyles.connector)} size={16} aria-hidden="true" /> : <ArrowDown className={densityClass(styles.flowArrow, compactStyles.connector)} size={18} aria-hidden="true" />)}
+        <div className={densityClass(styles.flowAmount, compactStyles.amount)} data-review-fact={fact.label}>
+          <span className={densityClass(styles.flowToken, compactStyles.token)} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={40} />{index === 0 && showNetwork && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}</span>
+          <div className={densityClass(styles.flowValue, compactStyles.value)}>
+            <details className={densityClass(styles.flowExact, compactStyles.exact)}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}><span>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span></summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${simulated ? 'simulated' : receipt ? 'receipt' : 'reviewed'} amount`}</span><span className={styles.selectableAmount}>{fact.title ?? fact.value}</span></p></details>
+            <div className={densityClass(styles.flowSubline, compactStyles.meta)}><span className={dense ? compactStyles.role : undefined}>{amountCaption(labels?.[fact.label] ?? plainAmountLabel(fact.label), dense)}</span><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && showNetwork && <><span aria-hidden="true">·</span><span>{chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span></>}</div>
           </div>
         </div>
       </div>;
@@ -40,8 +45,8 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
 }
 
 /** The token is already beside the amount; this line describes its role. */
-function amountCaption(label: string): string {
-  if (label === 'You receive · estimated') return 'Estimated';
+function amountCaption(label: string, showRole = false): string {
+  if (label === 'You receive · estimated') return showRole ? 'Receive · estimated' : 'Estimated';
   if (/^(?:fxUSD|USDC) payout · estimated$/.test(label)) return 'Estimated payout';
   if (label === 'You receive · minimum' || /^(?:fxUSD|USDC) · minimum$/.test(label)) return 'Minimum received';
   const caption = label.replace(/^You /, '');

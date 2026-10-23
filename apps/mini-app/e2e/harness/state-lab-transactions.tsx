@@ -40,7 +40,7 @@ function fixture(product: LabProduct) {
   const terms: ReviewFact[] = borrow
     ? [{ label: 'Estimated debt', value: '1,200 fxUSD' }, { label: 'Loan-to-value', value: '50%' }, { label: 'Borrow rate', value: '3.5% APR on collateral', title: 'Fixture only: effective temporary funding rate, applied to entire collateral. Can change.' }]
     : [{ label: 'Current APY', value: '6.25%', title: 'Fixture only: variable yield, not a promised return.' }, { label: 'Minimum received', value: '947.619047619047619047 fxSAVE' }];
-  terms.push({ label: 'Gas fee', value: '0.000125 ETH', title: 'Fixture only: estimated network fee, not a live gas quote.' });
+  terms.push({ label: 'Gas fee', value: '0.000125 ETH', title: '0.000125 ETH (simulated estimate, not a live gas quote)' });
   const route: PlannedRoute = { chainId: 1, walletAddress: account, operation, transactions: [transaction] };
   const identity = { ...transactionCardIdentity(route, facts, borrow ? 'Borrow fxUSD' : 'Deposit into fxSAVE'), review: borrow ? 'Review borrowing' : 'Review deposit', confirm: borrow ? 'Borrow fxUSD' : 'Deposit USDC' };
   const movementReceipt = buildReceiptPresentation({ chainId: 1, walletAddress: account, status: 'success', transactionKind: 'action', executionCostWei: 125000000000000n,
@@ -75,17 +75,18 @@ export function LabTransaction({ product, stage, onReset, onContinue, framed = f
         nextLabel={stage === 'Confirmed' ? sample.borrow ? 'View position' : 'Back to Earn' : stage === 'Uncertain' ? 'Check History' : 'Review again'} onNext={onReset} />
         : <ReviewViewport phase={pending ? 'executing' : 'review'}>
           <header data-review-header className={styles.reviewHeader}><h3>{pending ? sample.identity.name : sample.identity.review}</h3></header>
+          <div data-review-scroll className={styles.reviewScrollBody} role="region" aria-label="Review information" tabIndex={0}>
           {pending ? <PendingTransactionSummary identity={sample.identity} facts={sample.facts} chainId={1} status={stage === 'Submitted' ? 'submitted' : 'awaiting-user'}
             steps={stage === 'Submitted' ? [{ ...step, receipt: undefined, status: 'submitted' }] : []} networkSwitching={false} nextKind="action" showIdentity={false}
             requestLabel={stage === 'Signature required' ? 'Signature required · not submitted' : sample.identity.name} requestNumber={1} requestCount={1} />
-            : <><div className={styles.amountLedReview}>
+            : <div data-review-essential className={styles.amountLedReview}>
               {stage === 'Preparing' && <p role="status" className={styles.stableReviewStatus}>Preparing fixture terms</p>}
               {stage === 'Editing' && <p className={styles.stableReviewStatus}>Unsubmitted fixture draft</p>}
-              <TransactionAmountFlow facts={sample.facts} chainId={1} />
+              <TransactionAmountFlow facts={sample.facts} chainId={1} compact />
               <div className={styles.consequenceGroup}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Temporary funding' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
-            </div>
-              <div data-review-actions className={`${flowStyles.reviewInlineActions} ${styles.actions}`}><Button className={flowStyles.primaryAction} disabled={stage !== 'Review'} onClick={onContinue}>{sample.identity.confirm}</Button></div>
-            </>}
+            </div>}
+          </div>
+          {!pending && <div data-review-actions className={`${flowStyles.reviewInlineActions} ${styles.actions}`}><Button className={flowStyles.primaryAction} disabled={stage !== 'Review'} onClick={onContinue}>{sample.identity.confirm}</Button></div>}
         </ReviewViewport>}
     </>;
   return <TransactionEvidenceContext.Provider value="simulation">{framed

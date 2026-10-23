@@ -11,23 +11,23 @@
    transparent surface styling local rather than nesting a second card. */
 .panel[data-claim-flow='true'] { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .panel[data-claim-flow='true'] > :global([data-review-surface]) { display: flex; flex-direction: column; min-height: 0; }
-.vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 32px; }
+.vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 20px; }
 .vaultIdentity > div { min-width: 0; flex: 1 1 160px; }
 .vaultIdentity h2 { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -.035em; }
 .vaultIdentity p { margin: 3px 0 0; color: var(--mut); font-size: 14px; line-height: 1.5; }
 .network { margin-left: auto; display: flex; flex: 0 0 auto; align-items: center; gap: 6px; color: var(--mut); font-size: 13px; }
 /* Financial figures sit directly on the canvas; only the action owns a card. */
-.overview { grid-area: summary; display: flex; min-width: 0; flex-direction: column; padding: 4px 0 24px; border-bottom: 0; }
-.balanceTop { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; align-items: start; gap: 20px; }
+.overview { grid-area: summary; display: flex; min-width: 0; flex-direction: column; padding: 4px 0 16px; border-bottom: 0; }
+.balanceTop { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; align-items: start; gap: 12px; }
 .balanceCopy { min-width: 0; flex: 1; }
-.balanceCopy > p { min-height: 30px; margin: 0 0 6px; color: var(--mut); font-size: 14px; font-weight: 400; }
+.balanceCopy > p { min-height: 0; margin: 0 0 2px; color: var(--mut); font-size: 14px; font-weight: 400; }
 .balanceCopy h2 { max-width: 100%; margin: 0 0 3px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; letter-spacing: -.035em; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
 .balanceCopy small { display: block; max-width: 100%; overflow-wrap: anywhere; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .rate { min-width: 0; padding: 0; border: 0; background: transparent; }
 .rate > strong { display: block; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
-.rate > small { display: block; min-height: 30px; margin-bottom: 6px; color: var(--mut); font-size: 14px; font-weight: 400; }
-.vaultHoldings { display: grid; gap: 10px; margin: 22px 0 0; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
-.vaultHoldings > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.rate > small { display: block; min-height: 0; margin-bottom: 2px; color: var(--mut); font-size: 14px; font-weight: 400; }
+.vaultHoldings { display: grid; gap: 6px; margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
+.vaultHoldings > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .vaultHoldings dt { color: var(--mut); }
 .vaultHoldings dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
 .vaultInfo { grid-area: information; min-width: 0; }
@@ -131,7 +131,7 @@
   .workspace { gap: 8px; }
   .vaultLayout { gap: 16px; }
   .overview { padding: 6px 0 16px; }
-  .vaultIdentity { padding-bottom: 18px; gap: 9px; }
+  .vaultIdentity { padding-bottom: 12px; gap: 9px; }
   .vaultIdentity h2 { font-size: 28px; }
   .vaultIdentity > img { width: 40px !important; height: 40px !important; }
   .vaultIdentity > div { flex-basis: 110px; }
@@ -147,7 +147,7 @@
   .rate { padding: 0; }
   .rate > small, .balanceCopy > p { font-size: 12px; }
   .rate > strong, .balanceCopy h2 { font-size: 30px; }
-  .vaultHoldings { margin-top: 16px; padding-top: 12px; }
+  .vaultHoldings { margin-top: 10px; padding-top: 8px; }
   .withdrawOptions :global(label) { padding: 8px; }
   .withdrawOptions :global(fieldset) { gap: 6px; }
 }

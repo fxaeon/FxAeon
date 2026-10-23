@@ -9,11 +9,9 @@ import { GroupedAddress } from '@/components/GroupedAddress';
 import { copyText } from '@/lib/clipboard';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { readableReviewAmount, reviewFactLabel } from './reviewHierarchy';
-import styles from './ActionReviewPresentation.module.css';
+import styles from './BridgeReviewSummary.module.css';
 import { AmountUsd } from './AmountUsd';
 import { tokenAmountParts } from './transactionAmountPresentation';
-import { MetricLabel } from '../InfoHelp';
-import { ReviewFactValue } from './ReviewFactValue';
 import { ReviewTermRow } from './ReviewTermRow';
 
 function BridgeAmount({ fact, network, chainId, received = false }: {
@@ -22,20 +20,19 @@ function BridgeAmount({ fact, network, chainId, received = false }: {
   const parts = tokenAmountParts(fact);
   const figure = parts ? readableReviewAmount(parts.amount) : undefined;
   const unit = parts?.symbol;
-  return <div data-review-fact={fact.label} className={styles.bridgeAmount}>
-    <span className={styles.bridgeToken} aria-hidden="true">
+  return <div data-review-fact={fact.label} className={styles.amount}>
+    <span className={styles.token} aria-hidden="true">
       {unit && <TokenIcon symbol={unit} size={34} />}
       {(chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}
     </span>
-    <div className={styles.bridgeAmountText}>
-      <details className={styles.bridgeExactAmount}>
+    <div className={styles.amountText}>
+      <details className={styles.exactAmount}>
         <summary data-long={(figure?.value.length ?? 0) > 15 || undefined} aria-label={`${received ? 'Show full receive estimate' : 'Show exact sent amount'}: ${fact.title ?? fact.value}`}>
           <span>{figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : <ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" />} {unit && <span className={styles.flowUnit}>{unit}</span>}</span>
-
         </summary>
         <p><span>{received ? 'Unrounded estimate' : 'Exact send amount'}</span>{fact.title ?? fact.value}</p>
       </details>
-      <span className={styles.bridgeAssetNetwork}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
+      <span className={styles.networkLine}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
     </div>
   </div>;
 }
@@ -58,17 +55,25 @@ function Recipient({ fact }: { fact: ReviewFact }) {
     setCopyState(copied ? 'copied' : 'unconfirmed');
   };
   const isAddress = /^0x[\da-f]{40}$/i.test(fact.value);
-  if (!isAddress) return <div data-review-fact={fact.label} className={styles.bridgeFact}>
-    <MetricLabel label="Recipient" />
-    <span>{fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" label="Recipient unavailable" /> : <ReviewFactValue fact={fact} />}{fact.equivalent && <small>{fact.equivalent}</small>}</span>
-  </div>;
-  return <div data-review-fact={fact.label} className={styles.recipientAddress}>
-    <div><span>Recipient</span><button type="button" aria-label="Copy full recipient address" disabled={copyState === 'copying'} aria-busy={copyState === 'copying'} onClick={() => void copyRecipient()}>
-      {copyState === 'copied' ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}<span>{copyState === 'copied' ? 'Copied' : copyState === 'copying' ? 'Copying…' : 'Copy'}</span>
-    </button></div>
-    <GroupedAddress address={fact.value} />
+  if (!isAddress) return <ReviewTermRow fact={fact} displayLabel="Recipient" />;
+  const compactAddress = `${fact.value.slice(0, 6)}…${fact.value.slice(-4)}`;
+  return <div data-review-fact={fact.label} className={styles.recipient}>
+    <details className={styles.recipientDetails}>
+      <summary aria-label={`Show full recipient address: ${fact.value}`}>
+        <span className={styles.recipientLabel}>Recipient</span>
+        <span className={styles.recipientPreview} title={fact.value}>{compactAddress}</span>
+        <span className={styles.recipientAction}><span>Show full</span><span>Hide</span></span>
+      </summary>
+      <div className={styles.recipientExpanded}>
+        <GroupedAddress address={fact.value} />
+        <button type="button" aria-label="Copy full recipient address" disabled={copyState === 'copying'} aria-busy={copyState === 'copying'} onClick={() => void copyRecipient()}>
+          {copyState === 'copied' ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+          <span>{copyState === 'copied' ? 'Copied' : copyState === 'copying' ? 'Copying…' : 'Copy exact address'}</span>
+        </button>
+      </div>
+    </details>
     <span className="sr-only" role="status">{copyState === 'copied' ? 'Recipient address copied.' : ''}</span>
-    {copyState === 'unconfirmed' && <p role="status">Copy not confirmed. You can select the full address above.</p>}
+    {copyState === 'unconfirmed' && <p className={styles.copyStatus} role="status">Copy not confirmed. You can select the full address above.</p>}
   </div>;
 }
 
@@ -89,17 +94,17 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
   const priceImpact = allFacts.find(fact => fact.label === 'Price impact') ?? { label: 'Price impact', value: 'Unavailable', title: 'The accepted route does not provide a verified price-impact estimate.' };
   const slippage = allFacts.find(fact => fact.label === 'Slippage');
   const remaining = facts.filter(fact => !(fact.label === 'Delivery estimate' && /^(?:Not provided by bridge|Unavailable|Unknown|—)?$/i.test(fact.value.trim())) && fact !== sent && fact !== received && !(amountsShowNetworks && fact.label === 'Networks'));
-  return <section className={`${styles.bridgeSummary} ${styles.bridgeDecision}`} aria-label="Bridge amounts and terms">
-    <div className={styles.bridgeAmounts}>
+  return <section className={styles.summary} aria-label="Bridge amounts and terms">
+    <div className={styles.amounts}>
       {sent && <BridgeAmount fact={sent} network={source} chainId={sourceChainId} />}
-      {sent && received && <ArrowDown className={styles.bridgeDirection} size={17} aria-hidden="true" />}
+      {sent && received && <ArrowDown className={styles.direction} size={17} aria-hidden="true" />}
       {received && <BridgeAmount fact={received} network={destination} chainId={destinationChainId} received />}
     </div>
-    <div className={styles.bridgeTerms}>
+    <div className={styles.terms}>
       <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}{slippage && <BridgeFact fact={slippage} />}</div>
       <div className={styles.costGroup}>{remaining.filter(fact => ['Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}</div>
       <BridgeFact fact={priceImpact} />
-      <div className={styles.bridgeContext}>{remaining.filter(fact => !['Minimum received', 'Quoted minimum received', 'Price impact', 'Slippage', 'Total cost', 'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => fact.label === 'Recipient'
+      <div className={styles.context}>{remaining.filter(fact => !['Minimum received', 'Quoted minimum received', 'Price impact', 'Slippage', 'Total cost', 'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => fact.label === 'Recipient'
         ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
         : <BridgeFact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div>
     </div>

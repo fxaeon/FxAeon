@@ -42,6 +42,22 @@ Use a suite's documented snapshot policy. The separate [state lab](../../../docs
 
 ## Evidence scope
 
+### Simulated scenario catalog
+
+`capture_scenario_matrix.ts` creates a browsable HTML index and JSON report with viewport geometry, image hashes, fixture provenance, and every capture failure. It uses a fresh isolated browser, blocks unknown external requests, and never signs or broadcasts a transaction. Run it from `apps/mini-app`:
+
+~~~sh
+FX_SCENARIO_APP_URL=http://127.0.0.1:4347 \
+FX_SCENARIO_LAB_URL=http://127.0.0.1:4348 \
+pnpm exec tsx e2e/capture_scenario_matrix.ts
+~~~
+
+Start the current static export and state lab separately; this command does not build or start either server. The app export must configure deterministic Ethereum/Base URLs under `https://eth-mainnet.g.alchemy.com/v2/` and `https://base-mainnet.g.alchemy.com/v2/`, intercepted by the existing gallery fixture. A build with empty RPC configuration fails the balance-readiness check instead of producing misleading funded screenshots. Restart the static server after rebuilding so its cached CSP matches the current HTML.
+
+The matrix covers funded, verified-zero, and unavailable Trade/Earn/Borrow/Move editors, Portfolio, and the wallet drawer at 390×770, 390×500, and 1280×900. It separately captures Borrow/Earn lifecycle presentation, approval-required ActionReview, and position card/details through existing isolated harnesses. All images retain a simulation label. These rendered lifecycle states do not prove a transaction completed from the built app. Unsupported quote/protocol reads remain unavailable; physical keyboard behavior and other browser engines require separate checks.
+
+Set `FX_SCENARIO_SECTION=app`, `transactions`, or `positions` for a bounded rerun. `FX_SCENARIO_OUTPUT_DIR` selects the artifact directory; otherwise each run gets a timestamped directory under `artifacts/scenarios/`. A balance-readiness timeout, runtime error, overflow, or inaccessible primary action appears in the index and makes the command fail. Inspect the report before sharing the gallery as evidence.
+
 Built routes can contain real app components with synthetic protocol/wallet leaves. A screenshot proves the rendered fixture; a provider harness proves its mocked integration; an Ethereum fork proves only its covered local protocol behavior.
 
 Real Privy/Telegram identity verification, physical wallet dispatch, and cross-chain settlement require separate checks. Lazy chunk changes should additionally load the emitted shared module through a real consumer dependency chain. Never submit credentials or funds to validate a display-only test.

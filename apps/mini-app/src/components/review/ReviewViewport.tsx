@@ -33,5 +33,5 @@ export function ReviewViewport({ children, stable = false, busy = false, compact
     if (phase === 'executing' && previous.current !== phase) resetReviewViewport(rootRef.current);
     previous.current = phase;
   }, [phase]);
-  return <div ref={rootRef} data-review-viewport data-compact-review={compact || undefined} aria-busy={busy} data-stable-review={stable || undefined} className={[styles.reviewViewport, stable ? styles.stableReviewViewport : ''].join(' ')}>{children}</div>;
+  return <div ref={rootRef} data-review-viewport data-review-phase={phase} data-compact-review={compact || undefined} aria-busy={busy} data-stable-review={stable || undefined} className={[styles.reviewViewport, stable ? styles.stableReviewViewport : ''].join(' ')}>{children}</div>;
 }

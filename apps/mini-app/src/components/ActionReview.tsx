@@ -513,7 +513,7 @@ export function ActionReview(props: ActionReviewProps) {
   const decisionContent = (bridgeReview ? <BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} sourceChainId={reviewChainId} destinationChainId={acceptedBridgeQuote?.destinationChainId} /> : <div className={amountLed || leverageReview ? presentationStyles.amountLedReview : undefined}>
         {amountLed ? <>
           {identity.subtitle && identity.subtitle.toLowerCase() !== chainName(reviewChainId).toLowerCase() && <p className={presentationStyles.amountContext}>{identity.subtitle}</p>}
-          <TransactionAmountFlow facts={amountFacts} chainId={reviewChainId} />
+          <TransactionAmountFlow facts={amountFacts} chainId={reviewChainId} compact />
         </> : leverageReview ? <><p className={presentationStyles.amountContext}>{identity.subtitle}</p><LeverageChangeSummary facts={acceptedAmountFacts} changes={positionChangeRows} /></> : <TransactionIdentity {...identity} />}
         <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
           <div className={presentationStyles.consequenceGroup}>
@@ -590,7 +590,7 @@ export function ActionReview(props: ActionReviewProps) {
       )}
 
       {showExecutionProgress && stage !== 'executing' && <div className={presentationStyles.actualProgress}><StatusNotice {...progress} /></div>}
-      {stage === 'executing' ? <PendingTransactionSummary showIdentity={false} identity={identity} facts={amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : identity.amount ? [identity.amount] : []} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind} requestLabel={nextTransaction ? nextTransaction.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm : undefined} requestNumber={activeStep + 1} requestCount={stepCount} /> : decisionContent}
+      {stage === 'executing' ? <PendingTransactionSummary showIdentity={false} identity={identity} facts={amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : identity.amount ? [identity.amount] : []} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind} requestLabel={nextTransaction ? nextTransaction.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm : undefined} requestNumber={activeStep + 1} requestCount={stepCount} /> : <div data-review-essential>{decisionContent}</div>}
 
 
 
@@ -683,7 +683,7 @@ function ReviewSurface({ surface, className, children, stable = false, mobileShe
 function ReviewRow({ label, displayLabel, value, title, equivalent, className, quiet = false, compact = false, secondary = false }: { label: string; displayLabel?: string; value: ReactNode; title?: string; equivalent?: string; className?: string; quiet?: boolean; compact?: boolean; secondary?: boolean }) {
   const valueTitle = title ?? (typeof value === 'string' ? value : undefined);
   if (compact && typeof value === 'string') return <ReviewTermRow fact={{ label, value, title, equivalent }} displayLabel={displayLabel} quiet={quiet} />;
-  return <div data-review-fact={secondary ? undefined : label} data-review-evidence={secondary ? label : undefined} className={`flex min-w-0 items-center justify-between gap-4 text-[13px] ${className ?? ''}`}><MetricLabel className="text-mut" label={displayLabel ?? label} definition={reviewHelpDefinition(label)} /><span title={valueTitle} className="max-w-[62%] break-words text-right font-semibold tabular-nums">{['Gas fee', 'Bridge fee'].includes(label) && typeof value === 'string' ? <FeeAmount fact={{ value, title }} /> : <>{typeof value === 'string' && value !== '—' ? <ReviewFactValue fact={{ label, value, title }} /> : <ValueOrSkeleton value={value} width="md" announce={!quiet} label={`Loading ${label.toLowerCase()}`} />}</>}{equivalent && <span className={presentationStyles.factEquivalent}>{equivalent}</span>}{label === 'Total cost' && typeof value === 'string' && <FeeUsd fact={{ value, title }} />}</span></div>;
+  return <div data-review-fact={secondary ? undefined : label} data-review-evidence={secondary ? label : undefined} className={`${presentationStyles.detailFact} ${className ?? ''}`}><MetricLabel className="text-mut" label={displayLabel ?? label} definition={reviewHelpDefinition(label)} /><span title={valueTitle} className="max-w-[62%] break-words text-right font-semibold tabular-nums">{['Gas fee', 'Bridge fee'].includes(label) && typeof value === 'string' ? <FeeAmount fact={{ value, title }} /> : <>{typeof value === 'string' && value !== '—' ? <ReviewFactValue fact={{ label, value, title }} /> : <ValueOrSkeleton value={value} width="md" announce={!quiet} label={`Loading ${label.toLowerCase()}`} />}</>}{equivalent && <span className={presentationStyles.factEquivalent}>{equivalent}</span>}{label === 'Total cost' && typeof value === 'string' && <FeeUsd fact={{ value, title }} />}</span></div>;
 }
 
 /** The recovery for a wallet short of ETH: its Receive address. */
