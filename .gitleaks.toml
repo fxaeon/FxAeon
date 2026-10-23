@@ -21,4 +21,6 @@ regexes = [
   # and debtTokenAddress in test fixtures, trip the same rule for the same reason.
   '''(?i)0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0''',
   '''(?i)0x085780639CC2cACd35E474e71f4d000e2405d8f6''',
+  # Public Ethereum USDC contract used by depositTokenAddress in review fixtures.
+  '''(?i)0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48''',
 ]
