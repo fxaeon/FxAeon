@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { openHarness, metric } from '../harness/action-review-measurement-support';
-import { essentialReviewGeometry, expectEssentialReviewFits } from '../harness/review-essential-geometry';
+import { essentialReviewGeometry, expectClosedReviewFits } from '../harness/review-essential-geometry';
 
 for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-deposit', 'move'] as const) for (const size of [
   { width: 390, height: 740 }, { width: 320, height: 568 },
@@ -61,11 +61,17 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     const review = page.locator('[data-compact-review]');
     await expect(review).toBeVisible();
     await expect(review).toHaveAttribute('data-review-phase', 'review');
+    await page.evaluate(async () => {
+      await document.fonts.load('600 28px Manrope');
+      await document.fonts.ready;
+      await Promise.all([...document.images].map(image => image.decode().catch(() => undefined)));
+    });
     const essential = await essentialReviewGeometry(review);
     const evidence = JSON.stringify({ kind, size, ...essential }, null, 2);
     await writeFile(info.outputPath('initial-essential-geometry.json'), evidence);
     await info.attach('initial-essential-geometry', { body: evidence, contentType: 'application/json' });
-    if (size.width === 1280 || size.width === 390 && size.height === 770) expectEssentialReviewFits(essential);
+    expectClosedReviewFits(essential);
+    await expect(review.locator('details[data-review-secondary] > summary')).toBeInViewport({ ratio: 1 });
     await expect(review.locator('[data-review-essential] [data-review-fact="Gas fee"]')).toBeVisible();
     if (kind === 'trade' || kind === 'borrow') {
       for (const label of ['Rebalance price', 'Liquidation price']) {
@@ -77,6 +83,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     }
     const action = review.locator('[data-review-actions] button');
     await expect(action).toBeInViewport({ ratio: 1 });
+    expect((await action.boundingBox())!.height, 'Primary review action retains at least 48px height').toBeGreaterThanOrEqual(48);
     const geometry = await review.evaluate(el => {
       const body = el.querySelector('[aria-label="Review information"]')!;
       const footer = el.querySelector('[data-review-actions]')!;
@@ -105,6 +112,22 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await expect(received.locator('summary')).toHaveText('2,497.5 fxUSD');
       await expect(received.locator('summary')).toHaveAccessibleName('Show full receive estimate: 2497.5 fxUSD');
       await expect(received.getByText('Base', { exact: true })).toBeVisible();
+      for (const leg of [sent, received]) {
+        const graphics = await leg.evaluate(element => {
+          const figure = element.querySelector('summary > span')!.getBoundingClientRect();
+          return [...element.querySelectorAll('img,svg')].map(node => {
+            const icon = node.getBoundingClientRect();
+            return { width: icon.width, height: icon.height, overlaps: Math.min(icon.right, figure.right) - Math.max(icon.left, figure.left) > .5
+              && Math.min(icon.bottom, figure.bottom) - Math.max(icon.top, figure.top) > .5 };
+          });
+        });
+        expect(graphics.length).toBeGreaterThan(0);
+        for (const graphic of graphics) {
+          expect(graphic.width).toBeGreaterThan(0);
+          expect(graphic.height).toBeGreaterThan(0);
+          expect(graphic.overlaps, 'Bridge token and chain graphics must not paint over the numeric amount').toBe(false);
+        }
+      }
       await expect(review.locator('[data-review-fact="Networks"]')).toHaveCount(0);
       await expect(review.locator('[data-review-fact="Minimum received"]')).toContainText('2,475 fxUSD');
       const recipient = review.locator('[data-review-fact="Recipient"]');
@@ -124,9 +147,9 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await expect(fee.locator('summary')).toHaveText('1%');
       const feeTarget = await fee.locator('summary').boundingBox();
       expect(feeTarget!.width).toBeGreaterThanOrEqual(44);
-      // Inline numeric disclosures follow the explicit 32px review-row
+      // Inline numeric disclosures follow the explicit 24px review-row
       // contract; actions, navigation and address controls retain 44px.
-      expect(feeTarget!.height).toBeGreaterThanOrEqual(32);
+      expect(feeTarget!.height).toBeGreaterThanOrEqual(24);
       const feeHit = await fee.locator('summary').evaluate(element => {
         const rect = element.getBoundingClientRect();
         const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
@@ -145,12 +168,11 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await fee.locator('summary').click();
       const received = review.locator('[data-review-fact="Estimated received"]');
       await expect(received.getByText('Receive · estimated', { exact: true })).toBeVisible();
-      await expect(received.locator('summary')).toHaveText('99 USDC');
+      await expect(received.locator('[data-review-amount]')).toHaveText('99 USDC');
       await expect(received.locator('summary')).toHaveAccessibleName('Show full estimate: 99 USDC');
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
     if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toContainText('Not enforced');
-    await page.evaluate(async () => { await document.fonts.load('600 28px Manrope'); await Promise.all([...document.images].map(image => image.decode().catch(() => undefined))); });
     await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
     const more = review.locator('details[aria-label="Advanced transaction details"] > summary');
     await more.scrollIntoViewIfNeeded();
@@ -169,3 +191,75 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     expect(await metric(page, 'send')).toBe(0);
   });
 }
+
+test('compact amount headers wrap above figures at 320px with long roles and 200% text', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+  await openHarness(page, { presentationMode: true });
+  await page.evaluate(() => {
+    const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
+    const wallet = h.wallet.address;
+    h.financialFacts = true;
+    h.reviewRoute = { operation: 'depositAndMint', chainId: 1, walletAddress: wallet,
+      transactions: [{ chainId: 1, from: wallet, to: '0xB753366082466c4B5984312f0c4Bb97554be067E', data: '0x216d5108', value: 0n, kind: 'action', type: 'depositAndMint', operation: 'depositAndMint' }],
+      policy: { walletAddress: wallet, chainId: 1, reviewedAction: { kind: 'deposit-and-mint', poolAddress: '0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8', positionId: 0,
+        depositTokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', depositAmount: 100000000n, mintAmount: 50000000000000000000n, nativeInput: false } },
+      details: { colls: '40000000000000000', debts: '50000000000000000000', stEthPerWstEth: '1250000000000000000', effectiveLeverage: 2,
+        protocolFeeQuote: { poolAddress: '0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8', routerAddress: '0xB753366082466c4B5984312f0c4Bb97554be067E', ratios: ['0', '0', '5000000', '0'] } } };
+    h.rerender();
+  });
+  await page.getByRole('button', { name: 'Review position', exact: true }).click();
+  const flow = page.locator('[data-review-essential] [data-compact-amounts="2"]');
+  await expect(flow).toBeVisible();
+  await page.evaluate(async () => {
+    await document.fonts.load('600 28px Manrope');
+    await document.fonts.ready;
+    await Promise.all([...document.images].map(image => image.decode().catch(() => undefined)));
+  });
+  async function expectFlowGeometry() {
+    const legs = await flow.locator('[data-review-fact]').evaluateAll(elements => elements.map(leg => {
+      const summary = leg.querySelector('summary')!;
+      const figure = summary.querySelector('[data-review-amount]')!.getBoundingClientRect();
+      const heading = summary.firstElementChild!;
+      const role = heading.children[1].getBoundingClientRect();
+      const network = heading.children[2]?.getBoundingClientRect();
+      const bounds = leg.getBoundingClientRect();
+      const usd = leg.querySelector('[data-usd-state]')!.getBoundingClientRect();
+      const graphics = [...heading.querySelectorAll('img,svg')].map(node => node.getBoundingClientRect());
+      return { summaryHeight: summary.getBoundingClientRect().height, headingBottom: heading.getBoundingClientRect().bottom,
+        graphicsBottom: Math.max(...graphics.map(graphic => graphic.bottom)), graphicsCount: graphics.length,
+        figureTop: figure.top, figureLeft: figure.left, figureRight: figure.right, usdLeft: usd.left, usdRight: usd.right,
+        left: bounds.left, right: bounds.right, roleNetworkOverlap: Boolean(network
+          && Math.min(role.right, network.right) - Math.max(role.left, network.left) > .5
+          && Math.min(role.bottom, network.bottom) - Math.max(role.top, network.top) > .5) };
+    }));
+    expect(legs).toHaveLength(2);
+    for (const leg of legs) {
+      expect(leg.summaryHeight).toBeGreaterThanOrEqual(44);
+      expect(leg.headingBottom).toBeLessThanOrEqual(leg.figureTop + 1);
+      expect(leg.graphicsCount).toBeGreaterThan(0);
+      expect(leg.graphicsBottom, 'Token and chain graphics must not paint over the number').toBeLessThanOrEqual(leg.figureTop + 1);
+      expect(leg.roleNetworkOverlap).toBe(false);
+      expect(leg.figureLeft).toBeGreaterThanOrEqual(leg.left - 1);
+      expect(leg.figureRight).toBeLessThanOrEqual(leg.right + 1);
+      expect(leg.usdLeft).toBeGreaterThanOrEqual(leg.left - 1);
+      expect(leg.usdRight).toBeLessThanOrEqual(leg.right + 1);
+    }
+  }
+  await expectFlowGeometry();
+  // Deliberately stress only presentation copy; accepted facts and amounts
+  // remain unchanged. These labels model longer supported position roles.
+  await flow.locator('summary > span:first-child').evaluateAll(headings => {
+    ['Position size · estimated', 'Collateral returned'].forEach((text, index) => { headings[index].children[1].textContent = text; });
+  });
+  await expectFlowGeometry();
+  await page.evaluate(() => {
+    const text = [...document.querySelectorAll<HTMLElement>('body *')].filter(element => !element.closest('svg')
+      && [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
+      .map(element => ({ element, size: Number.parseFloat(getComputedStyle(element).fontSize) }));
+    for (const { element, size } of text) element.style.setProperty('font-size', `${size * 2}px`, 'important');
+  });
+  await expectFlowGeometry();
+  expect(await metric(page, 'send')).toBe(0);
+});

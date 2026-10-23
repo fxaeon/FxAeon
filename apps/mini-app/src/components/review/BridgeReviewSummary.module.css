@@ -178,26 +178,42 @@
   .amounts { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr); gap: 8px; }
   .amount { gap: 8px; }
   .token { flex-basis: 30px; width: 30px; height: 30px; }
-  .token > :global(img), .token > :global(svg) { width: 30px; height: 30px; }
+  .token > :global(img), .token > :global(svg) { width: 30px !important; height: 30px !important; }
   .exactAmount > summary { font-size: clamp(20px, 3vw, 28px); }
   .direction { width: 16px; height: 16px; margin: 0; transform: rotate(-90deg); }
 }
 
-@media (max-width: 620px) and (max-height: 620px) and (min-width: 360px) {
+@media (max-width: 620px) and (max-height: 620px) and (min-width: 320px) {
   .summary { padding: 9px 10px; }
   .amounts { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); gap: 4px; }
   .amount { gap: 6px; }
   .token { flex-basis: 28px; width: 28px; height: 28px; margin-top: 7px; }
-  .token > :global(img), .token > :global(svg) { width: 28px; height: 28px; }
+  /* TokenIcon and ChainIcon provide inline sizes, so responsive overrides
+     must beat those dimensions to keep the logo out of the amount line. */
+  .token > :global(img), .token > :global(svg) { width: 28px !important; height: 28px !important; }
   .exactAmount > summary { font-size: clamp(18px, 5.3vw, 23px); }
   .exactAmount > summary[data-long] { font-size: clamp(14px, 3.8vw, 17px); }
   .direction { width: 14px; height: 14px; margin: 0; transform: rotate(-90deg); }
   .terms { margin-top: 4px; }
 }
 
+@media (max-width: 359px) and (max-height: 620px) {
+  .summary { padding: 7px 8px; }
+  .amounts { grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr); gap: 3px; }
+  .amount { position: relative; display: block; }
+  .token { position: absolute; top: 1px; left: 0; width: 18px; height: 18px; margin: 0; }
+  .token > :global(img), .token > :global(svg) { width: 18px !important; height: 18px !important; }
+  .token > span { right: -2px; bottom: -2px; padding: 1px; }
+  .token > span > :global(img), .token > span > :global(svg) { width: 10px !important; height: 10px !important; }
+  .amountText { padding-top: 18px; }
+  .exactAmount > summary { min-height: 44px; font-size: clamp(15px, 4.8vw, 16px); line-height: 1.1; letter-spacing: -.04em; }
+  .exactAmount > summary[data-long] { font-size: clamp(13px, 4vw, 15px); letter-spacing: -.025em; }
+  .flowUnit { font-size: .6em; }
+  .networkLine { gap: 0 3px; font-size: 10px; line-height: 1.2; }
+  .direction { width: 12px; height: 12px; margin: 0; transform: rotate(-90deg); }
+  .terms { margin-top: 3px; }
+}
+
 @media (max-width: 359px) {
-  .summary { padding: 8px 10px; }
-  .amounts { gap: 0; }
-  .direction { width: 14px; height: 14px; margin: 0 0 0 40px; }
   .recipientDetails > summary { gap: 6px; font-size: 11px; }
 }

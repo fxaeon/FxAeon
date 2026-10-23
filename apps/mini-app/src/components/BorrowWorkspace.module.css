@@ -78,8 +78,8 @@
 @media (max-width: 600px) {
   .workspace[data-view='positions'] { padding-block: 16px; gap: 24px; }
   .positionGrid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .layout { gap: 18px; }
-  .overview { display: grid; gap: 14px; padding-top: 0; padding-bottom: 14px; }
+  .layout { gap: 8px; }
+  .overview { display: grid; gap: 14px; padding-top: 0; padding-bottom: 0; }
   .vaultIdentity { gap: 9px; margin: 0; }
   .vaultIdentity > img { width: 40px; height: 40px; }
   .vaultIdentity > div { flex-basis: 110px; }

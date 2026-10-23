@@ -678,19 +678,30 @@
 .compactFact small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; }
 .compactFact:has(.feePrimary) { align-items: center; padding-block: 0; }
 .compactFact .feePrimary > summary > .amountUsd { color: var(--text); font: inherit; }
-/* Review terms are a compact list. Inline definitions use distinct 32px
+/* Review terms are a compact list. Inline definitions use distinct 24px
    targets; amounts, navigation and confirmation retain their larger targets.
    No negative hit-area margins: adjacent controls never overlap. */
-.reviewViewport[data-review-phase='review'] .compactFact { min-height: 32px; line-height: 1.4; }
-.reviewViewport[data-review-phase='review'] .compactFact :global([data-info-help-trigger]) { width: 32px; min-width: 32px; height: 32px; min-height: 32px; }
+.reviewViewport[data-review-phase='review'] .compactFact { min-height: 24px; line-height: 1.4; }
+.reviewViewport[data-review-phase='review'] .compactFact :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .reviewViewport[data-review-phase='review'] .compactFact :global([data-review-value]) > summary,
-.reviewViewport[data-review-phase='review'] .compactFact .feePrimary > summary { min-block-size: 32px; min-height: 32px; }
+.reviewViewport[data-review-phase='review'] .compactFact .feePrimary > summary { min-block-size: 24px; min-height: 24px; }
 .reviewViewport[data-review-phase='review'] .compactFact:has(:global(details[open])) { align-items: flex-start; padding-block: 4px; }
+.reviewViewport[data-review-phase='review'] .amountLedReview { padding: 12px; }
+.reviewViewport[data-review-phase='review'] .reviewDetails { margin-top: 2px; }
+.reviewViewport[data-review-phase='review'] .reviewDetails > summary { min-height: 32px; }
+.reviewViewport[data-review-phase='review'] .actions.actions { padding-top: 6px; }
+@media (max-width: 600px) and (max-height: 620px) {
+  .reviewViewport[data-review-phase='review'] .amountLedReview { padding: 10px; }
+  .reviewViewport[data-review-phase='review'] .reviewDetails > summary { min-height: 24px; }
+  .reviewViewport[data-review-phase='review'] .actions.actions { padding-top: 4px; }
+  .reviewViewport[data-review-phase='review'] .actions > p { margin-bottom: 6px; line-height: 1.3; }
+  .reviewViewport[data-review-phase='review'] .actions > button { min-height: 48px; }
+}
 .amountLedReview .consequenceGroup, .amountLedReview .costGroup, .amountLedReview .riskGroup { gap: 0; }
 .amountLedReview .amountFlow + .facts { padding-top: 6px; }
-.amountLedReview .costGroup { margin-top: 4px; padding-top: 4px; }
-.amountLedReview .riskGroup { padding-top: 4px; margin-top: 4px; border-top: 1px solid var(--line); }
-.amountLedReview .riskGroup.loanRiskGroup { padding-top: 4px; margin-top: 4px; border-top: 1px solid var(--line); }
+.amountLedReview .costGroup { margin-top: 2px; padding-top: 2px; }
+.amountLedReview .riskGroup { padding-top: 2px; margin-top: 2px; border-top: 1px solid var(--line); }
+.amountLedReview .riskGroup.loanRiskGroup { padding-top: 2px; margin-top: 2px; border-top: 1px solid var(--line); }
 .compactRisk { min-width: 0; }
 .flowAmount { align-items: flex-start; }
 .flowToken { margin-top: 3px; }

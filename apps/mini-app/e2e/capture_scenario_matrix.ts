@@ -16,7 +16,7 @@ import { installBrowserAppFixtures } from './fixtures/test';
 import { installRefinementGalleryFixtures, type GalleryBalanceState, type GalleryRead } from './fixtures/refinement-gallery';
 import { openHarness } from './harness/action-review-measurement-support';
 import { buildPositionBrakeLab } from './harness/position-brake-build';
-import { essentialReviewGeometry, expectEssentialReviewFits } from './harness/review-essential-geometry';
+import { essentialReviewGeometry, expectClosedReviewFits } from './harness/review-essential-geometry';
 
 const appRoot = resolve(__dirname, '..');
 const repoRoot = resolve(appRoot, '../..');
@@ -110,7 +110,11 @@ async function label(page: Page, state: string): Promise<void> {
 }
 
 async function snapshot(page: Page, capture: Capture, position = 'initial'): Promise<void> {
-  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(async () => {
+    await document.fonts.load('600 28px Manrope');
+    await document.fonts.ready;
+    await Promise.all([...document.images].map(image => image.decode().catch(() => undefined)));
+  });
   const file = `${capture.id}-${position}.png`;
   const bytes = await page.screenshot({ path: resolve(output, file), animations: 'disabled', caret: 'hide' });
   capture.images.push({ file, position, sha256: createHash('sha256').update(bytes).digest('hex') });
@@ -167,7 +171,7 @@ async function assertVisibleAction(page: Page): Promise<unknown> {
   });
   expect(geometry.top).toBeGreaterThanOrEqual(geometry.mainTop - 1);
   expect(geometry.bottom).toBeLessThanOrEqual(geometry.visibleBottom + 1);
-  expect(geometry.height).toBeGreaterThanOrEqual(44);
+  expect(geometry.height).toBeGreaterThanOrEqual(48);
   expect(geometry.width).toBeGreaterThanOrEqual(44);
   expect(geometry.hit, 'The whole primary action must receive pointer input above navigation').toBe(true);
   return geometry;
@@ -190,7 +194,7 @@ async function lifecycleGeometry(page: Page, capture: Capture, requireAction: bo
     });
     expect(geometry.top).toBeGreaterThanOrEqual(0);
     expect(geometry.bottom).toBeLessThanOrEqual(capture.viewport.height + 1);
-    expect(geometry.height).toBeGreaterThanOrEqual(44);
+    expect(geometry.height).toBeGreaterThanOrEqual(48);
     expect(geometry.hit, 'Lifecycle footer action must be wholly reachable without scrolling the footer').toBe(true);
     return geometry;
   };
@@ -198,9 +202,13 @@ async function lifecycleGeometry(page: Page, capture: Capture, requireAction: bo
   const review = page.locator('[data-review-viewport][data-review-phase="review"]');
   const essential = await review.count() ? await essentialReviewGeometry(review) : null;
   capture.geometry = { initialAction, essential };
-  // Small-height/text-expanded and explicitly expanded details remain measurable
-  // scroll exceptions; ordinary phone and desktop decisions must fit initially.
-  if (essential && (capture.viewport.id === 'desktop' || capture.viewport.height >= 770)) expectEssentialReviewFits(essential);
+  // Unexpanded essentials must fit even on the short phone. Opening exact
+  // values/details or enlarging text may introduce separately measured scroll.
+  if (essential) {
+    expectClosedReviewFits(essential);
+    const details = review.locator('details[data-review-secondary] > summary');
+    if (await details.count()) await expect(details).toBeInViewport({ ratio: 1 });
+  }
   let networkFee: { displayed: string; exact: string } | null = null;
   if (essential) {
     // These review fixtures supply fresh ETH display prices. An ETH fallback

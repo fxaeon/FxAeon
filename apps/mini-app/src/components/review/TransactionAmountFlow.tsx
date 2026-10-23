@@ -30,13 +30,19 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
       if (!parts) return null;
       const display = readableReviewAmount(parts.amount);
       const estimate = !receipt && fact.label.startsWith('Estimated');
+      const role = amountCaption(labels?.[fact.label] ?? plainAmountLabel(fact.label), dense);
+      const network = chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`;
+      const token = <span className={densityClass(styles.flowToken, compactStyles.token)} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={dense ? 16 : 40} />{index === 0 && showNetwork && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={dense ? 8 : 15} /></span>}</span>;
       return <div key={`${fact.label}-${index}`} className={dense ? compactStyles.leg : undefined}>
         {index > 0 && (facts[index - 1].label === fact.label || facts.every(item => item.label.startsWith('Minimum received (') || /^Estimated (fxUSD|USDC) payout$/.test(item.label)) ? <Plus className={densityClass(styles.flowArrow, compactStyles.connector)} size={16} aria-hidden="true" /> : <ArrowDown className={densityClass(styles.flowArrow, compactStyles.connector)} size={18} aria-hidden="true" />)}
         <div className={densityClass(styles.flowAmount, compactStyles.amount)} data-review-fact={fact.label}>
-          <span className={densityClass(styles.flowToken, compactStyles.token)} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={40} />{index === 0 && showNetwork && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}</span>
+          {!dense && token}
           <div className={densityClass(styles.flowValue, compactStyles.value)}>
-            <details className={densityClass(styles.flowExact, compactStyles.exact)}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}><span>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span></summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${simulated ? 'simulated' : receipt ? 'receipt' : 'reviewed'} amount`}</span><span className={styles.selectableAmount}>{fact.title ?? fact.value}</span></p></details>
-            <div className={densityClass(styles.flowSubline, compactStyles.meta)}><span className={dense ? compactStyles.role : undefined}>{amountCaption(labels?.[fact.label] ?? plainAmountLabel(fact.label), dense)}</span><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} />{index === 0 && showNetwork && <><span aria-hidden="true">·</span><span>{chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`}</span></>}</div>
+            <details className={densityClass(styles.flowExact, compactStyles.exact)}><summary data-long={display.value.length > 15 || undefined} aria-label={`Show ${estimate ? 'full estimate' : `${parts.exact ? 'exact' : 'full'} amount`}: ${parts.amount} ${parts.symbol}`}>
+              {dense && <span className={compactStyles.heading}>{token}<span className={compactStyles.role}>{role}</span>{index === 0 && showNetwork && <span className={compactStyles.network}>{network}</span>}</span>}
+              <span data-review-amount={dense ? '' : undefined}>{display.shortened || parts.approximate ? '≈ ' : ''}{groupDigits(display.value.replace(/,/g, ''))} <span className={styles.flowUnit}>{parts.symbol}</span></span>
+            </summary><p><span>{estimate ? 'Unrounded estimate' : `${parts.exact ? 'Exact' : 'Reported'} ${simulated ? 'simulated' : receipt ? 'receipt' : 'reviewed'} amount`}</span><span className={styles.selectableAmount}>{fact.title ?? fact.value}</span></p></details>
+            <div className={densityClass(styles.flowSubline, compactStyles.meta)}>{!dense && <><span>{role}</span><span aria-hidden="true">·</span></>}<AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} fallback={dense ? 'USD unavailable' : undefined} />{!dense && index === 0 && showNetwork && <><span aria-hidden="true">·</span><span>{network}</span></>}</div>
           </div>
         </div>
       </div>;

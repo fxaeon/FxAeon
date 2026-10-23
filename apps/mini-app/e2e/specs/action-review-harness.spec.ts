@@ -215,8 +215,9 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   });
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('.reviewInlineContent');
-  await expect(review.locator('[data-review-fact="Estimated received"] summary > span')).toHaveText('99 USDC');
-  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Estimated', { exact: true })).toBeVisible();
+  await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveAccessibleName('Show full estimate: 99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · estimated', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-value="f(x) fee"]');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(fee.locator('summary')).toHaveText('1%');
@@ -235,7 +236,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   expect(await metric(page, 'send')).toBe(0);
   await page.clock.fastForward(30_001);
   // Accepted amounts remain evidence of the old review, not a fresh quote.
-  await expect(review.locator('[data-review-fact="Estimated received"] summary > span')).toHaveText('99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
   await expect(review.getByText('Quote expired · review again', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Withdraw instantly', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
@@ -789,7 +790,7 @@ test.describe('ActionReview isolated orchestration', () => {
     const originalFacts = { Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' };
     const expectOriginalFacts = async () => {
       for (const [label, value] of Object.entries(originalFacts)) {
-        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span:last-child' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
     };
@@ -828,7 +829,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
     await harnessControl(page, 'Change preparation facts');
     await expect(page.getByRole('heading').filter({ hasText: '3×' })).toHaveCount(0);
-    await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.25 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] summary > span:last-child').last()).toHaveText('0.25 fxUSD');
     expect(await metric(page, 'send')).toBe(0);
   });
 
@@ -954,7 +955,7 @@ test.describe('ActionReview isolated orchestration', () => {
     });
     const expectCheckedRoute = async () => {
       for (const [label, value] of Object.entries({ Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' })) {
-        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span:last-child' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
       expect(await liveStatuses.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent))).toEqual(baselineStatuses);
@@ -1034,7 +1035,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('heading', { level: 2, name: '3× ETH Long', exact: true })).toBeVisible();
     const review = page.locator('[data-review-viewport]');
-    const amount = review.locator('[data-review-fact="Amount"] summary > span').last();
+    const amount = review.locator('[data-review-fact="Amount"] summary > span:last-child').last();
     const expectFits = async () => {
       await expectReviewInside(review);
       await expect(amount).toHaveText('≈ 0.0002444 fxUSD');
@@ -1141,7 +1142,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'prepare')).toBe(1);
     // A failed refresh retains the accepted route as non-signable evidence.
     await expect(page.getByRole('heading', { name: '3× ETH Long', exact: true })).toBeVisible();
-    await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.25 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] summary > span:last-child').last()).toHaveText('0.25 fxUSD');
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
     expect(await metric(page, 'send')).toBe(0);
@@ -1187,7 +1188,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(updated.routeVersion).toBe(2);
     await resolvePreviewRequest(page, updated.id);
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
-    await expect(page.locator('[data-review-fact="Amount"] summary > span').last()).toHaveText('0.5 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] summary > span:last-child').last()).toHaveText('0.5 fxUSD');
     expect(await metric(page, 'send')).toBe(0);
   });
 

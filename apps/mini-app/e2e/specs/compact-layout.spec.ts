@@ -1,9 +1,68 @@
 import { test, expect } from '../fixtures/test';
+import { installRefinementGalleryFixtures } from '../fixtures/refinement-gallery';
 
 test.use({ telegram: false });
 
 test.describe('fixed dock clearance', () => {
   test.use({ browserWallet: { initiallyConnected: true }, marketPrices: true });
+
+  test('Borrow settled unavailable limit and retry retain the initial action inside the scrollport', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await installRefinementGalleryFixtures(page);
+    await page.goto('/borrow');
+    await expect(page.getByRole('button', { name: 'Retry borrowing limit', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Live limit unavailable', { exact: true })).toBeVisible();
+    const retry = await page.getByRole('button', { name: 'Retry borrowing limit', exact: true }).boundingBox();
+    expect(retry!.height).toBeGreaterThanOrEqual(44);
+    await page.evaluate(async () => document.fonts.ready);
+    const action = page.locator('.reviewTrigger .button-primary').first();
+    const geometry = await action.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const main = document.querySelector<HTMLElement>('main.app-content-tabs:not([hidden])')!;
+      const mainRect = main.getBoundingClientRect();
+      const nav = document.querySelector('nav.mobile-tabbar')!.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.bottom - 4);
+      return { scrollTop: main.scrollTop, bottom: rect.bottom, height: rect.height,
+        visibleBottom: Math.min(mainRect.bottom, nav.top), hit: hit === element || Boolean(hit && element.contains(hit)) };
+    });
+    expect(geometry.scrollTop).toBe(0);
+    expect(geometry.bottom).toBeLessThanOrEqual(geometry.visibleBottom);
+    expect(geometry.height).toBeGreaterThanOrEqual(48);
+    expect(geometry.hit).toBe(true);
+  });
+
+  test('funded Earn shows the whole review action before scrolling on a normal phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 770 });
+    await installRefinementGalleryFixtures(page);
+    await page.goto('/earn');
+    await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
+    const main = page.locator('main.app-content-tabs:visible');
+    const amount = main.locator('input[inputmode="decimal"]').first();
+    const balance = main.locator('[data-amount-field] [id$="-balance"]').first();
+    await expect(balance).toContainText('1,200 fxUSD');
+    await amount.fill('100');
+    await amount.blur();
+    await main.evaluate(element => element.scrollTo({ top: 0, behavior: 'instant' }));
+    const action = page.locator('.reviewTrigger .button-primary').first();
+    await expect(action).toBeVisible();
+    const geometry = await action.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const main = document.querySelector<HTMLElement>('main.app-content-tabs:not([hidden])')!;
+      const mainRect = main.getBoundingClientRect();
+      const nav = document.querySelector('nav.mobile-tabbar')!.getBoundingClientRect();
+      return { scrollTop: main.scrollTop, top: rect.top, bottom: rect.bottom, height: rect.height,
+        visibleTop: mainRect.top, visibleBottom: Math.min(mainRect.bottom, nav.top),
+        hit: [rect.top + 4, rect.top + rect.height / 2, rect.bottom - 4].every(y => {
+          const hit = document.elementFromPoint(rect.left + rect.width / 2, y);
+          return hit === element || Boolean(hit && element.contains(hit));
+        }) };
+    });
+    expect(geometry.scrollTop).toBe(0);
+    expect(geometry.top).toBeGreaterThanOrEqual(geometry.visibleTop);
+    expect(geometry.bottom, 'The initial CTA must fit fully inside the scrollport').toBeLessThanOrEqual(geometry.visibleBottom);
+    expect(geometry.height).toBeGreaterThanOrEqual(44);
+    expect(geometry.hit).toBe(true);
+  });
 
   test('connected forms keep focus and the complete action inside the scrollport above the dock', async ({ page }) => {
     for (const route of ['/trade', '/move', '/earn']) {
@@ -48,20 +107,28 @@ test.describe('fixed dock clearance', () => {
 
 test('baseline forms keep their action above navigation and Move stays centered', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
+  // Exercise the settled error shape, including Borrow's 44px retry row.
+  // A loading-only capture can miss the later downward layout shift.
+  await page.route('https://eth-mainnet.g.alchemy.com/**', route => route.abort('blockedbyclient'));
   for (const route of ['/trade', '/borrow', '/earn', '/move']) {
     await page.goto(route);
+    if (route === '/borrow') {
+      await expect(page.getByRole('button', { name: 'Retry borrowing limit', exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('Live limit unavailable', { exact: true })).toBeVisible();
+    }
     const action = page.locator('.reviewTrigger .button-primary');
     await expect(action).toBeVisible();
     const bounds = await action.evaluate(element => {
       const main = document.querySelector('main')!;
       const nav = document.querySelector('nav.mobile-tabbar')!;
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, height: rect.height, navTop: nav.getBoundingClientRect().top, scroll: main.scrollTop };
+      return { bottom: rect.bottom, height: rect.height, navTop: nav.getBoundingClientRect().top, mainBottom: main.getBoundingClientRect().bottom, scroll: main.scrollTop };
     });
     expect(bounds.scroll, `${route} starts at the top`).toBe(0);
     // Transformed cards can report fractional-pixel rounding just below 48px.
     expect(bounds.height, `${route} primary CTA retains its 48px baseline`).toBeGreaterThanOrEqual(48 - 0.01);
     expect(bounds.bottom, `${route} action clears navigation`).toBeLessThanOrEqual(bounds.navTop - 4);
+    expect(bounds.bottom, `${route} initial action fits wholly inside the main scrollport`).toBeLessThanOrEqual(bounds.mainBottom);
     if (route === '/borrow') await expect(page.getByRole('heading', { name: 'Borrow fxUSD', exact: true })).toBeVisible();
     if (route === '/move') {
       const gaps = await page.locator('[data-flow-stage]').evaluate(card => {

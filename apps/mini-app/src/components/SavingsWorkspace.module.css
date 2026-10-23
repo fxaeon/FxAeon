@@ -129,8 +129,8 @@
 
 @media (max-width: 640px) {
   .workspace { gap: 8px; }
-  .vaultLayout { gap: 16px; }
-  .overview { padding: 6px 0 16px; }
+  .vaultLayout { gap: 8px; }
+  .overview { padding: 6px 0 0; }
   .vaultIdentity { padding-bottom: 12px; gap: 9px; }
   .vaultIdentity h2 { font-size: 28px; }
   .vaultIdentity > img { width: 40px !important; height: 40px !important; }
