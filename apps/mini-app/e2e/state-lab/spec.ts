@@ -56,6 +56,11 @@ test('long amount previews preserve exact editing and focus/blur never rewrites 
     const field = page.locator('[data-amount-field="unified"]');
     const preview = field.locator('[aria-hidden="true"][class*="entryPreview"]');
     for (const [value, copy] of [['0.008793346701694145', '≈ 0.0087933'], ['1.204548856269749526', '≈ 1.2045']]) {
+      // Begin with a settled large short figure, then inspect the long edit
+      // immediately. Waiting after the long paste would hide transient clipping.
+      await input.fill('1');
+      await input.blur();
+      await input.evaluate(async node => { await Promise.all(node.getAnimations().map(animation => animation.finished.catch(() => undefined))); });
       await input.fill(value);
       await expect(input).toHaveValue(value);
       await expect(preview).toBeHidden();
@@ -66,7 +71,10 @@ test('long amount previews preserve exact editing and focus/blur never rewrites 
       await input.focus();
       await expect(preview).toBeHidden();
       await expect(input).toHaveValue(value);
-      expect(await input.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+      const editing = await input.evaluate(node => ({ scrollWidth: node.scrollWidth, clientWidth: node.clientWidth,
+        fontSize: Number.parseFloat(getComputedStyle(node).fontSize) }));
+      expect(editing.fontSize, 'Exact editing retains the readable 14px floor').toBeGreaterThanOrEqual(14);
+      expect(editing.scrollWidth, 'Every exact digit fits immediately after focus').toBeLessThanOrEqual(editing.clientWidth + 1);
       await input.press('ControlOrMeta+A');
       expect(await input.evaluate((node: HTMLInputElement) => node.value.slice(node.selectionStart ?? 0, node.selectionEnd ?? 0))).toBe(value);
       await input.press('End');
@@ -110,6 +118,7 @@ test('long amount previews preserve exact editing and focus/blur never rewrites 
 async function openLab(page: import('@playwright/test').Page) {
   await page.goto('/');
   await expect(page.locator('[data-harness-ready="true"]')).toHaveCount(1);
+  await page.evaluate(async () => { await document.fonts.load('500 20px Inter'); await document.fonts.ready; });
 }
 
 async function select(page: import('@playwright/test').Page, name: string) {

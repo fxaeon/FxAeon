@@ -36,7 +36,7 @@ CI browser jobs use a digest-pinned Playwright image matching the installed pack
 
 ## Failures and visual changes
 
-Inspect the trace, screenshot, console, and relevant fixture before changing assertions. Keep meaningful checks for exact values, approval/fee evidence, quote expiry, cancellation, keyboard focus, long inputs, 44px targets, footer clearance, overflow, and enlarged text.
+Inspect the trace, screenshot, console, and relevant fixture before changing assertions. Keep meaningful checks for exact values, approval/fee evidence, quote expiry, cancellation, keyboard focus, long inputs, footer clearance, overflow, and enlarged text. Main actions retain 44px targets (48px for primary review actions); compact inline metric help and disclosures retain 24px targets with non-overlap and center-hit checks.
 
 Use a suite's documented snapshot policy. The separate [state lab](../../../docs/ui-state-lab.md) has platform-specific approved references; its baseline procedure differs from generic Playwright snapshots. Re-recording an unexplained failure is not validation.
 

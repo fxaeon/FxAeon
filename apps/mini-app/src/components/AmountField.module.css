@@ -66,7 +66,8 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-figure);
   caret-color: var(--mint);
-  transition: font-size var(--dur-base) var(--ease-out);
+  /* A pasted exact amount must fit immediately, not after a type-size tween. */
+  transition: none;
 }
 .entryFit > input::placeholder { color: var(--mut-2); opacity: 0.7; }
 /* The real input always owns its exact value. Only its resting paint is
