@@ -26,10 +26,12 @@
 .rate { min-width: 0; padding: 0; border: 0; background: transparent; }
 .rate > strong { display: block; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .rate > small { display: block; min-height: 0; margin-bottom: 2px; color: var(--mut); font-size: 14px; font-weight: 400; }
-.vaultHoldings { display: grid; gap: 6px; margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
-.vaultHoldings > div { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
-.vaultHoldings dt { color: var(--mut); }
-.vaultHoldings dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.vaultHoldings { display: grid; gap: 2px; margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
+.vaultHoldings > div { display: flex; min-height: 24px; justify-content: space-between; align-items: center; gap: 8px; }
+.vaultHoldings dt { min-width: 0; color: var(--mut); }
+.vaultHoldings dd { min-width: 0; max-width: 60%; margin: 0; text-align: right; overflow-wrap: anywhere; font-weight: 500; font-variant-numeric: tabular-nums; }
+.vaultHoldings :global([data-info-help-trigger]), .balanceCopy :global([data-info-help-trigger]), .rate :global([data-info-help-trigger]), .estimateRow :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
+.vaultHoldings dt > :global(span), .estimateRow > div > span > :global(span) { display: flex; flex-wrap: wrap; align-items: center; }
 .vaultInfo { grid-area: information; min-width: 0; }
 .vaultInfo > :global([aria-label='fxSAVE details']) { margin: 0; padding: 0; }
 .vaultInfo > details { margin-top: 0; }
@@ -52,9 +54,9 @@
 .outcomeRow > strong { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 500; text-align: right; }
 .outcomeNote { margin: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .estimateRow { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.estimateRow > div { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 12px; }
+.estimateRow > div { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
 .estimateRow span { color: var(--mut); font-size: var(--fs-small); }
-.estimateRow strong { color: var(--text); font-size: var(--fs-small); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+.estimateRow strong { min-width: 0; max-width: 60%; color: var(--text); font-size: var(--fs-small); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
 .estimateRow small { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
 .fundingGuide { margin: -2px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .fundingGuide a, .fundingGuide button { color: var(--mint-text, var(--mint)); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }

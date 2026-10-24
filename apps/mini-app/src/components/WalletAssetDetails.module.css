@@ -19,11 +19,11 @@
 .copyStatus:empty { display: none; }
 .copyButton { display: inline-flex; min-height: 44px; width: fit-content; align-items: center; gap: 8px; border-radius: 10px; color: var(--mint-text); font-size: 13px; font-weight: 600; }
 .copyStatus { margin: -6px 0 0; color: var(--mut); font-size: 11px; }
-.facts { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
-.facts > div { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; border-radius: 14px; padding: 12px 14px; background: #1b1b1f; font-size: 14px; }
-.facts dt { color: var(--mut); }
+.facts { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.facts > div { display: flex; min-width: 0; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; padding: 4px 8px; background: #1b1b1f; font-size: 14px; line-height: 1.4; }
+.facts dt { min-width: 0; color: var(--mut); }
 .facts dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; }
-.chain { display: inline-flex; align-items: center; gap: 8px; }
+.chain { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The wallet sheet's tonal actions: raised tone, no outline, a press that gives. */
 .actions a { display: inline-flex; flex: 1 0 42%; min-width: 0; min-height: 52px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 14px; background: #25252b; color: var(--text); padding: 10px; text-align: center; font-size: 14px; font-weight: 500; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }

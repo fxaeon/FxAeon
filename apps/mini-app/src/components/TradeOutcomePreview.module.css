@@ -17,13 +17,20 @@
 }
 .row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   column-gap: 8px;
   font-size: var(--fs-caption);
-  line-height: 16px;
+  line-height: 1.35;
 }
-.row dt { color: var(--mut); font-weight: 500; white-space: nowrap; }
+.row dt { min-width: 0; color: var(--mut); font-weight: 500; }
+.row dt > :global(span) { display: flex; flex-wrap: wrap; align-items: center; }
+.row dt :global([data-info-help-trigger]) {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+}
 .row dd {
   min-width: 0;
   margin: 0;
@@ -32,6 +39,11 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   overflow-wrap: anywhere;
+}
+.row dd :global([data-review-value] > summary) {
+  min-width: 24px;
+  min-height: 24px;
+  min-block-size: 24px;
 }
 @media (max-width: 640px) {
   .outcome { padding-inline: 14px; }

@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { leverageTrackPosition } from '../../src/lib/leverageShare';
+import { enlargeFormText, expectFormMetricRows } from '../harness/form-metric-geometry';
 
 // The real Trade ticket (LeverageField, the warmed route and its outcome
 // preview, ActionReview) over the offline RPC fixture used by the review
@@ -73,6 +74,27 @@ const figure = async (page: Page, label: string) => (await displayedFact(page, l
 const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"], [data-review-evidence="${label}"]`).first().locator('> span').last();
 const slider = (page: Page) => page.getByRole('slider', { name: 'Target leverage slider', exact: true });
 const leverageField = (page: Page) => page.getByRole('textbox', { name: 'Target leverage', exact: true });
+
+test('Trade outcome rows stay compact and wrap at 320px with 200% text', async ({ page }, info) => {
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await mount(page);
+    await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
+    await slider(page).fill('2.8');
+    await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+    const planned = await planCount(page);
+    await page.evaluate(() => document.fonts.ready);
+    const rows = outcome(page).locator('[data-outcome-fact]');
+    const heights = await expectFormMetricRows(rows);
+    if (width === 390) expect(Math.min(...heights), 'Short terms retain a compact row while longer prices may wrap').toBeLessThan(44);
+    await outcome(page).screenshot({ path: info.outputPath(`metric-rows-${width}.png`), animations: 'disabled' });
+    await enlargeFormText(page);
+    await expectFormMetricRows(rows);
+    await outcome(page).screenshot({ path: info.outputPath(`metric-rows-${width}-text200.png`), animations: 'disabled' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    expect(await planCount(page)).toBe(planned);
+  }
+});
 
 test.describe('the ticket’s outcome preview', () => {
   test('previews the warmed route with the figures its review then shows, from the same single plan', async ({ page }) => {

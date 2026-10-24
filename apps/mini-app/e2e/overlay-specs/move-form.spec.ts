@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { enlargeFormText, expectFormMetricRows } from '../harness/form-metric-geometry';
 
 const app = resolve(__dirname, '../..');
 const req = createRequire(resolve(app, 'package.json'));
@@ -120,4 +121,21 @@ test('Move keeps failed quotes and invalid recipients clear with enlarged text',
   await expect(page.getByRole('button', { name: 'Enter a valid address', exact: true })).toBeDisabled();
   await noOverflow(page);
   await page.screenshot({ path: info.outputPath('failed-quote-recipient-zoom.png'), fullPage: true });
+});
+
+test('Move quote rows stay compact and wrap at 320px with 200% text', async ({ page }) => {
+  for (const width of [390, 320]) {
+    await mount(page, width);
+    await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
+    const quote = page.getByRole('region', { name: 'Bridge quote', exact: true });
+    await expect(quote).toContainText('Minimum received');
+    await expect(quote).toContainText('Bridge fee');
+    await page.evaluate(() => document.fonts.ready);
+    const rows = quote.locator('dl > div');
+    const heights = await expectFormMetricRows(rows);
+    if (width === 390) expect(heights[0], 'A single-line minimum row must use the compact rhythm').toBeLessThanOrEqual(32);
+    await enlargeFormText(page);
+    await expectFormMetricRows(rows);
+    await noOverflow(page);
+  }
 });

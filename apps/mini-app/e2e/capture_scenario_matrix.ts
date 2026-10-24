@@ -272,6 +272,29 @@ async function appCaptures(browser: Browser): Promise<void> {
           await page.locator('main.app-content').evaluate(element => element.scrollTo({ top: 0, behavior: 'instant' }));
         }
         await settledAppState(page, route, state);
+        if (route === '/earn' && state === 'funded' && viewport.id === 'phone') {
+          // This catalog runs a configured RPC build; ordinary built E2E uses
+          // an intentionally unconfigured export and cannot prove this state.
+          await expect(page.locator('main [data-amount-field] [id$="-balance"]').first()).toContainText('1,200 fxUSD');
+          await page.evaluate(async () => document.fonts.ready);
+          const initialAction = await page.locator('.reviewTrigger .button-primary').first().evaluate(element => {
+            const rect = element.getBoundingClientRect();
+            const main = document.querySelector<HTMLElement>('main.app-content-tabs:not([hidden])')!;
+            const mainRect = main.getBoundingClientRect();
+            const nav = document.querySelector('nav.mobile-tabbar')!.getBoundingClientRect();
+            return { scrollTop: main.scrollTop, top: rect.top, bottom: rect.bottom, height: rect.height,
+              visibleTop: mainRect.top, visibleBottom: Math.min(mainRect.bottom, nav.top),
+              hit: [rect.top + 4, rect.top + rect.height / 2, rect.bottom - 4].every(y => {
+                const hit = document.elementFromPoint(rect.left + rect.width / 2, y);
+                return hit === element || Boolean(hit && element.contains(hit));
+              }) };
+          });
+          expect(initialAction.scrollTop).toBe(0);
+          expect(initialAction.top).toBeGreaterThanOrEqual(initialAction.visibleTop);
+          expect(initialAction.bottom, 'Funded Earn initial action must fit wholly before scrolling').toBeLessThanOrEqual(initialAction.visibleBottom);
+          expect(initialAction.height).toBeGreaterThanOrEqual(44);
+          expect(initialAction.hit).toBe(true);
+        }
         await label(page, `${state.toUpperCase()} READ-ONLY APP FIXTURE`);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
         capture.geometry = await page.evaluate(() => {

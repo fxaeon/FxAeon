@@ -115,11 +115,13 @@
 .outcomeHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; color: var(--mut); font-size: 11px; }
 .outcomeHeading > :first-child { color: var(--text); font-size: 12px; font-weight: 600; }
 .outcomeRows { margin: 0; font-size: var(--fs-small); }
-.outcomeRows > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
+.outcomeRows > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
 .outcomeRows dt { min-width: 0; color: var(--mut); }
 .outcomeRows dd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 4px; min-width: 0; max-width: 65%; margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .outcomeRows dd > span { color: var(--mut); }
 .outcomeRows strong { font-weight: 500; }
+.outcomeRows :global([data-review-value] > summary) { min-height: 24px; min-block-size: 24px; min-inline-size: 24px; }
+.outcome :global([data-info-help-trigger]), .metrics :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .fundingHint { margin: 0; padding-block: 10px 0; border-top: 1px solid var(--line); color: var(--mut); font-size: 12px; line-height: 1.6; }
 .fundingHint a { display: inline-flex; align-items: center; min-height: 44px; color: var(--mint-text, var(--mint)); font-weight: 600; }
 .limitTrack { height: 4px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }

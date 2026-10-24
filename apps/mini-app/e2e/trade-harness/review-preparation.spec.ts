@@ -181,7 +181,9 @@ async function expectReachableReview(page: Page) {
       }
     }
     const errors: string[] = [];
-    if (summary.width < 44 || summary.height < 44) errors.push(`Target ${summary.width}×${summary.height}`);
+    // This secondary disclosure shares the compact review's 24px minimum;
+    // primary actions keep their separate 44px-or-larger contract.
+    if (summary.width < 24 || summary.height < 24) errors.push(`Target ${summary.width}×${summary.height}`);
     for (const edge of ['top', 'left'] as const) if (summary[edge] < bounds[edge] - 0.5) errors.push(`${edge}: ${summary[edge]} < ${bounds[edge]}`);
     for (const edge of ['bottom', 'right'] as const) if (summary[edge] > bounds[edge] + 0.5) errors.push(`${edge}: ${summary[edge]} > ${bounds[edge]}`);
     const x = summary.left + summary.width / 2;
@@ -192,7 +194,7 @@ async function expectReachableReview(page: Page) {
     }
     if (errors.length) errors.push(`Scrollports: ${JSON.stringify(scrollports)}`);
     return errors;
-  }), { message: 'Execution details has an unclipped 44px target and unobscured center and edges' }).toEqual([]);
+  }), { message: 'Execution details has an unclipped 24px target and unobscured center and edges' }).toEqual([]);
   if (desktop) await decision.scrollIntoViewIfNeeded();
   await expect(decision).toBeInViewport({ ratio: 1 });
   await information.evaluate(node => { node.scrollTop = 0; });

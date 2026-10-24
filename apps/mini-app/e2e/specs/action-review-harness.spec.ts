@@ -416,7 +416,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(sheet.getByText('Position #42', { exact: true })).toBeVisible();
     const reviewedAmount = page.getByRole('region', { name: 'Transaction amounts', exact: true }).getByLabel('Show exact amount: 0.25 fxUSD', { exact: true });
     await expect(reviewedAmount).toBeVisible();
-    await expect(reviewedAmount).toHaveText('0.25 fxUSD');
+    await expect(reviewedAmount.locator('[data-review-amount]')).toHaveText('0.25 fxUSD');
     await expect(page.locator('[data-review-fact="Gas fee"] summary')).toHaveAccessibleName(/Show exact network cost: 0\.001008 ETH/);
     const navigation = page.locator('[data-fixed-navigation="true"]');
     await expect(navigation).toBeVisible();
