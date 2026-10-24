@@ -16,8 +16,8 @@ test.beforeAll(async () => { bundle = await buildHarness(); });
 
 type Control = {
   wallet: { ready: boolean; authenticated: boolean; isEmbedded: boolean; address: string; chainId: number; connectionVersion: number };
-  events: Array<{ name: string; start: number; end?: number; error?: string }>;
-  trace: (name: string, fn: () => Promise<unknown>) => Promise<unknown>;
+  events: Array<{ name: string; start: number; end?: number; error?: string; purpose?: 'native-max' | 'ticket'; amount?: string; leverage?: number }>;
+  trace: (name: string, fn: () => Promise<unknown>, args?: unknown[]) => Promise<unknown>;
   prices?: import('../../src/lib/prices').UsdPriceSnapshot;
 };
 type Harness = typeof globalThis & { __longReview: Control };
@@ -54,8 +54,10 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
       wallet: { ready: true, authenticated: true, isEmbedded: true, address: '0x1111111111111111111111111111111111111111', chainId: 1, connectionVersion: 1 },
       events: [],
       ...(pricedProtocolFees ? { prices: { status: 'ready' as const, prices: { ETH: 2000, wstETH: 2400, stETH: 2000, fxUSD: .99 }, updatedAt: Date.now() } } : {}),
-      async trace(name, fn) {
-        const event: Control['events'][number] = { name, start: performance.now() }; h.events.push(event);
+      async trace(name, fn, args = []) {
+        const request = args[0] as { amount?: bigint; leverage?: number } | undefined;
+        const event: Control['events'][number] = { name, start: performance.now(), ...(name === 'planIncreasePosition'
+          ? { purpose: args[1] === 'native-max' ? 'native-max' as const : 'ticket' as const, amount: request?.amount?.toString(), leverage: request?.leverage } : {}) }; h.events.push(event);
         try { return await fn(); } catch (cause) { event.error = String(cause); throw cause; } finally { event.end = performance.now(); }
       },
     };
@@ -66,7 +68,7 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
   await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'readLeverageBounds' && event.end !== undefined))).toBe(true);
 }
-const planCount = (page: Page) => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition').length);
+const planCount = (page: Page) => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').length);
 const outcome = (page: Page) => page.getByRole('group', { name: 'Estimated position' });
 const fact = (page: Page, label: string) => outcome(page).locator(`[data-outcome-fact="${label}"] dd`);
 const displayedFact = (page: Page, label: string) => fact(page, label).locator(':scope > span').first();
@@ -228,7 +230,7 @@ test.describe('the ticket’s outcome preview', () => {
     failing = true;
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
-    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.error))).toBe(true);
+    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket' && event.error))).toBe(true);
     await expect(outcome(page)).toHaveCount(0);
     await expect(page.locator('[data-trade-ticket] [role="alert"]')).toHaveCount(0);
     failing = false;
@@ -252,22 +254,42 @@ test.describe('the ticket’s outcome preview', () => {
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     await expect(displayedFact(page, 'Liquidation price')).toHaveText(liquidationPrice);
     await expect.poll(() => planCount(page)).toBe(2);
-    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition').every((event) => event.end !== undefined))).toBe(true);
+    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').every((event) => event.end !== undefined))).toBe(true);
     await expect(displayedFact(page, 'Liquidation price')).toHaveText(liquidationPrice);
   });
 
-  test('an untouched ticket stops showing a liquidation estimate once its pool threshold expires', async ({ page }) => {
+  test('an untouched ticket refreshes risk reads without replanning and hides its preview offline', async ({ page }) => {
     await page.clock.install();
     await mount(page);
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition' && event.purpose === 'ticket').every(event => event.end !== undefined))).toBe(true);
     const plans = await planCount(page);
-    await page.clock.fastForward(30_001);
-    await expect(fact(page, 'Liquidation price')).toHaveText('Unavailable');
+    let thresholdReads = 0;
+    page.on('request', request => {
+      if (!request.url().includes('fake-controlled-fixture')) return;
+      const body = request.postDataJSON();
+      const calls = Array.isArray(body) ? body : [body];
+      // getLiquidateRatios(): prove fresh pool reads, not a renewed timestamp
+      // on the warmed route's old quote. Native Max may also read this pool.
+      thresholdReads += calls.filter(call => call.method === 'eth_call' && call.params?.[0]?.data === '0xe9a0e8fa').length;
+    });
+    await page.clock.fastForward(15_001);
+    await expect.poll(() => thresholdReads).toBeGreaterThan(0);
+    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await page.clock.fastForward(15_001);
+    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     expect(await planCount(page)).toBe(plans);
-    await expect(displayedFact(page, 'Execution price')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
+    await page.context().setOffline(true);
+    await page.clock.fastForward(30_001);
+    // The parent ticket deliberately withholds the entire advisory preview
+    // while offline; the risk hook also invalidates its pool parameters.
+    await expect(outcome(page)).toHaveCount(0);
+    expect(await planCount(page)).toBe(plans);
+    await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
+    await expect(slider(page)).toHaveValue('2.8');
   });
 
   test('quoted execution and liquidation prices remain readable on narrow dark tickets', async ({ page }) => {

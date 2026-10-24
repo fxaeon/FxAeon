@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BorrowPage from '@/app/borrow/page';
 
 type HarnessState = {
@@ -40,8 +41,9 @@ function Harness() {
 }
 
 const root: Root = createRoot(document.getElementById('root')!);
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 globalThis.__borrowHarness = { ...initialState, shared: { ...initialState.shared } };
-root.render(<Harness />);
+root.render(<QueryClientProvider client={queryClient}><Harness /></QueryClientProvider>);
 document.documentElement.dataset.harnessReady = 'true';
 
 export {};

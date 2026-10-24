@@ -5,19 +5,16 @@ import { test, expect } from '@playwright/test';
 
 const root = resolve(__dirname, '../../../..');
 
-test('funded Borrow fixture discloses the dollar protocol fee and keeps unknown quotes distinct', async ({ page }, info) => {
+test('funded Borrow shows a static dollar protocol fee and keeps unknown quotes distinct', async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 500 });
   await page.goto('/?view=transaction&product=borrow&stage=review');
   const fee = page.locator('[data-review-fact="f(x) fee"]');
-  await expect(fee.locator('summary')).toHaveText('≈ $6.00');
+  await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $6.00');
   await page.evaluate(() => document.fonts.ready);
   const body = page.locator('[data-review-scroll]');
   expect(await body.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
-  await fee.locator('summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(fee).toContainText('6 fxUSD (0.5%)');
-  await expect(fee).toContainText('1,200 fxUSD gross debt');
-  await fee.locator('summary').click();
+  await expect(fee.locator('details, summary')).toHaveCount(0);
+  await expect(fee.locator('[data-info-help-trigger]')).toBeVisible();
   await page.screenshot({ path: info.outputPath('protocol-fee-borrow-short.png'), animations: 'disabled' });
   await page.goto('/?view=transaction&product=borrow&stage=review&protocolFee=unavailable');
   await expect(fee).toContainText('Unavailable');
@@ -25,20 +22,18 @@ test('funded Borrow fixture discloses the dollar protocol fee and keeps unknown 
   await expect(fee.locator('[data-info-help-trigger]')).toBeVisible();
 });
 
-test('review network fees lead with dollars and disclose the exact native amount on tap', async ({ page }) => {
+test('review network fees show dollars without expandable amounts or redundant price notes', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 770 });
   for (const product of ['borrow', 'earn']) {
     await page.goto(`/?view=transaction&product=${product}&stage=review`);
     const fee = page.locator('[data-review-fact="Gas fee"]');
-    const summary = fee.locator('summary');
+    const amount = fee.locator('[data-usd-state]');
     await expect(fee).toContainText('Network fee');
-    await expect(summary).toHaveText('≈ $0.30');
-    await expect(summary.locator('[data-usd-state]')).toHaveAttribute('data-usd-state', 'estimate');
-    await expect(fee.locator('details')).not.toHaveAttribute('open');
-    await summary.click();
-    await expect(fee.locator('details')).toHaveAttribute('open', '');
-    await expect(fee.locator('details p')).toContainText('0.000125 ETH (simulated estimate, not a live gas quote)');
-    await expect(fee.locator('details p')).toContainText('USD is a current-price estimate. The native amount governs the transaction.');
+    await expect(amount).toHaveText('≈ $0.30');
+    await expect(amount).toHaveAttribute('data-usd-state', 'estimate');
+    await expect(fee.locator('details, summary')).toHaveCount(0);
+    await expect(fee.locator('[data-info-help-trigger]')).toBeVisible();
+    await expect(page.getByText(/USD is a current-price estimate|USD uses current prices/)).toHaveCount(0);
   }
 });
 
@@ -146,9 +141,9 @@ async function select(page: import('@playwright/test').Page, name: string) {
 }
 
 test('focused transaction preview uses the real phone sheet without a second card heading', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
   for (const product of ['borrow', 'earn']) {
     for (const stage of ['review', 'submitted', 'confirmed']) {
+      await page.setViewportSize({ width: 390, height: stage === 'review' ? 500 : 844 });
       await page.goto(`/?view=transaction&product=${product}&stage=${stage}`);
       const sheet = page.locator('[data-mobile-review-sheet]');
       await expect(sheet).toBeVisible();
@@ -164,6 +159,9 @@ test('focused transaction preview uses the real phone sheet without a second car
       expect(geometry.width).toBeLessThanOrEqual(390);
       expect(geometry.document).toBeLessThanOrEqual(geometry.viewport);
       if (stage === 'review') {
+        const heading = await sheet.locator('header h2').boundingBox();
+        const handle = await sheet.locator('header > span[aria-hidden="true"]').boundingBox();
+        expect(heading!.y, 'The title clears the drag handle on short screens').toBeGreaterThanOrEqual(handle!.y + handle!.height);
         await expect(sheet.locator('[data-review-actions]')).toBeVisible();
         await expect(sheet.locator('[data-review-viewport] > [data-review-actions]')).toHaveCount(1);
       }

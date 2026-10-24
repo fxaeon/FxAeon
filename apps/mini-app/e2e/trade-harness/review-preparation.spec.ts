@@ -18,9 +18,9 @@ test.beforeAll(async () => { bundle = await buildHarness(); });
 
 type Control = {
   wallet: { ready: boolean; authenticated: boolean; isEmbedded: boolean; address: string; chainId: number; connectionVersion: number };
-  events: Array<{ name: string; start: number; end?: number; error?: string }>;
+  events: Array<{ name: string; start: number; end?: number; error?: string; purpose?: 'native-max' | 'ticket'; amount?: string; leverage?: number }>;
   rerender?: () => void;
-  trace: (name: string, fn: () => Promise<unknown>) => Promise<unknown>;
+  trace: (name: string, fn: () => Promise<unknown>, args?: unknown[]) => Promise<unknown>;
   enabledConfirmSeen: boolean;
 };
 async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: number; funded?: boolean; simulationFailureIndex?: number; feeDelayMs?: number; feeRatios?: bigint[]; restoredSlippage?: string } = {}) {
@@ -58,8 +58,10 @@ async function mount(page: Page, options: { delayMs?: number; blockDelayMs?: num
     const h: Control = {
       wallet: { ready: true, authenticated: true, isEmbedded: true, address: '0x1111111111111111111111111111111111111111', chainId: 1, connectionVersion: 1 },
       events: [], enabledConfirmSeen: false,
-      async trace(name, fn) {
-        const event: Control['events'][number] = { name, start: performance.now() }; h.events.push(event);
+      async trace(name, fn, args = []) {
+        const request = args[0] as { amount?: bigint; leverage?: number } | undefined;
+        const event: Control['events'][number] = { name, start: performance.now(), ...(name === 'planIncreasePosition'
+          ? { purpose: args[1] === 'native-max' ? 'native-max' as const : 'ticket' as const, amount: request?.amount?.toString(), leverage: request?.leverage } : {}) }; h.events.push(event);
         try { return await fn(); } catch (cause) { event.error = String(cause); throw cause; } finally { event.end = performance.now(); }
       },
     };
@@ -85,7 +87,7 @@ async function fill(page: Page, amount = '0.0003') {
   await page.getByRole('slider').fill('2.8');
 }
 async function planCount(page: Page) {
-  return page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.filter((event) => event.name === 'planIncreasePosition').length);
+  return page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').length);
 }
 async function review(page: Page) { await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click(); }
 async function insufficient(page: Page) { await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled(); }
@@ -243,7 +245,12 @@ for (const theme of ['dark']) {
     expect(sheetBounds.y + sheetBounds.height).toBeLessThanOrEqual(845);
     await expectReachableReview(page);
     await expect(page.getByText('Confirm the terms, then continue in your wallet.', { exact: true })).toHaveCount(0);
-    await expect(page.locator('[data-review-fact="f(x) fee"]')).toContainText('0.3%');
+    const protocolFee = page.locator('[data-review-fact="f(x) fee"]');
+    await expect(protocolFee.locator('[data-usd-state="unavailable"]')).toHaveText('Unavailable');
+    await protocolFee.getByRole('button', { name: 'About f(x) fee', exact: true }).click();
+    const feeHelp = page.getByRole('dialog', { name: 'f(x) fee', exact: true });
+    await expect(feeHelp).toContainText('0.3%');
+    await page.keyboard.press('Escape');
     await expect(page.locator('[data-review-fact="Execution price"]')).toBeInViewport();
     await expect(page.locator('[data-review-fact="Liquidation price"]')).toBeInViewport();
     await expect(page.locator('[data-review-fact="Rebalance price"]')).toContainText(/≈ \$[\d,.]+ \/ stETH/);
@@ -273,6 +280,9 @@ for (const theme of ['dark']) {
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeInViewport();
     await page.screenshot({ path: resolve(output, `review-details-${theme}-390.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+    // A live auxiliary read can renew risk prices; offline expiry must still
+    // discard them without inventing thresholds from the old route snapshot.
+    await page.context().setOffline(true);
     await page.clock.fastForward(31_000);
     await expect(page.locator('[data-review-fact="Liquidation price"]')).toHaveCount(0);
     await expect(page.locator('[data-review-fact="Rebalance price"]')).toHaveCount(0);
@@ -304,18 +314,26 @@ test('a matching in-flight prefetch remains reusable through explicit review', a
   await mount(page); await fill(page);
   await expect.poll(() => planCount(page)).toBe(1);
   await review(page); await insufficient(page); expect(await planCount(page)).toBe(1);
+  const plans = await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.filter(event => event.name === 'planIncreasePosition'));
+  expect(plans.filter(event => event.purpose === 'ticket').map(event => ({ amount: event.amount, leverage: event.leverage })))
+    .toEqual([{ amount: '300000000000000', leverage: 2.8 }]);
+  // Background reserve probes have their own provenance, even if one uses
+  // the entered amount. They never excuse a second identical ticket plan.
+  const probes = plans.filter(event => event.purpose === 'native-max');
+  expect(probes.length).toBeGreaterThanOrEqual(1);
+  expect(probes.every(event => Boolean(event.amount))).toBe(true);
 });
 
 test('a completed warm quote still needs current-block validation and simulation', async ({ page }) => {
   await mount(page); await fill(page);
-  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.end !== undefined))).toBe(true);
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket' && event.end !== undefined))).toBe(true);
   await review(page); await insufficient(page); expect(await planCount(page)).toBe(1);
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.filter((event) => event.name === 'prepareRoutesForReview').length)).toBe(1);
 });
 
 test('a new block reuses the warmed plan but still validates and simulates it', async ({ page }) => {
   const fixture = await mount(page); await fill(page);
-  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.end !== undefined))).toBe(true);
+  await expect.poll(() => page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket' && event.end !== undefined))).toBe(true);
   fixture.block.number = '0x1312d01'; await review(page); await insufficient(page); expect(await planCount(page)).toBe(1);
   const checks = await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.map(event => event.name));
   expect(checks.filter(name => name === 'prepareRoutesForReview')).toHaveLength(1);
@@ -457,16 +475,21 @@ test('a Max-length amount remains in the input then fits the complete review at 
     return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
   };
   const gasValue = page.locator('[data-review-fact="Gas fee"] > span').last();
-  await expect(gasValue.locator('[data-usd-state="unavailable"]')).toContainText(/0\.001008 ETH max/);
+  // The oracle's 3 Gwei current rate and 1 Gwei base imply a 4 Gwei
+  // EIP-1559 cap (2 * base + 2 Gwei tip), not the old RPC fallback cap.
+  const exactMaxFee = 300_000n * 120n / 100n * 4_000_000_000n;
+  await expect(gasValue.locator('[data-usd-state="unavailable"]')).toContainText('0.00144 ETH max');
+  expect(toWei(await gasValue.innerText())).toBe(exactMaxFee);
   await expect(gasValue.locator('details, summary')).toHaveCount(0);
   await advanced(page).locator(':scope > summary').click();
   const totalValue = page.locator('[data-review-evidence="Total cost"] > span').last();
-  await expect(totalValue).toContainText(/0\.00125 ETH max/);
+  await expect(totalValue).toContainText('ETH max');
   await expect(totalValue.locator('details, summary')).toHaveCount(0);
   const exactAmount = toWei('0.00024443113696627 ETH');
-  const exactMaxFee = toWei('0.001008 ETH');
   const displayStepWei = 1_000_000_000_000n; // The action reports the exact top-up against the 0.0004 ETH balance.
   const expectedTotal = ((exactAmount + exactMaxFee + displayStepWei - 1n) / displayStepWei) * displayStepWei;
+  expect(toWei(await totalValue.innerText())).toBe(expectedTotal);
+  expect(toWei((await totalValue.getAttribute('title'))!)).toBe(exactAmount + exactMaxFee);
   await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');
   await expect(totalValue).not.toContainText('$0.00');
   const asked = await page.locator('p', { hasText: /^Add [\d,.]+ ETH on / }).innerText();

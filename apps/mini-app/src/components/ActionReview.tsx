@@ -467,6 +467,8 @@ export function ActionReview(props: ActionReviewProps) {
   // route limits and verification evidence belong in the technical disclosure.
   const decisionLabels = new Set([
     ...amountLabels, ...compactFacts.map(fact => fact.label), identityLabel,
+    // A new loan already names its resulting total debt in the position strip.
+    ...(newBorrowReview && positionChanges.paired.some(change => change.label === 'Debt') ? ['Debt added'] : []),
     ...(/(?:Position|Loan) #/.test(identity.subtitle ?? '') ? ['Position'] : []),
     ...(collateral ? ['Estimated collateral'] : []),
     ...(tradingAction ? ['Execution price', 'Price impact'] : []),

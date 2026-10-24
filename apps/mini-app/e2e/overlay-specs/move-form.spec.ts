@@ -77,7 +77,7 @@ for (const width of [320, 390, 1280]) test(`Move form keeps amount, quote precis
   await noOverflow(page);
   await page.screenshot({ path: info.outputPath('empty.png') });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  const exactEstimate = received.locator('.receiveAmount');
+  const exactEstimate = received.locator('[data-receive-amount]');
   await expect(exactEstimate).toBeVisible();
   await expect(received.locator('details')).toHaveCount(0);
   const figure = exactEstimate;

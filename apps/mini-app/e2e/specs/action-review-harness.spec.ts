@@ -218,7 +218,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   const review = page.locator('.reviewInlineContent');
   await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
   await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveCount(0);
-  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · estimated', { exact: true })).toBeVisible();
+  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · est.', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-fact="f(x) fee"]');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
@@ -1045,7 +1045,7 @@ test.describe('ActionReview isolated orchestration', () => {
     };
     await expectFits();
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
-    // The review sheet preserves the compact display and exact amount behind its disclosure.
+    // The review sheet preserves the compact display with no duplicate exact-value disclosure.
     await expectFits();
     await page.getByRole('button', { name: 'Close transaction review', exact: true }).click();
     await expect(sheet).toHaveCount(0);

@@ -25,6 +25,7 @@
 }
 .row dt { min-width: 0; color: var(--mut); font-weight: 500; }
 .row dt > :global(span) { display: flex; flex-wrap: wrap; align-items: center; }
+.row dt > :global(span) > :global(span) { min-width: 0; overflow-wrap: anywhere; }
 .row dt :global([data-info-help-trigger]) {
   width: 24px;
   min-width: 24px;
@@ -40,6 +41,7 @@
   text-align: right;
   overflow-wrap: anywhere;
 }
+.row dd > :global(span) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .row dd :global([data-review-value] > summary) {
   min-width: 24px;
   min-height: 24px;

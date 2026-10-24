@@ -209,6 +209,11 @@ test('Bridge groups hero digits without numeric conversion and does not expand a
   assert.match(wide, /1,000,000\.12/);
   const { reviewTermHelp } = await import('../src/components/review/ReviewTermRow');
   assert.equal(reviewTermHelp({ label: 'Price impact', value: 'Unavailable', title: 'Route validation failed; do not assume a zero price impact.' }), 'Route validation failed; do not assume a zero price impact.');
+  const feeHelp = reviewTermHelp({ label: 'f(x) fee', value: '0.3%', title: '≈ 0.00000123456789 wstETH; estimated from the same SDK collateral quote. 0.3% of supplied collateral when that leg has a nonzero amount.' });
+  assert.match(feeHelp!, /Quoted rate: 0\.3% of supplied collateral\./);
+  assert.doesNotMatch(feeHelp!, /0\.00000123456789|wstETH/);
+  assert.match(reviewTermHelp({ label: 'f(x) fee', value: '0.1% of supplied collateral + 0.3% of borrowed debt', title: '0.1% of supplied collateral + 0.3% of borrowed debt when those legs have a nonzero amount.' })!, /Quoted rates: 0\.1% of supplied collateral \+ 0\.3% of borrowed debt\./);
+  assert.match(reviewTermHelp({ label: 'f(x) fee', value: '1%' })!, /Quoted rate: 1%\./);
 });
 
 

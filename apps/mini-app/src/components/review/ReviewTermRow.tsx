@@ -36,6 +36,11 @@ export function reviewTermHelp(fact: ReviewFact): string | undefined {
   if (['Unavailable', 'Not quoted', '—'].includes(fact.value) && source) return source;
   if (fact.label === 'Minimum fxSP') return 'This minimum protects the intermediate fxSP deposit. The final fxSAVE share amount is an estimate and can change with the vault conversion.';
   if (fact.label === 'Rebalance price' || fact.label === 'Liquidation price') return `${definition ? INFO_HELP_CONTENT[definition] : ''} Uses the pool’s collateral price, not an ETH/USD or BTC/USD spot quote.`;
+  if (fact.label === 'f(x) fee' || fact.label === 'Protocol fee') {
+    const rates = source?.match(/\d+(?:\.\d+)?% of (?:supplied collateral|withdrawn collateral|borrowed debt|repaid debt)/g)
+      ?? (/^\d+(?:\.\d+)?%$/.test(fact.value) ? [fact.value] : []);
+    return rates.length ? `${INFO_HELP_CONTENT.protocolFee} Quoted ${rates.length === 1 ? 'rate' : 'rates'}: ${rates.join(' + ')}.` : undefined;
+  }
   if (source && !/^(?:≈\s*)?[+\-\d$€£]/.test(source)) return `${definition ? `${INFO_HELP_CONTENT[definition]} ` : ''}${source}`;
   return undefined;
 }

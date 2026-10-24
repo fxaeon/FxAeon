@@ -653,6 +653,7 @@
 .compactFact { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 44px; padding: 0; font-size: 13px; line-height: 1.5; }
 .compactFact > span:first-child { min-width: 0; color: var(--mut); }
 .compactFact > span:last-child { min-width: 0; max-width: 60%; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.compactFact[data-review-fact='Recipient'] > span:last-child :global(span) { overflow-wrap: anywhere; }
 .compactFact small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; }
 /* Review terms are a compact list. Inline definitions use distinct 24px
    targets; amounts, navigation and confirmation retain their larger targets.
@@ -672,7 +673,7 @@
   .reviewViewport[data-review-phase='review'] .amountLedReview { padding: 8px 12px; }
   .reviewViewport[data-review-phase='review'] .positionOutcome[data-new-position] { margin-top: 2px; padding-block: 2px; }
   .reviewViewport[data-review-phase='review'] .amountLedReview .amountFlow + .facts { padding-top: 4px; }
-  .reviewViewport[data-review-phase='review'] .compactFact { min-height: 26px; }
+  .reviewViewport[data-review-phase='review'] .compactFact { min-height: 24px; }
   .reviewViewport[data-review-phase='review'] .amountLedReview .costGroup { margin-top: 3px; padding-top: 0; }
   .reviewViewport[data-review-phase='review'] .amountLedReview .riskGroup { margin-top: 3px; padding-top: 3px; }
   .reviewViewport[data-review-phase='review'] .costGroup + .costGroup { padding-top: 0; }

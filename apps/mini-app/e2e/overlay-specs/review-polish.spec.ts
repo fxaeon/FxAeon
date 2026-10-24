@@ -74,13 +74,13 @@ for (const width of [320, 390, 768, 1280]) test(`context help is keyboard/touch 
   // At wider widths the non-modal description can legitimately cover the
   // following row. Move keyboard focus to that row rather than force-clicking
   // through the visible panel; focus-out must dismiss the previous help.
-  const priceImpactHelp = review.getByRole('button', { name: 'About Price impact', exact: true });
-  await priceImpactHelp.focus();
-  await expect(panel).toHaveAccessibleName('Price impact');
-  await expect(priceImpactHelp).toBeFocused();
-  await priceImpactHelp.press('Enter');
+  const slippageHelp = review.getByRole('button', { name: 'About Max. slippage', exact: true });
+  await slippageHelp.focus();
+  await expect(panel).toHaveAccessibleName('Max. slippage');
+  await expect(slippageHelp).toBeFocused();
+  await slippageHelp.press('Enter');
   await expect(panel).toHaveCount(1);
-  await expect(panel).toHaveAccessibleName('Price impact');
+  await expect(panel).toHaveAccessibleName('Max. slippage');
   const advancedSummary = review.locator('details[aria-label="Advanced transaction details"] > summary');
   await advancedSummary.focus();
   await expect(panel).toHaveCount(0);
@@ -105,8 +105,8 @@ test('desktop icon hover previews help without taking focus and click keeps it o
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('[data-review-viewport]');
   const heading = review.locator('[data-review-focus]');
-  const trigger = review.getByRole('button', { name: 'About Price impact', exact: true });
-  const panel = page.getByRole('dialog', { name: 'Price impact', exact: true });
+  const trigger = review.getByRole('button', { name: 'About Max. slippage', exact: true });
+  const panel = page.getByRole('dialog', { name: 'Max. slippage', exact: true });
   await heading.focus();
   const before = await review.boundingBox();
   await trigger.hover();

@@ -31,6 +31,16 @@ async function buildHarness(){const build=await esbuild.build({stdin:{contents:e
  if(args.path.startsWith('@/')){let p=path.join(src,args.path.slice(2));for(const candidate of [p,p+'.ts',p+'.tsx',path.join(p,'index.ts')])if(fs.existsSync(candidate)&&fs.statSync(candidate).isFile())return {path:candidate};}
  });
  b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],loader:'tsx',resolveDir:path.join(repo,'apps/mini-app')}));
+ // Tag Max's route probes explicitly: a probe may legitimately use the same
+ // amount as the ticket, so amount/timing alone cannot identify duplicate plans.
+ b.onLoad({filter:/[\\/]app[\\/]trade[\\/]page\.tsx$/},args=>{
+   let contents=fs.readFileSync(args.path,'utf8');
+   const call='buildRoutes: (candidate) => planIncreasePosition(';
+   if(!contents.includes(call)) throw new Error('Trade native Max fixture hook no longer matches');
+   contents=contents.replace(call,'buildRoutes: (candidate) => __nativeMaxPlan(');
+   contents+='\nfunction __nativeMaxPlan(request){return planIncreasePosition(request,"native-max");}\n';
+   return {contents,loader:'tsx'};
+ });
  b.onLoad({filter:/[\\/]fx[\\/](service|leverage|reviewPreparation|gasFeePolicy|gasCost)\.ts$/},args=>{let contents=fs.readFileSync(args.path,'utf8');let names=instrument[path.basename(args.path)]||[];for(const name of names){contents=contents.replace('export async function '+name+'(', 'async function __actual_'+name+'(').replace('export async function '+name+'<','async function __actual_'+name+'<');contents+=`\nexport async function ${name}(...args){return globalThis.__longReview.trace('${name}',()=>__actual_${name}(...args),args);}\n`;};return {contents,loader:'ts'};});
  }}]});const app=path.join(repo,'apps/mini-app');
  const globals=await req('postcss')([req('tailwindcss')({...require(path.join(app,'tailwind.config.js')),content:[path.join(src,'**/*.{ts,tsx}')]}),req('autoprefixer')()]).process(fs.readFileSync(path.join(src,'app/globals.css'),'utf8'),{from:path.join(src,'app/globals.css')});

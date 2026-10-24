@@ -59,7 +59,7 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
     points.forEach((point, candidate) => { if (point.timestamp <= time) index = candidate; });
     setSelected({ market, index });
   };
-  return <section ref={ref} className={styles.section} aria-label={`${market} borrow funding history`}>
+  return <section ref={ref} className={`${styles.section} ${styles.funding}`} aria-label={`${market} borrow funding history`}>
     <header className={styles.header}><h3><MetricLabel minimalHelp label="Funding history" help="Official f(x) funding snapshots for this collateral pool, shown per eight hours as in fxMINT Advanced. The chart records gross charges on the whole collateral. Any short-pool earnings offset is separate. These rates are borrowing costs and can change." /></h3><span className={styles.axis}>30D · per 8h</span></header>
     <div className={styles.reading}><span><MetricLabel minimalHelp label="Current cost APR" help={current?.title ?? 'The current annualized gross charge on the whole collateral could not be verified. This is a borrowing cost; historical observations do not establish its current value.'} /></span><strong>{current && rate ? formatBorrowFundingApr(rate.ratio) : status === 'loading' ? 'Checking…' : 'Unavailable'}</strong></div>
     {data && last ? <>
