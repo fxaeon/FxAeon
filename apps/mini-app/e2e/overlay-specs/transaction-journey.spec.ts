@@ -61,7 +61,7 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   expect(await page.locator('[data-review-viewport] img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBe(true);
   await page.screenshot({ path: info.outputPath('review.png'), animations: 'disabled' });
   if (scenario.width === 390 && !scenario.reduced) {
-    const borrowRateHelp = viewport.getByRole('button', { name: 'About Temporary funding', exact: true });
+    const borrowRateHelp = viewport.getByRole('button', { name: 'About Funding status', exact: true });
     const target = await borrowRateHelp.boundingBox();
     expect(target!.width).toBeGreaterThanOrEqual(24);
     expect(target!.height).toBeGreaterThanOrEqual(24);
@@ -80,12 +80,12 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
     expect(hitTarget.neighbors, 'Help controls must not overlap neighboring controls').toEqual([]);
     const before = await viewport.locator('[data-review-fact="Debt added"]').boundingBox();
     await borrowRateHelp.click();
-    const help = page.getByRole('dialog', { name: 'Temporary funding', exact: true });
+    const help = page.getByRole('dialog', { name: 'Funding status', exact: true });
     await expect(help).toContainText('charged against the whole collateral, not just the fxUSD borrowed');
     await expect(help).toContainText('The current rate could not be verified.');
     await expect(help.getByRole('link', { name: 'Verify on f(x) Protocol' })).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
     expect(await viewport.locator('[data-review-fact="Debt added"]').boundingBox()).toEqual(before);
-    await page.screenshot({ path: info.outputPath('temporary-funding-help.png'), animations: 'disabled' });
+    await page.screenshot({ path: info.outputPath('funding-status-help.png'), animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(borrowRateHelp).toBeFocused();
     const details = viewport.locator('details[aria-label="Advanced transaction details"]');

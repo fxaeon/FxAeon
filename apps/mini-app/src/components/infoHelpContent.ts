@@ -22,7 +22,7 @@ export const INFO_HELP_CONTENT = {
   executionPrice: 'The price implied by the quoted execution amounts. It describes this quote, rather than a guaranteed market price at confirmation.',
   rebalancePrice: 'Rebalancing can reduce collateral and debt. An estimated price associated with the protocol’s rebalance threshold. It is distinct from the liquidation estimate and can change with the position.',
   bridgeFee: 'The quoted charge for moving assets between networks. Network transaction fees may be shown separately.',
-  borrowRate: 'Temporary funding is an annualized rate charged against the whole collateral, not just the fxUSD borrowed. It can activate or change with protocol conditions. It is separate from opening, repayment and network fees. A zero reading applies only to the checked snapshot.',
+  borrowRate: 'Funding is a borrowing charge, not yield. The displayed percentage is an annualized rate charged against the whole collateral, not just the fxUSD borrowed. It can activate or change with protocol conditions. It is separate from opening, repayment and network fees. A zero reading applies only to the checked snapshot.',
   collateralAccounting: 'ETH long positions use wstETH backing, while collateral and risk prices use stETH accounting. BTC long positions use WBTC collateral accounting. Short positions use fxUSD collateral accounting. Position units are not necessarily the deposited wallet token units.',
   debtAdded: 'The increase in the position’s debt. This can differ from the amount received after fees and other quoted deductions.',
 } as const;

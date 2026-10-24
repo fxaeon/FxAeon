@@ -527,7 +527,7 @@ export function ActionReview(props: ActionReviewProps) {
           {!leverageReview && positionChangeRows.length > 0 && <PositionOutcomeSummary facts={positionChangeRows} />}
           {hierarchy.primary.filter(fact => fact.label === 'Claim payout').map(fact => <p key={fact.label} data-review-fact={fact.label} className={presentationStyles.claimCaveat} title={fact.title}>{fact.value}</p>)}
           {loanAction && <div className={presentationStyles.costGroup}>
-            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewTermRow displayLabel="Temporary funding"
+            {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewTermRow displayLabel="Funding status"
               fact={borrowRate ?? { label: 'Borrow rate', value: 'Not quoted' }}
               help={<>{INFO_HELP_CONTENT.borrowRate} {borrowRate ? borrowRate.title : <>The current rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">Verify on f(x) Protocol ↗</a></>}</>} />}
             {hierarchy.primary.filter(fact => ['f(x) fee', 'Protocol fee'].includes(fact.label)).map(fact => <ReviewRow compact key={fact.label} label={fact.label} value={fact.value} title={fact.title} feeAmounts={fact.feeAmounts} />)}
