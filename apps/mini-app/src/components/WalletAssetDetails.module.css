@@ -6,8 +6,8 @@
 .modalHeader button:hover { background: #29292e; color: var(--text); }
 .modalHeader button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; }
 .modalBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 20px calc(20px + env(safe-area-inset-bottom, 0px)); }
-.details { display: flex; min-width: 0; flex-direction: column; gap: 20px; }
-.hero { display: flex; min-width: 0; align-items: center; gap: 16px; padding: 8px 0 12px; }
+.details { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.hero { display: flex; min-width: 0; align-items: center; gap: 16px; padding: 4px 0 8px; }
 .heroValue { display: grid; min-width: 0; gap: 4px; }
 .holdingValue { color: var(--text); font-size: clamp(32px, 9vw, 42px); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: -.045em; line-height: 1.12; overflow-wrap: anywhere; }
 .holdingLabel { color: var(--mut); font-size: 12px; }
@@ -19,8 +19,8 @@
 .copyStatus:empty { display: none; }
 .copyButton { display: inline-flex; min-height: 44px; width: fit-content; align-items: center; gap: 8px; border-radius: 10px; color: var(--mint-text); font-size: 13px; font-weight: 600; }
 .copyStatus { margin: -6px 0 0; color: var(--mut); font-size: 11px; }
-.facts { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.facts > div { display: flex; min-width: 0; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; padding: 4px 8px; background: #1b1b1f; font-size: 14px; line-height: 1.4; }
+.facts { display: flex; min-width: 0; flex-direction: column; gap: 0; }
+.facts > div { display: flex; min-width: 0; min-height: 24px; align-items: center; justify-content: space-between; gap: 8px; border-radius: 8px; padding: 2px 8px; background: #1b1b1f; font-size: 14px; line-height: 1.4; }
 .facts dt { min-width: 0; color: var(--mut); }
 .facts dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; }
 .chain { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }

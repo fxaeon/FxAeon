@@ -26,7 +26,7 @@
 .rate { min-width: 0; padding: 0; border: 0; background: transparent; }
 .rate > strong { display: block; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
 .rate > small { display: block; min-height: 0; margin-bottom: 2px; color: var(--mut); font-size: 14px; font-weight: 400; }
-.vaultHoldings { display: grid; gap: 2px; margin: 14px 0 0; padding-top: 10px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
+.vaultHoldings { display: grid; gap: 0; margin: 10px 0 0; padding-top: 6px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
 .vaultHoldings > div { display: flex; min-height: 24px; justify-content: space-between; align-items: center; gap: 8px; }
 .vaultHoldings dt { min-width: 0; color: var(--mut); }
 .vaultHoldings dd { min-width: 0; max-width: 60%; margin: 0; text-align: right; overflow-wrap: anywhere; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -39,21 +39,21 @@
 .refresh { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; margin: 0; color: var(--mut); border-radius: 50%; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .refresh:hover { color: var(--text); background: var(--surface-2); }
 /* Deposit/Withdraw with the settings gear at the right of the same row, first in the card. */
-.actionTabs { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0 0 16px; }
+.actionTabs { display: flex; min-width: 0; align-items: center; gap: 8px; margin: 0 0 8px; }
 .actionTabs > :first-child { min-width: 0; flex: 1 1 auto; }
-.editor { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
-.workspace .panel :global(.amount-control) { padding: 18px; border-radius: 22px; --amount-max-size: 40px; }
+.editor { display: flex; min-width: 0; flex-direction: column; gap: 8px; }
+.workspace .panel :global(.amount-control) { padding: 14px; border-radius: 22px; --amount-max-size: 40px; }
 .workspace .panel[data-flow-stage] :global(.amount-control) { background: var(--surface); --amount-ring: none; }
 .actionTabs :global(.segmented) { border: 0; border-radius: 16px; background: var(--surface); }
 .workspace .panel .actionTabs :global(.segmented[data-thumb])::before { border-radius: 12px; background: var(--surface-2); box-shadow: none; }
 .actionTabs :global(.segmented-option) { min-height: 44px; border-radius: 12px; font-weight: 500; }
 .panel :global(.reviewTrigger .button-primary) { min-height: 52px; border-radius: 26px; }
-.outcome { display: grid; gap: 10px; min-width: 0; margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--line); }
+.outcome { display: grid; gap: 4px; min-width: 0; margin-top: 0; padding-top: 8px; border-top: 1px solid var(--line); }
 .outcomeRow { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 12px; font-size: var(--fs-small); line-height: 1.5; }
 .outcomeRow > span { color: var(--mut); }
 .outcomeRow > strong { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 500; text-align: right; }
 .outcomeNote { margin: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
-.estimateRow { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
+.estimateRow { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .estimateRow > div { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
 .estimateRow span { color: var(--mut); font-size: var(--fs-small); }
 .estimateRow strong { min-width: 0; max-width: 60%; color: var(--text); font-size: var(--fs-small); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
@@ -106,12 +106,12 @@
 .claimResultCopy h3 { margin: 0; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: 21px; line-height: 1.2; font-weight: 700; letter-spacing: -.035em; }
 .claimResultCopy p { margin: 6px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
 .claimProduct { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.claimRows { display: flex; flex-direction: column; gap: 14px; min-width: 0; margin: 0; padding: 16px; border-radius: 19px; background: var(--surface-2); }
+.claimRows { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 12px; border-radius: 19px; background: var(--surface-2); }
 .claimRows > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: baseline; gap: 12px; font-size: 13px; line-height: 1.45; }
 .claimRows dt { color: var(--mut); }
 .claimRows dd { min-width: 0; margin: 0; color: var(--text); font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .claimRows dd.claimReady { color: #5bd09a; }
-.claimRows > .claimPreviewStart { padding-top: 13px; border-top: 1px solid var(--line); }
+.claimRows > .claimPreviewStart { padding-top: 8px; border-top: 1px solid var(--line); }
 .claimCaveat { margin: 0; padding-inline: 2px; color: var(--mut); font-size: 11px; line-height: 1.5; text-align: center; }
 .back { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; }
 
@@ -140,16 +140,16 @@
   .vaultIdentity p { font-size: 12px; }
   .network { font-size: 12px; }
   .workspace > :global(header), .workspace > :global(nav) { margin-bottom: 0; }
-  .workspace .panel :global(.amount-control) { padding: 14px; border-radius: 20px; }
-  .actionTabs { margin-bottom: 12px; }
-  .editor { gap: 10px; }
+  .workspace .panel :global(.amount-control) { padding: 12px; border-radius: 20px; }
+  .actionTabs { margin-bottom: 8px; }
+  .editor { gap: 8px; }
   .panel > [role='status'] { margin-block: 8px; }
   .balanceTop { gap: 12px; }
   .balanceTop { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rate { padding: 0; }
   .rate > small, .balanceCopy > p { font-size: 12px; }
   .rate > strong, .balanceCopy h2 { font-size: 30px; }
-  .vaultHoldings { margin-top: 10px; padding-top: 8px; }
+  .vaultHoldings { margin-top: 8px; padding-top: 6px; }
   .withdrawOptions :global(label) { padding: 8px; }
   .withdrawOptions :global(fieldset) { gap: 6px; }
 }

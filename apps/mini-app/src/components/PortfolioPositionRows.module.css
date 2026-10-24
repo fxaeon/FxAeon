@@ -28,9 +28,9 @@
 .position[open] .chevron { transform: rotate(180deg); }
 .riskSummary { display: flex; grid-column: 2 / -1; align-items: center; gap: 5px; margin-top: 4px; color: var(--mut); font-size: 12px; line-height: 1.45; }
 .riskSummary[data-tone='warn'], .riskSummary[data-tone='stale'] { color: var(--warn); }
-.details { min-width: 0; margin-inline: 70px 41px; padding: 12px 0; border-top: 1px solid var(--line); }
-.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; gap: 12px; margin: 0; padding: 0; }
-.facts > div { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 15px; }
+.details { min-width: 0; margin-inline: 70px 41px; padding: 8px 0; border-top: 1px solid var(--line); }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; gap: 8px; margin: 0; padding: 0; }
+.facts > div { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 15px; }
 .facts dt { min-width: 0; color: var(--mut); font-size: 13px; }
 .facts dd { display: grid; min-width: 0; gap: 5px; margin: 0; text-align: left; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .facts dd small { color: var(--mut); font-size: 12px; }
@@ -38,11 +38,11 @@
 .staleNotice { margin: 0 0 12px; }
 .riskDetail[data-tone='warn'] { color: var(--warn); }
 .riskDetail a { text-decoration: underline; text-underline-offset: 3px; }
-.manage { display: flex; width: fit-content; min-height: 44px; align-items: center; justify-content: center; gap: 8px; margin: 20px 0 0 auto; border: 0; border-radius: 12px; padding: 8px 14px; background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 500; }
+.manage { display: flex; width: fit-content; min-height: 44px; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 0 auto; border: 0; border-radius: 12px; padding: 8px 14px; background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 500; }
 .manage:hover { background: var(--surface-3); }
 .manage:focus-visible, .riskDetail a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 @media (max-width: 600px) {
-  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
   .details { margin-inline: 14px; padding-top: 12px; }
   .facts > div { font-size: 14px; }
   .manage { width: 100%; }
@@ -52,6 +52,6 @@
   .value strong { font-size: 18px; }
   .value { max-width: 112px; }
   .details { margin-inline: 12px; }
-  .facts > div { gap: 4px; }
+  .facts > div { gap: 2px; }
 }
 @media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
