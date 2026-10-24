@@ -208,10 +208,28 @@ function editor(token: 'fxUSD' | 'fxUSDBasePool', instant: boolean, config: obje
   }));
 }
 const config = { cooldownPeriodSeconds: 5400n, instantRedeemFeeRatio: 2n * 10n ** 16n, totalAssetsWei: 12n * 10n ** 18n, totalSupplyWei: 10n * 10n ** 18n };
+
+test('Earn keeps deposit and withdrawal presets visible while preserving disconnected balance authority', () => {
+  for (const mode of ['deposit', 'withdraw']) {
+    const fields: Record<string, unknown>[] = [];
+    const props = { mode, token: 'fxUSD', instant: false, shares: '', amount: '', config, estimateConfig: null, walletData: null,
+      configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onInstantChange() {}, onDeposit() {}, balanceUnavailable: false };
+    renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'VaultTermsStatus'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
+      props, ChoiceCards: () => null, AmountField: (field: Record<string, unknown>) => { fields.push(field); return null; }, TokenSelect: () => null,
+      labelToken: (key: string) => key, parseAmount: (value: string) => value ? parseUnits(value, 18) : null,
+    }));
+    assert.equal(fields.length, 1);
+    assert.equal(fields[0].showShortcuts, true);
+    assert.equal((fields[0].balanceState as { status: string }).status, 'disconnected');
+    assert.equal(fields[0].value, '');
+    assert.equal(fields[0].allowAll, mode === 'withdraw' ? true : undefined, 'withdrawal retains its exact whole-share sentinel');
+    assert.equal(fields[0].maxAmount, undefined, 'visibility introduces no guessed spending maximum');
+  }
+});
 test('withdrawal fees, configured cooldown, queued payout units and unknown terms stay visible', () => {
   const queued = editor('fxUSD', false, config);
   assert.match(queued, /90m · no instant fee/);
-  assert.match(queued, /Instant 2% fee/);
+  assert.match(queued, /Instant Fee quoted in review/);
   assert.match(queued, /Claim later/);
   assert.match(queued, /fxUSD \+ USDC/);
   assert.match(queued, /Network fees apply to the withdrawal request and claim/);

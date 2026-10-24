@@ -90,7 +90,7 @@ test('a settled route shows the review’s figures, each marked as an estimate, 
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 2,500.12 fxUSD / stETH'],
     ['Liquidation price', 'Unavailable'],
-    ['f(x) fee', '0.3%'],
+    ['f(x) fee', 'Unavailable'],
   ]);
   assert.match(html, /data-review-value="Execution price"/);
   assert.match(html, /Show full execution price value/);

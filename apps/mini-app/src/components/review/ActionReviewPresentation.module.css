@@ -247,30 +247,6 @@
 .factEquivalent { display: block; margin-top: 1px; color: var(--mut); font-size: var(--fs-caption); font-weight: 500; }
 .amountUsd { display: block; color: var(--mut); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 
-/* A bridge is a transfer between two places: one quiet panel, two amounts,
-   then the accepted limits and costs. No repeated asset/network rows. */
-.bridgeSummary { padding: 14px; border-radius: 16px; background: var(--surface-2); }
-.bridgeAmounts { display: grid; gap: 2px; }
-.bridgeAmount { display: flex; gap: 12px; align-items: center; min-width: 0; }
-.bridgeToken { position: relative; display: flex; flex: 0 0 34px; width: 34px; height: 34px; }
-.bridgeToken > span { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: var(--surface-2); }
-.bridgeAmountText { min-width: 0; flex: 1; }
-.bridgeExactAmount > summary { display: flex; min-height: 44px; align-items: center; gap: 6px; cursor: pointer; list-style: none; font-size: clamp(23px, 6.4vw, 29px); line-height: 1.25; font-weight: 650; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
-.bridgeExactAmount > summary > span { min-width: 0; overflow-wrap: anywhere; }
-.bridgeExactAmount summary svg { flex-shrink: 0; color: var(--mut); }
-.bridgeExactAmount p { margin: 5px 0 8px; padding: 8px; border-radius: 8px; background: var(--surface); font-size: var(--fs-small); line-height: 1.4; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.bridgeExactAmount p > span { display: block; margin-bottom: 3px; color: var(--mut); font-size: var(--fs-caption); }
-.bridgeAssetNetwork { display: block; color: var(--mut); font-size: var(--fs-small); line-height: 1.35; }
-.bridgeDirection { margin: 2px 0 2px 8px; color: var(--mut); }
-.bridgeTerms { display: grid; gap: 2px; margin-top: 14px; }
-.bridgeFact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; padding-block: 4px; font-size: var(--fs-small); line-height: 1.4; }
-.bridgeFact > span:first-child { color: var(--mut); }
-.bridgeFact > span:last-child { min-width: 0; max-width: 66%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.bridgeFact small { display: block; font-size: var(--fs-caption); color: var(--mut); font-weight: 500; }
-.bridgeSummary summary::-webkit-details-marker { display: none; }
-.bridgeSummary summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
-.bridgeSummary details[open] > summary svg { transform: rotate(180deg); }
-@media (max-width: 350px) { .bridgeSummary { padding: 12px; } .bridgeAmount { gap: 10px; } .bridgeFact { gap: 8px; } }
 .facts { gap: 0; padding-bottom: 4px; }
 .facts > [data-review-fact] { padding-block: 8px; }
 .facts > [data-review-fact] + [data-review-fact] { border-top: 1px solid var(--line); }
@@ -302,6 +278,7 @@
 @media (max-width: 600px) {
   :global([data-mobile-review-sheet]) .reviewViewport,
   :global([data-inline-review-sheet]) .reviewViewport {
+    flex: 1 1 auto;
     min-height: 0;
   }
   :global([data-mobile-review-sheet]) .reviewViewport .reviewHeader,
@@ -351,15 +328,6 @@
 .statusNotice { border-radius: 18px; padding: 12px 14px; }
 .statusText > span:first-child { font-size: 14px; }
 .statusText > span:last-child { font-size: 12px; line-height: 1.45; }
-.bridgeSummary { padding: 18px 16px; border-radius: 20px; }
-.bridgeToken { width: 40px; height: 40px; flex-basis: 40px; }
-.bridgeToken > img, .bridgeToken > svg { width: 40px; height: 40px; }
-.bridgeExactAmount > summary { min-height: 38px; font-size: clamp(23px, 6.8vw, 29px); letter-spacing: -.035em; }
-.bridgeAssetNetwork { display: flex; flex-wrap: wrap; gap: 2px 5px; font-size: 12px; }
-.bridgeAssetNetwork .amountUsd { font-size: inherit; }
-.bridgeDirection { margin: 11px 0 11px 11px; }
-.bridgeTerms { gap: 0; margin-top: 16px; }
-.bridgeFact { padding-block: 5px; }
 .result { max-width: none; padding: 0; }
 .resultStatus { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 18px; background: var(--surface-2); }
 .resultStatus > div { min-width: 0; }
@@ -372,8 +340,8 @@
 .resultDetails { margin-top: 14px; }
 .positionOutcome { padding: 12px 0; border-radius: 0; background: transparent; font-size: 12px; }
 @media (max-width: 350px) {
- .amountFlow, .bridgeSummary { padding: 16px 12px; }
- .flowAmount, .bridgeAmount { gap: 10px; }
+ .amountFlow { padding: 16px 12px; }
+ .flowAmount { gap: 10px; }
  .flowExact > summary { font-size: 24px; }
  .flowSubline { font-size: 11px; }
  .flowToken { width: 36px; height: 36px; flex-basis: 36px; }
@@ -383,11 +351,11 @@
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) { border: 0; border-radius: 18px; padding: 14px; background: var(--surface-2); }
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) > :first-child { align-items: flex-start; flex-wrap: wrap; }
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) :global(.text-\[10\.5px\]) { font-size: 12px; }
-.flowExact > summary[data-long], .bridgeExactAmount > summary[data-long] { font-size: clamp(16px, 4.8vw, 21px); letter-spacing: -.03em; }
+.flowExact > summary[data-long] { font-size: clamp(16px, 4.8vw, 21px); letter-spacing: -.03em; }
 .receiptLinks { margin-top: 14px; }
 .receiptLinks .hashLink { min-height: 44px; border-radius: 12px; padding: 8px 12px; font-size: 12px; background: var(--surface-2); }
 .receiptLinks .hashLink > span:first-child > span:last-child { font-size: 11px; }
-.resultStatus + .amountFlow, .resultStatus + .bridgeSummary, .result :global([data-compact-bridge]) + .bridgeSummary { margin-top: 14px; }
+.resultStatus + .amountFlow { margin-top: 14px; }
 .result :global([data-compact-bridge]) { margin-top: 0; }
 .reviewViewport { scroll-margin-top: 88px; }
 
@@ -410,15 +378,15 @@
 /* One transaction surface across review, execution and receipt. */
 .facts.facts { padding: 20px; gap: 0; border-radius: 20px; background: var(--surface-2); }
 .facts > .amountFlow { padding: 0; margin: 0; background: transparent; border-radius: 0; }
-.amountFlow, .bridgeSummary { padding: 20px; border-radius: 20px; }
-.flowAmount, .bridgeAmount { gap: 14px; align-items: center; }
-.flowToken, .bridgeToken { width: 44px; height: 44px; flex-basis: 44px; }
-.flowToken > img, .flowToken > svg, .bridgeToken > img, .bridgeToken > svg { width: 44px; height: 44px; }
-.flowExact > summary, .bridgeExactAmount > summary { min-height: 42px; font-size: clamp(25px, 5.5vw, 32px); font-weight: 600; letter-spacing: -.04em; line-height: 1.18; gap: 7px; }
+.amountFlow { padding: 20px; border-radius: 20px; }
+.flowAmount { gap: 14px; align-items: center; }
+.flowToken { width: 44px; height: 44px; flex-basis: 44px; }
+.flowToken > img, .flowToken > svg { width: 44px; height: 44px; }
+.flowExact > summary { min-height: 42px; font-size: clamp(25px, 5.5vw, 32px); font-weight: 600; letter-spacing: -.04em; line-height: 1.18; gap: 7px; }
 .flowUnit { font-size: .62em; font-weight: 500; color: var(--text); letter-spacing: -.02em; white-space: nowrap; }
 .flowLabel { font-size: 12px; line-height: 1.4; margin-bottom: 2px; }
-.flowSubline, .bridgeAssetNetwork { font-size: 13px; line-height: 1.4; }
-.flowArrow, .bridgeDirection { display: block; margin: 8px 0 8px 14px; width: 16px; height: 16px; opacity: .65; }
+.flowSubline { font-size: 13px; line-height: 1.4; }
+.flowArrow { display: block; margin: 8px 0 8px 14px; width: 16px; height: 16px; opacity: .65; }
 .consequenceGroup { display: grid; gap: 10px; margin-top: 22px; font-size: 13px; }
 .consequenceGroup:empty, .costGroup:empty { display: none; }
 .costGroup { display: grid; gap: 10px; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
@@ -433,7 +401,7 @@
 .statusNotice, .resultStatus { padding: 14px 16px; border-radius: 16px; background: transparent; border: 1px solid var(--line); }
 .statusText > span:first-child, .resultStatus h3 { font-size: 15px; font-weight: 600; }
 .statusText > span:last-child, .resultStatus p { font-size: 13px; line-height: 1.45; }
-.resultStatus + .amountFlow, .resultStatus + .bridgeSummary, .resultStatus + .leverageSummary { margin-top: 16px; }
+.resultStatus + .amountFlow, .resultStatus + .leverageSummary { margin-top: 16px; }
 .receiptLinks { padding: 8px 0; border-radius: 16px; background: var(--surface-2); margin-top: 16px; }
 .receiptLinks > div { gap: 0; }
 .receiptLinks .hashLink { min-height: 52px; padding: 10px 16px; background: transparent; border-radius: 0; }
@@ -441,8 +409,6 @@
 .receiptLinks .hashLink > span:first-child > span:first-child { font-size: 13px; font-weight: 550; }
 .resultDetails { border-top: 0; margin-top: 6px; }
 .resultDetails > summary { padding-inline: 4px; font-size: 13px; }
-.bridgeTerms { gap: 4px; margin-top: 22px; }
-.bridgeFact { font-size: 13px; }
 .leverageTarget { font-size: 36px; font-weight: 600; }
 .leverageSummary dl { font-size: 13px; gap: 10px; }
 .leverageSummary dd { font-weight: 550; }
@@ -453,24 +419,24 @@
   .actions { background: var(--surface); }
 }
 @media (max-width: 380px) {
-  .facts.facts, .amountFlow, .bridgeSummary { padding: 16px; }
-  .flowExact > summary, .bridgeExactAmount > summary { font-size: 25px; }
-  .flowAmount, .bridgeAmount { gap: 12px; }
-  .flowToken, .bridgeToken { width: 38px; height: 38px; flex-basis: 38px; }
-  .flowToken > img, .flowToken > svg, .bridgeToken > img, .bridgeToken > svg { width: 38px; height: 38px; }
-  .flowSubline, .bridgeAssetNetwork { font-size: 12px; }
-  .flowArrow, .bridgeDirection { margin-left: 11px; }
+  .facts.facts, .amountFlow { padding: 16px; }
+  .flowExact > summary { font-size: 25px; }
+  .flowAmount { gap: 12px; }
+  .flowToken { width: 38px; height: 38px; flex-basis: 38px; }
+  .flowToken > img, .flowToken > svg { width: 38px; height: 38px; }
+  .flowSubline { font-size: 12px; }
+  .flowArrow { margin-left: 11px; }
   .consequenceGroup, .costGroup { gap: 9px; }
 }
 
-.flowExact > summary, .bridgeExactAmount > summary, .leveragePair > summary { min-height: 44px; }
+.flowExact > summary, .leveragePair > summary { min-height: 44px; }
 
 /* The amount stays anchored while the state underneath changes. */
 .actualProgress { margin: 12px 0 0; }
 .resultStatus { padding: 14px 2px 6px; border: 0; border-radius: 0; gap: 10px; }
 .resultStatus h3 { margin-top: 6px; }
 .resultStatus .resultMark { width: 30px; height: 30px; flex-basis: 30px; }
-.resultStatus + .amountFlow, .resultStatus + .bridgeSummary, .resultStatus + .leverageSummary { margin-top: 0; }
+.resultStatus + .amountFlow, .resultStatus + .leverageSummary { margin-top: 0; }
 
 .claimCaveat { margin: 12px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
 
@@ -589,10 +555,10 @@
    Exact data, approval scope and safety caveats remain inspectable and copyable. */
 .reviewDetails > summary { font-weight: 550; color: var(--mut); }
 .reviewDetails[open] > summary { color: var(--text); }
-.disclosures { display: grid; gap: 10px; padding: 2px 0 12px; border-top: 0; }
-.disclosures .advancedGroup { padding: 14px; border: 0; border-radius: 16px; background: var(--surface-2); }
-.advancedGroupLabel { margin: 0 0 10px; color: var(--mut); font-size: 11px; font-weight: 600; line-height: 1.35; letter-spacing: .015em; }
-.moreFacts { gap: 10px; }
+.disclosures { display: grid; gap: 8px; padding: 2px 0 8px; border-top: 0; }
+.disclosures .advancedGroup { padding: 12px; border: 0; border-radius: 16px; background: var(--surface-2); }
+.advancedGroupLabel { margin: 0 0 6px; color: var(--mut); font-size: 11px; font-weight: 600; line-height: 1.35; letter-spacing: .015em; }
+.moreFacts { gap: 0; }
 .moreFacts .advancedGroupLabel { margin-bottom: 2px; }
 .moreFacts > [data-review-fact], .advancedRows > [data-review-fact] { font-size: 12px; line-height: 1.45; }
 .moreFacts > [data-review-fact] > span:last-child, .advancedRows > [data-review-fact] > span:last-child { font-weight: 550; }
@@ -602,8 +568,12 @@
 .transactionStepTitle { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; line-height: 1.4; }
 .transactionStepNumber { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 8px; background: var(--surface); color: var(--mut); font-size: 11px; font-weight: 550; font-variant-numeric: tabular-nums; }
 .transactionStepNote { margin: 8px 0 0; color: var(--mut); font-size: 11.5px; line-height: 1.5; overflow-wrap: anywhere; }
-.advancedRows { gap: 4px; margin-top: 10px; }
-.advancedRows > [data-review-fact] { padding: 8px 0; }
+.advancedRows { gap: 0; margin-top: 6px; }
+.advancedRows > [data-review-fact] { padding: 0; }
+/* Passive metadata needs a readable line; interactive values and help retain
+   their own 44px targets instead of receiving another layer of row padding. */
+.detailFact { display: flex; align-items: center; justify-content: space-between; min-width: 0; min-height: 32px; gap: 8px; font-size: 13px; }
+.detailFact > span:first-child { min-width: 0; }
 .evidenceRow { grid-template-columns: minmax(70px, .85fr) minmax(0, 1.15fr); align-items: center; gap: 8px; padding: 0; font-size: 11.5px; line-height: 1.4; }
 .evidenceRow + .evidenceRow { border-top: 1px solid var(--line); }
 .evidenceRow > div { justify-content: flex-end; gap: 3px; }
@@ -620,7 +590,7 @@
 
 /* Coherent decision hierarchy: amounts, position change, risk and costs.
    The shared spacing/type scale is the same for Borrow, Earn and Move. */
-.amountLedReview, .bridgeDecision { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
+.amountLedReview { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
 .amountLedReview .amountFlow, .amountLedReview .facts.facts { padding: 0; border-radius: 0; background: transparent; }
 .amountLedReview .amountFlow + .facts { padding-top: 16px; }
 .amountLedReview .flowArrow { margin-block: 3px; }
@@ -632,19 +602,13 @@
 .amountLedReview .costGroup + .costGroup { padding-top: 6px; margin-top: 0; border-top: 0; }
 .amountContext { margin: 0 0 16px; color: var(--mut); font-size: 12px; line-height: 1.4; }
 .amountContext strong { font-weight: 500; color: var(--text); }
-.amountLedReview .flowToken > span, .bridgeDecision .bridgeToken > span { background: var(--surface-2); }
-.amountLedReview .flowExact > summary, .bridgeDecision .bridgeExactAmount > summary { font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
-.bridgeDecision .bridgeTerms { margin-top: 10px; }
-.bridgeDecision .bridgeDirection { margin-block: 4px; }
-.bridgeDecision .consequenceGroup { margin-top: 0; }
-.bridgeDecision .riskGroup { margin-top: 8px; padding-top: 8px; gap: 5px; }
-.bridgeDecision .costGroup { margin-top: 8px; padding-top: 8px; gap: 6px; }
-.bridgeDecision .bridgeFact { padding: 0; align-items: center; gap: 12px; }
+.amountLedReview .flowToken > span { background: var(--surface-2); }
+.amountLedReview .flowExact > summary { font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
 .positionOutcomeHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 8px; margin-bottom: 4px; }
 .positionOutcomeHeading p { margin: 0; color: var(--text); font-size: 12px; font-weight: 600; }
 .positionOutcomeHeading > span { color: var(--mut); font-size: 11px; }
 .positionOutcome dl > div { align-items: center; grid-template-columns: minmax(64px, .6fr) minmax(0, 1.4fr); }
-.positionPair > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 5px; min-height: 30px; list-style: none; cursor: pointer; font-size: 12px; }
+.positionPair > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 5px; min-height: 44px; list-style: none; cursor: pointer; font-size: 12px; }
 .positionPair > summary > :first-child { color: var(--mut); font-weight: 400; }
 .positionPair > summary > strong { font-weight: 650; }
 .positionPair > summary > span, .positionPair > summary > strong { min-width: 0; overflow-wrap: anywhere; }
@@ -662,12 +626,12 @@
 .positionReadback dd { margin: 0; min-width: 0; max-width: 65%; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .positionReadback > small { display: block; margin-top: 10px; color: var(--mut); font-size: 11px; line-height: 1.5; }
 @media (min-width: 601px) {
-  .amountLedReview, .bridgeDecision { padding: 20px; }
+  .amountLedReview { padding: 20px; }
 }
 @media (max-width: 350px) {
-  .amountLedReview, .bridgeDecision { padding: 13px; }
-  .amountLedReview .flowAmount, .bridgeDecision .bridgeAmount { gap: 10px; }
-  .amountLedReview .flowExact > summary, .bridgeDecision .bridgeExactAmount > summary { font-size: 24px; }
+  .amountLedReview { padding: 13px; }
+  .amountLedReview .flowAmount { gap: 10px; }
+  .amountLedReview .flowExact > summary { font-size: 24px; }
   .positionOutcome dl > div { grid-template-columns: minmax(60px, .55fr) minmax(0, 1.45fr); gap: 5px; }
   .positionPair > summary { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; }
   .positionOutcomeHeading { gap: 3px; }
@@ -692,12 +656,12 @@
 
 /* One amount scale through review, wallet handoff, and the verified receipt.
    Exact values expand in place; touch targets stay 44px even at 320px. */
-.flowExact > summary, .bridgeExactAmount > summary { min-height: 44px; font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
+.flowExact > summary { min-height: 44px; font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
 .flowUnit { color: var(--mut); font-size: .62em; font-weight: 500; letter-spacing: -.015em; }
-.flowExact > summary:hover, .bridgeExactAmount > summary:hover { color: var(--mint-text); }
+.flowExact > summary:hover { color: var(--mint-text); }
 .flowExact .selectableAmount { margin-top: 4px; color: var(--text); user-select: all; }
-.flowExact > summary[data-long], .bridgeExactAmount > summary[data-long], .amountLedReview .flowExact > summary[data-long], .bridgeDecision .bridgeExactAmount > summary[data-long] { font-size: clamp(17px, 4.7vw, 23px); }
-.amountLedReview .flowSubline, .bridgeDecision .bridgeAssetNetwork { margin-top: 2px; }
+.flowExact > summary[data-long], .amountLedReview .flowExact > summary[data-long] { font-size: clamp(17px, 4.7vw, 23px); }
+.amountLedReview .flowSubline { margin-top: 2px; }
 .flowArrow { margin-block: 9px; }
 .actions.actions { padding-top: 12px; }
 .actions > button { min-height: 52px; border-radius: 26px; font-weight: 600; }
@@ -705,35 +669,45 @@
 .resultHeadingIcon { animation: receipt-mark-in var(--dur-slow) var(--ease-spring) both; }
 .resultHeadingIcon path { stroke-dasharray: 32; stroke-dashoffset: 32; animation: mark-draw var(--dur-slow) var(--ease-out) 100ms forwards; }
 @keyframes receipt-mark-in { from { transform: scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
-.recipientAddress { display: grid; gap: 2px; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--line); font-size: var(--fs-caption); }
-.recipientAddress > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); }
-.recipientAddress button { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 44px; min-height: 44px; color: var(--mut); }
-.recipientAddress button:hover { color: var(--mint-text); }
-.recipientAddress button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
-.recipientAddress > p { color: var(--warn); font-size: var(--fs-caption); line-height: 1.5; }
 
-/* A term, its contextual help and its exact value share one row. The compact
-   amount block makes room for real 44px targets without overlapping controls. */
+/* A term, its contextual help and its exact value share one row. The review
+   phase below uses a denser rhythm than pending and receipt surfaces. */
 .compactFact { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; min-height: 44px; padding: 0; font-size: 13px; line-height: 1.5; }
 .compactFact > span:first-child { min-width: 0; color: var(--mut); }
 .compactFact > span:last-child { min-width: 0; max-width: 60%; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .compactFact small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; }
 .compactFact:has(.feePrimary) { align-items: center; padding-block: 0; }
 .compactFact .feePrimary > summary > .amountUsd { color: var(--text); font: inherit; }
-.amountLedReview .consequenceGroup, .amountLedReview .costGroup, .bridgeDecision .consequenceGroup, .bridgeDecision .costGroup { gap: 0; }
-.amountLedReview .amountFlow + .facts { padding-top: 10px; }
-.amountLedReview .costGroup, .bridgeDecision .costGroup { margin-top: 8px; padding-top: 8px; }
-.amountLedReview .riskGroup { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--line); }
-.amountLedReview .riskGroup.loanRiskGroup { padding-top: 4px; margin-top: 4px; border-top: 1px solid var(--line); }
+/* Review terms are a compact list. Inline definitions use distinct 24px
+   targets; amounts, navigation and confirmation retain their larger targets.
+   No negative hit-area margins: adjacent controls never overlap. */
+.reviewViewport[data-review-phase='review'] .compactFact { min-height: 24px; line-height: 1.4; }
+.reviewViewport[data-review-phase='review'] .compactFact :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
+.reviewViewport[data-review-phase='review'] .compactFact :global([data-review-value]) > summary,
+.reviewViewport[data-review-phase='review'] .compactFact .feePrimary > summary { min-block-size: 24px; min-height: 24px; }
+.reviewViewport[data-review-phase='review'] .compactFact:has(:global(details[open])) { align-items: flex-start; padding-block: 4px; }
+.reviewViewport[data-review-phase='review'] .amountLedReview { padding: 12px; }
+.reviewViewport[data-review-phase='review'] .reviewDetails { margin-top: 2px; }
+.reviewViewport[data-review-phase='review'] .reviewDetails > summary { min-height: 32px; }
+.reviewViewport[data-review-phase='review'] .actions.actions { padding-top: 6px; }
+@media (max-width: 600px) and (max-height: 620px) {
+  .reviewViewport[data-review-phase='review'] .amountLedReview { padding: 10px; }
+  .reviewViewport[data-review-phase='review'] .reviewDetails > summary { min-height: 24px; }
+  .reviewViewport[data-review-phase='review'] .actions.actions { padding-top: 4px; }
+  .reviewViewport[data-review-phase='review'] .actions > p { margin-bottom: 6px; line-height: 1.3; }
+  .reviewViewport[data-review-phase='review'] .actions > button { min-height: 48px; }
+}
+.amountLedReview .consequenceGroup, .amountLedReview .costGroup, .amountLedReview .riskGroup { gap: 0; }
+.amountLedReview .amountFlow + .facts { padding-top: 6px; }
+.amountLedReview .costGroup { margin-top: 2px; padding-top: 2px; }
+.amountLedReview .riskGroup { padding-top: 2px; margin-top: 2px; border-top: 1px solid var(--line); }
+.amountLedReview .riskGroup.loanRiskGroup { padding-top: 2px; margin-top: 2px; border-top: 1px solid var(--line); }
 .compactRisk { min-width: 0; }
-.flowAmount, .bridgeAmount { align-items: flex-start; }
-.flowToken, .bridgeToken { margin-top: 3px; }
+.flowAmount { align-items: flex-start; }
+.flowToken { margin-top: 3px; }
 .flowLabel { font-size: 12px; }
 .amountContext { margin-bottom: 10px; }
-.flowExact > p, .bridgeExactAmount > p { font-size: 12px; }
-.bridgeContext { min-width: 0; }
-.recipientAddress { margin-top: 6px; padding-top: 2px; }
-.recipientAddress > span { font-size: 12px; line-height: 1.6; }
+.flowExact > p { font-size: 12px; }
 .resultHeading { margin-bottom: 0; }
 .result .amountFlow, .pendingSummary .amountFlow { padding: 16px; }
 .amountFlow.amountFlowEmbedded { padding: 0; border-radius: 0; background: transparent; }
@@ -746,7 +720,7 @@
   .reviewViewport { max-height: none; }
   .reviewScrollBody { overflow: visible; }
   .actions.actions { position: sticky; bottom: 16px; z-index: 2; padding-bottom: 8px; background: var(--surface); }
-  .amountLedReview, .bridgeDecision { padding: 18px; }
+  .amountLedReview { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pendingSpinner, .resultHeadingIcon, .resultHeadingIcon path { animation: none; }

@@ -687,7 +687,7 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
     {mode === 'deposit' && <>
       {/* "Amount", as on Withdraw, Trade and Move: the Deposit tab above already names the action. */}
       <AmountField label="Amount" symbol={labelToken(token)} value={amount} onChange={onAmountChange}
-        compact maxDecimals={token === 'usdc' ? 6 : 18} balanceState={amountBalance} tokenSelector={picker} />
+        compact showShortcuts maxDecimals={token === 'usdc' ? 6 : 18} balanceState={amountBalance} tokenSelector={picker} />
       {zeroExternalBalance && <p className={presentation.fundingGuide}>
         No {labelToken(token)} available. <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
       </p>}
@@ -699,14 +699,14 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
     </>}
     {mode === 'withdraw' && <>
       <AmountField label="Amount" symbol="fxSAVE" value={shares} onChange={onSharesChange}
-        compact balanceState={shareBalance} allowAll maxDecimals={18} />
+        compact showShortcuts balanceState={shareBalance} allowAll maxDecimals={18} />
       {zeroShareBalance && <p className={presentation.fundingGuide}>No fxSAVE yet. <button type="button" onClick={onDeposit}>Switch to Deposit</button> using fxUSD, USDC, or fxSP.</p>}
       <div className={presentation.receiveRow}><span>{instant && token !== 'fxUSDBasePool' ? 'Receive asset' : 'Withdrawal route'}</span>{picker}</div>
       {token !== 'fxUSDBasePool' && <div className={presentation.withdrawOptions}>
         <ChoiceCards value={!instant ? 'cooldown' : 'instant'}
           onChange={(value) => onInstantChange(value === 'instant')} label="Withdrawal method" options={[
             { value: 'cooldown', label: 'After cooldown', description: config ? `${formatCooldown(config.cooldownPeriodSeconds)} · no instant fee` : undefined },
-            { value: 'instant', label: 'Instant', description: config ? `${formatRatio(config.instantRedeemFeeRatio)} fee` : undefined },
+            { value: 'instant', label: 'Instant', description: config ? 'Fee quoted in review' : undefined },
           ]} />
       </div>}
       {!config && <VaultTermsStatus loading={configLoading} onRetry={onRetryConfig} direct={token === 'fxUSDBasePool'} />}

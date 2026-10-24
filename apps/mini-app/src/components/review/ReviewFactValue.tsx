@@ -5,12 +5,12 @@ import styles from './ReviewFactValue.module.css';
 
 /** Amount-only at rest; the original value and its separate caveats stay reachable
  * by touch, keyboard and assistive technology, without a repeated chevron. */
-export function ReviewFactValue({ fact, className, display }: { fact: ReviewFact; className?: string; display?: ReactNode }) {
+export function ReviewFactValue({ fact, className, display, summaryLabel }: { fact: ReviewFact; className?: string; display?: ReactNode; summaryLabel?: string }) {
   const value = formatReviewFactValue(fact);
   const classes = [styles.value, className].filter(Boolean).join(' ');
   if (!value.expandable && display === undefined) return <span className={classes}>{value.display}</span>;
   return <details className={classes} data-review-value={fact.label}>
-    <summary className={styles.summary} aria-label={`${value.display}. Show full ${fact.label.toLowerCase()} value`}>
+    <summary className={styles.summary} aria-label={summaryLabel ?? `${value.display}. Show full ${fact.label.toLowerCase()} value`}>
       <span>{display ?? value.display}</span>
     </summary>
     <div className={styles.expanded}>

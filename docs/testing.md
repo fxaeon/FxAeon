@@ -79,7 +79,7 @@ pnpm test:e2e
 
 Do not reuse output after changing source or build configuration. `E2E_REUSE_SERVER=1` is for controlled local iteration only; release verification disables stale-server reuse. [run_built_e2e.mjs](../scripts/run_built_e2e.mjs) runs the just-built artifact with rebuilding and server reuse disabled.
 
-Keep tests for exact amounts, disclosure access, quote expiry, approvals, wallet-session changes, footer clearance, 44px targets, long values, narrow screens, keyboard dismissal, and enlarged text. Synthetic provider tests do not validate real emitted lazy chunks; add an artifact/consumer smoke when changing module partitioning.
+Keep tests for exact amounts, disclosure access, quote expiry, approvals, wallet-session changes, footer clearance, long values, narrow screens, keyboard dismissal, and enlarged text. Primary review actions retain at least 48px height; amount disclosures and recipient controls retain 44px targets. Compact review terms and inline form metrics use 24px info/disclosure targets with non-overlap and center-hit checks. Metric rows grow naturally for wrapped values and enlarged text rather than reserving button-height blank space. The complete closed review, including essential facts and the Execution details entry point, must fit initially without scrolling at 390×500 and 320×568 as well as normal phone and desktop sizes. Expanded details and enlarged text remain independently scrollable. Synthetic provider tests do not validate real emitted lazy chunks; add an artifact/consumer smoke when changing module partitioning.
 
 Reports and captures are generated evidence, not source. Inspect failure traces and screenshots before updating a baseline. Record browser, platform, revision, and fixture provenance.
 
@@ -141,6 +141,22 @@ pnpm --dir apps/mini-app exec tsx e2e/fork/positions.browser.ts
 ~~~
 
 `FX_FORK_PREVIEW_VERIFY=1` selects a headless connection/reload check without submitting transactions. Closing an attached browser leaves the original owner's fork/server running.
+
+### Funded visual scenario catalog
+
+`apps/mini-app/e2e/capture_scenario_matrix.ts` captures the real built app with an injected test wallet and intercepted, read-only balances. It also captures transaction lifecycle components and populated position cards through the existing isolated harnesses. It never sends a transaction or forwards unknown network requests.
+
+Build a local export with the deterministic Ethereum and Base RPC URLs `https://eth-mainnet.g.alchemy.com/v2/ci-placeholder` and `https://base-mainnet.g.alchemy.com/v2/ci-placeholder`. Serve it with `E2E_BUILD=0` on port 4347, then start a fresh state lab with `UI_STATE_LAB_PORT=4348`. Restart the lab after component changes; it bundles source at startup. Run builds sequentially.
+
+~~~powershell
+$env:FX_SCENARIO_APP_URL = 'http://127.0.0.1:4347'
+$env:FX_SCENARIO_LAB_URL = 'http://127.0.0.1:4348'
+pnpm --dir apps/mini-app exec tsx e2e/capture_scenario_matrix.ts
+~~~
+
+The output includes an HTML screenshot index and JSON evidence. Every image is labeled as a simulation. The catalog covers funded, zero, and unavailable data across Trade, Earn, Borrow, Move, Portfolio, and the wallet drawer, plus review and transaction states at phone, short-phone, and desktop sizes. It checks horizontal overflow and action visibility above the mobile dock. Set `FX_SCENARIO_SECTION=app`, `transactions`, or `positions` for a focused rerun; use `FX_SCENARIO_OUTPUT_DIR` to choose an artifact directory.
+
+Unsupported planning reads remain unavailable. This catalog proves presentation for its named cases; local-fork execution, real wallet handoff, and cross-chain delivery remain separate checks. Inspect the failure report and screenshots before approving a release.
 
 ## Performance verification
 

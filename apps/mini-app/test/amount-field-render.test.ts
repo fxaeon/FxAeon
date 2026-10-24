@@ -76,6 +76,21 @@ test('the Available figure rounds down, so it never reads as more than the walle
   assert.match((await field({ balanceState: { status: 'ready', amount: '0.123456789' } })).html, /title="0\.123456789 ETH"/);
 });
 
+test('persistent shortcuts expose disabled presets without granting an unavailable balance', async () => {
+  for (const balanceState of [{ status: 'disconnected' as const }, { status: 'loading' as const }, { status: 'unavailable' as const }, { status: 'ready' as const, amount: '0' }]) {
+    for (const allowAll of [false, true]) {
+      const result = await field({ showShortcuts: true, balanceState, allowAll, symbol: allowAll ? 'fxSAVE' : 'USDC' });
+      assert.match(result.text, /25%50%75%Max/);
+      const buttons = result.html.match(/<button\b[^>]*>/g) ?? [];
+      assert.equal(buttons.length, 4);
+      assert.ok(buttons.every(button => /disabled=""/.test(button)), 'unavailable presets cannot submit or invent an amount');
+      assert.match(result.html, /value=""/);
+    }
+  }
+  assert.doesNotMatch((await field({ showShortcuts: false, balanceState: { status: 'ready', amount: '1' } })).html, /role="group"/);
+  assert.doesNotMatch((await field({ showShortcuts: true, showPercentages: false, showMax: false })).html, /role="group"/);
+});
+
 test('the USD line marks only a priced estimate with ≈', async () => {
   const price = { unitPrice: 2_400, priceStatus: 'ready' as const };
   // Nothing entered, or an exact zero, is exactly $0.00, priced or not.
@@ -129,4 +144,17 @@ test('asset precision remains visible as a field error', async () => {
   const result = await field({ value: '1.234', maxDecimals: 2 });
   assert.match(result.html, /This asset allows 2 decimal places/);
   assert.match(result.html, /aria-invalid="true"/);
+});
+
+test('a shortened resting preview leaves the exact controlled amount in the input', async () => {
+  for (const [symbol, value, preview] of [
+    ['ETH', '0.008793346701694145', '≈ 0.0087933'],
+    ['fxUSD', '1.204548856269749526', '≈ 1.2045'],
+  ]) {
+    const result = await field({ symbol, value });
+    assert.ok(result.html.includes(`value="${value}"`));
+    assert.ok(result.html.includes(`title="${value}"`));
+    assert.match(result.html, /class="test-entryPreview" aria-hidden="true"/);
+    assert.ok(result.html.includes(preview));
+  }
 });

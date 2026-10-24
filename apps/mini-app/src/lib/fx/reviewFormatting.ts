@@ -8,13 +8,18 @@ import { parseStEthPerWstEth, stEthForWstEth } from './wstEthRate';
 import { projectedLiquidationPrice } from './liquidationQuote';
 import { acceptedFxSaveQuote } from './fxSaveReviewQuote';
 import { borrowFundingIsFresh, formatBorrowFundingApr } from './borrowFunding';
+import { normalizePositionEconomics } from './positionEconomics';
 
 /**
  * `equivalent` is the same amount in another unit, shown muted beside the
  * value (for example a wstETH minimum's stETH equivalent); the value itself
  * stays exact in the unit it is signed in.
  */
-export type ReviewFact = { label: string; value: string; title?: string; equivalent?: string };
+export type ReviewFact = { label: string; value: string; title?: string; equivalent?: string;
+  /** Display-only token fees from this route. Missing means the fee base is
+   * unknown; an empty list means every applicable quoted rate is zero. */
+  feeAmounts?: readonly { amount: string; symbol: string; estimated?: boolean }[];
+};
 type Unit = { symbol: string; decimals: number };
 type Pool = { market: 'ETH' | 'BTC'; side: 'long' | 'short' };
 
@@ -274,7 +279,11 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
           intent.kind === 'fxsave-deposit' ? tokenUnit(FX_TOKENS.fxSAVE) : unitForAddress(intent.tokenOutAddress)));
       if (quote.kind === 'instant-withdraw') {
         add({ label: 'f(x) fee', value: `${formatUnits(BigInt(quote.instantFeeRatio!), 16)}%`,
-          title: 'Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.' });
+          feeAmounts: [
+            { amount: formatUnits(BigInt(quote.grossFxUSD!) - BigInt(quote.netFxUSD!), 18), symbol: 'fxUSD' },
+            { amount: formatUnits(BigInt(quote.grossUSDC!) - BigInt(quote.netUSDC!), 6), symbol: 'USDC' },
+          ],
+          title: `${formatUnits(BigInt(quote.grossFxUSD!) - BigInt(quote.netFxUSD!), 18)} fxUSD + ${formatUnits(BigInt(quote.grossUSDC!) - BigInt(quote.netUSDC!), 6)} USDC; ${formatUnits(BigInt(quote.instantFeeRatio!), 16)}% accepted base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.` });
         add(amountFact('Instant fee (fxUSD leg)', (BigInt(quote.grossFxUSD!) - BigInt(quote.netFxUSD!)).toString(), tokenUnit(FX_TOKENS.fxUSD)));
         add(amountFact('Instant fee (USDC leg)', (BigInt(quote.grossUSDC!) - BigInt(quote.netUSDC!)).toString(), tokenUnit(FX_TOKENS.USDC)));
       }
@@ -407,15 +416,58 @@ function protocolFeeReviewFact(route: PlannedRoute, intent: ReviewedActionIntent
   if (intent.kind === 'deposit-and-mint' && charged.length === 1 && charged[0].index === 2) {
     const feeAmount = calculateProtocolFee(intent.mintAmount, BigInt(quote.ratios[2]));
     const fact = amountFact('f(x) fee', feeAmount.toString(), tokenUnit(FX_TOKENS.fxUSD))!;
-    return { ...fact, value: `${fact.value} (${formatUnits(BigInt(quote.ratios[2]), 7)}%)`, title: `${fact.title}; ${describe(charged[0])}. Deducted from the borrowed amount. Excludes network gas and conversion costs.` };
+    return { ...fact, feeAmounts: [{ amount: formatUnits(feeAmount, 18), symbol: 'fxUSD' }], value: `${fact.value} (${formatUnits(BigInt(quote.ratios[2]), 7)}%)`, title: `${fact.title}; ${describe(charged[0])}. Deducted from the borrowed amount. Excludes network gas and conversion costs.` };
   }
+  const amounts = positionFeeAmounts(route, intent, quote.ratios, charged);
   return {
     label: 'f(x) fee',
+    feeAmounts: amounts,
     value: charged.length === 0 ? '0%' : charged.length === 1
       ? `${formatUnits(BigInt(quote.ratios[charged[0].index]), 7)}%`
       : charged.map(describe).join(' + '),
-    title: `${(charged.length ? charged : legs).map(describe).join(' + ')} when that leg has a nonzero amount. Quoted f(x) rates; excludes network gas, conversion costs and retained slippage.`,
+    title: `${amounts?.length ? `${amounts.map(amount => `${amount.estimated ? '≈ ' : ''}${amount.amount} ${amount.symbol}`).join(' + ')}; estimated from the same SDK collateral and debt quote. ` : ''}${(charged.length ? charged : legs).map(describe).join(' + ')} when that leg has a nonzero amount. Quoted f(x) rates; excludes network gas, conversion costs and retained slippage.`,
   };
+}
+
+/** The SDK's open/add/up collateral quote is net of the supply fee. Undo that
+ * deduction only for a same-read accounting snapshot; charging the input or
+ * charging this net figure again would understate leveraged supply fees.
+ * This remains an estimate, not an assertion of the eventual on-chain charge. */
+function positionFeeAmounts(route: PlannedRoute, intent: ReviewedActionIntent, ratios: readonly string[], charged: { index: number }[]): ReviewFact['feeAmounts'] {
+  if (!charged.length) return [];
+  if (!['position-increase', 'position-adjust'].includes(intent.kind)) return undefined;
+  const pool = knownPool(intent);
+  const snapshot = normalizePositionEconomics(route.details?.positionEconomics);
+  const raw = route.details?.colls;
+  if (!pool || !snapshot || typeof raw !== 'string' || !/^\d{1,78}$/.test(raw)) return undefined;
+  const up = snapshot.operation !== 'adjust-down';
+  if (charged.some(leg => ![up ? 0 : 1, up ? 2 : 3].includes(leg.index))
+    || (intent.kind === 'position-increase' ? snapshot.operation !== 'increase' : snapshot.operation === 'increase')
+    || snapshot.supplyFeeRatio !== ratios[0] || snapshot.withdrawFeeRatio !== ratios[1]) return undefined;
+  const current = BigInt(snapshot.currentColls);
+  const final = BigInt(raw);
+  const scale = 1_000_000_000n;
+  const amounts: NonNullable<ReviewFact['feeAmounts']>[number][] = [];
+  for (const leg of charged) {
+    const ratio = BigInt(ratios[leg.index]);
+    if (leg.index < 2) {
+      if (ratio >= scale || (up ? final < current : current < final)) return undefined;
+      const delta = up ? final - current : current - final;
+      const fee = up ? (delta * ratio + (scale - ratio) - 1n) / (scale - ratio) : calculateProtocolFee(delta, ratio);
+      amounts.push({ amount: formatUnits(fee, 18), symbol: pool.side === 'short' ? 'fxUSD' : pool.market === 'BTC' ? 'WBTC' : up ? 'wstETH' : 'stETH', estimated: true });
+    } else {
+      // SDK debts add the gross borrowed amount, or subtract the repaid debt,
+      // normalized to 18dp even for WBTC. The fee is a separate charge on that
+      // debt change, never on the whole resulting position or the user's input.
+      const debts = route.details?.debts;
+      if (typeof debts !== 'string' || !/^\d{1,78}$/.test(debts)) return undefined;
+      const before = BigInt(snapshot.currentDebts);
+      const after = BigInt(debts);
+      if (up ? after < before : before < after) return undefined;
+      amounts.push({ amount: formatUnits(calculateProtocolFee(up ? after - before : before - after, ratio), 18), symbol: pool.side === 'long' ? 'fxUSD' : pool.market === 'ETH' ? 'wstETH' : 'WBTC', estimated: true });
+    }
+  }
+  return amounts;
 }
 
 /** Exact source values remain inspectable even when units are unsupported. */

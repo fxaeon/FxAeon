@@ -51,11 +51,11 @@ Local storage, cached/indexed data and display quotes remain untrusted inputs to
 
 The repository checks scope/import architecture, dependency patches/audits, source/built secrets, CSP and headers, bundle budgets, types, unit behavior, browser interaction and selected fork behavior. Security workflows also include CodeQL and supply-chain checks. Passing them does not prove that a release or dependency is uncompromised.
 
-Version-bound policies and patches are declared in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Use frozen installs. [audit_dependencies.mjs](../scripts/audit_dependencies.mjs) verifies the temporary exception below before allowing that specific registry advisory; new findings, registry failures, expired review or tampered patches still fail.
+Version-bound policies and patches are declared in [pnpm-workspace.yaml](../pnpm-workspace.yaml). Use frozen installs. [audit_dependencies.mjs](../scripts/audit_dependencies.mjs) verifies the temporary exceptions below against the lockfile, active consumer paths, installed source hashes, and runtime regressions before allowing those specific registry advisories; new findings, registry failures, expired review or tampered patches still fail.
 
 Production uses a separate validated configured artifact after credential-free verification. Revision stamping and deployment probes prevent confusing an old, placeholder or preview build with the intended release. See [deployment](deployment.md).
 
-## Temporary dependency backport (3 October 2026)
+## Temporary dependency backports (reviewed 24 October 2026)
 
 `braces@3.0.3` is used by Tailwind, Chokidar, and Next's ESLint tooling.
 [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
@@ -74,4 +74,32 @@ remains 3.0.3. Every other high/critical finding and registry failure blocks
 CI. Version changes, missing/tampered patches, or a failing regression also
 block the gate. The mitigation expires on 3 November 2026; replace it with
 the official release and remove the patch, exception, and gate helper when
-one becomes available. Hono is pinned to 4.13.7 for GHSA-hxh3-vqpv-xpqv.
+one becomes available. Hono is pinned to 4.13.11 for GHSA-hxh3-vqpv-xpqv.
+
+`zod@3.22.4` consumers are moved to `3.25.76` with a narrowly scoped
+backport for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+The vulnerable behavior is retained in the upstream Zod 3 line, so the patch
+limits work for oversized arrays and sets before visiting their elements.
+`zod@4.4.3` consumers are moved to `4.6.7`, whose bundled Zod 3 compatibility
+subpath receives the corresponding patch. The workspace keeps Zod 3 and Zod 4
+as separate API generations; it does not replace Zod 3 consumers with Zod 4.
+The guard checks the active `viem`, SDK, Privy, Wagmi and Porto resolution paths,
+the patched package hashes and bounded array, set and map regressions,
+including asynchronous parsing and valid-input compatibility.
+
+For the Zod 3 bundled Zod 4 implementation, the early bound applies to leading
+default size checks. A user-supplied `when` callback opts out of the early check
+so it continues to observe transformed values with its original semantics.
+No early guard is added to unbounded or minimum-only schemas. This is a local,
+reviewed backport, not an upstream Zod 3 release.
+
+Undici is pinned to `7.30.1` for [GHSA-xjj6-f33q-929c](https://github.com/advisories/GHSA-xjj6-f33q-929c)
+and the related advisories addressed by that release. The existing
+minimum-release-age exclusions remain scoped to the named Miniflare and Wrangler
+versions; Undici 7.30.1 meets the release-age policy independently, and the
+exclusions do not suppress audit findings.
+
+The Zod audit exception expires on 7 November 2026. Replace it with a published
+fix and remove its patch, override and gate helper when a compatible upstream
+release becomes available. The Undici override should also be reviewed against
+the refreshed Wrangler/Miniflare dependency graph.

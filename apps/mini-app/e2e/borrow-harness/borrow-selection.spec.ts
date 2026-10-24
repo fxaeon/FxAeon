@@ -1,12 +1,13 @@
 import { createRequire } from 'node:module';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect } from '@playwright/test';
+import { enlargeFormText, expectFormMetricRows } from '../harness/form-metric-geometry';
 
 const root = resolve(__dirname, '../../../..');
 const require = createRequire(resolve(root, 'package.json'));
 const tsxPackage = require.resolve('tsx/package.json', { paths: [resolve(root, 'apps/mini-app')] });
-const esbuild = createRequire(tsxPackage)('esbuild') as { build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ text: string }> }> };
+const esbuild = createRequire(tsxPackage)('esbuild') as { build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ path: string; text: string }> }> };
 const src = resolve(root, 'apps/mini-app/src');
 const entry = resolve(root, 'apps/mini-app/e2e/harness/borrow-selection-entry.tsx');
 const sdkPackage = require.resolve('@aladdindao/fx-sdk', { paths: [resolve(root, 'apps/mini-app')] });
@@ -47,18 +48,19 @@ mocks['@aladdindao/fx-sdk'] += `
   export class FxSdk { constructor() { throw new Error('Live SDK reads are outside the borrow selection fixture'); } }
 `;
 
-async function buildHarness(): Promise<string> {
+async function buildHarness(styled = false): Promise<{ script: string; css: string }> {
   type BuildApi = { onResolve: (options: { filter: RegExp }, callback: (args: { path: string; resolveDir?: string }) => unknown) => void; onLoad: (options: { filter: RegExp; namespace?: string }, callback: (args: { path: string; resolveDir: string }) => unknown) => void };
   const result = await esbuild.build({
     entryPoints: [entry], bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020', jsx: 'automatic',
-    loader: { '.tsx': 'tsx', '.ts': 'ts' }, absWorkingDir: root,
+    loader: { '.tsx': 'tsx', '.ts': 'ts', ...(styled ? { '.module.css': 'local-css' } : {}) }, absWorkingDir: root,
+    ...(styled ? { outdir: 'borrow-styled-fixture' } : {}),
     plugins: [{ name: 'borrow-browser-harness', setup(build: BuildApi) {
       build.onResolve({ filter: /^\.\/borrowFunding$/ }, () => ({ path: '@/lib/fx/borrowFunding', namespace: 'mock' }));
       build.onResolve({ filter: /^next\/(link|navigation)$/ }, (args: { path: string }) => ({ path: args.path, namespace: 'mock' }));
       build.onResolve({ filter: /^@\// }, (args: { path: string }) => {
         if (mocks[args.path]) return { path: args.path, namespace: 'mock' };
         const candidate = resolve(src, args.path.slice(2));
-        if (args.path.endsWith('.module.css')) return { path: candidate, namespace: 'empty-css' };
+        if (args.path.endsWith('.module.css')) return { path: candidate, ...(styled ? {} : { namespace: 'empty-css' }) };
         if (existsSync(candidate)) return { path: candidate };
         for (const extension of ['.tsx', '.ts']) if (existsSync(`${candidate}${extension}`)) return { path: `${candidate}${extension}` };
         return { path: candidate };
@@ -67,15 +69,23 @@ async function buildHarness(): Promise<string> {
       build.onResolve({ filter: /^\.\/(directPositionDiscovery|canonicalPositionReader)$/ }, (args: { path: string }) => ({ path: args.path, namespace: 'position-read-mock' }));
       build.onLoad({ filter: /.*/, namespace: 'position-read-mock' }, (args: { path: string }) => ({ contents: args.path === './directPositionDiscovery' ? 'export const discoverDirectWalletPositionIds = async () => []; export const readDirectWalletPositionCount = async () => 0n; export const readDirectWalletPositionCounts = ({ groups }) => groups.map(() => Promise.resolve(0n));' : 'export const readCanonicalPositionContext = async () => ({}); export const readCanonicalPositionInfo = async () => ({});', loader: 'js' }));
       build.onLoad({ filter: /.*/, namespace: 'mock' }, (args: { path: string }) => ({ contents: mocks[args.path], loader: 'tsx', resolveDir: resolve(root, 'apps/mini-app') }));
-      build.onResolve({ filter: /\.module\.css$/ }, (args: { path: string; resolveDir?: string }) => ({ path: resolve(args.resolveDir ?? root, args.path), namespace: 'empty-css' }));
+      build.onResolve({ filter: /\.module\.css$/ }, (args: { path: string; resolveDir?: string }) => ({ path: resolve(args.resolveDir ?? root, args.path), ...(styled ? {} : { namespace: 'empty-css' }) }));
       build.onLoad({ filter: /.*/, namespace: 'empty-css' }, () => ({ contents: 'export default {};', loader: 'js' }));
     } }],
   });
-  return result.outputFiles[0].text;
+  let css = result.outputFiles.find(file => file.path.endsWith('.css'))?.text ?? '';
+  if (styled) {
+    const appRequire = createRequire(resolve(root, 'apps/mini-app/package.json'));
+    const globals = await appRequire('postcss')([appRequire('tailwindcss')({ config: resolve(root, 'apps/mini-app/tailwind.config.js') }), appRequire('autoprefixer')()])
+      .process(readFileSync(resolve(src, 'app/globals.css'), 'utf8'), { from: resolve(src, 'app/globals.css') });
+    const font = readFileSync(resolve(root, 'apps/mini-app/e2e/harness/assets/inter-latin.woff2')).toString('base64');
+    css = `${globals.css}\n${css}\n@font-face{font-family:BorrowFixtureInter;src:url(data:font/woff2;base64,${font});font-weight:100 900}:root{--font-sans:BorrowFixtureInter}body{font-family:BorrowFixtureInter,system-ui,sans-serif}`;
+  }
+  return { script: (result.outputFiles.find(file => file.path.endsWith('.js')) ?? result.outputFiles[0]).text, css };
 }
 
 let bundle = '';
-test.beforeAll(async () => { bundle = await buildHarness(); });
+test.beforeAll(async () => { bundle = (await buildHarness()).script; });
 
 type BorrowHarnessControl = {
   wallet: { ready: boolean; authenticated: boolean; address?: string; chainId: number; connectionVersion: number };
@@ -687,4 +697,37 @@ test('repayment outcomes use the selected position debt and clear invalid input'
   await expect(outcome).toHaveCount(0);
   await page.getByLabel('Repay amount', { exact: true }).fill('bad');
   await expect(outcome).toHaveCount(0);
+});
+
+test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text', async ({ page }) => {
+  test.setTimeout(60_000);
+  // Default selection tests intentionally omit CSS. Only this geometry case
+  // lazily compiles the genuine page/module styles over the same inert reads.
+  const styled = await buildHarness(true);
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('about:blank');
+    await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>');
+    await page.addStyleTag({ content: styled.css });
+    await page.addScriptTag({ content: styled.script });
+    await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
+    await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
+    await page.getByLabel('Collateral', { exact: true }).fill('0.5');
+    await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800.123456789012345678');
+    const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome', exact: true });
+    const debt = outcome.locator('[data-review-value="Estimated debt"]');
+    await expect(debt).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const rows = outcome.locator(':scope > dl > div');
+    const heights = await expectFormMetricRows(rows);
+    if (width === 390) expect(heights[0], 'Single-line borrowing terms use the compact rhythm').toBeLessThanOrEqual(36);
+    await debt.locator('summary').click();
+    await expect(debt.getByText('800.123456789012345678 fxUSD', { exact: true })).toBeVisible();
+    await debt.locator('summary').click();
+    await enlargeFormText(page);
+    await expectFormMetricRows(rows);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => globalThis.__borrowHarness.plannerCount)).toBe(0);
+    expect(await page.evaluate(() => globalThis.__borrowHarness.walletRequestCount)).toBe(0);
+  }
 });

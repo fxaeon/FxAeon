@@ -49,7 +49,7 @@
 }
 /* The figure sizes to its own width at every phone size: each extra digit
  * steps the type down, so exact amounts never run under the asset pill. */
-.entryFit { display: flex; min-width: 0; flex: 1 1 128px; container-type: inline-size; }
+.entryFit { position: relative; display: flex; min-width: 0; flex: 1 1 128px; container-type: inline-size; }
 .entryFit > input {
   width: 100%;
   min-width: 0;
@@ -66,9 +66,22 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--tracking-figure);
   caret-color: var(--mint);
-  transition: font-size var(--dur-base) var(--ease-out);
+  /* A pasted exact amount must fit immediately, not after a type-size tween. */
+  transition: none;
 }
 .entryFit > input::placeholder { color: var(--mut-2); opacity: 0.7; }
+/* The real input always owns its exact value. Only its resting paint is
+ * shortened; focusing reveals every digit without changing form state. */
+.entryFit[data-amount-preview]:not(:focus-within) > input { color: transparent; }
+.entryPreview { position: absolute; inset: 0; display: flex; align-items: center; overflow: hidden; white-space: nowrap; pointer-events: none; color: var(--text); font-size: clamp(14px, calc(100cqi / (var(--amount-preview-length) * 0.62 + 0.4)), var(--amount-max-size, var(--fs-amount))); font-weight: 500; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: var(--tracking-figure); }
+.entryFit:focus-within > .entryPreview { visibility: hidden; }
+/* Expanded entries keep their geometry after blur: the next action must not
+ * move between pointer-down and click. Shortening or clearing the draft resets
+ * the layout. Unshortenable dust always retains this readable full line. */
+.entryRow:has(.entryFit[data-amount-expanded]),
+.entryRow:has(.entryFit[data-amount-long]:not([data-amount-preview])) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.entryRow .entryFit[data-amount-expanded],
+.entryRow .entryFit[data-amount-long]:not([data-amount-preview]) { min-width: 0; }
 .token { display: flex; align-items: center; justify-content: flex-end; min-width: 0; max-width: 100%; }
 .token :global(button[aria-haspopup='dialog']) {
   min-height: 44px;

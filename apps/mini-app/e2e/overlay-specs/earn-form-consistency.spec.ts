@@ -120,7 +120,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await expect(retry).toHaveCount(1);
   await retry.click();
   await expect(page.getByRole('radio', { name: /After cooldown.*1h/ })).toBeChecked();
-  await expect(page.getByRole('radio', { name: /Instant.*0.1% fee/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Instant.*Fee quoted in review/ })).toBeVisible();
   await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12.3456789');
   await expect(retry).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();
@@ -310,6 +310,34 @@ test('fxSAVE units wrap as a row at narrow widths and enlarged text',async ({pag
     await units.evaluate((element:HTMLElement) => {element.style.fontSize='24px';});
     await check();
     await units.evaluate((element:HTMLElement) => {element.style.fontSize='';});
+  }
+});
+
+test('Earn summary keeps two normal columns and separates enlarged APY and balance figures', async ({ page }, info) => {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 770 });
+    await mount(page, false);
+    const summary = page.locator('[class*="balanceTop"]');
+    const geometry = () => summary.evaluate(element => {
+      const columns = [...element.children].map(child => child.getBoundingClientRect());
+      const figures = [...element.querySelectorAll('strong,h2')].map(figure => {
+        const range = document.createRange(); range.selectNodeContents(figure);
+        return [...range.getClientRects()].map(rect => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }));
+      });
+      return { sameRow: Math.abs(columns[0].top - columns[1].top) < 1,
+        stacked: columns[0].bottom <= columns[1].top,
+        overlap: figures[0].some(a => figures[1].some(b => Math.min(a.right,b.right)-Math.max(a.left,b.left)>1 && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)),
+        overflow: element.scrollWidth > element.clientWidth + 1 || document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(await geometry()).toEqual({ sameRow: true, stacked: false, overlap: false, overflow: false });
+    await summary.screenshot({ path: info.outputPath(`earn-summary-${width}.png`) });
+    await summary.locator('*').evaluateAll(nodes => {
+      const text = nodes.filter(element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
+        .map(element => ({ element: element as HTMLElement, size: Number.parseFloat(getComputedStyle(element).fontSize) }));
+      for (const { element, size } of text) element.style.setProperty('font-size', `${size * 2}px`, 'important');
+    });
+    expect(await geometry()).toEqual({ sameRow: false, stacked: true, overlap: false, overflow: false });
+    await summary.screenshot({ path: info.outputPath(`earn-summary-${width}-text200.png`) });
   }
 });
 

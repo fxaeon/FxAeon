@@ -152,8 +152,9 @@
   --tabbar-panel-height: 58px;
   --tabbar-edge-gap: max(env(safe-area-inset-bottom, 0px), 8px);
   --tabbar-reserve: calc(var(--tabbar-panel-height) + var(--tabbar-edge-gap) + 8px);
-  /* Scroll content must clear the fixed tab bar and its safe-area inset. */
-  --content-bottom-clearance: calc(var(--tabbar-reserve) + 12px);
+  /* The shell reserves the dock outside the scrollport; content needs only
+     its own trailing gap, rather than a second copy of the navigation rail. */
+  --content-bottom-clearance: 12px;
   --canvas-wash: rgba(59, 130, 246, 0.09);
   --canvas-wash-secondary: rgba(125, 199, 248, 0.03);
   --surface-highlight: rgba(255, 255, 255, 0.035);
@@ -504,8 +505,8 @@ summary:focus-visible {
 :is([role='dialog'], h1, h2, h3, main)[tabindex='-1']:focus { outline: none; }
 @media (forced-colors: active) { :root { --focus-ring: Highlight; } }
 
-/* Form actions keep their place in the card; the shell's bottom padding lets
-   the last action scroll fully clear of the navigation. */
+/* Form actions keep their place in the card. The content scrollport ends
+   above the dock, so browser focus scrolling cannot stop behind navigation. */
 .sticky-action { position: static; }
 .sticky-action-sentinel { display: block; height: 0; }
 
@@ -565,6 +566,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 
 .app-shell-tabs {
   height: var(--tg-viewport-height, var(--tg-viewport-stable-height, 100dvh));
+  padding-bottom: calc(var(--shell-bottom-padding) + var(--tabbar-reserve));
 }
 
 .app-shell-no-tabs {
@@ -1113,6 +1115,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 
 .nav-item-mobile {
   display: flex;
+  min-width: 0;
   min-height: 48px;
   flex: 1;
   flex-direction: column;
@@ -1132,7 +1135,14 @@ details[open] > summary .disclosure-closed-only { display: none; }
   align-items: center;
   justify-content: center;
 }
-.nav-item-mobile .nav-label { white-space: nowrap; }
+.nav-item-mobile .nav-label {
+  max-width: 100%;
+  padding-inline: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.4;
+}
 .nav-item-mobile .nav-icon svg { transition: transform var(--dur-slow) var(--ease-spring); }
 .nav-item-mobile.nav-item-active .nav-icon svg { transform: translateY(-1px) scale(1.06); }
 
@@ -1896,10 +1906,12 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
 
 @media (min-width: 840px) {
   :root {
-    --shell-max-width: 1344px;
+    --shell-max-width: 100%;
     --shell-inline-padding: 32px;
     /* Desktop has no fixed bottom navigation, so reserve no phantom rail. */
     --shell-bottom-padding: 0px;
+    --tabbar-reserve: 0px;
+    --content-bottom-clearance: 0px;
     --header-gap: 14px;
   }
 
@@ -1917,7 +1929,9 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
 
   .app-content { max-width: 1120px; }
   .app-content.utility-content { max-width: 560px; }
-  .app-topbar { max-width: 1120px; margin: 0 auto var(--header-gap); }
+  /* Navigation belongs to the viewport; route content keeps its own readable
+     width. The wallet control stays at the far edge on wide displays. */
+  .app-topbar { max-width: none; margin: 0 0 var(--header-gap); }
   .desktop-navigation { display: flex; align-items: center; gap: 2px; margin-right: auto; margin-left: 12px; padding: 2px; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
   .desktop-navigation a { position: relative; display: grid; min-height: 44px; place-items: center; padding: 0 14px; border-radius: 12px; font-size: var(--fs-small); font-weight: 500; color: var(--mut); white-space: nowrap; transition: background-color var(--dur-base) ease, color var(--dur-base) ease; }
   .desktop-navigation a:hover { color: var(--text); background: var(--surface); }
@@ -1993,17 +2007,6 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
     white-space: nowrap;
     border: 0;
   }
-  /* Utility surfaces and the portfolio dashboard can scroll on short phones.
-     Keep the shared content reserve so their final controls remain above the
-     fixed tab bar and focus scrolling clears the same navigation surface. */
-  .app-workspace[data-route='/settings'] > .app-content-tabs,
-  .app-workspace[data-route='/qr'] > .app-content-tabs,
-  .app-workspace[data-route='/more'] > .app-content-tabs,
-  .app-workspace[data-route='/'] > .app-content-tabs,
-  .app-workspace[data-route='/portfolio'] > .app-content-tabs {
-    padding-bottom: var(--content-bottom-clearance);
-    scroll-padding-bottom: var(--content-bottom-clearance);
-  }
   .market-chart-toggle { display: flex; }
 
   /* Keep the first mobile paint compact before the viewport effect runs. */
@@ -2035,8 +2038,7 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
 
 /* Short Telegram/browser viewports have very little vertical room. Reduce
    only the shared chrome gap; controls and their touch targets stay intact.
-   The content reserve intentionally does not collapse here: doing so lets
-   the fixed tab bar cover the last review/action control on short phones. */
+   The shell's navigation reserve intentionally does not collapse here. */
 @media (max-height: 620px) {
   :root { --header-gap: 8px; }
 }

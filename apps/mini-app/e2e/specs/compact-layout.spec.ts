@@ -1,23 +1,105 @@
 import { test, expect } from '../fixtures/test';
+import { installRefinementGalleryFixtures } from '../fixtures/refinement-gallery';
 
 test.use({ telegram: false });
 
+test.describe('fixed dock clearance', () => {
+  test.use({ browserWallet: { initiallyConnected: true }, marketPrices: true });
+
+  test('Borrow settled unavailable limit and retry retain the initial action inside the scrollport', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await installRefinementGalleryFixtures(page);
+    await page.goto('/borrow');
+    await expect(page.getByRole('button', { name: 'Retry borrowing limit', exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Live limit unavailable', { exact: true })).toBeVisible();
+    const retry = await page.getByRole('button', { name: 'Retry borrowing limit', exact: true }).boundingBox();
+    expect(retry!.height).toBeGreaterThanOrEqual(44);
+    await page.evaluate(async () => document.fonts.ready);
+    const action = page.locator('.reviewTrigger .button-primary').first();
+    const geometry = await action.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const main = document.querySelector<HTMLElement>('main.app-content-tabs:not([hidden])')!;
+      const mainRect = main.getBoundingClientRect();
+      const nav = document.querySelector('nav.mobile-tabbar')!.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.bottom - 4);
+      return { scrollTop: main.scrollTop, bottom: rect.bottom, height: rect.height,
+        visibleBottom: Math.min(mainRect.bottom, nav.top), hit: hit === element || Boolean(hit && element.contains(hit)) };
+    });
+    expect(geometry.scrollTop).toBe(0);
+    expect(geometry.bottom).toBeLessThanOrEqual(geometry.visibleBottom);
+    expect(geometry.height).toBeGreaterThanOrEqual(48);
+    expect(geometry.hit).toBe(true);
+  });
+
+  // Funded Earn's initial CTA geometry is enforced by capture_scenario_matrix
+  // against its configured RPC build. This suite intentionally builds without
+  // an RPC, so it cannot obtain the funded balance required by that case.
+
+  test('connected forms keep focus and the complete action inside the scrollport above the dock', async ({ page }) => {
+    for (const route of ['/trade', '/move', '/earn']) {
+      await page.setViewportSize({ width: 390, height: 770 });
+      await page.goto(route);
+      await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
+      const main = page.locator('main.app-content-tabs:visible');
+      const nav = page.locator('nav.mobile-tabbar');
+      const action = page.locator('.reviewTrigger .button-primary').first();
+      const amount = main.locator('input[inputmode="decimal"]').first();
+      await expect(amount).toBeVisible();
+      await amount.focus();
+
+      // A short viewport exercises the same shell resize used when browser
+      // chrome or a keyboard reduces the available layout height. No wallet
+      // action or native on-screen keyboard is invoked by this fixture.
+      for (const height of [770, 500, 770]) {
+        await page.setViewportSize({ width: 390, height });
+        const navBox = await nav.boundingBox();
+        expect(navBox).not.toBeNull();
+        const mainBox = await main.boundingBox();
+        expect(mainBox).not.toBeNull();
+        expect(mainBox!.y + mainBox!.height, `${route} scrollport ends above navigation at ${height}px`)
+          .toBeLessThanOrEqual(navBox!.y - 7);
+        await expect(amount, `${route} resize preserves the focused draft field`).toBeFocused();
+        await action.scrollIntoViewIfNeeded();
+        const geometry = await action.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          const mainRect = document.querySelector('main.app-content-tabs:not([hidden])')!.getBoundingClientRect();
+          const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+          return { top: rect.top, bottom: rect.bottom, height: rect.height, mainTop: mainRect.top,
+            hit: hit === element || Boolean(hit && element.contains(hit)) };
+        });
+        expect(geometry.top).toBeGreaterThanOrEqual(geometry.mainTop - 1);
+        expect(geometry.bottom).toBeLessThanOrEqual(mainBox!.y + mainBox!.height + 1);
+        expect(geometry.height).toBeGreaterThanOrEqual(44);
+        expect(geometry.hit, `${route} entire action remains clear of the dock`).toBe(true);
+      }
+    }
+  });
+});
+
 test('baseline forms keep their action above navigation and Move stays centered', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
+  // Exercise the settled error shape, including Borrow's 44px retry row.
+  // A loading-only capture can miss the later downward layout shift.
+  await page.route('https://eth-mainnet.g.alchemy.com/**', route => route.abort('blockedbyclient'));
   for (const route of ['/trade', '/borrow', '/earn', '/move']) {
     await page.goto(route);
+    if (route === '/borrow') {
+      await expect(page.getByRole('button', { name: 'Retry borrowing limit', exact: true })).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText('Live limit unavailable', { exact: true })).toBeVisible();
+    }
     const action = page.locator('.reviewTrigger .button-primary');
     await expect(action).toBeVisible();
     const bounds = await action.evaluate(element => {
       const main = document.querySelector('main')!;
       const nav = document.querySelector('nav.mobile-tabbar')!;
       const rect = element.getBoundingClientRect();
-      return { bottom: rect.bottom, height: rect.height, navTop: nav.getBoundingClientRect().top, scroll: main.scrollTop };
+      return { bottom: rect.bottom, height: rect.height, navTop: nav.getBoundingClientRect().top, mainBottom: main.getBoundingClientRect().bottom, scroll: main.scrollTop };
     });
     expect(bounds.scroll, `${route} starts at the top`).toBe(0);
     // Transformed cards can report fractional-pixel rounding just below 48px.
     expect(bounds.height, `${route} primary CTA retains its 48px baseline`).toBeGreaterThanOrEqual(48 - 0.01);
     expect(bounds.bottom, `${route} action clears navigation`).toBeLessThanOrEqual(bounds.navTop - 4);
+    expect(bounds.bottom, `${route} initial action fits wholly inside the main scrollport`).toBeLessThanOrEqual(bounds.mainBottom);
     if (route === '/borrow') await expect(page.getByRole('heading', { name: 'Borrow fxUSD', exact: true })).toBeVisible();
     if (route === '/move') {
       const gaps = await page.locator('[data-flow-stage]').evaluate(card => {
@@ -32,8 +114,8 @@ test('baseline forms keep their action above navigation and Move stays centered'
 
 test('amount shortcuts retain touch targets and never overlap the label', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
-  // Earn omits balance shortcuts while disconnected. Borrow's collateral
-  // field keeps the same shared controls available for this geometry check.
+  // Borrow keeps the shared geometry contract. Earn also keeps presets
+  // visible before connection, disabled until a usable balance is known.
   await page.goto('/borrow');
   const field = page.locator('[data-amount-field]').first();
   await expect(field.getByRole('group', { name: 'Collateral shortcuts' })).toBeVisible();
@@ -46,6 +128,27 @@ test('amount shortcuts retain touch targets and never overlap the label', async 
   expect(geometry.labelRight).toBeLessThanOrEqual(geometry.shortcutsLeft);
   expect(geometry.buttons).toHaveLength(4);
   for (const button of geometry.buttons) { expect(button.w).toBeGreaterThanOrEqual(44); expect(button.h).toBeGreaterThanOrEqual(44); }
+
+  await page.goto('/earn');
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 770 });
+    for (const mode of ['Deposit', 'Withdraw']) {
+      await page.getByRole('radio', { name: mode, exact: true }).click();
+      const presets = page.locator('[data-amount-field]').first().getByRole('group', { name: 'Amount shortcuts' });
+      await expect(presets).toBeVisible();
+      await expect(presets.getByRole('button')).toHaveCount(4);
+      for (const name of ['25%', '50%', '75%', 'Max']) {
+        const button = name === 'Max' ? presets.locator('button').last() : presets.getByRole('button', { name, exact: true });
+        await expect(button).toBeDisabled();
+        const box = await button.boundingBox();
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      }
+      await expect(page.locator('[data-amount-field] input').first()).toHaveValue('');
+    }
+  }
 });
 
 test('form review actions remain reachable with 200% text in dark appearance', async ({ page }) => {

@@ -10,6 +10,7 @@ import { calculateFractionDecimal, compareExactDecimals, decimalInputError, form
 import { formatUsd, formatUsdPrice, priceKeyForSymbol, usdValueForDecimal } from '@/lib/prices';
 import { ASSET_PRICE_MAX_AGE_MS } from '@/lib/walletAssets';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
+import { compactAmountEntry } from '@/lib/amountEntryPresentation';
 import { haptic } from '@/lib/telegram';
 import styles from './AmountField.module.css';
 
@@ -19,6 +20,8 @@ export type AmountFieldProps = {
   labelContent?: ReactNode;
   hint?: string; balance?: string | null; balanceState?: TokenBalanceView;
   allowAll?: boolean; allowZero?: boolean; showPercentages?: boolean; showMax?: boolean;
+  /** Keep unavailable presets visible, or hide the group; omitted uses wallet-aware visibility. */
+  showShortcuts?: boolean;
   showUsdValue?: boolean; showUnitPrice?: boolean; compact?: boolean; disabled?: boolean;
   maxDecimals?: number; placeholder?: string; constraintError?: string | null;
   /** null means a route-aware maximum must be resolved before use. */
@@ -66,7 +69,7 @@ function submitNearestAction(event: KeyboardEvent<HTMLInputElement>) {
 
 /** Provider-independent field view for isolated use and component testing. */
 export function AmountFieldView({ value, onChange, symbol, label, labelContent, hint, balance, balanceState,
-  allowAll = false, allowZero = false, showPercentages = true, showMax = true,
+  allowAll = false, allowZero = false, showPercentages = true, showMax = true, showShortcuts,
   showUsdValue = true, showUnitPrice = false, compact = false, disabled = false,
   maxDecimals = 18, placeholder = '0.00', constraintError, maxAmount, onMax,
   maxPending = false, maxLabel, tokenSelector, inputPolicy = 'dot-decimal', unitPrice: price, priceStatus = 'unavailable',
@@ -75,8 +78,9 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
   const [hydrated, setHydrated] = useState(false);
   const [maxError, setMaxError] = useState('');
   const [entryError, setEntryError] = useState('');
+  const [entryExpanded, setEntryExpanded] = useState(false);
   useEffect(() => { setHydrated(true); }, []);
-  useEffect(() => { setMaxError(''); setEntryError(''); }, [symbol]);
+  useEffect(() => { setMaxError(''); setEntryError(''); setEntryExpanded(false); }, [symbol]);
   // An explicit unavailable state always wins over a legacy balance prop.
   const available = balanceState ? balanceState.status === 'ready' ? balanceState.amount ?? null : null : balance;
   const entered = value.trim();
@@ -84,6 +88,8 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
   // is known; an unavailable balance remains visibly empty instead of showing
   // a non-numeric sentinel or implying a guessed amount.
   const displayValue = allowAll && entered.toLowerCase() === 'all' ? available ?? '' : value;
+  const preview = compactAmountEntry(displayValue, maxDecimals);
+  useEffect(() => { if (displayValue.length <= 12) setEntryExpanded(false); }, [displayValue]);
   // "all" spends the whole balance, so it is worth what the balance is worth.
   const worthOf = allowAll && entered.toLowerCase() === 'all' ? available ?? '' : entered;
   const worth = worthOf && !decimalInputError(worthOf, maxDecimals, { allowZero: true }) ? usdValueForDecimal(worthOf, price) : null;
@@ -101,8 +107,8 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
       : `This wallet has no ${tokenSymbol(symbol)}. Add some${tokenSelector ? ' or choose another asset' : ''} to continue.`);
   const showBalance = balanceState?.status !== 'disconnected' && (balance !== undefined || balanceState !== undefined);
   const canUseMax = allowAll ? hasBalance : hasMaximum || (maxAmount === null && hasBalance);
-  const percentagesVisible = showPercentages && balanceState?.status !== 'disconnected';
-  const maxVisible = showMax && (balanceState?.status !== 'disconnected' || typeof maxAmount === 'string');
+  const percentagesVisible = showShortcuts !== false && showPercentages && (showShortcuts === true || balanceState?.status !== 'disconnected');
+  const maxVisible = showShortcuts !== false && showMax && (showShortcuts === true || balanceState?.status !== 'disconnected' || typeof maxAmount === 'string');
   const hasShortcuts = percentagesVisible || maxVisible;
   const isMax = allowAll ? value.toLowerCase() === 'all' : Boolean(maximum && hasMaximum && compareExactDecimals(value, maximum, maxDecimals) === 0);
   const describedBy = [hint && `${id}-hint`, showBalance && `${id}-balance`, error && `${id}-error`, maxError && `${id}-max-error`].filter(Boolean).join(' ') || undefined;
@@ -135,11 +141,14 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
       </div>
       {hint && <span className={styles.meta} id={`${id}-hint`}>{hint}</span>}
       <div className={styles.entryRow}>
-        <span className={styles.entryFit}>
-        <DecimalInput id={id} value={displayValue} onValueChange={change} onInvalidInput={setEntryError} policy={inputPolicy}
+        <span className={styles.entryFit} data-amount-preview={preview ? '' : undefined} data-amount-expanded={entryExpanded && displayValue.length > 12 ? '' : undefined} data-amount-long={displayValue.length > 12 ? '' : undefined}>
+        <DecimalInput id={id} value={displayValue} onValueChange={next => { if (next.length > 12) setEntryExpanded(true); change(next); }} onInvalidInput={setEntryError} policy={inputPolicy}
           style={{ '--amount-entry-length': Math.max(displayValue.length, placeholder.length, 1) } as CSSProperties}
+          title={preview ? displayValue : undefined}
+          onFocus={() => { if (displayValue.length > 12) setEntryExpanded(true); }}
           onKeyDown={submitNearestAction} disabled={inactive} autoComplete="off" spellCheck={false} placeholder={placeholder} maxLength={100}
           aria-label={`${label} in ${tokenSymbol(symbol)}`} aria-describedby={describedBy} aria-invalid={Boolean(error)} aria-errormessage={error ? `${id}-error` : undefined} required={!allowZero} />
+        {preview && <span className={styles.entryPreview} aria-hidden="true" style={{ '--amount-preview-length': preview.length } as CSSProperties}>{preview}</span>}
         </span>
         <div className={styles.token}>{tokenSelector ?? <span className={styles.tokenLabel} title={tokenSymbol(symbol)}><TokenIcon symbol={symbol} size={24} /><span>{tokenSymbol(symbol)}</span></span>}</div>
       </div>

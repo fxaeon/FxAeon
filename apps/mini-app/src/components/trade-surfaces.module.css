@@ -365,7 +365,7 @@
 .sideControl :global(.segmented-option) { min-height: 56px; padding-block: 6px; }
 .sideControl :global(.segmented-option > span:first-child) { font-size: var(--fs-body); }
 
-.fieldStack { display: flex; flex-direction: column; gap: 10px; }
+.fieldStack { display: flex; flex-direction: column; gap: 4px; }
 .tradeRoot .rangeField,
 .tradeRoot .rangeField:focus-within { border-color: transparent; box-shadow: none; }
 .tradeRoot .rangeField .leverageInput,
@@ -540,7 +540,7 @@
    * screen: the same parts at a smaller size, every target still 44px. */
   .tradeTicket { gap: 8px; }
   .tradeTicket > :global(.sticky-action-sentinel) { margin-top: -8px; }
-  .fieldStack { gap: 8px; }
+  .fieldStack { gap: 4px; }
   .sideControl :global(.segmented) { padding: 3px; }
   .sideControl :global(.segmented-option) { min-height: 46px; padding-block: 4px; }
   .sideControl :global(.segmented-option > span) { line-height: 1.25; }
@@ -735,11 +735,11 @@
 .tradeTicket:not(.tradeTicketReview) {
   border-radius: 20px;
   background: var(--feature-surface) !important;
-  padding: 20px !important;
-  gap: 16px;
+  padding: 16px 20px !important;
+  gap: 8px;
 }
 .tradeTicket:not(.tradeTicketReview) :global(.amount-control) { background: var(--surface); border-radius: 14px; --amount-ring: none; }
-.tradeTicket:not(.tradeTicketReview) .tradeCompactLeverage { background: transparent; box-shadow: none; }
+.tradeTicket:not(.tradeTicketReview) .tradeCompactLeverage { background: transparent; box-shadow: none; padding-block: 4px 0; gap: 0; }
 .tradeTicket:not(.tradeTicketReview) .sideControl :global(.segmented) { background: color-mix(in srgb, var(--text) 5%, transparent); border-radius: 999px; padding: 4px; }
 .tradeTicket:not(.tradeTicketReview) .sideControl :global(.segmented)::before { border-radius: 999px; background: var(--surface); box-shadow: none; }
 .tradeTicket:not(.tradeTicketReview) .sideControl :global(.segmented-option) { border-radius: 999px; }
@@ -755,8 +755,8 @@
   .marketColumn :global(.market-chart-toggle) { align-self: start; margin: 0; border-radius: 999px; background: var(--surface); }
   /* Keep the editable value and slider at 44px; trim only the surrounding
      air so the estimate rows sit higher in the existing ticket. */
-  .tradeRoot .tradeCompactLeverage { padding-block: 4px 0; gap: 0; }
-  .tradeTicket:not(.tradeTicketReview) { padding: 16px !important; gap: 12px; }
+  .tradeRoot .tradeCompactLeverage { padding-block: 0; gap: 0; }
+  .tradeTicket:not(.tradeTicketReview) { padding: 14px 16px !important; gap: 8px; }
   .tradeLayout { gap: 16px; }
 }
 @media (max-width: 640px) and (max-height: 720px) {

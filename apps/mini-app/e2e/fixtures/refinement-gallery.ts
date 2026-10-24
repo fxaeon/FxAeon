@@ -22,13 +22,16 @@ function word(value: bigint): string {
   return value.toString(16).padStart(64, '0');
 }
 
-function tokenBalance(address: string | undefined, chainId: FxChainId): bigint | undefined {
+export type GalleryBalanceState = 'funded' | 'zero' | 'unavailable';
+export type GalleryRead = { method: string; chainId: FxChainId };
+
+function tokenBalance(address: string | undefined, chainId: FxChainId, state: GalleryBalanceState): bigint | undefined {
   // Pair the explicit empty index with the canonical NFT counts. Unknown
   // contracts still fail instead of silently inventing an empty portfolio.
   if (chainId === 1 && (['ETH', 'BTC'] as const).some((market) =>
     (['long', 'short'] as const).some((side) => positionPoolAddress(market, side).toLowerCase() === address?.toLowerCase()))) return 0n;
   const token = Object.values(FX_TOKENS).find((item) => item.address.toLowerCase() === address?.toLowerCase());
-  if (token && chainId === 1) return erc20Balances[token.key] ?? 0n;
+  if (token && chainId === 1) return state === 'zero' ? 0n : erc20Balances[token.key] ?? 0n;
   if (chainId === 8453) {
     for (const key of ['fxUSD', 'fxSAVE'] as const) {
       if (resolveBridgeTokenAddress(key, chainId).toLowerCase() === address?.toLowerCase()) return 0n;
@@ -37,10 +40,11 @@ function tokenBalance(address: string | undefined, chainId: FxChainId): bigint |
   return undefined;
 }
 
-function rpcResult(method: string, params: unknown[], chainId: FxChainId): unknown {
+export function galleryRpcResult(method: string, params: unknown[], chainId: FxChainId, state: GalleryBalanceState = 'funded'): unknown {
   if (method === 'eth_chainId') return `0x${chainId.toString(16)}`;
+  if (state === 'unavailable') throw new Error('Simulated gallery RPC unavailable');
   if (method === 'eth_blockNumber') return '0x1430f00';
-  if (method === 'eth_getBalance') return `0x${(1_250_000_000_000_000_000n).toString(16)}`;
+  if (method === 'eth_getBalance') return `0x${(state === 'zero' ? 0n : 1_250_000_000_000_000_000n).toString(16)}`;
   if (method === 'eth_getLogs') return [];
   if (method === 'eth_getCode') return '0x';
   if (method !== 'eth_call') throw new Error(`gallery RPC fixture does not define ${method}`);
@@ -54,7 +58,7 @@ function rpcResult(method: string, params: unknown[], chainId: FxChainId): unkno
         try {
           // Nested multicalls are not part of this read-only fixture.
           if (subcall.callData.slice(0, 10) === '0x82ad56cb') throw new Error('nested multicall');
-          return { success: true, returnData: rpcResult('eth_call', [{ to: subcall.target, data: subcall.callData }], chainId) as `0x${string}` };
+          return { success: true, returnData: galleryRpcResult('eth_call', [{ to: subcall.target, data: subcall.callData }], chainId, state) as `0x${string}` };
         } catch {
           return { success: false, returnData: '0x' as `0x${string}` };
         }
@@ -64,7 +68,7 @@ function rpcResult(method: string, params: unknown[], chainId: FxChainId): unkno
   }
   // Only explicitly modeled token balance reads receive financial values.
   if (selector === '0x70a08231') {
-    const balance = tokenBalance(call?.to, chainId);
+    const balance = tokenBalance(call?.to, chainId, state);
     if (balance !== undefined) return `0x${word(balance)}`;
     throw new Error(`gallery RPC fixture does not define balanceOf for ${call?.to ?? 'unknown token'}`);
   }
@@ -91,15 +95,16 @@ function rpcResult(method: string, params: unknown[], chainId: FxChainId): unkno
   throw new Error(`gallery RPC fixture does not define ${method} read ${selector ?? 'without selector'}`);
 }
 
-async function fulfillRpc(route: Route, chainId: FxChainId): Promise<void> {
+async function fulfillRpc(route: Route, chainId: FxChainId, state: GalleryBalanceState, reads: GalleryRead[]): Promise<void> {
   let payload: unknown;
   try { payload = route.request().postDataJSON(); } catch { payload = null; }
   const requests = Array.isArray(payload) ? payload : [payload];
   const response = requests.map((request) => {
     const item = request as { id?: unknown; method?: unknown; params?: unknown[] } | null;
     const method = typeof item?.method === 'string' ? item.method : '';
+    reads.push({ method, chainId });
     try {
-      return { jsonrpc: '2.0', id: item?.id ?? null, result: rpcResult(method, item?.params ?? [], chainId) };
+      return { jsonrpc: '2.0', id: item?.id ?? null, result: galleryRpcResult(method, item?.params ?? [], chainId, state) };
     } catch (reason) {
       return { jsonrpc: '2.0', id: item?.id ?? null, error: { code: -32000, message: reason instanceof Error ? reason.message : String(reason) } };
     }
@@ -108,7 +113,8 @@ async function fulfillRpc(route: Route, chainId: FxChainId): Promise<void> {
 }
 
 /** Deterministic, read-only gallery values; position groups are ready-empty from the explicit index fixture. */
-export async function installRefinementGalleryFixtures(page: Page): Promise<void> {
+export async function installRefinementGalleryFixtures(page: Page, state: GalleryBalanceState = 'funded'): Promise<{ reads: GalleryRead[] }> {
+  const reads: GalleryRead[] = [];
   await page.routeWebSocket(/^wss:\/\/(eth|base)-mainnet\.g\.alchemy\.com\/v2\//, (socket) => {
     socket.onMessage((message) => {
       const request = JSON.parse(String(message)) as { id: number; method: string };
@@ -119,11 +125,12 @@ export async function installRefinementGalleryFixtures(page: Page): Promise<void
       }));
     });
   });
-  await page.route('https://eth-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 1));
-  await page.route('https://base-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 8453));
+  await page.route('https://eth-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 1, state, reads));
+  await page.route('https://base-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 8453, state, reads));
   await page.route('https://api.goldsky.com/api/public/**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ data: { positions: [], orders: [] } }),
   }));
+  return { reads };
 }

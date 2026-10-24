@@ -254,6 +254,28 @@ export function TabBar() {
   const barRef = useRef<HTMLDivElement>(null);
   const activeIndex = TABS.findIndex(({ href, also }) => isTabActive(pathname, href, also));
 
+  // Enlarged text can wrap dock labels. Reserve its actual height so content
+  // and actions still end above navigation when the dock grows.
+  useLayoutEffect(() => {
+    const dock = barRef.current?.closest<HTMLElement>('.mobile-tabbar');
+    const shell = dock?.closest<HTMLElement>('.app-shell');
+    if (!dock || !shell) return;
+    const update = () => {
+      const height = dock.getBoundingClientRect().height;
+      if (height > 0) shell.style.setProperty('--tabbar-reserve', `${height + 8}px`);
+      else shell.style.removeProperty('--tabbar-reserve');
+    };
+    update();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update);
+    observer?.observe(dock);
+    window.addEventListener('resize', update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', update);
+      shell.style.removeProperty('--tabbar-reserve');
+    };
+  }, []);
+
   useLayoutEffect(() => {
     const bar = barRef.current;
     const from = lastActiveTabIndex;

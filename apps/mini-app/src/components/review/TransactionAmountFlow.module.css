@@ -1,0 +1,25 @@
+/* Review-only density. Pending handoff and verified receipts use the shared
+ * presentation. Every label lives in normal flow, including enlarged text. */
+.compact.compact { min-width: 0; padding: 0; }
+.compact.compact[data-compact-amounts='2'] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+.compact > p { grid-column: 1 / -1; }
+.compact .leg { position: relative; min-width: 0; }
+.compact.compact .amount { display: block; min-width: 0; }
+.compact .value { min-width: 0; }
+.compact.compact .exact > summary { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 2px; min-height: 44px; padding: 0; font-size: clamp(18px, 5.4vw, 26px); line-height: 1.1; }
+.compact.compact .exact > summary[data-long] { font-size: clamp(17px, 4.7vw, 23px); }
+.compact.compact .heading { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; min-width: 0; color: var(--mut); font-size: 11px; font-weight: 400; letter-spacing: 0; line-height: 1.2; }
+.compact .role { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
+.compact .network { margin-left: auto; min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
+.compact .exact > summary > :global([data-review-amount]) { line-height: 1.1; }
+.compact.compact .token { position: relative; flex: 0 0 16px; width: 16px; height: 16px; margin: 0; }
+.compact.compact .token > img, .compact.compact .token > svg { width: 16px; height: 16px; }
+.compact .token > span { right: -2px; bottom: -2px; padding: 0; }
+.compact .token > span > img, .compact .token > span > svg { width: 8px; height: 8px; }
+.compact.compact .meta { margin-top: 0; gap: 1px 4px; font-size: 11px; line-height: 1.2; }
+.compact .meta > :global([data-usd-state]) { line-height: 1.2; }
+.compact.compact .connector { position: absolute; top: 29px; left: -15px; width: 12px; height: 12px; margin: 0; transform: rotate(-90deg); }
+/* With more than two legs retain a vertical direction. Separate payout
+ * tokens are never combined into one amount. */
+.compact:not([data-compact-amounts='2']) .leg + .leg { margin-top: 16px; }
+.compact:not([data-compact-amounts='2']) .connector { top: -14px; left: 0; transform: none; }

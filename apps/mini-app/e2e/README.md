@@ -36,11 +36,27 @@ CI browser jobs use a digest-pinned Playwright image matching the installed pack
 
 ## Failures and visual changes
 
-Inspect the trace, screenshot, console, and relevant fixture before changing assertions. Keep meaningful checks for exact values, approval/fee evidence, quote expiry, cancellation, keyboard focus, long inputs, 44px targets, footer clearance, overflow, and enlarged text.
+Inspect the trace, screenshot, console, and relevant fixture before changing assertions. Keep meaningful checks for exact values, approval/fee evidence, quote expiry, cancellation, keyboard focus, long inputs, footer clearance, overflow, and enlarged text. Main actions retain 44px targets (48px for primary review actions); compact inline metric help and disclosures retain 24px targets with non-overlap and center-hit checks.
 
 Use a suite's documented snapshot policy. The separate [state lab](../../../docs/ui-state-lab.md) has platform-specific approved references; its baseline procedure differs from generic Playwright snapshots. Re-recording an unexplained failure is not validation.
 
 ## Evidence scope
+
+### Simulated scenario catalog
+
+`capture_scenario_matrix.ts` creates a browsable HTML index and JSON report with viewport geometry, image hashes, fixture provenance, and every capture failure. It uses a fresh isolated browser, blocks unknown external requests, and never signs or broadcasts a transaction. Run it from `apps/mini-app`:
+
+~~~sh
+FX_SCENARIO_APP_URL=http://127.0.0.1:4347 \
+FX_SCENARIO_LAB_URL=http://127.0.0.1:4348 \
+pnpm exec tsx e2e/capture_scenario_matrix.ts
+~~~
+
+Start the current static export and state lab separately; this command does not build or start either server. The app export must configure deterministic Ethereum/Base URLs under `https://eth-mainnet.g.alchemy.com/v2/` and `https://base-mainnet.g.alchemy.com/v2/`, intercepted by the existing gallery fixture. A build with empty RPC configuration fails the balance-readiness check instead of producing misleading funded screenshots. Restart the static server after rebuilding so its cached CSP matches the current HTML.
+
+The matrix covers funded, verified-zero, and unavailable Trade/Earn/Borrow/Move editors, Portfolio, and the wallet drawer at 390×770, 390×500, and 1280×900. It separately captures Borrow/Earn lifecycle presentation, approval-required ActionReview, and position card/details through existing isolated harnesses. All images retain a simulation label. These rendered lifecycle states do not prove a transaction completed from the built app. Unsupported quote/protocol reads remain unavailable; physical keyboard behavior and other browser engines require separate checks.
+
+Set `FX_SCENARIO_SECTION=app`, `transactions`, or `positions` for a bounded rerun. `FX_SCENARIO_OUTPUT_DIR` selects the artifact directory; otherwise each run gets a timestamped directory under `artifacts/scenarios/`. A balance-readiness timeout, runtime error, overflow, or inaccessible primary action appears in the index and makes the command fail. Inspect the report before sharing the gallery as evidence.
 
 Built routes can contain real app components with synthetic protocol/wallet leaves. A screenshot proves the rendered fixture; a provider harness proves its mocked integration; an Ethereum fork proves only its covered local protocol behavior.
 

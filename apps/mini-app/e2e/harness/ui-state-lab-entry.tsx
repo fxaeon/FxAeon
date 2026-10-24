@@ -33,6 +33,9 @@ function Lab() {
   const [product, setProduct] = useState<LabProduct>(query.get('product') === 'earn' ? 'earn' : 'borrow');
   const transactionOnly = query.get('view') === 'transaction';
   const fixture = dataFixtures[dataState];
+  const amountBalance = query.get('amountBalance');
+  const balanceState = dataState === 'positive' && amountBalance && /^\d+(?:\.\d{1,18})?$/.test(amountBalance)
+    ? { status: 'ready' as const, amount: amountBalance } : fixture.balanceState;
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.productUi = 'v2';
   return <main data-harness-ready="true" data-theme={theme} className={`lab ${transactionOnly ? 'lab-transaction-only' : ''}`}>
@@ -52,7 +55,7 @@ function Lab() {
       <section className="lab-panel" aria-labelledby="data-heading"><h2 id="data-heading">Data states</h2>
         <p className="subtle">{fixture.title} — {fixture.detail}</p>
         <div className="lab-states" role="group" aria-label="Balance fixture state">{dataStates.map((item) => <button key={item} type="button" aria-pressed={item === dataState} onClick={() => setDataState(item)}>{item}</button>)}</div>
-        <div className="field-shell"><AmountFieldView value={amount} onChange={setAmount} symbol="ETH" label="Amount" balanceState={fixture.balanceState} unitPrice={dataState === 'positive' ? 3456.78 : undefined} priceStatus={dataState === 'loading' ? 'loading' : dataState === 'positive' ? 'ready' : 'unavailable'} showUnitPrice /></div>
+        <div className="field-shell"><AmountFieldView value={amount} onChange={setAmount} symbol="ETH" label="Amount" balanceState={balanceState} unitPrice={dataState === 'positive' ? 3456.78 : undefined} priceStatus={dataState === 'loading' ? 'loading' : dataState === 'positive' ? 'ready' : 'unavailable'} showUnitPrice /></div>
       </section>
       <section className="lab-panel transaction-panel" aria-labelledby="transaction-heading"><h2 id="transaction-heading">Transaction stages</h2>
         <p className="subtle">Selected fixture: <strong>{stage}</strong>. These are display fixtures; signing and submission are disabled.</p>

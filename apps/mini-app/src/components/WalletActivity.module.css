@@ -142,12 +142,12 @@
 .flowMeta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font-size: var(--fs-small); line-height: 1.4; }
 .flowMeta small { font-size: inherit; color: var(--mut); font-variant-numeric: tabular-nums; }
 .caption { padding: 10px 2px 0; font-size: var(--fs-caption); color: var(--mut-2); }
-.facts { display: grid; gap: 14px; margin-top: 16px; padding: 18px 16px; border-radius: 18px; background: var(--surface); font-size: var(--fs-small); }
-.facts > div { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.facts dt { flex-shrink: 0; color: var(--mut); }
+.facts { display: grid; gap: 0; margin-top: 8px; padding: 10px; border-radius: 18px; background: var(--surface); font-size: var(--fs-small); }
+.facts > div { display: flex; min-width: 0; min-height: 24px; align-items: center; justify-content: space-between; gap: 8px; line-height: 1.4; }
+.facts dt { min-width: 0; color: var(--mut); }
 .facts dd, .facts a { display: flex; align-items: center; gap: 6px; text-align: right; font-weight: 600; }
-.facts dd { min-width: 0; justify-content: flex-end; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.facts a { min-height: 44px; margin: -12px 0; color: var(--mint-text); }
+.facts dd { min-width: 0; max-width: 65%; flex-wrap: wrap; justify-content: flex-end; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.facts a { min-width: 44px; max-width: 100%; min-height: 44px; margin: 0; overflow-wrap: anywhere; color: var(--mint-text); }
 .facts [data-status='failed'] { color: var(--danger); }
 .facts [data-status='pending'] { color: var(--warn); }
 .party { flex-wrap: wrap; column-gap: 8px; row-gap: 0; }

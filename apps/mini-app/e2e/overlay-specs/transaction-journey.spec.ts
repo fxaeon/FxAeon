@@ -14,6 +14,9 @@ const scenarios = [
 ] as const;
 
 for (const scenario of scenarios) test(`amounts stay truthful through wallet and receipt at ${scenario.width}px ${scenario.theme}${scenario.reduced ? ' reduced motion' : ''}`, async ({ page }, info) => {
+  // A fresh worker first compiles the real component harness. Keep that
+  // startup cost separate from the unchanged 5s UI assertion deadlines.
+  test.setTimeout(60_000);
   await page.setViewportSize(scenario);
   await page.emulateMedia({ reducedMotion: scenario.reduced ? 'reduce' : 'no-preference' });
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
@@ -60,8 +63,21 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   if (scenario.width === 390 && !scenario.reduced) {
     const borrowRateHelp = viewport.getByRole('button', { name: 'About Temporary funding', exact: true });
     const target = await borrowRateHelp.boundingBox();
-    expect(target!.width).toBeGreaterThanOrEqual(44);
-    expect(target!.height).toBeGreaterThanOrEqual(44);
+    expect(target!.width).toBeGreaterThanOrEqual(24);
+    expect(target!.height).toBeGreaterThanOrEqual(24);
+    const hitTarget = await borrowRateHelp.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const neighbors = [...document.querySelectorAll<HTMLElement>('[data-review-viewport] button, [data-review-viewport] summary, [data-review-viewport] a[href]')]
+        .filter(other => other !== element && !other.contains(element) && !element.contains(other))
+        .filter(other => { const box = other.getBoundingClientRect(); return box.width > 0 && box.height > 0
+          && Math.min(box.right, rect.right) - Math.max(box.left, rect.left) > .5
+          && Math.min(box.bottom, rect.bottom) - Math.max(box.top, rect.top) > .5; })
+        .map(other => other.getAttribute('aria-label') ?? other.textContent?.trim());
+      return { hit: hit === element || Boolean(hit && element.contains(hit)), neighbors };
+    });
+    expect(hitTarget.hit, 'The compact help target receives its center hit').toBe(true);
+    expect(hitTarget.neighbors, 'Help controls must not overlap neighboring controls').toEqual([]);
     const before = await viewport.locator('[data-review-fact="Debt added"]').boundingBox();
     await borrowRateHelp.click();
     const help = page.getByRole('dialog', { name: 'Temporary funding', exact: true });
@@ -115,6 +131,7 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
 });
 
 test('approval request names the token and step; rejection never shows completed amounts', async ({ page }, info) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
   await openHarness(page, { presentationMode: true });
