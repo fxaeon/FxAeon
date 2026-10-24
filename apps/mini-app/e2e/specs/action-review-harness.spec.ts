@@ -200,11 +200,12 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await page.clock.install();
   await openHarness(page);
   await page.evaluate(() => {
-    const h = (window as typeof window & { __actionReviewHarness: { reviewRoute?: unknown; reviewOperationLabel?: string; rerender?: () => void } }).__actionReviewHarness;
+    const h = (window as typeof window & { __actionReviewHarness: { reviewRoute?: unknown; reviewOperationLabel?: string; displayPrices?: Record<string, number>; rerender?: () => void } }).__actionReviewHarness;
     const wallet = '0x00000000000000000000000000000000000000aa';
     const router = '0x33636D49FbefBE798e15e7F356E8DBef543CC708';
     const usdc = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
     h.reviewOperationLabel = 'Review withdrawal';
+    h.displayPrices = { fxUSD: .98, USDC: 1.01 };
     h.reviewRoute = {
       operation: 'withdrawFxSave', chainId: 1, walletAddress: wallet,
       transactions: [{ chainId: 1, from: wallet, to: router, data: '0x6d701088', value: 0n, kind: 'action', type: 'instantRedeem', operation: 'withdrawFxSave' }],
@@ -220,9 +221,10 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · estimated', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-value="f(x) fee"]');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
-  await expect(fee.locator('summary')).toHaveText('1%');
+  await expect(fee.locator('summary')).toHaveText('≈ $0.99');
   await fee.locator('summary').click();
-  await expect(fee.getByText('Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.', { exact: true })).toBeVisible();
+  await expect(fee.getByText('1%', { exact: true })).toBeVisible();
+  await expect(fee.getByText(/0\.6 fxUSD \+ 0\.4 USDC; 1% accepted base-pool instant redemption fee, deducted from both redemption legs before conversion/)).toBeVisible();
   await fee.locator('summary').click();
   await expect(review.locator('[data-review-fact="Availability"]')).toContainText('After confirmation');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();

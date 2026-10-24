@@ -1115,6 +1115,7 @@ details[open] > summary .disclosure-closed-only { display: none; }
 
 .nav-item-mobile {
   display: flex;
+  min-width: 0;
   min-height: 48px;
   flex: 1;
   flex-direction: column;
@@ -1134,7 +1135,14 @@ details[open] > summary .disclosure-closed-only { display: none; }
   align-items: center;
   justify-content: center;
 }
-.nav-item-mobile .nav-label { white-space: nowrap; }
+.nav-item-mobile .nav-label {
+  max-width: 100%;
+  padding-inline: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.4;
+}
 .nav-item-mobile .nav-icon svg { transition: transform var(--dur-slow) var(--ease-spring); }
 .nav-item-mobile.nav-item-active .nav-icon svg { transform: translateY(-1px) scale(1.06); }
 

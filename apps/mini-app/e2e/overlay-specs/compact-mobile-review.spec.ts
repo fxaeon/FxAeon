@@ -34,6 +34,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
         h.rerender?.(); return;
       }
       const borrow = kind === 'borrow'; const deposit = kind === 'earn-deposit'; const instant = kind === 'earn-instant';
+      if (instant) h.displayPrices = { fxUSD: .98, USDC: 1.01 };
       h.reviewOperationLabel = borrow ? 'Open collateral position' : deposit ? 'Deposit into fxSAVE' : instant ? 'Withdraw instantly' : 'Queue withdrawal';
       h.reviewRoute = {
         operation: borrow ? 'depositAndMint' : deposit ? 'depositFxSave' : 'withdrawFxSave', chainId: 1, walletAddress: wallet,
@@ -144,7 +145,9 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     }
     if (kind === 'earn-instant') {
       const fee = review.locator('[data-review-value="f(x) fee"]');
-      await expect(fee.locator('summary')).toHaveText('1%');
+      // The accepted quote charges 0.6 fxUSD + 0.4 USDC before conversion.
+      // Independent fresh prices give $0.992; neither token assumes a peg.
+      await expect(fee.locator('summary')).toHaveText('≈ $0.99');
       const feeTarget = await fee.locator('summary').boundingBox();
       expect(feeTarget!.width).toBeGreaterThanOrEqual(44);
       // Inline numeric disclosures follow the explicit 24px review-row
@@ -164,8 +167,22 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       expect(feeHit.hit, 'Inline fee disclosure receives its own center hit').toBe(true);
       expect(feeHit.neighbors, 'Inline fee disclosure must not overlap neighboring controls').toEqual([]);
       await fee.locator('summary').click();
-      await expect(fee.getByText('Accepted quote’s base-pool instant redemption fee, deducted from both redemption legs before conversion. Excludes gas and conversion costs.', { exact: true })).toBeVisible();
+      await expect(fee.getByText('1%', { exact: true })).toBeVisible();
+      await expect(fee.getByText(/0\.6 fxUSD \+ 0\.4 USDC; 1% accepted base-pool instant redemption fee, deducted from both redemption legs before conversion/)).toBeVisible();
       await fee.locator('summary').click();
+      await page.evaluate(() => {
+        const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
+        h.displayPrices = { USDC: 1.01 }; h.rerender?.();
+      });
+      await expect(fee.locator('summary')).toHaveText('Unavailable');
+      await fee.locator('summary').click();
+      await expect(fee.getByText('1%', { exact: true })).toBeVisible();
+      await fee.locator('summary').click();
+      await page.evaluate(() => {
+        const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
+        h.displayPrices = { fxUSD: .98, USDC: 1.01 }; h.rerender?.();
+      });
+      await expect(fee.locator('summary')).toHaveText('≈ $0.99');
       const received = review.locator('[data-review-fact="Estimated received"]');
       await expect(received.getByText('Receive · estimated', { exact: true })).toBeVisible();
       await expect(received.locator('[data-review-amount]')).toHaveText('99 USDC');

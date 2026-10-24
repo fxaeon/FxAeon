@@ -121,7 +121,30 @@ test('Trade outcome rows stay compact and wrap at 320px with 200% text', async (
     await outcome(page).screenshot({ path: info.outputPath(`metric-rows-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
     await expectFormMetricRows(rows);
+    const dock = page.locator('nav.mobile-tabbar');
+    await expect.poll(() => dock.evaluate(element => {
+      const main = document.querySelector('main.app-content')!;
+      return main.getBoundingClientRect().bottom - element.getBoundingClientRect().top;
+    })).toBeLessThanOrEqual(-7);
+    for (const link of await dock.getByRole('link').all()) {
+      const geometry = await link.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(element.querySelector('.nav-label')!);
+        return { label: element.textContent, box: box.toJSON(), text: [...range.getClientRects()].map(rect => rect.toJSON()), width: box.width, height: box.height,
+          textFits: [...range.getClientRects()].every(rect => rect.left >= box.left - 1 && rect.right <= box.right + 1 && rect.bottom <= box.bottom + 1) };
+      });
+      expect(geometry.width).toBeGreaterThanOrEqual(44);
+      expect(geometry.height).toBeGreaterThanOrEqual(44);
+      expect(geometry.textFits, `Enlarged navigation labels remain inside separate touch targets: ${JSON.stringify(geometry)}`).toBe(true);
+    }
     await outcome(page).screenshot({ path: info.outputPath(`metric-rows-${width}-text200.png`), animations: 'disabled' });
+    const reviewAction = page.getByRole('button', { name: 'Review ETH Long', exact: true });
+    await reviewAction.scrollIntoViewIfNeeded();
+    const actionBox = (await reviewAction.boundingBox())!;
+    const dockBox = (await dock.boundingBox())!;
+    expect(actionBox.y + actionBox.height).toBeLessThanOrEqual(dockBox.y - 7);
+    await page.screenshot({ path: info.outputPath(`trade-dock-${width}-text200.png`), animations: 'disabled' });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     expect(await planCount(page)).toBe(planned);
   }
