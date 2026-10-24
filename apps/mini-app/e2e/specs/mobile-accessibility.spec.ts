@@ -5,9 +5,8 @@ const ROUTES = ["/", "/login", "/portfolio", "/trade", "/positions", "/borrow", 
 const MOBILE_WIDTHS = [320, 360, 375, 390, 412, 430];
 const CONTROLS = "button, [role=button], nav a";
 
-/** Scrollable content may initially sit beneath the persistent navigation.
- * Only that obstruction gets a second check after centering the same control;
- * help/help and other content overlaps remain immediate failures. */
+/** Controls outside a scrollport or under fixed navigation must prove they
+ * scroll fully into view. Actual content overlaps still fail immediately. */
 async function expectReachableControls(page: Page, context: string, timeout = 10_000) {
   const scan = () => {
     const nodes = [...document.querySelectorAll<HTMLElement>("button, [role=button], nav a")];
@@ -21,7 +20,23 @@ async function expectReachableControls(page: Page, context: string, timeout = 10
       if (style.display === "none" || style.visibility === "hidden" || rect.width === 0 || rect.height === 0) return [];
       const inlineHelp = element.hasAttribute("data-info-help-trigger");
       const minimum = inlineHelp ? 24 : 44;
-      const fullyInView = rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth;
+      const visible = { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+      // The app reserves the dock outside its nested content scrollport.
+      // A DOM rectangle can be inside the window but clipped by that port;
+      // hit-testing there returns the canvas, not necessarily the dock.
+      for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        const css = getComputedStyle(ancestor);
+        const clipX = /^(auto|scroll|hidden|clip)$/.test(css.overflowX);
+        const clipY = /^(auto|scroll|hidden|clip)$/.test(css.overflowY);
+        if (!clipX && !clipY) continue;
+        const box = ancestor.getBoundingClientRect();
+        const left = box.left + ancestor.clientLeft;
+        const top = box.top + ancestor.clientTop;
+        if (clipX) { visible.left = Math.max(visible.left, left); visible.right = Math.min(visible.right, left + ancestor.clientWidth); }
+        if (clipY) { visible.top = Math.max(visible.top, top); visible.bottom = Math.min(visible.bottom, top + ancestor.clientHeight); }
+      }
+      const fullyInView = rect.top >= visible.top && rect.bottom <= visible.bottom && rect.left >= visible.left && rect.right <= visible.right;
+      const clipped = inlineHelp && !fullyInView;
       const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
       const obscured = inlineHelp && fullyInView && (!hit || !element.contains(hit));
       const overlaps = inlineHelp ? nodes.filter(other => {
@@ -33,7 +48,7 @@ async function expectReachableControls(page: Page, context: string, timeout = 10
           && Math.min(rect.bottom, box.bottom) - Math.max(rect.top, box.top) > 1;
       }) : [];
       return [{ index, label: element.getAttribute("aria-label"), text: element.innerText.trim().slice(0, 50),
-        width: rect.width, height: rect.height, minimum, fullyInView, obscured,
+        width: rect.width, height: rect.height, minimum, fullyInView, clipped, obscured,
         overlaps: overlaps.length > 0,
         contentOverlap: overlaps.some(other => !fixedNavigation(other)),
         contentObscured: obscured && !fixedNavigation(hit),
@@ -44,7 +59,7 @@ async function expectReachableControls(page: Page, context: string, timeout = 10
   const geometry = await page.evaluate(scan);
   const invalid = geometry.filter(row => row.width + .01 < row.minimum || row.height + .01 < row.minimum || row.contentOverlap || row.contentObscured);
   expect(invalid, `${context}: target sizes and content overlaps`).toEqual([]);
-  for (const row of geometry.filter(value => value.navigationCovered)) {
+  for (const row of geometry.filter(value => value.navigationCovered || value.clipped)) {
     const control = controls[row.index];
     await control.evaluate(element => (element as Element).scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
     await expect.poll(async () => {
@@ -54,7 +69,7 @@ async function expectReachableControls(page: Page, context: string, timeout = 10
       const current = (await page.evaluate(scan)).find(value => value.index === index);
       return Boolean(current && current.width + .01 >= current.minimum && current.height + .01 >= current.minimum
         && current.fullyInView && !current.obscured && !current.overlaps);
-    }, { timeout, message: `${context}: ${row.label ?? row.text} must scroll clear of fixed navigation and retain a reachable center` }).toBe(true);
+    }, { timeout, message: `${context}: ${row.label ?? row.text} must scroll clear of clipping and fixed navigation and retain a reachable center` }).toBe(true);
   }
   await Promise.all(controls.map(control => control.dispose()));
 }
@@ -74,6 +89,22 @@ test.describe("mobile web and Telegram accessibility contract", () => {
 
     await page.setContent(styles + '<style>html,body{min-height:0;height:100%;overflow:hidden}</style>' + help + navigation);
     await expect(expectReachableControls(page, 'unreachable fixed navigation', 500)).rejects.toThrow('must scroll clear');
+  });
+
+  test("a help control clipped into a pointer-transparent navigation gap must recover inside its nested scrollport", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;height:100%;overflow:hidden}#shell{height:844px;overflow:hidden}#scrollport{height:760px;overflow:auto}#content{position:relative;height:1400px}button{width:24px;height:24px;padding:0}#help{position:absolute;left:20px;top:766px}nav{position:fixed;inset:auto 0 0;height:84px;pointer-events:none}nav button{margin-top:32px;width:100%;height:52px;pointer-events:auto}</style><div id="shell"><main id="scrollport"><div id="content"><button id="help" data-info-help-trigger aria-label="About nested test">i</button></div></main></div><nav data-fixed-navigation="true"><button>Navigation</button></nav>');
+    const help = page.getByRole('button', { name: 'About nested test', exact: true });
+    expect(await help.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return rect.top >= 760 && rect.bottom <= innerHeight && !element.contains(hit) && !hit?.closest('nav');
+    })).toBe(true);
+    await expectReachableControls(page, 'recoverable nested scrollport');
+    expect(await help.evaluate(element => element.getBoundingClientRect().bottom)).toBeLessThanOrEqual(760);
+
+    await page.locator('#scrollport').evaluate(element => { element.scrollTop = 0; (element as HTMLElement).style.overflow = 'clip'; });
+    await expect(expectReachableControls(page, 'unreachable nested clipping', 500)).rejects.toThrow('must scroll clear');
   });
 
   test("every official screen fits a narrow viewport, exposes a main landmark, and keeps controls reachable", async ({ page, requests }) => {
