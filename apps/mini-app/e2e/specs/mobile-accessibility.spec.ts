@@ -24,18 +24,35 @@ test.describe("mobile web and Telegram accessibility contract", () => {
         expect(geometry.content, `${route} must not overflow horizontally at ${width}px`).toBeLessThanOrEqual(geometry.viewport + 1);
         expect(geometry.lang).toMatch(/^[a-z]{2}(?:-[A-Z]{2})?$/);
 
-        const undersized = await page.locator("button, [role=button], nav a").evaluateAll((nodes) =>
+        const unreachable = await page.locator("button, [role=button], nav a").evaluateAll((nodes) =>
           nodes.flatMap((node) => {
             const element = node as HTMLElement;
             const rect = element.getBoundingClientRect();
             const style = getComputedStyle(element);
             if (style.display === "none" || style.visibility === "hidden" || rect.width === 0 || rect.height === 0) return [];
-            return rect.width + 0.01 < 44 || rect.height + 0.01 < 44
-              ? [{ text: element.innerText.trim().slice(0, 50), label: element.getAttribute("aria-label"), width: rect.width, height: rect.height }]
+            // Passive metric explanations use compact inline targets; wallet,
+            // form, navigation and other actions still require 44px targets.
+            const inlineHelp = element.hasAttribute("data-info-help-trigger");
+            const minimum = inlineHelp ? 24 : 44;
+            const fullyInView = rect.top >= 0 && rect.bottom <= innerHeight
+              && rect.left >= 0 && rect.right <= innerWidth;
+            const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            const obscured = inlineHelp && fullyInView && (!hit || !element.contains(hit));
+            const overlaps = inlineHelp && nodes.some(other => {
+              if (other === element || element.contains(other) || other.contains(element)) return false;
+              const otherRect = other.getBoundingClientRect();
+              const otherStyle = getComputedStyle(other);
+              if (otherStyle.display === "none" || otherStyle.visibility === "hidden") return false;
+              return Math.min(rect.right, otherRect.right) - Math.max(rect.left, otherRect.left) > 1
+                && Math.min(rect.bottom, otherRect.bottom) - Math.max(rect.top, otherRect.top) > 1;
+            });
+            return rect.width + 0.01 < minimum || rect.height + 0.01 < minimum || obscured || overlaps
+              ? [{ text: element.innerText.trim().slice(0, 50), label: element.getAttribute("aria-label"),
+                width: rect.width, height: rect.height, minimum, obscured, overlaps }]
               : [];
           }),
         );
-        expect(undersized, `${route} visible controls smaller than 44px at ${width}px`).toEqual([]);
+        expect(unreachable, `${route} controls meet target size and inline help remains unobscured at ${width}px`).toEqual([]);
       }
     }
     assertNoBackendRequests(requests);

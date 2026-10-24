@@ -14,22 +14,33 @@ export async function essentialReviewGeometry(review: Locator) {
     const footerRect = footer.getBoundingClientRect();
     const top = Math.max(bodyRect.top, 0);
     const bottom = Math.min(bodyRect.bottom, footerRect.top, innerHeight);
-    const box = (node: Element | null) => {
+    const viewport = element.closest('[data-review-viewport]')!;
+    // Keep this serialized callback self-contained. A named local function
+    // makes tsx emit its Node-side __name helper inside the browser callback.
+    const boxes = [viewport, viewport.querySelector('[data-review-header]'), body, footer].map(node => {
       if (!node) return null;
       const bounds = node.getBoundingClientRect();
       return { top: bounds.top, bottom: bounds.bottom, height: bounds.height };
-    };
-    const viewport = element.closest('[data-review-viewport]')!;
+    });
     return { top: rect.top, bottom: rect.bottom, height: rect.height,
       visibleTop: top, visibleBottom: bottom, bodyScrollTop: body.scrollTop,
       bodyHeight: body.clientHeight, bodyScrollHeight: body.scrollHeight,
       closedBodyFits: body.scrollHeight <= body.clientHeight + 1,
-      layout: { viewport: box(viewport), header: box(viewport.querySelector('[data-review-header]')),
-        body: box(body), footer: box(footer),
-        footerChildren: [...footer.children].map(node => ({ text: (node as HTMLElement).innerText, ...box(node) })),
-        bodyChildren: [...body.children].map(node => ({ kind: node.hasAttribute('data-review-essential') ? 'essential'
-          : node.hasAttribute('data-review-secondary') ? 'execution-details' : node.getAttribute('role') ?? node.tagName.toLowerCase(), ...box(node) })) },
-      terms: [...element.querySelectorAll<HTMLElement>('[data-review-fact]')].map(row => ({ label: row.dataset.reviewFact, text: row.innerText, ...box(row) })),
+      layout: { viewport: boxes[0], header: boxes[1], body: boxes[2], footer: boxes[3],
+        footerChildren: [...footer.children].map(node => {
+          const bounds = node.getBoundingClientRect();
+          return { text: (node as HTMLElement).innerText, top: bounds.top, bottom: bounds.bottom, height: bounds.height };
+        }),
+        bodyChildren: [...body.children].map(node => {
+          const bounds = node.getBoundingClientRect();
+          return { kind: node.hasAttribute('data-review-essential') ? 'essential'
+            : node.hasAttribute('data-review-secondary') ? 'execution-details' : node.getAttribute('role') ?? node.tagName.toLowerCase(),
+            top: bounds.top, bottom: bounds.bottom, height: bounds.height };
+        }) },
+      terms: [...element.querySelectorAll<HTMLElement>('[data-review-fact]')].map(row => {
+        const bounds = row.getBoundingClientRect();
+        return { label: row.dataset.reviewFact, text: row.innerText, top: bounds.top, bottom: bounds.bottom, height: bounds.height };
+      }),
       horizontalOverflow: element.scrollWidth - element.clientWidth,
       fits: body.scrollTop === 0 && rect.top >= top - 1 && rect.bottom <= bottom + 1 };
   });
