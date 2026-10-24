@@ -5,11 +5,13 @@ import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-// Temporary, version-bound mitigation for GHSA-vfj7-8cjw-p6xm. See docs/security.md.
+// Temporary, version-bound mitigations for upstream findings with reviewed local backports.
+// See docs/security.md for rationale, scope, and re-review dates.
 // Do not suppress the registry finding unless every affected consumer resolves
 // to the reviewed backport and its public APIs pass the attack regressions.
 assert.ok(Date.now() < Date.parse('2026-11-03T00:00:00Z'), 'Re-review the temporary braces backport');
 const root = resolve(import.meta.dirname, '..');
+assert.ok(Date.now() < Date.parse('2026-11-07T00:00:00Z'), 'Re-review the temporary Zod backport');
 assert.ok(!/ignoreGhsas|ignoreCves/.test(readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')), 'Do not persist global audit exceptions');
 const lock = readFileSync(resolve(root, 'pnpm-lock.yaml'), 'utf8');
 const versions = [...lock.matchAll(/^  braces@([^:]+):$/gm)].map((match) => match[1].split('(')[0]);
@@ -64,6 +66,7 @@ for (const [manifest, ...chain] of consumers) {
   assert.deepEqual(braces.expand('src/{app,lib}/file.{ts,tsx}'), ['src/app/file.ts', 'src/app/file.tsx', 'src/lib/file.ts', 'src/lib/file.tsx']);
 }
 console.log('[audit] Verified braces@3.0.3 depth-limit backport for all four dependency paths. GHSA-vfj7-8cjw-p6xm is patched locally; npm still reports its original version.');
+await import('./verify_zod_security_backport.mjs');
 assert.ok(process.env.npm_execpath, 'Run this gate through pnpm run audit:all');
 // --ignore writes a persistent workspace exception in pnpm 11. Read the raw
 // report instead, so running this gate never changes normal pnpm audit behavior.
@@ -83,7 +86,13 @@ for (const advisory of advisories) {
     && advisory.module_name === 'braces'
     && advisory.findings?.length > 0
     && advisory.findings.every((finding) => finding.version === '3.0.3');
-  console.log(`[audit] ${mitigated ? 'Verified local mitigation' : advisory.severity}: ${advisory.github_advisory_id} ${advisory.module_name} — ${advisory.title}`);
-  if (!mitigated && !['info', 'low', 'moderate'].includes(advisory.severity)) failed = true;
+  const zodMitigated = advisory.github_advisory_id === 'GHSA-mrhx-c7xc-m3w5'
+    && advisory.module_name === 'zod'
+    && advisory.severity === 'high'
+    && advisory.findings?.length > 0
+    && advisory.findings.every((finding) => ['3.25.76', '4.6.7'].includes(finding.version));
+  const verified = mitigated || zodMitigated;
+  console.log(`[audit] ${verified ? 'Verified local mitigation' : advisory.severity}: ${advisory.github_advisory_id} ${advisory.module_name} — ${advisory.title}`);
+  if (!verified && !['info', 'low', 'moderate'].includes(advisory.severity)) failed = true;
 }
 process.exit(failed ? 1 : 0);

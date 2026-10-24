@@ -9,8 +9,17 @@ const known = {
   github_advisory_id: 'GHSA-vfj7-8cjw-p6xm', module_name: 'braces',
   severity: 'high', findings: [{ version: '3.0.3' }], title: 'Depth exhaustion',
 };
+const zod = {
+  github_advisory_id: 'GHSA-mrhx-c7xc-m3w5', module_name: 'zod',
+  severity: 'high', findings: [{ version: '3.25.76' }, { version: '4.6.7' }], title: 'Unbounded collection validation',
+};
 for (const [name, advisories, code] of [
-  ['verified backport is the only permitted high finding', [known], 0],
+  ['verified braces backport is permitted', [known], 0],
+  ['verified Zod compatibility backports are permitted', [zod], 0],
+  ['a Zod finding for an unverified version remains blocking', [{ ...zod, findings: [{ version: '3.22.4' }] }], 1],
+  ['a different Zod advisory remains blocking', [{ ...zod, github_advisory_id: 'GHSA-other' }], 1],
+  ['a same-name non-Zod module does not use the Zod exception', [{ ...zod, module_name: 'other' }], 1],
+  ['the Zod exception does not apply above the reviewed severity', [{ ...zod, severity: 'critical' }], 1],
   ['another high advisory remains blocking', [known, { ...known, github_advisory_id: 'GHSA-other' }], 1],
   ['another critical advisory remains blocking', [{ ...known, github_advisory_id: 'GHSA-other', severity: 'critical' }], 1],
   ['different vulnerable version remains blocking', [{ ...known, findings: [{ version: '3.0.2' }] }], 1],

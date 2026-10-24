@@ -28,7 +28,7 @@ jobs:
       # Audit runtime and build/test dependencies together so tooling advisories
       # cannot enter the release workflow unnoticed. Keep high/critical findings
       # and registry failures blocking.
-      # Verifies the pinned braces backport before a single advisory exception.
+      # Verifies each reviewed local backport before its version-bound advisory exception.
       # All other high/critical findings and registry failures remain blocking.
       - run: node --test scripts/audit_dependencies.test.mjs
       - run: pnpm run audit:all
