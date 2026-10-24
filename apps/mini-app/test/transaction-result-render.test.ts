@@ -251,7 +251,7 @@ test('shortened actual amounts stay static while receipt models retain exact val
     result: result('confirmed', { receipt: true }),
     receipts: [{ ...receipts[0], exactMovements }],
   });
-  assert.match(html.replace(/<[^>]*>/g, ''), /≈ 1.235 fxUSD/);
+  assert.match(html, /≈ 1\.235 <span class="test-flowUnit">fxUSD<\/span>/);
   assert.doesNotMatch(html, /Show exact amount|1\.23456789 fxUSD/);
   assert.equal(exactMovements[0].amount, '1.23456789');
 });
@@ -360,7 +360,7 @@ test('actual phone receipt and fresh readback decimals stay compact while raw re
  const receipt: ReceiptPresentation={...receipts[0],movements:['received 720.89147659306640625 fxUSD'],exactMovements:[{direction:'received' as const,amount:'720.89147659306640625',symbol:'fxUSD'}]};
  const html=await renderResult({result:execution,confirmedPosition:readback,receipts:[receipt]});
  const main=html.split('<summary>Execution details')[0];
- assert.match(main.replace(/<[^>]*>/g, ''),/≈ 720.89 fxUSD/);
+ assert.match(main,/≈ 720\.89 <span class="test-flowUnit">fxUSD<\/span>/);
  assert.match(main,/Position #42/);assert.match(main,/>Collateral<\/dt>/);assert.match(main,/>Debt<\/dt>/);
  assert.doesNotMatch(main,/>Updated<|Not the earlier quote/);
  assert.doesNotMatch(html,/0.358481260986328125 stETH|720.89147659306640625 fxUSD/);
@@ -379,7 +379,7 @@ test('pending preserves long identities and static readable tiny or large units'
   const html=renderToStaticMarkup(React.createElement(PendingTransactionSummary,{identity:{name,subtitle:'Position #123456789 · Ethereum',symbol:'ETH',review:'Review position',confirm:'Confirm',amount:undefined,amountLabel:'Deposit',value:undefined},facts:[fact],status:'submitted',steps:[],chainId:1,networkSwitching:false}));
   assert.match(html,/Submitted/);assert.match(html,/Do not resubmit/);assert.ok(html.includes(name));assert.match(html,/VeryLongTokenSymbol/);
   if (value.startsWith('900719')) assert.doesNotMatch(html,/9007199254740993123456789\.123456789/);
-  else assert.match(html.replace(/<[^>]*>/g, ''),/0\.000000000000000001 VeryLongTokenSymbol/, 'tiny amounts remain readable when rounding would hide them');
+  else assert.match(html,/0\.000000000000000001 <span class="test-flowUnit">VeryLongTokenSymbol<\/span>/, 'tiny amounts remain readable when rounding would hide them');
   assert.doesNotMatch(html,/<details|<summary|NaN|Infinity|lucide-chevron-down/);
   assert.equal(fact.value, value, 'the original exact financial fact is retained in the input model');
  }
