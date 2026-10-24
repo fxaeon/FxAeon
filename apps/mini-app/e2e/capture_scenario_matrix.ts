@@ -209,26 +209,18 @@ async function lifecycleGeometry(page: Page, capture: Capture, requireAction: bo
     const details = review.locator('details[data-review-secondary] > summary');
     if (await details.count()) await expect(details).toBeInViewport({ ratio: 1 });
   }
-  let networkFee: { displayed: string; exact: string } | null = null;
+  let networkFee: { displayed: string } | null = null;
   if (essential) {
     // These review fixtures supply fresh ETH display prices. An ETH fallback
     // must not silently pass as proof of the intended USD-first presentation.
     const fee = review.locator('[data-review-essential] [data-review-fact="Gas fee"]');
-    const disclosure = fee.locator('details');
-    const summary = disclosure.locator('summary');
-    const estimate = summary.locator('[data-usd-state="estimate"]');
+    const estimate = fee.locator('[data-usd-state="estimate"]');
     await expect(estimate).toBeVisible();
     await expect(estimate).toHaveText(/\$\d/);
-    await expect(summary).toHaveAttribute('aria-label', /Show exact network cost:.*\d.*ETH/);
-    const exact = await summary.getAttribute('aria-label');
-    networkFee = { displayed: await estimate.innerText(), exact: exact! };
+    await expect(fee.locator('details, summary')).toHaveCount(0);
+    networkFee = { displayed: await estimate.innerText() };
     const body = review.locator('[data-review-scroll]');
     const initialScroll = await body.evaluate(element => element.scrollTop);
-    await summary.click();
-    await expect(disclosure.locator('p')).toBeVisible();
-    await expect(disclosure.locator('p')).toContainText(/\d.*ETH/);
-    await expect(disclosure.locator('p')).toContainText('The native amount governs the transaction.');
-    await summary.click();
     await body.evaluate((element, top) => element.scrollTo({ top, behavior: 'instant' }), initialScroll);
   }
   capture.geometry = { initialAction, essential, networkFee };

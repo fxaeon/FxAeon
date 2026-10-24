@@ -167,7 +167,6 @@ export function primaryReviewFacts(route: PlannedRoute, options?: { historicalCo
       case 'fxsave-deposit':
         addTokenAmountFact(facts, 'Deposit', intent.amount, intent.tokenInAddress);
         addFact(facts, 'Recipient', compactAddress(intent.receiver));
-        if (!intent.directBasePool) addFact(facts, 'Final fxSAVE minimum', 'Not enforced by this route');
         break;
       case 'fxsave-withdraw':
         addTokenAmountFact(facts, 'fxSAVE', intent.amount, FX_TOKENS.fxSAVE.address);
@@ -279,7 +278,7 @@ export function nativeFundsNotice(estimate: FundsEstimate | undefined, network: 
   // The form keeps the amount within the balance, so the gap is usually fees
   // alone; a balance below the amount itself needs both.
   const coversAmount = estimate.nativeBalanceWei !== undefined && estimate.nativeBalanceWei < estimate.nativeValueWei;
-  return `Add at least ${formatNativeShortfall(shortfall)} ETH on ${network} to cover ${coversAmount ? 'the amount and network fees' : 'network fees'}.`;
+  return `Add ${formatNativeShortfall(shortfall)} ETH on ${network} for ${coversAmount ? 'the amount and fees' : 'fees'}.`;
 }
 
 /** Reserve a total-cost row only when the reviewed transactions send native value. */

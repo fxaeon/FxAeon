@@ -443,7 +443,7 @@ test('fxSAVE deposits show independent input-conversion and share minimum units'
   }
 });
 
-test('stable fxSAVE deposit review discloses the final-share limitation without claiming selected slippage', () => {
+test('stable fxSAVE deposit review retains enforced limits without inventing a final-share minimum', () => {
   for (const token of [FX_TOKENS.USDC, FX_TOKENS.fxUSD]) {
     const intent: ReviewedActionIntent = {
       kind: 'fxsave-deposit', tokenInAddress: token.address, amount: 1n,
@@ -454,9 +454,7 @@ test('stable fxSAVE deposit review discloses the final-share limitation without 
     ] });
     const facts = routeFacts(planned, { estimate: undefined, estimateIsCurrent: false }, {});
     const { summary } = splitReviewFacts(facts);
-    assert.deepEqual(summary.find(fact => fact.label === 'Final fxSAVE minimum'), {
-      label: 'Final fxSAVE minimum', value: 'Not enforced by this route',
-    });
+    assert.equal(summary.find(fact => fact.label === 'Final fxSAVE minimum'), undefined);
     assert.equal(summary.find(fact => fact.label === 'Minimum fxSP')?.value, '79.968 fxSP');
     assert.equal(facts.some(fact => fact.label === 'Slippage' || fact.label === 'Minimum fxSAVE received'), false);
   }

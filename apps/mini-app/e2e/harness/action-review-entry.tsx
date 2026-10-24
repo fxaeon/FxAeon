@@ -26,6 +26,8 @@ type HarnessState = {
   financialFacts?: boolean;
   deferReceipt: boolean; receiptResolvers: Array<() => void>;
   reviewRoute?: PlannedRoute; reviewOperationLabel?: string;
+  savingsApy?: import('@/lib/fxSaveApy').FxSaveApyResponse | null;
+  savingsApyStatus?: 'loading' | 'ready' | 'unavailable';
   wallet: WalletState; version: number; mode: 'auto' | 'deferred'; failNextPrepare: boolean; executeVersion?: number; partialResult: boolean;
   deferRunner: boolean; failRunner: boolean; executionResolvers: Array<() => void>; deferWalletResponse: boolean; walletResolvers: Array<(reject?: boolean) => void>; lastExecutedRouteVersion?: number;
   multiStepExecution: boolean; nonzeroTransactionValues: boolean; gasCost: { status: 'refreshing' | 'unavailable' | 'current'; checking: boolean; current?: HarnessGasEstimate; previous?: HarnessGasEstimate; estimate?: HarnessGasEstimate; estimateIsCurrent: boolean; error?: string };
@@ -208,6 +210,8 @@ function Harness() {
       operationLabel={H.reviewOperationLabel ?? (presentationMode ? 'Increase ETH Long' : `Open position v${version}`)}
       surface={presentationMode ? 'card' : 'content'}
       resumeReview={resumeReview}
+      savingsApy={H.savingsApy}
+      savingsApyStatus={H.savingsApyStatus}
       draftState={draftState}
       preparationFacts={H.stableTradeReview ? [
         { label: 'Amount', value: `${H.longAmount ? LONG_AMOUNT : preparationVersion * 0.25} fxUSD` },

@@ -46,6 +46,9 @@ export interface ActionReviewProps {
   decisionBefore?: ReviewFact[];
   /** User-entered facts only; no quote, fee or execution readiness is implied. */
   preparationFacts?: ReviewFact[];
+  /** Informational official fxSAVE market data; never used for transaction limits. */
+  savingsApy?: import('@/lib/fxSaveApy').FxSaveApyResponse | null;
+  savingsApyStatus?: 'loading' | 'ready' | 'unavailable';
   executionCost?: {
     estimatedGas?: string;
     gasFee?: string;

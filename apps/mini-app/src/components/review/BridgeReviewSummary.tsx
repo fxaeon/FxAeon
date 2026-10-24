@@ -26,15 +26,21 @@ function BridgeAmount({ fact, network, chainId, received = false }: {
       {(chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}
     </span>
     <div className={styles.amountText}>
-      <details className={styles.exactAmount}>
-        <summary data-long={(figure?.value.length ?? 0) > 15 || undefined} aria-label={`${received ? 'Show full receive estimate' : 'Show exact sent amount'}: ${fact.title ?? fact.value}`}>
-          <span>{figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : <ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" />} {unit && <span className={styles.flowUnit}>{unit}</span>}</span>
-        </summary>
-        <p><span>{received ? 'Unrounded estimate' : 'Exact send amount'}</span>{fact.title ?? fact.value}</p>
-      </details>
+      <div className={styles.exactAmount} data-long={(figure?.value.length ?? 0) > 15 || undefined}>
+        <span>{figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : <ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" />} {unit && <span className={styles.flowUnit}>{unit}</span>}</span>
+      </div>
       <span className={styles.networkLine}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
     </div>
   </div>;
+}
+
+/** A grouped amount and ticker beyond this width reads better in stacked legs. */
+function needsWideAmountLayout(fact: ReviewFact | undefined): boolean {
+  const parts = fact && tokenAmountParts(fact);
+  if (!parts) return false;
+  const figure = readableReviewAmount(parts.amount);
+  const display = `${figure.shortened || parts.approximate ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))} ${parts.symbol}`;
+  return display.length > 14;
 }
 
 function Recipient({ fact }: { fact: ReviewFact }) {
@@ -91,11 +97,12 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
   const source = allFacts.find(fact => fact.label === 'Source network');
   const destination = allFacts.find(fact => fact.label === 'Destination network');
   const amountsShowNetworks = Boolean(sent && received && source && destination);
-  const priceImpact = allFacts.find(fact => fact.label === 'Price impact') ?? { label: 'Price impact', value: 'Unavailable', title: 'The accepted route does not provide a verified price-impact estimate.' };
+  const priceImpact = allFacts.find(fact => fact.label === 'Price impact');
+  const wideAmounts = needsWideAmountLayout(sent) || needsWideAmountLayout(received);
   const slippage = allFacts.find(fact => fact.label === 'Slippage');
   const remaining = facts.filter(fact => !(fact.label === 'Delivery estimate' && /^(?:Not provided by bridge|Unavailable|Unknown|—)?$/i.test(fact.value.trim())) && fact !== sent && fact !== received && !(amountsShowNetworks && fact.label === 'Networks'));
   return <section className={styles.summary} aria-label="Bridge amounts and terms">
-    <div className={styles.amounts}>
+    <div className={styles.amounts} data-wide-amounts={wideAmounts || undefined}>
       {sent && <BridgeAmount fact={sent} network={source} chainId={sourceChainId} />}
       {sent && received && <ArrowDown className={styles.direction} size={17} aria-hidden="true" />}
       {received && <BridgeAmount fact={received} network={destination} chainId={destinationChainId} received />}
@@ -103,7 +110,7 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
     <div className={styles.terms}>
       <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}{slippage && <BridgeFact fact={slippage} />}</div>
       <div className={styles.costGroup}>{remaining.filter(fact => ['Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}</div>
-      <BridgeFact fact={priceImpact} />
+      {priceImpact && <BridgeFact fact={priceImpact} />}
       <div className={styles.context}>{remaining.filter(fact => !['Minimum received', 'Quoted minimum received', 'Price impact', 'Slippage', 'Total cost', 'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => fact.label === 'Recipient'
         ? <Recipient key={`${fact.label}:${fact.value}`} fact={fact} />
         : <BridgeFact key={`${fact.label}:${fact.value}`} fact={fact} />)}</div>

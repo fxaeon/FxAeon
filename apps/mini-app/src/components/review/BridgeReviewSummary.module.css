@@ -44,13 +44,11 @@
   min-width: 0;
 }
 
-.exactAmount > summary {
+.exactAmount > span {
   display: flex;
   min-width: 0;
   min-height: 44px;
   align-items: center;
-  cursor: pointer;
-  list-style: none;
   font-family: Manrope, var(--font-sans), sans-serif;
   font-size: clamp(22px, 5.8vw, 28px);
   font-weight: 600;
@@ -59,45 +57,28 @@
   font-variant-numeric: tabular-nums;
 }
 
-.exactAmount > summary::-webkit-details-marker,
 .recipientDetails > summary::-webkit-details-marker {
   display: none;
 }
 
-.exactAmount > summary > span {
+.exactAmount > span {
   min-width: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
-.exactAmount > summary[data-long] {
-  font-size: clamp(15px, 4.1vw, 20px);
+.exactAmount[data-long] > span {
+  font-size: clamp(14px, 4.1vw, 18px);
   letter-spacing: -.025em;
 }
 
-.exactAmount > summary:focus-visible,
 .recipientDetails > summary:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
   border-radius: 6px;
 }
 
-.exactAmount > summary:hover { color: var(--mint-text); }
 .flowUnit { color: var(--mut); font-size: .66em; font-weight: 500; white-space: nowrap; }
-
-.exactAmount > p {
-  display: grid;
-  gap: 3px;
-  margin: 2px 0 6px;
-  padding: 7px 8px;
-  border-radius: 8px;
-  background: var(--surface);
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
-
-.exactAmount > p > span:first-child { color: var(--mut); font-size: 11px; }
 
 .networkLine {
   display: flex;
@@ -119,6 +100,14 @@
   color: var(--mut);
   opacity: .72;
 }
+
+.amounts[data-wide-amounts] { grid-template-columns: minmax(0, 1fr); }
+.amounts[data-wide-amounts] .exactAmount > span { align-items: baseline; column-gap: 4px; }
+.amounts[data-wide-amounts] .direction { margin: 3px auto; transform: none; }
+.amounts[data-wide-amounts] .exactAmount > span { font-size: 24px; }
+.amounts[data-wide-amounts] .exactAmount .flowUnit { font-size: 14px; }
+.amounts[data-wide-amounts] .exactAmount[data-long] > span { font-size: 20px; }
+.amounts[data-wide-amounts] .exactAmount[data-long] .flowUnit { font-size: 12px; }
 
 .terms { display: grid; min-width: 0; gap: 0; margin-top: 5px; }
 .consequenceGroup, .costGroup, .context { display: grid; min-width: 0; gap: 0; }
@@ -179,7 +168,7 @@
   .amount { gap: 8px; }
   .token { flex-basis: 30px; width: 30px; height: 30px; }
   .token > :global(img), .token > :global(svg) { width: 30px !important; height: 30px !important; }
-  .exactAmount > summary { font-size: clamp(20px, 3vw, 28px); }
+  .exactAmount > span { font-size: clamp(20px, 3vw, 28px); }
   .direction { width: 16px; height: 16px; margin: 0; transform: rotate(-90deg); }
 }
 
@@ -191,8 +180,10 @@
   /* TokenIcon and ChainIcon provide inline sizes, so responsive overrides
      must beat those dimensions to keep the logo out of the amount line. */
   .token > :global(img), .token > :global(svg) { width: 28px !important; height: 28px !important; }
-  .exactAmount > summary { font-size: clamp(18px, 5.3vw, 23px); }
-  .exactAmount > summary[data-long] { font-size: clamp(14px, 3.8vw, 17px); }
+  .exactAmount > span { font-size: clamp(18px, 5.3vw, 23px); }
+  .exactAmount[data-long] > span { font-size: clamp(13.5px, 3.8vw, 16px); }
+  .amounts[data-wide-amounts] { gap: 2px; }
+  .amounts[data-wide-amounts] .amount { gap: 8px; }
   .direction { width: 14px; height: 14px; margin: 0; transform: rotate(-90deg); }
   .terms { margin-top: 4px; }
 }
@@ -206,8 +197,8 @@
   .token > span { right: -2px; bottom: -2px; padding: 1px; }
   .token > span > :global(img), .token > span > :global(svg) { width: 10px !important; height: 10px !important; }
   .amountText { padding-top: 18px; }
-  .exactAmount > summary { min-height: 44px; font-size: clamp(15px, 4.8vw, 16px); line-height: 1.1; letter-spacing: -.04em; }
-  .exactAmount > summary[data-long] { font-size: clamp(13px, 4vw, 15px); letter-spacing: -.025em; }
+  .exactAmount > span { min-height: 44px; font-size: clamp(15px, 4.8vw, 16px); line-height: 1.1; letter-spacing: -.04em; }
+  .exactAmount[data-long] > span { font-size: clamp(13px, 4vw, 15px); letter-spacing: -.025em; }
   .flowUnit { font-size: .6em; }
   .networkLine { gap: 0 3px; font-size: 10px; line-height: 1.2; }
   .direction { width: 12px; height: 12px; margin: 0; transform: rotate(-90deg); }

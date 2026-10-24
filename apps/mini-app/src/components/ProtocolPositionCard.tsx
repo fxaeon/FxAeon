@@ -188,7 +188,7 @@ function PositionBody({
       {details && <>
         {compact
           ? <details className={styles.metricDisclosure}>
-              <summary title="View position details"><span>Position value</span><span className={styles.disclosureValue} title={positionValueTitle}>{netEquity}</span><ChevronDown aria-hidden="true" /></summary>
+              <summary title="View position details"><span>Position details</span><span className={styles.disclosureValue} title={positionValueTitle}>{netEquity}</span><ChevronDown aria-hidden="true" /></summary>
               {thresholds}
               <PositionFacts position={position} prices={prices} valuation={valuation} missingStatus={missingStatus} liveQuote={hasFreshLiveQuote ? liveQuote?.price : undefined} />
               {children}

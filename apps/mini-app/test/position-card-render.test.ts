@@ -134,7 +134,7 @@ test('a position row leads with identity and value; its details keep every figur
   });
 });
 
-test('compact management keeps risk visible and exact balances in its position-value disclosure', async () => {
+test('compact management keeps risk visible and position facts in a clear details disclosure', async () => {
   await withCardModule(({ card: { ProtocolPositionDetails }, brake: { PositionBrakeContext } }) => {
     const html = renderToStaticMarkup(React.createElement(PositionBrakeContext.Provider, {
       value: brakeStore({ 'ETH:long:42': readyEntry(ethLong, 90n * E18 / 100n) }),
@@ -142,7 +142,7 @@ test('compact management keeps risk visible and exact balances in its position-v
     const primary = html.split('<details')[0];
     assert.match(primary, /At the rebalance point/);
     assert.doesNotMatch(primary, /<dt>Collateral|<dt>Debt|<dt>Market price/);
-    assert.match(html, /<details class="test-metricDisclosure"><summary title="View position details"><span>Position value/);
+    assert.match(html, /<details class="test-metricDisclosure"><summary title="View position details"><span>Position details/);
     assert.equal(factValue(html, 'Collateral'), '1 stETH');
     assert.equal(factValue(html, 'Debt'), '0.5 fxUSD');
     assert.match(html, /<dt>Market price/);

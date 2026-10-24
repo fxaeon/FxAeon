@@ -23,8 +23,7 @@ export function protocolFeeUsdValue(fact: ReviewFact, quote: UsdPriceSnapshot, n
   return Number.isFinite(total) ? total : null;
 }
 
-/** Dollars lead in forms and review. The exact quoted rate and token
- * breakdown stay in the same touch/keyboard disclosure. */
+/** Show the current-price estimate compactly; quoted fee legs stay in the route model. */
 export function ProtocolFeeAmount({ fact, className }: { fact: ReviewFact; className?: string }) {
   const quote = useUsdPrices();
   const [, tick] = useState(0);
@@ -40,7 +39,5 @@ export function ProtocolFeeAmount({ fact, className }: { fact: ReviewFact; class
   }, [expiresAt]);
   const usd = protocolFeeUsdValue(fact, quote);
   const display = usd === null ? 'Unavailable' : `${usd > 0 && usd < .01 || usd === 0 ? '' : '≈ '}${formatUsd(usd)}`;
-  const detail = `${fact.title ?? fact.value} USD is a current-price estimate of these quoted protocol fees; excludes network gas and conversion costs.`;
-  return <ReviewFactValue className={className} fact={{ ...fact, title: detail }} display={<span data-usd-state={usd === null ? 'unavailable' : 'estimate'}>{display}</span>}
-    summaryLabel={`${display}. Show f(x) fee amount and rate breakdown`} />;
+  return <ReviewFactValue className={className} fact={fact} display={<span data-usd-state={usd === null ? 'unavailable' : 'estimate'}>{display}</span>} />;
 }

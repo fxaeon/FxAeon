@@ -65,7 +65,7 @@ export function reviewHierarchy(summary: readonly ReviewFact[], details: readonl
 }
 
 /** Display-only rounding: keep four significant digits below 1 and at least two decimals above it.
- * Whole amounts never lose precision; callers retain the original string for exact details.
+ * Callers retain the original string for accounting and execution.
  */
 export function readableReviewAmount(value: string): { value: string; shortened: boolean } {
   const match = /^(\d[\d,]*)(?:\.(\d+))?$/.exec(value);

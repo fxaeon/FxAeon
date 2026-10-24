@@ -503,6 +503,8 @@ export default function EarnPage() {
             resumeReview={resumeReview}
             onStageChange={setReviewStage}
             onComplete={refreshEarn}
+            savingsApy={fxSaveApy}
+            savingsApyStatus={fxSaveApyStatus}
             editor={<>
               {mode !== 'claim' ? <div className={presentation.actionTabs}>
                 <Segmented value={mode} onChange={changeMode} ariaLabel="fxSAVE action" options={[
@@ -597,7 +599,7 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
     </div>
     <div className={presentation.balanceTop}>
       <div className={presentation.rate}>
-        <small><MetricLabel minimalHelp label="Variable APY" definition="fxSaveApy" /></small>
+        <small><MetricLabel minimalHelp label="APY" definition="fxSaveApy" /></small>
         <strong>{fxSaveApy
           ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
           : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
@@ -761,7 +763,11 @@ function ClaimState({ data }: { data: SaveData }) {
   const pending = data.claimable!.pendingSharesWei;
   const pendingAmount = formatDisplayAmount(pending);
   const exactPendingAmount = formatUnits(pending, 18);
-  const shortenedPendingAmount = pendingAmount.replace(/,/g, '') !== exactPendingAmount;
+  // Keep a non-zero queued share amount readable when five-decimal truncation
+  // would otherwise display it as zero. The exact value is visible in this
+  // rare case; ordinary long values remain compact.
+  const visiblePendingAmount = pending > 0n && pendingAmount.replace(/,/g, '') === '0' ? exactPendingAmount : pendingAmount;
+  const shortenedPendingAmount = visiblePendingAmount.replace(/,/g, '') !== exactPendingAmount;
   const preview = data.claimable?.previewReceive;
   const redeemableAt = data.claimable?.redeemableAt;
   const ready = state.status === 'ready';
@@ -775,7 +781,7 @@ function ClaimState({ data }: { data: SaveData }) {
       </div>
     </div>
     <dl className={presentation.claimRows}>
-      <div><dt>Amount queued</dt><dd title={`${exactPendingAmount} fxSP`}>{shortenedPendingAmount ? '≈ ' : ''}{pendingAmount} fxSP</dd></div>
+      <div><dt>Amount queued</dt><dd>{shortenedPendingAmount ? '≈ ' : ''}{visiblePendingAmount} fxSP</dd></div>
       {ready && <div><dt>Claimable assets</dt><dd>fxUSD / USDC</dd></div>}
       <div><dt>Claim status</dt><dd className={ready ? presentation.claimReady : undefined}>{ready ? 'Ready to claim' : 'Waiting'}</dd></div>
       {!ready && redeemableAt ? <div><dt>Available to claim</dt><dd>{formatTimestamp(redeemableAt)}</dd></div> : null}

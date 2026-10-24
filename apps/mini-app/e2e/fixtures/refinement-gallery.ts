@@ -1,9 +1,19 @@
 import type { Page, Route } from '@playwright/test';
-import { decodeFunctionData, encodeFunctionResult, multicall3Abi, toFunctionSelector } from 'viem';
+import { decodeFunctionData, encodeFunctionResult, multicall3Abi, parseAbi, toFunctionSelector } from 'viem';
 import { resolveBridgeTokenAddress } from '../../src/lib/fx';
 import { FX_TOKENS, type FxTokenKey } from '../../src/lib/fx/tokens';
 import { positionPoolAddress } from '../../src/lib/fx/policy';
 import type { FxChainId } from '../../src/lib/fx/types';
+import { BORROW_FUNDING_HISTORY_URL } from '../../src/lib/fx/borrowFundingHistory';
+
+// Explicit illustrative protocol state. Wallet balance modes do not change
+// market funding or risk parameters; unavailable mode fails these reads.
+const POOL_CONFIGURATION = '0x16b334f2644cc00b85DB1A1efF0C2C395e00C28d';
+const ANNUAL_FUNDING_RATIO = 45_318_576_060_452_136n;
+const FUNDING_READ_ABI = parseAbi([
+  'function getLongPoolFundingRatio(address pool) view returns (uint256)',
+  'function getShortPoolFundingRatio(address pool) view returns (uint256)',
+]);
 
 const erc20Balances: Partial<Record<FxTokenKey, bigint>> = {
   WETH: 400_000_000_000_000_000n,
@@ -51,6 +61,28 @@ export function galleryRpcResult(method: string, params: unknown[], chainId: FxC
 
   const call = params[0] as { to?: string; data?: string } | undefined;
   const selector = call?.data?.slice(0, 10).toLowerCase();
+  if (chainId === 1 && call?.to && call.data) {
+    const pool = (['ETH', 'BTC'] as const).flatMap(market => (['long', 'short'] as const).map(side => ({ market, side, address: positionPoolAddress(market, side) })))
+      .find(item => item.address.toLowerCase() === call.to!.toLowerCase());
+    if (pool) {
+      if (selector === toFunctionSelector('configuration()') && call.data.length === 10) return `0x${word(BigInt(POOL_CONFIGURATION))}`;
+      if (selector === toFunctionSelector('getDebtRatioRange()') && call.data.length === 10) return pool.side === 'long'
+        ? `0x${word(25_600_000_000_000_000n)}${word(855_000_000_000_000_000n)}`
+        : `0x${word(90_909_090_909_090_909n)}${word(875_000_000_000_000_000n)}`;
+      if (selector === toFunctionSelector('getRebalanceRatios()') && call.data.length === 10) return `0x${word(880_000_000_000_000_000n)}${word(25_000_000n)}`;
+      if (selector === toFunctionSelector('getLiquidateRatios()') && call.data.length === 10) return `0x${word(950_000_000_000_000_000n)}${word(40_000_000n)}`;
+    }
+    if (call.to.toLowerCase() === POOL_CONFIGURATION.toLowerCase()) {
+      const decoded = decodeFunctionData({ abi: FUNDING_READ_ABI, data: call.data as `0x${string}` });
+      const side = decoded.functionName === 'getLongPoolFundingRatio' ? 'long' : 'short';
+      if (call.data.length !== 74 || !(['ETH', 'BTC'] as const).some(market => positionPoolAddress(market, side).toLowerCase() === decoded.args[0].toLowerCase())) {
+        throw new Error('gallery funding read requires its canonical pool');
+      }
+      return encodeFunctionResult({ abi: FUNDING_READ_ABI, functionName: decoded.functionName, result: side === 'long' ? ANNUAL_FUNDING_RATIO : 0n });
+    }
+    if (call.to.toLowerCase() === FX_TOKENS.wstETH.address.toLowerCase()
+      && selector === toFunctionSelector('stEthPerToken()') && call.data.length === 10) return `0x${word(1_250_000_000_000_000_000n)}`;
+  }
   if (selector === '0x82ad56cb' && call?.data) {
     const decoded = decodeFunctionData({ abi: multicall3Abi, data: call.data as `0x${string}` });
     if (decoded.functionName === 'aggregate3') {
@@ -95,6 +127,32 @@ export function galleryRpcResult(method: string, params: unknown[], chainId: FxC
   throw new Error(`gallery RPC fixture does not define ${method} read ${selector ?? 'without selector'}`);
 }
 
+/** Only the known public position indexes and the official funding-history
+ * query receive gallery data. Unknown queries never become healthy empties. */
+export function galleryGoldskyResult(url: string, body: unknown, state: GalleryBalanceState = 'funded', now = Date.now()): unknown {
+  if (state === 'unavailable') throw new Error('Simulated gallery index unavailable');
+  const query = body && typeof body === 'object' && 'query' in body ? (body as { query?: unknown }).query : undefined;
+  if (typeof query !== 'string' || /\bmutation\b/i.test(query)) throw new Error('gallery index requires a defined read query');
+  if (url === BORROW_FUNDING_HISTORY_URL) {
+    const type = /fundingId_:\s*\{\s*type:\s*"(wstETH|WBTC)"\s*\}/.exec(query)?.[1];
+    const startAt = Number(/timestamp_gte:\s*"(\d+)"/.exec(query)?.[1]);
+    const endAt = Math.floor(now / 1000);
+    if (!type || !Number.isSafeInteger(startAt) || startAt <= 0 || startAt >= endAt || !/\bsnapshots\s*\(/.test(query)) throw new Error('gallery funding history query is not defined');
+    const snapshot = (timestamp: number, ratio: bigint) => ({ timestamp: timestamp.toString(), fundingRate: ratio.toString(), fundingId: { type } });
+    const snapshots = Array.from({ length: 31 }, (_, day) => snapshot(startAt + day * 86_400,
+      day < 10 ? 0n : day < 20 ? 30_000_000_000_000_000n : ANNUAL_FUNDING_RATIO)).filter(row => Number(row.timestamp) <= endAt);
+    const skip = Number(/skip:\s*(\d+)/.exec(query)?.[1] ?? 0);
+    return { data: {
+      _meta: { block: { number: 0x1430f00, timestamp: endAt }, hasIndexingErrors: false },
+      previous: [snapshot(startAt - 1, 0n)], snapshots: snapshots.slice(skip, skip + 1000),
+    } };
+  }
+  const positionIndexes = ['fx-v2-wsteth/3.0.0', 'fx-v2-wbtc/3.0.0', 'fx-v2-wsteth-short/v0.1.0', 'fx-v2-wbtc-short/v2.0.0'];
+  if (positionIndexes.some(index => url === `https://api.goldsky.com/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/${index}/gn`)
+    && /\b(?:positions|orders)\s*\(/.test(query)) return { data: { positions: [], orders: [] } };
+  throw new Error('gallery index fixture does not define this query');
+}
+
 async function fulfillRpc(route: Route, chainId: FxChainId, state: GalleryBalanceState, reads: GalleryRead[]): Promise<void> {
   let payload: unknown;
   try { payload = route.request().postDataJSON(); } catch { payload = null; }
@@ -127,10 +185,15 @@ export async function installRefinementGalleryFixtures(page: Page, state: Galler
   });
   await page.route('https://eth-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 1, state, reads));
   await page.route('https://base-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 8453, state, reads));
-  await page.route('https://api.goldsky.com/api/public/**', (route) => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ data: { positions: [], orders: [] } }),
-  }));
+  await page.route('https://mainnet.infura.io/v3/**', (route) => fulfillRpc(route, 1, state, reads));
+  await page.route('https://base-mainnet.infura.io/v3/**', (route) => fulfillRpc(route, 8453, state, reads));
+  await page.route('https://api.goldsky.com/api/public/**', async route => {
+    try {
+      const body = galleryGoldskyResult(route.request().url(), route.request().postDataJSON(), state);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    } catch (error) {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ errors: [{ message: error instanceof Error ? error.message : 'Gallery index unavailable' }] }) });
+    }
+  });
   return { reads };
 }

@@ -11,7 +11,8 @@ test('reference review owns a side-by-side identity outside one grouped facts ca
   assert.ok(review.indexOf('<TransactionIdentity {...identity}') < review.indexOf('presentationStyles.facts}'));
   assert.match(identity, /TokenIcon symbol=\{symbol\}/);
   assert.match(identity, /data-amount-provenance="review"/);
-  assert.match(identity, /amount\.title \?\? amount\.value/);
+  assert.match(identity, /amount \? <strong>/);
+  assert.doesNotMatch(identity, /<details|<summary|amount\.title/);
   assert.match(identity, /AmountUsd amount=\{parts.amount\}/);
   assert.doesNotMatch(identity, /0\.2458|589\.87|1,179\.73|0x930F/);
 });
@@ -20,13 +21,14 @@ test('all position and loan reviews retain risk rows without manufacturing price
   const review = source('components/ActionReview.tsx');
   assert.match(review, /const tradingAction = intent\?\.kind === 'position-increase' \|\| intent\?\.kind === 'position-reduce' \|\| leverageReview/);
   assert.match(review, /\(tradingAction \|\| loanAction\) && <div className=\{`\$\{presentationStyles.riskGroup\}/);
-  assert.match(review, /priceImpact\?\.value \?\? 'Unavailable'/);
+  assert.match(review, /tradingAction && priceImpact && <ReviewRow compact label="Price impact"/);
   assert.match(review, /Execution details/);
   assert.match(review, /\[\.\.\.hierarchy.primary, \.\.\.hierarchy.more\]/);
   assert.match(review, /CollateralAmount collateral=\{collateralValuation\}/);
   assert.match(review, /ReviewTermRow fact=\{collateral\}[^]*?displayValue=\{collateralValuation/);
   assert.match(source('components/review/ReviewTermRow.tsx'), /ReviewFactValue fact=\{fact\} display=\{displayValue\}/);
-  assert.match(source('components/review/ReviewFactValue.tsx'), /value.original/);
+  assert.match(source('components/review/ReviewFactValue.tsx'), /value.display/);
+  assert.doesNotMatch(source('components/review/ReviewFactValue.tsx'), /<details/);
 });
 
 test('mobile review is content-height and keeps scrollable information separate from action', () => {

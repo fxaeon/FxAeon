@@ -51,11 +51,11 @@ export function BridgeResultCard({
     <div className={styles.transfer} aria-label="Bridge outcome" data-amount-provenance={simulated ? 'simulation' : delivered ? 'receipt' : 'mixed'}>
       <OutcomeAmount network={sourceChain} token={token} amount={sourceDisplay}
         label={sourceKnown ? 'Sent' : sourceConfirmed ? 'Source confirmed' : failed ? 'Source amount' : 'Requested'}
-        missing={sourceConfirmed || failed ? 'Amount unavailable' : 'Not available'} secondary receipt={sourceKnown} inspectExact />
+        missing={sourceConfirmed || failed ? 'Amount unavailable' : 'Not available'} secondary receipt={sourceKnown} />
       <span className={styles.direction} aria-hidden="true"><ArrowDown size={17} /></span>
       <OutcomeAmount network={destinationChain} token={token} amount={destinationAmount}
         label={delivered ? 'Received' : 'Destination'}
-        missing={delivered ? 'Amount unavailable' : failed ? 'Not verified' : 'Awaiting delivery'} receipt={delivered} inspectExact />
+        missing={delivered ? 'Amount unavailable' : failed ? 'Not verified' : 'Awaiting delivery'} receipt={delivered} />
     </div>
     {!conciseComplete && <div className={styles.timeline} aria-label="Bridge progress"><BridgeReceiptRow label={sourceConfirmed ? "Source confirmed" : "Source transaction"} chain={sourceChain} hash={sourceTxHash} simulated={simulated} status={sourceReverted ? 'Reverted' : sourceConfirmed ? 'Confirmed' : sourceTxHash ? 'Pending' : 'Not submitted'} /><BridgeReceiptRow label={`Delivering to ${destinationChain}`} chain={destinationChain} hash={destinationTxHash} simulated={simulated} status={delivered ? 'Confirmed' : destinationTxHash ? 'Confirming' : 'Pending'} /></div>}
     {!conciseComplete && recipient && <div className={styles.recipient}><span>Recipient</span><span title={recipient}>{compactAddress(recipient)}</span></div>}
@@ -68,29 +68,24 @@ export function BridgeResultCard({
         {recipient && <section className={styles.group}><TechnicalEvidenceRow label="Recipient" value={recipient} preview={compactAddress(recipient)} /></section>}
         {advancedContent}
         {verificationDetails && <section className={styles.notes} aria-label="Delivery verification">{verificationDetails}</section>}
-        <p className={styles.priceNote}>{!simulated && 'Sent and received amounts come from verified bridge events. '}USD values use current prices, not transaction-time prices.</p>
+        {!simulated && <p className={styles.priceNote}>Sent and received amounts come from verified bridge events.</p>}
       </div>
     </details>}
   </section>;
 }
 
 
-function OutcomeAmount({ network, token, amount, label, missing, secondary = false, receipt = false, inspectExact = false }: {
-  network: Chain; token: string; amount?: string; label: string; missing: string; secondary?: boolean; receipt?: boolean; inspectExact?: boolean;
+function OutcomeAmount({ network, token, amount, label, missing, secondary = false, receipt = false }: {
+  network: Chain; token: string; amount?: string; label: string; missing: string; secondary?: boolean; receipt?: boolean;
 }) {
   const figure = amount === undefined || amount === '' ? undefined : readableReviewAmount(amount);
   const display = figure ? `${figure.shortened ? '≈ ' : ''}${figure.value.replace(/^(\d+)(.*)$/, (_, whole: string, fraction: string) => `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${fraction}`)}` : undefined;
   return <div className={styles.amountRow} data-secondary={secondary || undefined}>
     <span className={styles.token} aria-hidden="true"><TokenIcon symbol={token} size={44} /><span><ChainIcon chainId={network === 'Base' ? 8453 : 1} size={16} /></span></span>
     <div className={styles.amountContent}>
-      {inspectExact && figure ? <details className={styles.exactAmount}>
-        <summary aria-label={`Show exact ${label.toLowerCase()} amount: ${amount} ${token}`}>
-          <span className={styles.amount} data-long={(display?.length ?? 0) > 17 || undefined}>{display}<span> {token}</span></span>
-        </summary>
-        <p className={styles.exactValue}><span>Exact {label.toLowerCase()}</span>{amount} {token}</p>
-      </details> : <p className={styles.amount} data-unknown={!figure || undefined} data-long={(display?.length ?? 0) > 17 || undefined} title={amount === undefined ? undefined : `${amount} ${token}`}>
+      <p className={styles.amount} data-unknown={!figure || undefined} data-long={(display?.length ?? 0) > 17 || undefined}>
         {display ?? missing}{figure && <span> {token}</span>}
-      </p>}
+      </p>
       <p className={styles.subline}><span>{label}</span><span aria-hidden="true">·</span>{figure && amount !== undefined && <><AmountUsd amount={amount} symbol={token} receipt={receipt} /><span aria-hidden="true">·</span></>}<span>{!figure && `${token} on `}{network}</span></p>
     </div>
   </div>;

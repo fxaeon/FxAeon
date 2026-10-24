@@ -426,7 +426,7 @@ export async function planDepositAndMint(request: DepositAndMintRequest): Promis
       },
     },
   ), { ...accountingDetails, ...(liquidationQuote === undefined ? {} : { liquidationQuote }),
-    ...(fundingRate === undefined ? {} : { borrowFundingQuote: { poolAddress: fundingRate.pool, ratio: fundingRate.ratio.toString(), readAt: fundingRate.readAt } }) });
+    ...(fundingRate === undefined ? {} : { borrowFundingQuote: { poolAddress: fundingRate.pool, ratio: fundingRate.ratio.toString(), ...(fundingRate.netRatio === undefined ? {} : { netRatio: fundingRate.netRatio.toString() }), readAt: fundingRate.readAt } }) });
 }
 
 export async function planRepayAndWithdraw(request: RepayAndWithdrawRequest): Promise<PlannedRoute> {

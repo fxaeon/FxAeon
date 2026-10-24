@@ -367,7 +367,6 @@ function ActivityDetail({ item, open, onClose, triggerRef, prices }: { item: Act
       <div className={styles.detailBody}>
         {sent.length > 0 && <FlowList label={item.status === 'pending' ? 'Sending' : 'You sent'} legs={sent} prices={prices} />}
         {received.length > 0 && <FlowList label={item.status === 'pending' ? 'Receiving' : 'You received'} legs={received} prices={prices} />}
-        {(sent.length > 0 || received.length > 0) && Object.keys(prices).length > 0 && <p className={styles.caption}>USD values use current prices.</p>}
         <dl className={styles.facts}>
           {classification.approval && <div><dt>Allowance</dt><dd>{classification.approval.unlimited ? 'Unlimited'
             : classification.approval.amount !== null ? `${classification.approval.amount} ${classification.approval.verified ? classification.approval.token : 'tokens'}` : 'Not shown'}</dd></div>}

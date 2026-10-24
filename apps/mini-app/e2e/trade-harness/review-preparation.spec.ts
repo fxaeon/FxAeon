@@ -252,15 +252,13 @@ for (const theme of ['dark']) {
     const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
     await expect(collateralValue).toBeVisible();
     await expect(collateralValue).toHaveText(/^≈ [\d,.]+ stETH$/);
-    const collateralSource = (await collateralValue.getAttribute('title'))!.split('. USD value unavailable:')[0];
-    expect(collateralSource).toMatch(/^[\d,.]+ stETH \([\d,.]+ wstETH at [\d,.]+ stETH per wstETH\)$/);
+    await expect(collateralValue).not.toHaveAttribute('title', /wstETH at .* per wstETH/);
     await expect(page.locator('[data-review-fact="Gas fee"]')).toBeInViewport();
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeInViewport();
     const output = resolve(__dirname, '../../../../artifacts/review-redesign'); mkdirSync(output, { recursive: true });
     await page.screenshot({ path: resolve(output, `review-${theme}-390.png`) });
-    await page.locator('[data-review-fact="Amount"] summary').click();
-    await expect(page.locator('[data-review-fact="Amount"] p')).toContainText('0.0003 ETH');
-    await page.locator('[data-review-fact="Amount"] summary').click();
+    await expect(page.locator('[data-review-fact="Amount"] details, [data-review-fact="Amount"] summary')).toHaveCount(0);
+    await expect(page.locator('[data-review-fact="Amount"]')).toContainText('0.0003 ETH');
     await advanced(page).locator(':scope > summary').click();
     await expect(advanced(page).getByRole('group', { name: 'Network fee speed', exact: true })).toBeVisible();
     await expect(advanced(page).getByText('3 Gwei', { exact: true })).toBeVisible();
@@ -269,9 +267,7 @@ for (const theme of ['dark']) {
     // The primary amount owns its complete native quote; technical evidence
     // must not repeat the same collateral as a second decision row.
     await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
-    await collateral.locator('summary').click();
-    await expect(collateral.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(collateralSource);
-    await collateral.locator('summary').click();
+    await expect(collateral.locator('details, summary')).toHaveCount(0);
     await expect(advanced(page).locator('[data-review-evidence="Estimated debt"]')).toHaveCount(1);
     await page.getByRole('button', { name: 'Open ETH Long', exact: true }).scrollIntoViewIfNeeded();
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeInViewport();
@@ -445,8 +441,8 @@ test('a Max-length amount remains in the input then fits the complete review at 
     expect(fit.pageOverflow, 'no horizontal page overflow').toBeLessThanOrEqual(0);
     expect(fit.bodyOverflow, 'no hidden horizontal overflow in the card').toBeLessThanOrEqual(0);
     expect(fit.escaped, 'labels and values stay inside the card').toEqual([]);
-    // The exact amount remains available through its disclosure throughout verification.
-    await expect(page.locator('[data-review-fact="Amount"] summary')).toBeVisible();
+    await expect(page.locator('[data-review-fact="Amount"] [data-review-amount]')).toBeVisible();
+    await expect(page.locator('[data-review-fact="Amount"] details, [data-review-fact="Amount"] summary')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: '2.8× ETH Long' })).toBeInViewport();
   };
   await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
@@ -454,42 +450,27 @@ test('a Max-length amount remains in the input then fits the complete review at 
   await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
   await insufficient(page);
   await expectInsideCard();
-  await expect(page.locator('p', { hasText: 'Add at least' })).toHaveText(/^Add at least \d[\d,]*(?:\.\d+)? ETH on Ethereum to cover network fees\. Receive ETH$/);
-  // The compact display is approximate; its disclosure retains the exact
-  // funding requirement and conservatively rounded six-decimal total used by
-  // the shortfall against the 0.0004 ETH balance.
+  await expect(page.locator('p', { hasText: /^Add [\d,.]+ ETH on / })).toHaveText(/^Add \d[\d,]*(?:\.\d+)? ETH on Ethereum for fees\. Receive ETH$/);
+  // The ticket input and accepted fee cap remain the exact source of the shortfall.
   const toWei = (text: string) => {
     const [whole, fraction = ''] = /([\d,]+(?:\.\d+)?) ETH/.exec(text)![1].replace(/,/g, '').split('.');
     return BigInt(whole) * 10n ** 18n + BigInt(fraction.padEnd(18, '0'));
   };
   const gasValue = page.locator('[data-review-fact="Gas fee"] > span').last();
-  await expect(gasValue.locator('summary [data-usd-state="unavailable"]')).toHaveText(/^(?:≈ )?[\d,]+(?:\.\d+)? ETH max$/);
-  const gasControl = gasValue.locator('summary');
-  const exactGas = (await gasControl.getAttribute('aria-label'))!.replace(/^Show exact network cost: /, '');
-  expect(exactGas).toMatch(/^[\d,]+(?:\.\d+)? ETH \(max\)\./);
-  await gasValue.locator('summary').click();
-  await expect(gasValue.locator('p')).toBeVisible();
-  await expect(gasValue.locator('p')).toHaveText(`${exactGas}USD is a current-price estimate. The native amount governs the transaction.`);
-  await gasValue.locator('summary').click();
+  await expect(gasValue.locator('[data-usd-state="unavailable"]')).toContainText(/0\.001008 ETH max/);
+  await expect(gasValue.locator('details, summary')).toHaveCount(0);
   await advanced(page).locator(':scope > summary').click();
   const totalValue = page.locator('[data-review-evidence="Total cost"] > span').last();
-  await expect(totalValue.locator('summary > span')).toHaveText(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
-  await expect(totalValue).toHaveAttribute('title', /^[\d,]+(?:\.\d+)? ETH \(native value \+ max network fee\)$/);
-  const exactTotalText = (await totalValue.getAttribute('title'))!;
-  const exactTotal = toWei(exactTotalText);
-  expect(exactTotal).toBe(244431136966270n + toWei(exactGas));
-  await totalValue.locator('summary').click();
-  const fullTotal = totalValue.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last();
-  await expect(fullTotal).toBeVisible();
-  const total = (await fullTotal.textContent())!;
-  expect(total).toMatch(/^≈ [\d,]+(?:\.\d+)? ETH max$/);
-  await expect(totalValue.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(exactTotalText);
-  const displayStepWei = 1_000_000_000_000n; // Six decimal places in ETH, rounded up.
-  expect(toWei(total)).toBe(((exactTotal + displayStepWei - 1n) / displayStepWei) * displayStepWei);
+  await expect(totalValue).toContainText(/0\.00125 ETH max/);
+  await expect(totalValue.locator('details, summary')).toHaveCount(0);
+  const exactAmount = toWei('0.00024443113696627 ETH');
+  const exactMaxFee = toWei('0.001008 ETH');
+  const displayStepWei = 1_000_000_000_000n; // The action reports the exact top-up against the 0.0004 ETH balance.
+  const expectedTotal = ((exactAmount + exactMaxFee + displayStepWei - 1n) / displayStepWei) * displayStepWei;
   await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');
   await expect(totalValue).not.toContainText('$0.00');
-  const asked = await page.locator('p', { hasText: 'Add at least' }).innerText();
-  expect(toWei(asked)).toBe(toWei(total) - 400000000000000n);
+  const asked = await page.locator('p', { hasText: /^Add [\d,.]+ ETH on / }).innerText();
+  expect(toWei(asked)).toBe(expectedTotal - 400000000000000n);
 });
 
 test('failed preparation stays beside the input and Review performs a fresh check', async ({page}) => {

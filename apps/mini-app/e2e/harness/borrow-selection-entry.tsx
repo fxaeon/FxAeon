@@ -9,6 +9,8 @@ type HarnessState = {
   walletRequestCount: number;
   reviewAttemptCount: number;
   exerciseReviewStage: boolean;
+  balances?: Record<string, { status: string; amount: string }>;
+  maxRequests?: Array<{ balanceWei: bigint; resolve: (amount: bigint) => void; reject: (error: Error) => void }>;
   rerender?: () => void;
 };
 

@@ -71,13 +71,17 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     const evidence = JSON.stringify({ kind, size, ...essential }, null, 2);
     await writeFile(info.outputPath('initial-essential-geometry.json'), evidence);
     await info.attach('initial-essential-geometry', { body: evidence, contentType: 'application/json' });
+    await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
     expectClosedReviewFits(essential);
     await expect(review.locator('details[data-review-secondary] > summary')).toBeInViewport({ ratio: 1 });
     await expect(review.locator('[data-review-essential] [data-review-fact="Gas fee"]')).toBeVisible();
     if (kind === 'trade' || kind === 'borrow') {
+      const expectedPrices = kind === 'borrow'
+        ? { 'Rebalance price': '$1,562.5 / stETH', 'Liquidation price': '$1,388.89 / stETH' }
+        : { 'Rebalance price': '$2,083.34 / stETH', 'Liquidation price': '$1,851.86 / stETH' };
       for (const label of ['Rebalance price', 'Liquidation price']) {
         const risk = review.locator(`[data-review-essential] [data-review-fact="${label}"]`);
-        await expect(risk).toContainText(/\$[\d,]+\.\d{2}/);
+        await expect(risk).toContainText(expectedPrices[label as keyof typeof expectedPrices]);
         await expect(risk).toBeVisible();
       }
       await expect(review.locator('[data-review-fact="Risk estimates"]')).toHaveCount(0);
@@ -98,24 +102,41 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     if (kind === 'borrow') {
       await expect(action).toHaveText('Not enough ETH');
       await expect(action).toBeDisabled();
-      await expect(review.locator('[data-review-actions]')).toContainText('Add at least');
-      await expect(review.locator('[data-review-fact="Debt added"]')).toBeVisible();
-      await expect(review.locator('[data-review-fact="Loan-to-value"]')).toBeVisible();
+      await expect(review.locator('[data-review-actions]')).toContainText('Add 0.001008 ETH on Ethereum for fees.');
+      const position = review.getByRole('region', { name: 'Estimated position', exact: true });
+      await expect(position).toBeVisible();
+      const debt = position.locator('dl > div').filter({ hasText: 'Total debt' });
+      const ltv = position.locator('dl > div').filter({ hasText: 'LTV' });
+      await expect(debt).toContainText('50 fxUSD');
+      await expect(ltv).toContainText('50%');
+      await expect(review.locator('[data-review-fact="Debt added"]')).toHaveCount(0);
+      // Match a complete zero amount, not the trailing zero in 50 fxUSD or 50%.
+      await expect(position).not.toContainText(/(?:^|[^\d.,])0(?:\.0+)?\s*(?:stETH|fxUSD|%)(?![A-Za-z])/);
+      await expect(position.getByText('Current → estimated', { exact: true })).toHaveCount(0);
       await expect(review.locator('[data-review-essential] [data-review-fact="Borrow rate"]')).toContainText('Not quoted');
     }
     if (kind === 'move') {
       const amounts = review.getByRole('region', { name: 'Bridge amounts and terms' });
       const sent = amounts.locator('[data-review-fact="Amount"]');
       const received = amounts.locator('[data-review-fact="Estimated received"]');
-      await expect(sent.locator('summary')).toHaveText('2,500 fxUSD');
-      await expect(sent.locator('summary')).toHaveAccessibleName('Show exact sent amount: 2500 fxUSD');
+      const sentAmount = sent.locator('[class*="amountText"] > div > span');
+      const receivedAmount = received.locator('[class*="amountText"] > div > span');
+      await expect(sentAmount).toHaveText('2,500 fxUSD');
+      await expect(sent.locator('details')).toHaveCount(0);
       await expect(sent.getByText('Ethereum', { exact: true })).toBeVisible();
-      await expect(received.locator('summary')).toHaveText('2,497.5 fxUSD');
-      await expect(received.locator('summary')).toHaveAccessibleName('Show full receive estimate: 2497.5 fxUSD');
+      await expect(receivedAmount).toHaveText('2,497.5 fxUSD');
+      await expect(received.locator('details')).toHaveCount(0);
       await expect(received.getByText('Base', { exact: true })).toBeVisible();
       for (const leg of [sent, received]) {
         const graphics = await leg.evaluate(element => {
-          const figure = element.querySelector('summary > span')!.getBoundingClientRect();
+          const amount = element.querySelector('[class*="amountText"] > div > span')!;
+          const number = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? ''));
+          if (!number) throw new Error('Bridge fixture requires a visible numeric amount');
+          // The amount's alignment box includes empty space above its text.
+          // Measure the numeral itself so only actual text/icon overlap fails.
+          const range = document.createRange();
+          range.selectNodeContents(number);
+          const figure = range.getBoundingClientRect();
           return [...element.querySelectorAll('img,svg')].map(node => {
             const icon = node.getBoundingClientRect();
             return { width: icon.width, height: icon.height, overlaps: Math.min(icon.right, figure.right) - Math.max(icon.left, figure.left) > .5
@@ -140,57 +161,49 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await expect(recipient.locator('summary')).toHaveCount(1);
       await recipient.locator('summary').click();
       await expect(action).toBeInViewport({ ratio: 1 });
-      await expect(review.locator('[data-review-fact="Bridge fee"] summary')).toContainText('0.0001 ETH');
+      await expect(review.locator('[data-review-fact="Bridge fee"]')).toContainText('0.0001 ETH');
       await expect(review.locator('[data-review-fact="Delivery estimate"]')).toHaveCount(0);
     }
     if (kind === 'earn-instant') {
-      const fee = review.locator('[data-review-value="f(x) fee"]');
+      const fee = review.locator('[data-review-fact="f(x) fee"]');
       // The accepted quote charges 0.6 fxUSD + 0.4 USDC before conversion.
       // Independent fresh prices give $0.992; neither token assumes a peg.
-      await expect(fee.locator('summary')).toHaveText('≈ $0.99');
-      const feeTarget = await fee.locator('summary').boundingBox();
-      expect(feeTarget!.width).toBeGreaterThanOrEqual(44);
-      // Inline numeric disclosures follow the explicit 24px review-row
-      // contract; actions, navigation and address controls retain 44px.
-      expect(feeTarget!.height).toBeGreaterThanOrEqual(24);
-      const feeHit = await fee.locator('summary').evaluate(element => {
+      await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
+      const feeValue = fee.locator('[data-usd-state]');
+      const feeBox = await feeValue.boundingBox();
+      expect(feeBox!.width).toBeGreaterThan(0);
+      expect(feeBox!.height).toBeGreaterThan(0);
+      const feeGeometry = await feeValue.evaluate(element => {
         const rect = element.getBoundingClientRect();
-        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
         const neighbors = [...document.querySelectorAll<HTMLElement>('[data-review-viewport] button, [data-review-viewport] summary, [data-review-viewport] a[href]')]
-          .filter(other => other !== element && !other.contains(element) && !element.contains(other))
+          .filter(other => !other.contains(element) && !element.contains(other))
           .filter(other => { const box = other.getBoundingClientRect(); return box.width > 0 && box.height > 0
             && Math.min(box.right, rect.right) - Math.max(box.left, rect.left) > .5
             && Math.min(box.bottom, rect.bottom) - Math.max(box.top, rect.top) > .5; })
           .map(other => other.getAttribute('aria-label') ?? other.textContent?.trim());
-        return { hit: hit === element || Boolean(hit && element.contains(hit)), neighbors };
+        return neighbors;
       });
-      expect(feeHit.hit, 'Inline fee disclosure receives its own center hit').toBe(true);
-      expect(feeHit.neighbors, 'Inline fee disclosure must not overlap neighboring controls').toEqual([]);
-      await fee.locator('summary').click();
-      await expect(fee.getByText('1%', { exact: true })).toBeVisible();
-      await expect(fee.getByText(/0\.6 fxUSD \+ 0\.4 USDC; 1% accepted base-pool instant redemption fee, deducted from both redemption legs before conversion/)).toBeVisible();
-      await fee.locator('summary').click();
+      expect(feeGeometry, 'Static fee estimate must not overlap neighboring controls').toEqual([]);
+      await expect(fee.locator('details, summary')).toHaveCount(0);
       await page.evaluate(() => {
         const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
         h.displayPrices = { USDC: 1.01 }; h.rerender?.();
       });
-      await expect(fee.locator('summary')).toHaveText('Unavailable');
-      await fee.locator('summary').click();
-      await expect(fee.getByText('1%', { exact: true })).toBeVisible();
-      await fee.locator('summary').click();
+      await expect(fee.locator('[data-usd-state]')).toHaveText('Unavailable');
+      await expect(fee.locator('details, summary')).toHaveCount(0);
       await page.evaluate(() => {
         const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
         h.displayPrices = { fxUSD: .98, USDC: 1.01 }; h.rerender?.();
       });
-      await expect(fee.locator('summary')).toHaveText('≈ $0.99');
+      await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
       const received = review.locator('[data-review-fact="Estimated received"]');
-      await expect(received.getByText('Receive · estimated', { exact: true })).toBeVisible();
+      await expect(received.getByText('Receive · est.', { exact: true })).toBeVisible();
       await expect(received.locator('[data-review-amount]')).toHaveText('99 USDC');
-      await expect(received.locator('summary')).toHaveAccessibleName('Show full estimate: 99 USDC');
+      await expect(received.locator('summary')).toHaveCount(0);
+      await expect(received.locator('[data-review-amount]')).toHaveText('99 USDC');
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
-    if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toContainText('Not enforced');
-    await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
+    if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toHaveCount(0);
     const more = review.locator('details[aria-label="Advanced transaction details"] > summary');
     await more.scrollIntoViewIfNeeded();
     expect(await more.evaluate(node => {
@@ -236,15 +249,15 @@ test('compact amount headers wrap above figures at 320px with long roles and 200
   });
   async function expectFlowGeometry() {
     const legs = await flow.locator('[data-review-fact]').evaluateAll(elements => elements.map(leg => {
-      const summary = leg.querySelector('summary')!;
-      const figure = summary.querySelector('[data-review-amount]')!.getBoundingClientRect();
-      const heading = summary.firstElementChild!;
+      const figureNode = leg.querySelector('[data-review-amount]')!;
+      const figure = figureNode.getBoundingClientRect();
+      const heading = leg.querySelector('[class*="heading"]')!;
       const role = heading.children[1].getBoundingClientRect();
       const network = heading.children[2]?.getBoundingClientRect();
       const bounds = leg.getBoundingClientRect();
       const usd = leg.querySelector('[data-usd-state]')!.getBoundingClientRect();
       const graphics = [...heading.querySelectorAll('img,svg')].map(node => node.getBoundingClientRect());
-      return { summaryHeight: summary.getBoundingClientRect().height, headingBottom: heading.getBoundingClientRect().bottom,
+      return { figureHeight: figure.height, headingBottom: heading.getBoundingClientRect().bottom,
         graphicsBottom: Math.max(...graphics.map(graphic => graphic.bottom)), graphicsCount: graphics.length,
         figureTop: figure.top, figureLeft: figure.left, figureRight: figure.right, usdLeft: usd.left, usdRight: usd.right,
         left: bounds.left, right: bounds.right, roleNetworkOverlap: Boolean(network
@@ -253,7 +266,7 @@ test('compact amount headers wrap above figures at 320px with long roles and 200
     }));
     expect(legs).toHaveLength(2);
     for (const leg of legs) {
-      expect(leg.summaryHeight).toBeGreaterThanOrEqual(44);
+      expect(leg.figureHeight).toBeGreaterThan(0);
       expect(leg.headingBottom).toBeLessThanOrEqual(leg.figureTop + 1);
       expect(leg.graphicsCount).toBeGreaterThan(0);
       expect(leg.graphicsBottom, 'Token and chain graphics must not paint over the number').toBeLessThanOrEqual(leg.figureTop + 1);
@@ -267,7 +280,7 @@ test('compact amount headers wrap above figures at 320px with long roles and 200
   await expectFlowGeometry();
   // Deliberately stress only presentation copy; accepted facts and amounts
   // remain unchanged. These labels model longer supported position roles.
-  await flow.locator('summary > span:first-child').evaluateAll(headings => {
+  await flow.locator('[data-review-fact] [class*="heading"]').evaluateAll(headings => {
     ['Position size · estimated', 'Collateral returned'].forEach((text, index) => { headings[index].children[1].textContent = text; });
   });
   await expectFlowGeometry();

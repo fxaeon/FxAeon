@@ -18,11 +18,11 @@ test('review has a single Execution details disclosure with flat transaction and
 
 test('receipts disclose extra evidence conditionally and reserve reviewed estimates for recovery', () => {
   const result = component('review/TransactionResultView.tsx');
-  assert.equal((result.match(/<details\b/g) ?? []).length, 1, 'shared exact-value renderer and one flat Execution details');
+  assert.equal((result.match(/<details\b/g) ?? []).length, 1, 'one flat Execution details disclosure');
   assert.match(result, /conciseSuccess \? 'Receipt details' : 'Execution details'/);
   assert.match(result, /!conciseSuccess && reviewedFacts.length > 0/);
   assert.match(result, /Reviewed amounts, not final outcomes/);
-  // Exact before/after controls belong to the review, not the receipt details.
+  // Receipt movement values stay static; technical details remain grouped separately.
   const receiptSummary = component('review/ActionReviewSummary.tsx').split('export function ReceiptSummary')[1];
   assert.doesNotMatch(receiptSummary, /<details\b/);
 });
@@ -34,9 +34,10 @@ test('bridge receipt consolidates reviewed terms and tracker proof into one Exec
   assert.doesNotMatch(result, /BridgeReviewSummary/);
   assert.match(result, /BridgeResultDetails result=/);
   const card = component('review/BridgeResultCard.tsx');
-  assert.match(card, /<OutcomeAmount[^]*?label=\{sourceKnown \? 'Sent'[^]*?inspectExact/);
-  assert.match(card, /<OutcomeAmount[^]*?label=\{delivered \? 'Received'[^]*?inspectExact/);
-  assert.match(card, /Show exact \$\{label.toLowerCase\(\)\} amount/);
+  assert.match(card, /<OutcomeAmount[^]*?label=\{sourceKnown \? 'Sent'/);
+  assert.match(card, /<OutcomeAmount[^]*?label=\{delivered \? 'Received'/);
+  assert.doesNotMatch(card, /inspectExact|Show exact|exactAmount|exactValue/);
+  assert.match(card, /readableReviewAmount\(amount\)/);
   assert.match(card, /<details className=\{styles.advanced\}/);
   assert.doesNotMatch(component('review/BridgeResultDetails.tsx'), /<details\b/);
   assert.match(result, /bridgeTracker\?\.\(advancedContent,/);

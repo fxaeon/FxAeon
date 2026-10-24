@@ -302,6 +302,42 @@ thresholds are shown individually, while missing or expired inputs are explicitl
 unavailable. Position-row distance-to-rebalance is the separate display model
 described below.
 
+The Trade ticket and accepted review refresh these display-only pool parameters
+halfway through their 30-second lifetime. Missing planner reads retry separately
+with a 12-second bound. A route change discards pending results; hidden/offline
+views clear the parameters and resume fresh reads on return. Refreshing does not
+renew the accepted transaction quote or change its calldata. Unsupported or
+incomplete accounting still produces no invented price.
+
+## Borrow funding and history
+
+Borrow funding is a collateral charge. `getLongPoolFundingRatio` returns the
+annualized gross charge (1e18 precision), which `AaveFundingPool` applies to the
+whole collateral over elapsed seconds / 365 days. It is distinct from debt APR,
+earned APY, and opening/repayment fees.
+
+The official lowercase [fxMINT route](https://fx.aladdin.club/v2/fxmint) quotes
+Advanced funding per eight hours, dividing the annual ratio by `365 * 3`. Its
+status also subtracts short-pool funding earnings from the gross charge. This
+was verified against the deployed
+[fxMINT bundle](https://fx.aladdin.club/_next/static/chunks/pages/v2/fxmint-da8f9e44ac276187.js)
+and
+[pool configuration bundle](https://fx.aladdin.club/_next/static/chunks/pages/_app-213185a8058f9fad.js)
+on 24 October 2026. FxAeon verifies a zero short-pool funding ratio before
+identifying the eight-hour gross value as the matching net funding rate.
+Otherwise it explicitly labels the independently verified gross charge and
+discloses that the net offset is unavailable; it does not substitute an external
+spot price. The current gross annualized cost remains available below the form.
+
+The 30-day history uses the official public `fx-v2-funding/v0.0.2` Goldsky index,
+selecting `wstETH` for ETH or `WBTC` for BTC. Observed annualized gross ratios are
+displayed per eight hours. A preceding baseline preserves zero-funding periods;
+the average is time-weighted through the index's verified block, never extended
+to the present using an old observation. Pagination is pinned to that same
+block, requests are cancellable and globally bounded, and malformed, mismatched,
+errored, or stale index data remains unavailable. The existing CSP permits the
+`api.goldsky.com` host. No new provider or credentials are required.
+
 ## Position brake
 
 Position rows show how far the market can move before a position reaches its

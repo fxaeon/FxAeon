@@ -92,3 +92,23 @@ test('current and expected position values pair only when the quote provides the
     paired: [], remainingBefore: [{ label: 'Collateral', value: '4 stETH' }],
   });
 });
+
+test('loading an estimate is not a quote change, but losing or changing a known amount is', () => {
+  for (const value of ['Unavailable', 'Not quoted', '—', 'Loading…']) {
+    assert.deepEqual(changedConsequenceFacts(
+      [{ label: 'Estimated fxSAVE received', value }],
+      [{ label: 'Estimated fxSAVE received', value: '≈ 1.07 fxSAVE' }],
+    ), []);
+  }
+  assert.deepEqual(changedConsequenceFacts(
+    [{ label: 'Estimated fxSAVE received', value: '≈ 1.07 fxSAVE' }],
+    [{ label: 'Estimated fxSAVE received', value: '≈ 1.06 fxSAVE' }],
+  ), [{ label: 'Estimated fxSAVE received', before: '≈ 1.07 fxSAVE', after: '≈ 1.06 fxSAVE' }]);
+  assert.deepEqual(changedConsequenceFacts(
+    [{ label: 'Estimated fxSAVE received', value: '≈ 1.07 fxSAVE' }],
+    [{ label: 'Estimated fxSAVE received', value: 'Unavailable' }],
+  ), [{ label: 'Estimated fxSAVE received', before: '≈ 1.07 fxSAVE', after: 'Unavailable' }]);
+  assert.deepEqual(changedConsequenceFacts(
+    [{ label: 'Minimum received', value: '1 fxSAVE' }], [],
+  ), [{ label: 'Minimum received', before: '1 fxSAVE', after: undefined }]);
+});

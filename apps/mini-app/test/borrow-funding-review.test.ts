@@ -22,17 +22,17 @@ function route(ratio = '0', market: 'ETH' | 'BTC' = 'ETH'): PlannedRoute {
 
 test('funding review distinguishes verified zero, active funding charges, and tiny active rates', () => {
   const zero = borrowFundingReviewFact(route(), now);
-  assert.equal(zero?.value, '0%');
-  assert.equal(zero?.equivalent, 'Not active · can change');
+  assert.equal(zero?.value, '0% / 8h');
+  assert.equal(zero?.equivalent, 'Off · gross charge');
   for (const market of ['ETH', 'BTC'] as const) {
     const active = borrowFundingReviewFact(route('10000000000000000', market), now);
-    assert.equal(active?.value, '1%');
-    assert.equal(active?.equivalent, 'Active · can change');
-    assert.match(active!.title!, /whole collateral/);
+    assert.equal(active?.value, '≈ 0.0009% / 8h');
+    assert.equal(active?.equivalent, 'On · gross charge');
+    assert.match(active!.title!, /all collateral/);
     assert.match(active!.title!, /borrowing charge, not yield/);
     assert.match(active!.title!, /opening and repayment fees are separate/);
   }
-  assert.equal(borrowFundingReviewFact(route('1'), now)?.value, '<0.0001%');
+  assert.equal(borrowFundingReviewFact(route('1'), now)?.value, '<0.0001% / 8h');
 });
 
 test('stale, future, invalid, mismatched and missing funding snapshots never become zero', () => {
@@ -54,5 +54,16 @@ test('stale, future, invalid, mismatched and missing funding snapshots never bec
     const value = route(); edit(value);
     assert.equal(borrowFundingReviewFact(value, now), undefined);
   }
-  assert.equal(borrowFundingReviewFact(route(), now + 59_999)?.value, '0%');
+  assert.equal(borrowFundingReviewFact(route(), now + 59_999)?.value, '0% / 8h');
+});
+
+test('review preserves the verified net status and rejects malformed net metadata', () => {
+  const planned = route('45318576060452136');
+  planned.details!.borrowFundingQuote!.netRatio = '45318576060452136';
+  assert.equal(borrowFundingReviewFact(planned, now)?.value, '≈ 0.0041% / 8h');
+  assert.equal(borrowFundingReviewFact(planned, now)?.equivalent, 'On');
+  for (const invalid of ['-1', 'NaN', '45318576060452137']) {
+    planned.details!.borrowFundingQuote!.netRatio = invalid;
+    assert.equal(borrowFundingReviewFact(planned, now), undefined);
+  }
 });

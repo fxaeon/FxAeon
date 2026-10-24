@@ -1,14 +1,36 @@
-import { decodeFunctionResult, encodeFunctionData, erc20Abi, getAddress, isAddress, parseUnits, zeroAddress, type Address, type Hex, type PublicClient } from 'viem';
+import { decodeFunctionResult, encodeFunctionData, erc20Abi, formatUnits, getAddress, isAddress, parseUnits, zeroAddress, type Address, type Hex, type PublicClient } from 'viem';
 import { canonicalAsset } from './walletAssets';
 import { assertPublicClientChain, getPublicClient } from './fx/clients';
 import { fetchGasTierQuotes, selectedGasTierQuote, type GasTierQuotes } from './fx/gasFeePolicy';
 import { gasLimitWithHeadroom } from './fx/gasLimit';
+import { calculateVerifiedNativeMax, type NativeMaxEstimate, type VerifiedNativeMax } from './fx/nativeMax';
 import type { GasTier } from './settings';
 import type { FxChainId, FxPublicClient } from './fx/types';
 
 export type SendInput = { walletAddress: Address; chainId: FxChainId; recipient: Address; tokenAddress: Address | null; amount: string; tier: GasTier };
 export type SendQuote = { input: SendInput; symbol: string; decimals: number; amountRaw: bigint; to: Address; data: Hex; value: bigint;
   gas: bigint; nonce: number; estimatedFee: bigint; requiredNative: bigint; maxFeePerGas: bigint; maxPriorityFeePerGas: bigint; validUntil: number };
+
+/** Exact recipient and amount are estimated, including contract recipients
+ * and Base's extra fees. This only fills the draft; review re-quotes it. */
+export function prepareWalletSendMax(
+  input: Omit<SendInput, 'amount'>,
+  balanceWei: bigint,
+  options: Parameters<typeof prepareWalletSend>[1] = {},
+): Promise<VerifiedNativeMax> {
+  if (input.tokenAddress) throw new Error('Native Max requires a native asset');
+  return calculateVerifiedNativeMax({
+    balanceWei,
+    buildRoutes: async (amountWei) => [await prepareWalletSend({ ...input, amount: formatUnits(amountWei, 18) }, options)],
+    estimateRoutes: async (quotes) => quotes.map((quote): NativeMaxEstimate => ({
+      status: 'current', nativeValueWei: quote.value,
+      totalNativeCostWei: quote.value + quote.estimatedFee,
+      requiredNativeCostWei: quote.requiredNative,
+      totalNativeCostScope: input.chainId === 8453 ? 'execution-plus-l1-plus-operator-plus-value' : 'execution-plus-value',
+      validUntil: quote.validUntil,
+    })),
+  });
+}
 
 export function transferPayload(input: SendInput) {
   if (![1, 8453].includes(input.chainId) || !isAddress(input.walletAddress) || !isAddress(input.recipient) || input.recipient.toLowerCase() === zeroAddress) throw new Error('Enter a valid recipient address.');

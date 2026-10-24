@@ -7,7 +7,7 @@ import { calculateProtocolFee } from './protocolFee';
 import { parseStEthPerWstEth, stEthForWstEth } from './wstEthRate';
 import { projectedLiquidationPrice } from './liquidationQuote';
 import { acceptedFxSaveQuote } from './fxSaveReviewQuote';
-import { borrowFundingIsFresh, formatBorrowFundingApr } from './borrowFunding';
+import { borrowFundingDisplay, borrowFundingIsFresh } from './borrowFunding';
 import { normalizePositionEconomics } from './positionEconomics';
 
 /**
@@ -333,12 +333,14 @@ export function borrowFundingReviewFact(route: PlannedRoute, now = Date.now()): 
   const pool = knownPool(intent);
   const quote = route.details?.borrowFundingQuote;
   if (!pool || pool.side !== 'long' || !quote || typeof quote.poolAddress !== 'string' || typeof quote.ratio !== 'string' || !/^\d{1,78}$/.test(quote.ratio)) return undefined;
-  const rate = { market: pool.market, pool: quote.poolAddress, ratio: BigInt(quote.ratio), readAt: quote.readAt };
+  if (quote.netRatio !== undefined && !/^\d{1,78}$/.test(quote.netRatio)) return undefined;
+  const rate = { market: pool.market, pool: quote.poolAddress, ratio: BigInt(quote.ratio), ...(quote.netRatio === undefined ? {} : { netRatio: BigInt(quote.netRatio) }), readAt: quote.readAt };
   if (!borrowFundingIsFresh(rate, pool.market, now)) return undefined;
+  const display = borrowFundingDisplay(rate);
   return {
-    label: 'Borrow rate', value: formatBorrowFundingApr(rate.ratio),
-    equivalent: rate.ratio > 0n ? 'Active · can change' : 'Not active · can change',
-    title: `Checked ${new Date(rate.readAt).toISOString()}. Exact annualized charge: ${formatUnits(rate.ratio, 16)}% of the whole collateral. Funding is a borrowing charge, not yield. It can change while the position is open; opening and repayment fees are separate.`,
+    label: 'Borrow rate', value: display.value,
+    equivalent: rate.netRatio === undefined ? `${display.status} · gross charge` : display.status,
+    title: `Checked ${new Date(rate.readAt).toISOString()}. ${display.title} Funding is a borrowing charge, not yield; opening and repayment fees are separate.`,
   };
 }
 
