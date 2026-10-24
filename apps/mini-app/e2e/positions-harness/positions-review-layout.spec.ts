@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
@@ -135,7 +135,7 @@ let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
 for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
-  test(`review decisions remain accessible with expanded content at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`review decisions remain accessible with expanded content at ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
     await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
     await page.setViewportSize(viewport);
     await page.goto('http://positions.test/positions');
@@ -167,12 +167,35 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
       // Desktop lets the surrounding page scroll instead of clipping a second
       // scroll region. The disclosure's height animation can move this row
       // after a one-shot scroll, so keep bringing it into view until its full
-      // bounds fit inside the viewport.
-      await expect.poll(async () => {
-        await finalEvidence.evaluate(node => node.scrollIntoView({ block: 'end', behavior: 'instant' }));
-        const bounds = await finalEvidence.boundingBox();
-        return Boolean(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height);
-      }).toBe(true);
+      // bounds fit inside the viewport. Centering avoids fractional row edges
+      // landing just outside the viewport when scrollTop rounds to an integer.
+      let scrollEvidence: unknown;
+      try {
+        await expect.poll(async () => {
+          await finalEvidence.evaluate(node => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+          scrollEvidence = await finalEvidence.evaluate(node => {
+            const ancestors = [];
+            let ancestor: HTMLElement | null = node as HTMLElement;
+            while (ancestor) {
+              const css = getComputedStyle(ancestor);
+              ancestors.push({ tag: ancestor.tagName, className: ancestor.className, role: ancestor.getAttribute('role'),
+                rect: ancestor.getBoundingClientRect().toJSON(), scrollTop: ancestor.scrollTop, scrollHeight: ancestor.scrollHeight,
+                clientHeight: ancestor.clientHeight, overflow: css.overflowY, display: css.display, visibility: css.visibility,
+                position: css.position, hidden: ancestor.hidden, ariaHidden: ancestor.getAttribute('aria-hidden') });
+              ancestor = ancestor.parentElement;
+            }
+            return { label: node.getAttribute('data-review-evidence'), text: (node as HTMLElement).innerText,
+              bounds: node.getBoundingClientRect().toJSON(), window: { width: innerWidth, height: innerHeight, scrollY,
+                visualTop: visualViewport?.offsetTop, visualHeight: visualViewport?.height },
+              informationCount: document.querySelectorAll('[aria-label="Review information"]').length, ancestors };
+          });
+          const bounds = await finalEvidence.boundingBox();
+          return Boolean(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height);
+        }).toBe(true);
+      } finally {
+        writeFileSync(info.outputPath('expanded-scroll-geometry.json'), JSON.stringify(scrollEvidence, null, 2));
+        await page.screenshot({ path: info.outputPath('expanded-scroll.png'), fullPage: false });
+      }
     }
     await expect.poll(async () => {
       await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
