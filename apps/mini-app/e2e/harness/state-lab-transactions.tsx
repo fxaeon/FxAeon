@@ -38,7 +38,7 @@ function fixture(product: LabProduct) {
     ? [{ label: 'Deposit', value: '1 ETH' }, { label: 'Estimated fxUSD received', value: '1,194 fxUSD' }]
     : [{ label: 'Deposit', value: '1,000 USDC' }, { label: 'Estimated shares', value: '952.380952380952380952 fxSAVE' }];
   const terms: ReviewFact[] = borrow
-    ? [{ label: 'Estimated debt', value: '1,200 fxUSD' }, { label: 'Loan-to-value', value: '50%' }, { label: 'Borrow rate', value: '3.5% APR on collateral', title: 'Fixture only: effective temporary funding rate, applied to entire collateral. Can change.' }]
+    ? [{ label: 'Estimated debt', value: '1,200 fxUSD' }, { label: 'Loan-to-value', value: '50%' }, { label: 'Borrow rate', value: '3.5%', equivalent: 'Active · can change', title: 'Fixture only: annualized funding charge on the whole collateral. This is a borrowing cost, not yield, and can change.' }]
     : [{ label: 'Current APY', value: '6.25%', title: 'Fixture only: variable yield, not a promised return.' }, { label: 'Minimum received', value: '947.619047619047619047 fxSAVE' }];
   terms.push({ label: 'Gas fee', value: '0.000125 ETH', title: '0.000125 ETH (simulated estimate, not a live gas quote)' });
   if (borrow) terms.push({ label: 'f(x) fee', value: '6 fxUSD (0.5%)', title: '6 fxUSD; simulated 0.5% of 1,200 fxUSD gross debt, deducted before the 1,194 fxUSD payout. Excludes gas.', feeAmounts: [{ amount: '6', symbol: 'fxUSD' }] });
@@ -89,7 +89,7 @@ export function LabTransaction({ product, stage, onReset, onContinue, framed = f
               {stage === 'Preparing' && <p role="status" className={styles.stableReviewStatus}>Preparing fixture terms</p>}
               {stage === 'Editing' && <p className={styles.stableReviewStatus}>Unsubmitted fixture draft</p>}
               <TransactionAmountFlow facts={sample.facts} chainId={1} compact />
-              <div className={styles.consequenceGroup}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Temporary funding' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
+              <div className={styles.consequenceGroup}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
             </div>}
           </div>
           {!pending && <div data-review-actions className={`${flowStyles.reviewInlineActions} ${styles.actions}`}><Button className={flowStyles.primaryAction} disabled={stage !== 'Review'} onClick={onContinue}>{sample.identity.confirm}</Button></div>}

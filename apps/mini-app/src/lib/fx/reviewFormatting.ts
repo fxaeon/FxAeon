@@ -336,9 +336,9 @@ export function borrowFundingReviewFact(route: PlannedRoute, now = Date.now()): 
   const rate = { market: pool.market, pool: quote.poolAddress, ratio: BigInt(quote.ratio), readAt: quote.readAt };
   if (!borrowFundingIsFresh(rate, pool.market, now)) return undefined;
   return {
-    label: 'Borrow rate', value: `${formatBorrowFundingApr(rate.ratio)} APR`,
-    equivalent: rate.ratio > 0n ? 'Active · on collateral' : 'On collateral · variable',
-    title: `Checked ${new Date(rate.readAt).toISOString()}. Exact annual rate: ${formatUnits(rate.ratio, 16)}% of the whole collateral. Funding can change while the position is open; opening and repayment fees are separate.`,
+    label: 'Borrow rate', value: formatBorrowFundingApr(rate.ratio),
+    equivalent: rate.ratio > 0n ? 'Active · can change' : 'Not active · can change',
+    title: `Checked ${new Date(rate.readAt).toISOString()}. Exact annualized charge: ${formatUnits(rate.ratio, 16)}% of the whole collateral. Funding is a borrowing charge, not yield. It can change while the position is open; opening and repayment fees are separate.`,
   };
 }
 

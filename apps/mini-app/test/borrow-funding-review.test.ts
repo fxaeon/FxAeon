@@ -20,18 +20,19 @@ function route(ratio = '0', market: 'ETH' | 'BTC' = 'ETH'): PlannedRoute {
   };
 }
 
-test('funding review distinguishes verified zero, active collateral APR, and tiny active rates', () => {
+test('funding review distinguishes verified zero, active funding charges, and tiny active rates', () => {
   const zero = borrowFundingReviewFact(route(), now);
-  assert.equal(zero?.value, '0% APR');
-  assert.equal(zero?.equivalent, 'On collateral · variable');
+  assert.equal(zero?.value, '0%');
+  assert.equal(zero?.equivalent, 'Not active · can change');
   for (const market of ['ETH', 'BTC'] as const) {
     const active = borrowFundingReviewFact(route('10000000000000000', market), now);
-    assert.equal(active?.value, '1% APR');
-    assert.equal(active?.equivalent, 'Active · on collateral');
+    assert.equal(active?.value, '1%');
+    assert.equal(active?.equivalent, 'Active · can change');
     assert.match(active!.title!, /whole collateral/);
+    assert.match(active!.title!, /borrowing charge, not yield/);
     assert.match(active!.title!, /opening and repayment fees are separate/);
   }
-  assert.equal(borrowFundingReviewFact(route('1'), now)?.value, '<0.0001% APR');
+  assert.equal(borrowFundingReviewFact(route('1'), now)?.value, '<0.0001%');
 });
 
 test('stale, future, invalid, mismatched and missing funding snapshots never become zero', () => {
@@ -53,5 +54,5 @@ test('stale, future, invalid, mismatched and missing funding snapshots never bec
     const value = route(); edit(value);
     assert.equal(borrowFundingReviewFact(value, now), undefined);
   }
-  assert.equal(borrowFundingReviewFact(route(), now + 59_999)?.value, '0% APR');
+  assert.equal(borrowFundingReviewFact(route(), now + 59_999)?.value, '0%');
 });

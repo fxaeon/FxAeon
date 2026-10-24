@@ -537,13 +537,13 @@ test('a late pool read cannot publish the previous market limit', async ({ page 
   await expect(page.getByRole('meter')).toHaveCount(0);
 });
 
-test('temporary funding distinguishes verified zero, positive and tiny positive collateral APR', async ({ page }) => {
+test('funding status distinguishes verified zero, positive and tiny positive charges', async ({ page }) => {
   await mount(page);
   const overview = page.getByRole('region', { name: 'fxUSD borrowing overview' });
-  const metric = overview.locator('dl > div').filter({ hasText: 'Temporary funding' });
+  const metric = overview.locator('dl > div').filter({ hasText: 'Funding status' });
   await expect(metric.locator('dd')).toHaveText('0%');
   await expect(metric.getByRole('status')).toHaveText('Not active · can change');
-  await expect(metric).toContainText('APR on collateral');
+  await expect(metric).not.toContainText('APR');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingRatio: 35000000000000000n }); window.dispatchEvent(new Event('online')); });
   await expect(metric.locator('dd')).toHaveText('3.5%');
   await expect(metric.getByRole('status')).toHaveText('Active');
@@ -555,10 +555,10 @@ test('temporary funding distinguishes verified zero, positive and tiny positive 
 test('failed and expired funding quotes never retain a zero rate, and foreground recovery rereads', async ({ page }) => {
   await page.clock.install();
   await mount(page, { fundingUnavailable: true });
-  const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Temporary funding' });
+  const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
   await expect(metric.locator('dd')).toHaveText('—');
   await expect(metric.getByRole('status')).toHaveText('Not quoted');
-  await metric.getByRole('button', { name: 'About Temporary funding', exact: true }).click();
+  await metric.getByRole('button', { name: 'About Funding status', exact: true }).click();
   const verification = page.getByRole('link', { name: /Verify current funding on f\(x\)/ });
   await expect(verification).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
   await expect(verification).toHaveAttribute('rel', 'noopener noreferrer');
@@ -576,7 +576,7 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
 
 test('a late funding response from the previous market cannot replace the current pool quote', async ({ page }) => {
   await mount(page, { fundingPending: true });
-  const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Temporary funding' });
+  const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
   await expect(metric.getByRole('status')).toHaveText('Checking rate');
   await page.evaluate(() => Object.assign(window, { __borrowFundingPending: false, __borrowFundingRatio: 35000000000000000n }));
   await page.getByLabel('Collateral asset', { exact: true }).selectOption('WBTC');
@@ -699,7 +699,7 @@ test('repayment outcomes use the selected position debt and clear invalid input'
   await expect(outcome).toHaveCount(0);
 });
 
-test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text', async ({ page }) => {
+test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text', async ({ page }, info) => {
   test.setTimeout(60_000);
   // Default selection tests intentionally omit CSS. Only this geometry case
   // lazily compiles the genuine page/module styles over the same inert reads.
@@ -724,6 +724,10 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await debt.locator('summary').click();
     await expect(debt.getByText('800.123456789012345678 fxUSD', { exact: true })).toBeVisible();
     await debt.locator('summary').click();
+    const funding = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
+    await expect(funding.getByRole('status')).toHaveText('Not active · can change');
+    await expect(funding).not.toContainText('APR');
+    await page.screenshot({ path: info.outputPath(`borrow-funding-status-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
     await expectFormMetricRows(rows);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

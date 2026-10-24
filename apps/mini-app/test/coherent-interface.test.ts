@@ -104,10 +104,10 @@ test('review continuity freezes the starting snapshot and returns without pushin
   assert.match(review, /onReturnToPosition\(\{ key:/);
   assert.match(source('app/positions/page.tsx'), /onReturnToPosition=\{\(\{ key \}\) =>/);
   assert.match(source('app/borrow/page.tsx'), /onReturnToPosition=\{\(\{ key \}\) =>/);
-  assert.match(review, /displayLabel="Temporary funding"/);
+  assert.match(review, /displayLabel="Funding status"/);
   assert.match(review, /label: 'Borrow rate', value: 'Not quoted'/);
   assert.match(review, /Verify on f\(x\) Protocol/);
-  assert.match(source('app/borrow/page.tsx'), /label="Temporary funding"/);
+  assert.match(source('app/borrow/page.tsx'), /label="Funding status"/);
   assert.doesNotMatch(review, /className=\{presentationStyles.riskNotice\}/);
   assert.match(source('components/infoHelpContent.ts'), /Rebalancing can reduce collateral and debt/);
   assert.equal((review.match(/<details\b/g) ?? []).length, 1);
