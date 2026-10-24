@@ -5,6 +5,26 @@ import { test, expect } from '@playwright/test';
 
 const root = resolve(__dirname, '../../../..');
 
+test('funded Borrow fixture discloses the dollar protocol fee and keeps unknown quotes distinct', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto('/?view=transaction&product=borrow&stage=review');
+  const fee = page.locator('[data-review-fact="f(x) fee"]');
+  await expect(fee.locator('summary')).toHaveText('≈ $6.00');
+  await page.evaluate(() => document.fonts.ready);
+  const body = page.locator('[data-review-scroll]');
+  expect(await body.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+  await fee.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(fee).toContainText('6 fxUSD (0.5%)');
+  await expect(fee).toContainText('1,200 fxUSD gross debt');
+  await fee.locator('summary').click();
+  await page.screenshot({ path: info.outputPath('protocol-fee-borrow-short.png'), animations: 'disabled' });
+  await page.goto('/?view=transaction&product=borrow&stage=review&protocolFee=unavailable');
+  await expect(fee).toContainText('Unavailable');
+  await expect(fee).not.toContainText('$0.00');
+  await expect(fee.locator('[data-info-help-trigger]')).toBeVisible();
+});
+
 test('review network fees lead with dollars and disclose the exact native amount on tap', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 770 });
   for (const product of ['borrow', 'earn']) {

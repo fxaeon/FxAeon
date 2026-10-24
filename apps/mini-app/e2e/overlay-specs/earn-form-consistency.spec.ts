@@ -120,7 +120,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await expect(retry).toHaveCount(1);
   await retry.click();
   await expect(page.getByRole('radio', { name: /After cooldown.*1h/ })).toBeChecked();
-  await expect(page.getByRole('radio', { name: /Instant.*0.1% fee/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /Instant.*Fee quoted in review/ })).toBeVisible();
   await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12.3456789');
   await expect(retry).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();

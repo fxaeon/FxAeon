@@ -706,7 +706,7 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
         <ChoiceCards value={!instant ? 'cooldown' : 'instant'}
           onChange={(value) => onInstantChange(value === 'instant')} label="Withdrawal method" options={[
             { value: 'cooldown', label: 'After cooldown', description: config ? `${formatCooldown(config.cooldownPeriodSeconds)} · no instant fee` : undefined },
-            { value: 'instant', label: 'Instant', description: config ? `${formatRatio(config.instantRedeemFeeRatio)} fee` : undefined },
+            { value: 'instant', label: 'Instant', description: config ? 'Fee quoted in review' : undefined },
           ]} />
       </div>}
       {!config && <VaultTermsStatus loading={configLoading} onRetry={onRetryConfig} direct={token === 'fxUSDBasePool'} />}

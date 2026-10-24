@@ -18,12 +18,13 @@ type Control = {
   wallet: { ready: boolean; authenticated: boolean; isEmbedded: boolean; address: string; chainId: number; connectionVersion: number };
   events: Array<{ name: string; start: number; end?: number; error?: string }>;
   trace: (name: string, fn: () => Promise<unknown>) => Promise<unknown>;
+  prices?: import('../../src/lib/prices').UsdPriceSnapshot;
 };
 type Harness = typeof globalThis & { __longReview: Control };
 
 /** `failCalls` makes every contract read fail while it returns true (the bounds read has settled by then). */
-async function mount(page: Page, options: { delayMs?: number; failCalls?: () => boolean; reducedMotion?: 'reduce' | 'no-preference' } = {}) {
-  const fixture = createFixture({ delayMs: options.delayMs ?? 20, ethBalance: 400000000000000n });
+async function mount(page: Page, options: { delayMs?: number; failCalls?: () => boolean; reducedMotion?: 'reduce' | 'no-preference'; pricedProtocolFees?: boolean } = {}) {
+  const fixture = createFixture({ delayMs: options.delayMs ?? 20, ethBalance: options.pricedProtocolFees ? 1000000000000000000n : 400000000000000n });
   await page.route('**/*', async (route) => {
     const url = route.request().url();
     if (url.startsWith('http://long-review.test/token-icons/') || url.startsWith('http://long-review.test/chain-icons/')) {
@@ -47,18 +48,19 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
   });
   await page.emulateMedia({ reducedMotion: options.reducedMotion ?? 'reduce' });
   await page.goto('http://long-review.test/trade');
-  await page.evaluate(() => {
+  await page.evaluate((pricedProtocolFees) => {
     (globalThis as unknown as { process: { env: Record<string, string> } }).process = { env: {} };
     const h: Control = {
       wallet: { ready: true, authenticated: true, isEmbedded: true, address: '0x1111111111111111111111111111111111111111', chainId: 1, connectionVersion: 1 },
       events: [],
+      ...(pricedProtocolFees ? { prices: { status: 'ready' as const, prices: { ETH: 2000, wstETH: 2400, stETH: 2000, fxUSD: .99 }, updatedAt: Date.now() } } : {}),
       async trace(name, fn) {
         const event: Control['events'][number] = { name, start: performance.now() }; h.events.push(event);
         try { return await fn(); } catch (cause) { event.error = String(cause); throw cause; } finally { event.end = performance.now(); }
       },
     };
     (globalThis as Harness).__longReview = h;
-  });
+  }, options.pricedProtocolFees ?? false);
   await page.addStyleTag({ content: bundle.css });
   await page.addScriptTag({ content: bundle.script });
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
@@ -74,6 +76,35 @@ const figure = async (page: Page, label: string) => (await displayedFact(page, l
 const reviewFact = (page: Page, label: string) => page.locator(`[data-review-fact="${label}"], [data-review-evidence="${label}"]`).first().locator('> span').last();
 const slider = (page: Page) => page.getByRole('slider', { name: 'Target leverage slider', exact: true });
 const leverageField = (page: Page) => page.getByRole('textbox', { name: 'Target leverage', exact: true });
+
+test('quoted protocol fee dollars lead in the funded form and review while the rate remains exact', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 770 });
+  await mount(page, { pricedProtocolFees: true });
+  await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.1');
+  await slider(page).fill('2.8');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+  const feeSummary = fact(page, 'f(x) fee').locator('summary');
+  await expect(feeSummary).toHaveText(/^(?:≈ \$[\d,.]+|<\$0\.01)$/);
+  const dollars = await feeSummary.textContent();
+  await feeSummary.click();
+  await expect(fact(page, 'f(x) fee')).toContainText('0.1% of supplied collateral');
+  await expect(fact(page, 'f(x) fee')).toContainText('wstETH +');
+  await expect(fact(page, 'f(x) fee')).toContainText('fxUSD; estimated from the same SDK collateral and debt quote');
+  await feeSummary.click();
+  await page.evaluate(() => document.fonts.ready);
+  await page.screenshot({ path: info.outputPath('protocol-fee-form-390.png'), animations: 'disabled', fullPage: true });
+  const plans = await planCount(page);
+  await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
+  const reviewFee = reviewFact(page, 'f(x) fee');
+  await expect(reviewFee.locator('summary')).toHaveText(dollars!);
+  await reviewFee.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(reviewFee).toContainText('0.1% of supplied collateral');
+  await expect(reviewFee).toContainText('excludes network gas');
+  await page.keyboard.press('Enter');
+  await page.screenshot({ path: info.outputPath('protocol-fee-review-390.png'), animations: 'disabled' });
+  expect(await planCount(page)).toBe(plans);
+});
 
 test('Trade outcome rows stay compact and wrap at 320px with 200% text', async ({ page }, info) => {
   for (const width of [390, 320]) {
@@ -119,7 +150,7 @@ test.describe('the ticket’s outcome preview', () => {
     await expect(fact(page, 'Estimated collateral')).toHaveCount(0);
     await expect(fact(page, 'Estimated debt')).toHaveCount(0);
     expect(preview.liquidationPrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
-    expect(preview.fee).toMatch(/%/);
+    expect(preview.fee).toBe('Unavailable');
     const plansBeforeReview = await planCount(page);
 
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
@@ -155,8 +186,8 @@ test.describe('the ticket’s outcome preview', () => {
     const fee = reviewFact(page, 'f(x) fee');
     await expect(fee.locator('summary > span')).toHaveText(preview.fee);
     await fee.locator('summary').click();
-    await expect(fee.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(preview.fee);
-    await expect(fee.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText('0.1% of supplied collateral + 0.3% of borrowed debt when that leg has a nonzero amount. Quoted f(x) rates; excludes network gas, conversion costs and retained slippage.');
+    await expect(fee.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText('0.1% of supplied collateral + 0.3% of borrowed debt');
+    await expect(fee.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toContainText('0.1% of supplied collateral + 0.3% of borrowed debt when that leg has a nonzero amount. Quoted f(x) rates; excludes network gas, conversion costs and retained slippage.');
     await fee.locator('summary').click();
     // A compact floor may round for display, but its full signed wstETH
     // amount remains exact; the separate stETH equivalent is only an estimate.

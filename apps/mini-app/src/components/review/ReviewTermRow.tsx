@@ -5,6 +5,7 @@ import { INFO_HELP_CONTENT } from '@/components/infoHelpContent';
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import { FeeAmount } from './AmountUsd';
 import { ReviewFactValue } from './ReviewFactValue';
+import { ProtocolFeeAmount } from './ProtocolFeeAmount';
 import { reviewHelpDefinition } from './reviewHelp';
 import styles from './ActionReviewPresentation.module.css';
 
@@ -22,6 +23,7 @@ export function ReviewTermRow({ fact, displayLabel, displayValue, help: helpOver
       {fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" announce={!quiet} label={`Loading ${fact.label.toLowerCase()}`} />
         : unavailable ? fact.value
         : ['Gas fee', 'Bridge fee'].includes(fact.label) ? <FeeAmount fact={fact} />
+        : ['f(x) fee', 'Protocol fee'].includes(fact.label) ? <ProtocolFeeAmount fact={fact} />
         : <ReviewFactValue fact={fact} display={displayValue} />}
       {fact.equivalent && <small>{fact.equivalent}</small>}
     </span>

@@ -229,7 +229,7 @@ test('Earn keeps deposit and withdrawal presets visible while preserving disconn
 test('withdrawal fees, configured cooldown, queued payout units and unknown terms stay visible', () => {
   const queued = editor('fxUSD', false, config);
   assert.match(queued, /90m · no instant fee/);
-  assert.match(queued, /Instant 2% fee/);
+  assert.match(queued, /Instant Fee quoted in review/);
   assert.match(queued, /Claim later/);
   assert.match(queued, /fxUSD \+ USDC/);
   assert.match(queued, /Network fees apply to the withdrawal request and claim/);

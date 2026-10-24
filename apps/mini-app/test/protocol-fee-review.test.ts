@@ -82,6 +82,7 @@ test('borrow uses the mint-router fee schedule and excludes an absent deposit le
   }, WALLET);
   route.policy = { walletAddress: WALLET, chainId: 1, reviewedAction: { kind: 'deposit-and-mint', poolAddress, positionId: 1, depositTokenAddress: positionCollateralTokenAddress('BTC', 'long'), depositAmount: 0n, nativeInput: false, mintAmount: 100n * 10n ** 18n } };
   assert.equal(fee(route)?.value, '0.5 fxUSD (0.5%)');
+  assert.deepEqual(fee(route)?.feeAmounts, [{ amount: '0.5', symbol: 'fxUSD' }]);
   assert.match(fee(route)!.title!, /borrowed debt/);
   assert.equal(fee(route)?.label, 'f(x) fee');
   assert.equal(routeFinancialReviewFacts(route).find(fact => fact.label === 'Estimated fxUSD received')?.value, '99.5 fxUSD');
@@ -101,6 +102,75 @@ test('protocol fee math floors in token units and does not lose large-integer pr
   assert.throws(() => calculateProtocolFee(-1n, 0n), RangeError);
   assert.throws(() => calculateProtocolFee(1n, -1n), RangeError);
   assert.throws(() => calculateProtocolFee(1n, 1_000_000_001n), RangeError);
+});
+
+test('Trade fee estimate undoes the quoted supply deduction, never recharges the input or net collateral', () => {
+  for (const side of ['long', 'short'] as const) {
+    const route = positionRoute('increase', side, ['3000000', '0', '0', '0']);
+    const snapshot = { version: 1 as const, operation: 'increase' as const, currentColls: '1000000000000000000', currentDebts: '0', inputCollateral: '1000000000000000000', priceWad: '2000000000000000000000', rateRes: '1200000000000000000', supplyFeeRatio: '3000000', withdrawFeeRatio: '0' };
+    // 2 gross collateral - 0.006 fee = 1.994 newly retained, plus 1 held.
+    route.details!.positionEconomics = snapshot;
+    route.details!.colls = '2994000000000000000';
+    assert.deepEqual(fee(route)?.feeAmounts, [{ amount: '0.006', symbol: side === 'long' ? 'wstETH' : 'fxUSD', estimated: true }]);
+    assert.match(fee(route)!.title!, /0.006 .*estimated from the same SDK collateral and debt quote/);
+    route.details!.protocolFeeQuote!.ratios = ['3000000', '0', '1000000', '0'];
+    assert.equal(fee(route)?.feeAmounts, undefined, 'a charged debt leg without its quoted debt base cannot be silently omitted');
+    route.details!.debts = '2000000000000000000000';
+    assert.deepEqual(fee(route)?.feeAmounts, [
+      { amount: '0.006', symbol: side === 'long' ? 'wstETH' : 'fxUSD', estimated: true },
+      { amount: '2', symbol: side === 'long' ? 'fxUSD' : 'wstETH', estimated: true },
+    ], 'both charged legs retain their own units; debt fee is on new gross debt only');
+    route.details!.positionEconomics!.currentDebts = '1000000000000000000000';
+    assert.equal(fee(route)?.feeAmounts?.[1].amount, '1', 'held debt is excluded from this action fee');
+    route.details!.debts = '999';
+    assert.equal(fee(route)?.feeAmounts, undefined, 'increasing route cannot claim a fee on decreasing debt');
+    route.details!.protocolFeeQuote!.ratios = ['3000000', '0', '0', '0'];
+    route.details!.positionEconomics = { ...snapshot, supplyFeeRatio: '1000000' };
+    assert.equal(fee(route)?.feeAmounts, undefined, 'mismatched snapshot is not a fee base');
+    route.details!.positionEconomics = undefined;
+    assert.equal(fee(route)?.feeAmounts, undefined);
+    route.details!.protocolFeeQuote!.ratios = ['0', '0', '0', '0'];
+    assert.deepEqual(fee(route)?.feeAmounts, [], 'only validated all-zero applicable rates imply no fee');
+  }
+});
+
+test('adjust-down fee uses removed pool collateral and its accounting token, not conversion output', () => {
+  const route = positionRoute('reduce');
+  route.operation = 'adjustPositionLeverage';
+  route.policy!.reviewedAction = { kind: 'position-adjust', poolAddress: positionPoolAddress('ETH', 'long'), positionId: 1, positionType: 'long', collateralTokenAddress: positionCollateralTokenAddress('ETH', 'long'), debtTokenAddress: positionDebtTokenAddress('ETH', 'long') };
+  route.details!.positionEconomics = { version: 1, operation: 'adjust-down', currentColls: '3000000000000000000', currentDebts: '1000000000000000000', inputCollateral: '0', priceWad: '2000000000000000000000', rateRes: '1200000000000000000', supplyFeeRatio: '3000000', withdrawFeeRatio: '1000000' };
+  route.details!.colls = '2000000000000000000';
+  assert.deepEqual(fee(route)?.feeAmounts, [{ amount: '0.001', symbol: 'stETH', estimated: true }]);
+  route.details!.colls = '4000000000000000000';
+  assert.equal(fee(route)?.feeAmounts, undefined);
+});
+
+test('BTC fee legs retain SDK normalized 18dp collateral/debt units for both sides and directions', () => {
+  for (const side of ['long', 'short'] as const) {
+    const route = positionRoute('increase', side, ['1000000', '2000000', '3000000', '4000000']);
+    const poolAddress = positionPoolAddress('BTC', side);
+    const collateralTokenAddress = positionCollateralTokenAddress('BTC', side);
+    const debtTokenAddress = positionDebtTokenAddress('BTC', side);
+    route.policy!.reviewedAction = { ...(route.policy!.reviewedAction as Extract<NonNullable<PlannedRoute['policy']>['reviewedAction'], { kind: 'position-increase' }>), poolAddress, collateralTokenAddress, debtTokenAddress };
+    route.details!.protocolFeeQuote!.poolAddress = poolAddress;
+    route.details!.positionEconomics = { version: 1, operation: 'increase', currentColls: '1000000000000000000', currentDebts: '1000000000000000000', inputCollateral: '1000000000000000000', priceWad: '60000000000000000000000', rateRes: '1000000000000000000', supplyFeeRatio: '1000000', withdrawFeeRatio: '2000000' };
+    route.details!.colls = '2998000000000000000';
+    route.details!.debts = '2000000000000000000';
+    assert.deepEqual(fee(route)?.feeAmounts, [
+      { amount: '0.002', symbol: side === 'long' ? 'WBTC' : 'fxUSD', estimated: true },
+      { amount: '0.003', symbol: side === 'long' ? 'fxUSD' : 'WBTC', estimated: true },
+    ]);
+    route.operation = 'adjustPositionLeverage';
+    route.transactions[0].data = side === 'long' ? '0xe8e9fc2a' : '0xad0acfdc';
+    route.policy!.reviewedAction = { kind: 'position-adjust', positionId: 1, positionType: side, poolAddress, collateralTokenAddress, debtTokenAddress };
+    route.details!.positionEconomics = { ...route.details!.positionEconomics!, operation: 'adjust-down', currentColls: '3000000000000000000', currentDebts: '2000000000000000000', inputCollateral: '0' };
+    route.details!.colls = '2000000000000000000';
+    route.details!.debts = '1000000000000000000';
+    assert.deepEqual(fee(route)?.feeAmounts, [
+      { amount: '0.002', symbol: side === 'long' ? 'WBTC' : 'fxUSD', estimated: true },
+      { amount: '0.004', symbol: side === 'long' ? 'fxUSD' : 'WBTC', estimated: true },
+    ], 'withdrawal and additive repayment fees use different gross accounting legs');
+  }
 });
 
 test('Borrow collateral requires a validated zero supply fee before claiming post-fee holdings', () => {

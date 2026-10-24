@@ -21,6 +21,7 @@ const provider = require.resolve('../src/components/PriceProvider');
 const actualProvider = require(provider);
 require.cache[provider]!.exports = { ...actualProvider, useUsdPrices: () => snapshot };
 const { FeeAmount, CollateralAmount } = require('../src/components/review/AmountUsd') as typeof import('../src/components/review/AmountUsd');
+const { ProtocolFeeAmount, protocolFeeUsdValue } = require('../src/components/review/ProtocolFeeAmount') as typeof import('../src/components/review/ProtocolFeeAmount');
 after(() => {
   require.cache[provider]!.exports = actualProvider;
   if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css'];
@@ -45,6 +46,39 @@ test('review fee falls back to native for missing, stale, future or invalid pric
     assert.match(html, /data-usd-state="unavailable"[^>]*>0\.00024 ETH \(max\)/);
     assert.doesNotMatch(visible(html), /\$/);
   }
+});
+
+test('protocol fee dollars value each quoted token, preserving native amount and rate disclosure', () => {
+  snapshot = { ...fresh, prices: { fxUSD: .98, USDC: 1.02 } };
+  const fact = { label: 'f(x) fee', value: '5%', title: '1 fxUSD + 2 USDC; 5% of both gross redemption legs, before conversion.', feeAmounts: [{ amount: '1', symbol: 'fxUSD' }, { amount: '2', symbol: 'USDC' }] };
+  const html = render(React.createElement(ProtocolFeeAmount, { fact }));
+  assert.match(html, /<summary[^>]*aria-label="≈ \$3\.02\. Show f\(x\) fee amount and rate breakdown"[^>]*>[\s\S]*?>≈ \$3\.02</);
+  assert.match(visible(html), /1 fxUSD \+ 2 USDC; 5% of both gross redemption legs/);
+  assert.match(visible(html), /current-price estimate/);
+  assert.equal(protocolFeeUsdValue(fact, snapshot), 3.02);
+});
+
+test('protocol fee requires all charged-leg prices and rejects missing amount bases without guessing a peg', () => {
+  const fact = { label: 'f(x) fee', value: '5%', feeAmounts: [{ amount: '1', symbol: 'fxUSD' }, { amount: '2', symbol: 'USDC' }] };
+  for (const invalid of [
+    { ...fresh, prices: { fxUSD: .99 } },
+    { ...fresh, prices: { fxUSD: .99, USDC: 1 }, updatedAts: { USDC: now - USD_PRICE_MAX_AGE_MS - 1 } },
+    { ...fresh, prices: { fxUSD: .99, USDC: 1 }, updatedAts: { USDC: now + 60_000 } },
+    { ...fresh, prices: { fxUSD: .99, USDC: NaN } },
+  ]) {
+    snapshot = invalid;
+    assert.equal(protocolFeeUsdValue(fact, snapshot), null);
+    const html = render(React.createElement(ProtocolFeeAmount, { fact }));
+    assert.match(html, /data-usd-state="unavailable">Unavailable/);
+    assert.match(html, /Full value<\/span><span[^>]*>5%/);
+  }
+  assert.equal(protocolFeeUsdValue({ ...fact, feeAmounts: undefined }, fresh), null);
+  assert.equal(protocolFeeUsdValue({ ...fact, feeAmounts: [] }, fresh), 0, 'validated zero rates need no fabricated price');
+  assert.equal(protocolFeeUsdValue({ ...fact, feeAmounts: [{ amount: '1e4', symbol: 'fxUSD' }] }, fresh), null);
+  snapshot = fresh;
+  const dust = render(React.createElement(ProtocolFeeAmount, { fact: { ...fact, feeAmounts: [{ amount: '0.000000000000000001', symbol: 'fxUSD' }] } }));
+  assert.match(dust, /&lt;\$0\.01/);
+  assert.doesNotMatch(dust, />\$0\.00</);
 });
 test('long collateral values original wstETH quote, not normalized stETH or execution price', () => {
   snapshot = { ...fresh, prices: { wstETH: 2880, stETH: 10000, ETH: 100000 } };

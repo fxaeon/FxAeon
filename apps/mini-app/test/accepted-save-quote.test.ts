@@ -78,6 +78,7 @@ test('normalized accepted instant quote shows net chosen-token output and its ow
   const facts = routeFinancialReviewFacts(route);
   assert.equal(facts.find(f => f.label === 'Estimated received')?.value, '142.5 USDC');
   assert.equal(facts.find(f => f.label === 'f(x) fee')?.value, '5%');
+  assert.deepEqual(facts.find(f => f.label === 'f(x) fee')?.feeAmounts, [{ amount: '5', symbol: 'fxUSD' }, { amount: '2.5', symbol: 'USDC' }]);
   assert.equal(facts.find(f => f.label === 'Instant fee (fxUSD leg)')?.value, '5 fxUSD');
   assert.equal(facts.find(f => f.label === 'Instant fee (USDC leg)')?.value, '2.5 USDC');
 });

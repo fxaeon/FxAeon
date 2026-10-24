@@ -7,11 +7,12 @@ import { positionOutcomeFacts } from '@/lib/fx/reviewFormatting';
 import type { PlannedRoute } from '@/lib/fx/types';
 import { approximately } from '@/lib/tradeOutcome';
 import { ReviewFactValue } from './review/ReviewFactValue';
+import { ProtocolFeeAmount } from './review/ProtocolFeeAmount';
 import { MetricLabel } from './InfoHelp';
 import { reviewHelpDefinition } from './review/reviewHelp';
 import styles from './TradeOutcomePreview.module.css';
 
-type Row = { label: string; value?: string; title?: string };
+type Row = { label: string; value?: string; title?: string; feeAmounts?: import('@/lib/fx/reviewFormatting').ReviewFact['feeAmounts'] };
 
 /**
  * What the ticket's warmed route would hold once it executes, under the
@@ -39,8 +40,7 @@ export function TradeOutcomePreview({ route }: { market: 'ETH' | 'BTC'; side: 'l
   const rows: Row[] = facts ? [
     { label: 'Execution price', value: facts.executionPrice ? approximately(facts.executionPrice.value) : 'Unavailable', title: facts.executionPrice?.title },
     { label: 'Liquidation price', value: facts.liquidationPrice ? approximately(facts.liquidationPrice.value) : 'Unavailable', title: facts.liquidationPrice?.title },
-    // The rate is the pool's own quoted rate, shown exactly as the review shows it.
-    { label: facts.fee?.label ?? 'f(x) fee', value: facts.fee?.value ?? 'Unavailable', title: facts.fee?.title },
+    { label: facts.fee?.label ?? 'f(x) fee', value: facts.fee?.value ?? 'Unavailable', title: facts.fee?.title, feeAmounts: facts.fee?.feeAmounts },
   ] : [
     { label: 'Execution price' },
     { label: 'Liquidation price' },
@@ -54,6 +54,7 @@ export function TradeOutcomePreview({ route }: { market: 'ETH' | 'BTC'; side: 'l
           <dd>
             {row.value === undefined
               ? <MissingValue width={row.label === 'f(x) fee' ? 'sm' : 'xl'} announce={false} label={`Loading ${row.label.toLowerCase()}`} />
+              : row.label === 'f(x) fee' ? <ProtocolFeeAmount className={styles.figure} fact={{ ...row, value: row.value }} />
               : <ReviewFactValue className={styles.figure} fact={{ label: row.label, value: row.value, title: row.title }} />}
           </dd>
         </div>)}
