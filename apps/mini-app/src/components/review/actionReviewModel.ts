@@ -137,7 +137,12 @@ export function changedConsequenceFacts(before: readonly ReviewFact[], after: re
   const oldFacts = new Map(consequenceSummary(before).map((fact) => [fact.label, fact.value]));
   const newFacts = new Map(consequenceSummary(after).map((fact) => [fact.label, fact.value]));
   const labels = new Set([...oldFacts.keys(), ...newFacts.keys()]);
+  // Loading a previously unknown estimate is not a changed reviewed term.
+  // Losing a known value still matters and remains visible.
+  const missing = (value: string | undefined) => value === undefined || /^(?:Unavailable|Not quoted|Loading(?:…|\.\.\.)?|—)$/i.test(value.trim());
   return [...labels].flatMap((label) => oldFacts.get(label) === newFacts.get(label)
+    || (missing(oldFacts.get(label)) && missing(newFacts.get(label)))
+    || (oldFacts.has(label) && missing(oldFacts.get(label)) && !missing(newFacts.get(label)))
     ? []
     : [{ label, before: oldFacts.get(label), after: newFacts.get(label) }]);
 }

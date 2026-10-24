@@ -77,9 +77,10 @@ for (const width of [320, 390, 1280]) test(`Move form keeps amount, quote precis
   await noOverflow(page);
   await page.screenshot({ path: info.outputPath('empty.png') });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  const exactEstimate = received.locator('summary[aria-label^="Show exact receive estimate"]');
+  const exactEstimate = received.locator('[data-receive-amount]');
   await expect(exactEstimate).toBeVisible();
-  const figure = exactEstimate.locator('strong');
+  await expect(received.locator('details')).toHaveCount(0);
+  const figure = exactEstimate;
   await expect(figure).toHaveText('≈ 100');
   expect(await figure.evaluate(element => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(28);
   expect(await figure.evaluate(element => element.getBoundingClientRect().width <= element.parentElement!.getBoundingClientRect().width + 1)).toBe(true);
@@ -89,17 +90,13 @@ for (const width of [320, 390, 1280]) test(`Move form keeps amount, quote precis
   expect(balance && reverse && balance.y + balance.height <= reverse.y).toBeTruthy();
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).press('Tab');
   await page.screenshot({ path: info.outputPath('quoted.png') });
-  await exactEstimate.click();
-  await expect(received.getByText('99.999876543210987655 fxUSD', { exact: false })).toBeVisible();
-  await exactEstimate.click();
   if (width === 320) {
     await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('123456789012345678901234567890');
-    await expect(exactEstimate).toHaveAttribute('aria-label', 'Show exact receive estimate: 123456789012345678901234567889.999876543210987655 fxUSD');
+    await expect(exactEstimate).toBeVisible();
+    await expect(received.locator('details')).toHaveCount(0);
+    await expect(received).not.toContainText('123456789012345678901234567889.999876543210987655 fxUSD');
     expect(await figure.evaluate(element => element.getBoundingClientRect().width <= element.parentElement!.getBoundingClientRect().width + 1)).toBe(true);
-    await exactEstimate.click();
-    await expect(received.getByText('123456789012345678901234567889.999876543210987655 fxUSD', { exact: false })).toBeVisible();
     await noOverflow(page);
-    await exactEstimate.click();
   }
   await page.getByRole('button', { name: /Reverse route to Ethereum/ }).click();
   await expect(page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true })).toHaveValue('');

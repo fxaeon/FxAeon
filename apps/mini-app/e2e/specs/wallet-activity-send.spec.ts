@@ -27,6 +27,7 @@ const mocks: Record<string, string> = {
   './fx/tokens': `export const FX_TOKENS={ ETH:{key:'ETH',address:'0x0000000000000000000000000000000000000000',decimals:18,native:true}, fxUSD:{key:'fxUSD',address:'0x3333333333333333333333333333333333333333',decimals:18,native:false}};`,
 };
 mocks['./ui'] = mocks['@/components/ui'];
+mocks['@/lib/walletSend'] += `export async function prepareWalletSendMax(input,balanceWei) { window.H.maxInputs ??= []; window.H.maxInputs.push(input); if (window.H.deferMax) return new Promise((resolve,reject)=>(window.H.maxResolvers??=[]).push({resolve:(amountWei)=>resolve({amountWei,validUntil:Date.now()+30000}),reject})); return {amountWei:balanceWei-600000000000000n,validUntil:Date.now()+30000}; }`;
 mocks['./BridgeTracker'] = mocks['@/components/BridgeTracker'];
 const entry = `import React from 'react'; import {createRoot} from 'react-dom/client'; import Activity from '@/components/WalletActivity'; import Send from '@/app/send/page';
 const address='0x1111111111111111111111111111111111111111', other='0x2222222222222222222222222222222222222222';
@@ -95,6 +96,9 @@ type SendHarness = {
   deferPrepare?: boolean;
   confirmDuringCommit?: boolean;
   prepareResolvers?: Array<() => void>;
+  deferMax?: boolean;
+  maxInputs?: Array<{ recipient: string }>;
+  maxResolvers?: Array<{ resolve: (amount: bigint) => void; reject: (error: Error) => void }>;
   assets: {
     status: string;
     isFetching: boolean;
@@ -113,6 +117,64 @@ async function openSendReview(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Review', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review send', exact: true })).toBeVisible();
 }
+
+test('native Send Max clears an oversized draft and never reuses a fallback recipient reserve for the actual recipient', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness }).H;
+    h.deferMax = true;
+    h.assets.data!.assets[0].balance = '0.00072128';
+    h.assets.data!.assets[0].balanceWei = 721_280_000_000_000n;
+  });
+  await page.getByRole('button', { name: 'Test send' }).click();
+  const amount = page.getByLabel('Amount', { exact: true });
+  await amount.fill('1');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(1);
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect(amount).toHaveValue('');
+  await expect(page.getByRole('button', { name: 'Checking Max…', exact: true })).toBeDisabled();
+  await page.getByLabel('Recipient address').fill('0x2222222222222222222222222222222222222222');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(2);
+  await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxResolvers?.[0].resolve(700_000_000_000_000n));
+  await expect(amount).toHaveValue('');
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxResolvers?.[1].resolve(200_000_000_000_000n));
+  await expect(amount).toHaveValue('0.0002');
+  await amount.fill('1');
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect(amount).toHaveValue('0.0002');
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs)).toEqual([
+    expect.objectContaining({ recipient: '0x1111111111111111111111111111111111111111' }),
+    expect.objectContaining({ recipient: '0x2222222222222222222222222222222222222222' }),
+  ]);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.sends.length)).toBe(0);
+});
+
+test('native Send Max leaves a later manual edit intact when the cold fee check completes', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => { (window as unknown as { H: SendHarness }).H.deferMax = true; });
+  await page.getByRole('button', { name: 'Test send' }).click();
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxResolvers?.length)).toBe(1);
+  await page.getByLabel('Amount', { exact: true }).fill('0.123');
+  await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxResolvers?.[0].resolve(900_000_000_000_000_000n));
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('0.123');
+});
+
+test('ERC20 Send Max applies the exact balance without a fee request', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => {
+    const h = (window as unknown as { H: SendHarness }).H;
+    h.assets.data!.assets = [{ id: 'fxusd', chainId: 1, tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'fxUSD', decimals: 18,
+      balanceWei: 123_456_789_123_456_789_123n, balance: '123.456789123456789123' }];
+  });
+  await page.getByRole('button', { name: 'Test send' }).click();
+  await page.getByLabel('Amount', { exact: true }).fill('999');
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('123.456789123456789123');
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.prepares)).toBe(0);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length ?? 0)).toBe(0);
+});
 
 test('Send submitted footer stays compact and never labels a hash or estimated fee as confirmed', async ({ page }) => {
   await mount(page);

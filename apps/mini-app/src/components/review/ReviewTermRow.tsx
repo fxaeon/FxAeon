@@ -9,8 +9,7 @@ import { ProtocolFeeAmount } from './ProtocolFeeAmount';
 import { reviewHelpDefinition } from './reviewHelp';
 import styles from './ActionReviewPresentation.module.css';
 
-/** A decision term owns its definition and exact source value in place.
- * The technical panel does not need a second copy of the same term. */
+/** Compact decision value with a single, concise explanation on its info icon. */
 export function ReviewTermRow({ fact, displayLabel, displayValue, help: helpOverride, quiet = false }: {
   fact: ReviewFact; displayLabel?: string; displayValue?: ReactNode; help?: ReactNode; quiet?: boolean;
 }) {
@@ -30,13 +29,18 @@ export function ReviewTermRow({ fact, displayLabel, displayValue, help: helpOver
   </div>;
 }
 
-/** Definitions stay short. Full numeric precision remains on the value itself;
- * missing-source and nonnumeric quote caveats stay reachable on the info icon. */
+/** Definitions stay short; transaction precision remains in the accepted model. */
 export function reviewTermHelp(fact: ReviewFact): string | undefined {
   const definition = reviewHelpDefinition(fact.label);
   const source = fact.title && fact.title !== fact.value ? fact.title : undefined;
   if (['Unavailable', 'Not quoted', '—'].includes(fact.value) && source) return source;
+  if (fact.label === 'Minimum fxSP') return 'This minimum protects the intermediate fxSP deposit. The final fxSAVE share amount is an estimate and can change with the vault conversion.';
   if (fact.label === 'Rebalance price' || fact.label === 'Liquidation price') return `${definition ? INFO_HELP_CONTENT[definition] : ''} Uses the pool’s collateral price, not an ETH/USD or BTC/USD spot quote.`;
+  if (fact.label === 'f(x) fee' || fact.label === 'Protocol fee') {
+    const rates = source?.match(/\d+(?:\.\d+)?% of (?:supplied collateral|withdrawn collateral|borrowed debt|repaid debt)/g)
+      ?? (/^\d+(?:\.\d+)?%$/.test(fact.value) ? [fact.value] : []);
+    return rates.length ? `${INFO_HELP_CONTENT.protocolFee} Quoted ${rates.length === 1 ? 'rate' : 'rates'}: ${rates.join(' + ')}.` : undefined;
+  }
   if (source && !/^(?:≈\s*)?[+\-\d$€£]/.test(source)) return `${definition ? `${INFO_HELP_CONTENT[definition]} ` : ''}${source}`;
   return undefined;
 }

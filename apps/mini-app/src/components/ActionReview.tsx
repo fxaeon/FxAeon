@@ -467,6 +467,8 @@ export function ActionReview(props: ActionReviewProps) {
   // route limits and verification evidence belong in the technical disclosure.
   const decisionLabels = new Set([
     ...amountLabels, ...compactFacts.map(fact => fact.label), identityLabel,
+    // A new loan already names its resulting total debt in the position strip.
+    ...(newBorrowReview && positionChanges.paired.some(change => change.label === 'Debt') ? ['Debt added'] : []),
     ...(/(?:Position|Loan) #/.test(identity.subtitle ?? '') ? ['Position'] : []),
     ...(collateral ? ['Estimated collateral'] : []),
     ...(tradingAction ? ['Execution price', 'Price impact'] : []),
@@ -519,12 +521,12 @@ export function ActionReview(props: ActionReviewProps) {
           <div className={presentationStyles.consequenceGroup}>
             {collateral && <ReviewTermRow fact={collateral} displayLabel="Position size · collateral" displayValue={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : undefined} />}
             {compactFacts.map(fact => <ReviewRow compact key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Loan-to-value' ? 'Resulting LTV' : fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} feeAmounts={fact.feeAmounts} quiet={stablePreparation} />)}
-            {intent?.kind === 'fxsave-deposit' && <ReviewRow compact label="Current APY" value={currentApy?.value ?? 'Unavailable'} title={currentApy ? currentApy.title : 'The accepted route does not supply a verified current APY. No yield is inferred from an exchange rate or sample value.'} />}
+            {intent?.kind === 'fxsave-deposit' && <ReviewRow compact label="Current APY" displayLabel="APY" value={props.savingsApy ? `${props.savingsApy.apy.toFixed(2)}%` : currentApy?.value ?? (props.savingsApyStatus === 'loading' ? '—' : 'Unavailable')} title={props.savingsApy ? `${INFO_HELP_CONTENT.fxSaveApy}${props.savingsApyStatus === 'unavailable' ? ' Last verified rate; refresh is unavailable.' : ''}` : currentApy?.title ?? 'The current APY could not be loaded from f(x). It does not change the deposit amount.'} />}
             {tradingAction && <ReviewRow compact label="Execution price" value={executionPrice?.value ?? 'Unavailable'} title={executionPrice ? executionPrice.title : 'The accepted route does not provide a verified execution price.'} />}
-            {tradingAction && <ReviewRow compact label="Price impact" value={priceImpact?.value ?? 'Unavailable'} title={priceImpact ? priceImpact.title : 'The accepted route does not provide a verified price-impact estimate.'} />}
+            {tradingAction && priceImpact && <ReviewRow compact label="Price impact" value={priceImpact.value} title={priceImpact.title} />}
             {slippage && !loanAction && <ReviewRow compact label="Slippage" displayLabel="Max. slippage" value={slippage.value} title={slippage.title} />}
           </div>
-          {!leverageReview && positionChangeRows.length > 0 && <PositionOutcomeSummary facts={positionChangeRows} />}
+          {!leverageReview && positionChangeRows.length > 0 && <PositionOutcomeSummary facts={positionChangeRows} newPosition={newBorrowReview} />}
           {hierarchy.primary.filter(fact => fact.label === 'Claim payout').map(fact => <p key={fact.label} data-review-fact={fact.label} className={presentationStyles.claimCaveat} title={fact.title}>{fact.value}</p>)}
           {loanAction && <div className={presentationStyles.costGroup}>
             {intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n && <ReviewTermRow displayLabel="Funding status"
@@ -643,9 +645,6 @@ export function ActionReview(props: ActionReviewProps) {
 
       </> : null}
       {route && <AdvancedReviewDetails route={route} />}
-      <div className={presentationStyles.advancedNotes}>
-        <p>USD uses current prices, not transaction limits or receipt-time prices.</p>
-      </div>
       </div>
       </details>
 

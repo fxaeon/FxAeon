@@ -13,7 +13,8 @@ import WalletConnectCTA from '@/components/WalletConnectCTA';
 import { useWalletAssets } from '@/components/WalletDataProvider';
 import { useWalletDemand } from '@/components/WalletDemandProvider';
 import { usePrivyWallet } from '@/lib/wallet';
-import { prepareWalletSend, type SendInput, type SendQuote } from '@/lib/walletSend';
+import { prepareWalletSend, prepareWalletSendMax, type SendInput, type SendQuote } from '@/lib/walletSend';
+import { useNativeMax } from '@/lib/fx/useNativeMax';
 import { recordPendingHash } from '@/lib/fx/journal';
 import { withWalletChainLock } from '@/lib/fx/lock';
 import { readGasTier, SETTINGS_KEY, SETTINGS_UPDATED_EVENT, type GasTier } from '@/lib/settings';
@@ -123,6 +124,15 @@ function SendForm() {
   const current = () => mounted.current && currentIdentity.current === identity;
   const trimmedRecipient = recipient.trim();
   const recipientValid = isAddress(trimmedRecipient);
+  const maxRecipient = recipientValid ? trimmedRecipient : wallet.address;
+  const nativeMax = useNativeMax({
+    contextKey: !quote && !busy && asset && !asset.tokenAddress && fundedAsset && selectedNetworkReady && wallet.address && maxRecipient
+      ? JSON.stringify(['send', identity, wallet.chainId, wallet.isEmbedded, asset.id, asset.chainId, asset.balanceWei.toString(), maxRecipient.toLowerCase(), trimmedRecipient.toLowerCase(), wallet.isEmbedded ? tier : 'standard'])
+      : null,
+    calculate: () => prepareWalletSendMax({ walletAddress: wallet.address as Address, recipient: maxRecipient as Address,
+      chainId: asset!.chainId, tokenAddress: null, tier: wallet.isEmbedded ? tier : 'standard' }, asset!.balanceWei),
+    onAmount: (maximum) => setAmount(maximum === null ? '' : formatUnits(maximum, asset!.decimals)),
+  });
   const input = (value = amount, to = trimmedRecipient): SendInput => {
     if (!asset || !wallet.address || !isAddress(to)) throw new Error('Enter a valid recipient address.');
     return { walletAddress: wallet.address as Address, recipient: to as Address, chainId: asset.chainId, tokenAddress: asset.tokenAddress,
@@ -157,18 +167,13 @@ function SendForm() {
     }
     finally { if (attempt.current === generation) { lock.current = false; signing.current = false; if (current()) { setBusy(false); setAwaitingSignature(false); } } }
   };
-  const maximum = () => void run(async (isCurrent) => {
+  const maximum = () => {
     setAmountEntryError('');
+    setError('');
     if (!asset) return;
-    if (asset.tokenAddress || !wallet.address) { setAmount(asset.balance); return; }
-    // Until a recipient is entered, cost a transfer back to this wallet. A plain ETH
-    // transfer costs the same, and review re-quotes the real recipient before signing.
-    const estimate = await prepareWalletSend(input('0.000000000000000001', recipientValid ? trimmedRecipient : wallet.address));
-    if (!isCurrent()) return;
-    const reserve = estimate.requiredNative - 1n;
-    if (asset.balanceWei <= reserve) throw new Error('Not enough ETH for network cost.');
-    setAmount(formatUnits(asset.balanceWei - reserve, asset.decimals));
-  });
+    if (asset.tokenAddress) { nativeMax.cancel(); setAmount(asset.balance); return; }
+    void nativeMax.resolveMax();
+  };
   const review = () => void run(async (isCurrent) => {
     const result = await prepareWalletSend(quote ? { ...quote.input, tier: wallet.isEmbedded ? tier : 'standard' } : input());
     if (isCurrent()) { acceptedContext.current = context; setQuote(result); }
@@ -247,11 +252,11 @@ function SendForm() {
       <div data-focus-field className={styles.amountPanel}>
         <div className={styles.panelHead}>
           <label htmlFor="send-amount">Amount</label>
-          <button type="button" className={styles.max} disabled={busy || !fundedAsset} onClick={maximum}><span>Max</span></button>
+          <button type="button" className={styles.max} disabled={busy || nativeMax.pending || !fundedAsset || !asset?.tokenAddress && !selectedNetworkReady} aria-busy={nativeMax.pending || undefined} onClick={maximum}><span>{nativeMax.pending ? 'Checking Max…' : 'Max'}</span></button>
         </div>
         <div className={styles.amountRow}>
-          <span className={styles.amountFit}><DecimalInput id="send-amount" className={styles.amountInput} style={{ '--amount-length': Math.max(trimmedAmount.length, 4) } as CSSProperties} autoComplete="off" spellCheck={false} placeholder="0.00" value={amount} disabled={busy} aria-invalid={Boolean(amountProblem || amountEntryError) || undefined} onKeyDown={reviewOnEnter} onInvalidInput={setAmountEntryError} onValueChange={(next) => { setAmount(next); setError(''); setAmountEntryError(''); }} maxLength={100} /></span>
-          <WalletAssetPicker label="Asset to send" assets={tokens} value={asset} disabled={busy} loading={assets.status === 'loading' || assets.status === 'idle'} emptyLabel={readFailed ? 'Unavailable' : undefined} onChange={(next) => { setSelectedAsset(next); setAmount(''); setError(''); setAmountEntryError(''); }} />
+          <span className={styles.amountFit}><DecimalInput id="send-amount" className={styles.amountInput} style={{ '--amount-length': Math.max(trimmedAmount.length, 4) } as CSSProperties} autoComplete="off" spellCheck={false} placeholder="0.00" value={amount} disabled={busy} aria-invalid={Boolean(amountProblem || amountEntryError) || undefined} onKeyDown={reviewOnEnter} onInvalidInput={setAmountEntryError} onValueChange={(next) => { nativeMax.cancel(); setAmount(next); setError(''); setAmountEntryError(''); }} maxLength={100} /></span>
+          <WalletAssetPicker label="Asset to send" assets={tokens} value={asset} disabled={busy} loading={assets.status === 'loading' || assets.status === 'idle'} emptyLabel={readFailed ? 'Unavailable' : undefined} onChange={(next) => { nativeMax.cancel(); setSelectedAsset(next); setAmount(''); setError(''); setAmountEntryError(''); }} />
         </div>
         {amountEntryError ? <p className={styles.hint} role="alert">{amountEntryError}</p>
           : amountProblem && trimmedAmount !== '.' ? <p className={styles.hint}>{amountProblem}</p>
@@ -271,7 +276,7 @@ function SendForm() {
         {trimmedRecipient && !recipientValid && <p id={recipientHintId} className={styles.hint}>Enter a complete 0x wallet address.</p>}
       </div>
     </>}
-    {error && <p role="alert" className={styles.error}>{error}</p>}
+    {(error || nativeMax.error) && <p role="alert" className={styles.error}>{error || nativeMax.error}</p>}
     {quote && quoteExpired && <p role="status" className={styles.hint}>{quote.validUntil <= Date.now() ? 'Network fee quote expired. ' : ''}Review an updated fee before confirming.</p>}
     <StickyAction><button type="button" className={`button button-primary ${styles.action}`} aria-busy={busy || undefined} disabled={busy || !quote && blocker !== null} onClick={quote && !quoteExpired ? confirm : review}>{busy ? awaitingSignature ? 'Confirm in wallet' : 'Preparing' : quote ? quoteExpired ? 'Review updated fee' : 'Confirm' : blocker ?? <>Review<ChevronRight aria-hidden="true" /></>}</button></StickyAction>
   </section>;

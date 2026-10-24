@@ -28,7 +28,7 @@ const mocks: Record<string, string> = {
     export const getPublicClient = unexpectedRead;
     export const getEthereumClient = unexpectedRead;
     export const getFxReadFacade = unexpectedRead;
-    export const FX_TOKENS = { USDC: { key: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
+    export const FX_TOKENS = { ETH: { key: 'ETH', address: '0x0000000000000000000000000000000000000000', decimals: 18, native: true }, USDC: { key: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
     // The real fee copy, so the review's max and its shortfall notice are checked together.
     export { formatRouteGasCost } from '@/lib/fx/gasCost';
     export const useRouteGasCost = () => H().gasCost;
@@ -217,7 +217,7 @@ export const useInvalidateWalletData = () => async () => {
     // covered by review-formatting.test.ts and the fork browser review.
     export const tokenAmountReviewFact = (label, value) => ({ label, value: String(value), title: String(value) });
   `,
-  '@/lib/fx/policy': `export const positionPoolAddress = () => '0x00000000000000000000000000000000000000bb';`,
+  '@/lib/fx/policy': `import { positionPoolAddress as actualPool } from './src/lib/fx/policy'; export const positionPoolAddress = (...args) => globalThis.__actionReviewHarness?.financialFacts ? actualPool(...args) : '0x00000000000000000000000000000000000000bb';`,
   // The funds notice links to Receive; the isolated harness has no Next router.
   'next/link': `import React from 'react'; export default ({ href, children, ...props }) => <a href={href} {...props}>{children}</a>;`,
   // ActionReview uses router.push for its completion links. This harness

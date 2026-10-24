@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateNativeMax, nativeMaxErrorMessage, type NativeMaxEstimate } from '../src/lib/fx/nativeMax';
+import { calculateNativeMax, calculateVerifiedNativeMax, NativeMaxCache, nativeMaxErrorMessage, type NativeMaxEstimate, type VerifiedNativeMax } from '../src/lib/fx/nativeMax';
 
 function estimate(amount: bigint, reserve: bigint, validUntil = 10_000): NativeMaxEstimate {
   return {
@@ -149,4 +149,87 @@ test('native Max errors are mapped to concise user-safe messages', () => {
   assert.equal(nativeMaxErrorMessage(new Error('wallet balance does not cover the verified gas reserve')), 'Not enough ETH for network fees.');
   assert.equal(nativeMaxErrorMessage(new Error('native max estimate timed out')), 'Gas estimate timed out. Try again.');
   assert.equal(nativeMaxErrorMessage(new Error('SDK leverage must be >= 2x for this route')), 'Could not calculate Max. Try again.');
+});
+
+test('RPC underfunding returned as an unavailable estimate retries a smaller fundable probe', async () => {
+  const built: bigint[] = [];
+  const result = await calculateNativeMax({
+    balanceWei: 1_000n,
+    initialCandidateWei: 900n,
+    now: () => 1,
+    buildRoutes: async (amount) => { built.push(amount); return [amount]; },
+    estimateRoutes: async ([amount]) => amount > 800n
+      ? [{ ...estimate(amount, 300n), status: 'unavailable', insufficientNativeBalance: true, error: 'Not enough ETH for network fees' }]
+      : [estimate(amount, 300n)],
+  });
+  assert.equal(result, 700n);
+  assert.deepEqual(built, [900n, 450n, 700n]);
+});
+
+test('complete Base reserve includes L1 and operator fees and keeps its proof deadline', async () => {
+  const result = await calculateVerifiedNativeMax({
+    balanceWei: 1_000n,
+    now: () => 1,
+    buildRoutes: async (amount) => [amount],
+    estimateRoutes: async ([amount]) => [{ ...estimate(amount, 100n, 9_000), totalNativeCostScope: 'execution-plus-l1-plus-operator-plus-value' }],
+  });
+  assert.deepEqual(result, { amountWei: 900n, validUntil: 9_000 });
+});
+
+test('warm Max cache coalesces pending work and serves the exact fresh context synchronously', async () => {
+  let now = 1;
+  const cache = new NativeMaxCache(() => now);
+  let calculations = 0;
+  let resolve!: (value: VerifiedNativeMax) => void;
+  const calculate = () => { calculations += 1; return new Promise<VerifiedNativeMax>((done) => { resolve = done; }); };
+  const first = cache.prepare('wallet:chain:balance:route:tier', calculate);
+  const second = cache.prepare('wallet:chain:balance:route:tier', calculate);
+  await Promise.resolve();
+  assert.equal(calculations, 1);
+  assert.equal(first, second);
+  resolve({ amountWei: 900n, validUntil: 10 });
+  await first;
+  assert.deepEqual(cache.peek('wallet:chain:balance:route:tier'), { amountWei: 900n, validUntil: 10 });
+  assert.equal(cache.peek('other-wallet:chain:balance:route:tier'), undefined);
+  await cache.prepare('wallet:chain:balance:route:tier', calculate);
+  assert.equal(calculations, 1);
+  now = 10;
+  assert.equal(cache.peek('wallet:chain:balance:route:tier'), undefined);
+});
+
+test('failed and expired warmups never publish a Max and allow a later retry', async () => {
+  const cache = new NativeMaxCache(() => 10);
+  await assert.rejects(cache.prepare('key', async () => { throw new Error('fee unavailable'); }), /fee unavailable/);
+  assert.equal(cache.peek('key'), undefined);
+  await assert.rejects(cache.prepare('key', async () => ({ amountWei: 900n, validUntil: 10 })), /unavailable/);
+  assert.equal(cache.peek('key'), undefined);
+  await cache.prepare('key', async () => ({ amountWei: 800n, validUntil: 11 }));
+  assert.equal(cache.peek('key')?.amountWei, 800n);
+});
+
+test('native Max reserves additional protocol value as well as execution gas', async () => {
+  const result = await calculateNativeMax({
+    balanceWei: 1_000n,
+    now: () => 1,
+    buildRoutes: async (amount) => [amount],
+    estimateRoutes: async ([amount]) => [estimate(amount + 50n, 100n)],
+  });
+  assert.equal(result, 850n);
+});
+
+test('persistent RPC underfunding reports insufficient ETH after the bounded probes', async () => {
+  await assert.rejects(calculateNativeMax({
+    balanceWei: 1_000n,
+    buildRoutes: async (amount) => [amount],
+    estimateRoutes: async ([amount]) => [{ ...estimate(amount, 300n), status: 'unavailable', insufficientNativeBalance: true, error: 'Not enough ETH for network fees' }],
+  }), /insufficient funds/);
+});
+
+test('a final complete estimate cannot certify Max when the newly read wallet balance is insufficient', async () => {
+  await assert.rejects(calculateNativeMax({
+    balanceWei: 1_000n,
+    now: () => 1,
+    buildRoutes: async (amount) => [amount],
+    estimateRoutes: async ([amount]) => [{ ...estimate(amount, 100n), insufficientNativeBalance: amount === 900n }],
+  }), /request is stale/);
 });

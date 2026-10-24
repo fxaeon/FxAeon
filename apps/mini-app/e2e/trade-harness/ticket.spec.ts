@@ -16,8 +16,8 @@ test.beforeAll(async () => { bundle = await buildHarness(); });
 
 type Control = {
   wallet: { ready: boolean; authenticated: boolean; isEmbedded: boolean; address: string; chainId: number; connectionVersion: number };
-  events: Array<{ name: string; start: number; end?: number; error?: string }>;
-  trace: (name: string, fn: () => Promise<unknown>) => Promise<unknown>;
+  events: Array<{ name: string; start: number; end?: number; error?: string; purpose?: 'native-max' | 'ticket'; amount?: string; leverage?: number }>;
+  trace: (name: string, fn: () => Promise<unknown>, args?: unknown[]) => Promise<unknown>;
   prices?: import('../../src/lib/prices').UsdPriceSnapshot;
 };
 type Harness = typeof globalThis & { __longReview: Control };
@@ -54,8 +54,10 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
       wallet: { ready: true, authenticated: true, isEmbedded: true, address: '0x1111111111111111111111111111111111111111', chainId: 1, connectionVersion: 1 },
       events: [],
       ...(pricedProtocolFees ? { prices: { status: 'ready' as const, prices: { ETH: 2000, wstETH: 2400, stETH: 2000, fxUSD: .99 }, updatedAt: Date.now() } } : {}),
-      async trace(name, fn) {
-        const event: Control['events'][number] = { name, start: performance.now() }; h.events.push(event);
+      async trace(name, fn, args = []) {
+        const request = args[0] as { amount?: bigint; leverage?: number } | undefined;
+        const event: Control['events'][number] = { name, start: performance.now(), ...(name === 'planIncreasePosition'
+          ? { purpose: args[1] === 'native-max' ? 'native-max' as const : 'ticket' as const, amount: request?.amount?.toString(), leverage: request?.leverage } : {}) }; h.events.push(event);
         try { return await fn(); } catch (cause) { event.error = String(cause); throw cause; } finally { event.end = performance.now(); }
       },
     };
@@ -66,10 +68,10 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
   await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'readLeverageBounds' && event.end !== undefined))).toBe(true);
 }
-const planCount = (page: Page) => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition').length);
+const planCount = (page: Page) => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').length);
 const outcome = (page: Page) => page.getByRole('group', { name: 'Estimated position' });
 const fact = (page: Page, label: string) => outcome(page).locator(`[data-outcome-fact="${label}"] dd`);
-const displayedFact = (page: Page, label: string) => fact(page, label).locator(':scope > details > summary > span, :scope > span').first();
+const displayedFact = (page: Page, label: string) => fact(page, label).locator(':scope > span').first();
 /** A preview row's estimate, as displayed on the ticket. */
 const figure = async (page: Page, label: string) => (await displayedFact(page, label).textContent()) ?? '';
 /** The review's plain fact value; token amounts use their own exact-value disclosure. */
@@ -83,25 +85,17 @@ test('quoted protocol fee dollars lead in the funded form and review while the r
   await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.1');
   await slider(page).fill('2.8');
   await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-  const feeSummary = fact(page, 'f(x) fee').locator('summary');
-  await expect(feeSummary).toHaveText(/^(?:≈ \$[\d,.]+|<\$0\.01)$/);
-  const dollars = await feeSummary.textContent();
-  await feeSummary.click();
-  await expect(fact(page, 'f(x) fee')).toContainText('0.1% of supplied collateral');
-  await expect(fact(page, 'f(x) fee')).toContainText('wstETH +');
-  await expect(fact(page, 'f(x) fee')).toContainText('fxUSD; estimated from the same SDK collateral and debt quote');
-  await feeSummary.click();
+  const feeValue = fact(page, 'f(x) fee').locator('[data-usd-state]');
+  await expect(feeValue).toHaveText(/^(?:≈ \$[\d,.]+|<\$0\.01)$/);
+  const dollars = await feeValue.textContent();
+  await expect(fact(page, 'f(x) fee').locator('details, summary')).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: info.outputPath('protocol-fee-form-390.png'), animations: 'disabled', fullPage: true });
   const plans = await planCount(page);
   await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
   const reviewFee = reviewFact(page, 'f(x) fee');
-  await expect(reviewFee.locator('summary')).toHaveText(dollars!);
-  await reviewFee.locator('summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(reviewFee).toContainText('0.1% of supplied collateral');
-  await expect(reviewFee).toContainText('excludes network gas');
-  await page.keyboard.press('Enter');
+  await expect(reviewFee.locator('[data-usd-state]')).toHaveText(dollars!);
+  await expect(reviewFee.locator('details, summary')).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('protocol-fee-review-390.png'), animations: 'disabled' });
   expect(await planCount(page)).toBe(plans);
 });
@@ -158,13 +152,8 @@ test.describe('the ticket’s outcome preview', () => {
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     const previewPrice = fact(page, 'Execution price');
-    await previewPrice.locator('summary').click();
-    const executionPriceExact = await previewPrice.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last().textContent();
-    expect(executionPriceExact).toMatch(/^[\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
-    await previewPrice.locator('summary').click();
     const preview = {
       executionPrice: await figure(page, 'Execution price'),
-      executionPriceExact,
       liquidationPrice: await figure(page, 'Liquidation price'),
       fee: await figure(page, 'f(x) fee'),
     };
@@ -178,58 +167,31 @@ test.describe('the ticket’s outcome preview', () => {
 
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
-    // Ticket and review disclosures retain the same complete source quote.
-    expect(preview.executionPriceExact).toBeTruthy();
-    await expect(reviewFact(page, 'Execution price').locator('summary > span')).toHaveText(preview.executionPrice);
-    await reviewFact(page, 'Execution price').locator('summary').click();
-    await expect(reviewFact(page, 'Execution price').getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(preview.executionPriceExact!);
-    await reviewFact(page, 'Execution price').locator('summary').click();
+    // Ticket and review show the same compact quote without inline precision panels.
+    await expect(previewPrice.locator('details, summary')).toHaveCount(0);
+    await expect(reviewFact(page, 'Execution price')).toHaveText(preview.executionPrice);
+    await expect(reviewFact(page, 'Execution price').locator('details, summary')).toHaveCount(0);
     const collateral = page.locator('[data-review-fact="Estimated collateral"]').first();
     await expect(collateral).toContainText('Position size · collateral');
     const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
     await expect(collateralValue).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
-    const collateralSource = (await collateralValue.getAttribute('title'))!.split('. USD value unavailable:')[0];
-    expect(collateralSource).toMatch(/^[\d,]+(?:\.\d+)? stETH \([\d,]+(?:\.\d+)? wstETH at [\d,]+(?:\.\d+)? stETH per wstETH\)$/);
-    await expect(collateralValue).toHaveAttribute('title', /USD value unavailable: no fresh matching wstETH price\.$/);
+    await expect(collateralValue).not.toHaveAttribute('title', /wstETH at .* per wstETH/);
     const details = page.getByLabel('Advanced transaction details', { exact: true });
     await details.locator(':scope > summary').click();
     await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
-    // The full accepted amount and conversion rate are unchanged, not parsed
-    // back out of the compact display or the unrelated USD estimate.
-    await collateral.locator('summary').click();
-    await expect(collateral.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(collateralSource);
-    await collateral.locator('summary').click();
+    // The native estimate remains compact while the accepted route owns the exact amount.
+    await expect(collateral.locator('details, summary')).toHaveCount(0);
     const debt = reviewFact(page, 'Estimated debt');
-    await expect(debt.locator('summary > span')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
-    const exactDebt = (await debt.getAttribute('title'))!;
-    expect(exactDebt).toMatch(/^[\d,]+(?:\.\d+)? fxUSD$/);
-    await debt.locator('summary').click();
-    await expect(debt.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText(exactDebt);
-    await debt.locator('summary').click();
+    await expect(debt).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
+    await expect(debt.locator('details, summary')).toHaveCount(0);
     const fee = reviewFact(page, 'f(x) fee');
-    await expect(fee.locator('summary > span')).toHaveText(preview.fee);
-    await fee.locator('summary').click();
-    await expect(fee.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last()).toHaveText('0.1% of supplied collateral + 0.3% of borrowed debt');
-    await expect(fee.getByText('Source detail', { exact: true }).locator('..').locator(':scope > span').last()).toContainText('0.1% of supplied collateral + 0.3% of borrowed debt when that leg has a nonzero amount. Quoted f(x) rates; excludes network gas, conversion costs and retained slippage.');
-    await fee.locator('summary').click();
+    await expect(fee.locator('[data-usd-state]')).toHaveText(preview.fee);
+    await expect(fee.locator('details, summary')).toHaveCount(0);
     // A compact floor may round for display, but its full signed wstETH
     // amount remains exact; the separate stETH equivalent is only an estimate.
     const floor = reviewFact(page, 'Minimum converted input');
-    const exactFloor = (await floor.getAttribute('title'))!;
-    expect(exactFloor).toMatch(/^[\d,]+(?:\.\d+)? wstETH$/);
-    const floorDetails = floor.locator(':scope > details');
-    if (await floorDetails.count()) {
-      await expect(floorDetails.locator('summary > span')).toHaveText(/^(?:≈ )?[\d,]+(?:\.\d+)? wstETH$/);
-      await floorDetails.locator('summary').click();
-      const fullFloor = floorDetails.getByText('Full value', { exact: true }).locator('..').locator(':scope > span').last();
-      await expect(fullFloor).toBeVisible();
-      expect((await fullFloor.textContent())!.replace(/,/g, '')).toBe(exactFloor.replace(/,/g, ''));
-      const source = floorDetails.getByText('Source detail', { exact: true });
-      if (await source.count()) await expect(source.locator('..').locator(':scope > span').last()).toHaveText(exactFloor);
-      await floorDetails.locator('summary').click();
-    } else {
-      await expect(floor.locator(':scope > span').first()).toHaveText(exactFloor);
-    }
+    await expect(floor.locator('details, summary')).toHaveCount(0);
+    await expect(floor).toContainText(/wstETH/);
     await expect(floor.locator(':scope > span').last()).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
     // The review reused the warm route it validated: the preview cost no plan of its own.
     expect(await planCount(page)).toBe(plansBeforeReview);
@@ -268,7 +230,7 @@ test.describe('the ticket’s outcome preview', () => {
     failing = true;
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
-    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.error))).toBe(true);
+    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket' && event.error))).toBe(true);
     await expect(outcome(page)).toHaveCount(0);
     await expect(page.locator('[data-trade-ticket] [role="alert"]')).toHaveCount(0);
     failing = false;
@@ -292,22 +254,42 @@ test.describe('the ticket’s outcome preview', () => {
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     await expect(displayedFact(page, 'Liquidation price')).toHaveText(liquidationPrice);
     await expect.poll(() => planCount(page)).toBe(2);
-    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition').every((event) => event.end !== undefined))).toBe(true);
+    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').every((event) => event.end !== undefined))).toBe(true);
     await expect(displayedFact(page, 'Liquidation price')).toHaveText(liquidationPrice);
   });
 
-  test('an untouched ticket stops showing a liquidation estimate once its pool threshold expires', async ({ page }) => {
+  test('an untouched ticket refreshes risk reads without replanning and hides its preview offline', async ({ page }) => {
     await page.clock.install();
     await mount(page);
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition' && event.purpose === 'ticket').every(event => event.end !== undefined))).toBe(true);
     const plans = await planCount(page);
-    await page.clock.fastForward(30_001);
-    await expect(fact(page, 'Liquidation price')).toHaveText('Unavailable');
+    let thresholdReads = 0;
+    page.on('request', request => {
+      if (!request.url().includes('fake-controlled-fixture')) return;
+      const body = request.postDataJSON();
+      const calls = Array.isArray(body) ? body : [body];
+      // getLiquidateRatios(): prove fresh pool reads, not a renewed timestamp
+      // on the warmed route's old quote. Native Max may also read this pool.
+      thresholdReads += calls.filter(call => call.method === 'eth_call' && call.params?.[0]?.data === '0xe9a0e8fa').length;
+    });
+    await page.clock.fastForward(15_001);
+    await expect.poll(() => thresholdReads).toBeGreaterThan(0);
+    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await page.clock.fastForward(15_001);
+    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     expect(await planCount(page)).toBe(plans);
-    await expect(displayedFact(page, 'Execution price')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
+    await page.context().setOffline(true);
+    await page.clock.fastForward(30_001);
+    // The parent ticket deliberately withholds the entire advisory preview
+    // while offline; the risk hook also invalidates its pool parameters.
+    await expect(outcome(page)).toHaveCount(0);
+    expect(await planCount(page)).toBe(plans);
+    await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.0003');
+    await expect(slider(page)).toHaveValue('2.8');
   });
 
   test('quoted execution and liquidation prices remain readable on narrow dark tickets', async ({ page }) => {

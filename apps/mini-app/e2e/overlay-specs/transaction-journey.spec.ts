@@ -52,7 +52,8 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   await expect(cta).toHaveText('Borrow fxUSD');
   await expect(cta).toBeInViewport({ ratio: 1 });
   await expect(viewport.locator('[data-review-fact="Estimated fxUSD received"]')).toContainText('49.75');
-  await expect(viewport.locator('[data-review-fact="Debt added"]')).toContainText('50 fxUSD');
+  const debt = viewport.getByRole('region', { name: 'Estimated position', exact: true }).locator('dl > div').filter({ hasText: 'Total debt' });
+  await expect(debt).toContainText('50 fxUSD');
   await expect(viewport.locator('[data-review-fact="Liquidation price"]')).toContainText('$1,388.89');
   await page.evaluate(async () => {
     await document.fonts.load('600 28px Manrope');
@@ -78,13 +79,14 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
     });
     expect(hitTarget.hit, 'The compact help target receives its center hit').toBe(true);
     expect(hitTarget.neighbors, 'Help controls must not overlap neighboring controls').toEqual([]);
-    const before = await viewport.locator('[data-review-fact="Debt added"]').boundingBox();
+    const before = await debt.boundingBox();
     await borrowRateHelp.click();
     const help = page.getByRole('dialog', { name: 'Funding status', exact: true });
-    await expect(help).toContainText('charged against the whole collateral, not just the fxUSD borrowed');
+    await expect(help).toContainText('borrowing cost on the whole collateral');
+    await expect(help).toContainText('shown per eight hours');
     await expect(help).toContainText('The current rate could not be verified.');
     await expect(help.getByRole('link', { name: 'Verify on f(x) Protocol' })).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
-    expect(await viewport.locator('[data-review-fact="Debt added"]').boundingBox()).toEqual(before);
+    expect(await debt.boundingBox()).toEqual(before);
     await page.screenshot({ path: info.outputPath('funding-status-help.png'), animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(borrowRateHelp).toBeFocused();
@@ -115,18 +117,20 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   await page.evaluate(() => (globalThis as any).__actionReviewHarness.receiptResolvers.shift()());
   const actual = page.getByRole('region', { name: 'Confirmed transaction amounts', exact: true });
   await expect(actual).toBeVisible();
-  await expect(actual.locator('[data-review-fact="Received"] summary')).toHaveText('≈ 49.74 fxUSD');
+  const received = actual.locator('[data-review-fact="Received"]');
+  await expect(received).toContainText('≈ 49.74 fxUSD');
   await expect(actual).not.toContainText('49.75');
   await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toContainText('Network fee');
   await expect(cta).toBeInViewport({ ratio: 1 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
   await page.screenshot({ path: info.outputPath('confirmed.png'), animations: 'disabled' });
-  await actual.locator('[data-review-fact="Received"] summary').focus();
-  await page.keyboard.press('Enter');
-  await expect(actual.locator('[data-review-fact="Received"] details')).toHaveAttribute('open');
-  await expect(actual.locator('[data-review-fact="Received"]')).toContainText('49.741234567890123456 fxUSD');
+  await expect(actual.locator('details, summary')).toHaveCount(0);
+  const receivedBounds = await received.boundingBox();
+  await received.click();
+  expect(await received.boundingBox()).toEqual(receivedBounds);
+  await expect(actual).not.toContainText('Exact reviewed amount');
   await expect(cta).toBeInViewport({ ratio: 1 });
-  await page.screenshot({ path: info.outputPath('exact-receipt.png'), animations: 'disabled' });
+  await page.screenshot({ path: info.outputPath('static-receipt.png'), animations: 'disabled' });
   expect(await metric(page, 'send')).toBe(1);
 });
 

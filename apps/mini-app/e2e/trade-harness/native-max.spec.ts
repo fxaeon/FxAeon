@@ -32,7 +32,8 @@ const mocks: Record<string, string> = {
   '@/components/WalletDataProvider': `export const useWalletBalances = () => ({status:'ready',data:null});`,
   '@/components/ProtocolForm': `import React from 'react'; export { AmountFieldView as AmountField } from '@/components/AmountField'; export { Segmented, LeverageField } from '${src.replaceAll('\\', '/')}/components/ProtocolForm.tsx'; export const SlippageField = () => null; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><option key={o} value={o}>{o}</option>)}</select>; export const tokenBalanceFor = (balances,token) => balances[token]; export const useWalletTokenBalances = () => ({balances:{ETH:{status:'ready',amount:globalThis.__tradeMaxHarness.balance}},status:'ready',refresh:async()=>{}});`,
   '@/lib/fx': `export const MAX_FX_SLIPPAGE_PERCENT=5; export const clampLeverage=(v)=>v; export const estimatePlannedRouteCost=async()=>({}); export const getEthereumClient=()=>({getBlockNumber:async()=>1n}); export const leverageBoundsFor=(market,side)=>({min:side==='long'?1.1:0.1,max:market==='ETH'?(side==='long'?10:6):(side==='long'?8:5)}); export const planIncreasePosition=async(input)=>({input}); export const prepareLeverageReview=async()=>({}); export const readLeverageBounds=async(market,side)=>globalThis.__tradeMaxHarness.nextBounds??leverageBoundsFor(market,side); export const readSignatureRequiredDraft=()=>null; export const restoreSignatureRequiredDraft=()=>null; export const signatureDraftIdFromSearch=()=>null;`,
-  '@/lib/fx/nativeMax': `export const nativeMaxErrorMessage=()=> 'Current gas fees are unavailable. Try again shortly.'; export const calculateNativeMax = (input) => new Promise((resolve,reject) => globalThis.__tradeMaxHarness.requests.push({balanceWei:input.balanceWei,resolve,reject}));`,
+  '@/lib/fx/nativeMax': `export const calculateVerifiedNativeMax = (input) => new Promise((resolve,reject) => globalThis.__tradeMaxHarness.requests.push({balanceWei:input.balanceWei,resolve:(amountWei)=>resolve({amountWei,validUntil:Date.now()+15000}),reject}));`,
+  '@/lib/fx/gasCost': `export const routeGasCostCache = { getOrRefresh: async () => ({}) };`,
   '@/lib/fx/routePrefetch': `export class RoutePrefetchStore { invalidate(){} prime(){return Promise.resolve();} get(){return null;} }`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({ready:true,authenticated:true,address:globalThis.__tradeMaxHarness.address,chainId:globalThis.__tradeMaxHarness.chainId,connectionVersion:1,isEmbedded:true,wallets:[],sendTransaction:async()=>({})});`,
   '@/lib/amount': `export const positiveDecimal = (value) => /^\\d+(\\.\\d*)?$/.test(value); export const calculateFractionDecimal=(value,fraction)=>value; export const compareExactDecimals=(left,right)=>Number(left)-Number(right); export const decimalInputError=()=>null; export const formatExactDecimal=(value)=>String(value); export const formatBalanceDecimal=(value)=>String(value); export const groupDigits=(value)=>String(value); export const normalizeAmountInput=(value)=>value;`,
@@ -90,7 +91,7 @@ async function resolveRequest(page: import('@playwright/test').Page, index: numb
 async function rejectRequest(page: import('@playwright/test').Page, index: number) {
   await page.evaluate((index) => {
     const h = (globalThis as typeof globalThis & { __tradeMaxHarness: Control }).__tradeMaxHarness;
-    h.requests[index].reject(new Error('gas estimate unavailable'));
+    h.requests[index].reject(new Error('current gas estimate is unavailable'));
   }, index);
 }
 
@@ -157,7 +158,7 @@ test('changing Long/Short cancels the pending Max result', async ({ page }) => {
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('');
 });
 
-test('a failed Max request can be retried and each click recalculates', async ({ page }) => {
+test('a failed Max request can be retried and a fresh verified result is reused instantly', async ({ page }) => {
   await mount(page);
   const max = page.getByRole('button', { name: 'Calculate 100% after gas reserve' });
   await max.click();
@@ -170,9 +171,44 @@ test('a failed Max request can be retried and each click recalculates', async ({
   await resolveRequest(page, 1, '0.7');
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toHaveValue('0.7');
   await max.click();
-  await expect.poll(async () => page.evaluate(() => (globalThis as typeof globalThis & { __tradeMaxHarness: Control }).__tradeMaxHarness.requests.length)).toBe(3);
+  await expect(max).toBeEnabled();
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __tradeMaxHarness: Control }).__tradeMaxHarness.requests.length)).toBe(2);
   const balances = await page.evaluate(() => (globalThis as typeof globalThis & { __tradeMaxHarness: Control }).__tradeMaxHarness.requests.map((request) => request.balanceWei.toString()));
-  expect(balances).toEqual(['1000000000000000000','1000000000000000000','1000000000000000000']);
+  expect(balances).toEqual(['1000000000000000000','1000000000000000000']);
+});
+
+test('tiny-balance cold Max clears an oversized amount and never restores it when gas is unavailable', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => { globalThis.__tradeMaxHarness.balance = '0.00072128'; globalThis.__tradeMaxHarness.rerender?.(); });
+  const amount = page.getByRole('textbox', { name: 'Amount in ETH' });
+  await amount.fill('1');
+  const max = page.getByRole('button', { name: 'Calculate 100% after gas reserve' });
+  await max.click();
+  await expect(amount).toHaveValue('');
+  await expect(max).toBeDisabled();
+  const count = await page.evaluate(() => globalThis.__tradeMaxHarness.requests.length);
+  await rejectRequest(page, count - 1);
+  await expect(amount).toHaveValue('');
+  await expect(page.getByText('Current gas fees are unavailable. Try again shortly.')).toBeVisible();
+  await expect(max).toBeEnabled();
+});
+
+test('click-independent warm Max applies immediately and a manual edit cancels a cold request', async ({ page }) => {
+  await mount(page);
+  const amount = page.getByRole('textbox', { name: 'Amount in ETH' });
+  const max = page.getByRole('button', { name: 'Calculate 100% after gas reserve' });
+  await expect.poll(() => page.evaluate(() => globalThis.__tradeMaxHarness.requests.length)).toBe(1);
+  await resolveRequest(page, 0, '0.9');
+  await amount.fill('1');
+  await max.click();
+  await expect(amount).toHaveValue('0.9');
+  expect(await page.evaluate(() => globalThis.__tradeMaxHarness.requests.length)).toBe(1);
+  await page.getByRole('radiogroup', { name: 'Position side' }).getByRole('radio', { name: 'Short' }).click();
+  await max.click();
+  await expect.poll(() => page.evaluate(() => globalThis.__tradeMaxHarness.requests.length)).toBe(2);
+  await amount.fill('0.123');
+  await resolveRequest(page, 1, '0.8');
+  await expect(amount).toHaveValue('0.123');
 });
 
 for (const market of ['ETH', 'BTC']) {

@@ -13,11 +13,12 @@
 .token > span { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: var(--surface-2); }
 .amountContent { min-width: 0; flex: 1; }
 .label { display: block; margin-bottom: 4px; color: var(--mut); font-size: 12px; line-height: 1.4; }
-.amount { margin: 0; font-size: clamp(26px, 6.7vw, 32px); line-height: 1.2; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.amount { margin: 0; font-size: clamp(26px, 6.7vw, 32px); line-height: 1.2; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.amount:not([data-unknown]) { overflow-wrap: normal; word-break: normal; }
 .amount > span { font-size: .64em; font-weight: 500; letter-spacing: -.015em; }
 .amountRow[data-secondary] .amount { font-size: 23px; letter-spacing: -.025em; }
 .amount[data-unknown] { font-size: 23px; letter-spacing: -.025em; }
-.amount[data-long] { font-size: clamp(17px, 4.6vw, 23px); }
+.amount[data-long] { font-size: clamp(14px, 4.2vw, 20px); }
 .subline { display: flex; flex-wrap: wrap; gap: 3px 6px; align-items: baseline; margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: var(--mut); }
 .subline > span { font-size: inherit; margin: 0; }
 .direction { display: block; width: 17px; margin: 15px 0 15px 13px; color: var(--mut); opacity: .7; }
@@ -43,7 +44,7 @@
 .facts { display: grid; gap: 12px; margin: 0; min-width: 0; }
 .facts > div { display: grid; grid-template-columns: minmax(80px,.9fr) minmax(0,1.4fr); gap: 12px; font-size: 12px; line-height: 1.5; }
 .facts dt { color: var(--mut); }
-.facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: normal; word-break: normal; }
 .notes, .priceNote { padding: 14px 0; border-top: 1px solid var(--line); font-size: 11px; line-height: 1.6; color: var(--mut); }
 .notes p, .priceNote { margin: 0; }
 .notes p + p { margin-top: 8px; }
@@ -52,20 +53,10 @@
 .card > .transfer:first-child { padding-top: 0; }
 .simulation:first-child { margin-top: 0; }
 
-/* Successful transfers keep only the outcome and compact receipt footer.
-   Exact precision is available on each amount, not a second technical card. */
+/* Successful transfers keep only the outcome and compact receipt footer. */
 .card[data-compact-complete] { padding-bottom: 14px; }
 .card[data-compact-complete] .transfer { padding-bottom: 12px; }
 .completion > section { margin-top: 0; }
-.exactAmount { min-width: 0; }
-.exactAmount > summary { display: flex; align-items: center; gap: 7px; min-height: 44px; cursor: pointer; list-style: none; }
-.exactAmount > summary::-webkit-details-marker { display: none; }
-.exactAmount > summary > .amount { min-width: 0; }
-.exactAmount > summary > svg { flex-shrink: 0; color: var(--mut); }
-.exactAmount[open] > summary > svg { transform: rotate(180deg); }
-.exactAmount > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 5px; }
-.exactValue { margin: 5px 0 8px; padding: 9px 10px; border-radius: 9px; background: var(--surface); color: var(--text); font-size: 12px; line-height: 1.6; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; user-select: all; }
-.exactValue > span { display: block; color: var(--mut); font-size: 11px; }
 
 /* The reference uses a compact receipt on delivery and an explicit two-step
    timeline in transit. The state is still derived by the canonical tracker. */
@@ -93,12 +84,4 @@
 .advanced { border: 0; }
 .advanced > summary { min-height: 44px; padding-inline: 4px; font-size: 12px; }
 .deliveryNote { margin: 10px 0 0; text-align: center; font-size: 11px; color: var(--mut); line-height: 1.5; }
-.completedAmounts { display: grid; gap: 15px; margin: 0; padding: 16px; border-radius: 19px; background: var(--surface-2); }
-.completedAmounts > div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
-.completedAmounts dt { color: var(--mut); }
-.completedAmounts dd { margin: 0; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
-.compactExact > summary { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-height: 22px; cursor: pointer; list-style: none; }
-.compactExact > summary::-webkit-details-marker { display: none; }
-.compactExact > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.compactExact p { font-size: 11px; font-weight: 400; overflow-wrap: anywhere; margin: 6px 0 0; }
 .card[data-compact-complete] { padding-bottom: 0; }

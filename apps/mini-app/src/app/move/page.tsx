@@ -572,10 +572,9 @@ export default function MovePage() {
             <section className={moveStyles.destinationPanel} aria-label="Receive assets">
             <NetworkField label="Receive" name={destinationName} chainId={destinationChainId} />
               <div className={moveStyles.receiveLine}>
-                {preview?.estimatedReceived !== undefined ? <details className={moveStyles.receiveValue}>
-                  <summary aria-label={`Show exact receive estimate: ${formatUnits(preview.estimatedReceived, 18)} ${token}`}><strong className={moveStyles.receiveAmount} style={{ '--receive-length': receiveDisplay.length } as CSSProperties}>{receiveDisplay}</strong></summary>
-                  <p><span>Unrounded estimate</span>{formatUnits(preview.estimatedReceived, 18)} {token}</p>
-                </details> : <strong className={moveStyles.receiveAmount} data-empty="true" aria-label="Receive estimate unavailable">—</strong>}
+                {preview?.estimatedReceived !== undefined ? <div className={moveStyles.receiveValue}>
+                  <strong className={moveStyles.receiveAmount} data-receive-amount style={{ '--receive-length': receiveDisplay.length } as CSSProperties}>{receiveDisplay}</strong>
+                </div> : <strong className={moveStyles.receiveAmount} data-empty="true" aria-label="Receive estimate unavailable">—</strong>}
                 <span className={moveStyles.receiveAsset}>{!advanced && <TokenIcon symbol={token} size={24} />}<strong>{advanced ? 'Custom token' : token}</strong></span>
               </div>
               <p className={moveStyles.receiveCaption} role="status">

@@ -26,11 +26,11 @@ function useMatchingDisplayQuote(symbol: string) {
   return { quote, timestamp };
 }
 
-export function AmountUsd({ amount, symbol, receipt = false, fallback = 'USD value unavailable' }: { amount: string; symbol: string; receipt?: boolean; fallback?: string }) {
-  const { quote, timestamp } = useMatchingDisplayQuote(symbol);
+export function AmountUsd({ amount, symbol, fallback = 'USD value unavailable' }: { amount: string; symbol: string; receipt?: boolean; fallback?: string }) {
+  const { quote } = useMatchingDisplayQuote(symbol);
   const usd = amountUsdValue(amount, symbol, quote);
-  return <span className={styles.amountUsd} data-usd-state={usd === null ? 'unavailable' : 'estimate'} aria-label={receipt && usd !== null ? `${formatUsd(usd)} at current prices` : undefined} title={usd === null ? 'No fresh display price is available for this asset.' : `Display-price estimate, not a signed or receipt-time value. Price checked ${new Date(timestamp!).toISOString()}.`}>
-    {usd === null ? fallback : `${usd > 0 && usd < .01 ? '' : '≈ '}${formatUsd(usd)}${receipt ? ' now' : ''}`}
+  return <span className={styles.amountUsd} data-usd-state={usd === null ? 'unavailable' : 'estimate'} aria-label={usd === null ? 'USD value unavailable' : undefined}>
+    {usd === null ? fallback : `${usd > 0 && usd < .01 ? '' : '≈ '}${formatUsd(usd)}`}
   </span>;
 }
 
@@ -38,9 +38,7 @@ export function AmountUsd({ amount, symbol, receipt = false, fallback = 'USD val
 export function CollateralAmount({ collateral }: { collateral: PositionOutcomeFacts['collateral'] }) {
   const { quote } = useMatchingDisplayQuote(collateral.symbol);
   const usd = collateralUsdEstimate(collateral, freshDisplayPrices(quote));
-  return <span data-usd-state={usd === null ? 'unavailable' : 'estimate'} title={usd === null
-    ? `${collateral.title ?? collateral.value}. USD value unavailable: no fresh matching ${collateral.symbol} price.`
-    : `Estimated collateral value at the current ${collateral.symbol} display price, not position notional or an execution price. ${collateral.title ?? collateral.value}`}>
+  return <span data-usd-state={usd === null ? 'unavailable' : 'estimate'}>
     {usd ?? collateral.value}
   </span>;
 }
@@ -50,11 +48,8 @@ export function FeeUsd({ fact }: { fact: Pick<ReviewFact, 'value' | 'title'> }) 
   return <AmountUsd amount={amount ?? ''} symbol="ETH" />;
 }
 
-/** Fresh display USD leads; the unchanged exact native cap remains accessible. */
+/** Keep the fee estimate compact; the accepted native cap remains in its fact. */
 export function FeeAmount({ fact }: { fact: Pick<ReviewFact, 'value' | 'title'> }) {
   const amount = nativeCostAmount(fact);
-  return <details className={styles.feePrimary}>
-    <summary aria-label={`Show exact network cost: ${fact.title ?? fact.value}`}><AmountUsd amount={amount ?? ''} symbol="ETH" fallback={formatReviewFactValue({ label: 'Network fee', ...fact }).display} /></summary>
-    <p>{fact.title ?? fact.value}<span>USD is a current-price estimate. The native amount governs the transaction.</span></p>
-  </details>;
+  return <AmountUsd amount={amount ?? ''} symbol="ETH" fallback={formatReviewFactValue({ label: 'Network fee', ...fact }).display} />;
 }

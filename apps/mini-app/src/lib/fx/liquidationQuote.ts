@@ -76,6 +76,18 @@ function positiveUint(value: unknown): bigint | undefined {
 const sameAddress = (left: unknown, right: string) => typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
 const divideUp = (numerator: bigint, denominator: bigint) => (numerator + denominator - 1n) / denominator;
 
+/** Only canonical new-position routes may request refreshed risk parameters. */
+export function routeRiskScope(route: PlannedRoute): { market: 'ETH' | 'BTC'; side: 'long' | 'short' } | undefined {
+  const intent = route.policy?.reviewedAction;
+  if (route.chainId !== 1 || !intent || (intent.kind !== 'deposit-and-mint' && intent.kind !== 'position-increase') || intent.positionId !== 0) return undefined;
+  const side = route.operation === 'depositAndMint' && intent.kind === 'deposit-and-mint' && intent.mintAmount > 0n ? 'long'
+    : route.operation === 'increasePosition' && intent.kind === 'position-increase' ? intent.positionType : undefined;
+  if (side !== 'long' && side !== 'short') return undefined;
+  const market = (['ETH', 'BTC'] as const).find(candidate => sameAddress(intent.poolAddress, positionPoolAddress(candidate, side)));
+  if (!market) return undefined;
+  return { market, side };
+}
+
 /**
  * Pool-native threshold, not an ETH/BTC spot-price projection. PositionLogic
  * uses D*1e36/(oraclePrice*C); BasePool liquidates at getLiquidateRatios()[0].

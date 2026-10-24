@@ -24,8 +24,10 @@ import { deriveConfirmedPositionHint } from '@/lib/confirmedPositions';
 import { confirmedPositionHintKey } from '@/lib/confirmedPositionStorage';
 import { carryNewPosition } from '@/lib/positionBorn';
 import { AmountField, LeverageField, Segmented, TokenSelect, tokenBalanceFor, useWalletTokenBalances, type TokenBalanceView } from '@/components/ProtocolForm';
-import { MAX_FX_SLIPPAGE_PERCENT, clampLeverage, estimatePlannedRouteCost, getEthereumClient, leverageBoundsFor, planIncreasePosition, prepareLeverageReview, readLeverageBounds, readSignatureRequiredDraft, restoreSignatureRequiredDraft, signatureDraftIdFromSearch, type LeverageBounds, type PlannedRoute, type TransactionExecutionResult } from '@/lib/fx';
-import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
+import { MAX_FX_SLIPPAGE_PERCENT, clampLeverage, getEthereumClient, leverageBoundsFor, planIncreasePosition, prepareLeverageReview, readLeverageBounds, readSignatureRequiredDraft, restoreSignatureRequiredDraft, signatureDraftIdFromSearch, type LeverageBounds, type PlannedRoute, type TransactionExecutionResult } from '@/lib/fx';
+import { calculateVerifiedNativeMax } from '@/lib/fx/nativeMax';
+import { useNativeMax } from '@/lib/fx/useNativeMax';
+import { routeGasCostCache } from '@/lib/fx/gasCost';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
 import { readGasTier } from '@/lib/settings';
 import { RoutePrefetchStore, type RoutePrefetchDescriptor } from '@/lib/fx/routePrefetch';
@@ -84,11 +86,37 @@ export default function TradePage() {
   const [highlightedPositionKey, setHighlightedPositionKey] = useState('');
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
-  const [nativeMaxAmount, setNativeMaxAmount] = useState<string | null>(null);
-  const [nativeMaxPending, setNativeMaxPending] = useState(false);
-  const [nativeMaxError, setNativeMaxError] = useState<string | null>(null);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
   const reviewStageRef = useRef<ActionReviewStage>('input');
+  const [nativeMaxAmount, setNativeMaxAmount] = useState<string | null>(null);
+  const [gasTier, setGasTier] = useState(readGasTier);
+  const slippageValue = Number(slippage);
+  const ethBalance = tokenBalanceFor(walletBalances.balances, 'ETH');
+  const maxBalanceWei = ethBalance?.status === 'ready' && ethBalance.amount ? parseAmount(ethBalance.amount, 'ETH') : null;
+  const nativeMaxContext = reviewStage === 'input' && token === 'ETH' && wallet.address && maxBalanceWei
+    && Number.isFinite(leverage) && leverage >= leverageBounds.min && leverage <= leverageBounds.max
+    && Number.isFinite(slippageValue) && slippageValue > 0 && slippageValue <= MAX_FX_SLIPPAGE_PERCENT
+    ? JSON.stringify(['trade', wallet.address.toLowerCase(), wallet.chainId, wallet.isEmbedded, maxBalanceWei.toString(), market, side, leverage, slippageValue, leverageBounds.min, leverageBounds.max, gasTier])
+    : null;
+  const nativeMax = useNativeMax({
+    contextKey: nativeMaxContext,
+    calculate: () => calculateVerifiedNativeMax({
+      balanceWei: maxBalanceWei!,
+      initialCandidateWei: parseAmount(amount, 'ETH') ?? undefined,
+      buildRoutes: (candidate) => planIncreasePosition({ market, type: side, positionId: 0,
+        userAddress: wallet.address!, leverage, inputTokenAddress: tokenAddress('ETH'), amount: candidate, slippage: slippageValue }),
+      estimateRoutes: async (routes) => {
+        const feeTierQuote = wallet.isEmbedded ? selectedGasTierQuote(await fetchGasTierQuotes(1), gasTier) : undefined;
+        return Promise.all(routes.map((route) => routeGasCostCache.getOrRefresh(route, { feeTierQuote })));
+      },
+    }),
+    onAmount: (maximum) => {
+      const formatted = maximum === null ? '' : formatUnits(maximum, 18);
+      setNativeMaxAmount(maximum === null ? null : formatted);
+      setAmount(formatted);
+    },
+  });
+  const { cancel: cancelNativeMax } = nativeMax;
   // Counts returns to the editor, so the route is warmed again from the
   // current chain once a review has planned its own (see the warm-up below).
   const [editorEpoch, setEditorEpoch] = useState(0);
@@ -113,16 +141,6 @@ export default function TradePage() {
   const currentTicketRef = useRef('');
   const prefetchedTicketRef = useRef('');
   const restoredDraftRef = useRef(false);
-  const nativeMaxRequestRef = useRef(0);
-  const nativeMaxMountedRef = useRef(true);
-
-  useEffect(() => {
-    nativeMaxMountedRef.current = true;
-    return () => {
-      nativeMaxMountedRef.current = false;
-      nativeMaxRequestRef.current += 1;
-    };
-  }, []);
 
   // Keep the unsigned snapshot primitive-only so History can restore the
   // editable ticket without ever persisting a quote, calldata, or route.
@@ -146,13 +164,13 @@ export default function TradePage() {
     setAmount(defaults.amount);
     setLeverage(defaults.leverage);
     setNativeMaxAmount(null);
-    setNativeMaxError(null);
+    cancelNativeMax();
     setReviewStage('input');
     prefetchStoreRef.current?.invalidate();
     prefetchDescriptorRef.current = null;
     prefetchedTicketRef.current = '';
     setReviewRevision((revision) => revision + 1);
-  }, []);
+  }, [cancelNativeMax]);
 
   const changeMarket = useCallback((nextMarket: UiMarket) => {
     resetTradeContext(nextMarket, side, nextMarket === 'ETH' ? 'ETH' : 'WBTC');
@@ -293,6 +311,7 @@ export default function TradePage() {
       const savedSlippage = readSlippagePercent();
       if (savedSlippage !== savedSlippageRef.current) setSlippage(String(savedSlippage));
       savedSlippageRef.current = savedSlippage;
+      setGasTier(readGasTier());
     };
     window.addEventListener(SETTINGS_UPDATED_EVENT, onSettingsUpdated);
     window.addEventListener('storage', onSettingsUpdated);
@@ -343,90 +362,19 @@ export default function TradePage() {
     return () => window.clearTimeout(timer);
   }, [highlightedPositionKey]);
 
-  const slippageValue = Number(slippage);
-
-  const resolveNativeMax = useCallback(async () => {
-    if (token !== 'ETH' || !wallet.address || nativeMaxPending) return;
-    const balance = tokenBalanceFor(walletBalances.balances, 'ETH');
-    if (!balance || balance.status !== 'ready' || !balance.amount) return;
-    const balanceWei = parseAmount(balance.amount, 'ETH');
-    if (!balanceWei) return;
-    const ticket = currentTicketRef.current;
-    const request = nativeMaxRequestRef.current + 1;
-    nativeMaxRequestRef.current = request;
-    const isCurrent = () => nativeMaxMountedRef.current
-      && nativeMaxRequestRef.current === request
-      && currentTicketRef.current === ticket;
-    setNativeMaxPending(true);
-    setNativeMaxError(null);
-    try {
-      // Gas can vary with calldata and amount. Rebuild the real candidate
-      // route, then subtract only execution overhead from the wallet balance;
-      // the route's native value is the ETH being deposited and must remain in
-      // the spendable amount. A one wei probe is not authoritative and can be
-      // rejected by the SDK's minimum amount checks.
-      const entered = parseAmount(amount, 'ETH');
-      const spendable = await calculateNativeMax({
-        balanceWei,
-        initialCandidateWei: entered ?? undefined,
-        buildRoutes: (candidate) => planIncreasePosition({
-          market,
-          type: side,
-          positionId: 0,
-          userAddress: wallet.address!,
-          leverage,
-          inputTokenAddress: tokenAddress('ETH'),
-          amount: candidate,
-          slippage: slippageValue,
-        }),
-        estimateRoutes: async (routes, signal) => {
-          const feeTierQuote = wallet.isEmbedded
-            ? selectedGasTierQuote(await fetchGasTierQuotes(1), readGasTier())
-            : undefined;
-          return Promise.all(routes.map((route) => estimatePlannedRouteCost(route, { feeTierQuote, signal })));
-        },
-        isCurrent,
-      });
-      if (!isCurrent()) return;
-      const formatted = formatUnits(spendable, 18);
-      setNativeMaxPending(false);
-      setNativeMaxAmount(formatted);
-      setAmount(formatted);
-    } catch (error) {
-      if (!isCurrent()) return;
-      setNativeMaxAmount(null);
-      setNativeMaxError(nativeMaxErrorMessage(error));
-    } finally {
-      if (nativeMaxMountedRef.current && nativeMaxRequestRef.current === request) setNativeMaxPending(false);
-    }
-  }, [amount, leverage, market, nativeMaxPending, side, slippageValue, token, wallet.address, wallet.isEmbedded, walletBalances.balances]);
-
-  useEffect(() => {
-    setNativeMaxAmount(null);
-    setNativeMaxError(null);
-  }, [wallet.address, wallet.chainId, walletBalances.balances.ETH?.amount]);
-
-  // Any ticket edit invalidates a pending reserve calculation immediately.
-  // The request itself may still finish, but its generation and ticket checks
-  // prevent it from writing into the newer form.
-  useEffect(() => {
-    nativeMaxRequestRef.current += 1;
-    setNativeMaxPending(false);
-    setNativeMaxError(null);
-  }, [amount, leverage, market, side, slippage, token, wallet.address, wallet.chainId, wallet.isEmbedded, walletBalances.balances.ETH?.amount, leverageBounds.min, leverageBounds.max]);
+  useEffect(() => { setNativeMaxAmount(null); }, [nativeMaxContext]);
 
   const changeLeverage = useCallback((value: number) => {
+    cancelNativeMax();
     setLeverage(value);
     setNativeMaxAmount(null);
-    setNativeMaxError(null);
-  }, []);
+  }, [cancelNativeMax]);
 
   const changeAmount = useCallback((value: string) => {
+    cancelNativeMax();
     setAmount(value);
     setNativeMaxAmount(null);
-    setNativeMaxError(null);
-  }, []);
-
+  }, [cancelNativeMax]);
   // The ticket previews the route warmed for exactly its current inputs; any
   // change gives a new key, so earlier figures can never describe this ticket.
   const warmAmountWei = validAmount ? parseAmount(validAmount, token) : null;
@@ -675,7 +623,7 @@ export default function TradePage() {
                   <div className={styles.sideControl}><Segmented tone="sides" value={side} onChange={changeSide} ariaLabel="Position side" options={[{ value: 'long', label: 'Long', sub: 'Price rises' }, { value: 'short', label: 'Short', sub: 'Price falls' }]} /></div>
 
                   <div className={styles.fieldStack}>
-                    <AmountField compact label="Amount" symbol={token} value={amount} onChange={changeAmount} maxDecimals={tokenDecimals(token)} showMax showUnitPrice={false} constraintError={token === 'ETH' ? nativeMaxError : undefined} maxAmount={token === 'ETH' ? nativeMaxAmount : undefined} onMax={token === 'ETH' ? resolveNativeMax : undefined} maxPending={token === 'ETH' && nativeMaxPending} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={tokenOptions} onChange={changeToken} balances={wallet.address ? walletBalances.balances : undefined} balanceStatus={wallet.address ? (walletBalances.status !== 'idle' ? walletBalances.status : undefined) : 'disconnected'} />} />
+                    <AmountField compact label="Amount" symbol={token} value={amount} onChange={changeAmount} maxDecimals={tokenDecimals(token)} showMax showUnitPrice={false} constraintError={token === 'ETH' ? nativeMax.error : undefined} maxAmount={token === 'ETH' ? nativeMaxAmount : undefined} onMax={token === 'ETH' ? nativeMax.resolveMax : undefined} maxPending={token === 'ETH' && nativeMax.pending} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={tokenOptions} onChange={changeToken} balances={wallet.address ? walletBalances.balances : undefined} balanceStatus={wallet.address ? (walletBalances.status !== 'idle' ? walletBalances.status : undefined) : 'disconnected'} />} />
                     <LeverageField label="Target leverage" value={leverage} onChange={changeLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} compact split={{ side }} />
                     {/* Only a connected, complete ticket is warmed; a failed warm-up shows nothing. */}
                     {shownOutcome && shownOutcome.status !== 'failed' && <TradeOutcomePreview market={market} side={side} route={shownOutcome.status === 'ready' ? shownOutcome.route : null} />}

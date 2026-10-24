@@ -316,7 +316,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
       <li>Follow the receipt link to inspect the corresponding network record.</li>
       <li>Read whether the transaction is pending, confirmed, failed, or needs attention. A bridge additionally tracks destination delivery.</li>
     </ol>
-    <p>Confirmed action amounts come from verified evidence. Dollar values beside those amounts can use current prices; they are not a record of the execution-time exchange rate.</p>
+    <p>Confirmed action amounts come from verified evidence.</p>
     <h3 id="history-partial">If only part of the action completed</h3>
     <p>An approval may succeed before a later action fails or is rejected. Read which steps have hashes and which have confirmed receipts. Do not mistake an approval for the intended action, or an unverified bridge delivery for a failed source send.</p>
     <p>Return to the product and prepare a fresh review only after understanding the earlier transaction’s status. Reconnecting, refreshing, or reopening FxAeon does not by itself submit another transaction.</p>

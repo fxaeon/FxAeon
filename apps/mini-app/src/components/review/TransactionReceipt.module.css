@@ -5,6 +5,6 @@
 .position dl { margin: 0; }
 .position dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; font-size: 13px; line-height: 1.5; }
 .position dt { color: var(--mut); }
-.position dd { min-width: 0; max-width: 65%; margin: 0; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.position dd { min-width: 0; max-width: 65%; margin: 0; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: normal; word-break: normal; }
 .status { margin: 16px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
 @media (max-width: 360px) { .panel { padding: 16px; } }

@@ -19,19 +19,22 @@ const base = { sourceChain: 'Ethereum' as const, destinationChain: 'Base' as con
 const render = (props: Partial<React.ComponentProps<typeof BridgeResultCard>> = {}) => renderToStaticMarkup(React.createElement(BridgeResultCard, { ...base, state: 'source_confirmed', ...props }));
 
 test('bridge outcome uses verified source and destination amounts, never the requested quote', () => {
-  const html = render({ state: 'destination_verified', sourceAmount: '100.1234', receivedAmount: '99.9876', destinationTxHash: DEST });
+  const proof = { state: 'destination_verified' as const, sourceAmount: '100.1234', receivedAmount: '99.9876', destinationTxHash: DEST };
+  const html = render(proof);
   const primary = html.slice(0, html.indexOf('<details class="advanced">'));
   assert.match(primary, /fxUSD received on Base/);
   assert.match(primary, />Sent</);
   assert.match(primary, />Received</);
-  assert.match(primary, /Show exact sent amount: 100.1234 fxUSD/);
-  assert.match(primary, /Show exact received amount: 99.9876 fxUSD/);
+  assert.match(primary, /≈ 100\.12<span> fxUSD/);
+  assert.match(primary, /≈ 99\.99<span> fxUSD/);
+  assert.doesNotMatch(primary, /100\.1234|99\.9876|Show exact|Exact sent|Exact received/);
   assert.doesNotMatch(primary, /100.123456789|You receive|estimated|Requested|Action 2/);
   assert.match(html, new RegExp(`https://basescan.org/tx/${DEST}`));
   assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
-  assert.equal((html.match(/<details\b/g) ?? []).length, 3);
-  assert.match(primary, /Exact received<\/span>99.9876 fxUSD<\/p>/, 'unrounded verified amount is directly on the received value');
+  assert.equal((html.match(/<details\b/g) ?? []).length, 1, 'only the shared execution details disclosure remains');
   assert.doesNotMatch(html.slice(html.indexOf('<details class="advanced">')), /99.9876 fxUSD/, 'the technical panel does not repeat the same observed amount');
+  assert.equal(proof.sourceAmount, '100.1234');
+  assert.equal(proof.receivedAmount, '99.9876');
   assert.match(html, /Copy full recipient/);
 });
 
@@ -60,12 +63,17 @@ test('simulation has distinct disclosure and no fake on-chain links', () => {
   assert.doesNotMatch(html, /<a\b|No on-chain link/);
 });
 
-test('fxSAVE and very small or large exact amounts retain precision without fake prices', () => {
+test('fxSAVE outcomes show static readable small and large amounts without fake prices', () => {
   for (const amount of ['0.000000000000000001', '1234567890123456789.123456789012345678']) {
     const html = render({ state: 'destination_verified', token: 'fxSAVE', sourceAmount: amount, receivedAmount: amount });
     assert.match(html, /fxSAVE/);
-    assert.ok(html.includes(`${amount} fxSAVE`));
+    if (amount.startsWith('0.')) assert.match(html, /0\.000000000000000001<span> fxSAVE/);
+    else {
+      assert.match(html, /≈ 1,234,567,890,123,456,789\.12<span> fxSAVE/);
+      assert.doesNotMatch(html, /1234567890123456789\.123456789012345678/);
+    }
     assert.match(html, /USD value unavailable/);
+    assert.equal((html.match(/<details\b/g) ?? []).length, 1);
     assert.doesNotMatch(html, /\$1|NaN|Infinity/);
   }
 });
@@ -81,11 +89,13 @@ test('source and destination proof amounts come from matched events and reset du
 test('bridge Advanced keeps receipt fees in aligned rows with partial Base caveat', () => {
   const receipt = { transactionKind: 'action' as const, movements: [], technicalMovements: [], executionFee: '0.00024 ETH', exactFees: { execution: '0.00024' }, feeLabel: 'Action execution fee', totalFeeLabel: null, l1DataFee: null, operatorFee: null, totalExecutionFee: null, feeCaveat: 'Partial fee data', nativeValue: '0.0001 ETH', exactNativeValue: '0.0001', nativeValueLabel: 'Bridge fee' as const };
   const result = { chainId: 8453, steps: [] } as unknown as import('../src/lib/fx').TransactionExecutionResult;
-  const html = renderToStaticMarkup(React.createElement(BridgeResultDetails, { result, receipts: [receipt], reviewedFacts: [{ label: 'Estimated received', value: '100 fxUSD' }] }));
+  const html = renderToStaticMarkup(React.createElement(BridgeResultDetails, { result, receipts: [receipt], reviewedFacts: [{ label: 'Estimated received', value: '≈ 99.99 fxUSD', title: '99.9876 fxUSD' }] }));
   assert.match(html, /Bridge execution fee/);
   assert.match(html, /Bridge fee sent/);
   assert.match(html, /Partial fee data/);
   assert.match(html, /Quoted output/);
+  assert.match(html, /≈ 99\.99 fxUSD/);
+  assert.doesNotMatch(html, /99\.9876 fxUSD/);
   assert.doesNotMatch(html, /<details|network total|Bridge fee paid|You receive|Received/);
 });
 
@@ -97,13 +107,13 @@ test('completed bridge stays compact with one shared Execution details disclosur
   assert.match(html, /Full route diagnostics/);
   assert.ok(html.indexOf('Full route diagnostics') > html.indexOf('<details class="advanced">'));
   assert.doesNotMatch(html, /<span>Advanced<\/span>/);
-  assert.match(html, /Show exact sent amount: 10 fxUSD/);
-  assert.match(html, /Show exact received amount: 9.99 fxUSD/);
-  assert.match(html, /Exact received/);
-  assert.equal((html.match(/<details\b/g) ?? []).length, 3, 'native exact controls and one shared Execution details');
+  assert.match(html, /<p class="[^"]*amount[^"]*"[^>]*>10<span> fxUSD<\/span><\/p>/);
+  assert.match(html, /<p class="[^"]*amount[^"]*"[^>]*>9\.99<span> fxUSD<\/span><\/p>/);
+  assert.doesNotMatch(html, /Show exact|Exact sent|Exact received|class="exactAmount"/);
+  assert.equal((html.match(/<details\b/g) ?? []).length, 1, 'one shared Execution details disclosure');
 });
 
-test('compact simulated completion avoids a duplicate badge and preserves touch targets', () => {
+test('compact simulated completion avoids a duplicate badge and keeps amounts static', () => {
   const html = render({ state: 'destination_verified', sourceAmount: '10', receivedAmount: '10', token: 'fxSAVE', simulated: true,
     completionContent: React.createElement('section', { 'aria-label': 'Simulated transaction receipt' }, 'Simulation complete · Source gas fee') });
   assert.match(html, /aria-label="Simulated result: Bridge complete"[^>]*>Bridge complete<\/h3>/);
@@ -114,16 +124,19 @@ test('compact simulated completion avoids a duplicate badge and preserves touch 
   assert.match(css, /\.card > \.transfer:first-child \{ padding-top: 0; \}/);
   assert.match(css, /\.card\[data-compact-complete\] \.transfer \{ padding-bottom: 12px; \}/);
   assert.match(css, /\.completion > section \{ margin-top: 0; \}/);
-  assert.match(css, /\.exactAmount > summary \{[^}]*min-height: 44px/);
+  assert.doesNotMatch(css, /\.exactAmount|\.exactValue/);
   assert.match(render({ simulated: true, state: 'source_confirmed' }), /Simulation · no real funds moved/);
 });
 
 
-test('all bridge lifecycle states remove amount carets while retaining exact phone values and uncertainty', () => {
+test('all bridge lifecycle states keep static readable amounts and preserve uncertainty', () => {
  for(const state of ['pending','source_confirmed','destination_verified','failed'] as const){
-  const html=render({state,sourceAmount:'720.89147659306640625',receivedAmount:'720.89147659306640625',completionContent:state==='destination_verified'?React.createElement('p',null,'Receipt'):undefined});
-  assert.match(html,/≈ 720.89/); assert.match(html,/720.89147659306640625 fxUSD/);
+  const proof = { state, sourceAmount:'720.89147659306640625',receivedAmount:'720.89147659306640625',completionContent:state==='destination_verified'?React.createElement('p',null,'Receipt'):undefined };
+  const html=render(proof);
+  assert.match(html,/≈ 720\.89/); assert.doesNotMatch(html,/720\.89147659306640625 fxUSD|Show exact|Exact sent|Exact received/);
+  assert.equal(proof.sourceAmount,'720.89147659306640625');
   assert.equal((html.match(/lucide-chevron-down/g)||[]).length,1);
+  assert.equal((html.match(/<details\b/g)||[]).length,1);
   assert.match(html,/Execution details/);
   if(state==='failed')assert.match(html,/Delivery unverified · do not repeat/);
  }

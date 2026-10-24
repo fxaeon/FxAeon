@@ -58,7 +58,8 @@ test('queued card groups the real fxSP amount and waiting status without local-c
   const html = render(pending);
   assert.match(html, /aria-label="Withdrawal details" data-claim-status="cooldown"/);
   assert.match(html, /<h3>Withdrawal queued<\/h3>/);
-  assert.match(html, /<dt>Amount queued<\/dt><dd title="2\.3456789 fxSP">≈ 2\.34567 fxSP<\/dd>/);
+  assert.match(html, /<dt>Amount queued<\/dt><dd>≈ 2\.34567 fxSP<\/dd>/);
+  assert.doesNotMatch(html, /title="2\.3456789 fxSP"/);
   assert.match(html, /<dt>Claim status<\/dt><dd>Waiting<\/dd>/);
   assert.match(html, /Available to claim/);
   assert.match(html, /No payout yet/);
@@ -69,12 +70,13 @@ test('queued card groups the real fxSP amount and waiting status without local-c
   assert.equal(claimAvailability(pending).canReview, false, 'a timestamp in the past is not readiness evidence');
 });
 
-test('queued shares retain exact units and full precision when the compact amount is shortened', () => {
+test('queued shares stay compact while non-zero amounts that would round to zero remain readable', () => {
   const exact = render({ ...pending, pendingSharesWei: 2_000n * 10n ** 18n });
-  assert.match(exact, /<dd title="2000 fxSP">2,000 fxSP<\/dd>/);
+  assert.match(exact, /<dd>2,000 fxSP<\/dd>/);
+  assert.doesNotMatch(exact, /<dd[^>]*title=/);
   const tiny = render({ ...pending, pendingSharesWei: 1n });
-  assert.match(tiny, /<dd title="0\.000000000000000001 fxSP">≈ 0 fxSP<\/dd>/);
-  assert.doesNotMatch(tiny, /<dd[^>]*>0 fxSP<\/dd>/);
+  assert.match(tiny, /<dd>0\.000000000000000001 fxSP<\/dd>/);
+  assert.doesNotMatch(tiny, /<dd[^>]*title=|<details|<summary/);
 });
 
 test('ready card preserves separate approximate fxUSD and USDC amounts and final-amount caveat', () => {

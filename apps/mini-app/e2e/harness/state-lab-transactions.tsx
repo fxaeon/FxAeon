@@ -10,6 +10,8 @@ import { TransactionEvidenceContext } from '@/components/review/TransactionEvide
 import { resultPresentation } from '@/components/review/executionResult';
 import { transactionCardIdentity } from '@/components/review/transactionCardIdentity';
 import { buildReceiptPresentation } from '@/lib/receiptPresentation';
+import { borrowFundingDisplay } from '@/lib/fx/borrowFunding';
+import { positionPoolAddress } from '@/lib/fx/policy';
 import { FX_TOKENS } from '@/lib/fx/tokens';
 import type { PlannedRoute, TransactionExecutionResult, TransactionStepResult } from '@/lib/fx';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
@@ -37,8 +39,10 @@ function fixture(product: LabProduct) {
   const facts: ReviewFact[] = borrow
     ? [{ label: 'Deposit', value: '1 ETH' }, { label: 'Estimated fxUSD received', value: '1,194 fxUSD' }]
     : [{ label: 'Deposit', value: '1,000 USDC' }, { label: 'Estimated shares', value: '952.380952380952380952 fxSAVE' }];
+  const annualFundingRatio = 35_000_000_000_000_000n; // 3.5% gross annual charge; short offset verified zero.
+  const funding = borrow ? borrowFundingDisplay({ market: 'ETH', pool: positionPoolAddress('ETH', 'long'), ratio: annualFundingRatio, netRatio: annualFundingRatio, readAt: Date.now() }) : undefined;
   const terms: ReviewFact[] = borrow
-    ? [{ label: 'Estimated debt', value: '1,200 fxUSD' }, { label: 'Loan-to-value', value: '50%' }, { label: 'Borrow rate', value: '3.5%', equivalent: 'Active · can change', title: 'Fixture only: annualized funding charge on the whole collateral. This is a borrowing cost, not yield, and can change.' }]
+    ? [{ label: 'Estimated debt', value: '1,200 fxUSD' }, { label: 'Loan-to-value', value: '50%' }, { label: 'Borrow rate', value: funding!.value, equivalent: funding!.status, title: `Fixture only. ${funding!.title}` }]
     : [{ label: 'Current APY', value: '6.25%', title: 'Fixture only: variable yield, not a promised return.' }, { label: 'Minimum received', value: '947.619047619047619047 fxSAVE' }];
   terms.push({ label: 'Gas fee', value: '0.000125 ETH', title: '0.000125 ETH (simulated estimate, not a live gas quote)' });
   if (borrow) terms.push({ label: 'f(x) fee', value: '6 fxUSD (0.5%)', title: '6 fxUSD; simulated 0.5% of 1,200 fxUSD gross debt, deducted before the 1,194 fxUSD payout. Excludes gas.', feeAmounts: [{ amount: '6', symbol: 'fxUSD' }] });
@@ -89,7 +93,7 @@ export function LabTransaction({ product, stage, onReset, onContinue, framed = f
               {stage === 'Preparing' && <p role="status" className={styles.stableReviewStatus}>Preparing fixture terms</p>}
               {stage === 'Editing' && <p className={styles.stableReviewStatus}>Unsubmitted fixture draft</p>}
               <TransactionAmountFlow facts={sample.facts} chainId={1} compact />
-              <div className={styles.consequenceGroup}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
+              <div className={styles.consequenceGroup}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Current APY' ? 'APY' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
             </div>}
           </div>
           {!pending && <div data-review-actions className={`${flowStyles.reviewInlineActions} ${styles.actions}`}><Button className={flowStyles.primaryAction} disabled={stage !== 'Review'} onClick={onContinue}>{sample.identity.confirm}</Button></div>}

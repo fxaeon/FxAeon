@@ -22,7 +22,8 @@ const mocks: Record<string, string> = {
   '@/components/ConnectWalletButton': `import React from 'react'; export default ({children}) => <button>{children}</button>;`,
   '@/components/ProductUI': `import React from 'react'; export const MetricRows = ({rows}) => <div>{rows.map((row) => <div key={row.label}>{row.label}: {row.value}</div>)}</div>; export const PageHeading = ({title}) => <h1>{title}</h1>; export const ProductNav = ({current}) => <nav aria-label="Borrow product navigation"><button type="button" aria-current={current === 'save' ? 'page' : undefined}>fxSAVE</button><button type="button" aria-current={current === 'borrow' ? 'page' : undefined}>Borrow fxUSD</button></nav>; export const ProductSurface = ({children, ...props}) => <section {...props}>{children}</section>; export const StatusNotice = ({title, children}) => <div role="status">{title} {children}</div>;`,
   '@/lib/displayPrices': `export const freshDisplayPrices = () => globalThis.__borrowHarness.prices ?? {};`,
-  '@/lib/fx/nativeMax': `export const calculateNativeMax = async () => 0n; export const nativeMaxErrorMessage = () => 'Could not calculate Max. Try again.';`,
+  '@/lib/fx/nativeMax': `export const calculateVerifiedNativeMax = (input) => globalThis.__borrowHarness.maxRequests ? new Promise((resolve,reject) => globalThis.__borrowHarness.maxRequests.push({balanceWei:input.balanceWei,resolve:(amountWei)=>resolve({amountWei,validUntil:Date.now()+15000}),reject})) : Promise.resolve({amountWei:1n,validUntil:Date.now()+15000});`,
+  '@/lib/fx/gasCost': `export const routeGasCostCache = { getOrRefresh: async () => ({}) };`,
   '@/lib/fx': `export const estimatePlannedRouteCost = async () => ({}); export async function planDepositAndMint(input){ globalThis.__borrowHarness.lastPlan = input; globalThis.__borrowHarness.plannerCount += 1; return {}; } export async function planRepayAndWithdraw(){ globalThis.__borrowHarness.plannerCount += 1; return {}; } export const restoreSignatureRequiredDraftFromSearch = () => undefined; export const signatureDraftIdFromSearch = () => undefined; export const assertConfiguredPublicClientChain = () => {}; export const assertWalletAddress = () => {}; export const assertPublicClientChain = () => {}; export const getEthereumClient = () => ({}); export const getFxReadFacade = () => ({}); export const fallbackDebtRatioRange = () => ({ min: 25600000000000000n, max: 855000000000000000n, source: 'fallback' }); export const readDebtRatioRange = async () => { if (globalThis.__borrowLimitUnavailable) throw new Error('Pool read unavailable'); if (globalThis.__borrowLimitPending) return new Promise(resolve => { globalThis.__resolveBorrowLimit = resolve; }); return { min: 25600000000000000n, max: globalThis.__borrowLimitInvalid ? 1000000000000000000n : 855000000000000000n, source: 'live' }; };`,
   '@/lib/fx/readFacade': `export const FX_READ_DEADLINE_MS = 1; export const withReadDeadline = (promise) => promise;`,
   '@/lib/fx/policy': `export const positionPoolAddress = () => '0x0000000000000000000000000000000000000001';`,
@@ -30,7 +31,7 @@ const mocks: Record<string, string> = {
   '@/components/ProtocolPositionProvider': `export const useProtocolPositions = () => globalThis.__borrowHarness.shared;`,
   '@/components/ProtocolPositionCard': `import React from 'react'; export const ProtocolPositionNotice = ({status}) => status === 'unavailable' ? <div role="status">Positions are temporarily unavailable</div> : null;`,
   '@/components/ConfirmedPositionCards': `export const ConfirmedPositionCards = () => null;`,
-  '@/components/ProtocolForm': `import React from 'react'; export const AmountField = ({label, value, onChange, tokenSelector, hint, showMax, maxAmount, maxLabel}) => <div>{showMax && maxAmount && <button type="button" aria-label={maxLabel} onClick={() => onChange(maxAmount)}>Max</button>}<label>{label}<input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /></label>{hint && <p data-hint={label}>{hint}</p>}{tokenSelector}</div>; export const Segmented = ({options, value, onChange, ariaLabel}) => <div role="group" aria-label={ariaLabel}>{options.map((option) => <button type="button" key={option.value} aria-pressed={value === option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; export const TokenSelect = ({label, options, value, onChange}) => <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>; export const useWalletTokenBalances = () => ({ balances: globalThis.__borrowHarness.balances ?? {}, status: 'ready', refresh: async () => {} });`,
+  '@/components/ProtocolForm': `import React from 'react'; export const AmountField = ({label, value, onChange, tokenSelector, hint, showMax, maxAmount, maxLabel, onMax, maxPending, constraintError, showPercentages}) => <div>{onMax && <button type="button" aria-label="Calculate 100% after gas reserve" disabled={maxPending} onClick={onMax}>Max</button>}{onMax && showPercentages && <button type="button" onClick={() => onChange("0.00018032")}>25%</button>}{constraintError && <p role="alert">{constraintError}</p>}{showMax && maxAmount && <button type="button" aria-label={maxLabel} onClick={() => onChange(maxAmount)}>Max</button>}<label>{label}<input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /></label>{hint && <p data-hint={label}>{hint}</p>}{tokenSelector}</div>; export const Segmented = ({options, value, onChange, ariaLabel}) => <div role="group" aria-label={ariaLabel}>{options.map((option) => <button type="button" key={option.value} aria-pressed={value === option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; export const TokenSelect = ({label, options, value, onChange}) => <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>; export const useWalletTokenBalances = () => ({ balances: globalThis.__borrowHarness.balances ?? {}, status: 'ready', refresh: async () => {} });`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({ status: 'unavailable', prices: {}, refreshing: globalThis.__borrowHarness.pricesPending ?? false }); export const useLiveMarketQuote = () => ({ quote: null, status: 'unavailable', isFresh: false });`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({ ...globalThis.__borrowHarness.wallet, isEmbedded: false, wallets: [], sendTransaction: async () => { globalThis.__borrowHarness.walletRequestCount += 1; } });`,
   '@/lib/prices': `export const priceKeyForSymbol = (symbol) => ({ eth: 'ETH', weth: 'WETH', steth: 'stETH', wsteth: 'wstETH', wbtc: 'WBTC', fxusd: 'fxUSD' })[String(symbol).toLowerCase()] ?? null; export const formatUsdPrice = () => '—';`,
@@ -38,7 +39,10 @@ const mocks: Record<string, string> = {
   '@aladdindao/fx-sdk': `export const tokens = { eth: '0x0000000000000000000000000000000000000001', weth: '0x0000000000000000000000000000000000000002', stETH: '0x0000000000000000000000000000000000000003', wstETH: '0x0000000000000000000000000000000000000004', WBTC: '0x0000000000000000000000000000000000000005', usdc: '0x0000000000000000000000000000000000000006', usdt: '0x0000000000000000000000000000000000000007', fxUSD: '0x0000000000000000000000000000000000000008', fxUSDBasePool: '0x0000000000000000000000000000000000000009' };`,
 };
 // Exercise the real foreground/freshness hook with deterministic public reads.
-mocks['@/lib/fx/borrowFunding'] = `import { positionPoolAddress } from ${JSON.stringify(resolve(src, 'lib/fx/policy.ts'))}; export { formatBorrowFundingApr, borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS } from ${JSON.stringify(resolve(src, 'lib/fx/borrowFunding.ts'))}; export async function readBorrowFundingRate(market) { globalThis.__borrowFundingReads = (globalThis.__borrowFundingReads ?? 0) + 1; if (globalThis.__borrowFundingUnavailable) throw new Error('Funding unavailable'); const rate = { market, pool: positionPoolAddress(market, 'long'), ratio: globalThis.__borrowFundingRatio ?? 0n, readAt: Date.now() }; if (globalThis.__borrowFundingPending) return new Promise(resolve => { globalThis.__resolveBorrowFunding = () => resolve(rate); }); return rate; }`;
+mocks['@/lib/fx/borrowFunding'] = `import { positionPoolAddress } from ${JSON.stringify(resolve(src, 'lib/fx/policy.ts'))}; export { borrowFundingDisplay, formatBorrowFundingApr, formatBorrowFundingEightHour, borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS } from ${JSON.stringify(resolve(src, 'lib/fx/borrowFunding.ts'))}; export async function readBorrowFundingRate(market) { globalThis.__borrowFundingReads = (globalThis.__borrowFundingReads ?? 0) + 1; if (globalThis.__borrowFundingUnavailable) throw new Error('Funding unavailable'); const ratio = globalThis.__borrowFundingRatio ?? 0n; const rate = { market, pool: positionPoolAddress(market, 'long'), ratio, netRatio: ratio, readAt: Date.now() }; if (globalThis.__borrowFundingPending) return new Promise(resolve => { globalThis.__resolveBorrowFunding = () => resolve(rate); }); return rate; }`;
+// History is illustrative and independent of wallet/rate-read availability.
+// This selection fixture must never contact the public funding index.
+mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market) { const endAt = Math.floor(Date.now() / 1000); const startAt = endAt - 30 * 86400; return { market, startAt, endAt, indexedAt: endAt, averageRatio: 35000000000000000n, snapshots: [{timestamp:startAt,ratio:35000000000000000n}] }; }`;
 
 // The real post-confirmation presentation imports receipt proof helpers. Keep
 // their SDK metadata intact, but fail closed if this selection-only fixture
@@ -108,6 +112,33 @@ async function mount(page: import('@playwright/test').Page, { limitUnavailable =
   await expect(page.getByRole('heading', { name: 'Borrow', exact: true })).toBeVisible();
 }
 
+test('Borrow native Max warms independently, clears oversized cold input, and preserves later percentage edits', async ({ page }) => {
+  await mount(page);
+  await page.evaluate(() => {
+    globalThis.__borrowHarness.balances = { ETH: { status: 'ready', amount: '0.00072128' } };
+    globalThis.__borrowHarness.maxRequests = [];
+    globalThis.__borrowHarness.rerender?.();
+  });
+  const collateral = page.getByRole('textbox', { name: 'Collateral', exact: true });
+  const max = page.getByRole('button', { name: 'Calculate 100% after gas reserve' });
+  await collateral.fill('1');
+  await expect.poll(() => page.evaluate(() => globalThis.__borrowHarness.maxRequests?.length)).toBe(1);
+  await max.click();
+  await expect(collateral).toHaveValue('');
+  await expect(max).toBeDisabled();
+  await page.evaluate(() => globalThis.__borrowHarness.maxRequests?.[0].reject(new Error('current gas estimate is unavailable')));
+  await expect(collateral).toHaveValue('');
+  await expect(page.getByRole('alert')).toHaveText('Current gas fees are unavailable. Try again shortly.');
+  await max.click();
+  await expect.poll(() => page.evaluate(() => globalThis.__borrowHarness.maxRequests?.length)).toBe(2);
+  await page.getByRole('button', { name: '25%', exact: true }).click();
+  await page.evaluate(() => globalThis.__borrowHarness.maxRequests?.[1].resolve(600_000_000_000_000n));
+  await expect(collateral).toHaveValue('0.00018032');
+  await max.click();
+  await expect(collateral).toHaveValue('0.0006');
+  expect(await page.evaluate(() => globalThis.__borrowHarness.maxRequests?.length)).toBe(2);
+});
+
 async function changeSnapshot(page: import('@playwright/test').Page, update: (harness: BorrowHarnessControl) => void) {
   await page.evaluate((callbackSource) => {
     const harness = (window as Window & { __borrowHarness: BorrowHarnessControl }).__borrowHarness;
@@ -172,7 +203,7 @@ test('collateral and debt show dollar equivalents without guessing missing or st
   await page.getByRole('button', { name: 'Your positions' }).click();
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
   await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
-  await expect(card.getByText('100 fxUSD', { exact: true })).toHaveAttribute('title', '100 fxUSD');
+  await expect(card.locator('details, summary')).toHaveCount(0);
   await expect(card).toContainText('≈ $99.00');
   await expect(card).toContainText('2 stETH');
   await expect(card).toContainText('≈ $4,800.00');
@@ -228,7 +259,7 @@ test('a failed first price read resolves the skeleton into explicit missing valu
   await changeSnapshot(page, (harness) => { harness.pricesPending = false; });
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
   await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
-  await expect(card.getByText('100 fxUSD', { exact: true })).toHaveAttribute('title', '100 fxUSD');
+  await expect(card.locator('details, summary')).toHaveCount(0);
   await expect(card.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
   await expect(card).not.toContainText('$0.00');
 });
@@ -541,15 +572,15 @@ test('funding status distinguishes verified zero, positive and tiny positive cha
   await mount(page);
   const overview = page.getByRole('region', { name: 'fxUSD borrowing overview' });
   const metric = overview.locator('dl > div').filter({ hasText: 'Funding status' });
-  await expect(metric.locator('dd')).toHaveText('0%');
-  await expect(metric.getByRole('status')).toHaveText('Not active · can change');
+  await expect(metric.locator('dd')).toHaveText('0% / 8h');
+  await expect(metric.getByRole('status')).toHaveText('Off');
   await expect(metric).not.toContainText('APR');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingRatio: 35000000000000000n }); window.dispatchEvent(new Event('online')); });
-  await expect(metric.locator('dd')).toHaveText('3.5%');
-  await expect(metric.getByRole('status')).toHaveText('Active');
+  await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
+  await expect(metric.getByRole('status')).toHaveText('On');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingRatio: 1n }); window.dispatchEvent(new Event('online')); });
-  await expect(metric.locator('dd')).toHaveText('<0.0001%');
-  await expect(metric.getByRole('status')).toHaveText('Active');
+  await expect(metric.locator('dd')).toHaveText('<0.0001% / 8h');
+  await expect(metric.getByRole('status')).toHaveText('On');
 });
 
 test('failed and expired funding quotes never retain a zero rate, and foreground recovery rereads', async ({ page }) => {
@@ -559,19 +590,19 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await expect(metric.locator('dd')).toHaveText('—');
   await expect(metric.getByRole('status')).toHaveText('Not quoted');
   await metric.getByRole('button', { name: 'About Funding status', exact: true }).click();
-  const verification = page.getByRole('link', { name: /Verify current funding on f\(x\)/ });
+  const verification = page.getByRole('link', { name: /View funding on f\(x\)/ });
   await expect(verification).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
   await expect(verification).toHaveAttribute('rel', 'noopener noreferrer');
   await page.keyboard.press('Escape');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false }); window.dispatchEvent(new Event('online')); });
-  await expect(metric.locator('dd')).toHaveText('0%');
+  await expect(metric.locator('dd')).toHaveText('0% / 8h');
   await page.evaluate(() => Object.assign(window, { __borrowFundingUnavailable: true }));
   await page.clock.fastForward(60_001);
   await expect(metric.locator('dd')).toHaveText('—');
   await expect(metric.getByRole('status')).toHaveText('Not quoted');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false, __borrowFundingRatio: 10000000000000000n }); document.dispatchEvent(new Event('visibilitychange')); });
-  await expect(metric.locator('dd')).toHaveText('1%');
-  await expect(metric.getByRole('status')).toHaveText('Active');
+  await expect(metric.locator('dd')).toHaveText('≈ 0.0009% / 8h');
+  await expect(metric.getByRole('status')).toHaveText('On');
 });
 
 test('a late funding response from the previous market cannot replace the current pool quote', async ({ page }) => {
@@ -580,12 +611,12 @@ test('a late funding response from the previous market cannot replace the curren
   await expect(metric.getByRole('status')).toHaveText('Checking rate');
   await page.evaluate(() => Object.assign(window, { __borrowFundingPending: false, __borrowFundingRatio: 35000000000000000n }));
   await page.getByLabel('Collateral asset', { exact: true }).selectOption('WBTC');
-  await expect(metric.locator('dd')).toHaveText('3.5%');
+  await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
   await page.evaluate(() => {
     (window as unknown as { __resolveBorrowFunding: () => void }).__resolveBorrowFunding();
   });
-  await expect(metric.locator('dd')).toHaveText('3.5%');
-  await expect(metric.getByRole('status')).toHaveText('Active');
+  await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
+  await expect(metric.getByRole('status')).toHaveText('On');
 });
 
 test('the withdrawal field names how much collateral can leave before review', async ({ page }) => {
@@ -715,21 +746,40 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await page.getByLabel('Collateral', { exact: true }).fill('0.5');
     await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800.123456789012345678');
     const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome', exact: true });
-    const debt = outcome.locator('[data-review-value="Estimated debt"]');
+    const debt = outcome.locator('dl > div').filter({ hasText: 'Total debt' }).locator('strong');
     await expect(debt).toBeVisible();
+    await expect(debt.locator('details, summary')).toHaveCount(0);
+    await expect(debt).toContainText(/800\.12 fxUSD/);
+    await expect(page.getByLabel('fxUSD to borrow', { exact: true })).toHaveValue('800.123456789012345678');
     await page.evaluate(() => document.fonts.ready);
     const rows = outcome.locator(':scope > dl > div');
     const heights = await expectFormMetricRows(rows);
     if (width === 390) expect(heights[0], 'Single-line borrowing terms use the compact rhythm').toBeLessThanOrEqual(36);
-    await debt.locator('summary').click();
-    await expect(debt.getByText('800.123456789012345678 fxUSD', { exact: true })).toBeVisible();
-    await debt.locator('summary').click();
     const funding = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-    await expect(funding.getByRole('status')).toHaveText('Not active · can change');
+    await expect(funding.getByRole('status')).toHaveText('Off');
     await expect(funding).not.toContainText('APR');
     await page.screenshot({ path: info.outputPath(`borrow-funding-status-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
     await expectFormMetricRows(rows);
+    const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
+    await expect(history.getByRole('slider', { name: 'Explore historical funding charge' })).toBeVisible();
+    const definitions = history.locator('[data-info-help-trigger]');
+    await expect(definitions).toHaveCount(3);
+    for (const control of await definitions.all()) {
+      await control.scrollIntoViewIfNeeded();
+      const geometry = await control.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        const overlaps = [...element.closest('section')!.querySelectorAll('[data-info-help-trigger]')].some(other => {
+          if (other === element) return false;
+          const box = other.getBoundingClientRect();
+          return Math.min(rect.right, box.right) - Math.max(rect.left, box.left) > 1
+            && Math.min(rect.bottom, box.bottom) - Math.max(rect.top, box.top) > 1;
+        });
+        return { width: rect.width, height: rect.height, reachable: Boolean(hit && element.contains(hit)), overlaps };
+      });
+      expect(geometry).toEqual({ width: 24, height: 24, reachable: true, overlaps: false });
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     expect(await page.evaluate(() => globalThis.__borrowHarness.plannerCount)).toBe(0);
     expect(await page.evaluate(() => globalThis.__borrowHarness.walletRequestCount)).toBe(0);

@@ -62,7 +62,7 @@ function textOf(markup: string): string {
 /** Rows as [label, visible text of the value], from rendered markup. */
 function rows(html: string) {
   return [...html.matchAll(/<div class="test-row" data-outcome-fact="([^"]+)"><dt>[^]*?<\/dt><dd>(.*?)<\/dd><\/div>/g)]
-    .map((match) => [match[1], textOf(match[2].match(/<summary\b[^>]*>(.*?)<\/summary>/)?.[1] ?? match[2])]);
+    .map((match) => [match[1], textOf(match[2]).trim()]);
 }
 
 test('while the warm-up runs, the same rows hold their place with announced-off placeholders', async () => {
@@ -77,7 +77,7 @@ test('while the warm-up runs, the same rows hold their place with announced-off 
   assert.doesNotMatch(html, /Loading USD value/);
 });
 
-test('a settled route shows the review’s figures, each marked as an estimate, with the exact value in an accessible disclosure', async () => {
+test('a settled route shows compact reviewed estimates while retaining exact quote data', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const route = opened('ETH', 'long', {
     colls: '1500000000000000000', debts: '1010218412345678901234', executionPrice: '2500.123456789',
@@ -89,12 +89,12 @@ test('a settled route shows the review’s figures, each marked as an estimate, 
   // The SDK execution price already divides out the wstETH rate.
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 2,500.12 fxUSD / stETH'],
-    ['Liquidation price', 'Unavailable'],
+    ['Liquidation price', ''],
     ['f(x) fee', 'Unavailable'],
   ]);
-  assert.match(html, /data-review-value="Execution price"/);
-  assert.match(html, /Show full execution price value/);
-  assert.match(html, /2500\.123456789 fxUSD \/ stETH/);
+  assert.match(html, /≈ 2,500\.12 fxUSD \/ stETH/);
+  assert.doesNotMatch(html, /data-review-value|Show full|2500\.123456789 fxUSD/);
+  assert.equal(route.details?.executionPrice, '2500.123456789');
   assert.doesNotMatch(html, /Estimated collateral|Estimated debt|Loading USD value/);
   // A separate collateral accounting rate must never convert that price again.
   const converted = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
@@ -110,7 +110,7 @@ test('a short previews its quoted execution price and borrowed derivative, and a
   }));
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 65,000.25 fxUSD / WBTC'],
-    ['Liquidation price', 'Unavailable'],
+    ['Liquidation price', ''],
     ['f(x) fee', 'Unavailable'],
   ]);
 });
@@ -141,19 +141,20 @@ test('fresh pool liquidation quotes render the native USD price for all four mar
     });
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market, side, route }));
     assert.deepEqual(rows(html)[1], ['Liquidation price', expected.replace('.00', '')]);
-    assert.ok(html.includes(expected), 'the unshortened liquidation value remains in execution details');
-    assert.match(html, /Show full liquidation price value/);
+    assert.ok(html.includes(expected.replace('.00', '')), 'the compact USD price remains visible');
+    assert.doesNotMatch(html, /Show full liquidation price value|data-review-value/);
     assert.doesNotMatch(html, /Estimated collateral|Estimated debt/);
   }
 });
 
-test('expired, malformed or mismatched pool thresholds show liquidation unavailable', async () => {
+test('expired or missing thresholds refresh, while malformed or mismatched fresh thresholds stay unavailable', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const quote = { poolAddress: positionPoolAddress('BTC', 'long'), liquidateRatio: '800000000000000000', readAt: Date.now() };
   for (const liquidationQuote of [undefined, { ...quote, readAt: Date.now() - 30_001 }, { ...quote, liquidateRatio: '0' }, { ...quote, poolAddress: positionPoolAddress('BTC', 'short') }]) {
     const route = opened('BTC', 'long', { colls: '2000000000000000000', debts: '1000000000000000000000', liquidationQuote });
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'BTC', side: 'long', route }));
-    assert.deepEqual(rows(html)[1], ['Liquidation price', 'Unavailable']);
+    const refreshing = !liquidationQuote || Date.now() - liquidationQuote.readAt >= 30_000;
+    assert.deepEqual(rows(html)[1], ['Liquidation price', refreshing ? '' : 'Unavailable']);
   }
 });
 

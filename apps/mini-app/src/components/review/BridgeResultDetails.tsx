@@ -6,6 +6,7 @@ import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { transactionStepProgress } from '@/lib/transactionProgress';
 import { AmountUsd, FeeUsd } from './AmountUsd';
 import { BridgeReceiptRow } from './BridgeResultCard';
+import { ReviewFactValue } from './ReviewFactValue';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import { TechnicalEvidenceRow } from './TechnicalEvidenceRow';
 import styles from './BridgeResultCard.module.css';
@@ -35,10 +36,10 @@ export function BridgeResultDetails({ result, receipts, reviewedFacts }: {
       {approvalSteps.map((step, index) => <BridgeReceiptRow key={step.hash} label={approvalSteps.length > 1 ? `Token approval ${index + 1}` : 'Token approval'} chain={result.chainId === 8453 ? 'Base' : 'Ethereum'} hash={step.hash} status={transactionStepProgress(step).label} simulated={simulated} />)}
     </section>}
     {fees.length > 0 && <section className={styles.group} aria-label="Receipt fees"><h4>{simulated ? 'Simulated fees' : 'Receipt costs'}</h4><dl className={styles.facts}>
-      {fees.map(fee => <div key={fee.key}><dt>{fee.label}</dt><dd title={fee.exact ? `${fee.exact} ETH` : undefined}>{fee.value}{fee.exact && <AmountUsd amount={fee.exact} symbol="ETH" receipt />}</dd></div>)}
+      {fees.map(fee => <div key={fee.key}><dt>{fee.label}</dt><dd>{fee.value}{fee.exact && <AmountUsd amount={fee.exact} symbol="ETH" receipt />}</dd></div>)}
     </dl>{caveats.map(caveat => <p key={caveat} className={styles.priceNote}>{caveat}</p>)}</section>}
     {facts.length > 0 && <section className={styles.group} aria-label="Reviewed bridge terms"><h4>Reviewed quote · not final amounts</h4><dl className={styles.facts}>
-      {facts.map(fact => <div key={fact.label} data-review-fact={fact.label}><dt>{labels[fact.label]}</dt><dd>{fact.title ?? fact.value}{fact.label === 'Bridge fee' && <FeeUsd fact={fact} />}</dd></div>)}
+      {facts.map(fact => <div key={fact.label} data-review-fact={fact.label}><dt>{labels[fact.label]}</dt><dd><ReviewFactValue fact={fact} />{fact.label === 'Bridge fee' && <FeeUsd fact={fact} />}</dd></div>)}
     </dl></section>}
     {receipts.flatMap(receipt => receipt.technicalMovements).map((movement, index) => <TechnicalEvidenceRow key={index} label={`Token movement ${index + 1}`} value={movement} preview="View receipt data" />)}
   </>;

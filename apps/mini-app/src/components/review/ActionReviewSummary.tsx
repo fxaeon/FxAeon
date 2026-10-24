@@ -34,14 +34,14 @@ export function CompactQuoteMetrics({ facts, gasStatus }: {
   return <div className={presentationStyles.quoteMetrics} aria-label="Current quote estimates">
     {metrics.map((fact) => <div className={presentationStyles.quoteMetric} key={fact.label}>
       <span className={presentationStyles.quoteMetricLabel}>{fact.label}</span>
-      <span className={presentationStyles.quoteMetricValue} title={fact.title}>{fact.label === 'Gas tier' ? fact.value : fact.value !== '—' ? <ReviewFactValue fact={fact} /> : <ValueOrSkeleton value={fact.value} width="sm" status={gasStatus === 'refreshing' ? 'loading' : 'unavailable'} label={fact.label} />}{['Gas fee', 'Network fee max'].includes(fact.label) && <FeeUsd fact={fact} />}</span>
+      <span className={presentationStyles.quoteMetricValue}>{fact.label === 'Gas tier' ? fact.value : fact.value !== '—' ? <ReviewFactValue fact={fact} /> : <ValueOrSkeleton value={fact.value} width="sm" status={gasStatus === 'refreshing' ? 'loading' : 'unavailable'} label={fact.label} />}{['Gas fee', 'Network fee max'].includes(fact.label) && <FeeUsd fact={fact} />}</span>
     </div>)}
   </div>;
 }
 
-function SummaryRow({ label, value, title }: { label: string; value: string; title?: string }) {
+function SummaryRow({ label, value }: { label: string; value: string }) {
   return <div className="grid min-w-0 grid-cols-[minmax(84px,.72fr)_minmax(0,1.28fr)] gap-x-3 py-1 text-[13px] leading-snug">
-    <span className="text-mut">{reviewFactLabel(label)}</span><span className="min-w-0 break-words text-right font-semibold tabular-nums" title={title}><ReviewFactValue fact={{ label, value, title }} />{['Gas fee', 'Bridge fee', 'Total cost'].includes(label) && <FeeUsd fact={{ value, title }} />}</span>
+    <span className="text-mut">{reviewFactLabel(label)}</span><span className="min-w-0 break-words text-right font-semibold tabular-nums"><ReviewFactValue fact={{ label, value }} />{['Gas fee', 'Bridge fee', 'Total cost'].includes(label) && <FeeUsd fact={{ value }} />}</span>
   </div>;
 }
 
@@ -54,7 +54,7 @@ export function UpdatedQuoteSummary({ changes }: { changes: readonly ChangedRevi
     : null;
   return (
     <section className="mt-3 rounded-2xl bg-[var(--warn-dim)] px-4 py-3" aria-label="Updated transaction consequences">
-      <p className="text-[12px] font-semibold text-warn">Changed since your previous review</p>
+      <p className="text-[12px] font-semibold text-warn">Quote updated</p>
       <div className="mt-1.5 flex flex-col gap-1.5">
         {visibleChanges.map((change) => <div key={change.label} className="grid grid-cols-[minmax(84px,.7fr)_minmax(0,1.3fr)] gap-x-3 text-[13px]">
           <span className="text-mut">{reviewFactLabel(change.label)}</span>
@@ -71,24 +71,23 @@ export function ActionConsequenceSummary({ facts }: { facts: readonly ReviewFact
     <section className="mt-3 rounded-2xl bg-[var(--surface-2)] px-4 py-3" aria-label="Action consequences">
       <p className="text-[12px] font-semibold text-mut">What changes</p>
       <div className="mt-1.5 flex flex-col gap-0.5">
-        {facts.map((fact) => <SummaryRow key={`${fact.label}-${fact.value}`} label={fact.label} value={fact.value} title={fact.title} />)}
+        {facts.map((fact) => <SummaryRow key={`${fact.label}-${fact.value}`} label={fact.label} value={fact.value} />)}
       </div>
     </section>
   );
 }
 
-export function PositionOutcomeSummary({ facts }: { facts: readonly PairedPositionFact[] }) {
+export function PositionOutcomeSummary({ facts, newPosition = false }: { facts: readonly PairedPositionFact[]; newPosition?: boolean }) {
   if (!facts.length) return null;
   const display = (value: string) => formatReviewFactValue({ label: 'Position value', value }).display;
   return (
-    <section className={presentationStyles.positionOutcome} aria-label="Current and expected position values">
-      <div className={presentationStyles.positionOutcomeHeading}><span>Current → estimated</span></div>
+    <section className={presentationStyles.positionOutcome} data-new-position={newPosition || undefined} aria-label={newPosition ? 'Estimated position' : 'Current and expected position values'}>
+      {!newPosition && <div className={presentationStyles.positionOutcomeHeading}><span>Current → estimated</span></div>}
       <dl>{facts.map((fact) => <div key={fact.label}>
-        <dt><MetricLabel label={fact.label === 'Debt' ? 'Total debt' : fact.label === 'Loan-to-value' ? 'LTV' : fact.label} definition={reviewHelpDefinition(fact.label)} /></dt>
-        <dd><details className={presentationStyles.positionPair}>
-          <summary aria-label={`Show full ${fact.label.toLowerCase()} before and after`}><span>{display(fact.before)}</span><span aria-hidden="true">→</span><strong>{display(fact.after)}</strong></summary>
-          <p><span>Before: {fact.before}{fact.beforeTitle && fact.beforeTitle !== fact.before && <><br />Source detail: {fact.beforeTitle}</>}</span><span>Estimated after: {fact.after}{fact.afterTitle && fact.afterTitle !== fact.after && <><br />Estimate detail: {fact.afterTitle}</>}</span></p>
-        </details></dd>
+        <dt><MetricLabel minimalHelp label={fact.label === 'Debt' ? 'Total debt' : fact.label === 'Loan-to-value' ? 'LTV' : fact.label} definition={reviewHelpDefinition(fact.label)} /></dt>
+        <dd><span className={presentationStyles.positionPair}>
+          {!newPosition && <><span>{display(fact.before)}</span><span aria-hidden="true">→</span></>}<strong>{display(fact.after)}</strong>
+        </span></dd>
       </div>)}</dl>
     </section>
   );

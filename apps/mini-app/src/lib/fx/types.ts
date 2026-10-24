@@ -70,6 +70,7 @@ export interface RouteDetails {
   borrowFundingQuote?: {
     poolAddress: Address;
     ratio: string;
+    netRatio?: string;
     readAt: number;
   };
   /** Live fee tuple already read by the pinned SDK for this route's pool/router.

@@ -98,6 +98,32 @@ test('route estimate uses the reviewed tier cap and does not re-read an RPC fee'
   assert.match(formatRouteGasCost(estimate).gasTier ?? '', /^Fast · /);
 });
 
+test('route freshness never extends the selected fee quote deadline', async () => {
+  const deadline = Date.now() + 1_000;
+  const estimate = await estimatePlannedRouteCost(route(), {
+    client: clientFor(async () => 21_000n),
+    feeTierQuote: { tier: 'fast', gasPriceWei: 2n, maxFeePerGas: 3n, maxPriorityFeePerGas: 1n, validUntil: deadline },
+  });
+  assert.equal(estimate.status, 'current');
+  assert.equal(estimate.validUntil, deadline);
+});
+
+test('exact route getOrRefresh shares prepared gas and force refresh still verifies again', async () => {
+  let calls = 0;
+  let clock = 1;
+  const cache = new RouteGasCostCache({ now: () => clock });
+  const client = clientFor(async () => { calls += 1; return 21_000n; });
+  const planned = route();
+  const first = await cache.getOrRefresh(planned, { client });
+  assert.equal(await cache.getOrRefresh(planned, { client }), first);
+  assert.equal(calls, 1);
+  await cache.refresh(planned, { client });
+  assert.equal(calls, 2);
+  clock = 15_001;
+  await cache.getOrRefresh(planned, { client });
+  assert.equal(calls, 3);
+});
+
 test('does not spend an RPC request on optional block provenance before estimating gas', async () => {
   let blockReads = 0;
   const client = {
@@ -559,7 +585,7 @@ test('the max network fee shown is what the wallet funds, so an empty wallet is 
     assert.match(shown, / max$/, name);
     assert.ok(displayedWei(shown) >= feePart, `${name}: the max shown (${shown}) covers the ${feePart} wei the wallet must fund`);
     // Nothing else to send and nothing in the wallet: add exactly the max shown.
-    const asked = /^Add at least ([\d,.]+) ETH on /.exec(nativeFundsNotice(estimate, planned.chainId === 8453 ? 'Base' : 'Ethereum'))?.[1];
+    const asked = /^Add ([\d,.]+) ETH on /.exec(nativeFundsNotice(estimate, planned.chainId === 8453 ? 'Base' : 'Ethereum'))?.[1];
     assert.equal(`${asked} ETH max`, shown.replace(/^≈ /, ''), name);
   }
 
@@ -573,7 +599,7 @@ test('the max network fee shown is what the wallet funds, so an empty wallet is 
     const shownMax = displayedWei(facts.find((fact) => fact.label === 'Gas fee')!.value);
     const shownTotal = displayedWei(facts.find((fact) => fact.label === 'Total cost')!.value);
     assert.equal(shownTotal, value + shownMax, 'the total is the value plus the max shown');
-    const asked = displayedWei(`${/^Add at least ([\d,.]+) ETH on /.exec(nativeFundsNotice(estimate, 'Ethereum'))![1]} ETH`);
+    const asked = displayedWei(`${/^Add ([\d,.]+) ETH on /.exec(nativeFundsNotice(estimate, 'Ethereum'))![1]} ETH`);
     const expected = value + shownMax - balance;
     assert.equal(asked, ((expected + step - 1n) / step) * step);
   }

@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { MissingValue } from '@/components/MissingValue';
-import { LIQUIDATION_QUOTE_TTL_MS } from '@/lib/fx/liquidationQuote';
+import { useRouteRiskQuote } from '@/lib/fx/useRouteRiskQuote';
 import { positionOutcomeFacts } from '@/lib/fx/reviewFormatting';
 import type { PlannedRoute } from '@/lib/fx/types';
 import { approximately } from '@/lib/tradeOutcome';
@@ -24,22 +23,13 @@ type Row = { label: string; value?: string; title?: string; feeAmounts?: import(
  * warm-up runs: the same rows hold their place with placeholders.
  */
 export function TradeOutcomePreview({ route }: { market: 'ETH' | 'BTC'; side: 'long' | 'short'; route: PlannedRoute | null }) {
-  const [, expireQuote] = useState(0);
-  useEffect(() => {
-    const readAt = route?.details?.liquidationQuote?.readAt;
-    const now = Date.now();
-    if (readAt === undefined || !Number.isFinite(readAt) || readAt > now) return;
-    const delay = readAt + LIQUIDATION_QUOTE_TTL_MS - now;
-    // The ticket can stay untouched: stop displaying an expired pool threshold.
-    const timer = window.setTimeout(() => expireQuote((value) => value + 1), Math.max(0, delay + 1));
-    return () => window.clearTimeout(timer);
-  }, [route]);
-  const facts = route ? positionOutcomeFacts(route) : null;
+  const risk = useRouteRiskQuote(route);
+  const facts = risk.route ? positionOutcomeFacts(risk.route) : null;
   // A route the review cannot describe either has nothing to preview.
   if (route && !facts) return null;
   const rows: Row[] = facts ? [
     { label: 'Execution price', value: facts.executionPrice ? approximately(facts.executionPrice.value) : 'Unavailable', title: facts.executionPrice?.title },
-    { label: 'Liquidation price', value: facts.liquidationPrice ? approximately(facts.liquidationPrice.value) : 'Unavailable', title: facts.liquidationPrice?.title },
+    { label: 'Liquidation price', value: facts.liquidationPrice ? approximately(facts.liquidationPrice.value) : risk.loading ? undefined : 'Unavailable', title: facts.liquidationPrice?.title },
     { label: facts.fee?.label ?? 'f(x) fee', value: facts.fee?.value ?? 'Unavailable', title: facts.fee?.title, feeAmounts: facts.fee?.feeAmounts },
   ] : [
     { label: 'Execution price' },

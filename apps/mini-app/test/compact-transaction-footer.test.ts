@@ -69,7 +69,8 @@ test('aggregates exact paid fees including approvals without reading rounded lab
   assert.deepEqual(compactTransactionGasFee(value, fees), { exactNative: '0.001000000000000001', knownNative: '0.001000000000000001', includesApprovals: true });
   const model = compactTransactionFooterModel(value, fees, 'live', quote, now)!;
   assert.equal(model.feeValue, '≈ $2.40');
-  assert.equal(model.feeNote, 'now');
+  assert.equal(model.feeNote, null);
+  assert.doesNotMatch(model.feeDescription, /current prices/);
   assert.match(model.feeDescription, /0\.001000000000000001 ETH/);
   assert.match(model.feeDescription, /Includes token approvals/);
 });

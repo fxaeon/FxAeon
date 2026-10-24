@@ -38,17 +38,19 @@ test('Borrow review-before and repay source formatters preserve exact units with
  const exact=evaluate<string[]>(`${declarations.join('\n')}\n[formatPositionCollateral(position),formatPositionDebt(position)];`,{position:tiny});
  assert.equal(exact[0],'0.000000000000000001 WBTC');assert.equal(exact[1],'0.000000000000000001 fxUSD');
 });
-test('actual Borrow input and repay outcome rows compact phone decimals but preserve exact evidence',()=>{
+test('actual Borrow input and repay outcome rows show static compact values while preserving exact model decimals',()=>{
  const rows=[...source.matchAll(/<div><dt>Total debt<\/dt>[^\n]+?<\/div>/g)].map(match=>match[0]);assert.equal(rows.length,2);
  const inputs={existingDebt:721132791793066406250n,debtAfter:720891476593066406250n,repayPreviewWei:241315200000000n};const before=structuredClone(inputs);
+ assert.equal(positionTokenPresentation(inputs.existingDebt,18).exact,'721.13279179306640625');
+ assert.equal(positionTokenPresentation(inputs.debtAfter,18).exact,'720.89147659306640625');
  const markup=rows.map(row=>renderToStaticMarkup(evaluate<React.ReactNode>(`(${row});`,inputs)));
- for(const html of markup){assert.match(html,/≈ 721.13 fxUSD/);assert.match(html,/721.13279179306640625 fxUSD/);assert.doesNotMatch(html,/lucide-chevron-down/);}
- assert.match(markup[0],/≈ 720.89 fxUSD/);assert.match(markup[0],/720.89147659306640625 fxUSD/);assert.deepEqual(inputs,before);
+ for(const html of markup){assert.match(html,/≈ 721.13 fxUSD/);assert.doesNotMatch(html,/<details|<button|<summary|721\.13279179306640625/);}
+ assert.match(markup[0],/≈ 720.89 fxUSD/);assert.doesNotMatch(markup[0],/720\.89147659306640625/);assert.deepEqual(inputs,before);
  const tiny=renderToStaticMarkup(evaluate<React.ReactNode>(`(${rows[0]});`,{existingDebt:0n,debtAfter:1n}));assert.match(tiny,/0.000000000000000001 fxUSD/);
 });
 test('Borrow manager summaries match review precision without nested disclosure controls',()=>{
  const html=renderToStaticMarkup(React.createElement(BorrowPositionAmount,{raw:720891476593066406250n,decimals:18,symbol:'fxUSD'}));
- assert.match(html,/≈ 720.89 fxUSD/);assert.match(html,/title="720.89147659306640625 fxUSD"/);assert.doesNotMatch(html,/<details|<button|<summary/);
+ assert.match(html,/≈ 720.89 fxUSD/);assert.doesNotMatch(html,/720\.89147659306640625|title=|<details|<button|<summary/);
  const manager=readFileSync(new URL('../src/components/BorrowPositionCards.tsx',import.meta.url),'utf8');
  assert.match(manager,/<details className=\{styles.details\}/);assert.match(manager,/<dt>Outstanding debt<\/dt><dd><PositionTokenAmount[^>]+symbol=\{position.info.rawDebtsToken\} \/>/);
 });

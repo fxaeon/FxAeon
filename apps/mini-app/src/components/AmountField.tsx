@@ -117,8 +117,8 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
   const chooseMax = async () => {
     haptic('selection'); setMaxError(''); setEntryError('');
     if (allowAll) { change('all'); return; }
-    // Route-aware maxima must be priced again on every click: gas can change
-    // even when the amount and wallet balance have not.
+    // The route owner can apply a fresh verified maximum immediately or
+    // prepare one. The field never substitutes the unreserved native balance.
     if (onMax) {
       try { await onMax?.(); } catch { setMaxError('The spendable maximum could not be checked. Try again.'); }
       return;

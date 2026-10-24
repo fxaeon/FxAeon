@@ -147,14 +147,14 @@ test('Base gas combines network components without duplicating a fee-only total'
 
 test('the funds notice names the exact ETH to add on the network that pays it', () => {
   const short = { insufficientNativeBalance: true, nativeValueWei: 0n, requiredNativeCostWei: 1_008_000_000_000_000n, nativeBalanceWei: 400_000_000_000_000n };
-  assert.equal(nativeFundsNotice(short, 'Ethereum'), 'Add at least 0.000608 ETH on Ethereum to cover network fees.');
-  assert.equal(nativeFundsNotice({ ...short, requiredNativeCostWei: 400_000_000_000_001n }, 'Base'), 'Add at least 0.000001 ETH on Base to cover network fees.');
+  assert.equal(nativeFundsNotice(short, 'Ethereum'), 'Add 0.000608 ETH on Ethereum for fees.');
+  assert.equal(nativeFundsNotice({ ...short, requiredNativeCostWei: 400_000_000_000_001n }, 'Base'), 'Add 0.000001 ETH on Base for fees.');
   // Rounded up: adding the amount shown is always enough.
-  assert.equal(nativeFundsNotice({ ...short, requiredNativeCostWei: 1_018_123_456_789_012n }, 'Ethereum'), 'Add at least 0.000619 ETH on Ethereum to cover network fees.');
+  assert.equal(nativeFundsNotice({ ...short, requiredNativeCostWei: 1_018_123_456_789_012n }, 'Ethereum'), 'Add 0.000619 ETH on Ethereum for fees.');
   // A balance below the amount itself needs the amount topped up as well.
   assert.equal(
     nativeFundsNotice({ insufficientNativeBalance: true, nativeValueWei: 500_000_000_000_000n, requiredNativeCostWei: 1_100_000_000_000_000n, nativeBalanceWei: 300_000_000_000_000n }, 'Ethereum'),
-    'Add at least 0.0008 ETH on Ethereum to cover the amount and network fees.',
+    'Add 0.0008 ETH on Ethereum for the amount and fees.',
   );
   // A partial estimate proves the gap but not its size, so no figure is invented.
   assert.equal(nativeFundsNotice({ ...short, requiredNativeCostWei: undefined }, 'Base'), 'This wallet needs more ETH on Base for network fees.');

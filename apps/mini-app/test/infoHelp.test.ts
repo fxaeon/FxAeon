@@ -39,8 +39,9 @@ test('all explicit definitions are explanatory and contain no transaction-specif
     assert.ok(value.length > 30, key);
     assert.doesNotMatch(value, /0x[a-f0-9]{40}|\$[\d,]+|\d+\.\d+ ETH/i, key);
   }
-  assert.match(INFO_HELP_CONTENT.borrowRate, /charged against the whole collateral/);
-  assert.match(INFO_HELP_CONTENT.borrowRate, /zero reading applies only to the checked snapshot/);
+  assert.match(INFO_HELP_CONTENT.borrowRate, /borrowing cost on the whole collateral/);
+  assert.match(INFO_HELP_CONTENT.borrowRate, /per eight hours/);
+  assert.match(INFO_HELP_CONTENT.borrowRate, /Funding can activate or change/);
   assert.match(INFO_HELP_CONTENT.minimumReceived, /limit, not the expected amount/);
   assert.doesNotMatch(source, /fact\.title|beginLocalHistoryEntry|history\.(pushState|back)|useOverlayDialog\(/);
 });

@@ -217,15 +217,12 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('.reviewInlineContent');
   await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
-  await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveAccessibleName('Show full estimate: 99 USDC');
-  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · estimated', { exact: true })).toBeVisible();
-  const fee = review.locator('[data-review-value="f(x) fee"]');
+  await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveCount(0);
+  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · est.', { exact: true })).toBeVisible();
+  const fee = review.locator('[data-review-fact="f(x) fee"]');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
-  await expect(fee.locator('summary')).toHaveText('≈ $0.99');
-  await fee.locator('summary').click();
-  await expect(fee.getByText('1%', { exact: true })).toBeVisible();
-  await expect(fee.getByText(/0\.6 fxUSD \+ 0\.4 USDC; 1% accepted base-pool instant redemption fee, deducted from both redemption legs before conversion/)).toBeVisible();
-  await fee.locator('summary').click();
+  await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
+  await expect(fee.locator('details, summary')).toHaveCount(0);
   await expect(review.locator('[data-review-fact="Availability"]')).toContainText('After confirmation');
   await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(review.getByText('Execution details', { exact: true })).toBeVisible();
@@ -374,7 +371,8 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const review = page.locator('.reviewInlineContent');
     // The most the network fee can take: the buffered gas limit the wallet funds.
-    await expect(review.locator('[data-review-fact="Gas fee"] summary')).toHaveAccessibleName(/Show exact network cost: 0\.001008 ETH/);
+    await expect(review.locator('[data-review-fact="Gas fee"] [data-usd-state]')).toContainText('0.001008 ETH');
+    await expect(review.locator('[data-review-fact="Gas fee"] details, [data-review-fact="Gas fee"] summary')).toHaveCount(0);
     await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(0);
     expect((await harnessMetrics(page)).feeQuoteCount).toBe(0);
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -416,10 +414,10 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('heading', { level: 2, name: 'Add to ETH Long', exact: true })).toBeVisible();
     await expect(sheet.getByText('Position #42', { exact: true })).toBeVisible();
-    const reviewedAmount = page.getByRole('region', { name: 'Transaction amounts', exact: true }).getByLabel('Show exact amount: 0.25 fxUSD', { exact: true });
+    const reviewedAmount = page.getByRole('region', { name: 'Transaction amounts', exact: true }).locator('[data-review-fact="Amount"] [data-review-amount]');
     await expect(reviewedAmount).toBeVisible();
-    await expect(reviewedAmount.locator('[data-review-amount]')).toHaveText('0.25 fxUSD');
-    await expect(page.locator('[data-review-fact="Gas fee"] summary')).toHaveAccessibleName(/Show exact network cost: 0\.001008 ETH/);
+    await expect(reviewedAmount).toHaveText('0.25 fxUSD');
+    await expect(page.locator('[data-review-fact="Gas fee"] [data-usd-state]')).toContainText('0.001008 ETH');
     const navigation = page.locator('[data-fixed-navigation="true"]');
     await expect(navigation).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Trade', exact: true })).toHaveAttribute('aria-current', 'page');
@@ -792,7 +790,7 @@ test.describe('ActionReview isolated orchestration', () => {
     const originalFacts = { Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' };
     const expectOriginalFacts = async () => {
       for (const [label, value] of Object.entries(originalFacts)) {
-        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span:last-child' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] [data-review-amount]' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
     };
@@ -831,7 +829,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
     await harnessControl(page, 'Change preparation facts');
     await expect(page.getByRole('heading').filter({ hasText: '3×' })).toHaveCount(0);
-    await expect(page.locator('[data-review-fact="Amount"] summary > span:last-child').last()).toHaveText('0.25 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] [data-review-amount]').last()).toHaveText('0.25 fxUSD');
     expect(await metric(page, 'send')).toBe(0);
   });
 
@@ -957,7 +955,7 @@ test.describe('ActionReview isolated orchestration', () => {
     });
     const expectCheckedRoute = async () => {
       for (const [label, value] of Object.entries({ Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' })) {
-        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] summary > span:last-child' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] [data-review-amount]' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
       expect(await liveStatuses.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent))).toEqual(baselineStatuses);
@@ -968,8 +966,8 @@ test.describe('ActionReview isolated orchestration', () => {
       // The notice names the exact top-up on the network that pays it, and
       // links to the wallet's Receive. With nothing else to send and an empty
       // wallet, that is exactly the max fee the card shows.
-      await expect(review.locator('p', { hasText: 'Add at least' })).toHaveText('Add at least 0.001008 ETH on Ethereum to cover network fees. Receive ETH');
-      await expect(review.locator('[data-review-fact="Gas fee"] summary')).toHaveAccessibleName(/Show exact network cost: 0\.001008 ETH/);
+      await expect(review.locator('p', { hasText: /^Add [\d,.]+ ETH on / })).toHaveText('Add 0.001008 ETH on Ethereum for fees. Receive ETH');
+      await expect(review.locator('[data-review-fact="Gas fee"] [data-usd-state]')).toContainText('0.001008 ETH');
       await expect(review.getByRole('link', { name: 'Receive ETH', exact: true })).toHaveAttribute('href', '/qr');
       await expectCheckedRoute();
       // A TTL refresh removes current but retains its insufficient previous
@@ -995,10 +993,10 @@ test.describe('ActionReview isolated orchestration', () => {
     const review = page.locator('[data-review-viewport]');
     const action = page.getByRole('button', { name: 'Not enough ETH', exact: true });
     await expect(action).toBeDisabled();
-    const note = review.locator('[role="status"]', { hasText: 'Add at least' });
+    const note = review.locator('[role="status"]', { hasText: /^Add [\d,.]+ ETH on / });
     // An empty wallet with nothing else to send needs exactly the max fee shown.
-    await expect(note).toHaveText('Add at least 0.001008 ETH on Ethereum to cover network fees. Receive ETH');
-    await expect(review.locator('[data-review-fact="Gas fee"] summary')).toHaveAccessibleName(/Show exact network cost: 0\.001008 ETH/);
+    await expect(note).toHaveText('Add 0.001008 ETH on Ethereum for fees. Receive ETH');
+    await expect(review.locator('[data-review-fact="Gas fee"] [data-usd-state]')).toContainText('0.001008 ETH');
     await expect(note.getByRole('link', { name: 'Receive ETH', exact: true })).toHaveAttribute('href', '/qr');
     // The product Button also carries Tailwind's disabled:opacity-50. A
     // blocked action names what is missing, so it must stay full strength.
@@ -1037,16 +1035,17 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('heading', { level: 2, name: '3× ETH Long', exact: true })).toBeVisible();
     const review = page.locator('[data-review-viewport]');
-    const amount = review.locator('[data-review-fact="Amount"] summary > span:last-child').last();
+    const amount = review.locator('[data-review-fact="Amount"] [data-review-amount]').last();
     const expectFits = async () => {
       await expectReviewInside(review);
       await expect(amount).toHaveText('≈ 0.0002444 fxUSD');
-      await expect(review.locator('[data-review-fact="Amount"] summary')).toHaveAttribute('aria-label', 'Show exact amount: 0.00024443113696627 fxUSD');
+      await expect(review.locator('[data-review-fact="Amount"] summary')).toHaveCount(0);
+      await expect(review.locator('[data-review-fact="Amount"] [data-review-amount]')).toHaveText('≈ 0.0002444 fxUSD');
       await expectReviewHeadingLeverage(page, '3×');
     };
     await expectFits();
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
-    // The review sheet preserves the compact display and exact amount behind its disclosure.
+    // The review sheet preserves the compact display with no duplicate exact-value disclosure.
     await expectFits();
     await page.getByRole('button', { name: 'Close transaction review', exact: true }).click();
     await expect(sheet).toHaveCount(0);
@@ -1144,7 +1143,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'prepare')).toBe(1);
     // A failed refresh retains the accepted route as non-signable evidence.
     await expect(page.getByRole('heading', { name: '3× ETH Long', exact: true })).toBeVisible();
-    await expect(page.locator('[data-review-fact="Amount"] summary > span:last-child').last()).toHaveText('0.25 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] [data-review-amount]').last()).toHaveText('0.25 fxUSD');
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
     expect(await metric(page, 'send')).toBe(0);
@@ -1190,7 +1189,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(updated.routeVersion).toBe(2);
     await resolvePreviewRequest(page, updated.id);
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
-    await expect(page.locator('[data-review-fact="Amount"] summary > span:last-child').last()).toHaveText('0.5 fxUSD');
+    await expect(page.locator('[data-review-fact="Amount"] [data-review-amount]').last()).toHaveText('0.5 fxUSD');
     expect(await metric(page, 'send')).toBe(0);
   });
 
@@ -1419,7 +1418,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Change quote terms to v2');
     await refresh.click();
     const changes = page.getByRole('region', { name: 'Updated transaction consequences' });
-    await expect(changes).toContainText('Changed since your previous review');
+    await expect(changes).toContainText('Quote updated');
     await expect(changes).toContainText('Terms 1 → Terms 2');
     await expect(confirm).toBeEnabled();
     expect(await metric(page, 'runner')).toBe(0);

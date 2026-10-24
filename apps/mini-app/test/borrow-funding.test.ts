@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS, formatBorrowFundingApr, readBorrowFundingRate } from '../src/lib/fx/borrowFunding';
+import { borrowFundingDisplay, borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS, formatBorrowFundingApr, formatBorrowFundingEightHour, readBorrowFundingRate } from '../src/lib/fx/borrowFunding';
 import { positionPoolAddress } from '../src/lib/fx/policy';
 import type { FxPublicClient } from '../src/lib/fx/types';
 
@@ -17,12 +17,14 @@ test('funding reads prove Ethereum and resolve each canonical long pool configur
       calls.push(input);
       return input.functionName === 'configuration' ? configuration : 35000000000000000n;
     }));
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
     assert.equal(calls[0].address, positionPoolAddress(market, 'long'));
     assert.equal(calls[0].functionName, 'configuration');
     assert.equal(calls[1].address, configuration);
     assert.equal(calls[1].functionName, 'getLongPoolFundingRatio');
     assert.deepEqual(calls[1].args, [positionPoolAddress(market, 'long')]);
+    assert.equal(calls[2].functionName, 'getShortPoolFundingRatio');
+    assert.deepEqual(calls[2].args, [positionPoolAddress(market, 'short')]);
     assert.equal(rate.market, market);
     assert.equal(rate.pool, positionPoolAddress(market, 'long'));
     assert.equal(rate.ratio, 35000000000000000n);
@@ -31,6 +33,22 @@ test('funding reads prove Ethereum and resolve each canonical long pool configur
   let read = false;
   await assert.rejects(readBorrowFundingRate('ETH', client(async () => { read = true; return 0n; }, 8453)), /expected 1/);
   assert.equal(read, false);
+});
+
+test('official net eight-hour status requires a verified zero short funding offset', async () => {
+  const gross = 45318576060452136n;
+  for (const short of [0n, 1n, undefined]) {
+    const rate = await readBorrowFundingRate('ETH', client(async input => input.functionName === 'configuration' ? configuration : input.functionName === 'getLongPoolFundingRatio' ? gross : short));
+    assert.equal(rate.ratio, gross);
+    assert.equal(rate.netRatio, short === 0n ? gross : undefined);
+    assert.equal(borrowFundingDisplay(rate).label, short === 0n ? 'Funding rate' : 'Gross funding charge');
+    assert.equal(borrowFundingDisplay(rate).value, '≈ 0.0041% / 8h');
+    assert.equal(borrowFundingDisplay(rate).status, 'On');
+  }
+  assert.equal(formatBorrowFundingEightHour(0n), '0%');
+  assert.equal(formatBorrowFundingEightHour(1n), '<0.0001%');
+  assert.equal(formatBorrowFundingEightHour(1095n * 10n ** 16n), '1%');
+  assert.throws(() => formatBorrowFundingEightHour(-1n), /nonnegative/);
 });
 
 test('zero is a verified value; malformed or failed reads cannot become a zero quote', async () => {
@@ -61,6 +79,40 @@ test('the complete chain and funding read is bounded to twelve seconds', async c
   const rejected = assert.rejects(readBorrowFundingRate('ETH', stalled), /read deadline exceeded after 12000ms/);
   context.mock.timers.tick(12_000);
   await rejected;
+});
+
+test('a stalled optional offset preserves a gross rate verified eleven seconds into the read', async context => {
+  context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1_800_000_000_000 });
+  const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+  const rateRead = readBorrowFundingRate('ETH', client(async input => {
+    if (input.functionName === 'configuration') return configuration;
+    if (input.functionName === 'getLongPoolFundingRatio') return new Promise(resolve => setTimeout(() => resolve(35000000000000000n), 11_000));
+    return new Promise(() => undefined);
+  }));
+  await flush();
+  context.mock.timers.tick(11_000); await flush();
+  const rate = await rateRead;
+  assert.equal(rate.ratio, 35000000000000000n);
+  assert.equal(rate.netRatio, undefined);
+  assert.equal(borrowFundingIsFresh(rate, 'ETH'), true);
+  assert.equal(borrowFundingDisplay(rate).label, 'Gross funding charge');
+});
+
+test('slow configuration leaves only the remaining deadline for optional offset evidence', async context => {
+  context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1_800_000_000_000 });
+  const flush = async () => { for (let index = 0; index < 12; index++) await Promise.resolve(); };
+  const rateRead = readBorrowFundingRate('ETH', client(async input => {
+    if (input.functionName === 'configuration') return new Promise(resolve => setTimeout(() => resolve(configuration), 10_000));
+    if (input.functionName === 'getLongPoolFundingRatio') return 35000000000000000n;
+    return new Promise(() => undefined);
+  }));
+  await flush();
+  context.mock.timers.tick(10_000); await flush();
+  context.mock.timers.tick(1_999); await flush();
+  const rate = await rateRead;
+  assert.equal(rate.ratio, 35000000000000000n);
+  assert.equal(rate.netRatio, undefined);
+  assert.equal(Date.now() - rate.readAt, 11_999);
 });
 
 test('freshness is strict, market-bound and pool-bound, including a previously verified zero', () => {

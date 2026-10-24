@@ -121,7 +121,7 @@ for (const market of ['ETH', 'BTC'] as const) for (const side of ['long', 'short
   });
 }
 
-test('Borrow renders exact small debt, rational LTV and visible exact amounts behind its manager disclosure', () => {
+test('Borrow renders exact small debt and rational LTV while amount values stay static', () => {
   freshPrices();
   const p = position('ETH', 'long');
   const card = render(React.createElement(BorrowPositionCard, { position: p, stale: false, onOpen: () => undefined }));
@@ -134,7 +134,9 @@ test('Borrow renders exact small debt, rational LTV and visible exact amounts be
   const compact = render(React.createElement(BorrowPositionCard, { position: tiny, stale: false, onOpen: () => undefined }));
   assert.match(visibleText(compact), /0\.000000000000000001 WBTC/);
   assert.match(visibleText(compact), /0\.000000000000000001 fxUSD/);
-  assert.match(compact, /title="0\.000000000000000001 WBTC"/);
+  assert.doesNotMatch(compact, /title="0\.000000000000000001 WBTC"/);
+  assert.equal(tiny.info.rawColls, 1n);
+  assert.equal(tiny.info.rawDebts, 1n);
   const manager = render(React.createElement(BorrowPositionManager, { position: tiny, stale: false, inputStage: true, locked: false, triggerRef: { current: null }, onClose: () => undefined, children: null }));
   const facts = manager.slice(manager.indexOf('<dl>'));
   assert.match(visibleText(facts), /Collateral 0\.000000000000000001 WBTC/);

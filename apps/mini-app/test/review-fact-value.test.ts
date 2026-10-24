@@ -119,27 +119,20 @@ const oldReact = (globalThis as any).React;
 (globalThis as any).React = React;
 after(() => { if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css']; (globalThis as any).React = oldReact; });
 
-test('native closed disclosure exposes compact amount without helper prose, caret or nested controls', async () => {
+test('review value renders a compact amount without a numeric disclosure or source panel', async () => {
   const { ReviewFactValue } = await import('../src/components/review/ReviewFactValue');
   const fact = { label: 'Estimated debt', value: '721.13279179306640625 fxUSD', title: '721.13279179306640625 fxUSD; excludes gas.' };
   const html = renderToStaticMarkup(React.createElement(ReviewFactValue, { fact, className: 'externalValue' }));
-  assert.match(html, /<details class="value externalValue"/);
-  assert.match(html, /<summary[^>]*aria-label="≈ 721.13 fxUSD. Show full estimated debt value"[^>]*><span>≈ 721.13 fxUSD<\/span><\/summary>/);
-  assert.doesNotMatch(html, /<details[^>]*\bopen\b/);
-  assert.doesNotMatch(html, /<button|<svg|tabindex|onkeydown|Exact|exact amount/);
-  assert.match(html, /Full value<\/span><span[^>]*>721.13279179306640625 fxUSD<\/span>/);
-  assert.match(html, /Source detail<\/span><span[^>]*>721.13279179306640625 fxUSD; excludes gas./);
+  assert.equal(html, '<span class="value externalValue">≈ 721.13 fxUSD</span>');
+  assert.doesNotMatch(html, /<details|<summary|721\.13279179306640625|excludes gas/);
   const css = readFileSync(new URL('../src/components/review/ReviewFactValue.module.css', import.meta.url), 'utf8');
-  assert.match(css, /summary:focus-visible/);
-  assert.match(css, /summary::-webkit-details-marker \{ display: none/);
+  assert.doesNotMatch(css, /summary|expanded|original/);
 });
 
-test('short unchanged values need no disclosure, but unavailable caveats remain accessible', async () => {
+test('short and unavailable review values remain static without exposing source titles', async () => {
   const { ReviewFactValue } = await import('../src/components/review/ReviewFactValue');
   const plain = renderToStaticMarkup(React.createElement(ReviewFactValue, { fact: { label: 'Gas fee', value: 'Unavailable' } }));
   assert.equal(plain, '<span class="value">Unavailable</span>');
   const caveat = renderToStaticMarkup(React.createElement(ReviewFactValue, { fact: { label: 'Gas fee', value: 'Unavailable', title: 'Simulation failed; not a zero fee.' } }));
-  assert.match(caveat, /<summary[^>]*><span>Unavailable<\/span><\/summary>/);
-  assert.match(caveat, /Simulation failed; not a zero fee/);
-  assert.doesNotMatch(caveat, /Exact/);
+  assert.equal(caveat, '<span class="value">Unavailable</span>');
 });

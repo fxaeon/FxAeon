@@ -12,11 +12,7 @@
 .receiveAmount[data-empty] { color: var(--mut-2); }
 .receiveValue { flex: 1; min-width: 0; container-type: inline-size; }
 .receiveValue .receiveAmount { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: clamp(14px, calc(100cqi / (var(--receive-length, 4) * .62 + .4)), 38px); white-space: nowrap; overflow-wrap: normal; line-height: 1.2; }
-.receiveValue summary { display: flex; align-items: center; min-height: 52px; min-width: 44px; cursor: pointer; list-style: none; border-radius: 6px; }
-.receiveValue summary::-webkit-details-marker { display: none; }
-.receiveValue summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
-.receiveValue p { margin: 8px 0; color: var(--text); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
-.receiveValue p > span { display: block; color: var(--mut); }
+.receiveValue { display: flex; align-items: center; min-height: 52px; }
 .receiveCaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin: 0; color: var(--mut); font-size: 12px; line-height: 1.4; }
 .receiveCaption > span { display: inline; }
 .quoteSummary { padding: 0 2px 4px; border-bottom: 1px solid var(--line); }
@@ -27,9 +23,11 @@
 .quoteSummary dl > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; min-height: 24px; }
 .quoteSummary dt { min-width: 0; color: var(--mut); }
 .quoteSummary dt > :global(span) { display: flex; flex-wrap: wrap; align-items: center; }
+.quoteSummary dt > :global(span) > :global(span) { min-width: 0; overflow-wrap: anywhere; }
 .quoteSummary :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .quoteSummary :global([data-review-value] > summary) { min-height: 24px; min-block-size: 24px; min-inline-size: 24px; }
 .quoteSummary dd { margin: 0; text-align: right; min-width: 0; max-width: 58%; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.quoteSummary dd > :global(span) { overflow-wrap: anywhere; }
 .gasNote { margin: 0; color: var(--mut); font-size: 12px; line-height: 1.5; padding: 0 2px; }
 .gasNote[data-shortfall] { padding: 10px; border: 1px solid var(--warn); border-radius: 10px; color: var(--warn); background: var(--warn-dim); }
 .recipientIdentity { display: flex; align-items: center; min-width: 0; gap: 7px; font-size: 12px; flex-wrap: wrap; }

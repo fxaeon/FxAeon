@@ -38,7 +38,7 @@ export type NewPositionView = {
   targetLeverage: number;
 };
 
-/** A shortened display always retains the exact receipt value for touch/keyboard users. */
+/** Readable receipt amounts stay static; the original value remains in the receipt model. */
 function ResultAmount({ amount, symbol }: { amount: string; symbol: string }) {
   return <ReviewFactValue fact={{ label: 'Receipt amount', value: `${amount} ${symbol}` }} />;
 }
@@ -137,7 +137,7 @@ export function TransactionResultView({
   const recoveryWarning = compactResultWarning(safePresentation);
   const advancedContent = bridge ? <BridgeResultDetails result={result} receipts={receipts} reviewedFacts={reviewedFacts} /> : <>
     <p className={styles.resultMeta} title={result.walletAddress}>{chainName(result.chainId)} · {compactAddress(result.walletAddress)}</p>
-    {observedFacts.length > 0 && <p className={styles.reviewExplanation}>{simulated ? 'Amounts are simulated.' : 'Amounts are from verified receipts.'} USD uses current prices, not receipt-time prices.</p>}
+    {observedFacts.length > 0 && <p className={styles.reviewExplanation}>{simulated ? 'Amounts are simulated.' : 'Amounts are from verified receipts.'}</p>}
     <ReceiptSummary receipts={receipts} variant="details" />
     {!conciseSuccess && readbackSection}
     {!conciseSuccess && transactionLinks && <section className={styles.receiptLinks} aria-label="Transaction receipts">{transactionLinks}</section>}

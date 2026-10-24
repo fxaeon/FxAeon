@@ -13,12 +13,14 @@ import { PageHeading, ProductSurface, StatusNotice } from '@/components/ProductU
 import { BorrowPositionCard, BorrowPositionManager, BorrowPositionsState } from '@/components/BorrowPositionCards';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { withReadDeadline } from '@/lib/fx/readFacade';
-import { formatBorrowFundingApr } from '@/lib/fx/borrowFunding';
+import { borrowFundingDisplay } from '@/lib/fx/borrowFunding';
+import { BorrowFundingHistory } from '@/components/BorrowFundingHistory';
 import { useBorrowFundingRate } from '@/lib/fx/useBorrowFundingRate';
-import { calculateNativeMax, nativeMaxErrorMessage } from '@/lib/fx/nativeMax';
+import { calculateVerifiedNativeMax } from '@/lib/fx/nativeMax';
+import { useNativeMax } from '@/lib/fx/useNativeMax';
+import { routeGasCostCache } from '@/lib/fx/gasCost';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
-import { readGasTier } from '@/lib/settings';
-import { estimatePlannedRouteCost } from '@/lib/fx';
+import { readGasTier, SETTINGS_KEY, SETTINGS_UPDATED_EVENT } from '@/lib/settings';
 import { borrowLtvCeiling, formatBorrowBasisPoints } from '@/components/review/borrowLimitPresentation';
 import { ReviewFactValue } from '@/components/review/ReviewFactValue';
 import { formatReviewFactValue } from '@/components/review/reviewFactFormatting';
@@ -207,6 +209,40 @@ export default function BorrowPage() {
     hasSelectedPosition: Boolean(selected),
     selectedStale,
   });
+  const [gasTier, setGasTier] = useState(readGasTier);
+  useEffect(() => {
+    const update = (event: Event) => {
+      if (event.type !== 'storage' || (event as StorageEvent).key === SETTINGS_KEY) setGasTier(readGasTier());
+    };
+    window.addEventListener(SETTINGS_UPDATED_EVENT, update);
+    window.addEventListener('storage', update);
+    return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, update); window.removeEventListener('storage', update); };
+  }, []);
+  const maxBalance = balanceSnapshot.balances.ETH;
+  const maxBalanceWei = maxBalance?.status === 'ready' && maxBalance.amount ? parseZeroAmount(maxBalance.amount, 'ETH') : null;
+  const maxDebtWei = parseZeroAmount(mint, 'fxUSD');
+  const nativeMaxContext = reviewStage === 'input' && mode === 'mint' && (selectedKey === 'new' || managementAction === 'add' || managementAction === 'combined')
+    && token === 'ETH' && wallet.address && maxBalanceWei && maxDebtWei !== null && selectedActionable
+    ? JSON.stringify(['borrow', wallet.address.toLowerCase(), wallet.chainId, wallet.isEmbedded, maxBalanceWei.toString(), market, selectedKey,
+      selected?.info.rawDebts.toString(), selected?.info.rawColls.toString(), maxDebtWei.toString(), gasTier])
+    : null;
+  const nativeMax = useNativeMax({
+    contextKey: nativeMaxContext,
+    calculate: () => calculateVerifiedNativeMax({
+      balanceWei: maxBalanceWei!, initialCandidateWei: parseZeroAmount(deposit, 'ETH') ?? undefined,
+      buildRoutes: async (amountWei) => {
+        const route = await planDepositAndMint({ market, positionId: selectedKey === 'new' ? 0 : selected!.info.positionId,
+          userAddress: wallet.address!, depositTokenAddress: tokenAddress('ETH'), depositAmount: amountWei, mintAmount: maxDebtWei! });
+        return Array.isArray(route) ? route : [route];
+      },
+      estimateRoutes: async (routes) => {
+        const feeTierQuote = wallet.isEmbedded ? selectedGasTierQuote(await fetchGasTierQuotes(1), gasTier) : undefined;
+        return Promise.all(routes.map((route) => routeGasCostCache.getOrRefresh(route, { feeTierQuote })));
+      },
+    }),
+    onAmount: (maximum) => setDeposit(maximum === null ? '' : formatUnits(maximum, 18)),
+  });
+  const { cancel: cancelNativeMax } = nativeMax;
   const decisionBefore = useMemo(() => selected ? [
     { label: 'Collateral', value: formatPositionCollateral(selected) },
     { label: 'Debt', value: formatPositionDebt(selected) },
@@ -215,6 +251,7 @@ export default function BorrowPage() {
   // leverage bounds use), applied to collateral at display prices with a guard.
   const limitMarket = selected?.market ?? market;
   const funding = useBorrowFundingRate(limitMarket);
+  const fundingDisplay = funding.rate ? borrowFundingDisplay(funding.rate) : null;
   const [limitRevision, setLimitRevision] = useState(0);
   const [poolLimit, setPoolLimit] = useState<{ market: UiMarket; range: DebtRatioRange | null; pending: boolean }>({ market: 'ETH', range: null, pending: true });
   // Never carry one pool's verified range into a newly selected market, even
@@ -259,6 +296,7 @@ export default function BorrowPage() {
       : 'borrow:add';
 
   const resetTransactionContext = useCallback((nextToken: UiToken = 'ETH') => {
+    cancelNativeMax();
     const defaults = resetTransactionAmounts();
     setToken(nextToken);
     setDeposit(defaults.deposit);
@@ -269,7 +307,7 @@ export default function BorrowPage() {
     // Remounting the review state machine immediately discards a prepared
     // route, including a route that was just displayed in the review sheet.
     setReviewRevision((revision) => revision + 1);
-  }, []);
+  }, [cancelNativeMax]);
 
   const changeMode = useCallback((nextMode: BorrowMode) => {
     setMode(nextMode);
@@ -433,48 +471,6 @@ export default function BorrowPage() {
   useEffect(() => {
     if (!activeTokenOptions.includes(token)) setToken(activeTokenOptions[0]);
   }, [activeTokenOptions, token]);
-
-  const [nativeMaxPending, setNativeMaxPending] = useState(false);
-  const [nativeMaxError, setNativeMaxError] = useState<string | null>(null);
-  const maxRequest = useRef(0);
-  const maxMounted = useRef(true);
-  const maxContext = useRef('');
-  const maxContextKey = JSON.stringify([wallet.address, wallet.chainId, wallet.isEmbedded, market, selectedKey, token, deposit, mint, balanceSnapshot.balances.ETH?.amount]);
-  maxContext.current = maxContextKey;
-  useEffect(() => { maxMounted.current = true; return () => { maxMounted.current = false; maxRequest.current += 1; }; }, []);
-  useEffect(() => { maxRequest.current += 1; setNativeMaxPending(false); setNativeMaxError(null); }, [maxContextKey]);
-  const resolveNativeMax = useCallback(async () => {
-    const balance = balanceSnapshot.balances.ETH;
-    if (token !== 'ETH' || !wallet.address || nativeMaxPending || selectedStale || selectedKey !== 'new' && !selected
-      || balance?.status !== 'ready' || !balance.amount) return;
-    const balanceWei = parseZeroAmount(balance.amount, 'ETH');
-    const debtWei = parseZeroAmount(mint, 'fxUSD');
-    if (!balanceWei || debtWei === null) return;
-    const request = ++maxRequest.current;
-    const context = maxContext.current;
-    const current = () => maxMounted.current && request === maxRequest.current && context === maxContext.current;
-    setNativeMaxPending(true); setNativeMaxError(null);
-    try {
-      const maximum = await calculateNativeMax({ balanceWei, initialCandidateWei: parseZeroAmount(deposit, 'ETH') ?? undefined,
-        buildRoutes: async (amountWei) => {
-          const route = await planDepositAndMint({ market, positionId: selectedKey === 'new' ? 0 : selected!.info.positionId,
-            userAddress: wallet.address!, depositTokenAddress: tokenAddress('ETH'), depositAmount: amountWei, mintAmount: debtWei });
-          return Array.isArray(route) ? route : [route];
-        },
-        estimateRoutes: async (routes, signal) => {
-          const feeTierQuote = wallet.isEmbedded
-            ? selectedGasTierQuote(await fetchGasTierQuotes(1), readGasTier())
-            : undefined;
-          return Promise.all(routes.map((route) => estimatePlannedRouteCost(route, { feeTierQuote, signal })));
-        }, isCurrent: current,
-      });
-      if (!current()) return;
-      setNativeMaxPending(false);
-      setDeposit(formatUnits(maximum, 18));
-    } catch (error) {
-      if (current()) setNativeMaxError(nativeMaxErrorMessage(error));
-    } finally { if (current()) setNativeMaxPending(false); }
-  }, [balanceSnapshot.balances.ETH, deposit, market, mint, nativeMaxPending, selected, selectedKey, selectedStale, token, wallet.address, wallet.isEmbedded]);
 
   const planBuilder = useMemo(() => {
     if (!wallet.address) return null;
@@ -645,10 +641,10 @@ export default function BorrowPage() {
     {!newPosition && <h2 className="sr-only">{actionTitle}</h2>}
     {/* Collateral first: the borrowing limit below is computed from it. */}
     {showDeposit && <AmountField compact label={newPosition ? 'Collateral' : 'Collateral to add'} symbol={token} value={deposit}
-      onChange={(value) => { setNativeMaxError(null); setDeposit(value); }} allowZero maxDecimals={tokenDecimals(token)}
+      onChange={(value) => { cancelNativeMax(); setDeposit(value); }} allowZero maxDecimals={tokenDecimals(token)}
       balanceState={balanceStateFor(token)} tokenSelector={picker} showPercentages={newPosition}
-      maxAmount={token === 'ETH' ? null : undefined} onMax={token === 'ETH' ? resolveNativeMax : undefined}
-      maxPending={token === 'ETH' && nativeMaxPending} constraintError={token === 'ETH' ? nativeMaxError : undefined} />}
+      maxAmount={token === 'ETH' ? null : undefined} onMax={token === 'ETH' ? nativeMax.resolveMax : undefined}
+      maxPending={token === 'ETH' && nativeMax.pending} constraintError={token === 'ETH' ? nativeMax.error : undefined} />}
     {showMint && <AmountField compact label={newPosition ? 'fxUSD to borrow' : 'Additional fxUSD to borrow'} symbol="fxUSD" value={mint}
       onChange={setMint} allowZero maxDecimals={18} showPercentages={false} showMax={Boolean(capacity && capacity.maxAdditional > 0n)}
       maxLabel="Use borrowing maximum"
@@ -750,7 +746,7 @@ export default function BorrowPage() {
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt><MetricLabel minimalHelp label="Funding status" definition="borrowRate" help={!funding.rate && funding.status !== 'loading' ? <>The current funding rate could not be verified. Funding is a borrowing charge, not yield. The annualized charge applies to the whole collateral and can change. It is separate from opening, repayment and network fees. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">Verify current funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined} /></dt><dd className={funding.rate ? undefined : presentation.rateUnavailable}>{funding.rate ? formatBorrowFundingApr(funding.rate.ratio) : '—'}</dd><small role="status">{funding.rate ? funding.rate.ratio > 0n ? 'Active' : 'Not active · can change' : funding.status === 'loading' ? 'Checking rate' : 'Not quoted'}</small></div>
+          <div><dt><MetricLabel minimalHelp label="Funding status" definition="borrowRate" help={fundingDisplay?.title ?? (funding.status !== 'loading' ? <>The current funding rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">View funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined)} /></dt><dd className={fundingDisplay ? presentation.fundingValue : presentation.rateUnavailable}>{fundingDisplay?.value ?? '—'}</dd><small role="status">{fundingDisplay ? `${fundingDisplay.status}${funding.rate?.netRatio === undefined ? ' · Gross charge' : ''}` : funding.status === 'loading' ? 'Checking rate' : 'Not quoted'}</small></div>
           <div><dt><MetricLabel minimalHelp label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{!debtRange && <><small role="status">{limitPending ? 'Checking live limit' : 'Live limit unavailable'}</small>{!limitPending && retryLimit}</>}</div>
         </dl>
       </section>}
@@ -765,6 +761,7 @@ export default function BorrowPage() {
       </ProductSurface>
       {/* A limit, so rounded down to the tenth of a percent. */}
       {inputStage && <div className={presentation.details}>
+        <BorrowFundingHistory market={limitMarket} rate={funding.rate} status={funding.status} />
         {ltvBps !== null && collateralAfterUsd !== null && debtAfter > 0n && limitBps > 0n && <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} />}
         <BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} />
       </div>}

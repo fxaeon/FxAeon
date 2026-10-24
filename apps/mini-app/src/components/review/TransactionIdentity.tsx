@@ -21,12 +21,7 @@ export function TransactionIdentity({ name, subtitle, symbol, amount, amountLabe
     </div>
     <div className={styles.identityAmount} data-review-fact={amount?.label}>
       <span className={styles.identityAmountLabel}>{amountLabel ?? (amount ? plainAmountLabel(amount.label) : '')}</span>
-      {amount ? <details className={styles.identityExact}>
-        <summary aria-label={`Show full reviewed amount: ${amount.title ?? amount.value}`}>
-          <span>{parts && display ? `${parts.approximate || display.shortened ? '≈ ' : ''}${groupDigits(display.value.replace(/,/g, ''))} ${parts.symbol}` : amount.value}</span>
-        </summary>
-        <p>{amount.title ?? amount.value}</p>
-      </details> : value && <strong>{value}</strong>}
+      {amount ? <strong>{parts && display ? `${parts.approximate || display.shortened ? '≈ ' : ''}${groupDigits(display.value.replace(/,/g, ''))} ${parts.symbol}` : amount.value}</strong> : value && <strong>{value}</strong>}
       {secondary ? <span className={styles.identitySecondary}>{secondary}</span> : parts && <AmountUsd amount={parts.amount} symbol={parts.symbol} />}
     </div>
   </section>;

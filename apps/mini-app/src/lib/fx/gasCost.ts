@@ -361,7 +361,9 @@ export async function estimatePlannedRouteCost(
   }
   const routeKey = routeGasCostKey(route, options.feeTierQuote);
   const nativeValueWei = route.transactions.reduce((sum, tx) => sum + tx.value, 0n);
-  const validUntil = fetchedAt + ttlMs;
+  // The route cannot outlive its selected fee quote, even when its gas units
+  // were fetched more recently. Native Max and review share this deadline.
+  const validUntil = Math.min(fetchedAt + ttlMs, options.feeTierQuote?.validUntil ?? Number.POSITIVE_INFINITY);
   if (route.transactions.length === 0) {
     return unavailableEstimate(route, routeKey, fetchedAt, validUntil, nativeValueWei, 'route has no transactions');
   }
@@ -721,6 +723,14 @@ export class RouteGasCostCache {
   /** Pending transport work is independent of a still-current cached value. */
   isRefreshing(route: PlannedRoute, feeTierQuote?: GasTierQuote): boolean {
     return this.inFlight.has(routeGasCostKey(route, feeTierQuote));
+  }
+
+  /** Reuse the exact fresh route prepared by another consumer. Signing and
+   * explicit review refreshes continue to use refresh() for a new preflight. */
+  getOrRefresh(route: PlannedRoute, options: Omit<EstimatePlannedRouteCostOptions, 'ttlMs' | 'now'> = {}): Promise<RouteGasCostEstimate> {
+    const cached = this.view(route, options.feeTierQuote).current;
+    if (cached?.status === 'current' && !cached.fee?.stale) return Promise.resolve(cached);
+    return this.refresh(route, options);
   }
 
   async refresh(route: PlannedRoute, options: Omit<EstimatePlannedRouteCostOptions, 'ttlMs' | 'now'> = {}): Promise<RouteGasCostEstimate> {

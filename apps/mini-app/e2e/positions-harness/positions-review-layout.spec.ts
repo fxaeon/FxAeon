@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
@@ -135,7 +135,7 @@ let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
 for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
-  test(`review decisions remain accessible with expanded content at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`review decisions remain accessible with expanded content at ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
     await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
     await page.setViewportSize(viewport);
     await page.goto('http://positions.test/positions');
@@ -162,21 +162,44 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     }
     // Advanced animates its height. Keep requesting the actual end while it
     // expands rather than testing a scroll offset captured mid-animation.
-    const finalNote = information.getByText('USD uses current prices, not transaction limits or receipt-time prices.', { exact: true });
+    const finalEvidence = information.locator('[data-review-evidence]').last();
     if (viewport.width > 600) {
       // Desktop lets the surrounding page scroll instead of clipping a second
-      // scroll region. The disclosure's height animation can move the note
+      // scroll region. The disclosure's height animation can move this row
       // after a one-shot scroll, so keep bringing it into view until its full
-      // bounds fit inside the viewport.
-      await expect.poll(async () => {
-        await finalNote.evaluate(node => node.scrollIntoView({ block: 'end', behavior: 'instant' }));
-        const bounds = await finalNote.boundingBox();
-        return Boolean(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height);
-      }).toBe(true);
+      // bounds fit inside the viewport. Centering avoids fractional row edges
+      // landing just outside the viewport when scrollTop rounds to an integer.
+      let scrollEvidence: unknown;
+      try {
+        await expect.poll(async () => {
+          await finalEvidence.evaluate(node => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+          scrollEvidence = await finalEvidence.evaluate(node => {
+            const ancestors = [];
+            let ancestor: HTMLElement | null = node as HTMLElement;
+            while (ancestor) {
+              const css = getComputedStyle(ancestor);
+              ancestors.push({ tag: ancestor.tagName, className: ancestor.className, role: ancestor.getAttribute('role'),
+                rect: ancestor.getBoundingClientRect().toJSON(), scrollTop: ancestor.scrollTop, scrollHeight: ancestor.scrollHeight,
+                clientHeight: ancestor.clientHeight, overflow: css.overflowY, display: css.display, visibility: css.visibility,
+                position: css.position, hidden: ancestor.hidden, ariaHidden: ancestor.getAttribute('aria-hidden') });
+              ancestor = ancestor.parentElement;
+            }
+            return { label: node.getAttribute('data-review-evidence'), text: (node as HTMLElement).innerText,
+              bounds: node.getBoundingClientRect().toJSON(), window: { width: innerWidth, height: innerHeight, scrollY,
+                visualTop: visualViewport?.offsetTop, visualHeight: visualViewport?.height },
+              informationCount: document.querySelectorAll('[aria-label="Review information"]').length, ancestors };
+          });
+          const bounds = await finalEvidence.boundingBox();
+          return Boolean(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height);
+        }).toBe(true);
+      } finally {
+        writeFileSync(info.outputPath('expanded-scroll-geometry.json'), JSON.stringify(scrollEvidence, null, 2));
+        await page.screenshot({ path: info.outputPath('expanded-scroll.png'), fullPage: false });
+      }
     }
     await expect.poll(async () => {
       await information.evaluate(node => { node.scrollTop = node.scrollHeight; });
-      const [body, note] = await Promise.all([information.boundingBox(), finalNote.boundingBox()]);
+      const [body, note] = await Promise.all([information.boundingBox(), finalEvidence.boundingBox()]);
       return Boolean(body && note && note.y >= body.y - 1 && note.y + note.height <= body.y + body.height + 1);
     }).toBe(true);
     const order = await decision.evaluate(button => {
@@ -236,11 +259,8 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const minimum = page.locator('[data-review-fact="Minimum received"]');
   await expect(minimum.getByText('Minimum received', { exact: true })).toBeVisible();
-  const exactMinimum = minimum.getByLabel('Show exact amount: 99 USDC', { exact: true });
-  await expect(exactMinimum).toBeVisible();
-  await exactMinimum.click();
-  await expect(minimum.locator('details > p > span').last()).toHaveText('99 USDC');
-  await exactMinimum.click();
+  await expect(minimum).toContainText('99 USDC');
+  await expect(minimum.locator('details, summary')).toHaveCount(0);
   await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });
   const confirmFitsAboveNavigation = async () => confirm.evaluate((button) => {
     const nav = document.querySelector('[data-app-navigation]')!.getBoundingClientRect();

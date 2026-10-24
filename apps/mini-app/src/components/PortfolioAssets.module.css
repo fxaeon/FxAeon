@@ -16,13 +16,13 @@
 .optionLabel { min-width: 0; flex: 1; font-size: 14px; line-height: 1.4; }
 .networkOption > svg:last-child { width: 18px; height: 18px; flex: 0 0 auto; color: var(--mint-text); }
 .networkTrigger:focus-visible, .networkOption:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; }
-.search { display: flex; min-height: 44px; align-items: center; gap: 10px; margin: 0 0 10px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--mut); }
+.search { display: flex; min-height: 44px; align-items: center; gap: 10px; margin: 0 0 6px; padding: 0 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--mut); }
 .search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-size: 16px; outline: none; }
 
 .status { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin: 0 0 6px; color: var(--mut); font-size: 12px; line-height: 1.5; }
 .status button { min-height: 44px; color: var(--mint-text); }
 .columnLabels { display: none; }
-.assetList { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.assetList { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
 .loadingList, .assets > [aria-label='Loading assets'] { display: grid; min-width: 0; gap: 8px; }
 .loadingList > div, .assets > [aria-label='Loading assets'] > div { min-height: 76px; gap: 12px; border-radius: 20px; padding: 12px 14px; background: var(--portfolio-row, var(--surface)); }
 .loadingList > div > span:first-child, .assets > [aria-label='Loading assets'] > div > span:first-child { flex-basis: 42px; width: 42px; height: 42px; }
@@ -38,8 +38,8 @@
 .rowArrow { color: var(--mut-2); }
 .showAll { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: center; margin-top: 4px; border-top: 1px solid var(--line); color: var(--mint-text); font-size: 13px; font-weight: 500; }
 .showAll:focus-visible, .empty :is(a, button):focus-visible, .status button:focus-visible, .lowValueGroup > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }
-.lowValueGroup { min-width: 0; margin-top: 8px; }
-.lowValueGroup > summary { display: flex; min-width: 0; min-height: 70px; align-items: center; gap: 10px; padding-block: 13px; cursor: pointer; list-style: none; }
+.lowValueGroup { min-width: 0; margin-top: 4px; }
+.lowValueGroup > summary { display: flex; min-width: 0; min-height: 54px; align-items: center; gap: 10px; padding-block: 7px; cursor: pointer; list-style: none; }
 .lowValueGroup > summary::-webkit-details-marker { display: none; }
 .lowValueGroup > summary > span:first-child { display: grid; min-width: 0; flex: 1; gap: 4px; }
 .lowValueGroup > summary strong { color: var(--mut); font-size: 13px; font-weight: 500; }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { decodeFunctionData, erc20Abi, type Address, type Hex } from 'viem';
-import { prepareWalletSend, transferPayload, type SendInput } from '../src/lib/walletSend';
+import { prepareWalletSend, prepareWalletSendMax, transferPayload, type SendInput } from '../src/lib/walletSend';
 import { FX_TOKENS } from '../src/lib/fx/tokens';
 import { buildGasTierQuotesFromPrices } from '../src/lib/fx/gasFeePolicy';
 import { clearPendingHashJournalForTests, recordPendingHash, readPendingHashJournal } from '../src/lib/fx/journal';
@@ -43,6 +43,26 @@ test('Base requires and includes L1 and operator cost', async () => {
   const quote = await prepareWalletSend({ ...input, chainId: 8453 }, deps({ estimateL1Fee: async () => 1000n, estimateOperatorFee: async () => 200n }, 8453));
   assert.equal(quote.estimatedFee, 21_000n * 12n + 1200n);
   assert.equal(quote.requiredNative, quote.value + 25_200n * 22n + 1440n);
+});
+
+test('native Send Max verifies the exact amount and real contract recipient reserve', async () => {
+  const calls: Array<{ to: Address; value: bigint }> = [];
+  const result = await prepareWalletSendMax(input, 10n ** 18n, deps({
+    estimateGas: async (tx: { to: Address; value: bigint }) => { calls.push(tx); return tx.to === recipient ? 50_000n : 21_000n; },
+  }));
+  assert.equal(result.amountWei, 10n ** 18n - 60_000n * 22n);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every((tx) => tx.to === recipient));
+  assert.equal(calls.at(-1)?.value, result.amountWei);
+  assert.ok(result.validUntil > Date.now());
+});
+
+test('native Send Max includes buffered Base fees and rejects an unavailable fee component', async () => {
+  const baseInput = { ...input, chainId: 8453 as const };
+  const result = await prepareWalletSendMax(baseInput, 10n ** 18n, deps({ estimateL1Fee: async () => 1000n, estimateOperatorFee: async () => 200n }, 8453));
+  assert.equal(result.amountWei, 10n ** 18n - 25_200n * 22n - 1440n);
+  await assert.rejects(prepareWalletSendMax(baseInput, 10n ** 18n, deps({}, 8453)), /Base network cost is unavailable/);
+  await assert.rejects(prepareWalletSendMax(input, 100n, deps({ getBalance: async () => 100n })), /Not enough ETH/);
 });
 test('a submitted send persists with its nonce and stays pending', () => {
   clearPendingHashJournalForTests();
