@@ -22,25 +22,24 @@ export default function PortfolioExplore() {
     <section className={styles.productSection} aria-labelledby="portfolio-products-heading" aria-label="Explore FxAeon">
       <div className={styles.sectionHeading}>
         <h2 id="portfolio-products-heading">Explore FxAeon</h2>
-        <span className={styles.caption}>Four tools · one workspace</span>
       </div>
       <div className={styles.products}>
-        <Link href="/trade" className={styles.product}>
+        <Link href="/trade" className={styles.product} data-product="trade">
           <div className={styles.productTop}><h3>Trade</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={`${styles.art} ${styles.tradeArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={56} /><TokenIcon symbol="WBTC" size={48} /></div>
           <p>Trade long or short on ETH and BTC.</p>
         </Link>
-        <Link href="/earn" className={styles.product}>
+        <Link href="/earn" className={styles.product} data-product="earn">
           <div className={styles.productTop}><h3>Earn</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={styles.art} aria-hidden="true"><TokenIcon symbol="fxSAVE" size={58} /></div>
           <p>Save in fxSAVE with variable yield.</p>
         </Link>
-        <Link href="/borrow" className={styles.product}>
+        <Link href="/borrow" className={styles.product} data-product="borrow">
           <div className={styles.productTop}><h3>Borrow</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={`${styles.art} ${styles.borrowArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={32} /><TokenIcon symbol="WBTC" size={32} /><TokenIcon symbol="fxUSD" size={52} /></div>
           <p>Access fxUSD against collateral.</p>
         </Link>
-        <Link href="/move" className={styles.product}>
+        <Link href="/move" className={styles.product} data-product="move">
           <div className={styles.productTop}><h3>Move</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={`${styles.art} ${styles.moveArt}`} aria-hidden="true"><ChainIcon chainId={1} size={40} /><ChainIcon chainId={8453} size={40} /></div>
           <p>Bridge between Ethereum and Base.</p>

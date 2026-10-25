@@ -96,6 +96,7 @@ test('disconnected discovery omits APY and network footers without requesting AP
   await expect(products.getByText('Ethereum', { exact: true })).toHaveCount(0);
   await expect(products.getByText('Ethereum ↔ Base', { exact: true })).toHaveCount(0);
   await expect(page.getByText('f(x) Protocol, one interface', { exact: true })).toHaveCount(0);
+  await expect(products.getByText('Four tools · one workspace', { exact: true })).toHaveCount(0);
   await expect(products).not.toContainText(/\bAPY\b|\d+\.\d+%/);
   expect(apyRequests).toEqual([]);
 });
