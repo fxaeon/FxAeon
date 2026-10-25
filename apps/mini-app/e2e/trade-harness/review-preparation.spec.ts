@@ -136,9 +136,10 @@ async function expectReachableReview(page: Page) {
     const row = information.locator(label === 'Total cost' ? '[data-review-evidence="Total cost"]' : `[data-review-fact="${label}"]`).first();
     await expect(row).toBeVisible();
     await row.scrollIntoViewIfNeeded();
-    // IntersectionObserver rounds fractional scroll offsets differently from
-    // DOMRect. The explicit one-pixel bounds below remain the fit contract.
-    await expect(row).toBeInViewport({ ratio: 0.99 });
+    // A percentage intersection threshold can reject subpixel clipping on
+    // short rows in wider fonts. Exact one-pixel DOMRect bounds below remain
+    // the full readability contract, alongside the unobscured footer checks.
+    await expect(row).toBeInViewport();
     const fits = await row.evaluate(node => {
       const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
       const row = node.getBoundingClientRect();

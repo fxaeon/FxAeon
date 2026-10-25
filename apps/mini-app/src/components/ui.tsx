@@ -26,6 +26,7 @@ import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
 import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import headerWalletControl from '@/components/HeaderWalletControl.module.css';
 import navigation from '@/components/ShellNavigation.module.css';
+import { routeScrollMemory } from '@/lib/routeScroll';
 
 /* Load the directory only when requested; the underlying action page stays
    mounted so opening navigation cannot discard a form or review draft. */
@@ -87,6 +88,82 @@ export function AppShell({
       contentRef.current.scrollLeft = contentScrollRef.current.left;
     }
   }, [mobileMoreOpen]);
+
+  // The shell owns an inner scroller, so browser window restoration cannot
+  // recover it after a route unmount. Keep only its display coordinates.
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content || !pathname) return;
+    // Explicit links own their starting context and any linked-position focus.
+    const explicitContext = Boolean(window.location.search);
+    const position = explicitContext ? { top: 0, left: 0 } : routeScrollMemory.read(pathname);
+    const originalAnchor = content.style.overflowAnchor;
+    // Restored fields and asynchronous reads can change height above the view.
+    // Browser anchoring must not shift an explicitly restored coordinate.
+    contentScrollRef.current = position;
+    // A first visit has no offset to recover. Do not fight in-page focus or
+    // chart navigation by repeatedly pinning a new page to its initial top.
+    let restoring = !explicitContext && (position.top > 0 || position.left > 0);
+    if (restoring) content.style.overflowAnchor = 'none';
+    let frame = 0;
+    let timer = 0;
+    const apply = () => {
+      frame = 0;
+      if (content.hidden) return;
+      content.scrollTop = position.top;
+      content.scrollLeft = position.left;
+    };
+    const schedule = () => {
+      if (restoring && !frame) frame = window.requestAnimationFrame(apply);
+    };
+    const save = () => {
+      if (content.hidden) return;
+      routeScrollMemory.save(pathname, restoring ? position : { top: content.scrollTop, left: content.scrollLeft });
+    };
+    const mutations = restoring ? new MutationObserver(schedule) : null;
+    const resize = restoring && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    const stop = () => {
+      restoring = false;
+      window.clearTimeout(timer);
+      content.style.overflowAnchor = originalAnchor;
+      mutations?.disconnect();
+      resize?.disconnect();
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = 0;
+      save();
+    };
+    const stopForKey = (event: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Tab', ' '].includes(event.key)) stop();
+    };
+    apply();
+    if (restoring) {
+      mutations?.observe(content, { childList: true, subtree: true });
+      Array.from(content.children).forEach(child => resize?.observe(child));
+      schedule();
+      // Stop after initial hydration and retained-input layout settle.
+      timer = window.setTimeout(stop, 2000);
+    }
+    content.addEventListener('scroll', save, { passive: true });
+    content.addEventListener('pointerdown', stop, { passive: true });
+    content.addEventListener('touchstart', stop, { passive: true });
+    content.addEventListener('wheel', stop, { passive: true });
+    content.addEventListener('keydown', stopForKey);
+    window.addEventListener('pagehide', save);
+    return () => {
+      save();
+      mutations?.disconnect();
+      resize?.disconnect();
+      content.removeEventListener('scroll', save);
+      content.removeEventListener('pointerdown', stop);
+      content.removeEventListener('touchstart', stop);
+      content.removeEventListener('wheel', stop);
+      content.removeEventListener('keydown', stopForKey);
+      window.removeEventListener('pagehide', save);
+      window.clearTimeout(timer);
+      if (frame) window.cancelAnimationFrame(frame);
+      content.style.overflowAnchor = originalAnchor;
+    };
+  }, [pathname]);
 
   // The mobile trigger disappears at the desktop breakpoint. Never leave an
   // invisible modal (or its keyboard/history ownership) behind after resizing.

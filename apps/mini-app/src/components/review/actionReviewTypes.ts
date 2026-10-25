@@ -31,6 +31,8 @@ export interface ActionReviewProps {
    */
   onViewNewPosition?: (position: { key: string; href: string }) => void;
   /** Return to the same managed position without a route change or new history entry. */
+  /** Show the verified savings summary after dismissing a confirmed deposit. */
+  onViewEarnings?: () => void;
   onReturnToPosition?: (position: { key: string; href: string }) => void;
   /** Fresh read bound to this action's confirmed receipt, never a projected quote. */
   confirmedPosition?: ConfirmedPositionReadback | null;

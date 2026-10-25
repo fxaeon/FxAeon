@@ -25,7 +25,7 @@ test('Borrow history labels live and historical annualized figures as costs and 
     averageRatio: ratio / 2n, snapshots: [{ timestamp: now - 30 * 86_400, ratio: 0n }, { timestamp: now - 15 * 86_400, ratio }] });
   const rate = { market: 'ETH' as const, pool: positionPoolAddress('ETH', 'long'), ratio, netRatio: ratio, readAt: Date.now() };
   const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH', rate, status: 'ready' })));
-  assert.match(html, /Funding history/);
+  assert.match(html, /Funding &amp; costs/);
   assert.match(html, /Current cost APR/);
   assert.match(html, /Average cost APR/);
   assert.match(html, /4\.5318%/);

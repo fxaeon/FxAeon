@@ -23,7 +23,7 @@ async function open(page: Page, { unavailable = false, apyUnavailable = false } 
     return route.fulfill({ contentType: extname(file) === '.svg' ? 'image/svg+xml' : extname(file) === '.woff2' ? 'font/woff2' : 'image/png', body: readFileSync(file) });
   });
   await page.goto('http://lab.test/');
-  await expect(page.getByRole('heading', { name: 'Find your next move.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'DeFi that moves with you.' })).toBeVisible();
   await page.evaluate(async () => { await document.fonts.ready; });
 }
 
@@ -45,12 +45,12 @@ for (const width of [320, 390, 1280]) {
         expect(imageBox!.x + imageBox!.width).toBeLessThanOrEqual(box!.x + box!.width - 8);
       }
     }
-    await expect(products.getByText('6.25% variable APY')).toBeVisible();
+    await expect(products.getByText('6.25% APY')).toBeVisible();
     await expect(page.locator('[data-portfolio-value]')).toHaveCount(0);
     const main = page.getByRole('main');
     await expect(main.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(1);
     await expect(main.getByRole('button', { name: 'Connect wallet', exact: true })).toBeInViewport();
-    await expect(main.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/docs/guide/getting-started');
+    await expect(main.getByRole('link', { name: 'Explore Trade' })).toHaveAttribute('href', '/trade');
     expect(await page.locator('.app-content').evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: testInfo.outputPath('opening.png'), animations: 'disabled' });
     const markets = page.getByRole('region', { name: 'Markets' });
@@ -95,7 +95,7 @@ test('expired fxSAVE APY disappears when its refresh fails', async ({ page }) =>
   await page.clock.install();
   await open(page);
   const products = page.getByRole('region', { name: 'Explore FxAeon' });
-  await expect(products.getByText('6.25% variable APY')).toBeVisible();
+  await expect(products.getByText('6.25% APY')).toBeVisible();
   await page.route('https://api.aladdin.club/api1/concentrator_aToken_tvl_apy', route => route.fulfill({ status: 503, body: '' }));
   await page.clock.fastForward(300_001);
   await expect(products.getByText('APY unavailable')).toBeVisible();
@@ -115,7 +115,7 @@ test('discovery remains readable with enlarged text and keyboard navigation', as
   const connect = main.getByRole('button', { name: 'Connect wallet', exact: true });
   await connect.focus();
   await page.keyboard.press('Tab');
-  await expect(main.getByRole('link', { name: 'How it works' })).toBeFocused();
+  await expect(main.getByRole('link', { name: 'Explore Trade' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('region', { name: 'Explore FxAeon' }).getByRole('link', { name: /Trade/ })).toBeFocused();
   expect(await page.locator('.app-content').evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);

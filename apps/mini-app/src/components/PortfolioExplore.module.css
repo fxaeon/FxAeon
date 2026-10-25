@@ -1,6 +1,8 @@
 .explore { display: grid; min-width: 0; gap: 44px; padding-bottom: 16px; }
 .intro { padding: 22px 0 4px; }
+.eyebrow { display: block; margin-bottom: 15px; color: var(--mut-2); font-size: 12px; font-weight: 550; letter-spacing: .08em; text-transform: uppercase; }
 .intro h2 { max-width: 14ch; margin: 0; color: var(--text); font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(44px, 6.4vw, 68px); font-weight: 600; line-height: 1.03; letter-spacing: -.055em; }
+.intro h2 em { color: var(--mut); font-style: normal; }
 .intro > p { max-width: 34ch; margin: 22px 0 0; color: var(--mut); font-size: 16px; line-height: 1.6; text-wrap: balance; }
 .entryActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 26px; }
 .entryActions .connect { min-width: 172px; min-height: 52px; border-radius: 26px; }
@@ -8,6 +10,7 @@
 .entryActions > a:hover { color: var(--text); }
 .sectionHeading { display: flex; min-height: 32px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
 .sectionHeading h2 { margin: 0; color: var(--text); font-size: 22px; font-weight: 550; line-height: 1.35; letter-spacing: -.03em; }
+.caption { color: var(--mut-2); font-size: 12px; line-height: 1.5; }
 .products { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .product { position: relative; display: flex; min-width: 0; flex-direction: column; padding: 22px; border: 1px solid transparent; border-radius: 24px; background: var(--surface); transition: background-color var(--dur-fast), border-color var(--dur-fast); }
 .product:hover { border-color: var(--line-strong); background: var(--surface-2); }

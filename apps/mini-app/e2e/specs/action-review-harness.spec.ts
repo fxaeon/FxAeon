@@ -8,6 +8,13 @@ async function harnessControl(page: import('@playwright/test').Page, name: strin
     .evaluate((button: HTMLButtonElement) => button.click());
 }
 
+async function expectInertPreparationEditor(page: import('@playwright/test').Page) {
+  const editor = page.locator('[data-preparation-editor][aria-busy="true"]');
+  await expect(editor).toBeVisible();
+  await expect(editor).toHaveJSProperty('inert', true);
+  await expect(editor).toHaveAttribute('aria-disabled', 'true');
+}
+
 async function reviewExitControl(page: import('@playwright/test').Page) {
   const sheet = page.locator('[data-mobile-review-sheet]');
   return await sheet.isVisible()
@@ -822,7 +829,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     await expect.poll(() => metric(page, 'prepare')).toBe(1);
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
     await expect(page.getByRole('heading').filter({ hasText: '3×' })).toHaveCount(0);
@@ -846,7 +853,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.clock.runFor(31_001);
     await harnessControl(page, 'Change quote terms to v2');
     await page.getByRole('button', { name: 'Review updated quote', exact: true }).click();
-    const changes = review.getByRole('region', { name: 'Updated transaction consequences' });
+    const changes = review.locator('details[aria-label="Updated transaction consequences"]');
     await expect(changes).toContainText('Terms 1 → Terms 2');
     await page.clock.runFor(31_001);
     await expect(review).toContainText('Quote expired.');
@@ -854,7 +861,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Defer preview');
     await page.getByRole('button', { name: 'Review updated quote', exact: true }).click();
     await expect.poll(() => metric(page, 'prepare')).toBe(3);
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
@@ -885,7 +892,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Defer preview');
     await page.getByRole('button', { name: 'Review position', exact: true }).focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
@@ -1023,7 +1030,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Use long amount');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await page.locator('[role="toolbar"]').evaluate((node) => { (node as HTMLElement).style.display = 'none'; });
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     await expect(page.getByText('Editor terms v1', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
@@ -1078,7 +1085,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await openHarness(page, { initialPreviewMode: 'deferred' });
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await expect(page.getByText('Editor terms v1', { exact: true })).toBeVisible();
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Preparing review', exact: true })).toHaveCount(0);
@@ -1159,7 +1166,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect.poll(() => metric(page, 'prepare')).toBe(2);
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     const updated = (await previewRequests(page))[0]!;
     expect(updated.routeVersion).toBe(2);
     await resolvePreviewRequest(page, updated.id);
@@ -1299,7 +1306,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByText('Editor terms v2', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Preparing review…', exact: true })).toBeDisabled();
-    await expect(page.locator('fieldset[aria-busy="true"]')).toBeVisible();
+    await expectInertPreparationEditor(page);
     await expect(page.getByText('Editor terms v2', { exact: true })).toBeVisible();
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -1417,8 +1424,11 @@ test.describe('ActionReview isolated orchestration', () => {
     expect(await metric(page, 'send')).toBe(0);
     await harnessControl(page, 'Change quote terms to v2');
     await refresh.click();
-    const changes = page.getByRole('region', { name: 'Updated transaction consequences' });
+    const changes = page.locator('details[aria-label="Updated transaction consequences"]');
     await expect(changes).toContainText('Quote updated');
+    await expect(changes).not.toHaveAttribute('open');
+    await changes.locator('summary').click();
+    await expect(changes).toHaveAttribute('open');
     await expect(changes).toContainText('Terms 1 → Terms 2');
     await expect(confirm).toBeEnabled();
     expect(await metric(page, 'runner')).toBe(0);

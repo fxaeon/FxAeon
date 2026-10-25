@@ -1,5 +1,7 @@
 'use client';
 
+import { useNavigationInputs } from '@/lib/useNavigationInputs';
+
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -156,6 +158,12 @@ export default function TradePage() {
   }), [amount, leverage, market, side, slippage, token]);
   const draftActionKey = useMemo(() => `trade:${market}:${side}:${token}`, [market, side, token]);
 
+
+  useNavigationInputs({ page: 'trade', identity: `${wallet.address?.toLowerCase() ?? 'disconnected'}:${wallet.chainId ?? ''}`, ready: wallet.ready, stage: reviewStage, value: draftState, restore: (state) => {
+    setMarket(state.market as UiMarket); setSide(state.side as UiSide); setToken(state.token as UiToken);
+    setAmount(state.amount as string); setLeverage(state.leverage as number); setSlippage(state.slippage as string);
+  } });
+
   const resetTradeContext = useCallback((nextMarket: UiMarket = 'ETH', nextSide: UiSide = 'long', nextToken: UiToken = 'ETH') => {
     const defaults = resetTransactionAmounts();
     setMarket(nextMarket);
@@ -223,9 +231,8 @@ export default function TradePage() {
     const deepLink = readTradeDeepLinkContext(window.location.search);
     explicitDeepLinkRef.current = initiallyHydratedRef.current ? null : deepLink;
     if (deepLink) {
-      setMarket(deepLink.market);
-      setSide(deepLink.side);
-      setToken(positionInputTokenOptions(deepLink.market).find((option) => option === deepLink.asset) ?? positionInputTokenOptions(deepLink.market)[0]);
+      // Explicit links start a fresh intent even when Next retains the page.
+      resetTradeContext(deepLink.market, deepLink.side, positionInputTokenOptions(deepLink.market).find((option) => option === deepLink.asset) ?? positionInputTokenOptions(deepLink.market)[0]);
     }
     const update = () => {
       const active = document.visibilityState === 'visible' && navigator.onLine;
@@ -244,7 +251,7 @@ export default function TradePage() {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
     };
-  }, []);
+  }, [resetTradeContext]);
 
   useEffect(() => {
     savedSlippageRef.current = readSlippagePercent();
@@ -657,7 +664,7 @@ export default function TradePage() {
             )}
           </section>
         )}
-        {isReviewInputStage(reviewStage) && <TradeSections market={market} side={side} leverage={leverageBounds}
+        {isReviewInputStage(reviewStage) && <TradeSections market={market} side={side} leverage={leverageBounds} selectedLeverage={leverage}
           openPositions={wallet.address && positionState.status === 'ready' ? marketPositions.length : null}
           positionsStatus={!wallet.address ? 'disconnected' : positionState.status === 'ready' ? 'ready' : positionState.status === 'idle' || positionState.status === 'loading' ? 'loading' : 'unavailable'} />}
       </ActionWorkspace>

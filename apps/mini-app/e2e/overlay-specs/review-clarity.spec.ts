@@ -41,7 +41,7 @@ test('deposit review shares the official page APY without requiring an APY in th
     h.rerender?.();
   });
   await expect(apy).toContainText('6.33%');
-  await expect(page.getByRole('region', { name: 'Updated transaction consequences' })).toHaveCount(0);
+  await expect(page.locator('[aria-label="Updated transaction consequences"]')).toHaveCount(0);
   await page.evaluate(() => {
     const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
     h.savingsApy = null; h.savingsApyStatus = 'unavailable'; h.rerender?.();

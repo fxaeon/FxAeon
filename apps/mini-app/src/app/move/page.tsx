@@ -1,5 +1,7 @@
 'use client';
 
+import { useNavigationInputs } from '@/lib/useNavigationInputs';
+
 import { MetricLabel, InfoHelp } from '@/components/InfoHelp';
 import { reviewHelpDefinition } from '@/components/review/reviewHelp';
 import { AmountUsd, FeeUsd } from '@/components/review/AmountUsd';
@@ -214,6 +216,13 @@ export default function MovePage() {
     recipientInput,
     customRecipient,
   }), [amount, approvalToken, customRecipient, destinationOft, direction, mode, recipientInput, sourceOft, token]);
+
+  useNavigationInputs({ page: 'move', identity: `${wallet.address?.toLowerCase() ?? 'disconnected'}:${wallet.chainId ?? ''}`, ready: wallet.ready, stage: reviewStage, value: draftState, restore: (state) => {
+    setDirection(state.direction as Direction); setMode(state.mode as BridgeMode); setToken(state.token as BridgeAsset);
+    setAmount(state.amount as string); setSourceOft(state.sourceOft as string); setDestinationOft(state.destinationOft as string);
+    setApprovalToken(state.approvalToken as string); setRecipientInput(state.recipientInput as string); setCustomRecipient(state.customRecipient as boolean);
+  } });
+
   const draftActionKey = moveDraftActionKey(direction, mode, token);
   const draftRestoreRef = useRef<string | null>(null);
   const contextAppliedRef = useRef(false);
@@ -268,8 +277,17 @@ export default function MovePage() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('fxDraft')) return;
     const nextToken = params.get('token');
-    if (nextToken === 'fxUSD' || nextToken === 'fxSAVE') setToken(nextToken);
+    if (nextToken === 'fxUSD' || nextToken === 'fxSAVE') {
+      setToken(nextToken);
+      setAmount(resetTransactionAmounts().amount);
+      setSourceOft(''); setDestinationOft(''); setApprovalToken('');
+      setRecipientInput(''); setCustomRecipient(false);
+      reviewedBridgeRef.current = null;
+      setReviewStage('input');
+      setReviewRevision(revision => revision + 1);
+    }
     contextAppliedRef.current = true;
+    return () => { contextAppliedRef.current = false; };
   }, []);
 
   const resetBridgeContext = useCallback((nextToken: BridgeAsset = token) => {
@@ -645,7 +663,7 @@ export default function MovePage() {
           />
         </Card>
         </div>
-        {isReviewInputStage(reviewStage) && <MoveSections />}
+        {isReviewInputStage(reviewStage) && <MoveSections sourceChainId={sourceChainId} custom={advanced} />}
       </ActionWorkspace>
     </AppShell>
   );

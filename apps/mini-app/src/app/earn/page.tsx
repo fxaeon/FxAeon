@@ -1,5 +1,7 @@
 'use client';
 
+import { useNavigationInputs } from '@/lib/useNavigationInputs';
+
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ArrowLeft, Check, ExternalLink, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
@@ -133,6 +135,8 @@ export default function EarnPage() {
   const [reviewRevision, setReviewRevision] = useState(0);
   const [resumeReview, setResumeReview] = useState(0);
   const [reviewStage, setReviewStage] = useState<ActionReviewStage>('input');
+  const earningsSummaryRef = useRef<HTMLDivElement>(null);
+  const [viewEarningsRequested, setViewEarningsRequested] = useState(false);
   const claimTriggerRef = useRef<HTMLButtonElement>(null);
   const restoredDraftIdRef = useRef<string | null>(null);
   const contextAppliedRef = useRef(false);
@@ -227,10 +231,13 @@ export default function EarnPage() {
     if (params.has('fxDraft')) return;
     const nextMode = params.get('mode');
     const nextToken = params.get('token');
-    if (nextMode === 'deposit' || nextMode === 'withdraw' || nextMode === 'claim') setMode(nextMode);
-    if (isSaveToken(nextToken)) setToken(nextToken);
+    const explicitMode = isEarnMode(nextMode) ? nextMode : null;
+    if (explicitMode || isSaveToken(nextToken)) {
+      resetEarnContext(explicitMode ?? 'deposit', isSaveToken(nextToken) ? nextToken : 'fxUSD');
+    }
     contextAppliedRef.current = true;
-  }, []);
+    return () => { contextAppliedRef.current = false; };
+  }, [resetEarnContext]);
 
   // History links carry only an opaque local draft id. Consume it once the
   // matching wallet is available, then remove it with replaceState so a
@@ -272,6 +279,13 @@ export default function EarnPage() {
     instant,
     slippage,
   }), [amount, instant, mode, shares, slippage, token]);
+
+
+  useNavigationInputs({ page: 'earn', identity: `${wallet.address?.toLowerCase() ?? 'disconnected'}:${wallet.chainId ?? ''}`, ready: wallet.ready, stage: reviewStage, value: draftState, restore: (state) => {
+    setMode(state.mode as EarnMode); setToken(state.token as SaveToken);
+    setAmount(state.amount as string); setShares(state.shares as string);
+    setInstant(state.instant as boolean); setSlippage(state.slippage as string);
+  } });
 
   // APY is display-only data from the official f(x) feed. It is independent
   // from SDK reads and can never affect a transaction plan or review.
@@ -476,13 +490,24 @@ export default function EarnPage() {
     : activeReadWarnings.includes('claim status') || activeReadWarnings.includes('redemption status') ? 'Withdrawal status unavailable'
       : 'Vault data unavailable';
   const inputStage = isReviewInputStage(reviewStage);
+  useEffect(() => {
+    if (!viewEarningsRequested || !inputStage) return;
+    const frame = window.requestAnimationFrame(() => {
+      const summary = earningsSummaryRef.current;
+      if (!summary) return;
+      summary.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      summary.focus({ preventScroll: true });
+      setViewEarningsRequested(false);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [inputStage, viewEarningsRequested]);
 
   return (
     <AppShell>
       <ActionWorkspace className={presentation.workspace} density="compact">
         <PageHeading title="Earn" />
         <div className={presentation.vaultLayout} data-review={!inputStage || mode === 'claim'} data-claim-flow={mode === 'claim'}>
-        {(inputStage || mode === 'claim') && <div className={presentation.summarySlot} data-claim-background={mode === 'claim'}>
+        {(inputStage || mode === 'claim') && <div ref={earningsSummaryRef} tabIndex={-1} role="region" aria-label="Your fxSAVE earnings" className={presentation.summarySlot} data-claim-background={mode === 'claim'}>
         <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus}
           onClaim={() => changeMode('claim')} claimTriggerRef={claimTriggerRef} />
@@ -503,6 +528,7 @@ export default function EarnPage() {
             resumeReview={resumeReview}
             onStageChange={setReviewStage}
             onComplete={refreshEarn}
+            onViewEarnings={() => setViewEarningsRequested(true)}
             savingsApy={fxSaveApy}
             savingsApyStatus={fxSaveApyStatus}
             editor={<>
@@ -533,10 +559,9 @@ export default function EarnPage() {
         {inputStage && mode !== 'claim' && <div className={presentation.historySlot}><FxSaveHistory /></div>}
         {inputStage && mode !== 'claim' && <div className={presentation.vaultInfo}>
           <EarnSections cooldown={config && !readWarnings.includes('vault configuration') ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config && !readWarnings.includes('vault configuration') ? formatRatio(config.instantRedeemFeeRatio) : null}
-            vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} showWithdrawalTerms={mode !== 'withdraw'}
+            vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} showWithdrawalTerms
             termsNotice={<VaultTermsStatus loading={loading} onRetry={() => void load(true)} />} />
           <VaultDetails config={readWarnings.includes('vault configuration') ? null : config} />
-          <VaultRiskNotice />
         </div>}
         </div>
       </ActionWorkspace>
@@ -801,7 +826,7 @@ function ClaimState({ data }: { data: SaveData }) {
 }
 
 function VaultDetails({ config }: { config: SaveConfig | null }) {
-  return <Disclosure title="Vault details">
+  return <Disclosure title="Vault details & transparency">
     {/* Withdrawal terms are available in the adjacent disclosure. */}
     {config ? <MetricRows rows={[
       { label: 'fxSAVE supply', value: `${formatDisplayAmount(config.totalSupplyWei)} fxSAVE` },
@@ -810,6 +835,7 @@ function VaultDetails({ config }: { config: SaveConfig | null }) {
       // The vault stakes idle fxSP in batches once it reaches this amount.
       { label: 'Batch deposit threshold', value: `${formatDisplayAmount(config.threshold)} fxSP` },
     ]} /> : <p className={presentation.helper}>Vault details unavailable. Retry to load them.</p>}
+    <VaultRiskNotice />
   </Disclosure>;
 }
 

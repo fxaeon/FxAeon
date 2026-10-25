@@ -2,6 +2,9 @@ const fs=require('fs'),path=require('path'),{createRequire}=require('module');
 const repo=path.resolve(__dirname,'../../../..'),src=path.join(repo,'apps/mini-app/src');
 const req=createRequire(path.join(repo,'apps/mini-app/package.json')),esbuild=createRequire(req.resolve('tsx/package.json'))('esbuild');
 const mocks={
+  // This fixture proves the real ticket/review SDK path; public context panels
+  // are covered by built-route tests and must not add a query-client boundary.
+  "@/components/ProductSections": "export const TradeSections = () => null;",
   "next/link": "import React from 'react'; export default ({children,...props}) => <a {...props}>{children}</a>;",
   "@/components/MarketChart": "import React from 'react'; export const TradeMarketChart = ({market,onMarketChange}) => <div role='radiogroup' aria-label='Market'>{['ETH','BTC'].map(item=><button type='button' role='radio' aria-checked={market===item} key={item} onClick={()=>onMarketChange(item)}>{item}</button>)}</div>;",
   "@/components/PriceProvider": "export const useUsdPrices = () => globalThis.__longReview.prices ?? ({status:'unavailable',prices:{}}); export const useLiveMarketQuote = () => ({ quote: null, status: 'unavailable', isFresh: false });",
