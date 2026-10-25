@@ -231,9 +231,8 @@ export default function TradePage() {
     const deepLink = readTradeDeepLinkContext(window.location.search);
     explicitDeepLinkRef.current = initiallyHydratedRef.current ? null : deepLink;
     if (deepLink) {
-      setMarket(deepLink.market);
-      setSide(deepLink.side);
-      setToken(positionInputTokenOptions(deepLink.market).find((option) => option === deepLink.asset) ?? positionInputTokenOptions(deepLink.market)[0]);
+      // Explicit links start a fresh intent even when Next retains the page.
+      resetTradeContext(deepLink.market, deepLink.side, positionInputTokenOptions(deepLink.market).find((option) => option === deepLink.asset) ?? positionInputTokenOptions(deepLink.market)[0]);
     }
     const update = () => {
       const active = document.visibilityState === 'visible' && navigator.onLine;
@@ -252,7 +251,7 @@ export default function TradePage() {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
     };
-  }, []);
+  }, [resetTradeContext]);
 
   useEffect(() => {
     savedSlippageRef.current = readSlippagePercent();

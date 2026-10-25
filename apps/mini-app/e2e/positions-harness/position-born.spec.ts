@@ -36,6 +36,9 @@ export const usePathname = () => globalThis.__positionBorn.path; export const us
   '@/components/NetworkSelector': `import React from 'react'; export default function NetworkSelector() { return <button type="button" aria-label="Network: Ethereum" className="glass-press" style={{ width: 44, height: 44 }} />; }`,
   '@/components/WalletConnectCTA': `import React from 'react'; export default ({body}) => <section>{body}</section>;`,
   '@/components/MarketChart': `import React from 'react'; export const TradeMarketChart = ({ market }) => <div aria-label="Market chart">{market}</div>;`,
+  // Protocol explainers are covered by built-page tests; this fixture isolates
+  // confirmed receipts and does not provide their network-query context.
+  '@/components/ProductSections': `export const TradeSections = () => null;`,
   '@/components/BridgeTracker': `export const BridgeTracker = () => null;`,
   '@/components/ProtocolPositionProvider': `export const useProtocolPositions = () => globalThis.__positionBorn.shared;`,
   '@/components/PositionBrakeContext': `export function usePositionBrake(position) {
@@ -194,6 +197,9 @@ const PROBE = `(() => {
 })();`;
 
 async function open(page: Page, { theme = 'dark', readable = true, api = true, closedPosition = false }: { theme?: 'official' | 'dark' | 'light'; readable?: boolean; api?: boolean; closedPosition?: boolean } = {}) {
+  const errors: string[] = [];
+  const onError = (error: Error) => errors.push(error.message);
+  page.on('pageerror', onError);
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
     + `<body><div id="root"></div><script>${api ? PROBE : 'delete Document.prototype.startViewTransition;'}window.__positionBornConfig = ${JSON.stringify({ theme, readable, closedPosition })};</script><script src="/lab.js"></script></body></html>`;
   await page.unrouteAll({ behavior: 'ignoreErrors' });
@@ -209,6 +215,8 @@ async function open(page: Page, { theme = 'dark', readable = true, api = true, c
   await page.goto('http://lab.test/trade');
   await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
   await page.evaluate(() => document.fonts.ready);
+  page.off('pageerror', onError);
+  expect(errors, 'the real page must render without runtime errors').toEqual([]);
 }
 
 const probe = (page: Page) => page.evaluate(() => (window as unknown as { __bornProbe?: Probe }).__bornProbe ?? null);

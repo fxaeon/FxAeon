@@ -34,7 +34,7 @@
 @media (forced-colors: active) { .trace, .dot { stroke: Highlight; } .dot { fill: Highlight; } .ranges button[aria-pressed='true'] { outline: 1px solid Highlight; } }
 
 .tabs { display: flex; padding: 3px; gap: 3px; background: var(--surface); border-radius: 12px; }
-.tabs button { min-height: 36px; padding: 0 11px; border-radius: 9px; font-size: 12px; color: var(--mut); }
+.tabs button { min-width: 44px; min-height: 44px; padding: 0 11px; border-radius: 9px; font-size: 12px; color: var(--mut); }
 .tabs button[aria-pressed='true'] { background: var(--surface2, #292929); color: var(--text); }
 
 .overview { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 12px 0 10px; }

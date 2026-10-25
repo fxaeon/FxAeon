@@ -100,9 +100,11 @@ export function AppShell({
     const originalAnchor = content.style.overflowAnchor;
     // Restored fields and asynchronous reads can change height above the view.
     // Browser anchoring must not shift an explicitly restored coordinate.
-    content.style.overflowAnchor = 'none';
     contentScrollRef.current = position;
-    let restoring = !explicitContext;
+    // A first visit has no offset to recover. Do not fight in-page focus or
+    // chart navigation by repeatedly pinning a new page to its initial top.
+    let restoring = !explicitContext && (position.top > 0 || position.left > 0);
+    if (restoring) content.style.overflowAnchor = 'none';
     let frame = 0;
     let timer = 0;
     const apply = () => {
@@ -118,8 +120,8 @@ export function AppShell({
       if (content.hidden) return;
       routeScrollMemory.save(pathname, restoring ? position : { top: content.scrollTop, left: content.scrollLeft });
     };
-    const mutations = explicitContext ? null : new MutationObserver(schedule);
-    const resize = !explicitContext && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    const mutations = restoring ? new MutationObserver(schedule) : null;
+    const resize = restoring && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
     const stop = () => {
       restoring = false;
       window.clearTimeout(timer);
@@ -134,7 +136,7 @@ export function AppShell({
       if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Tab', ' '].includes(event.key)) stop();
     };
     apply();
-    if (!explicitContext) {
+    if (restoring) {
       mutations?.observe(content, { childList: true, subtree: true });
       Array.from(content.children).forEach(child => resize?.observe(child));
       schedule();

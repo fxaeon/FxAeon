@@ -13,6 +13,10 @@ const entry = resolve(root, 'apps/mini-app/e2e/harness/borrow-selection-entry.ts
 const sdkPackage = require.resolve('@aladdindao/fx-sdk', { paths: [resolve(root, 'apps/mini-app')] });
 
 const mocks: Record<string, string> = {
+  // Selection/funding/sensitivity are exercised here; public product explainers
+  // have built-route coverage and must not start unrelated pool/oracle reads.
+  '@/components/ProductSections': `export const BorrowSections = () => null;`,
+
   // The settings gear links to Settings and closes with the router; the harness has neither Next's
   // build-time env nor a mounted app router.
   'next/link': `import React from 'react'; export default ({ href, children, prefetch, scroll, replace, ...props }) => <a href={typeof href === 'string' ? href : '#'} {...props}>{children}</a>;`,
@@ -151,18 +155,20 @@ test('collateral sensitivity illustrates entered amounts without changing borrow
   await mount(page);
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   const sensitivity = page.getByRole('region', { name: 'Collateral sensitivity', exact: true });
-  await expect(sensitivity).toHaveCount(0);
+  await expect(sensitivity).toContainText('Enter collateral and debt');
+  await expect(sensitivity.getByRole('slider')).toHaveCount(0);
   await page.getByLabel('Collateral', { exact: true }).fill('1');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('1200');
-  await expect(sensitivity).toContainText('50.00% LTV');
+  await expect(sensitivity.getByText('50.00%', { exact: true })).toBeVisible();
   const slider = sensitivity.getByRole('slider', { name: 'Illustrated collateral value change' });
   await slider.fill('-20');
-  await expect(sensitivity).toContainText('62.50% LTV');
+  await expect(sensitivity.getByText('62.50%', { exact: true })).toBeVisible();
   await expect(slider).toHaveAttribute('aria-valuetext', /−20% collateral value, 62.50% loan-to-value/);
   await expect(page.getByLabel('Collateral', { exact: true })).toHaveValue('1');
   await expect(page.getByLabel('fxUSD to borrow', { exact: true })).toHaveValue('1200');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('');
-  await expect(sensitivity).toHaveCount(0);
+  await expect(sensitivity).toContainText('Enter collateral and debt');
+  await expect(sensitivity.getByRole('slider')).toHaveCount(0);
 });
 
 test('same-wallet disappearance removes the selected position and review action', async ({ page }) => {

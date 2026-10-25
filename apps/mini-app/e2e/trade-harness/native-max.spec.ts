@@ -11,6 +11,9 @@ const src = resolve(root, 'apps/mini-app/src');
 const entry = resolve(root, 'apps/mini-app/e2e/harness/trade-native-max-entry.tsx');
 
 const mocks: Record<string, string> = {
+  // Native Max owns the ticket; public below-form analytics have built-route coverage.
+  '@/components/ProductSections': `export const TradeSections = () => null;`,
+
   'next/link': `import React from 'react'; export default ({children,...props}) => <a {...props}>{children}</a>;`,
   'next/navigation': `export const useRouter = () => ({ push: () => {}, prefetch: () => {} });`,
   '@/components/ui': `import React from 'react'; export const AppShell = ({children}) => <main>{children}</main>; export const Card = ({children,...props}) => <section {...props}>{children}</section>;`,

@@ -231,10 +231,13 @@ export default function EarnPage() {
     if (params.has('fxDraft')) return;
     const nextMode = params.get('mode');
     const nextToken = params.get('token');
-    if (nextMode === 'deposit' || nextMode === 'withdraw' || nextMode === 'claim') setMode(nextMode);
-    if (isSaveToken(nextToken)) setToken(nextToken);
+    const explicitMode = isEarnMode(nextMode) ? nextMode : null;
+    if (explicitMode || isSaveToken(nextToken)) {
+      resetEarnContext(explicitMode ?? 'deposit', isSaveToken(nextToken) ? nextToken : 'fxUSD');
+    }
     contextAppliedRef.current = true;
-  }, []);
+    return () => { contextAppliedRef.current = false; };
+  }, [resetEarnContext]);
 
   // History links carry only an opaque local draft id. Consume it once the
   // matching wallet is available, then remove it with replaceState so a

@@ -258,7 +258,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await expect(page.getByText('Gas tier', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const minimum = page.locator('[data-review-fact="Minimum received"]');
-  await expect(minimum.getByText('Minimum received', { exact: true })).toBeVisible();
+  await expect(minimum.getByText('You receive · minimum', { exact: true })).toBeVisible();
   await expect(minimum).toContainText('99 USDC');
   await expect(minimum.locator('details, summary')).toHaveCount(0);
   await page.evaluate(() => { (document.querySelector<HTMLElement>('[data-position-sheet-body]') ?? document.querySelector<HTMLElement>('[data-shell-content]')!).scrollTop = 0; });

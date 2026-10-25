@@ -194,6 +194,7 @@ export default function BorrowPage() {
 
   useEffect(() => {
     deepLinkApplied.current = false;
+    return () => { deepLinkApplied.current = false; };
   }, [wallet.address]);
 
   const positions = useMemo(() => {

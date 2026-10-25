@@ -277,8 +277,17 @@ export default function MovePage() {
     const params = new URLSearchParams(window.location.search);
     if (params.has('fxDraft')) return;
     const nextToken = params.get('token');
-    if (nextToken === 'fxUSD' || nextToken === 'fxSAVE') setToken(nextToken);
+    if (nextToken === 'fxUSD' || nextToken === 'fxSAVE') {
+      setToken(nextToken);
+      setAmount(resetTransactionAmounts().amount);
+      setSourceOft(''); setDestinationOft(''); setApprovalToken('');
+      setRecipientInput(''); setCustomRecipient(false);
+      reviewedBridgeRef.current = null;
+      setReviewStage('input');
+      setReviewRevision(revision => revision + 1);
+    }
     contextAppliedRef.current = true;
+    return () => { contextAppliedRef.current = false; };
   }, []);
 
   const resetBridgeContext = useCallback((nextToken: BridgeAsset = token) => {

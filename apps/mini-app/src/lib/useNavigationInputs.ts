@@ -17,7 +17,6 @@ export function useNavigationInputs({ page, identity, ready, value, stage, resto
   const previousIdentity = useRef(identity);
   const pendingRestore = useRef<string | null>(null);
   const resultInputs = useRef<string | null>(null);
-  const explicitContext = useRef(typeof window !== 'undefined' && window.location.search.length > 1);
   const latest = useRef({ identity, ready, value, stage, serialized });
   latest.current = { identity, ready, value, stage, serialized };
   const restoreRef = useRef(restore);
@@ -26,6 +25,13 @@ export function useNavigationInputs({ page, identity, ready, value, stage, resto
   if (stage === 'result' || stage === 'executing') resultInputs.current = serialized;
 
   useEffect(() => {
+    // Next may reactivate a retained page with a different query. Re-read the
+    // current URL instead of retaining the first visit's context in a ref.
+    if (window.location.search.length > 1) {
+      handled.current = true;
+      pendingRestore.current = null;
+      return;
+    }
     if (previousIdentity.current !== identity) {
       // Account/network changes keep the existing pages' reset behavior.
       navigationInputMemory.clear(page, previousIdentity.current);
@@ -34,7 +40,7 @@ export function useNavigationInputs({ page, identity, ready, value, stage, resto
     }
     if (!ready || handled.current) return;
     // Explicit URLs and an edit made during wallet hydration take priority.
-    if (explicitContext.current || editFingerprint !== initial.current) { handled.current = true; return; }
+    if (editFingerprint !== initial.current) { handled.current = true; return; }
     const saved = navigationInputMemory.read(page, identity);
     if (saved) {
       handled.current = true;
@@ -42,7 +48,8 @@ export function useNavigationInputs({ page, identity, ready, value, stage, resto
       // Run after mount effects that load global form settings. Explicit URL
       // restoration was already excluded; this still cannot resume review.
       queueMicrotask(() => {
-        if (mounted.current && latest.current.identity === identity) restoreRef.current(saved);
+        if (mounted.current && latest.current.identity === identity && !window.location.search) restoreRef.current(saved);
+        else pendingRestore.current = null;
       });
     } else if (!identity.startsWith('disconnected:')) handled.current = true;
   }, [editFingerprint, identity, page, ready, serialized]);
