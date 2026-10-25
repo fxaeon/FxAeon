@@ -626,19 +626,21 @@ export default function MovePage() {
                   type="button"
                   onClick={changeRecipientMode}
                   className={moveStyles.recipientChange}
+                  aria-expanded={customRecipient}
+                  aria-controls="move-recipient-address"
                 >
                   {customRecipient ? 'Use your wallet' : 'Change'}
                 </button>
               </div>
-              {customRecipient ? (
-                <AddressField
+              <div id="move-recipient-address" hidden={!customRecipient}>
+                {customRecipient && <AddressField
                   label="Destination wallet"
                   value={recipientInput}
                   onChange={setRecipientInput}
                   placeholder="0x… destination wallet"
                   error={recipientError}
-                />
-              ) : null}
+                />}
+              </div>
             </div>
 
 
