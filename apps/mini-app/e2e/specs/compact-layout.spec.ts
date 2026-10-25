@@ -175,6 +175,11 @@ test('form review actions remain reachable with 200% text in dark appearance', a
         viewportWidth: root.clientWidth,
         appWidth: document.querySelector<HTMLElement>('.app-content')?.clientWidth ?? root.clientWidth,
         appScrollWidth: document.querySelector<HTMLElement>('.app-content')?.scrollWidth ?? root.scrollWidth,
+        overflowingContent: Array.from(document.querySelectorAll<HTMLElement>('.app-content *')).filter(element => {
+          const rect = element.getBoundingClientRect();
+          const app = document.querySelector<HTMLElement>('.app-content')!.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 && (rect.right > app.right + 1 || rect.left < app.left - 1);
+        }).sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right).map(element => `${element.tagName}.${element.className} right=${element.getBoundingClientRect().right}: ${element.textContent?.slice(0, 60)}`).slice(0, 8),
         amountFields: Array.from(document.querySelectorAll<HTMLElement>('.app-content [data-amount-field]')).map((field) => {
           const surface = field.querySelector<HTMLElement>('.amount-control');
           const label = field.querySelector<HTMLElement>('label')?.getBoundingClientRect();
@@ -194,7 +199,7 @@ test('form review actions remain reachable with 200% text in dark appearance', a
       };
     });
     expect(geometry.documentWidth, `${route} must not overflow horizontally (${enlargedText ? '200% text' : 'default text'})`).toBeLessThanOrEqual(geometry.viewportWidth + 1);
-    expect(geometry.appScrollWidth, `${route} form content must not clip horizontally (${enlargedText ? '200% text' : 'default text'})`).toBeLessThanOrEqual(geometry.appWidth + 1);
+    expect(geometry.appScrollWidth, `${route} form content must not clip horizontally (${enlargedText ? '200% text' : 'default text'}): ${geometry.overflowingContent.join('; ')}`).toBeLessThanOrEqual(geometry.appWidth + 1);
     for (const field of geometry.amountFields) {
       expect(field.fieldOverflow, `${route} amount field must not clip horizontally (${enlargedText ? '200% text' : 'default text'})`).toBe(false);
       expect(field.surfaceOverflow, `${route} amount surface must not clip horizontally (${enlargedText ? '200% text' : 'default text'})`).toBe(false);

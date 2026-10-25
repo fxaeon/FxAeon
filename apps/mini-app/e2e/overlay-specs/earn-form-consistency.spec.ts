@@ -21,7 +21,7 @@ const mocks: Record<string, string> = {
   '@/components/MissingValue': `export const MissingValue = () => <span>Unavailable</span>; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({status:'ready',prices:{fxUSDBasePool:1,fxUSD:1},refresh:async () => {}});`,
   '@/lib/displayPrices': `export const freshDisplayPrices = snapshot => snapshot.prices;`,
-  '@/lib/fxSaveApy': `export const fetchFxSaveApy = async () => ({apy:6.25});`,
+  '@/lib/fxSaveApy': `export const fetchFxSaveApy = async () => ({apy:6.25,observedAt:Date.now()});`,
   '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
   '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes = async (chainId) => { globalThis.__settingsGasReads = (globalThis.__settingsGasReads ?? 0) + 1; if (globalThis.__settingsGasFailure) throw new Error('Fixture gas rates unavailable'); const price = globalThis.__settingsGasPriceWei ?? 1n; return {chainId,fetchedAt:Date.now(),validUntil:Date.now()+30000,tiers:{standard:{gasPriceWei:price},fast:{gasPriceWei:price*2n},rapid:{gasPriceWei:price*3n}}}; };`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({address:'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',chainId:1,isEmbedded:true});`,

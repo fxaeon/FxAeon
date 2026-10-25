@@ -1,6 +1,6 @@
-.context{display:grid;gap:12px;margin-top:8px}
-.surface{padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
-.heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.context{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:12px;margin-top:8px}
+.surface{min-width:0;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
+.heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .heading h2{font-size:17px;font-weight:600;letter-spacing:-.35px}
 .heading a,.protection a{display:inline-flex;align-items:center;gap:4px;min-height:44px;color:var(--mint);font-size:12px;font-weight:550}
 .tag{border:1px solid var(--line);border-radius:20px;padding:4px 9px;color:var(--mut);font-size:10px}
@@ -10,13 +10,15 @@
 .reading output{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.6px}
 .slider{width:100%;min-height:28px}
 .scale{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin:5px 0 18px}
-.results{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:17px 0;border-top:1px solid var(--line)}
+.results{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:17px 0;border-top:1px solid var(--line)}
+.results>div{display:flex;flex-direction:column;min-width:0}
+.results dt{margin-bottom:7px}
 .results dt,.conditions dt{font-size:11px;color:var(--mut);line-height:1.5}
-.results dd{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-top:7px;font-variant-numeric:tabular-nums}
+.results dd{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-top:auto;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .caption{font-size:11px;color:var(--mut);line-height:1.65}
-.conditions{display:grid;grid-template-columns:1fr 1fr;gap:22px 16px;margin-top:22px}
+.conditions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px 16px;margin-top:22px}
 .conditions dd{font-size:15px;font-weight:550;margin-top:7px;line-height:1.5;overflow-wrap:anywhere}
-.conditions small{display:block;color:var(--mut);font-size:10px;margin-top:4px}
+.conditions small{display:block;color:var(--mut);font-size:10px;margin-top:4px;overflow-wrap:anywhere}
 .unavailable{color:var(--mut);font-weight:400!important}
 .context [data-tone=negative]{color:var(--danger,#f17b85)}
 .context [data-tone=positive]{color:var(--mint)}

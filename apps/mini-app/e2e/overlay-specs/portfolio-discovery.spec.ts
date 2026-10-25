@@ -7,11 +7,7 @@ const publicRoot = resolve(__dirname, '../../public');
 let lab: PortfolioStatesLab;
 test.beforeAll(async () => { lab = await buildPortfolioStatesLab(); });
 
-async function open(page: Page, { unavailable = false, apyUnavailable = false } = {}) {
-  await page.route('https://api.aladdin.club/api1/concentrator_aToken_tvl_apy', route => route.fulfill({
-    status: apyUnavailable ? 503 : 200, contentType: 'application/json',
-    body: JSON.stringify({ code: 200, data: { fxSave: { address: '0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39', apy: '6.25' } } }),
-  }));
+async function open(page: Page, { unavailable = false } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head><body><div id="root"></div><script>window.__portfolioStates=${JSON.stringify({ stage: 'disconnected', route: '/portfolio', theme: 'dark', publicData: unavailable ? 'unavailable' : 'ready' })};</script><script src="/lab.js"></script></body></html>`;
   await page.route('http://lab.test/**', route => {
     const pathname = new URL(route.request().url()).pathname;
@@ -45,7 +41,6 @@ for (const width of [320, 390, 1280]) {
         expect(imageBox!.x + imageBox!.width).toBeLessThanOrEqual(box!.x + box!.width - 8);
       }
     }
-    await expect(products.getByText('6.25% APY')).toBeVisible();
     await expect(page.locator('[data-portfolio-value]')).toHaveCount(0);
     const main = page.getByRole('main');
     await expect(main.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(1);
@@ -77,11 +72,8 @@ for (const width of [320, 390, 1280]) {
 
 test('unavailable public data keeps all discovery routes usable without invented figures', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
-  await open(page, { unavailable: true, apyUnavailable: true });
+  await open(page, { unavailable: true });
   const products = page.getByRole('region', { name: 'Explore FxAeon' });
-  await expect(products.getByRole('status', { name: 'Loading fxSAVE APY' })).toHaveCount(0);
-  await expect(products.getByText('APY unavailable')).toBeVisible();
-  await expect(products).not.toContainText('0.00%');
   await expect(products.getByRole('link')).toHaveCount(4);
   const markets = page.getByRole('region', { name: 'Markets' });
   await expect(markets.getByRole('status', { name: 'Market price unavailable' })).toHaveCount(2);
@@ -91,16 +83,21 @@ test('unavailable public data keeps all discovery routes usable without invented
   expect(await page.locator('.app-content').evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-test('expired fxSAVE APY disappears when its refresh fails', async ({ page }) => {
-  await page.clock.install();
+test('disconnected discovery omits APY and network footers without requesting APY data', async ({ page }) => {
+  const apyRequests: string[] = [];
+  await page.route('https://api.aladdin.club/api1/concentrator_aToken_tvl_apy', route => {
+    apyRequests.push(route.request().url());
+    return route.fulfill({ status: 503, body: '' });
+  });
   await open(page);
   const products = page.getByRole('region', { name: 'Explore FxAeon' });
-  await expect(products.getByText('6.25% APY')).toBeVisible();
-  await page.route('https://api.aladdin.club/api1/concentrator_aToken_tvl_apy', route => route.fulfill({ status: 503, body: '' }));
-  await page.clock.fastForward(300_001);
-  await expect(products.getByText('APY unavailable')).toBeVisible();
-  await expect(products).not.toContainText('6.25%');
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await expect(products.getByRole('link')).toHaveCount(4);
+  await expect(products.getByText('Ethereum', { exact: true })).toHaveCount(0);
+  await expect(products.getByText('Ethereum ↔ Base', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('f(x) Protocol, one interface', { exact: true })).toHaveCount(0);
+  await expect(products).not.toContainText(/\bAPY\b|\d+\.\d+%/);
+  expect(apyRequests).toEqual([]);
 });
 
 test('discovery remains readable with enlarged text and keyboard navigation', async ({ page }) => {
