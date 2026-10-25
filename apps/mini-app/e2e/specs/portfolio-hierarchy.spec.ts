@@ -238,7 +238,6 @@ test.describe('Disconnected Portfolio entry', () => {
     await page.goto('/portfolio', { waitUntil: 'domcontentloaded' });
     const products = page.getByRole('region', { name: 'Explore FxAeon', exact: true });
     await expect(products.getByRole('link', { name: /Earn/ })).toHaveAttribute('href', '/earn');
-    await expect(products.getByRole('link', { name: /Earn/ }).getByText(/6\.25%/)).toBeVisible();
     await expect(products.getByRole('link', { name: /Borrow/ })).toHaveAttribute('href', '/borrow');
     await expect(page.getByRole('heading', { name: 'Markets', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Markets', exact: true }).locator('[title="24-hour price change"]')).toHaveCount(2);

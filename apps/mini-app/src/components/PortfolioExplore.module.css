@@ -1,6 +1,5 @@
 .explore { display: grid; min-width: 0; gap: 44px; padding-bottom: 16px; }
 .intro { padding: 22px 0 4px; }
-.eyebrow { display: block; margin-bottom: 15px; color: var(--mut-2); font-size: 12px; font-weight: 550; letter-spacing: .08em; text-transform: uppercase; }
 .intro h2 { max-width: 14ch; margin: 0; color: var(--text); font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(44px, 6.4vw, 68px); font-weight: 600; line-height: 1.03; letter-spacing: -.055em; }
 .intro h2 em { color: var(--mut); font-style: normal; }
 .intro > p { max-width: 34ch; margin: 22px 0 0; color: var(--mut); font-size: 16px; line-height: 1.6; text-wrap: balance; }
@@ -18,9 +17,7 @@
 .productTop h3 { min-width: 0; margin: 0; font-size: 19px; line-height: 1.4; font-weight: 550; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .productTop > svg { flex: 0 0 auto; color: var(--mut-2); transition: color var(--dur-fast), transform var(--dur-base) var(--ease-out); }
 .product:is(:hover, :focus-visible) .productTop > svg { color: var(--text); transform: translate(2px, -2px); }
-.product p { margin: 8px 0 20px; color: var(--mut); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
-.productMeta, .apy { display: flex; min-height: 26px; align-items: center; flex-wrap: wrap; gap: 4px 5px; margin-top: auto; color: var(--mut-2); font-size: 12px; line-height: 1.6; }
-.apy strong { max-width: 100%; color: var(--text); font-size: 18px; font-weight: 550; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.product p { margin: 8px 0 0; color: var(--mut); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .art { --art-height: 96px; position: relative; display: flex; width: 100%; height: var(--art-height); align-items: center; justify-content: center; gap: 0; overflow: hidden; }
 .art :is(img, svg) { position: relative; z-index: 1; flex: 0 0 auto; }
 .tradeArt > :first-child { margin-right: -10px; transform: translateY(-6px); }
@@ -63,7 +60,7 @@
   .productTop { gap: 6px; }
   .productTop h3 { font-size: 18px; }
   .productTop > svg { width: 17px; height: 17px; }
-  .product p { margin: 6px 0 12px; font-size: 13px; }
+  .product p { margin: 6px 0 0; font-size: 13px; }
   .art { --art-height: 90px; }
   .marketGrid { gap: 10px; }
 }

@@ -10,7 +10,7 @@ import { useBorrowFundingRate } from '@/lib/fx/useBorrowFundingRate';
 import { poolCapacityUnits } from '@/lib/fx/poolCapacity';
 import { usePoolCapacity } from '@/lib/fx/usePoolCapacity';
 import { useOracleObservation } from '@/lib/fx/useOracleObservation';
-import { oracleMarketDifference } from '@/lib/fx/oracleComparison';
+import { useOracleMarketDifference } from '@/lib/fx/useOracleMarketDifference';
 import { formatUnits } from 'viem';
 import { formatBalanceDecimal } from '@/lib/amount';
 import { borrowFundingDisplay } from '@/lib/fx/borrowFunding';
@@ -30,7 +30,7 @@ export function TradeContext({ market, side, leverage, openPositions, positionsS
   const capacity = usePoolCapacity(market, side);
   const capacityUnits = poolCapacityUnits(market, side);
   const oracle = useOracleObservation(market, side);
-  const oracleDifference = oracleMarketDifference(oracle.value, prices);
+  const oracleDifference = useOracleMarketDifference(oracle.value, prices);
   const fundingDisplay = funding.rate ? borrowFundingDisplay(funding.rate) : null;
   const price = tradeScenarioPrice(live.isFresh ? live.quote?.price : tradeMarketReference(prices, market), change);
   const sensitivity = tradeSensitivity(change, leverage, side);
@@ -43,7 +43,7 @@ export function TradeContext({ market, side, leverage, openPositions, positionsS
       <div className={styles.reading}><label htmlFor="trade-scenario-change">Market change</label><output htmlFor="trade-scenario-change" data-tone={change < 0 ? 'negative' : change > 0 ? 'positive' : undefined}>{change > 0 ? '+' : ''}{change}%</output></div>
       <input id="trade-scenario-change" className={`lever ${styles.slider}`} style={{ '--fill': `${(change + 30) / 60 * 100}%` } as CSSProperties} type="range" min={-30} max={30} step={1} value={change} onChange={event => setChange(Number(event.target.value))} aria-valuetext={`${change}% market change`} />
       <div className={styles.scale}><span>−30%</span><span>0%</span><span>+30%</span></div>
-      <dl className={styles.results} aria-live="polite"><div><dt>{market} at scenario price</dt><dd>{price !== null ? formatUsdPrice(price) : <MissingValue width="lg" status={live.status === 'connecting' || live.status === 'paused' ? 'loading' : 'unavailable'} label="Scenario price" />}</dd></div><div><dt>Initial exposure sensitivity</dt><dd data-tone={sensitivity !== null && sensitivity < 0 ? 'negative' : sensitivity !== null && sensitivity > 0 ? 'positive' : undefined}>{sensitivity === null ? '—' : `${sensitivity > 0 ? '+' : ''}${sensitivity.toFixed(1)}%`}</dd></div></dl>
+      <dl className={styles.results} aria-live="polite"><div><dt>{market} at scenario price</dt><dd>{price !== null ? formatUsdPrice(price) : <MissingValue width="lg" status={live.status === 'connecting' || prices.status === 'loading' ? 'loading' : 'unavailable'} label="Scenario price" />}</dd></div><div><dt>Initial exposure sensitivity</dt><dd data-tone={sensitivity !== null && sensitivity < 0 ? 'negative' : sensitivity !== null && sensitivity > 0 ? 'positive' : undefined}>{sensitivity === null ? '—' : `${sensitivity > 0 ? '+' : ''}${sensitivity.toFixed(1)}%`}</dd></div></dl>
       <p className={styles.caption}>Sensitivity is not projected PnL. It excludes fees, changing leverage, rebalancing and liquidation. Actual outcomes depend on the price path.</p>
     </section>
     <section className={styles.surface} aria-labelledby="trade-conditions-title">

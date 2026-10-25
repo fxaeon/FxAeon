@@ -37,6 +37,7 @@ import { resetTransactionAmounts } from '@/lib/transactionState';
 import { claimAvailability, cooldownRefreshDelayMs, createEarnReadGuard } from '@/lib/earnState';
 import { selectWalletTasks } from '@/lib/taskState';
 import { fetchFxSaveApy, type FxSaveApyResponse } from '@/lib/fxSaveApy';
+import { FX_SAVE_APY_MAX_AGE_MS, fxSaveApyObservationIsCurrent, shouldRefreshFxSaveApy } from '@/lib/fxSaveApyCache';
 import { formatAmount, parseAmount, type SaveToken } from '@/app/trade/fxUi';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
 import { formatUnits } from 'viem';
@@ -294,11 +295,16 @@ export default function EarnPage() {
     let inFlight: Promise<void> | null = null;
     let controller: AbortController | null = null;
 
-    const loadApy = (): Promise<void> => {
+    const loadApy = (force = false): Promise<void> => {
       // Do not create network work for a hidden/offline tab. The recovery
       // events below provide one retry when the route becomes usable again.
       if (disposed || document.visibilityState !== 'visible' || !navigator.onLine) return Promise.resolve();
       if (inFlight) return inFlight;
+      if (!shouldRefreshFxSaveApy(fxSaveApyRef.current, force)) return Promise.resolve();
+      if (fxSaveApyRef.current && !fxSaveApyObservationIsCurrent(fxSaveApyRef.current)) {
+        fxSaveApyRef.current = null;
+        setFxSaveApy(null);
+      }
       controller = new AbortController();
       if (!fxSaveApyRef.current) setFxSaveApyStatus('loading');
       const request = fetchFxSaveApy(controller.signal)
@@ -309,7 +315,7 @@ export default function EarnPage() {
         })
         .catch(() => {
           if (disposed || controller?.signal.aborted) return;
-          setFxSaveApyStatus('unavailable');
+          setFxSaveApyStatus(fxSaveApyObservationIsCurrent(fxSaveApyRef.current) ? 'ready' : 'unavailable');
         })
         .finally(() => {
           if (inFlight === request) inFlight = null;
@@ -319,7 +325,7 @@ export default function EarnPage() {
       return request;
     };
 
-    refreshApyRef.current = loadApy;
+    refreshApyRef.current = () => loadApy(true);
     loadApy();
     const marketRefresh = window.setInterval(loadApy, 60_000);
     const suspend = () => {
@@ -342,6 +348,14 @@ export default function EarnPage() {
       window.removeEventListener('offline', suspend);
     };
   }, []);
+
+  useEffect(() => {
+    if (!fxSaveApy) return;
+    const expire = () => { setFxSaveApy(null); setFxSaveApyStatus('unavailable'); };
+    if (!fxSaveApyObservationIsCurrent(fxSaveApy)) { expire(); return; }
+    const timer = window.setTimeout(expire, Math.max(1, fxSaveApy.observedAt + FX_SAVE_APY_MAX_AGE_MS - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [fxSaveApy]);
 
   const load = useCallback(async (force = false) => {
     const request = readGuard.current.begin(force);
