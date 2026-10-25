@@ -214,56 +214,48 @@ test('click-independent warm Max applies immediately and a manual edit cancels a
   await expect(amount).toHaveValue('0.123');
 });
 
+// Public sensitivity/explainer layout is exercised by the built-route suite.
+// This isolated fixture owns the real editable ticket and its live limits.
 for (const market of ['ETH', 'BTC']) {
-  test(`${market} leverage examples follow the ticket side, keep their layout, and leave the live limit to the ticket`, async ({ page }) => {
+  test(`${market} ticket keeps one leverage control, changes side limits and resets the prior intent`, async ({ page }) => {
     await mount(page);
     await page.getByRole('combobox', { name: 'Market', exact: true }).selectOption(market);
-    const amount = page.getByRole('textbox', { name: `Amount in ${market === 'ETH' ? 'ETH' : 'WBTC'}` });
-    const leverage = page.getByRole('textbox', { name: 'Target leverage' });
-    const ticket = page.getByRole('radiogroup', { name: 'Position side' });
-    await page.getByText('How leverage works', { exact: true }).click();
-    await page.getByText('Market details', { exact: true }).click();
-    const explanation = page.getByRole('region', { name: 'How leverage works' });
-    const glance = page.getByRole('region', { name: 'Market details', exact: true });
-    const split = explanation.getByRole('list', { name: /Debt and equity share of a position/ });
-    const rows = split.getByRole('listitem');
-    const splitHeight = async () => (await split.boundingBox())!.height;
+    const symbol = market === 'ETH' ? 'ETH' : 'WBTC';
+    const amount = page.getByRole('textbox', { name: `Amount in ${symbol}` });
+    const leverage = page.getByRole('textbox', { name: 'Target leverage', exact: true });
+    const slider = page.getByRole('slider', { name: 'Target leverage slider', exact: true });
+    const sides = page.getByRole('radiogroup', { name: 'Position side' });
     await amount.fill('0.125');
     await leverage.fill('3');
-    // The ticket's slider states the chosen leverage live, so the examples offer
-    // no side switch of their own: the only control is the link into Docs.
-    await expect(explanation.getByRole('radiogroup')).toHaveCount(0);
-    await expect(explanation.getByRole('radio')).toHaveCount(0);
-    await expect(explanation.getByRole('button')).toHaveCount(0);
-    await expect(explanation.getByRole('link', { name: 'How it works', exact: true })).toHaveAttribute('href', '/docs/guide/trade');
-    await expect(rows).toHaveCount(2);
-    await expect(explanation).toContainText('a 3× long carries 67% debt and 33% equity');
-    await expect(rows.nth(1)).toContainText('67% debt · 33% equity');
-    await expect(explanation).not.toContainText('pool maximum');
-    await expect(glance).toContainText(`–${market === 'ETH' ? '10.0' : '8.0'}×`);
-    const longHeight = await splitHeight();
+    await leverage.blur();
+    await expect(amount).toHaveValue('0.125');
+    await expect(leverage).toHaveValue('3');
+    await expect(slider).toHaveAttribute('min', '1.1');
+    await expect(slider).toHaveAttribute('max', market === 'ETH' ? '10' : '8');
+    await expect(slider).toHaveAttribute('aria-valuetext', '3.0×, 67% debt, 33% equity');
 
-    // Choosing Short in the ticket moves the examples, the debt asset and the live limit with it.
-    await ticket.getByRole('radio', { name: 'Short' }).click();
-    await expect(page.getByRole('button', { name: `Open ${market} Short` })).toBeVisible();
-    await expect(explanation).toContainText('a 3× short carries 75% debt and 25% equity');
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(1)).toContainText('75% debt · 25% equity');
-    expect(await rows.nth(1).evaluate((row) => (row as HTMLElement).style.getPropertyValue('--borrowed'))).toBe('0.75');
-    expect(await splitHeight(), 'switching sides must not move the content below').toBe(longHeight);
-    await expect(glance).toContainText(`–${market === 'ETH' ? '6.0' : '5.0'}×`);
+    await sides.getByRole('radio', { name: 'Short' }).click();
+    await expect(amount).toHaveValue('');
+    await expect(leverage).toHaveValue('2');
+    await expect(leverage).toHaveCount(1);
+    await expect(slider).toHaveCount(1);
+    await expect(slider).toHaveAttribute('min', '0.1');
+    await expect(slider).toHaveAttribute('max', market === 'ETH' ? '6' : '5');
+    await leverage.fill('3');
+    await leverage.blur();
+    await expect(slider).toHaveAttribute('aria-valuetext', '3.0×, 75% debt, 25% equity');
 
-    await ticket.getByRole('radio', { name: 'Long' }).click();
-    await expect(rows.nth(1)).toContainText('67% debt · 33% equity');
-    expect(await rows.nth(1).evaluate((row) => (row as HTMLElement).style.getPropertyValue('--borrowed'))).toBe(String(2 / 3));
-
-    // A new market keeps the selected trade side, with its own debt asset and live limit.
-    await ticket.getByRole('radio', { name: 'Short' }).click();
+    await sides.getByRole('radio', { name: 'Long' }).click();
+    await expect(leverage).toHaveValue('2');
+    await expect(slider).toHaveAttribute('min', '1.1');
+    await expect(slider).toHaveAttribute('max', market === 'ETH' ? '10' : '8');
+    await sides.getByRole('radio', { name: 'Short' }).click();
     const nextMarket = market === 'ETH' ? 'BTC' : 'ETH';
     await page.getByRole('combobox', { name: 'Market', exact: true }).selectOption(nextMarket);
-    await expect(ticket.getByRole('radio', { name: 'Short' })).toBeChecked();
-    await expect(page.getByRole('region', { name: 'Market details', exact: true })).toContainText(`–${nextMarket === 'ETH' ? '6.0' : '5.0'}×`);
-    await expect(rows.nth(1)).toContainText('75% debt · 25% equity');
+    await expect(sides.getByRole('radio', { name: 'Short' })).toBeChecked();
+    await expect(page.getByRole('textbox', { name: `Amount in ${nextMarket === 'ETH' ? 'ETH' : 'WBTC'}`, exact: true })).toHaveValue('');
+    await expect(leverage).toHaveValue('2');
+    await expect(slider).toHaveAttribute('max', nextMarket === 'ETH' ? '6' : '5');
   });
 }
 
