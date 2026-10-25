@@ -1,5 +1,7 @@
 'use client';
 
+import { useNavigationInputs } from '@/lib/useNavigationInputs';
+
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AppShell } from '@/components/ui';
 import { formatUnits } from 'viem';
@@ -289,6 +291,13 @@ export default function BorrowPage() {
     repay,
     withdraw,
   }), [deposit, market, mint, mode, repay, selectedKey, token, withdraw]);
+
+  useNavigationInputs({ page: 'borrow', identity: `${wallet.address?.toLowerCase() ?? 'disconnected'}:${wallet.chainId ?? ''}`, ready: wallet.ready, stage: reviewStage, value: { ...draftState, managementAction }, restore: (state) => {
+    setMode(state.mode as BorrowMode); setMarket(state.market as UiMarket); setToken(state.token as UiToken);
+    setSelectedKey(state.selectedKey as string); setManagementAction(state.managementAction as ManagementAction);
+    setDeposit(state.deposit as string); setMint(state.mint as string); setRepay(state.repay as string); setWithdraw(state.withdraw as string);
+  } });
+
   const draftActionKey = mode === 'manage'
     ? 'borrow:manage'
     : selectedKey === 'new'
@@ -762,7 +771,7 @@ export default function BorrowPage() {
       {/* A limit, so rounded down to the tenth of a percent. */}
       {inputStage && <div className={presentation.details}>
         <BorrowFundingHistory market={limitMarket} rate={funding.rate} status={funding.status} />
-        {ltvBps !== null && collateralAfterUsd !== null && debtAfter > 0n && limitBps > 0n && <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} />}
+        <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd ?? 0n} limitBps={limitBps} />
         <BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} />
       </div>}
       </div>

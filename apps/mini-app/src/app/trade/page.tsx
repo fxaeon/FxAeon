@@ -1,5 +1,7 @@
 'use client';
 
+import { useNavigationInputs } from '@/lib/useNavigationInputs';
+
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -155,6 +157,12 @@ export default function TradePage() {
     slippage,
   }), [amount, leverage, market, side, slippage, token]);
   const draftActionKey = useMemo(() => `trade:${market}:${side}:${token}`, [market, side, token]);
+
+
+  useNavigationInputs({ page: 'trade', identity: `${wallet.address?.toLowerCase() ?? 'disconnected'}:${wallet.chainId ?? ''}`, ready: wallet.ready, stage: reviewStage, value: draftState, restore: (state) => {
+    setMarket(state.market as UiMarket); setSide(state.side as UiSide); setToken(state.token as UiToken);
+    setAmount(state.amount as string); setLeverage(state.leverage as number); setSlippage(state.slippage as string);
+  } });
 
   const resetTradeContext = useCallback((nextMarket: UiMarket = 'ETH', nextSide: UiSide = 'long', nextToken: UiToken = 'ETH') => {
     const defaults = resetTransactionAmounts();
@@ -657,7 +665,7 @@ export default function TradePage() {
             )}
           </section>
         )}
-        {isReviewInputStage(reviewStage) && <TradeSections market={market} side={side} leverage={leverageBounds}
+        {isReviewInputStage(reviewStage) && <TradeSections market={market} side={side} leverage={leverageBounds} selectedLeverage={leverage}
           openPositions={wallet.address && positionState.status === 'ready' ? marketPositions.length : null}
           positionsStatus={!wallet.address ? 'disconnected' : positionState.status === 'ready' ? 'ready' : positionState.status === 'idle' || positionState.status === 'loading' ? 'loading' : 'unavailable'} />}
       </ActionWorkspace>

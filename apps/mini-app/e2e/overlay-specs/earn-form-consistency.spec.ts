@@ -216,7 +216,7 @@ test('withdrawals compare the exact fxSAVE balance, and vault details read in th
   await expect(page.getByRole('button',{name:'Review withdrawal',exact:true})).toBeEnabled();
   await amount.fill('600.12345679');
   await expect(page.getByRole('button',{name:'Review withdrawal',exact:true})).toBeDisabled();
-  const vault=page.getByRole('region',{name:'Vault details'});
+  const vault=page.getByRole('region',{name:'Vault details & transparency'});
   // fxSAVE's harvester ratio has 1e9 precision: 100000 is 0.01%, not 0%.
   await expect(vault).toContainText('Harvester ratio0.01%');
   await expect(vault).toContainText('Batch deposit threshold100 fxSP');

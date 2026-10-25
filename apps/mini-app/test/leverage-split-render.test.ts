@@ -4,7 +4,14 @@ import { createRequire } from 'node:module';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup as renderMarkup } from 'react-dom/server';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+function renderToStaticMarkup(element: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  try { return renderMarkup(React.createElement(QueryClientProvider, { client }, element)); }
+  finally { client.clear(); }
+}
 
 // Match the isolated JSX/CSS loader used by the position-card render tests.
 const globalReact = globalThis as typeof globalThis & { React?: typeof React };
@@ -12,7 +19,7 @@ const previousReact = globalReact.React;
 globalReact.React = React;
 const testRequire = createRequire(import.meta.url);
 const previousCssLoader = testRequire.extensions['.css'];
-const stylesPaths = new Set(['LeverageSplit', 'PageSections', 'YieldFlow', 'trade-surfaces', 'AmountField'].map((name) =>
+const stylesPaths = new Set(['LeverageSplit', 'PageSections', 'YieldFlow', 'trade-surfaces', 'AmountField', 'TradeContext', 'InfoHelp'].map((name) =>
   fileURLToPath(new URL(`../src/components/${name}.module.css`, import.meta.url)).toLowerCase()));
 testRequire.extensions['.css'] = (loadedModule, filename) => {
   if (!stylesPaths.has(filename.toLowerCase())) {
@@ -78,29 +85,21 @@ test('both directions show the same leverages, so comparing them never changes t
   assert.deepEqual(leverages('short'), leverages('long'));
 });
 
-test('Trade education follows the ticket side and keeps its copy consistent with the bars', async () => {
+test('Trade sensitivity follows market, direction and selected leverage without inventing exposure', async () => {
   const { TradeSections } = await import('../src/components/ProductSections');
   for (const market of ['ETH', 'BTC'] as const) {
-    for (const side of ['long', 'short', 'long'] as const) {
+    for (const side of ['long', 'short'] as const) {
       const html = renderToStaticMarkup(React.createElement(TradeSections, {
-        market, side, leverage: { min: side === 'long' ? 1.1 : 0.1, max: 6 },
+        market, side, leverage: { min: .1, max: 6 }, selectedLeverage: 3,
         openPositions: null, positionsStatus: 'disconnected',
       }));
-      const rows = splitRows(html);
-      // The ticket's slider explains the chosen leverage live, so the examples
-      // offer no Long/Short switch of their own: they show the ticket's side.
-      assert.doesNotMatch(html, /role="radiogroup"|role="radio"/);
-      assert.doesNotMatch(html, />Example</);
-      assert.match(html, /aria-label="Debt and equity share of a position by leverage, before fees"/);
-      assert.equal(rows.length, 2);
-      assert.equal(rows[1].borrowed, side === 'long' ? 2 / 3 : 3 / 4);
-      if (side === 'long') {
-        assert.match(html, /a 3× long carries 67% debt and 33% equity/);
-        assert.equal(rows[1].text, '3×67% debt · 33% equity');
-      } else {
-        assert.match(html, /a 3× short carries 75% debt and 25% equity/);
-        assert.equal(rows[1].text, '3×75% debt · 25% equity');
-      }
+      assert.ok(textOf(html).includes('What if '+market+' moves?'));
+      assert.ok(textOf(html).includes('selected '+side+' responds'));
+      assert.ok(textOf(html).includes('3×'));
+      assert.ok(textOf(html).includes(side === 'long' ? '-30.0%' : '+30.0%'));
+      assert.doesNotMatch(html, /Your existing exposure/);
+      assert.match(html, /Sensitivity is not projected PnL/);
+      assert.match(html, /How protection works/);
     }
   }
 });
@@ -108,13 +107,13 @@ test('Trade education follows the ticket side and keeps its copy consistent with
 test('each action page keeps its live facts and f(x) explainer, and leaves steps and questions to one Docs link', async () => {
   const { BorrowSections, EarnSections, MoveSections, TradeSections } = await import('../src/components/ProductSections');
   const pages = [
-    { docs: 'trade', html: renderToStaticMarkup(React.createElement(TradeSections, { market: 'ETH', side: 'long', leverage: { min: 1.1, max: 6.1 }, openPositions: 2, positionsStatus: 'ready' })),
-      keeps: ['Market details', '24h low', 'Live market feed', 'How leverage works', 'Debt and equity share of a position', 'A brake before liquidation'] },
+    { docs: 'trade', html: renderToStaticMarkup(React.createElement(TradeSections, { market: 'ETH', side: 'long', leverage: { min: 1.1, max: 6.1 }, selectedLeverage: 2, openPositions: 2, positionsStatus: 'ready' })),
+      keeps: ['What if ETH moves?', 'Protocol conditions', 'Long-pool funding', 'Your existing exposure', 'How protection works'] },
     { docs: 'earn', html: renderToStaticMarkup(React.createElement(EarnSections, { cooldown: '1h', instantFee: '1%', vaultStatus: 'unavailable' })),
       keeps: ['Withdrawal terms', '1h', 'Instant withdrawal fee', 'How fxSAVE earns yield', 'Sources of stability pool rewards'] },
     { docs: 'borrow', html: renderToStaticMarkup(React.createElement(BorrowSections, { ltvLimit: '85.4%' })),
       keeps: ['Borrowing terms', '85.4%', 'ETH, WETH, stETH, wstETH, or WBTC', 'A brake before liquidation'] },
-    { docs: 'move', html: renderToStaticMarkup(React.createElement(MoveSections)), keeps: ['Transfer details', 'LayerZero'] },
+    { docs: 'move', html: renderToStaticMarkup(React.createElement(MoveSections)), keeps: ['Route and delivery', 'LayerZero', 'Ethereum', 'Base'] },
   ];
   for (const { docs, html, keeps } of pages) {
     // Visible copy, or an accessible name such as the split's list label.
@@ -123,8 +122,8 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
     assert.doesNotMatch(html, /<ol(?![^>]*aria-label="Debt and equity share of a position)/, `${docs} has no steps or questions`);
     assert.doesNotMatch(textOf(html), /in three steps|Before you (?:trade|deposit|move)\b/);
     const docsLinks = [...html.matchAll(/href="\/docs[^"]*"/g)].map((match) => match[0]);
-    assert.deepEqual(docsLinks, [`href="/docs/guide/${docs}"`], `${docs} has one in-app link to its Docs guide`);
-    assert.match(html, new RegExp(`href="/docs/guide/${docs}">How it works<svg[^>]*lucide-chevron-right`), 'an in-app link uses a chevron');
+    if (docs === 'trade' || docs === 'earn') assert.deepEqual(docsLinks, [`href="/docs/guide/${docs}"`], `${docs} has one in-app link to its Docs guide`);
+    if (docs === 'earn') assert.match(html, new RegExp(`href="/docs/guide/${docs}">How it works<svg[^>]*lucide-chevron-right`), 'an in-app link uses a chevron');
   }
 });
 

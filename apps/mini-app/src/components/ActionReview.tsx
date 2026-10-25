@@ -222,7 +222,7 @@ export function ActionReview(props: ActionReviewProps) {
       </StickyAction>
     );
     if (editor) {
-      return <><fieldset disabled={preparing} aria-busy={preparing} className={presentationStyles.preparationEditor}>{editor}</fieldset>{trigger}</>;
+      return <><div data-preparation-editor inert={preparing} aria-disabled={preparing} aria-busy={preparing} className={presentationStyles.preparationEditor}>{editor}</div>{trigger}</>;
     }
     return trigger;
   }
@@ -372,6 +372,7 @@ export function ActionReview(props: ActionReviewProps) {
             if (transactionTask) { router.push(transactionTask.href); return; }
             if (requiresTracking) { router.push('/history'); return; }
             if (completedIntent?.kind === 'fxsave-claim' && result.status === 'confirmed') { reset(); router.push('/portfolio'); return; }
+            if (completedIntent?.kind === 'fxsave-deposit' && result.status === 'confirmed') { reset(); if (props.onViewEarnings) props.onViewEarnings(); else router.push('/earn'); return; }
             if (positionAction) {
               // A position this review just opened can open in place, carrying its split.
               if (newPosition && positionHref && onViewNewPosition) { onViewNewPosition({ key: newPosition.key, href: positionHref }); return; }

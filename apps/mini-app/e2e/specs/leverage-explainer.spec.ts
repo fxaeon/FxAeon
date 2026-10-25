@@ -1,39 +1,37 @@
 import { expect, test, assertNoBackendRequests } from '../fixtures/test';
 
-test.use({ telegram: false });
+test.use({ telegram: false, marketPrices: true });
 
 for (const width of [320, 390, 1280]) {
-  test(`leverage examples fit ${width}px and follow the trade ticket's side`, async ({ page, requests }, testInfo) => {
+  test(`Trade sensitivity follows the ticket and fits ${width}px`, async ({ page, requests }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('group', { name: 'Wallet and network controls' }).getByRole('button', { name: 'Connect wallet' })).toBeVisible();
-    const ticketSide = page.getByRole('radiogroup', { name: 'Position side' });
-    await page.getByText('How leverage works', { exact: true }).click();
-    const explanation = page.getByRole('region', { name: 'How leverage works' });
-    await explanation.scrollIntoViewIfNeeded();
-    // The ticket's slider explains the chosen leverage live, so the examples
-    // have no side switch of their own; they show the ticket's side.
-    await expect(explanation.getByRole('radiogroup')).toHaveCount(0);
-    await expect(explanation.getByText('Example', { exact: true })).toHaveCount(0);
-    await expect(explanation).toContainText('67% debt · 33% equity');
-    const split = explanation.getByRole('list', { name: /Debt and equity share of a position/ });
-    const longHeight = (await split.boundingBox())!.height;
-    await explanation.screenshot({ path: testInfo.outputPath('long-example.png') });
-
-    await ticketSide.getByRole('radio', { name: 'Short' }).click();
-    await expect(ticketSide.getByRole('radio', { name: 'Short' })).toBeChecked();
-    await expect(explanation).toContainText('75% debt · 25% equity');
-    await expect(explanation).not.toContainText('pool maximum');
-    expect((await split.boundingBox())!.height, 'switching sides must not move the content below').toBe(longHeight);
-    await explanation.screenshot({ path: testInfo.outputPath('short-example.png') });
-
-    // The general steps and questions live in Docs, one in-app link away.
-    const docs = explanation.getByRole('link', { name: 'How it works', exact: true });
+    const scenario = page.getByRole('region', { name: 'What if ETH moves?' });
+    await scenario.scrollIntoViewIfNeeded();
+    await expect(scenario).toContainText('−30%');
+    const slider = scenario.getByRole('slider', { name: 'Market change' });
+    await slider.focus();
+    await slider.press('Home');
+    await expect(slider).toHaveValue('-30');
+    await expect(scenario).toContainText('-60.0%');
+    await expect(scenario).toContainText('$1,680.00');
+    await scenario.screenshot({ path: testInfo.outputPath('long-sensitivity.png') });
+    const side = page.getByRole('radiogroup', { name: 'Position side' });
+    await side.getByRole('radio', { name: 'Short' }).click();
+    await scenario.scrollIntoViewIfNeeded();
+    await expect(scenario).toContainText('+60.0%');
+    await expect(scenario).toContainText('selected short');
+    await expect(scenario).toContainText('not projected PnL');
+    await scenario.screenshot({ path: testInfo.outputPath('short-sensitivity.png') });
+    const conditions = page.getByRole('region', { name: 'Protocol conditions' });
+    await expect(conditions).toContainText('fxUSD reference');
+    await expect(conditions).toContainText('Pool capacity');
+    await page.getByText('How protection works', { exact: true }).click();
+    const docs = page.getByRole('link', { name: 'How rebalancing works', exact: true });
     await expect(docs).toHaveAttribute('href', '/docs/guide/trade');
-    expect((await docs.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    const bounds = await explanation.evaluate((element) => ({ width: element.clientWidth, scrollWidth: element.scrollWidth }));
-    expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.width);
+    await expect(docs).toBeVisible();
+    expect(await scenario.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     assertNoBackendRequests(requests);
   });

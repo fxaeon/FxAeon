@@ -15,43 +15,47 @@ export default function PortfolioExplore() {
   const { apy, status } = usePublicFxSaveApy();
   return <div id="overview" data-portfolio-explore className={styles.explore}>
     <section className={styles.intro} aria-labelledby="portfolio-explore-heading">
-      <h2 id="portfolio-explore-heading">Find your<br /> next move.</h2>
-      <p>Trade, earn, borrow and move with f(x) Protocol.</p>
+      <span className={styles.eyebrow}>f(x) Protocol, one interface</span>
+      <h2 id="portfolio-explore-heading">DeFi that<br /><em>moves with you.</em></h2>
+      <p>Trade, earn, borrow and move on Ethereum, with Base bridging and a wallet that remains yours.</p>
       <div className={styles.entryActions}>
         <ConnectWalletButton className={`button button-primary ${styles.connect}`}>Connect wallet</ConnectWalletButton>
-        <Link href="/docs/guide/getting-started">How it works <ArrowRight size={16} aria-hidden="true" /></Link>
+        <Link href="/trade">Explore Trade <ArrowRight size={16} aria-hidden="true" /></Link>
       </div>
     </section>
 
     <section className={styles.productSection} aria-labelledby="portfolio-products-heading" aria-label="Explore FxAeon">
-      <h2 id="portfolio-products-heading" className="sr-only">Explore FxAeon</h2>
+      <div className={styles.sectionHeading}>
+        <h2 id="portfolio-products-heading">Explore FxAeon</h2>
+        <span className={styles.caption}>Four tools · one workspace</span>
+      </div>
       <div className={styles.products}>
         <Link href="/trade" className={styles.product}>
           <div className={styles.productTop}><h3>Trade</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={`${styles.art} ${styles.tradeArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={56} /><TokenIcon symbol="WBTC" size={48} /></div>
-          <p>Go long or short on ETH and BTC.</p>
+          <p>Trade long or short on ETH and BTC.</p>
           <span className={styles.productMeta}>Ethereum</span>
         </Link>
         <Link href="/earn" className={styles.product}>
           <div className={styles.productTop}><h3>Earn</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={styles.art} aria-hidden="true"><TokenIcon symbol="fxSAVE" size={58} /></div>
-          <p>Save in stablecoins with fxSAVE.</p>
+          <p>Save in fxSAVE with variable yield.</p>
           <span className={styles.apy}>
-            {apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> variable APY</>
-              : status === 'loading' ? <><MissingValue width="sm" label="Loading fxSAVE APY" /> <span>variable APY</span></>
+            {apy && status === 'ready' ? <><strong>{apy.apy.toFixed(2)}%</strong> APY</>
+              : status === 'loading' ? <><MissingValue width="sm" label="Loading fxSAVE APY" /> <span>APY</span></>
                 : <span role="status">APY unavailable</span>}
           </span>
         </Link>
         <Link href="/borrow" className={styles.product}>
           <div className={styles.productTop}><h3>Borrow</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={`${styles.art} ${styles.borrowArt}`} aria-hidden="true"><TokenIcon symbol="ETH" size={32} /><TokenIcon symbol="WBTC" size={32} /><TokenIcon symbol="fxUSD" size={52} /></div>
-          <p>Borrow fxUSD against your collateral.</p>
+          <p>Access fxUSD against collateral.</p>
           <span className={styles.productMeta}>Ethereum</span>
         </Link>
         <Link href="/move" className={styles.product}>
           <div className={styles.productTop}><h3>Move</h3><ArrowUpRight size={19} aria-hidden="true" /></div>
           <div className={`${styles.art} ${styles.moveArt}`} aria-hidden="true"><ChainIcon chainId={1} size={40} /><ChainIcon chainId={8453} size={40} /></div>
-          <p>Bridge fxUSD and fxSAVE between networks.</p>
+          <p>Bridge between Ethereum and Base.</p>
           <span className={styles.productMeta}>Ethereum ↔ Base</span>
         </Link>
       </div>

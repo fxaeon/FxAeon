@@ -14,7 +14,9 @@
 
 .surfaceEnter { animation: review-enter var(--dur-slow) var(--ease-out) both; }
 .reviewViewport { display: flex; flex-direction: column; min-width: 0; }
-.preparationEditor { display: contents; border: 0; min-width: 0; padding: 0; margin: 0; }
+/* An ordinary box keeps amount query containers laid out across route
+   restoration; native fieldset anonymous boxes can collapse in Chromium. */
+.preparationEditor { display: block; width: 100%; border: 0; min-width: 0; padding: 0; margin: 0; }
 .inputPreparation { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
 .inputPreparation p { margin: 0; }
 .inputPreparation button { flex: 0 0 auto; min-height: 44px; padding: 0 10px; color: var(--mint-text); border-radius: 10px; }
@@ -665,7 +667,7 @@
 .compactFact[data-review-fact='Borrow rate'] small { padding: 2px 5px; border-radius: 5px; background: var(--surface); font-size: 12px; line-height: 1.2; }
 .reviewViewport[data-review-phase='review'] .compactFact :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .reviewViewport[data-review-phase='review'] .compactFact:has(:global(details[open])) { align-items: flex-start; padding-block: 4px; }
-.reviewViewport[data-review-phase='review'] .amountLedReview { padding: 16px; }
+.reviewViewport[data-review-phase='review'] .amountLedReview { padding: 18px; border-radius: 24px; }
 .reviewViewport[data-review-phase='review'] .reviewDetails { margin-top: 2px; }
 .reviewViewport[data-review-phase='review'] .reviewDetails > summary { min-height: 32px; }
 .reviewViewport[data-review-phase='review'] .actions.actions { padding-top: 6px; }
@@ -683,10 +685,17 @@
   .reviewViewport[data-review-phase='review'] .actions > button { min-height: 48px; }
 }
 .amountLedReview .consequenceGroup, .amountLedReview .costGroup, .amountLedReview .riskGroup { gap: 0; }
-.amountLedReview .amountFlow + .facts { padding-top: 6px; }
-.amountLedReview .costGroup { margin-top: 6px; padding-top: 2px; }
-.amountLedReview .riskGroup { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--line); }
-.amountLedReview .riskGroup.loanRiskGroup { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--line); }
+.amountLedReview .amountFlow + .facts { padding-top: 10px; }
+.amountLedReview .costGroup { margin-top: 8px; padding-top: 6px; }
+.amountLedReview .riskGroup { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--line); }
+.amountLedReview .riskGroup.loanRiskGroup { padding-top: 8px; margin-top: 8px; border-top: 1px solid var(--line); }
+.quoteUpdate, .quoteUpdateNotice { margin-top: 10px; border-radius: 14px; background: var(--warn-dim); color: var(--warn); font-size: 13px; }
+.quoteUpdateNotice { padding: 10px 12px; }
+.quoteUpdate > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 8px 12px; list-style: none; cursor: pointer; }
+.quoteUpdate > summary::-webkit-details-marker { display: none; }
+.quoteUpdate > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: inherit; }
+.quoteUpdateAction { font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.quoteUpdate > div { padding: 0 12px 12px; color: var(--text); }
 .compactRisk { min-width: 0; }
 .compactRisk .compactFact { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 6px; }
 .compactRisk .compactFact > span:last-child { max-width: none; white-space: nowrap; }

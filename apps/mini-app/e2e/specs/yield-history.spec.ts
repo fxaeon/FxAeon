@@ -1,5 +1,6 @@
 import { test, expect, assertNoBackendRequests } from '../fixtures/test';
 import { FX_SAVE_HISTORY_ENDPOINT, FX_SAVE_HISTORY_SOURCE } from '../../src/lib/fxSaveHistory';
+import { FX_SAVE_SHARE_HISTORY_ENDPOINT, FX_SAVE_SHARE_HISTORY_FALLBACK, FX_SAVE_SHARE_HISTORY_KEY } from '../../src/lib/fxSaveShareHistory';
 
 test.use({ telegram: false });
 
@@ -7,11 +8,38 @@ const response = () => ({ status: 'success', data: Array.from({ length: 90 }, (_
   timestamp: new Date(Date.now() - (89 - index) * 86_400_000).toISOString(), apy: 6 + index / 100,
 })) });
 
+const shareResponse = () => ({ coins: { [FX_SAVE_SHARE_HISTORY_KEY]: {
+  symbol: 'fxSAVE', decimals: 18, confidence: 1,
+  prices: Array.from({ length: 90 }, (_, index) => ({ timestamp: Math.floor((Date.now() - (89 - index) * 86_400_000) / 1000), price: 1.1 + index / 10_000 })),
+} } });
+
+test('share-value history switches metrics and ranges, with fallback and keyboard inspection', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route(FX_SAVE_HISTORY_ENDPOINT, route => route.fulfill({ json: response() }));
+  await page.route(FX_SAVE_SHARE_HISTORY_ENDPOINT, route => route.fulfill({ status: 503, body: '' }));
+  await page.route(FX_SAVE_SHARE_HISTORY_FALLBACK, route => route.fulfill({ json: shareResponse() }));
+  await page.goto('/earn');
+  const history = page.getByRole('region', { name: 'fxSAVE performance' });
+  await history.getByRole('button', { name: 'Share value', exact: true }).click();
+  const chart = history.getByRole('slider', { name: 'Explore daily fxSAVE share value' });
+  await expect(chart).toHaveAttribute('aria-valuemax', '29');
+  await history.getByRole('button', { name: '90D', exact: true }).click();
+  await expect(chart).toHaveAttribute('aria-valuemax', '89');
+  await chart.focus();
+  await chart.press('Home');
+  await expect(chart).toHaveAttribute('aria-valuetext', /\$1\.10 per fxSAVE/);
+  await chart.press('End');
+  await expect(chart).toHaveAttribute('aria-valuetext', /\$1\.1089 per fxSAVE/);
+  await expect(history.getByRole('link', { name: /DefiLlama/ })).toHaveAttribute('href', FX_SAVE_SHARE_HISTORY_ENDPOINT);
+  await history.getByRole('button', { name: 'APY', exact: true }).click();
+  await expect(history.getByRole('slider', { name: 'Explore daily fxSAVE APY' })).toBeVisible();
+});
+
 test('daily APY history supports ranges, keyboard exploration and a truthful source', async ({ page, requests }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.route(FX_SAVE_HISTORY_ENDPOINT, route => route.fulfill({ json: response() }));
   await page.goto('/earn');
-  const history = page.getByRole('region', { name: 'fxSAVE yield history' });
+  const history = page.getByRole('region', { name: 'fxSAVE performance' });
   const chart = history.getByRole('slider', { name: 'Explore daily fxSAVE APY' });
   await expect(chart).toBeVisible();
   await expect(chart).toHaveAttribute('aria-valuemax', '29');
@@ -25,7 +53,7 @@ test('daily APY history supports ranges, keyboard exploration and a truthful sou
   await chart.press('End');
   await expect(chart).toHaveAttribute('aria-valuetext', /6\.89% APY/);
   await expect(history.getByRole('link', { name: /DefiLlama/ })).toHaveAttribute('href', FX_SAVE_HISTORY_SOURCE);
-  await history.getByRole('button', { name: 'About Yield history', exact: true }).click();
+  await history.getByRole('button', { name: 'About Performance', exact: true }).click();
   await expect(page.getByText(/not a realized return/)).toBeVisible();
   assertNoBackendRequests(requests);
 });
@@ -35,7 +63,7 @@ test('failed history stays unavailable and retry recovers without blocking the f
   let failed = true;
   await page.route(FX_SAVE_HISTORY_ENDPOINT, route => failed ? route.fulfill({ status: 503, body: '' }) : route.fulfill({ json: response() }));
   await page.goto('/earn');
-  const history = page.getByRole('region', { name: 'fxSAVE yield history' });
+  const history = page.getByRole('region', { name: 'fxSAVE performance' });
   await expect(history.getByText('Yield history unavailable')).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true })).toBeVisible();
   failed = false;
@@ -47,7 +75,7 @@ test('phone layout keeps the action before history and fits a narrow viewport', 
   await page.setViewportSize({ width: 320, height: 740 });
   await page.route(FX_SAVE_HISTORY_ENDPOINT, route => route.fulfill({ json: response() }));
   await page.goto('/earn');
-  const history = page.getByRole('region', { name: 'fxSAVE yield history' });
+  const history = page.getByRole('region', { name: 'fxSAVE performance' });
   const amount = page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true });
   expect(await history.evaluate((node) => node.getBoundingClientRect().top)).toBeGreaterThan(await amount.evaluate((node) => node.getBoundingClientRect().bottom));
   await history.scrollIntoViewIfNeeded();
@@ -71,7 +99,7 @@ test('a mounted chart expires when its source reaches the freshness boundary', a
   payload.data = payload.data.map(point => ({ ...point, timestamp: new Date(Date.parse(point.timestamp) - 3 * 86_400_000 + 60_000).toISOString() }));
   await page.route(FX_SAVE_HISTORY_ENDPOINT, route => route.fulfill({ json: payload }));
   await page.goto('/earn');
-  const history = page.getByRole('region', { name: 'fxSAVE yield history' });
+  const history = page.getByRole('region', { name: 'fxSAVE performance' });
   await expect(history.getByRole('slider')).toBeVisible();
   await page.clock.fastForward(61_000);
   await expect(history.getByText('Yield history unavailable')).toBeVisible();

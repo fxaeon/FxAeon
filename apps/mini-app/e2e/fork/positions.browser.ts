@@ -1582,6 +1582,23 @@ async function runProof(captureStage: string) {
     const fxSaveShares = await client.readContract({ address: fxSave, abi: tokenAbi, functionName: 'balanceOf', args: [wallet] });
     assert.ok(fxSaveShares > 0n, 'real Earn deposit must mint the wallet fxSAVE shares needed for withdrawal reviews');
 
+    // The confirmed-deposit next action must dismiss its real mobile review
+    // and return to the verified savings summary, without another signature.
+    const earningsSignatureBaseline = submitted.length;
+    await page.getByRole('button', { name: 'View earnings', exact: true }).click();
+    const earningsSummary = page.getByRole('region', { name: 'Your fxSAVE earnings', exact: true });
+    await expect(page).toHaveURL(new RegExp('/earn/?$'));
+    await expect(page.locator('[data-mobile-review-sheet]')).toHaveCount(0);
+    await expect(earningsSummary).toBeVisible();
+    await expect(earningsSummary).toBeFocused();
+    await expect(earningsSummary).toBeInViewport();
+    await expect(page.getByRole('radio', { name: 'Deposit', exact: true })).toBeChecked();
+    assert.equal(submitted.length, earningsSignatureBaseline, 'View earnings must not request another signature');
+    await expect.poll(() => earningsSummary.evaluate(element => {
+      const main = document.querySelector('[data-shell-content]')!;
+      return element.getBoundingClientRect().top - main.getBoundingClientRect().top;
+    }), { message: 'earnings summary must clear the app header after its next action' }).toBeGreaterThanOrEqual(-2);
+
     const withdrawalReviewSignatureBaseline = submitted.length;
     const withdrawalShares = fxSaveShares / 10n;
     assert.ok(withdrawalShares > 0n, 'Earn fixture must have a positive verified fxSAVE amount for both withdrawal reviews');

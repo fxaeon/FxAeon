@@ -46,22 +46,22 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 export function UpdatedQuoteSummary({ changes }: { changes: readonly ChangedReviewFact[] }) {
-  // Keep route changes visible without repeating the full review in a second
-  // card. Amount, fee, and approval changes still receive explicit comparison.
+  // Current terms already lead the review. Keep one notice with an optional
+  // comparison, rather than stacking a second full set of amounts below it.
   const visibleChanges = changes.filter((change) => change.label !== 'Transaction route');
   if (!visibleChanges.length) return changes.length
-    ? <p className="mt-3 rounded-2xl bg-[var(--warn-dim)] px-4 py-3 text-[13px] text-warn" role="status">Route updated. Check the details before confirming.</p>
+    ? <p className={presentationStyles.quoteUpdateNotice} role="status">Route updated. Check the details before confirming.</p>
     : null;
   return (
-    <section className="mt-3 rounded-2xl bg-[var(--warn-dim)] px-4 py-3" aria-label="Updated transaction consequences">
-      <p className="text-[12px] font-semibold text-warn">Quote updated</p>
+    <details className={presentationStyles.quoteUpdate} aria-label="Updated transaction consequences">
+      <summary><span role="status">Quote updated · {visibleChanges.length} {visibleChanges.length === 1 ? 'change' : 'changes'}</span><span className={presentationStyles.quoteUpdateAction}>Compare</span></summary>
       <div className="mt-1.5 flex flex-col gap-1.5">
         {visibleChanges.map((change) => <div key={change.label} className="grid grid-cols-[minmax(84px,.7fr)_minmax(0,1.3fr)] gap-x-3 text-[13px]">
           <span className="text-mut">{reviewFactLabel(change.label)}</span>
           <span className="min-w-0 text-right font-semibold tabular-nums [overflow-wrap:anywhere]">{change.before && <><ReviewFactValue fact={{ label: `${change.label} before`, value: change.before }} /> → </>}{change.after ? <ReviewFactValue fact={{ label: `${change.label} after`, value: change.after }} /> : 'No longer included'}{change.after && ['Gas fee', 'Bridge fee', 'Total cost'].includes(change.label) && <FeeUsd fact={{ value: change.after }} />}</span>
         </div>)}
       </div>
-    </section>
+    </details>
   );
 }
 

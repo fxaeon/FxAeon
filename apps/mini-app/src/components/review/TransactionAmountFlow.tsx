@@ -41,7 +41,8 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
       if (!parts) return null;
       const display = readableReviewAmount(parts.amount);
       const figure = groupDigits(display.value.replace(/,/g, ''));
-      const role = amountCaption(labels?.[fact.label] ?? plainAmountLabel(fact.label), dense);
+      const amountLabel = labels?.[fact.label] ?? plainAmountLabel(fact.label);
+      const role = dense && facts.length === 1 ? amountLabel : amountCaption(amountLabel, dense);
       const network = chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`;
       const token = <span className={densityClass(styles.flowToken, compactStyles.token)} aria-hidden="true"><TokenIcon symbol={parts.symbol} size={dense ? 16 : 40} />{index === 0 && showNetwork && (chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={dense ? 8 : 15} /></span>}</span>;
       return <div key={`${fact.label}-${index}`} className={dense ? compactStyles.leg : undefined}>

@@ -1,7 +1,7 @@
 .summary {
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 18px;
+  padding: 18px;
+  border-radius: 24px;
   background: var(--surface-2);
 }
 
@@ -87,7 +87,7 @@
   gap: 0 5px;
   margin-top: 0;
   color: var(--mut);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -109,7 +109,7 @@
 .amounts[data-wide-amounts] .exactAmount[data-long] > span { font-size: 20px; }
 .amounts[data-wide-amounts] .exactAmount[data-long] .flowUnit { font-size: 12px; }
 
-.terms { display: grid; min-width: 0; gap: 0; margin-top: 5px; }
+.terms { display: grid; min-width: 0; gap: 0; margin-top: 10px; }
 .consequenceGroup, .costGroup, .context { display: grid; min-width: 0; gap: 0; }
 .costGroup { padding-top: 2px; border-top: 1px solid var(--line); }
 .context { padding-top: 2px; border-top: 1px solid var(--line); }
