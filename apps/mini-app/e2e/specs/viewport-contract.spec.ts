@@ -238,7 +238,9 @@ test.describe("single-viewport route contract", () => {
     const main = page.locator("main:visible");
     await expect(main.getByRole("heading", { name: "Move", exact: true })).toBeVisible();
     await expect(page.getByLabel("Amount in fxUSD")).toBeVisible();
-    await expect(page.getByText("Your wallet", { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Set recipient', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Set recipient', exact: true })).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#move-recipient-address')).toBeHidden();
     await expect(page.getByRole('button', { name: /Transaction settings/ })).toBeVisible();
     const action = page.locator(".button-primary:visible").first();
     await expect(action).toBeVisible();

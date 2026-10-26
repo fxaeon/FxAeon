@@ -119,7 +119,7 @@ test.describe('cohesive responsive design', () => {
     assertNoBackendRequests(requests);
   });
 
-  test('desktop top bar spans the viewport while route content stays centered', async ({ page, requests }, testInfo) => {
+  test('desktop sidebar and wallet keep separate lanes while route content centers in the remaining width', async ({ page, requests }, testInfo) => {
     for (const width of [840, 1180, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('/earn', { waitUntil: 'domcontentloaded' });
@@ -128,23 +128,33 @@ test.describe('cohesive responsive design', () => {
       // the hidden live bar would measure as an empty rect before that.
       const topbar = page.locator('header.app-topbar');
       await expect(topbar).toBeVisible();
+      const sidebar = page.locator('[data-desktop-sidebar]');
+      await expect(sidebar).toHaveAttribute('data-sidebar-expanded', width >= 1200 ? 'true' : 'false');
+      await expect(sidebar.getByRole('navigation', { name: 'Primary navigation', exact: true })).toBeVisible();
       const bounds = await topbar.evaluate((element) => {
         const rect = element.getBoundingClientRect();
         const content = document.querySelector('main.app-content')!.getBoundingClientRect();
-        const brand = element.querySelector(':scope > a')!.getBoundingClientRect();
-        const nav = element.querySelector('nav')!.getBoundingClientRect();
+        const sidebar = document.querySelector('[data-desktop-sidebar]')!;
+        const sidebarRect = sidebar.getBoundingClientRect();
+        const brand = sidebar.querySelector('a[aria-label="FxAeon portfolio"]')!.getBoundingClientRect();
+        const nav = sidebar.querySelector('nav')!.getBoundingClientRect();
         const wallet = element.querySelector('.app-topbar-actions')!.getBoundingClientRect();
         return { left: rect.left, right: rect.right, viewport: window.innerWidth, content: { left: content.left, right: content.right, width: content.width },
+          sidebarRight: sidebarRect.right, sidebarWidth: sidebarRect.width,
           brandRight: brand.right, navLeft: nav.left, navRight: nav.right, walletLeft: wallet.left, walletRight: wallet.right };
       });
       expect(bounds.left).toBeGreaterThanOrEqual(0);
       expect(bounds.right).toBeLessThanOrEqual(bounds.viewport + 1);
-      expect(bounds.left).toBeLessThanOrEqual(40);
+      expect(bounds.sidebarWidth).toBe(width >= 1200 ? 224 : 72);
+      expect(bounds.left).toBeGreaterThanOrEqual(bounds.sidebarRight);
+      expect(bounds.left - bounds.sidebarRight).toBeLessThanOrEqual(40);
       expect(bounds.viewport - bounds.walletRight).toBeLessThanOrEqual(40);
-      expect(bounds.brandRight).toBeLessThanOrEqual(bounds.navLeft);
+      expect(bounds.brandRight).toBeLessThanOrEqual(bounds.sidebarRight);
+      expect(bounds.navLeft).toBeGreaterThanOrEqual(0);
+      expect(bounds.navRight).toBeLessThanOrEqual(bounds.sidebarRight);
       expect(bounds.navRight).toBeLessThanOrEqual(bounds.walletLeft);
       expect(bounds.content.width).toBeLessThanOrEqual(1120);
-      expect(Math.abs(bounds.content.left - (bounds.viewport - bounds.content.right))).toBeLessThanOrEqual(1);
+      expect(Math.abs((bounds.content.left - bounds.sidebarRight) - (bounds.viewport - bounds.content.right))).toBeLessThanOrEqual(1);
       if (width === 1920) await page.screenshot({ path: testInfo.outputPath('earn-wide-navigation.png') });
     }
     assertNoBackendRequests(requests);

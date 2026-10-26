@@ -663,10 +663,21 @@ test.describe("browser wallet connection", () => {
 
   test("Move keeps recipient editable and centralizes wallet connection in review", async ({ page, requests }) => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
-    const recipient = page.getByText("Your wallet", { exact: true }).locator("xpath=../../..");
-    // The recipient row is a status, not a second connect control.
-    await expect(recipient.getByText("Not connected", { exact: true })).toBeVisible();
-    await expect(recipient.getByText("Connect wallet", { exact: true })).toHaveCount(0);
+    const recipient = page.getByRole('button', { name: 'Set recipient', exact: true });
+    // An explicit destination remains editable before connection; the review
+    // action owns wallet connection, without a second empty wallet status row.
+    await expect(recipient).toBeVisible();
+    await expect(recipient).toHaveAttribute('aria-expanded', 'false');
+    await expect(recipient).toHaveAttribute('aria-controls', 'move-recipient-address');
+    await expect(page.locator('#move-recipient-address')).toBeHidden();
+    await recipient.click();
+    const destination = page.getByRole('textbox', { name: 'Destination wallet', exact: true });
+    await expect(destination).toBeEditable();
+    await destination.fill('0x1111000000000000000000000000000000002222');
+    await expect(destination).toHaveValue('0x1111000000000000000000000000000000002222');
+    await page.getByRole('button', { name: 'Use your wallet', exact: true }).click();
+    await expect(recipient).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#move-recipient-address')).toBeHidden();
     await expect(page.locator(".reviewTrigger").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect wallet for recipient", exact: true })).toHaveCount(0);
     // The shortest phone layout keeps derived route metadata out of the first

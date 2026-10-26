@@ -9,6 +9,7 @@ for (const width of [320, 390, 1280]) {
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
     const scenario = page.getByRole('region', { name: 'What if ETH moves?' });
     await scenario.scrollIntoViewIfNeeded();
+    await expect(scenario).toContainText('Long · 2× initial leverage');
     await expect(scenario).toContainText('−30%');
     const slider = scenario.getByRole('slider', { name: 'Market change' });
     await slider.focus();
@@ -21,7 +22,7 @@ for (const width of [320, 390, 1280]) {
     await side.getByRole('radio', { name: 'Short' }).click();
     await scenario.scrollIntoViewIfNeeded();
     await expect(scenario).toContainText('+60.0%');
-    await expect(scenario).toContainText('selected short');
+    await expect(scenario).toContainText('Short · 2× initial leverage');
     await expect(scenario).toContainText('not projected PnL');
     await scenario.screenshot({ path: testInfo.outputPath('short-sensitivity.png') });
     const conditions = page.getByRole('region', { name: 'Protocol conditions' });
