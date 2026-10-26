@@ -194,14 +194,17 @@ export default function MovePage() {
     let active = true;
     let expires: ReturnType<typeof setTimeout> | undefined;
     setPreviewState({ key: previewKey, status: 'loading' });
+    const publish = (data: BridgePreview) => {
+      if (!active) return;
+      if (!isFreshBridgePreview(data)) { setPreviewState({ key: previewKey, status: 'expired' }); return; }
+      setPreviewState(current => ({ key: previewKey, status: 'ready', data:
+        current?.key === previewKey && current.data?.readAt === data.readAt ? { ...current.data, ...data } : data }));
+      if (expires) clearTimeout(expires);
+      expires = setTimeout(() => { if (active) setPreviewState({ key: previewKey, status: 'expired' }); }, Math.max(0, data.readAt + BRIDGE_PREVIEW_TTL - Date.now()));
+    };
     const debounce = setTimeout(() => {
-      void fetchBridgePreview({ sourceChainId, destinationChainId, token, amount: amountWei, wallet: wallet.address as Address, recipient: recipientValue as Address })
-        .then(data => {
-          if (!active) return;
-          if (!isFreshBridgePreview(data)) { setPreviewState({ key: previewKey, status: 'expired' }); return; }
-          setPreviewState({ key: previewKey, status: 'ready', data });
-          expires = setTimeout(() => { if (active) setPreviewState({ key: previewKey, status: 'expired' }); }, Math.max(0, data.readAt + BRIDGE_PREVIEW_TTL - Date.now()));
-        }).catch(() => { if (active) setPreviewState({ key: previewKey, status: 'unavailable' }); });
+      void fetchBridgePreview({ sourceChainId, destinationChainId, token, amount: amountWei, wallet: wallet.address as Address, recipient: recipientValue as Address }, publish)
+        .then(publish).catch(() => { if (active) setPreviewState({ key: previewKey, status: 'unavailable' }); });
     }, 400);
     return () => { active = false; clearTimeout(debounce); if (expires) clearTimeout(expires); };
   }, [advanced, amountWei, destinationChainId, previewKey, recipientValue, reviewStage, sourceChainId, token, wallet.address]);

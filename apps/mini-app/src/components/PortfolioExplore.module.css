@@ -2,7 +2,7 @@
 .intro { padding: 22px 0 4px; }
 .intro h2 { max-width: 14ch; margin: 0; color: var(--text); font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(44px, 6.4vw, 68px); font-weight: 600; line-height: 1.03; letter-spacing: -.055em; }
 .intro h2 em { color: color-mix(in srgb, var(--text) 72%, var(--mint)); font-style: normal; }
-.intro > p { max-width: 34ch; margin: 22px 0 0; color: var(--mut); font-size: 16px; line-height: 1.6; text-wrap: balance; }
+.intro > p { max-width: 34ch; margin: 20px 0 0; color: var(--mut); font-size: 16px; line-height: 1.55; text-wrap: pretty; }
 .entryActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 26px; }
 .entryActions .connect { min-width: 172px; min-height: 52px; border-radius: 26px; }
 .entryActions > a { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; color: var(--mut); font-size: 14px; }
@@ -51,11 +51,11 @@
   .product { padding: 20px 24px; }
 }
 @media (max-width: 600px) {
-  .explore { gap: 28px; }
+  .explore { gap: 24px; }
   .intro { padding-top: 12px; }
   .intro h2 { font-size: clamp(36px, 10vw, 40px); line-height: 1.08; letter-spacing: -.04em; }
   .intro > p { margin-top: 16px; font-size: 14px; }
-  .entryActions { gap: 8px 18px; margin-top: 22px; }
+  .entryActions { gap: 8px 18px; margin-top: 20px; }
   .entryActions .connect { min-width: 154px; }
   .entryActions > a { gap: 7px; font-size: 13px; }
   .sectionHeading { margin-bottom: 12px; }
@@ -66,7 +66,7 @@
   .productTop h3 { font-size: 18px; }
   .productTop > svg { width: 17px; height: 17px; }
   .product p { margin: 6px 0 0; font-size: 13px; }
-  .art { --art-height: 90px; }
+  .art { --art-height: 76px; }
   .marketGrid { gap: 10px; }
 }
 @media (max-width: 359px) {
@@ -74,7 +74,7 @@
   .entryActions .connect { min-width: 142px; padding-inline: 16px; }
   .entryActions > a { font-size: 12px; }
   .product { padding: 14px; }
-  .art { --art-height: 84px; transform: scale(.9); transform-origin: center; }
+  .art { --art-height: 72px; transform: scale(.9); transform-origin: center; }
   .marketGrid { grid-template-columns: minmax(0, 1fr); }
   .marketGrid :global(.portfolio-market-card) { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 6px 12px; }
   .marketGrid :global(.portfolio-market-card) > div:first-child { grid-column: 1; grid-row: 1; }

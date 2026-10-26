@@ -12,7 +12,7 @@ export default function PortfolioExplore() {
   return <div id="overview" data-portfolio-explore className={styles.explore}>
     <section className={styles.intro} aria-labelledby="portfolio-explore-heading">
       <h2 id="portfolio-explore-heading">DeFi that<br /><em>moves with you.</em></h2>
-      <p>Trade, earn, borrow and move on Ethereum, with Base bridging and a wallet that remains yours.</p>
+      <p>Trade, earn and borrow with f(x).<br />Bridge between Ethereum and Base.</p>
       <div className={styles.entryActions}>
         <ConnectWalletButton className={`button button-primary ${styles.connect}`}>Connect wallet</ConnectWalletButton>
         <Link href="/trade">Explore Trade <ArrowRight size={16} aria-hidden="true" /></Link>

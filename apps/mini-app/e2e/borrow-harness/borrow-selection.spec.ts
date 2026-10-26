@@ -560,7 +560,9 @@ test('an unavailable limit does not guess withdrawals or block repayment and col
 test('a late pool read cannot publish the previous market limit', async ({ page }) => {
   await mount(page, { limitPending: true });
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, WBTC: 100000, fxUSD: 1 }; });
-  await expect(page.getByText('Checking live limit', { exact: true })).toBeVisible();
+  const loadingLimit = page.getByRole('status', { name: 'Loading pool maximum LTV' });
+  await expect(loadingLimit).toHaveCount(1);
+  await expect(loadingLimit).toHaveAttribute('aria-label', 'Loading pool maximum LTV');
   await page.evaluate(() => Object.assign(window, { __borrowLimitPending: false, __borrowLimitUnavailable: true }));
   await page.getByLabel('Collateral asset', { exact: true }).selectOption('WBTC');
   await expect(page.getByRole('button', { name: 'Retry borrowing limit' })).toBeVisible();
@@ -614,7 +616,9 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
 test('a late funding response from the previous market cannot replace the current pool quote', async ({ page }) => {
   await mount(page, { fundingPending: true });
   const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-  await expect(metric.getByRole('status')).toHaveText('Checking rate');
+  const loadingRate = metric.getByRole('status', { name: 'Loading funding rate' });
+  await expect(loadingRate).toHaveCount(1);
+  await expect(loadingRate).toHaveAttribute('aria-label', 'Loading funding rate');
   await page.evaluate(() => Object.assign(window, { __borrowFundingPending: false, __borrowFundingRatio: 35000000000000000n }));
   await page.getByLabel('Collateral asset', { exact: true }).selectOption('WBTC');
   await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');

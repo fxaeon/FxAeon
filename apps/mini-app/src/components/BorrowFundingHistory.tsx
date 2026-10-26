@@ -7,6 +7,7 @@ import { readBorrowFundingHistory } from '@/lib/fx/borrowFundingHistory';
 import { borrowFundingDisplay, borrowFundingIsFresh, formatBorrowFundingApr, formatBorrowFundingEightHour, type BorrowFundingRate } from '@/lib/fx/borrowFunding';
 import type { FxSdkMarket } from '@/lib/fx/tokens';
 import { MetricLabel } from './InfoHelp';
+import { MissingValue } from './MissingValue';
 import { useChartWidth } from './useChartWidth';
 import styles from './ProductAnalytics.module.css';
 
@@ -61,7 +62,7 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
   };
   return <section ref={ref} className={`${styles.section} ${styles.funding}`} aria-label={`${market} borrow funding history`}>
     <header className={styles.header}><h3><MetricLabel minimalHelp label="Funding & costs" help="Official f(x) funding snapshots for this collateral pool, shown per eight hours as in fxMINT Advanced. The chart records gross charges on the whole collateral. Any short-pool earnings offset is separate. These rates are borrowing costs and can change." /></h3><span className={styles.axis}>30D · per 8h</span></header>
-    <div className={styles.reading}><span><MetricLabel minimalHelp label="Current cost APR" help={current?.title ?? 'The current annualized gross charge on the whole collateral could not be verified. This is a borrowing cost; historical observations do not establish its current value.'} /></span><strong>{current && rate ? formatBorrowFundingApr(rate.ratio) : status === 'loading' ? 'Checking…' : 'Unavailable'}</strong></div>
+    <div className={styles.reading}><span><MetricLabel minimalHelp label="Current cost APR" help={current?.title ?? 'The current annualized gross charge on the whole collateral could not be verified. This is a borrowing cost; historical observations do not establish its current value.'} /></span><strong>{current && rate ? formatBorrowFundingApr(rate.ratio) : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading current cost APR" /> : 'Unavailable'}</strong></div>
     {data && last ? <>
       <div className={styles.reading} aria-live="off"><span>{active ? date(active.timestamp) : data.averageRatio === null ? 'Latest observed' : 'Period average'}</span><strong title={data.averageRatio === null ? undefined : `Time-weighted annualized gross charge: ${formatBorrowFundingApr(data.averageRatio)}`}>{formatBorrowFundingEightHour(active?.ratio ?? data.averageRatio ?? last.ratio)} / 8h</strong></div>
       <svg className={styles.plot} viewBox={`0 0 ${width} 148`} role="slider" tabIndex={0} aria-label="Explore historical funding charge" aria-valuemin={0} aria-valuemax={points.length - 1} aria-valuenow={activeIndex ?? points.length - 1} aria-valuetext={`${date((active ?? last).timestamp)}: ${formatBorrowFundingEightHour((active ?? last).ratio)} per eight hours`} aria-describedby={`${id}-hint`}
