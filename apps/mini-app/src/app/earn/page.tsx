@@ -213,7 +213,7 @@ export default function EarnPage() {
       };
       const debounceTimer = window.setTimeout(() => {
         load();
-      }, 200);
+      }, 80);
       return () => {
         window.clearTimeout(debounceTimer);
         if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
@@ -710,10 +710,9 @@ function SavingsSummary({ data, loading, balanceLoading = loading, connected, on
     <div className={presentation.balanceTop}>
       <div className={presentation.rate}>
         <small><MetricLabel minimalHelp label="APY" definition="fxSaveApy" /></small>
-        <strong>{fxSaveApy
+        <strong>{fxSaveApy && fxSaveApyStatus === 'ready'
           ? <ValueOrSkeleton value={`${fxSaveApy.apy.toFixed(2)}%`} width="sm" label="fxSAVE APY" />
           : <MissingValue width="sm" status={fxSaveApyStatus === 'loading' ? 'loading' : 'unavailable'} label={fxSaveApyStatus === 'loading' ? 'Loading fxSAVE APY' : 'fxSAVE APY unavailable'} />}</strong>
-        {fxSaveApy && fxSaveApyStatus === 'unavailable' && <span className={presentation.marketFreshness}>Last verified APY · refresh unavailable</span>}
       </div>
       <div className={presentation.balanceCopy} data-connected={connected}>
         <p><MetricLabel minimalHelp label={!connected ? 'Vault holdings' : balanceUnavailable ? 'fxSAVE balance' : lastVerified ? 'Last verified fxSAVE value' : 'Your fxSAVE value'} definition={!connected ? 'vaultHoldings' : 'fxSaveShares'} /></p>
@@ -761,10 +760,9 @@ function ReadyClaimBanner({ onClaim, claimTriggerRef }: {
   </div>;
 }
 
-function VaultTermsStatus({ loading, onRetry, direct = false }: { loading: boolean; onRetry: () => void; direct?: boolean }) {
+function VaultTermsStatus({ loading, onRetry }: { loading: boolean; onRetry: () => void }) {
   if (loading) return <div className={presentation.termsStatus}><span>Vault terms</span><MissingValue width="md" label="Loading vault terms" /></div>;
   return <div className={presentation.termsStatus}>
-    <span role="status">{direct ? 'Vault terms unavailable.' : 'Cooldown and fee unavailable.'}</span>
     <button type="button" onClick={onRetry} aria-label="Retry vault terms">Retry</button>
   </div>;
 }
@@ -819,7 +817,7 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
           ]} />
       </div>
       {instant && token !== 'fxUSDBasePool' && <div className={presentation.receiveRow}><span>Receive asset</span>{picker}</div>}
-      {!config && <VaultTermsStatus loading={configLoading} onRetry={onRetryConfig} direct={token === 'fxUSDBasePool'} />}
+      {!config && <VaultTermsStatus loading={configLoading} onRetry={onRetryConfig} />}
       {(token === 'fxUSDBasePool' || !instant) && <section className={presentation.outcome} aria-label="Withdrawal outcome">
       {directEstimate && <EstimateRow label="Receive" value={directEstimate} note="Based on current vault assets and share supply." />}
       {token !== 'fxUSDBasePool' && !instant && <div className={presentation.outcomeRow}><span>Claim assets</span><strong>fxUSD / USDC</strong></div>}
@@ -918,7 +916,7 @@ function VaultDetails({ config }: { config: SaveConfig | null }) {
       { label: 'Harvester ratio', value: formatVaultRatio(config.harvesterRatio) },
       // The vault stakes idle fxSP in batches once it reaches this amount.
       { label: 'Batch deposit threshold', value: `${formatDisplayAmount(config.threshold)} fxSP` },
-    ]} /> : <p className={presentation.helper}>Vault details unavailable. Retry to load them.</p>}
+    ]} /> : null}
     <VaultRiskNotice />
   </Disclosure>;
 }

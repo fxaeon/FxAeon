@@ -90,7 +90,7 @@ test('a settled route shows compact reviewed estimates while retaining exact quo
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 2,500.12 fxUSD / stETH'],
     ['Liquidation price', ''],
-    ['f(x) fee', 'Unavailable'],
+    ['f(x) fee', '0.3%'],
   ]);
   assert.match(html, /≈ 2,500\.12 fxUSD \/ stETH/);
   assert.doesNotMatch(html, /data-review-value|Show full|2500\.123456789 fxUSD/);
@@ -103,7 +103,7 @@ test('a settled route shows compact reviewed estimates while retaining exact quo
   assert.deepEqual(rows(converted)[0], ['Execution price', '≈ 2,500.12 fxUSD / stETH']);
 });
 
-test('a short previews its quoted execution price and borrowed derivative, and an unreadable fee says so', async () => {
+test('a short previews its quoted execution price and leaves an unreadable fee value blank', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
     market: 'BTC', side: 'short', route: opened('BTC', 'short', { colls: '1234500000000000000000', debts: '123456780000000000', executionPrice: '65000.25' }),
@@ -111,17 +111,18 @@ test('a short previews its quoted execution price and borrowed derivative, and a
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 65,000.25 fxUSD / WBTC'],
     ['Liquidation price', ''],
-    ['f(x) fee', 'Unavailable'],
+    ['f(x) fee', ''],
   ]);
 });
 
-test('absent or invalid execution prices say unavailable without deriving a price from collateral or debt', async () => {
+test('absent or invalid execution prices remain blank without deriving a price from collateral or debt', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   for (const executionPrice of [undefined, '', '0', '-2500', 'NaN', 'Infinity', '1e18']) {
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, {
       market: 'ETH', side: 'long', route: opened('ETH', 'long', { colls: '1500000000000000000', debts: '1000000000000000000000', executionPrice }),
     }));
-    assert.deepEqual(rows(html)[0], ['Execution price', 'Unavailable']);
+    assert.deepEqual(rows(html)[0], ['Execution price', '']);
+    assert.match(html, /aria-label="Execution price unavailable"/);
     assert.doesNotMatch(html, /Loading execution price|Estimated collateral/);
   }
 });
@@ -153,8 +154,7 @@ test('expired or missing thresholds refresh, while malformed or mismatched fresh
   for (const liquidationQuote of [undefined, { ...quote, readAt: Date.now() - 30_001 }, { ...quote, liquidateRatio: '0' }, { ...quote, poolAddress: positionPoolAddress('BTC', 'short') }]) {
     const route = opened('BTC', 'long', { colls: '2000000000000000000', debts: '1000000000000000000000', liquidationQuote });
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'BTC', side: 'long', route }));
-    const refreshing = !liquidationQuote || Date.now() - liquidationQuote.readAt >= 30_000;
-    assert.deepEqual(rows(html)[1], ['Liquidation price', refreshing ? '' : 'Unavailable']);
+    assert.deepEqual(rows(html)[1], ['Liquidation price', '']);
   }
 });
 

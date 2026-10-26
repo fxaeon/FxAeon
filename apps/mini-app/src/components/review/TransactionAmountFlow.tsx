@@ -54,7 +54,7 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
               {dense && !widePair && <span className={compactStyles.heading}>{token}<span className={compactStyles.role}>{role}</span></span>}
               <span data-long={longPair || figure.length > 9 || undefined} data-extended={display.value.length > 15 || undefined} data-review-amount={dense ? '' : undefined}>{display.shortened || parts.approximate ? '≈ ' : ''}{figure} <span className={styles.flowUnit}>{parts.symbol}</span></span>
             </div>
-            <div className={densityClass(styles.flowSubline, compactStyles.meta)}>{(!dense || widePair) && <><span>{role}</span><span aria-hidden="true">·</span></>}<AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} fallback={dense ? '—' : undefined} />{index === 0 && showNetwork && <span className={compactStyles.network}> · {network}</span>}</div>
+            <div className={densityClass(styles.flowSubline, compactStyles.meta)}>{(!dense || widePair) && <><span>{role}</span><span aria-hidden="true">·</span></>}<AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} fallback={dense ? '—' : undefined} />{index === 0 && showNetwork && <span data-network className={compactStyles.network}>{network}</span>}</div>
           </div>
         </div>
       </div>;

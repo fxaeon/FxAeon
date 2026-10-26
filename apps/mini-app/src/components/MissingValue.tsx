@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { CircleAlert } from 'lucide-react';
 
 export type MissingValueWidth = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 export type MissingValueStatus = 'loading' | 'unavailable';
@@ -15,7 +14,7 @@ export type MissingValueProps = {
 
 /**
  * A stable inline placeholder for values that have not been verified yet.
- * The fixed width keeps metric rows from shifting as reads settle.
+ * Pending reads shimmer; unavailable values reserve space without a visible marker.
  */
 export function MissingValue({
   width = 'md',
@@ -32,12 +31,9 @@ export function MissingValue({
       role="status"
       aria-live={announce ? undefined : 'off'}
       aria-label={accessibleLabel}
-      title={unavailable ? accessibleLabel : undefined}
       className={`missing-value missing-value-${width}${unavailable ? ' missing-value-unavailable' : ''} ${className}`.trim()}
     >
-      {unavailable
-        ? <CircleAlert className="missing-value-icon" aria-hidden="true" />
-        : <span className="missing-value-bar" aria-hidden="true" />}
+      {!unavailable && <span className="missing-value-bar" aria-hidden="true" />}
     </span>
   );
 }
@@ -50,6 +46,9 @@ export type ValueOrSkeletonProps = MissingValueProps & {
 /** Replace only exact display sentinels; formatted values and composed nodes pass through. */
 export function ValueOrSkeleton({ value, children, ...placeholderProps }: ValueOrSkeletonProps) {
   const content = value ?? children;
-  const isMissing = typeof content === 'string' && (content === '—' || content === '-');
-  return isMissing ? <MissingValue {...placeholderProps} /> : <>{content}</>;
+  const unavailable = typeof content === 'string' && /^(?:Unavailable|Not quoted)$/i.test(content.trim());
+  const isMissing = unavailable || (typeof content === 'string' && (content === '—' || content === '-'));
+  return isMissing
+    ? <MissingValue {...placeholderProps} status={unavailable ? 'unavailable' : placeholderProps.status} label={placeholderProps.label ?? (unavailable ? 'Value unavailable' : undefined)} />
+    : <>{content}</>;
 }

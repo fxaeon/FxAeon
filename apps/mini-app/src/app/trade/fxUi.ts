@@ -32,14 +32,13 @@ export const TOKEN_META: Record<UiToken | 'fxSAVE' | 'fxUSDBasePool', { address:
 };
 
 export const ETH_MARKET_TOKENS: readonly UiToken[] = ['ETH', 'WETH', 'stETH', 'wstETH', 'USDC', 'USDT', 'fxUSD'];
-// The SDK accepts every ETH-market input token for both long and short
-// positions. stETH is excluded only from an ETH-short *output* picker.
+// The SDK's native converter has no direct stETH-to-fxUSD route for shorts.
 export const ETH_SHORT_MARKET_TOKENS: readonly UiToken[] = ['ETH', 'WETH', 'wstETH', 'USDC', 'USDT', 'fxUSD'];
 export const BTC_MARKET_TOKENS: readonly UiToken[] = ['WBTC', 'USDC', 'USDT', 'fxUSD'];
 
-/** Mirror the exact input-token allow-list enforced by fx-sdk. */
-export function positionInputTokenOptions(market: UiMarket): readonly UiToken[] {
-  return market === 'BTC' ? BTC_MARKET_TOKENS : ETH_MARKET_TOKENS;
+/** Include only inputs supported by the audited native SDK conversion path. */
+export function positionInputTokenOptions(market: UiMarket, side: UiSide = 'long'): readonly UiToken[] {
+  return market === 'BTC' ? BTC_MARKET_TOKENS : side === 'short' ? ETH_SHORT_MARKET_TOKENS : ETH_MARKET_TOKENS;
 }
 
 /** The SDK excludes stETH only when it is the output of an ETH short. */

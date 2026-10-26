@@ -12,9 +12,8 @@ export interface UseNativeMaxOptions {
   onAmount: (amount: bigint | null) => void;
 }
 
-/** Prepare an exact verified maximum before the user asks for it. A fresh
- * result applies synchronously. Cold requests clear the draft immediately,
- * join the warmup, and only apply if the user has not edited in the meantime. */
+/** Calculate native Max only on demand. A valid exact-context cached result
+ * applies immediately; a cold tap clears the draft and joins any pending tap. */
 export function useNativeMax(options: UseNativeMaxOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
@@ -29,41 +28,10 @@ export function useNativeMax(options: UseNativeMaxOptions) {
   }, []);
 
   useEffect(() => {
+    // Context changes invalidate pending tap results without starting any
+    // background route builds or gas estimates on mount/input edits.
     generation.current += 1;
     setState({ key, pending: false, error: null });
-    if (!key) return;
-    let active = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
-    const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
-    const schedule = (delay: number, refresh = false) => {
-      if (timer !== undefined) clearTimeout(timer);
-      timer = setTimeout(() => { void prepare(refresh); }, delay);
-    };
-    const prepare = async (refresh = false) => {
-      if (!active || optionsRef.current.contextKey !== key || !visible() || !online()) return;
-      try {
-        const result = await nativeMaxCache.prepare(key, optionsRef.current.calculate, refresh);
-        if (active) schedule(Math.max(1_000, result.validUntil - Date.now() - 2_000), true);
-      } catch {
-        if (active) schedule(15_000);
-      }
-    };
-    const resume = () => {
-      if (timer !== undefined) clearTimeout(timer);
-      void prepare();
-    };
-    // Coalesce slider and route edits before starting remote work. A tap
-    // during this short warmup window can still start/join it immediately.
-    schedule(150);
-    document.addEventListener('visibilitychange', resume);
-    window.addEventListener('online', resume);
-    return () => {
-      active = false;
-      if (timer !== undefined) clearTimeout(timer);
-      document.removeEventListener('visibilitychange', resume);
-      window.removeEventListener('online', resume);
-    };
   }, [key]);
 
   const cancel = useCallback(() => {

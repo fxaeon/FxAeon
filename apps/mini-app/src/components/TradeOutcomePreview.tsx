@@ -11,7 +11,8 @@ import { MetricLabel } from './InfoHelp';
 import { reviewHelpDefinition } from './review/reviewHelp';
 import styles from './TradeOutcomePreview.module.css';
 
-type Row = { label: string; value?: string; title?: string; feeAmounts?: import('@/lib/fx/reviewFormatting').ReviewFact['feeAmounts'] };
+type Row = { label: string; value?: string; status?: 'loading' | 'unavailable'; title?: string; feeAmounts?: import('@/lib/fx/reviewFormatting').ReviewFact['feeAmounts'] };
+const valueOrAbsent = (value?: string) => value && !/^(?:Unavailable|Not quoted|—|-)?$/i.test(value.trim()) ? value : undefined;
 
 /**
  * What the ticket's warmed route would hold once it executes, under the
@@ -28,13 +29,13 @@ export function TradeOutcomePreview({ route, facts: publicFacts }: { market: 'ET
   // A route the review cannot describe either has nothing to preview.
   if (route && !facts) return null;
   const rows: Row[] = facts ? [
-    { label: 'Execution price', value: facts.executionPrice ? approximately(facts.executionPrice.value) : 'Unavailable', title: facts.executionPrice?.title },
-    { label: 'Liquidation price', value: facts.liquidationPrice ? approximately(facts.liquidationPrice.value) : risk.loading ? undefined : 'Unavailable', title: facts.liquidationPrice?.title },
-    { label: facts.fee?.label ?? 'f(x) fee', value: facts.fee?.value ?? 'Unavailable', title: facts.fee?.title, feeAmounts: facts.fee?.feeAmounts },
+    { label: 'Execution price', value: facts.executionPrice ? valueOrAbsent(approximately(facts.executionPrice.value)) : undefined, status: 'unavailable', title: facts.executionPrice?.title },
+    { label: 'Liquidation price', value: facts.liquidationPrice ? valueOrAbsent(approximately(facts.liquidationPrice.value)) : undefined, status: risk.loading ? 'loading' : 'unavailable', title: facts.liquidationPrice?.title },
+    { label: facts.fee?.label ?? 'f(x) fee', value: valueOrAbsent(facts.fee?.value), status: 'unavailable', title: facts.fee?.title, feeAmounts: facts.fee?.feeAmounts },
   ] : [
-    { label: 'Execution price' },
-    { label: 'Liquidation price' },
-    { label: 'f(x) fee' },
+    { label: 'Execution price', status: 'loading' },
+    { label: 'Liquidation price', status: 'loading' },
+    { label: 'f(x) fee', status: 'loading' },
   ];
   return (
     <div className={styles.outcome} role="group" aria-label="Position preview" aria-busy={!facts || undefined} data-trade-outcome={facts ? 'ready' : 'pending'}>
@@ -43,8 +44,8 @@ export function TradeOutcomePreview({ route, facts: publicFacts }: { market: 'ET
           <dt><MetricLabel label={row.label} definition={reviewHelpDefinition(row.label)} /></dt>
           <dd>
             {row.value === undefined
-              ? <MissingValue width={row.label === 'f(x) fee' ? 'sm' : 'xl'} announce={false} label={`Loading ${row.label.toLowerCase()}`} />
-              : row.label === 'f(x) fee' ? <ProtocolFeeAmount className={styles.figure} fact={{ ...row, value: row.value }} />
+              ? <MissingValue width={row.label === 'f(x) fee' ? 'sm' : 'xl'} status={row.status ?? 'loading'} announce={false} label={row.status === 'unavailable' ? `${row.label} unavailable` : `Loading ${row.label.toLowerCase()}`} />
+              : row.label === 'f(x) fee' && row.feeAmounts?.length ? <ProtocolFeeAmount className={styles.figure} fact={{ ...row, value: row.value }} />
               : <ReviewFactValue className={styles.figure} fact={{ label: row.label, value: row.value, title: row.title }} />}
           </dd>
         </div>)}

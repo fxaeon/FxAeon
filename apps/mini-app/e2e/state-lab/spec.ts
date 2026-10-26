@@ -17,7 +17,8 @@ test('funded Borrow shows a static dollar protocol fee and keeps unknown quotes 
   await expect(fee.locator('[data-info-help-trigger]')).toBeVisible();
   await page.screenshot({ path: info.outputPath('protocol-fee-borrow-short.png'), animations: 'disabled' });
   await page.goto('/?view=transaction&product=borrow&stage=review&protocolFee=unavailable');
-  await expect(fee).toContainText('Unavailable');
+  await expect(fee.locator('.missing-value-unavailable')).toHaveText('');
+  await expect(fee.locator('.missing-value-unavailable')).toHaveAttribute('aria-label', /unavailable/);
   await expect(fee).not.toContainText('$0.00');
   await expect(fee.locator('[data-info-help-trigger]')).toBeVisible();
 });

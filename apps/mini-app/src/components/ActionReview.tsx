@@ -24,7 +24,7 @@ import {
 import type { ActionReviewProps } from '@/components/review/actionReviewTypes';
 export type { ActionPlanBuilder, ActionReviewProps, ActionReviewStage } from '@/components/review/actionReviewTypes';
 import { Button, Card } from '@/components/ui';
-import { ValueOrSkeleton } from '@/components/MissingValue';
+import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import ConnectWalletButton from '@/components/ConnectWalletButton';
 import { compactAddress } from '@/lib/addressPresentation';
 import { hasTransactionHash } from '@/lib/transactionProgress';
@@ -519,7 +519,7 @@ export function ActionReview(props: ActionReviewProps) {
         <legend className="sr-only">Network fee speed</legend>
         {GAS_TIERS.map((tier) => <label key={tier}>
           <input type="radio" name="review-gas-tier" value={tier} checked={(visibleFeeSelection?.tier ?? readGasTier()) === tier} onChange={() => void selectGasTier(tier)} />
-          <span><strong>{tier === 'standard' ? 'Standard' : tier === 'fast' ? 'Fast' : 'Rapid'}</strong><small><ValueOrSkeleton value={visibleFeeSelection ? `${formatGasPriceGwei(visibleFeeSelection.snapshot.tiers[tier].gasPriceWei)} Gwei` : status === 'failed' ? 'Unavailable' : '—'} width="xs" announce={!stablePreparation} label={`Loading ${tier} gas price`} /></small></span>
+          <span><strong>{tier === 'standard' ? 'Standard' : tier === 'fast' ? 'Fast' : 'Rapid'}</strong><small>{visibleFeeSelection ? `${formatGasPriceGwei(visibleFeeSelection.snapshot.tiers[tier].gasPriceWei)} Gwei` : <MissingValue width="xs" status={status === 'failed' ? 'unavailable' : 'loading'} announce={!stablePreparation} label={status === 'failed' ? `${tier} gas price unavailable` : `Loading ${tier} gas price`} />}</small></span>
         </label>)}
       </fieldset></section>;
   const decisionContent = (bridgeReview ? <BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} sourceChainId={reviewChainId} destinationChainId={acceptedBridgeQuote?.destinationChainId} /> : <div className={amountLed || leverageReview ? presentationStyles.amountLedReview : undefined}>

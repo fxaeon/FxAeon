@@ -61,7 +61,7 @@ test('push deployment requires successful same-repository main push CI; manual d
 test('production validation, manual verification when requested, and deployment build are ordered', () => {
   const validation = workflow.indexOf('run: pnpm verify:production-env');
   const verification = workflow.indexOf('run: pnpm verify\n');
-  const productionBuild = workflow.indexOf('run: pnpm build\n');
+  const productionBuild = workflow.indexOf('Build production deployment artifact');
   const artifactCheck = workflow.indexOf('Check production artifact');
   const stamp = workflow.indexOf('Stamp production revision');
   const secretSync = workflow.indexOf('Sync production Pages gas-oracle secret');
@@ -86,7 +86,8 @@ test('manual full verification has no production public variables in scope', () 
 
 test('the deployed artifact is rebuilt with every required production public variable', () => {
   const productionBuild = step('Build production deployment artifact');
-  assert.match(productionBuild, /run: pnpm build/);
+  assert.match(productionBuild, /run: \|\s*\n\s+pnpm build:landing\s*\n\s+pnpm build\s*\n/,
+    'both exports exist before the built-artifact secret scan');
   for (const name of [
     'NEXT_PUBLIC_PRIVY_APP_ID',
     'NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL',

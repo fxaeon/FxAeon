@@ -7,6 +7,7 @@ import { formatUsd, priceKeyForSymbol, USD_PRICE_MAX_AGE_MS, type UsdPriceSnapsh
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { amountUsdValue } from './transactionAmountPresentation';
 import { ReviewFactValue } from './ReviewFactValue';
+import { MissingValue } from '@/components/MissingValue';
 
 /** Every charged leg needs its own fresh display price. A stablecoin's name
  * never supplies a dollar peg, and an unknown fee base never becomes zero. */
@@ -38,6 +39,8 @@ export function ProtocolFeeAmount({ fact, className }: { fact: ReviewFact; class
     return () => window.clearTimeout(timer);
   }, [expiresAt]);
   const usd = protocolFeeUsdValue(fact, quote);
-  const display = usd === null ? 'Unavailable' : `${usd > 0 && usd < .01 || usd === 0 ? '' : '≈ '}${formatUsd(usd)}`;
+  const display = usd === null
+    ? <MissingValue width="sm" status="unavailable" announce={false} label={`USD value for ${fact.label.toLowerCase()} unavailable`} />
+    : `${usd > 0 && usd < .01 || usd === 0 ? '' : '≈ '}${formatUsd(usd)}`;
   return <ReviewFactValue className={className} fact={fact} display={<span data-usd-state={usd === null ? 'unavailable' : 'estimate'}>{display}</span>} />;
 }

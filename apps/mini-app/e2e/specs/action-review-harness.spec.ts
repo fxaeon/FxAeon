@@ -291,7 +291,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await expect(review.getByText('Quote expired · review again', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Withdraw instantly', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
-  await expect(review.locator('[data-review-fact="f(x) fee"]')).toContainText('Unavailable');
+  await expect(review.locator('[data-review-fact="f(x) fee"] .missing-value-unavailable')).toHaveText('');
   expect(await metric(page, 'runner')).toBe(0);
   expect(await metric(page, 'send')).toBe(0);
 });
@@ -829,7 +829,7 @@ test.describe('ActionReview isolated orchestration', () => {
 
     await harnessControl(page, 'Gas estimate unavailable');
     await expect(review.getByText('Network fee', { exact: true })).toBeVisible();
-    await expect(review).toContainText('Unavailable');
+    await expect(review.locator('[data-review-fact="Gas fee"] .missing-value-unavailable')).toHaveText('');
     await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeEnabled();
     expect(await metric(page, 'send')).toBe(0);
   });

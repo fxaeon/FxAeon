@@ -73,7 +73,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: pnpm verify
       - name: Build production deployment artifact
-        run: pnpm build
+        run: |
+          pnpm build:landing
+          pnpm build
         env:
           NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
           NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}

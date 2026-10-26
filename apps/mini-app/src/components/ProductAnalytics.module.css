@@ -60,7 +60,6 @@
 .secondaryReading { min-height: 28px; font-size: 12px; }
 .secondaryReading strong { color: var(--mut); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .primaryReading > span, .secondaryReading > span { min-width: 0; }
-.sensitivityPrompt { margin: 6px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--mut); font-size: 13px; line-height: 1.5; }
 .fundingStatusOn { color: var(--danger); }
 .fundingStatusOff { color: var(--success); }
 .fundingChartHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; }

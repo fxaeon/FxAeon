@@ -264,7 +264,7 @@ test.describe("connected browser wallet flows", () => {
     assertNoBackendRequests(requests);
   });
 
-  test("trade exposes the full official input set and rejects an empty leverage in all four position flows", async ({ page, requests }) => {
+  test("trade exposes supported inputs per side and rejects an empty leverage in all four position flows", async ({ page, requests }) => {
     await page.goto("/trade", { waitUntil: "domcontentloaded" });
     // Restoring the fixture's account starts a new wallet-scoped form session.
     // Establish this connected-flow precondition before interacting with it.
@@ -292,7 +292,10 @@ test.describe("connected browser wallet flows", () => {
     await page.getByRole("radio", { name: "ETH" }).click();
     await page.getByRole("radiogroup", { name: "Position side" }).getByRole("radio", { name: "Short" }).click();
     await asset.click();
-    await expect(page.getByRole("listbox", { name: "Input asset options" }).getByRole("option", { name: /^stETH/i })).toBeVisible();
+    const shortPicker = page.getByRole("listbox", { name: "Input asset options" });
+    await expect(shortPicker.getByRole("option")).toHaveCount(6);
+    await expect(shortPicker.getByRole("option", { name: /^stETH/i })).toHaveCount(0);
+    await expect(shortPicker.getByRole("option", { name: /^wstETH/i })).toBeVisible();
     await page.getByRole("listbox", { name: "Input asset options" }).getByRole("option", { name: /^ETH\b.*\bselected$/i }).click();
     for (const flow of [
       { market: "ETH", side: "Long", label: "Target leverage", min: "1.1", max: "6.1" },

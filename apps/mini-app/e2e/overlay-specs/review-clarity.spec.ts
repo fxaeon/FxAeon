@@ -46,7 +46,8 @@ test('deposit review shares the official page APY without requiring an APY in th
     const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
     h.savingsApy = null; h.savingsApyStatus = 'unavailable'; h.rerender?.();
   });
-  await expect(apy).toContainText('Unavailable');
+  await expect(apy.locator('.missing-value-unavailable')).toHaveText('');
+  await expect(apy.locator('.missing-value-unavailable')).toHaveAttribute('aria-label', /unavailable/);
   await expect(apy).not.toContainText('0%');
 });
 

@@ -60,7 +60,8 @@ type GetLogsRequest = {
 };
 
 type GetLogs = (request: GetLogsRequest) => Promise<readonly BridgeEventLog[]>;
-const DESTINATION_CONFIRMATIONS = 3n;
+const DESTINATION_CONFIRMATIONS = 1n;
+const DESTINATION_CONFIRMATION_LABEL = `${DESTINATION_CONFIRMATIONS} destination confirmation${DESTINATION_CONFIRMATIONS === 1n ? '' : 's'}`;
 
 function explorerFor(chain: 'Ethereum' | 'Base'): string {
   return chain === 'Base' ? 'https://basescan.org' : 'https://etherscan.io';
@@ -267,7 +268,7 @@ export function BridgeTracker({
         destinationCursorRef.current = received.blockNumber;
         if (latestBlock < received.blockNumber + DESTINATION_CONFIRMATIONS - 1n) {
           if (!cancelled) setDetectedDestinationTxHash(received.transactionHash ?? null);
-          throw new Error(`Delivery observed in block ${received.blockNumber}; waiting for ${DESTINATION_CONFIRMATIONS.toString()} destination confirmations.`);
+          throw new Error(`Delivery observed in block ${received.blockNumber}; waiting for ${DESTINATION_CONFIRMATION_LABEL}.`);
         }
         const canonical = findDestinationOftReceived(await getLogs({
           address: destinationOftAddress as Address,
@@ -362,7 +363,7 @@ export function BridgeTracker({
     simulated={simulated} sourceReverted={sourceReverted} advancedContent={advancedContent}
     completionContent={delivered && detectedDestinationTxHash ? completionContent?.(detectedDestinationTxHash) : undefined} headingRef={headingRef} retryAction={retryAction}
     verificationDetails={<>
-      <p>{delivered ? 'Verified matching bridge message, recipient and amount with 3 destination confirmations.' : !hasVerificationContext ? 'Recovery details are missing. Destination delivery cannot be verified from this hash alone.' : canRetry ? 'Automatic checking has paused. Use Check destination again to resume.' : 'Delivery requires a matching bridge message, recipient, amount and 3 destination confirmations.'}</p>
+      <p>{delivered ? `Verified matching bridge message, recipient and amount with ${DESTINATION_CONFIRMATION_LABEL}.` : !hasVerificationContext ? 'Recovery details are missing. Destination delivery cannot be verified from this hash alone.' : canRetry ? 'Automatic checking has paused. Use Check destination again to resume.' : `Delivery requires a matching bridge message, recipient, amount and ${DESTINATION_CONFIRMATION_LABEL}.`}</p>
       {verificationError && !delivered && <p>Last check: {verificationError}</p>}
       {!simulated && layerzeroScan && !delivered && <a href={layerzeroScan} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-mint">Track bridge message <ExternalLink size={13} aria-hidden="true" /></a>}
     </>} />;
@@ -412,7 +413,7 @@ export function BridgeTracker({
       {(verificationError || hasVerificationContext) && (
         <section className="mt-3 border-t border-[var(--line)] pt-3" aria-label="Delivery verification">
           <div className="pb-2 text-[10.5px] leading-relaxed text-mut">
-            <p>Delivery requires the matching bridge message, recipient, amount, and {DESTINATION_CONFIRMATIONS.toString()} destination confirmations.</p>
+            <p>Delivery requires the matching bridge message, recipient, amount, and {DESTINATION_CONFIRMATION_LABEL}.</p>
             {verificationError && !delivered && <p className="mt-2 break-words text-[var(--mut-2)]">Last check: {verificationError}</p>}
           </div>
         </section>

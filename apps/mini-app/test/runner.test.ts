@@ -263,6 +263,38 @@ for (const directBasePool of [true, false]) {
   });
 }
 
+test("a position confirms at its inclusion block by default, retaining simulation and canonical receipt checks", async () => {
+  const base = client({pendingNonces: [4], receipts: [{status: 'success', blockNumber: 10n}], blocks: [10n]});
+  let simulationReads = 0, receiptReads = 0, headReads = 0, completedReads = 0;
+  const result = await runTransactionRoute({
+    route: route(1, 'increasePosition'),
+    policy: TEST_POLICY,
+    publicClient: {
+      ...base,
+      simulateCalls: async () => { simulationReads++; return {results: [{status: 'success', gasUsed: 100_000n}]}; },
+      getTransactionReceipt: async (args: {hash: Hex}) => { receiptReads++; return base.getTransactionReceipt(args); },
+      getBlockNumber: async () => { headReads++; return 10n; },
+    } as unknown as FxPublicClient,
+    callbacks: {
+      requestSignature: async () => HASH_1,
+      postConfirmRead: async (_route, confirmed) => {
+        completedReads++;
+        assert.equal(confirmed.status, 'confirmed');
+        assert.equal(confirmed.steps[0].receipt?.blockNumber, 10n);
+        assert.equal(confirmed.steps[0].confirmations, 1);
+        assert.equal(confirmed.steps[0].requiredConfirmations, 1);
+      },
+    },
+    // Match production defaults: neither an extra depth nor a next-block wait.
+    options: {pollMs: 0, receiptTimeoutMs: 100},
+  });
+  assert.equal(result.status, 'confirmed', 'head never advances to a second or third block');
+  assert.equal(simulationReads, 1, 'the mandatory signing preflight remains enabled');
+  assert.ok(receiptReads >= 2, 'inclusion must still be re-read for canonical block identity');
+  assert.equal(headReads, 1, 'no optional next-block wait delays completion');
+  assert.equal(completedReads, 1);
+});
+
 test("runner signs SDK steps in order, waits every receipt, then performs post-read after an explicit extra block", async () => {
   const events: string[] = [];
   const seenBlocks: bigint[] = [];

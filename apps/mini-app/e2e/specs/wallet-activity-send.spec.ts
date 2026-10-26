@@ -129,15 +129,17 @@ test('native Send Max clears an oversized draft and never reuses a fallback reci
   await page.getByRole('button', { name: 'Test send' }).click();
   const amount = page.getByLabel('Amount', { exact: true });
   await amount.fill('1');
-  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(1);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length ?? 0)).toBe(0);
   await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(1);
   await expect(amount).toHaveValue('');
   await expect(page.getByRole('button', { name: 'Checking Max…', exact: true })).toBeDisabled();
   await page.getByLabel('Recipient address').fill('0x2222222222222222222222222222222222222222');
-  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(2);
+  expect(await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(1);
   await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxResolvers?.[0].resolve(700_000_000_000_000n));
   await expect(amount).toHaveValue('');
   await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxInputs?.length)).toBe(2);
   await page.evaluate(() => (window as unknown as { H: SendHarness }).H.maxResolvers?.[1].resolve(200_000_000_000_000n));
   await expect(amount).toHaveValue('0.0002');
   await amount.fill('1');
@@ -561,5 +563,7 @@ test('send reviews the exact amount it signs, rounds its cost up, and opens on E
   const networkCost = page.getByTitle('0.000252000000000001 ETH', { exact: true });
   await expect(networkCost).toBeVisible();
   expect(await networkCost.evaluate((element) => [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join('').trim())).toBe('≈ 0.000253 ETH');
-  await expect(networkCost.getByText('USD value unavailable', { exact: true })).toBeVisible();
+  const unavailableUsd = networkCost.locator('[data-usd-state="unavailable"]');
+  await expect(unavailableUsd).toBeEmpty();
+  await expect(unavailableUsd.getByRole('status', { name: 'USD value unavailable' })).toHaveCount(1);
 });

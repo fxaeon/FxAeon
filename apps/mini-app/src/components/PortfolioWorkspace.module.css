@@ -20,7 +20,6 @@
 .valueNumber :global(.missing-value-bar) { height: .66em; border-radius: 6px; }
 .valueCard .valueNumber[data-value-size='long'] { font-size: clamp(28px, 8vw, 48px); }
 .valueCard .valueNumber[data-value-size='extended'] { font-size: clamp(22px, 6vw, 36px); }
-.valueUnavailable { display: inline-flex; min-height: 44px; max-width: 100%; align-items: center; gap: 8px; color: var(--mut); font-size: 18px; font-weight: 500; line-height: 1.4; letter-spacing: 0; }
 .valueBreakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
 .valueBreakdown > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; border-left: 2px solid var(--line-strong); padding-left: 12px; }
 .valueBreakdown > div:first-child { border-color: var(--mint); }

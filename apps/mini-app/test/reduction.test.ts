@@ -12,6 +12,8 @@ const WAD = 10n ** 18n;
 
 test('position token choices match the SDK input and output allow-lists', () => {
   assert.ok(positionInputTokenOptions('ETH').includes('stETH'));
+  assert.ok(!positionInputTokenOptions('ETH', 'short').includes('stETH'));
+  assert.deepEqual(positionInputTokenOptions('BTC', 'long'), positionInputTokenOptions('BTC', 'short'));
   assert.ok(positionOutputTokenOptions('ETH', 'long').includes('stETH'));
   assert.ok(!positionOutputTokenOptions('ETH', 'short').includes('stETH'));
   assert.deepEqual(positionOutputTokenOptions('BTC', 'long'), positionOutputTokenOptions('BTC', 'short'));

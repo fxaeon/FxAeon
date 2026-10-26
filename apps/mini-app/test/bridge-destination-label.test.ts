@@ -12,6 +12,10 @@ import { ValueOrSkeleton } from '../src/components/MissingValue';
 // effects. These fixtures prove copy/state mapping, not event verification.
 const path = new URL('../src/components/BridgeTracker.tsx', import.meta.url);
 const file = ts.createSourceFile('BridgeTracker.tsx', readFileSync(path, 'utf8'), ts.ScriptTarget.ES2020, true, ts.ScriptKind.TSX);
+const confirmationConstants = file.statements.filter(node => ts.isVariableStatement(node)
+  && node.declarationList.declarations.some(declaration => ['DESTINATION_CONFIRMATIONS', 'DESTINATION_CONFIRMATION_LABEL'].includes(declaration.name.getText(file))))
+  .map(node => node.getText(file)).join('\n');
+assert.ok(confirmationConstants.includes('DESTINATION_CONFIRMATIONS'));
 const tracker = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'BridgeTracker');
 const row = file.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'TimelineRow');
 assert.ok(tracker && ts.isFunctionDeclaration(tracker) && tracker.body);
@@ -20,7 +24,7 @@ const start = tracker.body.statements.findIndex(node => ts.isVariableStatement(n
   && node.declarationList.declarations.some(declaration => declaration.name.getText(file) === 'verified'));
 assert.ok(start >= 0);
 const projection = tracker.body.statements.slice(start).map(node => node.getText(file)).join('\n');
-const compiled = ts.transpileModule(`${row.getText(file)}\nfunction project() { ${projection} }\nproject();`, {
+const compiled = ts.transpileModule(`${confirmationConstants}\n${row.getText(file)}\nfunction project() { ${projection} }\nproject();`, {
   compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React },
 }).outputText;
 const sourceHash = `0x${'1'.repeat(64)}`;
@@ -38,7 +42,7 @@ function render(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   const element = runInNewContext(compiled, {
-    React, ...icons, ValueOrSkeleton, ...input, DESTINATION_CONFIRMATIONS: 3n,
+    React, ...icons, ValueOrSkeleton, ...input,
     explorerFor: (chain: string) => chain === 'Base' ? 'https://basescan.org' : 'https://etherscan.io',
     openExternalLink: () => { throw new Error('No external action is permitted in a render test'); },
     useTransactionEvidence: () => 'live',
@@ -47,11 +51,28 @@ function render(overrides: Record<string, unknown> = {}) {
   const markup = renderToStaticMarkup(element);
   assert.match(markup, /Destination verification/);
   assert.doesNotMatch(markup, /Waiting for destination/);
-  assert.match(markup, /Delivery requires the matching bridge message, recipient, amount, and 3 destination confirmations/);
+  assert.match(markup, /Delivery requires the matching bridge message, recipient, amount, and 1 destination confirmation\./);
+  assert.doesNotMatch(markup, /1 destination confirmations|3 destination confirmations/);
   assert.match(markup, new RegExp(`${input.amount.replace('.', '\\.')}.*${input.token}`));
   assert.match(markup, new RegExp(`${input.sourceChain} → ${input.destinationChain}`));
   return markup;
 }
+
+test('the actual destination confirmation gate accepts the inclusion head without skipping the gate for a future block', () => {
+  let gate: ts.IfStatement | undefined;
+  function visit(node: ts.Node) {
+    if (ts.isIfStatement(node) && node.expression.getText(file).includes('received.blockNumber + DESTINATION_CONFIRMATIONS')) gate = node;
+    ts.forEachChild(node, visit);
+  }
+  visit(file);
+  assert.ok(gate);
+  const source = ts.transpileModule(`${confirmationConstants}\n${gate.getText(file)}\ntrue;`, {
+    compilerOptions: {target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS},
+  }).outputText;
+  const context = {received: {blockNumber: 100n, transactionHash: destinationHash}, cancelled: false, setDetectedDestinationTxHash: noop};
+  assert.equal(runInNewContext(source, {...context, latestBlock: 100n}), true);
+  assert.throws(() => runInNewContext(source, {...context, latestBlock: 99n}), /waiting for 1 destination confirmation\./);
+});
 
 test('pending destination verification has neutral title and retains checking copy', () => {
   const markup = render();

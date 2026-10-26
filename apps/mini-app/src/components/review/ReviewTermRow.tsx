@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { MetricLabel } from '@/components/InfoHelp';
 import { INFO_HELP_CONTENT } from '@/components/infoHelpContent';
-import { ValueOrSkeleton } from '@/components/MissingValue';
+import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import { FeeAmount } from './AmountUsd';
 import { ReviewFactValue } from './ReviewFactValue';
 import { ProtocolFeeAmount } from './ProtocolFeeAmount';
@@ -20,7 +20,7 @@ export function ReviewTermRow({ fact, displayLabel, displayValue, help: helpOver
     <MetricLabel minimalHelp label={displayLabel ?? fact.label} definition={definition} help={help} />
     <span>
       {fact.value === '—' ? <ValueOrSkeleton value={fact.value} width="md" announce={!quiet} label={`Loading ${fact.label.toLowerCase()}`} />
-        : unavailable ? fact.value
+        : unavailable ? <MissingValue width="md" status="unavailable" announce={!quiet} label={`${fact.label} unavailable`} />
         : ['Gas fee', 'Bridge fee'].includes(fact.label) ? <FeeAmount fact={fact} />
         : ['f(x) fee', 'Protocol fee'].includes(fact.label) ? <ProtocolFeeAmount fact={fact} />
         : <ReviewFactValue fact={fact} display={displayValue} />}

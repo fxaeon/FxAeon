@@ -32,7 +32,7 @@ import { useNativeMax } from '@/lib/fx/useNativeMax';
 import { routeGasCostCache } from '@/lib/fx/gasCost';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
 import { readGasTier } from '@/lib/settings';
-import { RoutePrefetchStore, type RoutePrefetchDescriptor } from '@/lib/fx/routePrefetch';
+import { LatestOnlyWarmupQueue, RoutePrefetchStore, type RoutePrefetchDescriptor } from '@/lib/fx/routePrefetch';
 import { readPublicTradeOutcome, type PublicTradeOutcome } from '@/lib/fx/publicTradeOutcome';
 import { TradeOutcomePreview } from '@/components/TradeOutcomePreview';
 import { currentTradeOutcome, settledTradeOutcome, tradeOutcomeKey, type TradeOutcomeState } from '@/lib/tradeOutcome';
@@ -131,6 +131,7 @@ export default function TradePage() {
   const [outcome, setOutcome] = useState<TradeOutcomeState | null>(null);
   const [publicOutcome, setPublicOutcome] = useState<({key: string; status: 'ready'} & PublicTradeOutcome) | {key: string; status: 'pending' | 'failed'} | null>(null);
   const prefetchStoreRef = useRef<RoutePrefetchStore | null>(null);
+  const warmupQueueRef = useRef(new LatestOnlyWarmupQueue());
   const prefetchSessionRef = useRef(createPrefetchSessionId());
   const prefetchDescriptorRef = useRef<RoutePrefetchDescriptor | null>(null);
   const [foreground, setForeground] = useState(false);
@@ -177,6 +178,7 @@ export default function TradePage() {
     cancelNativeMax();
     setReviewStage('input');
     prefetchStoreRef.current?.invalidate();
+    warmupQueueRef.current.discardPending();
     prefetchDescriptorRef.current = null;
     prefetchedTicketRef.current = '';
     setReviewRevision((revision) => revision + 1);
@@ -187,7 +189,8 @@ export default function TradePage() {
   }, [resetTradeContext, side]);
 
   const changeSide = useCallback((nextSide: UiSide) => {
-    resetTradeContext(market, nextSide, token);
+    const supported = positionInputTokenOptions(market, nextSide);
+    resetTradeContext(market, nextSide, supported.includes(token) ? token : supported[0]);
   }, [market, resetTradeContext, token]);
 
   const changeToken = useCallback((nextToken: UiToken) => {
@@ -216,7 +219,7 @@ export default function TradePage() {
       const explicit = explicitDeepLinkRef.current;
       const market = explicit?.market ?? 'ETH';
       const side = explicit?.side ?? 'long';
-      const defaultToken = explicit?.asset && positionInputTokenOptions(market).includes(explicit.asset as UiToken)
+      const defaultToken = explicit?.asset && positionInputTokenOptions(market, side).includes(explicit.asset as UiToken)
         ? explicit.asset as UiToken
         : market === 'ETH' ? 'ETH' : 'WBTC';
       resetTradeContext(market, side, defaultToken);
@@ -234,7 +237,7 @@ export default function TradePage() {
     explicitDeepLinkRef.current = initiallyHydratedRef.current ? null : deepLink;
     if (deepLink) {
       // Explicit links start a fresh intent even when Next retains the page.
-      resetTradeContext(deepLink.market, deepLink.side, positionInputTokenOptions(deepLink.market).find((option) => option === deepLink.asset) ?? positionInputTokenOptions(deepLink.market)[0]);
+      resetTradeContext(deepLink.market, deepLink.side, positionInputTokenOptions(deepLink.market, deepLink.side).find((option) => option === deepLink.asset) ?? positionInputTokenOptions(deepLink.market, deepLink.side)[0]);
     }
     const update = () => {
       const active = document.visibilityState === 'visible' && navigator.onLine;
@@ -280,7 +283,7 @@ export default function TradePage() {
     const nextMarket = state.market === 'BTC' ? 'BTC' : state.market === 'ETH' ? 'ETH' : null;
     const nextSide = state.side === 'short' ? 'short' : state.side === 'long' ? 'long' : null;
     const nextToken = typeof state.token === 'string' && nextMarket
-      && positionInputTokenOptions(nextMarket).includes(state.token as UiToken)
+      && positionInputTokenOptions(nextMarket, nextSide ?? 'long').includes(state.token as UiToken)
       ? state.token as UiToken
       : null;
     const nextAmount = typeof state.amount === 'string' && state.amount.length <= 128 && /^(?:\d+\.?\d*|\.\d+)$/.test(state.amount)
@@ -327,7 +330,7 @@ export default function TradePage() {
     return () => { window.removeEventListener(SETTINGS_UPDATED_EVENT, onSettingsUpdated); window.removeEventListener('storage', onSettingsUpdated); };
   }, []);
 
-  const tokenOptions = positionInputTokenOptions(market);
+  const tokenOptions = positionInputTokenOptions(market, side);
   const sideLabel = side === 'long' ? 'Long' : 'Short';
   const validAmount = positiveDecimal(amount, tokenDecimals(token));
   const selectedTokenBalance: TokenBalanceView | undefined = wallet.address
@@ -403,6 +406,7 @@ export default function TradePage() {
   // The ticket's outcome preview reads the same warm-up; it never plans its own.
   useEffect(() => {
     const store = prefetchStoreRef.current ?? (prefetchStoreRef.current = new RoutePrefetchStore());
+    const warmupQueue = warmupQueueRef.current;
     store.invalidate();
     prefetchDescriptorRef.current = null;
     const amountWei = validAmount ? parseAmount(validAmount, token) : null;
@@ -418,7 +422,9 @@ export default function TradePage() {
     const key = outcomeKey;
     // A preview settles only for the warm-up still current: a newer input
     // runs this effect again and deactivates the old one first.
-    const settle = (state: TradeOutcomeState) => { if (active) setOutcome(state); };
+    const settle = (state: TradeOutcomeState) => {
+      if (active && reviewStageRef.current === 'input' && currentTicketRef.current === ticket) setOutcome(state);
+    };
     // Warming the same ticket again (after a review, or back from the
     // background) keeps its figures in place until the new ones land; a
     // ticket whose last warm-up failed shows its placeholder while it retries.
@@ -428,8 +434,10 @@ export default function TradePage() {
         settle({ key, status: 'failed' });
         return;
       }
-      void (async () => {
+      warmupQueue.submit(async () => {
         try {
+          if (!active || reviewStageRef.current !== 'input' || currentTicketRef.current !== ticket
+            || document.visibilityState !== 'visible' || !navigator.onLine) return;
           const blockNumber = await getEthereumClient().getBlockNumber();
           if (!active || reviewStageRef.current !== 'input' || currentTicketRef.current !== ticket || document.visibilityState !== 'visible' || !navigator.onLine) {
             settle({ key, status: 'failed' });
@@ -452,7 +460,7 @@ export default function TradePage() {
           };
           prefetchDescriptorRef.current = descriptor;
           prefetchedTicketRef.current = ticket;
-          void store.prime(descriptor, () => planIncreasePosition({
+          await store.prime(descriptor, () => planIncreasePosition({
             market,
             type: side,
             positionId: 0,
@@ -462,7 +470,9 @@ export default function TradePage() {
             amount: amountWei,
             slippage: slippageValue,
           })).then(
-            (routes) => settle(settledTradeOutcome(key, routes)),
+            (routes) => {
+              if (prefetchDescriptorRef.current === descriptor) settle(settledTradeOutcome(key, routes));
+            },
             // A failed warm-up shows no preview; the review plans afresh.
             () => settle({ key, status: 'failed' }),
           );
@@ -471,12 +481,13 @@ export default function TradePage() {
           // whenever the RPC or SDK is unavailable during the warm-up.
           settle({ key, status: 'failed' });
         }
-      })();
-    }, 220);
+      });
+    }, 80);
     return () => {
       active = false;
       window.clearTimeout(timer);
       store.invalidate();
+      warmupQueue.discardPending();
       prefetchDescriptorRef.current = null;
     };
   }, [editorEpoch, foreground, leverage, leverageBounds.max, leverageBounds.min, market, outcomeKey, side, slippageValue, token, validAmount, wallet.address, wallet.chainId]);
@@ -486,23 +497,37 @@ export default function TradePage() {
     let active = true;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
+    let expiryTimer: ReturnType<typeof setTimeout>;
+    let inFlight = false;
     const key = outcomeKey;
     const load = async () => {
       if (!active || document.visibilityState !== 'visible' || !navigator.onLine || reviewStageRef.current !== 'input') return;
-      setPublicOutcome({key, status: 'pending'});
+      inFlight = true;
+      setPublicOutcome(current => current?.key === key && current.status === 'ready' && current.validUntil > Date.now()
+        ? current : {key, status: 'pending'});
       try {
         const result = await readPublicTradeOutcome({market, type: side, inputTokenAddress: tokenAddress(token), amount: warmAmountWei, leverage, slippage: slippageValue}, {signal: controller.signal});
         if (!active) return;
         setPublicOutcome({key, status: 'ready', ...result});
-        timer = setTimeout(() => { void load(); }, Math.max(1, result.validUntil - Date.now()));
+        clearTimeout(expiryTimer);
+        expiryTimer = setTimeout(() => {
+          if (active) setPublicOutcome(current => current?.key === key && current.status === 'ready' && current.validUntil <= Date.now()
+            ? {key, status: inFlight ? 'pending' : 'failed'} : current);
+        }, Math.max(1, result.validUntil - Date.now()));
+        // Refresh in the background while the prior exact-ticket facts remain
+        // valid. The separate expiry timer always removes them at their bound.
+        timer = setTimeout(() => { void load(); }, Math.max(1, result.validUntil - Date.now() - 15_000));
       } catch {
         if (!active) return;
-        setPublicOutcome({key, status: 'failed'});
+        setPublicOutcome(current => current?.key === key && current.status === 'ready' && current.validUntil > Date.now()
+          ? current : {key, status: 'failed'});
         timer = setTimeout(() => { void load(); }, 15_000);
+      } finally {
+        inFlight = false;
       }
     };
-    timer = setTimeout(() => { void load(); }, 220);
-    return () => { active = false; controller.abort(); clearTimeout(timer); };
+    timer = setTimeout(() => { void load(); }, 80);
+    return () => { active = false; controller.abort(); clearTimeout(timer); clearTimeout(expiryTimer); };
   }, [editorEpoch, foreground, leverage, market, outcomeKey, side, slippageValue, token, wallet.address, warmAmountWei]);
   const shownPublicOutcome = foreground && !wallet.address && outcomeKey
     ? publicOutcome?.key === outcomeKey && (publicOutcome.status !== 'ready' || publicOutcome.validUntil > Date.now()) ? publicOutcome : {key: outcomeKey, status: 'pending' as const}
@@ -517,7 +542,8 @@ export default function TradePage() {
     if (!descriptor || !prefetchStoreRef.current) return null;
     const ticket = currentTicketRef.current;
     if (prefetchedTicketRef.current !== ticket) return null;
-    return prefetchStoreRef.current.readValidated(descriptor, async () => {
+    const store = prefetchStoreRef.current;
+    const routes = await store.readValidated(descriptor, async () => {
       if (document.visibilityState !== 'visible' || !navigator.onLine
         || currentTicketRef.current !== ticket || prefetchDescriptorRef.current !== descriptor) return null;
       const [blockNumber, bounds] = await Promise.all([
@@ -528,6 +554,13 @@ export default function TradePage() {
         || currentTicketRef.current !== ticket || prefetchDescriptorRef.current !== descriptor) return null;
       return { ...descriptor, blockNumber, leverageMin: bounds.min, leverageMax: bounds.max };
     });
+    if (!routes && prefetchDescriptorRef.current === descriptor) {
+      // A timed-out/invalidated warm-up must not publish a preview if the
+      // editor becomes active again before its old promise settles.
+      store.invalidate();
+      prefetchDescriptorRef.current = null;
+    }
+    return routes;
   }, []);
 
   const planBuilder = useMemo(() => {

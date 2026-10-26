@@ -247,7 +247,8 @@ for (const theme of ['dark']) {
     await expectReachableReview(page);
     await expect(page.getByText('Confirm the terms, then continue in your wallet.', { exact: true })).toHaveCount(0);
     const protocolFee = page.locator('[data-review-fact="f(x) fee"]');
-    await expect(protocolFee.locator('[data-usd-state="unavailable"]')).toHaveText('Unavailable');
+    await expect(protocolFee.locator('[data-usd-state="unavailable"]')).toHaveText('');
+    await expect(protocolFee.getByRole('status', { name: 'USD value for f(x) fee unavailable' })).toHaveCount(1);
     await protocolFee.getByRole('button', { name: 'About f(x) fee', exact: true }).click();
     const feeHelp = page.getByRole('dialog', { name: 'f(x) fee', exact: true });
     await expect(feeHelp).toContainText('0.3%');
@@ -288,7 +289,8 @@ for (const theme of ['dark']) {
     await expect(page.locator('[data-review-fact="Liquidation price"]')).toHaveCount(0);
     await expect(page.locator('[data-review-fact="Rebalance price"]')).toHaveCount(0);
     const expiredRisk = page.locator('[data-review-fact="Risk estimates"]');
-    await expect(expiredRisk).toContainText('Unavailable');
+    await expect(expiredRisk).toHaveText('Risk estimates');
+    await expect(expiredRisk.getByRole('status', { name: 'Risk estimates unavailable' })).toHaveCount(1);
     await expiredRisk.getByRole('button', { name: 'About Risk estimates', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Risk estimates', exact: true })).toContainText(/fresh|expired/i);
   });
@@ -311,18 +313,16 @@ test('click during the advisory block read prevents a late duplicate warm-up', a
   expect(await planCount(page)).toBe(1);
 });
 
-test('a matching in-flight prefetch remains reusable through explicit review', async ({ page }) => {
+test('a matching in-flight prefetch remains reusable through explicit review without Native Max work', async ({ page }) => {
   await mount(page); await fill(page);
   await expect.poll(() => planCount(page)).toBe(1);
   await review(page); await insufficient(page); expect(await planCount(page)).toBe(1);
   const plans = await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: Control }).__longReview.events.filter(event => event.name === 'planIncreasePosition'));
   expect(plans.filter(event => event.purpose === 'ticket').map(event => ({ amount: event.amount, leverage: event.leverage })))
     .toEqual([{ amount: '300000000000000', leverage: 2.8 }]);
-  // Background reserve probes have their own provenance, even if one uses
-  // the entered amount. They never excuse a second identical ticket plan.
+  // Native Max is demand-only and must not compete with this quote.
   const probes = plans.filter(event => event.purpose === 'native-max');
-  expect(probes.length).toBeGreaterThanOrEqual(1);
-  expect(probes.every(event => Boolean(event.amount))).toBe(true);
+  expect(probes).toHaveLength(0);
 });
 
 test('a completed warm quote still needs current-block validation and simulation', async ({ page }) => {
@@ -491,7 +491,8 @@ test('a Max-length amount remains in the input then fits the complete review at 
   const expectedTotal = ((exactAmount + exactMaxFee + displayStepWei - 1n) / displayStepWei) * displayStepWei;
   expect(toWei(await totalValue.innerText())).toBe(expectedTotal);
   expect(toWei((await totalValue.getAttribute('title'))!)).toBe(exactAmount + exactMaxFee);
-  await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('USD value unavailable');
+  await expect(totalValue.locator('[data-usd-state="unavailable"]')).toHaveText('');
+  await expect(totalValue.getByRole('status', { name: 'USD value unavailable' })).toHaveCount(1);
   await expect(totalValue).not.toContainText('$0.00');
   const asked = await page.locator('p', { hasText: /^Add [\d,.]+ ETH on / }).innerText();
   expect(toWei(asked)).toBe(expectedTotal - 400000000000000n);

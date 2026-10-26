@@ -208,8 +208,10 @@ The local patch starts pool data, rate, and oracle view reads together, then
 consumes their outcomes in the original order. Every rejection is observed
 immediately; an early pool failure still returns without waiting for slower
 siblings. Already-started reads finish under the existing transport limits.
-The converter's nonpayable buy and sell simulations remain sequential, after
-the views, and retain their separate execution contexts.
+The converter's nonpayable buy and sell spot simulations start together after
+the views. Those two calls explicitly disable automatic batching, retaining
+separate execution contexts. Outcomes are consumed in the original order,
+including failure priority. Inverse-search batching and pacing are unchanged.
 
 The installed SDK's viem 2.43.1 can combine the rate and oracle views into one
 automatic multicall, alongside the explicit pool-data multicall. No read is
@@ -218,7 +220,8 @@ cached or removed, and no new atomic-block guarantee is implied: calls use
 schedule. Review validation and final transaction simulation remain required.
 The installed-bundle regression in
 [`sdk-pool-read-concurrency.test.ts`](../apps/mini-app/test/sdk-pool-read-concurrency.test.ts)
-checks scheduling, error order, converter isolation, and exact outputs.
+checks scheduling, error order, converter isolation, and exact outputs, including
+an actual viem transport assertion that the spot calls use separate RPCs.
 [`measure_sdk_pool_reads.cjs`](../scripts/measure_sdk_pool_reads.cjs) measures
 the installed patch against deterministic delayed responses; its results are
 not live-provider latency claims.
@@ -356,6 +359,22 @@ and their original expiry. The SDK may read that account's allowance and nonce
 while constructing its unsigned result; approvals, calldata, policy and route
 are discarded inside the helper. Public facts never enter RoutePrefetchStore,
 ActionReview or execution. A real connection plans again for the actual account.
+
+Public Trade requests dispatch after 80 ms of settled input. Only one public
+SDK plan runs at a time; superseded queued inputs never start. Cancelling a
+caller does not cancel an already-running SDK search or release its slot early.
+The total queue-and-read deadline is 28 seconds, within the original 30-second
+freshness window. This fixes premature rejection of slower BTC long searches;
+it is not a claim of faster execution. Matching facts refresh in the background
+15 seconds before expiry and disappear at their original expiry if refresh
+fails. They are never reused for a different ticket or wallet.
+
+Input choices follow the actual planner paths: stETH is supported for ETH long
+but excluded from ETH short, whose pinned SDK router has no stETH input path.
+Changing sides resets an unsupported selected input to a supported token.
+The route matrix covers every offered token for ETH/BTC long and short in both
+SDK module formats. Fresh long quotes still require live converter searches;
+80 ms describes dispatch latency, not a fresh quote completion guarantee.
 
 Canonical Move estimates call the approved getBridgeQuote read and quoteOFT for
 the exact token, source, destination, amount and valid recipient. An internal

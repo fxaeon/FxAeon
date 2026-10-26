@@ -224,7 +224,7 @@ export default function MovePage() {
         : fetchCanonicalBridgeEstimate({ sourceChainId, destinationChainId, token, amount: amountWei, ...(estimateRecipient ? { recipient: estimateRecipient as Address } : {}) });
       void request
         .then(publish).catch(() => { if (active) setPreviewState({ key: previewKey, status: 'unavailable' }); });
-    }, 400);
+    }, 80);
     return () => { active = false; clearTimeout(debounce); if (expires) clearTimeout(expires); };
   }, [advanced, amountWei, customRecipient, destinationChainId, previewKey, recipientInput, recipientValue, reviewStage, sourceChainId, token, wallet.address]);
   const draftState = useMemo(() => ({
@@ -624,7 +624,7 @@ export default function MovePage() {
                 {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} />
                   : advanced ? 'Custom route checked at review'
                   : recipientError ? 'Check the destination address' : customRecipient && !recipientInput.trim() ? 'Enter a recipient to preview'
-                  : previewStatus === 'expired' ? 'Quote expired. Refresh below' : 'Receive amount unavailable'}
+                  : previewStatus === 'expired' ? 'Quote expired. Refresh below' : null}
               </p>}
             </section>
             {amountWei && !advanced && (!customRecipient || (isAddress(recipientInput.trim()) && !/^0x0{40}$/i.test(recipientInput.trim()))) && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
@@ -632,8 +632,8 @@ export default function MovePage() {
                 <button type="button" disabled={quotePending} onClick={() => setPreviewRevision(value => value + 1)}>Refresh quote</button>
               </div>
               <dl>
-                <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : 'Unavailable'} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} pending={quotePending} />
-                <QuoteRow label="Bridge fee" value={preview ? `${displayBridgeAmount(preview.nativeFee)} ETH` : 'Unavailable'} title={preview ? `${formatUnits(preview.nativeFee, 18)} ETH` : undefined} pending={quotePending} />
+                <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : ''} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} pending={quotePending} />
+                <QuoteRow label="Bridge fee" value={preview ? `${displayBridgeAmount(preview.nativeFee)} ETH` : ''} title={preview ? `${formatUnits(preview.nativeFee, 18)} ETH` : undefined} pending={quotePending} />
               </dl>
             </section>}
             {Boolean(amountWei) && nativeShortfall && <p className={moveStyles.gasNote} data-shortfall role="alert">
@@ -777,5 +777,5 @@ function displayBridgeAmount(value: bigint): string {
   return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
 }
 function QuoteRow({ label, value, title, pending = false }: { label: string; value: string; title?: string; pending?: boolean }) {
-  return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd>{pending ? <><span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>{label === 'Bridge fee' && <span className={moveStyles.feeUsdPlaceholder} aria-hidden="true" />}</> : <><ReviewFactValue fact={{ label, value, title }} />{label === 'Bridge fee' && value !== 'Unavailable' && <FeeUsd fact={{ value, title }} />}</>}</dd></div>;
+  return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd>{pending ? <><span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>{label === 'Bridge fee' && <span className={moveStyles.feeUsdPlaceholder} aria-hidden="true" />}</> : <><ReviewFactValue fact={{ label, value, title }} />{label === 'Bridge fee' && Boolean(value) && value !== 'Unavailable' && <FeeUsd fact={{ value, title }} />}</>}</dd></div>;
 }

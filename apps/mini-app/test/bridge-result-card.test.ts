@@ -43,13 +43,16 @@ test('pending, source-only, failed and legacy amount-less proofs stay honest', (
     const html = render({ state, receivedAmount: '999', destinationTxHash: DEST });
     const primary = html.slice(0, html.indexOf('<details class="advanced">'));
     assert.doesNotMatch(primary, /fxUSD received on Base|>Received<|999/);
-    assert.match(primary, state === 'failed' ? /Not verified/ : /Awaiting delivery/);
+    assert.doesNotMatch(primary, />(?:Not verified|Awaiting delivery|Amount unavailable|Not available)</);
+    assert.match(primary, /aria-label="Destination amount unavailable"/);
+    assert.match(primary, state === 'failed' ? /Delivery unverified · do not repeat/ : /<small>Confirming<\/small>/);
     assert.match(html, /Confirming/);
     assert.doesNotMatch(html, /Bridge to Base<\/span><small>Confirmed/);
   }
   const legacy = render({ state: 'destination_verified' });
   assert.match(legacy, /fxUSD received on Base/);
-  assert.match(legacy, /Amount unavailable/);
+  assert.match(legacy, /aria-label="Received amount unavailable"/);
+  assert.doesNotMatch(legacy, />Amount unavailable</);
   assert.doesNotMatch(legacy.slice(0, legacy.indexOf('<details class="advanced">')), /100.123456789/);
   assert.match(render({ state: 'failed', sourceReverted: true }), /Source reverted/);
 });
@@ -76,6 +79,9 @@ test('fxSAVE outcomes show static readable small and large amounts without fake 
     assert.equal((html.match(/<details\b/g) ?? []).length, 1);
     assert.doesNotMatch(html, /\$1|NaN|Infinity/);
   }
+  const css = readFileSync(new URL('../src/components/review/BridgeResultCard.module.css', import.meta.url), 'utf8');
+  assert.match(css, /\.subline:has\(\[data-usd-state='unavailable'\]\) \[data-usd-separator\] \{ display: none; \}/,
+    'an unpriced known amount does not leave a separator before the network');
 });
 
 test('source and destination proof amounts come from matched events and reset during revalidation', () => {

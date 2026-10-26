@@ -41,9 +41,7 @@ test("position planners reject arbitrary protocol tokens before calling the SDK"
   );
 });
 
-test("ETH short input includes stETH while ETH short output excludes it", async () => {
-  // A supported stETH input proceeds past FxAeon's token boundary and fails
-  // later only because this unit test intentionally has no configured RPC.
+test("ETH short rejects stETH input and output before attempting an unsupported SDK route", async () => {
   await assert.rejects(
     planIncreasePosition({
       market: "ETH",
@@ -55,7 +53,7 @@ test("ETH short input includes stETH while ETH short output excludes it", async 
       amount: 1n,
       slippage: 1,
     }),
-    (cause: unknown) => !/position input token is not supported/.test(String(cause)),
+    /position input token is not supported/,
   );
   await assert.rejects(
     planReducePosition({

@@ -299,6 +299,12 @@
 .flowExact > span { min-width: 0; overflow-wrap: normal; }
 .flowSubline { display: flex; flex-wrap: wrap; column-gap: 5px; row-gap: 2px; color: var(--mut); }
 .flowSubline .amountUsd { display: inline; font-size: inherit; }
+.flowSubline:has(> :global([data-usd-state='unavailable'])) > span[aria-hidden='true'] { display: none; }
+.flowSubline:has(> :global([data-usd-state='unavailable'])) > :global([data-usd-state='unavailable']) {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.flowSubline:has(> :global([data-usd-state='unavailable'])) > [data-network]::before { content: none; }
 .flowArrow { color: var(--mut); }
 .facts { gap: 0; }
 .facts > [data-review-fact] { padding-block: 6px; }
@@ -625,6 +631,10 @@
 .compactFact > span:first-child { min-width: 0; color: var(--mut); }
 .compactFact > span:last-child { min-width: 0; max-width: 60%; text-align: right; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .compactFact[data-review-fact='Recipient'] > span:last-child :global(span) { overflow-wrap: anywhere; }
+.compactFact[data-review-fact='Execution price'] > span:first-child,
+.compactFact[data-review-fact='Execution price'] > span:first-child :global(span) { overflow-wrap: normal; word-break: normal; }
+.compactFact[data-review-fact='Execution price'] > span:last-child { flex: 0 0 auto; max-width: none; white-space: nowrap; }
+.compactFact[data-review-fact='Execution price'] > span:last-child > span { display: inline-block; white-space: nowrap; }
 .compactFact small { display: block; color: var(--mut); font-size: 11px; font-weight: 400; }
 /* Review terms are a compact list. Inline definitions use distinct 24px
    targets; amounts, navigation and confirmation retain their larger targets.

@@ -51,7 +51,7 @@ Verification runs in a digest-pinned official Playwright image with browsers and
 1. Install the pinned toolchain and frozen dependency graph.
 2. Confirm the release SHA is still remote `main` and validate protected production inputs.
 3. For manual dispatch, run `pnpm verify` using its credential-free test configuration. For push deployment, require successful Client CI for the same-repository `main` SHA instead of repeating that suite.
-4. Build a separate production-configured static artifact.
+4. Build the landing export and a separate production-configured financial export (`pnpm build:landing`, then `pnpm build`). The artifact scanner checks both output directories, even though this workflow uploads only the financial export.
 5. Scan the built output, verify supplied RPC endpoints are actually compiled into browser chunks, and enforce existing bundle/CSP budgets.
 6. Stamp the artifact with the release SHA and synchronize the optional gas secret.
 7. Check that the release SHA is still remote `main` immediately before upload.

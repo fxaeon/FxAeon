@@ -8,11 +8,28 @@ import { fileURLToPath } from 'node:url';
 const sdkDist = resolve(dirname(fileURLToPath(import.meta.url)), '../node_modules/@aladdindao/fx-sdk/dist');
 const sdkRequire = createRequire(realpathSync(resolve(sdkDist, 'index.cjs')));
 const Decimal = sdkRequire('decimal.js');
+const { createFixture, viem } = createRequire(import.meta.url)('../e2e/trade-harness/long-review-rpc.cjs');
 const cBN = (value: unknown) => new Decimal(value);
 const READS = ['pool', 'rate', 'oracle', 'buy', 'sell'] as const;
 type ReadName = typeof READS[number];
 type PoolContext = { config: Record<string, unknown>; getPoolData: () => Promise<unknown>; price: Record<string, () => Promise<unknown>> };
 type PoolMethod = (this: PoolContext) => Promise<Record<string, any>>;
+
+test('concurrent spot quotes retain separate converter RPC execution contexts', async () => {
+  const fixture = createFixture();
+  fixture.sdk.setClient(viem.createPublicClient({
+    chain: viem.mainnet,
+    transport: viem.custom({ request: fixture.request }),
+    batch: { multicall: true },
+  }));
+  const pool = new fixture.sdk.Pool({ poolName: 'wstETH' });
+  await Promise.all([pool.price.getBuyPrice(), pool.price.getSellPrice()]);
+  const spotCalls = fixture.events.filter((event: any) => event.reads.some((read: any) => read.name === 'queryConvert'));
+  assert.equal(spotCalls.length, 2, 'each spot quote uses its own eth_call');
+  assert.deepEqual(spotCalls.map((event: any) => event.reads.map((read: any) => read.name)), [
+    ['queryConvert'], ['queryConvert'],
+  ]);
+});
 
 function installedPoolMethod(bundle: string): PoolMethod {
   const source = readFileSync(resolve(sdkDist, bundle), 'utf8');
@@ -88,11 +105,10 @@ for (const bundle of ['index.js', 'index.cjs']) {
     assert.deepEqual(started, ['pool', 'rate', 'oracle'], 'no quote until all view reads settle');
     gates.pool.resolve(value.pool);
     await flush();
-    assert.deepEqual(started, ['pool', 'rate', 'oracle', 'buy']);
-    gates.buy.resolve(value.buy);
-    await flush();
-    assert.deepEqual(started, [...READS], 'sell starts only after buy resolves');
+    assert.deepEqual(started, [...READS], 'both independent spot quotes start together');
     gates.sell.resolve(value.sell);
+    await flush();
+    gates.buy.resolve(value.buy);
     assert.deepEqual(await pending, expectedPoolInfo(value));
     assert.equal(new Set(started).size, 5, 'each read invoked exactly once');
   });
@@ -121,8 +137,7 @@ for (const bundle of ['index.js', 'index.cjs']) {
         if (name === failed) throw failure;
         return value[name];
       })), (cause: unknown) => cause === failure);
-      assert.deepEqual(calls, failed === 'buy' ? ['pool', 'rate', 'oracle', 'buy']
-        : failed === 'sell' ? [...READS] : ['pool', 'rate', 'oracle']);
+      assert.deepEqual(calls, failed === 'buy' || failed === 'sell' ? [...READS] : ['pool', 'rate', 'oracle']);
     }
     // The node:test runner treats unhandled rejections as test failures.
     await flush();
@@ -166,6 +181,24 @@ for (const bundle of ['index.js', 'index.cjs']) {
     await flush();
   });
 
+  test(`${bundle}: spot failures retain buy-first error priority without leaking a sibling rejection`, async () => {
+    const method = installedPoolMethod(bundle);
+    const value = fixture();
+    const gates = Object.fromEntries(READS.map((name) => [name, deferred<unknown>()])) as Record<ReadName, ReturnType<typeof deferred<unknown>>>;
+    const pending = method.call(context((name) => gates[name].promise));
+    gates.pool.resolve(value.pool);
+    gates.rate.resolve(value.rate);
+    gates.oracle.resolve(value.oracle);
+    await flush();
+    const sellError = new Error('sell failed');
+    gates.sell.reject(sellError);
+    await flush();
+    const buyError = new Error('buy failed');
+    gates.buy.reject(buyError);
+    await assert.rejects(pending, (cause: unknown) => cause === buyError);
+    await flush();
+  });
+
   test(`${bundle}: advancing chain fixtures stay uncached and converter reads remain later ordered snapshots`, async () => {
     const method = installedPoolMethod(bundle);
     let block = 100;
@@ -180,7 +213,7 @@ for (const bundle of ['index.js', 'index.cjs']) {
     await method.call(context(read));
     assert.deepEqual(snapshots, [
       { name: 'pool', block: 100 }, { name: 'rate', block: 100 }, { name: 'oracle', block: 100 },
-      { name: 'buy', block: 101 }, { name: 'sell', block: 102 },
+      { name: 'buy', block: 101 }, { name: 'sell', block: 101 },
     ]);
     snapshots.length = 0;
     await method.call(context(read));
