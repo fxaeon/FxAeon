@@ -104,14 +104,24 @@ test('the recipient row is a status, and the developer disclosure reads as exper
   await expect(sourceOft).toHaveValue('0x1111111111111111111111111111111111111111');
   await expect(destinationOft).toHaveValue('0x2222222222222222222222222222222222222222');
   await settings.getByRole('button', { name: 'Close transaction settings' }).click();
-  // Signed out, the recipient row says so instead of looking like a second connect control.
+  // Signed out, the row offers only the alternate-recipient control; wallet
+  // connection has its own primary action above.
   await page.evaluate(() => {
     const harness = (window as Window & { __moveSessionHarness: { wallet: { address?: string; authenticated: boolean }; rerender?: () => void } }).__moveSessionHarness;
     harness.wallet = { ...harness.wallet, address: undefined, authenticated: false };
     harness.rerender?.();
   });
-  await expect(page.getByText('Not connected', { exact: true })).toBeVisible();
+  await expect(page.getByText('Not connected', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Recipient', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Connect wallet', { exact: true })).toHaveCount(0);
+  const setRecipient = page.getByRole('button', { name: 'Set recipient', exact: true });
+  await expect(setRecipient).toBeVisible();
+  await expect(setRecipient).toHaveAttribute('aria-expanded', 'false');
+  await expect(setRecipient).toHaveAttribute('aria-controls', 'move-recipient-address');
+  await setRecipient.click();
+  await expect(page.getByText('Recipient', { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Destination wallet' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Use your wallet', exact: true })).toHaveAttribute('aria-expanded', 'true');
 });
 
 test('Move keeps a late quote bound to the current amount and recipient', async ({ page }) => {

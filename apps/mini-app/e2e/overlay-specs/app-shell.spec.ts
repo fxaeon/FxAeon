@@ -39,6 +39,130 @@ async function setLab(page: Page, patch: Record<string, unknown>) {
   await page.evaluate((value) => (globalThis as typeof globalThis & { __shellLab: { set: (patch: unknown) => void } }).__shellLab.set(value), patch);
 }
 
+async function expectScreenReaderOnlyMoreHeading(page: Page) {
+  const heading = page.getByRole('heading', { level: 1, name: 'More', exact: true });
+  await expect(heading).toHaveCount(1);
+  const geometry = await heading.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return { width: rect.width, height: rect.height, position: style.position, overflow: style.overflow, clip: style.clip };
+  });
+  expect(geometry.width).toBeLessThanOrEqual(1);
+  expect(geometry.height).toBeLessThanOrEqual(1);
+  expect(geometry.position).toBe('absolute');
+  expect(geometry.overflow).toBe('hidden');
+  expect(geometry.clip).not.toBe('auto');
+}
+
+async function expectSidebarFits(page: Page, expectedWidth: number) {
+  const geometry = await page.locator('[data-desktop-sidebar]').evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const content = document.querySelector('[data-shell-content]')!.getBoundingClientRect();
+    return { width: rect.width, right: rect.right, contentLeft: content.left, contentRight: content.right,
+      viewport: innerWidth, pageOverflow: document.documentElement.scrollWidth - innerWidth,
+      sidebarOverflow: element.scrollWidth - element.clientWidth };
+  });
+  expect(geometry.width).toBe(expectedWidth);
+  expect(geometry.contentLeft).toBeGreaterThanOrEqual(geometry.right);
+  expect(geometry.contentRight).toBeLessThanOrEqual(geometry.viewport + 1);
+  expect(geometry.pageOverflow).toBeLessThanOrEqual(1);
+  expect(geometry.sidebarOverflow).toBeLessThanOrEqual(1);
+}
+
+async function expectSidebarToggleControlsOwnNav(page: Page) {
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const toggle = sidebar.getByRole('button', { name: /^(Collapse|Expand) navigation$/ });
+  await expect(toggle).toBeVisible();
+  const target = await toggle.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const id = element.getAttribute('aria-controls');
+    const matches = id ? [...document.querySelectorAll('[id]')].filter(candidate => candidate.id === id) : [];
+    const nav = matches[0] as HTMLElement | undefined;
+    return { width: rect.width, height: rect.height, targets: matches.length,
+      ownNav: Boolean(nav?.matches('nav[aria-label="Primary navigation"]') && element.closest('[data-desktop-sidebar]')?.contains(nav)),
+      visible: Boolean(nav && nav.getBoundingClientRect().width > 0 && getComputedStyle(nav).display !== 'none') };
+  });
+  expect(target.width).toBeGreaterThanOrEqual(44);
+  expect(target.height).toBeGreaterThanOrEqual(44);
+  expect(target.targets).toBe(1);
+  expect(target.ownNav).toBe(true);
+  expect(target.visible).toBe(true);
+}
+
+test('desktop sidebar uses an accessible compact rail at 840px and 1024px', async ({ page }) => {
+  await open(page, { width: 840 });
+  await setLab(page, { wallet: STATES[1][1] });
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const nav = sidebar.getByRole('navigation', { name: 'Primary navigation', exact: true });
+  for (const width of [840, 1024]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+    await expectSidebarFits(page, 72);
+    await expect(sidebar.getByRole('button', { name: 'Expand navigation', exact: true })).toBeHidden();
+    await expect(page.locator('nav.mobile-tabbar')).toBeHidden();
+    for (const [path, label] of [['/portfolio', 'Portfolio'], ['/positions', 'Trade'], ['/earn', 'Earn'], ['/borrow', 'Borrow'], ['/move', 'Move'], ['/settings', 'More']] as const) {
+      await setLab(page, { path });
+      const link = nav.getByRole('link', { name: label, exact: true });
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute('aria-current', 'page');
+      await expect(link).toHaveAttribute('title', label);
+      await expect(nav.locator('[aria-current="page"]')).toHaveCount(1);
+      await expect(link.locator('span')).toBeHidden();
+    }
+    await expect(nav.getByRole('link')).toHaveCount(6);
+  }
+});
+
+test('desktop sidebar collapses and reexpands with session preference retained across routes and reload', async ({ page }) => {
+  await open(page, { width: 1280 });
+  await setLab(page, { wallet: STATES[1][1] });
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const nav = sidebar.getByRole('navigation', { name: 'Primary navigation', exact: true });
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expectSidebarFits(page, 224);
+  await expectSidebarToggleControlsOwnNav(page);
+  for (const name of ['Portfolio', 'Trade', 'Earn', 'Borrow', 'Move', 'More']) await expect(nav.getByRole('link', { name, exact: true }).locator('span')).toBeVisible();
+  await sidebar.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+  await expectSidebarFits(page, 72);
+  await expectSidebarToggleControlsOwnNav(page);
+  await nav.getByRole('link', { name: 'Trade', exact: true }).click();
+  await expect(page).toHaveURL(`${LAB_ORIGIN}/trade`);
+  await expect(nav.getByRole('link', { name: 'Trade', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+  await page.reload();
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+  await expectSidebarFits(page, 72);
+  await sidebar.getByRole('button', { name: 'Expand navigation', exact: true }).click();
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expectSidebarFits(page, 224);
+  await expectSidebarToggleControlsOwnNav(page);
+  await nav.getByRole('link', { name: 'More', exact: true }).click();
+  await expect(page).toHaveURL(`${LAB_ORIGIN}/more`);
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expect(nav.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.setViewportSize({ width: 1024, height: 844 });
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+  await expectSidebarFits(page, 72);
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expectSidebarFits(page, 224);
+});
+
+test('mobile menu keeps its More heading accessible without a visible title row at 320px and 390px', async ({ page }) => {
+  await open(page, { width: 320 });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.getByRole('button', { name: 'Open menu', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'More menu', exact: true });
+    await expect(menu).toBeVisible();
+    await expectScreenReaderOnlyMoreHeading(page);
+    expect(await menu.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+    await menu.getByRole('button', { name: 'Close menu', exact: true }).click();
+    await expect(menu).toHaveCount(0);
+  }
+});
+
 test('network and wallet have separate surfaces and stay within the dark topbar', async ({ page }) => {
   await open(page);
   await setLab(page, { wallet: STATES[2][1] });
@@ -749,7 +873,7 @@ test('mobile menu toggles in place and preserves the live form, URL, history sta
     const menu = page.getByRole('dialog', { name: 'More menu', exact: true });
     await expect(menu).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
-    await expect(menu.getByRole('heading', { name: 'More', exact: true })).toBeVisible();
+    await expectScreenReaderOnlyMoreHeading(page);
     const close = menu.getByRole('button', { name: 'Close menu', exact: true });
     await expect(close).toHaveAttribute('aria-expanded', 'true');
     await expect(close).toHaveAttribute('aria-controls', 'mobile-more-menu');

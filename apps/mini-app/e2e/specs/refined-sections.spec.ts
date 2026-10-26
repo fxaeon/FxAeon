@@ -11,6 +11,16 @@ for (const width of [320, 390, 1280]) {
     const sensitivity = page.getByRole('region', { name: 'Collateral sensitivity' });
     await sensitivity.scrollIntoViewIfNeeded();
     await expect(sensitivity).toContainText('Enter collateral and debt');
+    expect(await sensitivity.evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(160);
+    await expect(sensitivity.getByRole('slider')).toHaveCount(0);
+    if (width >= 1200) {
+      const layout = await funding.evaluate((element) => {
+        const next = element.nextElementSibling!.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
+        return { adjacent: rect.right <= next.left, aligned: Math.abs(rect.top - next.top) < 1 };
+      });
+      expect(layout).toEqual({ adjacent: true, aligned: true });
+    }
     await sensitivity.screenshot({ path: info.outputPath('borrow-sensitivity.png') });
     await page.getByText('Borrowing terms & risk', { exact: true }).click();
     await expect(page.getByRole('link', { name: 'Borrowing details', exact: true })).toBeVisible();

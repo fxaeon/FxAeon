@@ -195,7 +195,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <ol>
       <li><strong>Choose the direction.</strong> The Send and Receive panels name the two networks. Use the direction control between them to reverse the route.</li>
       <li><strong>Choose asset and amount.</strong> Select fxUSD or fxSAVE. A fresh preview can show an estimated receive amount, minimum received, and bridge fee. Use <strong>Refresh quote</strong> if it expires.</li>
-      <li><strong>Check the recipient.</strong> It defaults to <strong>Your wallet</strong>. Choose <strong>Change</strong> to enter another <strong>Destination wallet</strong>, or <strong>Use your wallet</strong> to restore the default.</li>
+      <li><strong>Check the recipient.</strong> When connected, it defaults to <strong>Your wallet</strong>. Choose <strong>Change</strong> to enter another <strong>Destination wallet</strong>, or <strong>Use your wallet</strong> to restore the default. When disconnected, choose <strong>Set recipient</strong> to enter a destination address.</li>
       <li><strong>Review and send.</strong> Check both networks, token identity, full recipient, amount, minimum, bridge fee, and network fee. Confirm any required token approval, then the send.</li>
     </ol>
     <h3 id="move-delivery">Follow delivery</h3>

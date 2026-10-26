@@ -9,6 +9,7 @@
 .entryActions > a:hover { color: var(--text); }
 .sectionHeading { display: flex; min-height: 32px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; }
 .sectionHeading h2 { margin: 0; color: var(--text); font-size: 22px; font-weight: 550; line-height: 1.35; letter-spacing: -.03em; }
+.marketPeriod { color: var(--mut); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
 .products { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .product { --product-accent: var(--mint); position: relative; display: flex; min-width: 0; flex-direction: column; padding: 22px; border: 1px solid color-mix(in srgb, var(--product-accent) 12%, var(--line)); border-radius: 24px; background: linear-gradient(145deg, color-mix(in srgb, var(--product-accent) 6%, var(--surface)), var(--surface) 65%); transition: border-color var(--dur-fast), transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out); }
 .product[data-product="earn"] { --product-accent: #8fbc61; }

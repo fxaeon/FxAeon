@@ -39,8 +39,16 @@ Paths below are relative to `apps/mini-app/src/`.
 | Recovery | [journal](../apps/mini-app/src/lib/fx/journal.ts), [drafts](../apps/mini-app/src/lib/fx/drafts.ts), [recovery](../apps/mini-app/src/lib/fx/recovery.ts) | Scoped hints and reconciliation; never automatic resubmission |
 | Bridge verification | [bridge proof](../apps/mini-app/src/lib/fx/bridgeProof.ts), [delivery](../apps/mini-app/src/lib/fx/bridgeDelivery.ts) | Source receipt and destination delivery remain distinct |
 | Native/token wallet transfers | [Send route](../apps/mini-app/src/app/send/page.tsx), [walletSend](../apps/mini-app/src/lib/walletSend.ts) | Separate transfer preparation; no additional f(x) SDK method or automatic resend |
+| Responsive shell navigation | [AppShell](../apps/mini-app/src/components/ui.tsx), [DesktopSidebar](../apps/mini-app/src/components/DesktopSidebar.tsx) | Mobile bottom tabs and More dialog below 840px; desktop icon rail at 840–1199px; collapsible icon/label rail at 1200px and wider |
 
 [SDK scope](sdk-scope.md) is the detailed method and patch reference. [Product behavior](product-behavior.md) describes what these boundaries mean in the interface.
+
+Desktop navigation is a vertical rail. It uses icons only from 840px through
+1199px; at 1200px and wider it is expanded by default and can collapse to the
+icon rail. The choice is stored for the browser session. On mobile, the bottom
+tabs remain and More opens a modal directory while the current page is kept
+mounted behind it. The directory heading is visually hidden but remains in the
+accessible heading tree.
 
 ## Wallet selection
 

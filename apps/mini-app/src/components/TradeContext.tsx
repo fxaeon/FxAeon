@@ -19,6 +19,15 @@ import { tradeSensitivity, tradeScenarioPrice, tradeMarketReference } from '@/li
 import { ChainIcon } from './TokenIcon';
 import styles from './TradeContext.module.css';
 
+/** Display-only, truncated capacity; the original units remain in the title. */
+export function formatCapacityDisplay(amount: bigint, decimals: number): string {
+  const scale = amount >= 10n ** BigInt(decimals + 9) ? 9 : amount >= 10n ** BigInt(decimals + 6) ? 6 : amount >= 10n ** BigInt(decimals + 3) ? 3 : 0;
+  const exact = formatUnits(amount, decimals + scale);
+  const shown = formatBalanceDecimal(exact, scale || amount >= 10n ** BigInt(decimals) ? 2 : 4);
+  const approximate = !shown.startsWith('<') && shown.replaceAll(',', '') !== exact;
+  return `${approximate ? '≈ ' : ''}${shown}${scale === 9 ? 'B' : scale === 6 ? 'M' : scale === 3 ? 'K' : ''}`;
+}
+
 export function TradeContext({ market, side, leverage, openPositions, positionsStatus }: {
   market: 'ETH' | 'BTC'; side: 'long' | 'short'; leverage: number; openPositions: number | null;
   positionsStatus: 'disconnected' | 'loading' | 'unavailable' | 'ready';
@@ -38,8 +47,8 @@ export function TradeContext({ market, side, leverage, openPositions, positionsS
   const fxUSD = prices.status !== 'stale' && prices.status !== 'unavailable' && observed && Date.now() >= observed && Date.now() - observed < USD_PRICE_MAX_AGE_MS && typeof prices.prices.fxUSD === 'number' && Number.isFinite(prices.prices.fxUSD) && prices.prices.fxUSD > 0 ? prices.prices.fxUSD : undefined;
   return <div className={styles.context}>
     <section className={styles.surface} aria-labelledby="trade-sensitivity-title">
-      <header className={styles.heading}><h2 id="trade-sensitivity-title">What if {market} moves?</h2><span className={styles.tag}>Sensitivity</span></header>
-      <p className={styles.note}>Explore how your selected {side} responds to a price move at {Number.isFinite(leverage) && leverage > 0 ? `${leverage}×` : 'your selected'} leverage.</p>
+      <header className={styles.heading}><h2 id="trade-sensitivity-title">What if {market} moves?</h2></header>
+      <p className={styles.note}>{side === 'long' ? 'Long' : 'Short'} · {Number.isFinite(leverage) && leverage > 0 ? `${leverage}× initial leverage` : 'Selected leverage unavailable'}</p>
       <div className={styles.reading}><label htmlFor="trade-scenario-change">Market change</label><output htmlFor="trade-scenario-change" data-tone={change < 0 ? 'negative' : change > 0 ? 'positive' : undefined}>{change > 0 ? '+' : ''}{change}%</output></div>
       <input id="trade-scenario-change" className={`lever ${styles.slider}`} style={{ '--fill': `${(change + 30) / 60 * 100}%` } as CSSProperties} type="range" min={-30} max={30} step={1} value={change} onChange={event => setChange(Number(event.target.value))} aria-valuetext={`${change}% market change`} />
       <div className={styles.scale}><span>−30%</span><span>0%</span><span>+30%</span></div>
@@ -51,7 +60,7 @@ export function TradeContext({ market, side, leverage, openPositions, positionsS
       <dl className={styles.conditions}>
         <div><dt><MetricLabel minimalHelp label="Long-pool funding" help="Current collateral-based funding in the selected market's long pool. This is not a short-position funding quote or a debt APR. Net funding is shown only when its offset is verified." /></dt><dd title={fundingDisplay?.title}>{fundingDisplay ? `${fundingDisplay.status} · ${fundingDisplay.value}` : <MissingValue width="lg" status={funding.status === 'loading' ? 'loading' : 'unavailable'} label="Long-pool funding" />}</dd><small>{funding.rate?.netRatio === undefined ? 'Gross collateral charge' : 'Collateral-based rate'}</small></div>
         <div><dt><MetricLabel minimalHelp label="fxUSD reference" help="A display-only token market price from the app's price feed. It is not the protocol oracle price or an executable redemption value." /></dt><dd>{fxUSD !== undefined ? formatUsdPrice(fxUSD) : <MissingValue width="md" status={prices.status === 'loading' ? 'loading' : 'unavailable'} label="fxUSD reference price" />}</dd><small>Token market price</small></div>
-        <div><dt><MetricLabel minimalHelp label="Pool capacity" help="Remaining collateral and debt capacity from the selected pool manager. These are separate protocol ceilings, not a maximum trade amount. Short debt room uses normalized 18-decimal accounting units; ETH shorts are shown in stETH equivalent. Review checks the route, balances and current limits." /></dt><dd>{capacity.value ? <>{formatBalanceDecimal(formatUnits(capacity.value.collateralRemaining, capacityUnits.collateralDecimals), 4)} {capacityUnits.collateralSymbol}</> : <MissingValue width="lg" status={capacity.status === 'loading' ? 'loading' : 'unavailable'} label="Remaining pool collateral capacity" />}</dd><small>Collateral room · {side} pool</small>{capacity.value && <small>Debt room: {formatBalanceDecimal(formatUnits(capacity.value.debtRemaining, capacityUnits.debtDecimals), 4)} {capacityUnits.debtSymbol}</small>}</div>
+        <div><dt><MetricLabel minimalHelp label="Pool capacity" help="Remaining collateral and debt capacity from the selected pool manager. These are separate protocol ceilings, not a maximum trade amount. K, M and B mean thousand, million and billion; approximate values are rounded down. Short debt room uses normalized 18-decimal accounting units; ETH shorts are shown in stETH equivalent. Review checks the route, balances and current limits." /></dt><dd title={capacity.value ? `${formatUnits(capacity.value.collateralRemaining, capacityUnits.collateralDecimals)} ${capacityUnits.collateralSymbol}` : undefined}>{capacity.value ? <>{formatCapacityDisplay(capacity.value.collateralRemaining, capacityUnits.collateralDecimals)} {capacityUnits.collateralSymbol}</> : <MissingValue width="lg" status={capacity.status === 'loading' ? 'loading' : 'unavailable'} label="Remaining pool collateral capacity" />}</dd><small>Collateral room · {side} pool</small>{capacity.value && <small title={`${formatUnits(capacity.value.debtRemaining, capacityUnits.debtDecimals)} ${capacityUnits.debtSymbol}`}>Debt room: {formatCapacityDisplay(capacity.value.debtRemaining, capacityUnits.debtDecimals)} {capacityUnits.debtSymbol}</small>}</div>
         <div><dt><MetricLabel minimalHelp label="Oracle difference" help="The selected pool's anchor oracle price relative to the market USD quote for the same token: (oracle ÷ market − 1) × 100. ETH long compares stETH; ETH short inverts its oracle to USD/wstETH. BTC compares WBTC. Oracle reads expire after 60 seconds; market quotes and observation times must be within five minutes. This comparison is separate from the pool's liquidation price." /></dt><dd>{oracleDifference ? `${oracleDifference.percent > 0 ? '+' : ''}${oracleDifference.percent.toFixed(2)}%` : <MissingValue width="md" status={oracle.status === 'loading' || prices.status === 'loading' ? 'loading' : 'unavailable'} label="Oracle and token market price difference" />}</dd><small>{oracleDifference ? `${oracleDifference.token} · oracle vs market` : 'Awaiting comparable prices'}</small></div>
       </dl>
     </section>

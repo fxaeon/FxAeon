@@ -135,3 +135,17 @@
 .metrics dd.rateUnavailable { font-size: clamp(20px, 3.5vw, 27px); letter-spacing: -.025em; line-height: 1.3; color: var(--mut); }
 .metrics dt { min-height: 24px; }
 .metrics small { max-width: 26ch; }
+
+@media (min-width: 840px) {
+  .metrics > div { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  .metrics dt, .metrics dd { grid-column: 1; text-align: left; }
+}
+@media (min-width: 840px) and (max-width: 1199px) {
+  .metrics { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1200px) {
+  .layout { grid-template-areas: 'overview action' 'details details'; row-gap: 24px; grid-template-rows: min-content min-content; }
+  .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; align-items: start; }
+  .details > section { margin-bottom: 0; }
+  .details > div { grid-column: 1 / -1; width: 100%; }
+}

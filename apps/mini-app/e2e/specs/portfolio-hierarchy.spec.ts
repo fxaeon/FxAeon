@@ -240,6 +240,7 @@ test.describe('Disconnected Portfolio entry', () => {
     await expect(products.getByRole('link', { name: /Earn/ })).toHaveAttribute('href', '/earn');
     await expect(products.getByRole('link', { name: /Borrow/ })).toHaveAttribute('href', '/borrow');
     await expect(page.getByRole('heading', { name: 'Markets', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Markets', exact: true }).getByText('24h', { exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Markets', exact: true }).locator('[title="24-hour price change"]')).toHaveCount(2);
     // This fixture deliberately has no market feed. The timeframe still needs
     // to be announced without presenting a verified price or change.

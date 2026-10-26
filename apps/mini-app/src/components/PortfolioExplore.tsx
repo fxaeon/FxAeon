@@ -48,7 +48,7 @@ export default function PortfolioExplore() {
     </section>
 
     <section className={styles.markets} aria-labelledby="portfolio-markets-heading">
-      <div className={styles.sectionHeading}><h2 id="portfolio-markets-heading">Markets</h2></div>
+      <div className={styles.sectionHeading}><h2 id="portfolio-markets-heading">Markets</h2><span className={styles.marketPeriod}>24h</span></div>
       <div className={styles.marketGrid}><MarketMiniCard market="ETH" /><MarketMiniCard market="BTC" /></div>
     </section>
   </div>;

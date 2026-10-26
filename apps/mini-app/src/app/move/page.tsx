@@ -622,9 +622,9 @@ export default function MovePage() {
 
             <div className={moveStyles.recipientSection}>
               <div className={moveStyles.recipientHeading}>
-                <div className={moveStyles.recipientIdentity}><UserRound size={15} aria-hidden="true" /><span>{customRecipient ? 'Recipient' : 'Your wallet'}</span>
-                  {!customRecipient && <span className={moveStyles.recipientAddress} title={wallet.address ?? undefined}>{wallet.address ? `${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}` : 'Not connected'}</span>}
-                </div>
+                {(customRecipient || wallet.address) && <div className={moveStyles.recipientIdentity}><UserRound size={15} aria-hidden="true" /><span>{customRecipient ? 'Recipient' : 'Your wallet'}</span>
+                  {!customRecipient && wallet.address && <span className={moveStyles.recipientAddress} title={wallet.address}>{`${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}`}</span>}
+                </div>}
                 <button
                   type="button"
                   onClick={changeRecipientMode}
@@ -632,7 +632,7 @@ export default function MovePage() {
                   aria-expanded={customRecipient}
                   aria-controls="move-recipient-address"
                 >
-                  {customRecipient ? 'Use your wallet' : 'Change'}
+                  {customRecipient ? 'Use your wallet' : wallet.address ? 'Change' : 'Set recipient'}
                 </button>
               </div>
               <div id="move-recipient-address" hidden={!customRecipient}>
