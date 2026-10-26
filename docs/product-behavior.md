@@ -95,8 +95,9 @@ The review checks native funding and names a shortfall before signing; when full
 Positions confirm after one canonical block: the successful receipt and its
 transaction identity are verified, with no wait for two additional blocks.
 The result is shown before optional position and wallet refreshes finish.
-Bridge destination delivery has its separate matching-event and confirmation
-requirements; source inclusion alone never proves destination receipt.
+Bridge destination delivery also requires one canonical destination confirmation,
+with the matching message, recipient and amount re-read in its exact block.
+Source inclusion alone never proves destination receipt.
 
 Send has a separate wallet-transfer preparation path rather than an added f(x)
 SDK method. It rechecks the immutable accepted transfer, network cost, wallet

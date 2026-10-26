@@ -272,9 +272,9 @@ test("a position confirms at its inclusion block by default, retaining simulatio
     publicClient: {
       ...base,
       simulateCalls: async () => { simulationReads++; return {results: [{status: 'success', gasUsed: 100_000n}]}; },
-      getTransactionReceipt: async args => { receiptReads++; return base.getTransactionReceipt(args); },
+      getTransactionReceipt: async (args: {hash: Hex}) => { receiptReads++; return base.getTransactionReceipt(args); },
       getBlockNumber: async () => { headReads++; return 10n; },
-    } as FxPublicClient,
+    } as unknown as FxPublicClient,
     callbacks: {
       requestSignature: async () => HASH_1,
       postConfirmRead: async (_route, confirmed) => {

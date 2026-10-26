@@ -21,19 +21,22 @@ test.beforeEach(async ({ page }) => {
   await page.setContent('<div id="root"></div>');
   await page.evaluate(() => { window.__nativeMaxHarness = { calls: 0 }; });
   await page.addScriptTag({ content: bundle });
-  await expect.poll(() => page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(0);
 });
 
-test('warmup is click independent and a fresh Max applies inside the click without another request', async ({ page }) => {
-  await page.evaluate(() => window.__nativeMaxHarness.resolve?.({ amountWei: 900n, validUntil: Date.now() + 15_000 }));
+test('Max calculates only on tap and reuses its verified result on a second tap', async ({ page }) => {
   await page.getByRole('button', { name: 'Max', exact: true }).click();
-  expect(await page.evaluate(() => window.__nativeMaxHarness.clickValue)).toBe('900');
+  await expect.poll(() => page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(1);
+  await page.evaluate(() => window.__nativeMaxHarness.resolve?.({ amountWei: 900n, validUntil: Date.now() + 15_000 }));
   await expect(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('900');
   await expect(page.getByTestId('pending')).toHaveText('false');
+  await page.getByRole('textbox', { name: 'Amount' }).fill('1');
+  await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('900');
   expect(await page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(1);
 });
 
-test('cold Max immediately clears the old oversized amount and joins one warmup', async ({ page }) => {
+test('cold Max immediately clears the old oversized amount while one verified calculation runs', async ({ page }) => {
   await page.getByRole('button', { name: 'Max', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('');
   await expect(page.getByTestId('pending')).toHaveText('true');
@@ -55,8 +58,9 @@ test('manual edits and immediate percentage shortcuts cancel a pending Max write
 test('a wallet change invalidates a pending Max and unavailable gas leaves the draft empty', async ({ page }) => {
   await page.getByRole('button', { name: 'Max', exact: true }).click();
   await page.getByRole('button', { name: 'Change wallet' }).click();
-  await expect.poll(() => page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(1);
   await page.getByRole('button', { name: 'Max', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__nativeMaxHarness.calls)).toBe(2);
   await page.evaluate(() => window.__nativeMaxHarness.reject?.(new Error('current gas estimate is unavailable')));
   await expect(page.getByRole('textbox', { name: 'Amount' })).toHaveValue('');
   await expect(page.getByTestId('pending')).toHaveText('false');

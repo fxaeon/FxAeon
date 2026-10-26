@@ -111,17 +111,20 @@ test('Trade outcome rows stay compact and wrap at 320px with 200% text', async (
     const planned = await planCount(page);
     await page.evaluate(() => document.fonts.ready);
     const rows = outcome(page).locator('[data-outcome-fact]');
-    const quote = fact(page, 'Execution price').locator('.figure');
+    // Read the rendered value span directly: CSS module names differ between
+    // the Next and standalone-esbuild harnesses.
+    const quote = displayedFact(page, 'Execution price');
     const quoteGeometry = await quote.evaluate(element => {
       const range = document.createRange(); range.selectNodeContents(element);
       const rects = [...range.getClientRects()];
       const row = element.closest('[data-outcome-fact]')!.getBoundingClientRect();
       const value = element.getBoundingClientRect();
-      return { text: element.textContent?.trim(), lines: new Set(rects.map(rect => Math.round(rect.top))).size,
+      const tops = rects.map(rect => rect.top);
+      return { text: element.textContent?.trim(), baselineSpread: tops.length ? Math.max(...tops) - Math.min(...tops) : Infinity,
         fitsRow: value.left >= row.left - 1 && value.right <= row.right + 1 };
     });
     expect(quoteGeometry.text).toMatch(/fxUSD \/ stETH$/);
-    expect(quoteGeometry.lines, `Execution quote value and unit stay together at ${width}px`).toBe(1);
+    expect(quoteGeometry.baselineSpread, `Execution quote value and unit stay on one visual line at ${width}px`).toBeLessThanOrEqual(2);
     expect(quoteGeometry.fitsRow).toBe(true);
     const heights = await expectFormMetricRows(rows);
     if (width === 390) expect(Math.min(...heights), 'Short terms retain a compact row while longer prices may wrap').toBeLessThan(44);
@@ -175,7 +178,8 @@ test.describe('the ticket’s outcome preview', () => {
     await expect(fact(page, 'Estimated collateral')).toHaveCount(0);
     await expect(fact(page, 'Estimated debt')).toHaveCount(0);
     expect(preview.liquidationPrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
-    expect(preview.fee).toBe('Unavailable');
+    expect(preview.fee).toBe('');
+    await expect(fact(page, 'f(x) fee').getByRole('status', { name: 'f(x) fee unavailable' })).toBeAttached();
     const plansBeforeReview = await planCount(page);
 
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();

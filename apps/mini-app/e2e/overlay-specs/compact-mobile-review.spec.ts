@@ -368,12 +368,13 @@ test('execution price keeps its amount and complete token unit on one line at ph
         const range = document.createRange(); range.selectNodeContents(text);
         const rects = [...range.getClientRects()];
         const rowBox = element.getBoundingClientRect(); const valueBox = value.getBoundingClientRect();
-        return { text: text.textContent?.trim(), lineTops: [...new Set(rects.map(rect => Math.round(rect.top)))],
+        const tops = rects.map(rect => rect.top);
+        return { text: text.textContent?.trim(), baselineSpread: tops.length ? Math.max(...tops) - Math.min(...tops) : Infinity,
           insideRow: valueBox.left >= rowBox.left - 1 && valueBox.right <= rowBox.right + 1,
           textInsideValue: rects.every(rect => rect.left >= valueBox.left - 1 && rect.right <= valueBox.right + 1) };
       });
       expect(geometry.text).toMatch(fixture.market === 'ETH' ? /fxUSD \/ stETH$/ : /fxUSD \/ WBTC$/);
-      expect(geometry.lineTops, 'Price and quote denomination share one baseline').toHaveLength(1);
+      expect(geometry.baselineSpread, 'Price and quote denomination share one visual line despite subpixel font metrics').toBeLessThanOrEqual(2);
       expect(geometry.insideRow).toBe(true);
       expect(geometry.textInsideValue).toBe(true);
       await page.screenshot({ path: info.outputPath(`execution-price-${fixture.market}-${fixture.side}-${width}.png`), animations: 'disabled' });

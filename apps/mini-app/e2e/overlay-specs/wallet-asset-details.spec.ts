@@ -72,9 +72,10 @@ test('the price is shown only while it is fresh', async ({ page }) => {
 
   sheet = await mount(page, 'Stale price');
   const stalePrice = sheet.locator('dl > div').filter({ has: page.locator('dt', { hasText: /^Price$/ }) });
-  await expect(stalePrice.getByRole('status', { name: 'Price unavailable', exact: true })).toBeVisible();
+  await expect(stalePrice.getByRole('status', { name: 'Price unavailable', exact: true })).toHaveCount(1);
+  await expect(stalePrice.locator('dd')).toHaveText('');
   await expect(stalePrice.locator('dd')).not.toContainText('$');
-  await expect(sheet.getByRole('status', { name: 'Holding value unavailable', exact: true })).toBeVisible();
+  await expect(sheet.getByRole('status', { name: 'Holding value unavailable', exact: true })).toHaveCount(1);
 });
 
 test('the wallet address reads in groups and still copies exactly', async ({ page }) => {
