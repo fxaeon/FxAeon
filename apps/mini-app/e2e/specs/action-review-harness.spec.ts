@@ -549,10 +549,11 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('heading', { name: 'Partially completed', exact: true })).toBeVisible();
     // The real receipt link retains the exact submitted hash; the fixture
     // never follows it or contacts a chain.
-    const receipts = page.getByRole('region', { name: 'Transaction receipts', exact: true });
-    await expect(receipts).toBeVisible();
-    await expect(receipts.getByRole('link')).toHaveCount(1);
-    await expect(receipts.getByRole('link')).toHaveAttribute('href', 'https://etherscan.io/tx/0x1111111111111111111111111111111111111111111111111111111111111111');
+    const transactionStatus = page.getByRole('region', { name: 'Transaction status', exact: true });
+    await expect(transactionStatus).toBeVisible();
+    await expect(transactionStatus.getByRole('link')).toHaveCount(1);
+    await expect(transactionStatus.getByRole('link')).toHaveAttribute('href', 'https://etherscan.io/tx/0x1111111111111111111111111111111111111111111111111111111111111111');
+    await expect(page.getByRole('region', { name: 'Transaction receipts', exact: true })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
     expect(await metric(page, 'send')).toBe(1);
     const callbacks = await page.evaluate(() => {
