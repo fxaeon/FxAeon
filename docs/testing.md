@@ -87,7 +87,7 @@ the desktop icon rail at 840–1199px, and the expanded/collapsed rail at
 is visually hidden and must remain available to assistive technology. Check that
 hover and keyboard label reveal preserve the collapsed content inset and saved
 preference. Wallet picker regressions cover long detected lists at desktop and
-short-phone sizes, including a fully visible fixed Other wallets action.
+short-phone sizes, including a fully visible fixed Other wallets action. Additional EIP-6963 wallet icons are bounded data images rendered through img; tests reject network/HTML/oversized payloads, verify malformed-image recovery and SVG isolation, and retain local catalog marks (including Base). A distinct standalone browser provider remains selectable through Other wallets when named providers are present; regression coverage verifies the exact selected provider receives the account request.
 
 Earn regressions cover method-first withdrawal selection: only Instant chooses
 fxUSD/USDC, cooldown claims report pool assets, and direct fxSP estimates require
