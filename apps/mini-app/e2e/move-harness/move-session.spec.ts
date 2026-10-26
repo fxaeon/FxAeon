@@ -181,7 +181,7 @@ test('Move expires and refreshes its quote, and blocks zero or invalid recipient
     h.preview.responses.push(expired);
   }, { ...fresh(), readAt: Date.now() - 31_000 });
   await page.getByRole('textbox', { name: 'Amount', exact: true }).fill('1');
-  await expect(page.getByRole('status')).toContainText('Quote expired');
+  await expect(page.getByRole('status').filter({ hasText: 'Quote expired' })).toContainText('Quote expired');
   await page.evaluate((response) => { (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.responses.push(response); }, fresh());
   await page.getByRole('button', { name: 'Refresh quote' }).click();
   await expect(page.locator('section[aria-label="Receive assets"] strong').first()).toHaveText('0.95');
