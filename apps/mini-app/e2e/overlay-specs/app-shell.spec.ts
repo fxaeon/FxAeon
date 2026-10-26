@@ -1076,3 +1076,72 @@ test('mobile menu closes on desktop resize and reduced motion disables its anima
   await expect(page.locator('.desktop-navigation')).toBeVisible();
   await expectMenuDismissed(page, originalBodyOverflow);
 });
+
+for (const [path, readableWidth, childWidth] of [['/trade', 1120, 1120], ['/more', 800, 560], ['/send', 560, 560]] as const) {
+  test(`desktop ${readableWidth}px content gutters scroll the same main at 1920px`, async ({ page }) => {
+    await open(page, {width: 1920, height: 480});
+    await setLab(page, {path, wallet: STATES[2][1]});
+    const main = page.locator('[data-shell-content]');
+    const sidebar = page.locator('[data-desktop-sidebar]');
+    await expect(main.locator(path === '/more' ? '[data-utility-directory]' : path === '/trade' ? '.trade-workspace' : ':scope > div')).toBeVisible();
+    await expect.poll(() => main.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const geometry = await main.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const left = rect.left + parseFloat(style.paddingLeft);
+      const right = rect.right - parseFloat(style.paddingRight);
+      const sidebar = document.querySelector('[data-desktop-sidebar]')!.getBoundingClientRect();
+      const child = element.querySelector('.trade-workspace, [data-product-layout="account"], :scope > div')!.getBoundingClientRect();
+      return {left, right, mainLeft: rect.left, mainRight: rect.right,
+        y: rect.top + 100, sidebarRight: sidebar.right, width: right - left,
+        childWidth: child.width,
+        childCenter: child.x + child.width / 2};
+    });
+    expect(geometry.width).toBe(readableWidth);
+    expect(geometry.childWidth).toBe(childWidth);
+    expect(geometry.childCenter).toBe((geometry.sidebarRight + 1920) / 2);
+    expect(geometry.mainLeft).toBe(geometry.sidebarRight);
+    expect(geometry.mainRight).toBe(1920);
+    expect((geometry.left + geometry.right) / 2).toBe((geometry.sidebarRight + 1920) / 2);
+    for (const x of [(geometry.mainLeft + geometry.left) / 2, (geometry.right + geometry.mainRight) / 2]) {
+      await main.evaluate(element => { element.scrollTop = 0; });
+      await page.mouse.click(x, geometry.y);
+      await page.mouse.wheel(0, 240);
+      await expect.poll(() => main.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      await page.waitForTimeout(250);
+      await main.evaluate(element => { element.scrollTop = 0; });
+      await page.mouse.click(x, geometry.y);
+      await page.keyboard.press('PageDown');
+      await expect.poll(() => main.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      await page.waitForTimeout(250);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    }
+    await main.evaluate(element => { element.scrollTop = 0; });
+    const sidebarBox = await sidebar.boundingBox();
+    await page.mouse.move(sidebarBox!.x + sidebarBox!.width / 2, sidebarBox!.y + 100);
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(250);
+    expect(await main.evaluate(element => element.scrollTop)).toBe(0);
+    await sidebar.getByRole('link', {name: 'Trade', exact: true}).focus();
+    await page.keyboard.press('PageDown');
+    await page.waitForTimeout(200);
+    expect(await main.evaluate(element => element.scrollTop)).toBe(0);
+    const settledWidth = await main.evaluate(element => {
+      const style = getComputedStyle(element);
+      return element.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    });
+    expect(settledWidth).toBe(readableWidth);
+    if (path === '/more') {
+      await page.getByRole('button', {name: /^Transaction settings,/}).click();
+      const dialog = page.getByRole('dialog', {name: 'Transaction settings', exact: true});
+      await expect(dialog).toBeVisible();
+      const previousScroll = await main.evaluate(element => element.scrollTop);
+      await page.mouse.move((geometry.mainLeft + geometry.left) / 2, geometry.y);
+      await page.mouse.wheel(0, 240);
+      await dialog.getByRole('button', {name: 'Close transaction settings', exact: true}).focus();
+      await page.keyboard.press('PageDown');
+      await page.waitForTimeout(200);
+      expect(await main.evaluate(element => element.scrollTop)).toBe(previousScroll);
+    }
+  });
+}

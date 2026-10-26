@@ -126,3 +126,7 @@ Selecting the already active asset closes its picker without resetting the ticke
 The mobile menu is included in the app shell and opens without a separate code
 download or loading message. Opening and closing it preserves the mounted form
 and its scroll position.
+
+Desktop page gutters are part of the main scroll surface. Clicking either side
+of the centered content preserves wheel and keyboard scrolling; sidebar and
+modal interactions remain isolated from the page beneath them.
