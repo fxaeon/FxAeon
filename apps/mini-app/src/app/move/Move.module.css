@@ -20,7 +20,7 @@
 .quoteHeading { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
 .quoteHeading button { color: var(--mint-text, var(--mint)); min-height: 44px; font-size: 12px; }
 .quoteHeading button:disabled { color: var(--mut); }
-.quoteSummary dl { display: grid; gap: 0; margin: 0; font-size: 13px; line-height: 1.45; }
+.quoteSummary dl { display: grid; gap: 0; margin: 0; font-size: 12px; line-height: 1.35; }
 .quoteSummary dl > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-width: 0; min-height: 24px; }
 .quoteSummary dt { min-width: 0; color: var(--mut); }
 .quoteSummary dt > :global(span) { display: flex; flex-wrap: wrap; align-items: center; }
@@ -95,3 +95,16 @@
 .sourcePanel { padding-bottom: 22px; }
 .destinationPanel { padding-top: 22px; }
 @media (prefers-reduced-motion: reduce) { .routeSwap svg { transition: none; } }
+
+/* Currency amounts and USD equivalents wrap as complete values. */
+.quoteSummary dd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 2px 6px; max-width: 66%; }
+.quoteSummary dd > :global(span) { display: inline-block; white-space: nowrap; overflow-wrap: normal; }
+.quoteSummary dd :global([data-usd-state]) { display: inline; margin: 0; font-size: inherit; color: var(--mut); }
+.quoteValuePlaceholder, .feeUsdPlaceholder { display: inline-flex; height: 1em; min-height: 1em; margin: 0; }
+
+.quoteSummary { container-type: inline-size; }
+@container (max-width: 220px) {
+  .quoteSummary dl > div { flex-wrap: wrap; row-gap: 0; }
+  .quoteSummary dt { flex-basis: 100%; }
+  .quoteSummary dd { margin-left: auto; max-width: 100%; }
+}

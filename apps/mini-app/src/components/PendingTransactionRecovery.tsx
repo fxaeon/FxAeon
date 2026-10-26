@@ -257,7 +257,6 @@ function RecoveryItem({ view, trackBridge, autoTrackBridge, task, positionHint, 
           {showBridgeTracker && view.record.bridge && (
             <BridgeTracker
               compact
-              advancedContent={advancedContent}
               className="mt-3"
               sourceChain={view.record.chainId === 1 ? 'Ethereum' : 'Base'}
               destinationChain={view.record.bridge.destinationChainId === 1 ? 'Ethereum' : 'Base'}

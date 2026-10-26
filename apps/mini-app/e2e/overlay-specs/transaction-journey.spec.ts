@@ -99,15 +99,7 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
     await page.screenshot({ path: info.outputPath('funding-status-help.png'), animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(borrowRateHelp).toBeFocused();
-    const details = viewport.locator('details[aria-label="Advanced transaction details"]');
-    await details.locator('summary').first().click();
-    for (const label of ['Deposit', 'Debt added', 'Estimated debt', 'Loan-to-value', 'Borrow rate', 'Gas fee', 'f(x) fee']) {
-      await expect(details.locator(`[data-review-evidence="${label}"]`)).toHaveCount(0);
-    }
-    await expect(details.getByRole('region', { name: 'Prepared transactions' })).toBeVisible();
-    await details.getByRole('region', { name: 'Prepared transactions' }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: info.outputPath('technical-details.png'), animations: 'disabled' });
-    await details.locator('summary').first().click();
+    await expect(viewport.locator('details[aria-label="Advanced transaction details"]')).toHaveCount(0);
   }
   await cta.click();
   const pending = page.getByRole('region', { name: 'Transaction progress', exact: true });

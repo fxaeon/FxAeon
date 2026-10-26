@@ -74,7 +74,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     await info.attach('initial-essential-geometry', { body: evidence, contentType: 'application/json' });
     await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
     expectClosedReviewFits(essential);
-    await expect(review.locator('details[data-review-secondary] > summary')).toBeInViewport({ ratio: 1 });
+    await expect(review.locator('details[data-review-secondary]')).toHaveCount(0);
     await expect(review.locator('[data-review-essential] [data-review-fact="Gas fee"]')).toBeVisible();
     if (kind === 'trade' || kind === 'borrow') {
       const expectedPrices = kind === 'borrow'
@@ -234,15 +234,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
     if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toHaveCount(0);
-    const more = review.locator('details[aria-label="Advanced transaction details"] > summary');
-    await more.scrollIntoViewIfNeeded();
-    expect(await more.evaluate(node => {
-      const bounds = node.getBoundingClientRect();
-      const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
-      return bounds.top >= body.top - 1 && bounds.bottom <= body.bottom + 1;
-    }), 'the last disclosure is reachable inside the terms region').toBe(true);
-    await expect(action).toBeInViewport({ ratio: 1 });
-    await more.click();
+    await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveCount(0);
     await expect(action).toBeInViewport({ ratio: 1 });
     const close = page.getByRole('button', { name: 'Close transaction review', exact: true });
     if (await close.count()) await close.click();

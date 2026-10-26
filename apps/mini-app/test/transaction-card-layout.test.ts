@@ -7,7 +7,8 @@ test('reference review owns a side-by-side identity outside one grouped facts ca
   const review = source('components/ActionReview.tsx');
   const identity = source('components/review/TransactionIdentity.tsx');
   assert.match(review, /stage === 'executing' \? <PendingTransactionSummary/);
-  assert.match(review, /stage === 'executing' && <section[^]*?aria-label="Reviewed terms"/);
+  assert.doesNotMatch(review, /stage === 'executing' && <section[^]*?aria-label="Reviewed terms"/);
+  assert.match(review, /stage === 'executing' && bridgeReview && acceptedBridgeQuote\?\.recipient/);
   assert.ok(review.indexOf('<TransactionIdentity {...identity}') < review.indexOf('presentationStyles.facts}'));
   assert.match(identity, /TokenIcon symbol=\{symbol\}/);
   assert.match(identity, /data-amount-provenance="review"/);
@@ -22,7 +23,7 @@ test('all position and loan reviews retain risk rows without manufacturing price
   assert.match(review, /const tradingAction = intent\?\.kind === 'position-increase' \|\| intent\?\.kind === 'position-reduce' \|\| leverageReview/);
   assert.match(review, /\(tradingAction \|\| loanAction\) && <div className=\{`\$\{presentationStyles.riskGroup\}/);
   assert.match(review, /tradingAction && priceImpact && <ReviewRow compact label="Price impact"/);
-  assert.match(review, /Execution details/);
+  assert.doesNotMatch(review, /Execution details/);
   assert.match(review, /\[\.\.\.hierarchy.primary, \.\.\.hierarchy.more\]/);
   assert.match(review, /CollateralAmount collateral=\{collateralValuation\}/);
   assert.match(review, /ReviewTermRow fact=\{collateral\}[^]*?displayValue=\{collateralValuation/);

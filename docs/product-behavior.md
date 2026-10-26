@@ -214,3 +214,18 @@ sizes, its toggle returns beside the brand to the same coordinates used by the
 pinned-expanded rail. The brand and destination icons remain fixed, and transient
 reveal does not move content or replace the saved preference. The toggle retains
 its 44px target and respects reduced motion.
+
+## Compact review follow-up — 2026-10-27
+
+Transaction review, pending, result, and bridge cards omit the Execution details
+disclosure and contract, calldata, nonce, quote payload, and fingerprint rows.
+Amounts, recipient, minimum received, fees, risk terms, and wallet signing
+progress remain visible. Embedded wallets retain the network fee speed control.
+
+Confirmed receipts retain explorer links and a network fee total that includes
+approvals and Base fee components when complete; incomplete fee data stays
+explicitly unavailable. Receipt details appear only for additional token
+movements not otherwise displayed. Bridge source confirmation remains distinct
+from destination delivery, with retry and external tracking available while
+delivery is unverified. Simulation keeps its explicit label and has no public
+transaction links. Signing-time and destination verification guards are unchanged.

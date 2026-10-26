@@ -628,8 +628,8 @@ export default function MovePage() {
               </p>}
             </section>
             {amountWei && !advanced && (!customRecipient || (isAddress(recipientInput.trim()) && !/^0x0{40}$/i.test(recipientInput.trim()))) && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
-              <div className={moveStyles.quoteHeading}><span>Via LayerZero</span>
-                <button type="button" disabled={quotePending} onClick={() => setPreviewRevision(value => value + 1)}>Refresh quote</button>
+              <div className={moveStyles.quoteHeading}><span>Bridge quote</span>
+                <button type="button" disabled={quotePending} onClick={() => setPreviewRevision(value => value + 1)}>Refresh</button>
               </div>
               <dl>
                 <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : ''} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} pending={quotePending} />

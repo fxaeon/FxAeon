@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
+import { formatUnits } from 'viem';
+import { compactAddress } from '@/lib/addressPresentation';
 import { useRouter } from 'next/navigation';
 import { usePauseAutomaticPositionRefresh } from './PositionRefreshActivity';
 import { usePresentedTransactions } from '@/lib/pendingActivity';
@@ -9,12 +11,10 @@ import {
   AlertTriangle,
   X,
   CheckCircle2,
-  ChevronDown,
   CircleAlert,
   Clock3,
   LoaderCircle,
 } from 'lucide-react';
-import { decodeFunctionData, formatEther, formatUnits } from 'viem';
 import {
   FX_TOKENS,
   type PlanStatus,
@@ -26,13 +26,12 @@ export type { ActionPlanBuilder, ActionReviewProps, ActionReviewStage } from '@/
 import { Button, Card } from '@/components/ui';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
 import ConnectWalletButton from '@/components/ConnectWalletButton';
-import { compactAddress } from '@/lib/addressPresentation';
 import { hasTransactionHash } from '@/lib/transactionProgress';
 import { BridgeTracker } from '@/components/BridgeTracker';
-import { CalldataDisclosure, InlineError, StatusNotice, stepProgress, chainName } from '@/components/review/ReviewProgress';
+import { InlineError, StatusNotice, chainName } from '@/components/review/ReviewProgress';
 import { resultPresentation } from '@/components/review/executionResult';
 import { splitReviewFacts } from '@/components/review/reviewSummary';
-import { exactAmountText, factsOutsideConsequenceSummary, missingGasFeeFact, missingTotalCostFact, nativeFundsNotice, primaryReviewFacts, routeFacts as buildRouteFacts } from '@/components/review/actionReviewPresentation';
+import { factsOutsideConsequenceSummary, missingGasFeeFact, missingTotalCostFact, nativeFundsNotice, primaryReviewFacts, routeFacts as buildRouteFacts } from '@/components/review/actionReviewPresentation';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
 import { consequenceSummary, pairVerifiedPositionFacts, reviewActionLabel } from '@/components/review/actionReviewModel';
 import { useActionReviewLifecycle } from '@/components/review/useActionReviewLifecycle';
@@ -40,9 +39,9 @@ import { selectExecutionTask } from '@/lib/taskState';
 import { buildReceiptPresentation, receiptTransfersFromLogs } from '@/lib/receiptPresentation';
 import { receiptMintedPositionIdentity } from '@/lib/confirmedPositions';
 import { positionSideLabel } from '@/lib/positionNaming';
-import { positionOutcomeFacts, rawQuoteReviewFacts, tokenAmountReviewFact, type ReviewFact } from '@/lib/fx/reviewFormatting';
+import { positionOutcomeFacts, type ReviewFact } from '@/lib/fx/reviewFormatting';
 import { buildStatusPresentation } from '@/components/review/actionReviewStatusModel';
-import { PositionOutcomeSummary, TransactionProgressPresentation, UpdatedQuoteSummary } from '@/components/review/ActionReviewSummary';
+import { PositionOutcomeSummary, UpdatedQuoteSummary } from '@/components/review/ActionReviewSummary';
 import { TransactionResultView } from '@/components/review/TransactionResultView';
 import { ReviewViewport } from '@/components/review/ReviewViewport';
 import { MobileFlowSheet } from '@/components/MobileFlowSheet';
@@ -62,9 +61,7 @@ import { BORROW_FUNDING_MAX_AGE_MS } from '@/lib/fx/borrowFunding';
 import { TRADE_FUNDING_MAX_AGE_MS } from '@/lib/fx/tradeFunding';
 import { reviewHelpDefinition } from './review/reviewHelp';
 import { transactionCardIdentity } from './review/transactionCardIdentity';
-import { AmountUsd, FeeUsd, FeeAmount, CollateralAmount } from './review/AmountUsd';
-import { TechnicalEvidenceRow } from './review/TechnicalEvidenceRow';
-import { exactEvidenceJson } from './review/technicalEvidence';
+import { FeeUsd, FeeAmount, CollateralAmount } from './review/AmountUsd';
 import { retainedClaimPreviewFacts } from './review/claimPreviewPresentation';
 import { plainTransactionCopy, plainWalletStatus } from './review/transactionAmountPresentation';
 import { BridgeReviewSummary } from './review/BridgeReviewSummary';
@@ -75,10 +72,6 @@ import { formatGasPriceGwei } from '@/lib/fx/gasFeePolicy';
 import styles from './FlowWorkspace.module.css';
 import { StickyAction } from './StickyAction';
 import presentationStyles from './review/ActionReviewPresentation.module.css';
-
-function trimDecimal(value: string): string {
-  return value.includes('.') ? value.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') : value;
-}
 
 function tokenForAddress(address: string | undefined) {
   if (!address) return undefined;
@@ -91,52 +84,11 @@ function tokenSymbolForAddress(address: string | undefined): string | undefined 
   return token && tokenSymbol(token.key);
 }
 
-function formatTokenAmount(value: bigint, tokenAddress?: string, fallback = 'raw units'): string {
-  const token = tokenForAddress(tokenAddress);
-  if (!token) return `${value.toString()} ${fallback}`;
-  return `${exactAmountText(trimDecimal(formatUnits(value, token.decimals)))} ${tokenSymbol(token.key)}`;
-}
-
 /** Preparation names the check that is actually running. */
 function preparationStep(status: PlanStatus): string {
   return status === 'reviewing'
     ? 'Simulating each step and checking network fees.'
     : 'Finding the route and its quote.';
-}
-
-const APPROVE_ABI = [{
-  type: 'function',
-  name: 'approve',
-  stateMutability: 'nonpayable',
-  inputs: [
-    { name: 'spender', type: 'address' },
-    { name: 'amountOrTokenId', type: 'uint256' },
-  ],
-  outputs: [{ name: '', type: 'bool' }],
-}] as const;
-
-function approvalFacts(transaction: PlannedTransaction): {
-  spender: string;
-  valueLabel: string;
-  value: bigint;
-} | null {
-  if (transaction.kind !== 'approval') return null;
-  try {
-    const decoded = decodeFunctionData({ abi: APPROVE_ABI, data: transaction.data });
-    const [spender, amountOrTokenId] = decoded.args;
-    return {
-      spender,
-      valueLabel: transaction.type === 'approvePosition' ? 'Position NFT ID' : 'Exact amount (raw units)',
-      value: amountOrTokenId,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function approvalSummary(transaction: PlannedTransaction, approval: NonNullable<ReturnType<typeof approvalFacts>>): string {
-  if (transaction.type === 'approvePosition') return `Position #${approval.value.toString()}`;
-  return formatTokenAmount(approval.value, transaction.to);
 }
 
 function stepTitle(transaction: PlannedTransaction): string {
@@ -222,7 +174,7 @@ export function ActionReview(props: ActionReviewProps) {
           </Button>
         )}
         {preparing ? <div className={presentationStyles.inputPreparation}>
-          <p role="status" aria-live="polite">{preparationStep(status)}</p>
+          <p className="sr-only" role="status" aria-live="polite">{preparationStep(status)}</p>
           <button type="button" onClick={reset}>Cancel</button>
         </div> : loading && <StatusNotice {...progress} />}
       </div>
@@ -351,9 +303,8 @@ export function ActionReview(props: ActionReviewProps) {
           reviewedPositionChanges={pairVerifiedPositionFacts(beforeFacts, acceptedAmountFacts).paired}
           confirmedPosition={confirmedPosition}
           headingRef={headingRef}
-          bridgeTracker={bridgeQuote ? (advancedContent, completionContent) => (
+          bridgeTracker={bridgeQuote ? (completionContent) => (
             <BridgeTracker
-              advancedContent={advancedContent}
               completionContent={completionContent}
               headingRef={headingRef}
               compact
@@ -472,37 +423,6 @@ export function ActionReview(props: ActionReviewProps) {
   const borrowRate = facts.find(fact => fact.label === 'Borrow rate');
   const tradeFunding = facts.find(fact => fact.label === 'Funding rate');
   const currentApy = facts.find(fact => fact.label === 'Current APY');
-  // Each visible term owns its exact value and explanation. Only additional
-  // route limits and verification evidence belong in the technical disclosure.
-  const decisionLabels = new Set([
-    ...amountLabels, ...compactFacts.map(fact => fact.label), identityLabel,
-    // A new loan already names its resulting total debt in the position strip.
-    ...(newBorrowReview && positionChanges.paired.some(change => change.label === 'Debt') ? ['Debt added'] : []),
-    ...(/(?:Position|Loan) #/.test(identity.subtitle ?? '') ? ['Position'] : []),
-    ...(collateral ? ['Estimated collateral'] : []),
-    ...(tradingAction ? ['Execution price', 'Price impact'] : []),
-    ...(tradingAction && tradeFunding ? [tradeFunding.label] : []),
-    ...(tradeReview || leverageReview ? ['Target leverage'] : []),
-    ...(slippage && !loanAction ? ['Slippage'] : []),
-    ...(intent?.kind === 'fxsave-deposit' ? ['Current APY'] : []),
-    ...(loanAction && intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n ? ['Borrow rate'] : []),
-    'Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee', 'Claim payout',
-  ]);
-  const bridgeDecisionLabels = new Set(stableBridgeFacts.map(fact => fact.label).filter(label => !['Total cost', 'Delivery estimate'].includes(label)));
-  if (bridgeReview) for (const label of ['Source network', 'Destination network', 'Asset', 'Slippage', 'Price impact']) bridgeDecisionLabels.add(label);
-  const additionalFacts = [...hierarchy.primary, ...hierarchy.more].filter(fact =>
-    !(bridgeReview ? bridgeDecisionLabels : decisionLabels).has(fact.label)
-    && !pairedOutcomeLabels.has(fact.label.toLowerCase()));
-  const approvals = (route?.transactions ?? [])
-    .map((transaction) => {
-      const approval = approvalFacts(transaction);
-      if (!approval) return null;
-      const amount = approval.valueLabel === 'Position NFT ID'
-        ? { value: `#${approval.value}`, title: `#${approval.value}` }
-        : tokenAmountReviewFact('Approval', approval.value, transaction.to);
-      return { label: stepTitle(transaction), value: amount.value, title: `${amount.title} → ${approval.spender}` };
-    })
-    .filter((value): value is { label: string; value: string; title: string } => value !== null);
   const showExecutionProgress = stage === 'executing' || stepResults.some(hasTransactionHash);
   const wrongNetwork = wallet.chainId !== undefined && wallet.chainId !== reviewChainId;
   const unsupportedNetwork = wallet.chainId === undefined;
@@ -511,8 +431,7 @@ export function ActionReview(props: ActionReviewProps) {
   const progress = plainWalletStatus(statusPresentation({ stage, status, detail: statusDetail, stepResults, stepCount, operation: route?.operation, refreshing, networkSwitching }), status === 'awaiting-user', networkSwitching, nextTransaction?.kind, actionCopy.title);
   const confirmLabel = nextTransaction?.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm;
   const actionNotice = error ?? (fundsNotice ? <>{fundsNotice} <ReceiveLink /></>
-    : checkingGas ? 'Checking network fees and available ETH.'
-      : quoteExpired ? 'Quote expired. Review fresh terms to continue.' : undefined);
+    : quoteExpired ? 'Quote expired. Review fresh terms to continue.' : undefined);
   const feeSpeedControl = wallet.isEmbedded && (visibleFeeSelection || stablePreparation) && <section className={presentationStyles.advancedGroup} aria-label="Network speed">
         <p className={presentationStyles.advancedGroupLabel}>Network speed</p>
         <fieldset className={styles.feeSelector} disabled={loading || stage !== 'review' || !visibleFeeSelection}>
@@ -614,51 +533,8 @@ export function ActionReview(props: ActionReviewProps) {
       {route && wrongNetwork && <p role="status" className={presentationStyles.reviewNotice}>Network switch: {chainName(wallet.chainId!)} → {chainName(reviewChainId)}</p>}
       {route && unsupportedNetwork && <p role="status" className={presentationStyles.reviewNotice}>Network unavailable · {chainName(reviewChainId)} required</p>}
 
-      <details data-review-secondary className={presentationStyles.reviewDetails} aria-label="Advanced transaction details">
-        <summary><span>Execution details</span><span><ChevronDown size={16} aria-hidden="true" /></span></summary>
-      <div className={presentationStyles.disclosures}>
-      {stage === 'executing' && <section aria-label="Reviewed terms">{decisionContent}</section>}
-      {showExecutionProgress && stage !== 'executing' && <TransactionProgressPresentation label="Submitted transactions" status={status} stepResults={stepResults} chainId={reviewChainId} presentation={progress} />}
-      {route ? <>
-      {feeSpeedControl}
-      <DecisionContext beforeFacts={positionChanges.remainingBefore.filter(fact => !['Collateral', 'Debt', 'Loan-to-value'].includes(fact.label))} />
-      {(additionalFacts.length > 0 || approvals.length > 0) && <section className={`${presentationStyles.advancedGroup} ${presentationStyles.moreFacts}`} aria-label="Route and limits">
-        <p className={presentationStyles.advancedGroupLabel}>Route & limits</p>
-        {additionalFacts.map(fact => <ReviewRow secondary quiet={stablePreparation} key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Slippage' ? 'Max. slippage' : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} />)}
-        {approvals.map((approval, index) => <ReviewRow key={`${approval.label}-${index}`} label={approval.label} value={approval.value} title={approval.title} />)}
-      </section>}
-
-      <section className={presentationStyles.advancedGroup} aria-label="Prepared transactions">
-        <p className={presentationStyles.advancedGroupLabel}>Wallet requests</p>
-        {route.transactions.map((transaction, index) => {
-          const approval = approvalFacts(transaction);
-          const progress = stepProgress(stepResults[index]);
-          return (
-          <div key={`${transaction.to}-${index}`} role="group" aria-label={`Transaction ${index + 1}`} className={presentationStyles.transactionStep}>
-            <div className={presentationStyles.transactionStepHeader}>
-              <span className={presentationStyles.transactionStepTitle}><span className={presentationStyles.transactionStepNumber} aria-hidden="true">{index + 1}</span>{stepTitle(transaction)}</span>
-              {stepResults[index] && <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${progress.className}`}>{progress.icon}{progress.label}</span>}
-            </div>
-            {approval && <p className={presentationStyles.transactionStepNote}>{approvalSummary(transaction, approval)} to <span className="font-mono">{compactAddress(approval.spender)}</span></p>}
-            {transaction.value > 0n && <p className={presentationStyles.transactionStepNote}>Value sent: {exactAmountText(trimDecimal(formatEther(transaction.value)))} ETH <span className="text-[var(--mut-2)]">(network fees are separate)</span><AmountUsd amount={formatEther(transaction.value)} symbol="ETH" /></p>}
-            <div className={presentationStyles.advancedRows}>
-              <TechnicalEvidenceRow label="Contract" value={transaction.to} />
-              <TechnicalEvidenceRow label="Transaction value (wei)" value={transaction.value.toString()} />
-              <ReviewRow label="Nonce" value={transaction.nonce === undefined ? 'Checked before signing' : String(transaction.nonce)} />
-              {approval && <TechnicalEvidenceRow label="Approval spender" value={approval.spender} />}
-              {approval && <TechnicalEvidenceRow label={approval.valueLabel} value={approval.value.toString()} />}
-              <CalldataDisclosure data={transaction.data} />
-            </div>
-          </div>
-          );
-        })}
-      </section>
-
-      </> : null}
-      {route && <AdvancedReviewDetails route={route} />}
-      </div>
-      </details>
-
+      {stage === 'review' && feeSpeedControl}
+      {stage === 'executing' && bridgeReview && acceptedBridgeQuote?.recipient && <div className={presentationStyles.detailFact} data-pending-recipient><span>Recipient</span><span title={acceptedBridgeQuote.recipient}>{compactAddress(acceptedBridgeQuote.recipient)}</span></div>}
       {/* A failed check is told once, by its error below, not again as "Action stopped". */}
       {!stablePreparation && !showExecutionProgress && !(stage === 'review' && status === 'reviewing') && !(stage === 'review' && status === 'failed' && error) && <div className="mt-4"><StatusNotice {...progress} /></div>}
       {(!stablePreparation || stage === 'executing') && error && <div className="mt-3"><InlineError message={error} /></div>}
@@ -701,28 +577,6 @@ function ReceiveLink() {
   return <Link href="/qr" className={styles.fundsLink}>Receive ETH</Link>;
 }
 
-function AdvancedReviewDetails({ route }: { route: PlannedRoute }) {
-  const bridgeQuote = isBridgeQuote(route.quote) ? route.quote : null;
-  const rawQuoteFacts = rawQuoteReviewFacts(route);
-  const evidence = {
-    requestedAmountRaw: route.details?.requestedAmount,
-    quote: rawQuoteFacts,
-    economicLimits: route.details?.economicLimits,
-    conversionPaths: route.details?.conversionPaths,
-    actionFingerprint: route.policy?.reviewedAction?.expectedActionDataFingerprint,
-    ...(bridgeQuote ? { bridge: bridgeQuote } : {}),
-  };
-  const hasDetails = Object.values(evidence).some(value => Array.isArray(value) ? value.length > 0 : value !== undefined);
-  if (!hasDetails) return null;
-  const exactJson = exactEvidenceJson(evidence);
-  return <section className={presentationStyles.advancedGroup} aria-label="Contract and quote data">
-    <p className={presentationStyles.advancedGroupLabel}>Verification data</p>
-    <TechnicalEvidenceRow label="Quote data" value={exactJson} preview="View exact data" />
-    {route.policy?.reviewedAction?.expectedActionDataFingerprint && <TechnicalEvidenceRow label="Action fingerprint" value={route.policy.reviewedAction.expectedActionDataFingerprint} />}
-  </section>;
-
-}
-
 type BridgeReviewQuote = {
   nativeFee: bigint;
   destinationChainId?: number;
@@ -751,11 +605,4 @@ type BridgeReviewQuote = {
 
 function isBridgeQuote(value: unknown): value is BridgeReviewQuote {
   return Boolean(value && typeof value === 'object' && 'nativeFee' in value && typeof (value as { nativeFee?: unknown }).nativeFee === 'bigint');
-}
-function DecisionContext({ beforeFacts }: { beforeFacts?: ReviewFact[] }) {
-  if (!beforeFacts?.length) return null;
-  return <section aria-label="Current position" className={presentationStyles.advancedGroup}>
-    <p className={presentationStyles.advancedGroupLabel}>Current position</p>
-    <div className={presentationStyles.advancedRows}>{beforeFacts.map((fact) => <ReviewRow key={`before-${fact.label}`} label={fact.label} value={fact.value} title={fact.title} feeAmounts={fact.feeAmounts} />)}</div>
-  </section>;
 }

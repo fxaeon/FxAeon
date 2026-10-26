@@ -217,7 +217,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>Select a shortened amount or expandable value to inspect its full precision. Read its token unit. For example, an fxSP deposit floor is not a final fxSAVE minimum.</p>
     <h3 id="review-terms">Check terms and exact evidence</h3>
     <p>Fees, slippage, price impact, LTV, and available risk estimates appear beside their values. The small circled info controls explain terms: tap them, focus them with the keyboard, or hover with a pointer. Escape or an outside tap dismisses the explanation. Definitions do not replace the visible signing terms.</p>
-    <p><strong>Execution details</strong> holds the route, contracts, wallet requests, and other exact evidence. Use it to inspect the action without mistaking technical data for an additional fee or a second output. An unavailable term means its value has not been established.</p>
+    <p>Review the amounts, fees, recipient, and risk before confirming. An unavailable term means its value has not been established.</p>
     <h3 id="review-requests">Confirm sequential wallet requests</h3>
     <ol>
       <li>Check the selected account, network, amounts, recipient where applicable, limits, and fees.</li>
