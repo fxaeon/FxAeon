@@ -31,6 +31,7 @@ export type WalletChoice = {
   readonly primary: boolean;
   readonly rdns: string | null;
   readonly source: 'catalog' | 'discovered' | 'legacy';
+  readonly secondary?: boolean;
   readonly injected: 'available' | 'ambiguous' | 'none';
   /** Present only when discovery identified one unique provider object. */
   readonly provider?: Eip6963Provider;
@@ -91,7 +92,7 @@ export function buildWalletChoices(
     let name = group[0].name.trim() || 'Wallet';
     const key = nameKey(name);
     if (catalogNames.has(key) || (nameCounts.get(key) ?? 0) > 1) {
-      const base = catalogNames.has(key) ? 'Wallet' : name;
+      const base = catalogNames.has(key) ? key === 'browser wallet' ? 'Browser wallet' : 'Wallet' : name;
       const baseKey = nameKey(base);
       let suffix = nextSuffix.get(baseKey) ?? 1;
       do { name = `${base} ${suffix++}`; } while (reservedNames.has(nameKey(name)));
@@ -104,6 +105,7 @@ export function buildWalletChoices(
       primary: false,
       rdns,
       source: 'discovered',
+      icon: group.length === 1 && !conflictingProviders.has(group[0].provider) ? group[0].icon : undefined,
       ...selection(group),
     });
   }
@@ -121,15 +123,16 @@ export function buildWalletChoices(
   });
   for (const item of availableLegacy) {
     const provider = item.provider;
-    let name = item.name || (availableLegacy.length === 1 ? 'Wallet' : `Wallet ${legacyId(provider)}`);
+    let name = item.name || (availableLegacy.length === 1 ? 'Browser wallet' : `Browser wallet ${legacyId(provider)}`);
     let suffix = legacyId(provider);
-    while (choices.some(choice => nameKey(choice.name) === nameKey(name))) name = `${item.name || 'Wallet'} ${suffix++}`;
+    while (choices.some(choice => nameKey(choice.name) === nameKey(name))) name = `${item.name || 'Browser wallet'} ${suffix++}`;
     choices.push({
       id: Array.isArray(legacyProvider) ? `legacy:provider:${legacyId(provider)}` : 'legacy:browser',
       name,
       primary: false,
       rdns: null,
       source: 'legacy',
+      ...(item.secondary ? { secondary: true } : {}),
       injected: 'available',
       provider,
     });

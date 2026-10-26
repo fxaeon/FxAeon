@@ -31,3 +31,5 @@ wallet's official product link; they do not imply installation or connection.
   This is a Base brand asset, not an MIT/public-domain licensing claim.
   The stable `coinbase` provider identity uses this requested Base Wallet mark;
   it does not change the user's provider, account or authentication method.
+
+Installed EIP-6963 wallets may supply their own bounded data-image icons, rendered only through img. Invalid or failed images use the generic mark; no arbitrary network image URL is fetched. These local catalog marks remain fallback presentation metadata, never signer authority.

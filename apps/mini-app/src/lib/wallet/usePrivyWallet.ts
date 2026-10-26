@@ -287,7 +287,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       const nextLegacy = legacyBrowserProviders();
       if (nextLegacy.length === legacy.length && nextLegacy.every((item, index) => item.provider === legacy[index].provider && item.name === legacy[index].name)
         && next.length === previous.length
-        && next.every((item, index) => item.provider === previous[index].provider && item.rdns === previous[index].rdns)) return;
+        && next.every((item, index) => item.provider === previous[index].provider && item.rdns === previous[index].rdns && item.icon === previous[index].icon)) return;
       previous = next; legacy = nextLegacy;
       if (owner.getActiveConfig() && !owner.hasCurrentIdentity()) owner.invalidateForDiscovery();
       setProviderVersion((version) => version + 1);

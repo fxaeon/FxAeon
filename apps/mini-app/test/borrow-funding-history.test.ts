@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { averageBorrowFundingRatio, BORROW_FUNDING_HISTORY_URL, readBorrowFundingHistory } from '../src/lib/fx/borrowFundingHistory';
 
 const now = 1_792_852_224_000;
-const start = now / 1000 - 30 * 86_400;
+const start = now / 1000 - 365 * 86_400;
 const row = (timestamp: number, ratio: string, type = 'wstETH') => ({ timestamp: String(timestamp), fundingRate: ratio, fundingId: { type } });
 const result = (snapshots: unknown[] = [row(start + 1000, '45318576060452136')], previous: unknown[] = [row(start - 100, '0')]) => ({ data: { _meta: { block: { number: 26263102, timestamp: now / 1000 - 60 }, hasIndexingErrors: false }, previous, snapshots } });
 const fetcher = (reply: unknown) => (async () => Response.json(reply)) as typeof fetch;
@@ -23,6 +23,49 @@ test('history uses the official source and exact market-specific snapshots', asy
     assert.equal(history.endAt, now / 1000 - 60);
     assert.ok(history.averageRatio! > 0n);
   }
+});
+
+test('supported range bounds use the selected period and retain a preceding baseline', async () => {
+  const nowAt = Math.floor(now / 1000);
+  const windows = [
+    ['1M', 30 * 86_400], ['3M', 90 * 86_400], ['6M', 180 * 86_400], ['1Y', 365 * 86_400],
+  ] as const;
+  for (const [range, seconds] of windows) {
+    const rangeStart = nowAt - seconds;
+    let query = '';
+    const history = await readBorrowFundingHistory('ETH', { now, range, fetch: async (_url, options) => {
+      query = JSON.parse(options!.body as string).query;
+      return Response.json(result([
+        row(rangeStart + 5, '100'), row(nowAt - 65, '200'),
+      ], [row(rangeStart - 10, '0')]));
+    } });
+    assert.match(query, new RegExp(`timestamp_gte: "${rangeStart}"`));
+    assert.match(query, /timestamp_lt:/);
+    assert.equal(history.startAt, rangeStart);
+    assert.equal(history.endAt, nowAt - 60);
+    const expected = (100n * BigInt(history.endAt - rangeStart - 10) + 200n * 5n) / BigInt(history.endAt - rangeStart);
+    assert.equal(history.averageRatio, expected);
+  }
+});
+
+test('All loads from the first indexed observation and time-weights the full long interval', async () => {
+  const endAt = Math.floor(now / 1000) - 60;
+  const middle = endAt - 200 * 86_400;
+  const last = endAt - 10;
+  let query = '';
+  const history = await readBorrowFundingHistory('ETH', { now, range: 'All', fetch: async (_url, options) => {
+    query = JSON.parse(options!.body as string).query;
+    return Response.json({ data: {
+      _meta: { block: { number: 26263102, timestamp: endAt }, hasIndexingErrors: false },
+      snapshots: [row(100, '0'), row(middle, '100'), row(last, '200')],
+    } });
+  } });
+  assert.match(query, /timestamp_gte: "1"/);
+  assert.doesNotMatch(query, /previous:/);
+  assert.equal(history.startAt, 100);
+  assert.equal(history.endAt, endAt);
+  const expected = (100n * BigInt(last - middle) + 200n * BigInt(endAt - last)) / BigInt(endAt - 100);
+  assert.equal(history.averageRatio, expected);
 });
 
 test('time weighted averages preserve zero periods and stop at the indexed block', () => {

@@ -112,3 +112,9 @@ The product uses the current shared dark appearance. Historical light/theme scre
 ## Evidence scope
 
 UI fixtures can show deterministic balances and receipts. They do not prove live account state, real authentication, signing, or bridge settlement. Use [testing](testing.md#evidence-boundaries), [security](security.md), and the [release checklist](launch-readiness.md) when assessing a result. Evidence must identify the tested revision and environment.
+
+Earn deposit forms omit the outcome row until a real received-amount estimate is available. A token-only Receive fxSAVE label is not shown; route quotes and reviewed outcomes keep their existing authority.
+
+Earn withdrawals choose a method first: After cooldown, Instant, or direct fxSP. Only Instant offers an fxUSD/USDC receive-asset selector. Cooldown claims use the protocol-determined fxUSD/USDC mix; neither asset is guaranteed to have a positive amount. Direct fxSP redemption has no queued claim. Method changes retain the entered share amount; resumed drafts retain their route semantics. The overview omits the Value per fxSAVE row; APY, vault holdings, connected position value, and Share value history remain.
+
+Earn chart help follows the selected APY or Share value series. Borrow funding history defaults to 1Y and offers 1M, 3M, 6M, 1Y, and All. Its selected-period average is time-weighted over the displayed dates and represents annualized gross collateral cost, not earned yield or a debt APR. Historical observations never substitute for current funding; current status and charges require a fresh live read. Direct Earn redemption omits token-only Receive fxSP when no received-amount estimate is available.

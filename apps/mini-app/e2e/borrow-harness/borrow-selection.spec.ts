@@ -46,7 +46,7 @@ const mocks: Record<string, string> = {
 mocks['@/lib/fx/borrowFunding'] = `import { positionPoolAddress } from ${JSON.stringify(resolve(src, 'lib/fx/policy.ts'))}; export { borrowFundingDisplay, formatBorrowFundingApr, formatBorrowFundingEightHour, borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS } from ${JSON.stringify(resolve(src, 'lib/fx/borrowFunding.ts'))}; export async function readBorrowFundingRate(market) { globalThis.__borrowFundingReads = (globalThis.__borrowFundingReads ?? 0) + 1; if (globalThis.__borrowFundingUnavailable) throw new Error('Funding unavailable'); const ratio = globalThis.__borrowFundingRatio ?? 0n; const rate = { market, pool: positionPoolAddress(market, 'long'), ratio, netRatio: ratio, readAt: Date.now() }; if (globalThis.__borrowFundingPending) return new Promise(resolve => { globalThis.__resolveBorrowFunding = () => resolve(rate); }); return rate; }`;
 // History is illustrative and independent of wallet/rate-read availability.
 // This selection fixture must never contact the public funding index.
-mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market) { const endAt = Math.floor(Date.now() / 1000); const startAt = endAt - 30 * 86400; return { market, startAt, endAt, indexedAt: endAt, averageRatio: 52500000000000000n, snapshots: [{timestamp:startAt,ratio:35000000000000000n},{timestamp:endAt,ratio:70000000000000000n}] }; }`;
+mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market, {range = '1Y'} = {}) { const endAt = Math.floor(Date.now() / 1000); const days = {'1M':30,'3M':90,'6M':180,'1Y':365,All:450}[range]; const startAt = endAt - days * 86400; const averageRatio = range === '1M' ? 35000000000000000n : 52500000000000000n; return { market, startAt, endAt, indexedAt: endAt, averageRatio, snapshots: [{timestamp:startAt,ratio:averageRatio},{timestamp:endAt,ratio:70000000000000000n}] }; }`;
 
 // The real post-confirmation presentation imports receipt proof helpers. Keep
 // their SDK metadata intact, but fail closed if this selection-only fixture
@@ -787,10 +787,19 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await expectFormMetricRows(rows);
     const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
     await expect(history.getByRole('slider', { name: 'Explore historical funding charge' })).toBeVisible();
+    const periods = history.getByRole('group', { name: 'Funding history period' });
+    await expect(periods.getByRole('button', { name: '1Y', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(history).toContainText('5.25%');
+    await periods.getByRole('button', { name: '1M', exact: true }).click();
+    await expect(periods.getByRole('button', { name: '1M', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(history).toContainText('3.5%');
+    await expect(history).not.toContainText('5.25%');
+    await periods.getByRole('button', { name: '1Y', exact: true }).click();
+    await expect(history).toContainText('5.25%');
     const definitions = history.locator('[data-info-help-trigger]');
-    await expect(definitions).toHaveCount(4);
+    await expect(definitions).toHaveCount(3);
     expect(await definitions.evaluateAll(controls => controls.map(control => control.getAttribute('aria-label')))).toEqual([
-      'About Funding & costs', 'About Current charge', 'About Current cost APR', 'About Average cost APR',
+      'About Funding & costs', 'About Funding status', 'About Average cost APR',
     ]);
     for (const control of await definitions.all()) {
       await control.scrollIntoViewIfNeeded();

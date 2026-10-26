@@ -72,3 +72,11 @@ test('an arbitrary EIP wallet promotes the same legacy object, while conflicting
   const conflict = [...announcements, { ...announcements[0], rdns: 'org.other-wallet.provider' }];
   assert.equal(resolveWalletConnectionRoute(choice, { providers: conflict, legacyProviders: [], environment: 'desktop' }).kind, 'unavailable');
 });
+
+test('distinct standalone ethereum remains secondary while explicit unknown array wallets survive discovery', () => {
+  const named = raw(), global = raw(), unknown = raw();
+  const announced = [{ provider: named, rdns: 'app.keplr', name: 'Keplr' }];
+  assert.deepEqual(readLegacyWalletProviderSnapshot(announced, { ethereum: global }), [{ provider: global, secondary: true }]);
+  assert.deepEqual(readLegacyWalletProviderSnapshot([], { ethereum: global }), [{ provider: global }]);
+  assert.deepEqual(readLegacyWalletProviderSnapshot(announced, { ethereum: Object.assign(global, { providers: [named, unknown] }) }), [{ provider: unknown }]);
+});

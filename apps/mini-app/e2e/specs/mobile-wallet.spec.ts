@@ -1741,3 +1741,48 @@ test('a delayed network-switch read cannot overwrite a newer chainChanged event'
   expect((await snapshot(page)).calls[0].filter((call) => call.method === 'eth_sendTransaction')).toEqual([]);
   expect(observation.errors).toEqual([]);
 });
+
+test('distinct standalone fallback stays selectable in Other wallets without a duplicate primary row', async ({ page }) => {
+  await openHarness(page, 'none');
+  await page.evaluate(() => {
+    globalThis.__mobileWalletHarness.inject(1);
+    globalThis.__mobileWalletHarness.announceAs(0, 'Named provider', 'org.named.provider');
+  });
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Named provider', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Browser wallet', exact: true })).toHaveCount(0);
+  await showOtherWallets(page);
+  await dialog.getByRole('button', { name: 'Browser wallet', exact: true }).click();
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountB);
+  const calls = (await snapshot(page)).calls;
+  expect(calls[0].filter(call => call.method === 'eth_requestAccounts')).toHaveLength(0);
+  expect(calls[1].filter(call => call.method === 'eth_requestAccounts')).toHaveLength(1);
+});
+
+test('unknown announced wallet icons load safely and recover from malformed SVG without network icons', async ({ page }) => {
+  const observation = await openHarness(page, 'none');
+  const announceIcon = async (icon: string) => page.evaluate(value => {
+    window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {detail: {
+      provider: globalThis.__mobileWalletHarness.wallets[0].provider,
+      info: {name: 'Automatic icon wallet', rdns: 'org.automatic.icon', icon: value},
+    }}));
+  }, icon);
+  await announceIcon('data:image/svg+xml,<svg');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const row = page.getByRole('button', {name: 'Automatic icon wallet', exact: true});
+  await expect(row).toBeVisible();
+  await expect(row.locator('img')).toHaveCount(0);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" onload="window.__walletIconScript=true"><script>window.__walletIconScript=true</script><image href="https://tracker.invalid/tracking.png"/><rect width="32" height="32" fill="blue"/></svg>';
+  await announceIcon('data:image/svg+xml,' + encodeURIComponent(svg));
+  await expect(row.locator('img')).toHaveCount(1);
+  await expect.poll(() => row.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(32);
+  expect(await page.evaluate(() => Reflect.get(window, '__walletIconScript'))).toBeUndefined();
+  expect(observation.requests.filter(url => url.includes('tracker.invalid'))).toEqual([]);
+  await announceIcon('data:image/svg+xml,broken');
+  await expect(row.locator('img')).toHaveCount(0);
+  await announceIcon('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14"/></svg>'));
+  await expect(row.locator('img')).toHaveCount(1);
+  await expect.poll(() => row.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(32);
+  expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
+});

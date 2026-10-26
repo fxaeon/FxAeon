@@ -253,7 +253,7 @@ test('generated labels cannot collide with literal numbered names or the neutral
   const choices = buildWalletChoices(providers, provider());
   const names = choices.map((choice) => choice.name.toLowerCase());
   assert.equal(new Set(names).size, names.length);
-  assert.equal(choices.find((choice) => choice.source === 'legacy')?.name, 'Wallet');
+  assert.equal(choices.find((choice) => choice.source === 'legacy')?.name, 'Browser wallet');
   assert.equal(choices.find((choice) => choice.rdns === 'test.second')?.name, 'Wallet 1');
   assert.equal(choices.find((choice) => choice.rdns === 'test.sixth')?.name, 'Custom 1');
 });
@@ -276,7 +276,7 @@ test('a real unannounced legacy object is only a neutral Wallet', () => {
   const legacy = Object.assign(provider(), { isMetaMask: true, isCoinbaseWallet: true });
   const choices = buildWalletChoices([], legacy);
   const browser = choices.find((choice) => choice.source === 'legacy')!;
-  assert.equal(browser.name, 'Wallet');
+  assert.equal(browser.name, 'Browser wallet');
   assert.equal(browser.id, 'legacy:browser');
   assert.equal(browser.rdns, null);
   assert.equal(browser.icon, undefined);
@@ -310,4 +310,16 @@ test('building rows never mutates caller discovery objects', () => {
   const providers = Object.freeze([wallet]);
   assert.doesNotThrow(() => buildWalletChoices(providers));
   assert.equal(Object.keys(wallet).length, 3);
+});
+
+
+test('announced icons enrich only unambiguous unknown rows, leaving catalog branding intact', () => {
+  const icon = 'data:image/svg+xml,%3Csvg%20xmlns="http://www.w3.org/2000/svg"/%3E';
+  const raw = provider();
+  const known = buildWalletChoices([{...announced('com.coinbase.wallet', raw), icon}]).find(item => item.id === 'coinbase')!;
+  assert.equal(known.icon, '/wallets/base.svg');
+  const unknown = buildWalletChoices([{...announced('org.new.wallet', raw, 'New wallet'), icon}]).find(item => item.source === 'discovered')!;
+  assert.equal(unknown.icon, icon); assert.equal(unknown.provider, raw);
+  const ambiguous = buildWalletChoices([{...announced('org.new.wallet', raw), icon}, announced('org.new.wallet')]).find(item => item.source === 'discovered')!;
+  assert.equal(ambiguous.icon, undefined); assert.equal(ambiguous.provider, undefined);
 });

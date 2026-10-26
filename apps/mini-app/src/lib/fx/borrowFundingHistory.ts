@@ -5,7 +5,13 @@ import type { FxSdkMarket } from './tokens';
  * Snapshots are annual 1e18 ratios; the official chart divides by 365 * 3.
  * These are gross collateral charges, not yield or the net short-pool offset. */
 export const BORROW_FUNDING_HISTORY_URL = 'https://api.goldsky.com/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/fx-v2-funding/v0.0.2/gn';
-export const BORROW_FUNDING_HISTORY_DAYS = 30;
+export type BorrowFundingHistoryRange = '1M' | '3M' | '6M' | '1Y' | 'All';
+export const BORROW_FUNDING_HISTORY_RANGE_SECONDS: Readonly<Record<Exclude<BorrowFundingHistoryRange, 'All'>, number>> = {
+  '1M': 30 * 86_400,
+  '3M': 90 * 86_400,
+  '6M': 180 * 86_400,
+  '1Y': 365 * 86_400,
+};
 const PAGE_SIZE = 1000;
 const MAX_PAGES = 8;
 const MAX_INDEX_AGE_SECONDS = 24 * 60 * 60;
@@ -57,10 +63,14 @@ export function averageBorrowFundingRatio(snapshots: readonly BorrowFundingSnaps
 
 /** Bounded, cancellable, read-only history with exact market identities and
  * pagination pinned to one index block, so concurrent updates cannot drop rows. */
-export async function readBorrowFundingHistory(market: FxSdkMarket, options: { fetch?: typeof fetch; now?: number; signal?: AbortSignal; deadlineMs?: number } = {}): Promise<BorrowFundingHistory> {
+export async function readBorrowFundingHistory(market: FxSdkMarket, options: { fetch?: typeof fetch; now?: number; signal?: AbortSignal; deadlineMs?: number; range?: BorrowFundingHistoryRange } = {}): Promise<BorrowFundingHistory> {
   if (market !== 'ETH' && market !== 'BTC') throw new Error('Funding history market unavailable');
   const now = Math.floor((options.now ?? Date.now()) / 1000);
-  const startAt = now - BORROW_FUNDING_HISTORY_DAYS * 86_400;
+  const range = options.range ?? '1Y';
+  if (range !== 'All' && !Object.hasOwn(BORROW_FUNDING_HISTORY_RANGE_SECONDS, range)) throw new Error('Funding history range unavailable');
+  // Unix timestamp 1 includes every indexed record without asking the indexer
+  // for a predecessor that cannot exist before the beginning of time.
+  const startAt = range === 'All' ? 1 : now - BORROW_FUNDING_HISTORY_RANGE_SECONDS[range];
   const type = market === 'ETH' ? 'wstETH' : 'WBTC';
   const controller = new AbortController();
   const abort = () => controller.abort(options.signal?.reason);
@@ -79,7 +89,8 @@ export async function readBorrowFundingHistory(market: FxSdkMarket, options: { f
       return data;
     };
     const fields = 'fundingRate timestamp fundingId { type }';
-    const initial = await request(`{ _meta { block { number timestamp } hasIndexingErrors } previous: snapshots(first: 1, orderBy: timestamp, orderDirection: desc, where: {timestamp_lt: "${startAt}", fundingId_: {type: "${type}"}}) { ${fields} } snapshots(first: ${PAGE_SIZE}, orderBy: timestamp, orderDirection: asc, where: {timestamp_gte: "${startAt}", fundingId_: {type: "${type}"}}) { ${fields} } }`);
+    const previousField = range === 'All' ? '' : `previous: snapshots(first: 1, orderBy: timestamp, orderDirection: desc, where: {timestamp_lt: "${startAt}", fundingId_: {type: "${type}"}}) { ${fields} }`;
+    const initial = await request(`{ _meta { block { number timestamp } hasIndexingErrors } ${previousField} snapshots(first: ${PAGE_SIZE}, orderBy: timestamp, orderDirection: asc, where: {timestamp_gte: "${startAt}", fundingId_: {type: "${type}"}}) { ${fields} } }`);
     const meta = record(initial._meta);
     const block = record(meta?.block);
     const indexedAt = block?.timestamp;
@@ -88,8 +99,9 @@ export async function readBorrowFundingHistory(market: FxSdkMarket, options: { f
       || indexedAt <= startAt || indexedAt > now + 60 || now - indexedAt > MAX_INDEX_AGE_SECONDS
       || typeof blockNumber !== 'number' || !Number.isSafeInteger(blockNumber) || blockNumber <= 0) throw new Error('Funding history index is not current');
     const endAt = Math.min(indexedAt, now);
-    if (!Array.isArray(initial.previous) || initial.previous.length > 1 || !Array.isArray(initial.snapshots)) throw new Error('Funding history is incomplete');
-    const rows: BorrowFundingSnapshot[] = initial.previous.map(value => parseSnapshot(value, type, endAt));
+    const previous = range === 'All' ? [] : initial.previous;
+    if (!Array.isArray(previous) || previous.length > 1 || !Array.isArray(initial.snapshots)) throw new Error('Funding history is incomplete');
+    const rows: BorrowFundingSnapshot[] = previous.map(value => parseSnapshot(value, type, endAt));
     if (rows.some(row => row.timestamp >= startAt)) throw new Error('Funding history baseline is invalid');
     let page = initial.snapshots;
     for (let index = 0; index < MAX_PAGES; index += 1) {

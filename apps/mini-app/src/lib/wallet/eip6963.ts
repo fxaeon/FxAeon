@@ -1,3 +1,4 @@
+import { safeWalletIcon } from './walletIcon';
 import { walletIdentityRdns } from './walletIdentity';
 
 export type Eip6963Provider = {
@@ -5,8 +6,8 @@ export type Eip6963Provider = {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
   removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
 };
-export type Eip6963Announcement = { info?: { rdns?: string; name?: string }; provider?: Eip6963Provider };
-export type DiscoveredEip6963Provider = { provider: Eip6963Provider; name: string; rdns: string };
+export type Eip6963Announcement = { info?: { rdns?: string; name?: string; icon?: unknown }; provider?: Eip6963Provider };
+export type DiscoveredEip6963Provider = { provider: Eip6963Provider; name: string; rdns: string; icon?: string };
 export type WalletProviderDiscoveryTarget = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
 const discovered: DiscoveredEip6963Provider[] = [];
 const DEFAULT_PROVIDER_WAIT_TIMEOUT_MS = 1_000;
@@ -26,8 +27,16 @@ export function recordEip6963Announcement(value: unknown): DiscoveredEip6963Prov
     const rdns = walletIdentityRdns(safeText(info?.rdns, previous?.rdns ?? `unknown-wallet-${index}`));
     // An exact repeat (including a known alias) is harmless. A different
     // identity claim must survive ingestion so the chooser can fail closed.
-    if (discovered.some((item) => item.provider === provider && item.rdns === rdns)) return null;
-    const item = { provider, name: safeText(info?.name, 'Wallet'), rdns };
+    let icon: string | undefined;
+    try { icon = safeWalletIcon(info?.icon); } catch { /* Bad image metadata must not discard a valid provider. */ }
+    const repeated = discovered.findIndex((item) => item.provider === provider && item.rdns === rdns);
+    if (repeated >= 0) {
+      if (!icon || discovered[repeated].icon === icon) return null;
+      const updated = { ...discovered[repeated], icon };
+      discovered[repeated] = updated;
+      return updated;
+    }
+    const item = { provider, name: safeText(info?.name, 'Browser wallet'), rdns, ...(icon ? { icon } : {}) };
     discovered.push(item);
     return item;
   } catch { return null; } // Untrusted announcement/provider/info getters.

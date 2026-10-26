@@ -165,6 +165,15 @@ controlled checks for the source under review.
 
 ## Position presentation and activity
 
+Borrow funding history uses the public f(x) Goldsky funding index, independently
+of live on-chain funding reads. History queries are keyed by collateral market
+and period (1M/3M/6M/1Y/All, default 1Y), with block-pinned pagination and a
+pre-period baseline. The annualized average integrates each rate across its
+duration and stops at the verified index block. All starts at the first indexed
+observation; missing pre-index records are not synthesized. A history sample is
+never substituted for the current funding rate. The displayed history is a gross
+collateral charge, not an earned yield or a debt-based APR.
+
 Naming and units are shared across rows, reviews, and History. ETH long pool collateral is expressed in stETH accounting; wstETH backing requires a live conversion where relevant. Position brake reads pool ratios, thresholds, and oracle price for display. None of these presentation helpers plans or signs.
 
 Activity discovery uses the same four market indexes as the SDK, associates orders by position entity ID, then verifies successful Ethereum receipts and router events. Index ownership association is incomplete historical attribution: transferred-out positions may disappear from a previous owner's activity, and the older ETH-short index lacks a real-owner field. Local recovery records and indexed activity remain separate sources.

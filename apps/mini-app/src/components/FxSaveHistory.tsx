@@ -69,7 +69,9 @@ export function FxSaveHistory() {
   };
   return <section ref={ref} className={styles.section} aria-label="fxSAVE performance">
     <header className={styles.header}>
-      <h3><MetricLabel minimalHelp label="Performance" help="Daily APY snapshots reported by DefiLlama for the Ethereum fxSAVE vault. The average is the arithmetic mean of the displayed samples, not a realized return. The live APY above comes from f(x). Share value shows daily USD token prices reported by DefiLlama, not protocol NAV. Samples are dated and gaps are not interpolated. This chart does not forecast earnings." /></h3>
+      <h3><MetricLabel minimalHelp label="Performance" help={metric === 'apy'
+        ? 'Daily APY snapshots reported by DefiLlama for Ethereum fxSAVE. The average is the arithmetic mean of the displayed samples, not a realized return. The live APY above comes from f(x). Gaps are not interpolated; this history does not forecast earnings.'
+        : 'Daily USD prices per fxSAVE reported by DefiLlama, not protocol NAV. Samples are dated and gaps are not interpolated. This price history does not forecast earnings.'} /></h3>
       <div className={styles.tabs} aria-label="Performance metric">{(['apy', 'share'] as const).map(value => <button key={value} type="button" aria-pressed={metric === value} onClick={() => { setMetric(value); setSelected(null); }}>{value === 'apy' ? 'APY' : 'Share value'}</button>)}</div>
     </header>
     <div className={styles.overview}>

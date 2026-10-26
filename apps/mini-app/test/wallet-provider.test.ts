@@ -96,7 +96,7 @@ test('a valid preferred rdns selects directly while multiple unchosen providers 
 test('missing provider metadata gets a safe local fallback and never requests an icon', () => {
   clearEip6963AnnouncementsForTest();
   const item = recordEip6963Announcement({ provider: provider() });
-  assert.equal(item?.name, 'Wallet');
+  assert.equal(item?.name, 'Browser wallet');
   assert.match(item?.rdns ?? '', /^unknown-wallet-\d+$/);
 });
 

@@ -89,6 +89,13 @@ hover and keyboard label reveal preserve the collapsed content inset and saved
 preference. Wallet picker regressions cover long detected lists at desktop and
 short-phone sizes, including a fully visible fixed Other wallets action.
 
+Earn regressions cover method-first withdrawal selection: only Instant chooses
+fxUSD/USDC, cooldown claims report pool assets, and direct fxSP estimates require
+valid vault inputs. Performance help must describe only the selected series.
+Borrow history tests verify range-specific baselines, long-window time weighting,
+index-block pagination, and cache isolation when switching periods. At 320px and
+200% text, all period controls and metric help remain reachable without overflow.
+
 Reports and captures are generated evidence, not source. Inspect failure traces and screenshots before updating a baseline. Record browser, platform, revision, and fixture provenance.
 
 ## CI topology

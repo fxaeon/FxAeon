@@ -120,7 +120,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await expect(retry).toHaveCount(1);
   await retry.click();
   await expect(page.getByRole('radio', { name: /After cooldown.*1h/ })).toBeChecked();
-  await expect(page.getByRole('radio', { name: /Instant.*Fee quoted in review/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /^Instant/ })).toBeVisible();
   await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12.3456789');
   await expect(retry).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();
@@ -601,11 +601,12 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
   await mount(page, true, '0.291');
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   for (const token of ['fxUSD', 'usdc']) {
+    await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
     await page.getByLabel('Earn asset', { exact: true }).selectOption(token);
     await page.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
     const outcome = page.getByRole('region', { name: 'Withdrawal outcome', exact: true });
-    await expect(outcome.getByText('Claim later', { exact: true })).toBeVisible();
-    await expect(outcome.getByText('fxUSD + USDC', { exact: true })).toBeVisible();
+    await expect(outcome.getByText('Claim assets', { exact: true })).toBeVisible();
+    await expect(outcome.getByText('fxUSD / USDC', { exact: true })).toBeVisible();
     await gasOnlySettings(page);
     await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
     // Open the review unless the restored draft already resumed it. Whether a draft
@@ -626,17 +627,19 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
     expect(await latestPlan(page)).toMatchObject({ tokenOut: token, amount: '10000000000000000001', instant: true, slippage: 0.291 });
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
   }
-  await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
-  await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
+  await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
+  await expect(page.getByRole('radio', { name: /^fxSP/ })).toBeChecked();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Direct redemption to fxSP has no cooldown or queued claim.', { exact: true })).toBeVisible();
   await expect(page.getByText(/A queued withdrawal is claimed later/)).toHaveCount(0);
   await gasOnlySettings(page);
   await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
+  await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Earn review' })).toBeVisible();
   expect(await latestPlan(page)).toMatchObject({ tokenOut: 'fxUSDBasePool', amount: '10000000000000000001', instant: false });
   expect((await latestPlan(page))?.slippage).toBeUndefined();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSD');
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   const dialog = await openSettings(page, '0.291');
   await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
   expect(await storedSlippage(page)).toBe(50);
@@ -645,12 +648,12 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
 test('hiding unused controls does not enable missing or invalid withdrawal amounts', async ({ page }) => {
   await mount(page, false);
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
-  for (const token of ['fxUSD', 'usdc', 'fxUSDBasePool']) {
-    await page.getByLabel('Earn asset', { exact: true }).selectOption(token);
-    if (token !== 'fxUSDBasePool') await page.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
+  for (const method of [/After cooldown/, /^Instant/, /^fxSP/]) {
+    await page.getByRole('radio', { name: method }).locator('..').click();
+    await page.getByLabel('Amount', { exact: true }).fill('');
     const review = page.getByRole('button', { name: 'Review withdrawal', exact: true });
     await expect(review).toBeDisabled();
-    await gasOnlySettings(page);
+    if (method.source !== '^Instant') await gasOnlySettings(page);
     for (const amount of ['0', '-1', 'bad', '601', '1.0000000000000000001']) {
       await page.getByLabel('Amount', { exact: true }).fill(amount);
       await expect(review).toBeDisabled();
@@ -663,7 +666,9 @@ test('hiding unused controls does not enable missing or invalid withdrawal amoun
 
 test('direct base-pool routes show config-based share estimates and verified empty balances get in-card guidance', async ({ page }) => {
   await mount(page, false, '2', 'deposit');
+  await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
   await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
+  await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
   await page.getByLabel('Amount', { exact: true }).fill('10');
   await expect(page.getByText('Estimated fxSAVE received', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSAVE', { exact: true })).toBeVisible();
@@ -694,7 +699,7 @@ test('direct base-pool routes show config-based share estimates and verified emp
   }
 
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
-  await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
+  await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
   await page.getByLabel('Amount', { exact: true }).fill('10');
   await expect(page.getByText('Estimated fxSP received', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSP', { exact: true })).toBeVisible();
@@ -724,16 +729,47 @@ for (const instant of [false, true]) {
     expect(await latestPlan(page)).toMatchObject({ tokenOut: 'fxUSDBasePool', instant: false });
     expect((await latestPlan(page))?.slippage).toBeUndefined();
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
-    await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: /^fxSP/ })).toBeChecked();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
     await gasOnlySettings(page);
+    await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
     await page.getByLabel('Earn asset', { exact: true }).selectOption('usdc');
     const methods = page.getByRole('group', { name: 'Withdrawal method' });
-    await expect(methods.getByRole('radio', { name: instant ? /^Instant/ : /After cooldown/ })).toBeChecked();
-    if (!instant) {
-      await gasOnlySettings(page);
-      await methods.getByRole('radio', { name: /^Instant/ }).locator('..').click();
-    }
+    await expect(methods.getByRole('radio', { name: /^Instant/ })).toBeChecked();
     const dialog = await openSettings(page, '0.101');
     await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
+  });
+}
+
+for (const width of [320, 390]) {
+  test(`withdrawal methods fit a single accessible row at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mount(page, false, '2', 'withdraw');
+    await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+    const methods = page.getByRole('group', { name: 'Withdrawal method' });
+    const radios = methods.getByRole('radio');
+    await expect(radios).toHaveCount(3);
+    const bounds = await radios.evaluateAll(nodes => nodes.map(node => {
+      const label = node.closest('label')!;
+      const rect = label.getBoundingClientRect();
+      return { top: rect.top, width: rect.width, height: rect.height, overflow: label.scrollWidth > label.clientWidth };
+    }));
+    expect(new Set(bounds.map(rect => rect.top)).size).toBe(1);
+    for (const rect of bounds) {
+      expect(rect.width).toBeGreaterThanOrEqual(44);
+      expect(rect.height).toBeGreaterThanOrEqual(44);
+      expect(rect.overflow).toBe(false);
+    }
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Claim assets', { exact: true })).toBeVisible();
+    await radios.nth(1).focus();
+    await page.keyboard.press('Space');
+    await expect(radios.nth(1)).toBeChecked();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Earn asset', { exact: true }).locator('option')).toHaveText(['fxUSD', 'usdc']);
+    await expect(page.getByRole('region', { name: 'Withdrawal outcome', exact: true })).toHaveCount(0);
+    await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
+    await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
   });
 }
