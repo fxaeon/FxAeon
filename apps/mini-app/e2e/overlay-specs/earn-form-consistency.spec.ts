@@ -110,6 +110,18 @@ async function storedSlippage(page:Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1')!).slippageBps);
 }
 
+test('disconnected Earn keeps share-denominated vault assets in details, not the USD overview', async ({ page }) => {
+  await mount(page, false);
+  await page.evaluate(() => (globalThis as any).__earnHarness.disconnect());
+  const overview = page.getByRole('region', { name: 'Your fxSAVE earnings', exact: true });
+  await expect(overview.getByText('Vault holdings', { exact: true })).toBeVisible();
+  await expect(overview.locator('small').filter({ hasText: 'fxSP' })).toHaveCount(0);
+  const details = page.getByRole('region', { name: 'Vault details & transparency', exact: true });
+  const assets = details.locator('dl > div').filter({ hasText: 'Underlying vault assets' });
+  await expect(assets).toContainText('1,000 fxSP');
+  await expect(assets.locator('dd span')).toHaveAttribute('title', '1000 fxSP');
+});
+
 test('missing withdrawal terms have one retry and recover without losing the amount', async ({ page }) => {
   await mount(page, false, '2', 'withdraw', { configFailure: true });
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
@@ -161,7 +173,7 @@ test('disconnected Earn shows the deposit amount and keeps it through wallet con
   await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
   await page.getByLabel('Amount', { exact: true }).fill('12');
   const outcome = page.getByRole('region', { name: 'Deposit outcome' });
-  await expect(outcome).toContainText('Estimated fxSAVE received');
+  await expect(outcome).toContainText('Receive');
   await expect(outcome).toContainText('24 fxSAVE');
   await expect(page.getByText(/No fxUSD available|No fxSAVE yet/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
@@ -710,12 +722,12 @@ test('direct base-pool routes show config-based share estimates and verified emp
   await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
   await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
   await page.getByLabel('Amount', { exact: true }).fill('10');
-  await expect(page.getByText('Estimated fxSAVE received', { exact: true })).toBeVisible();
+  await expect(page.getByText('Receive', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSAVE', { exact: true })).toBeVisible();
-  const estimateHelp = page.getByRole('button', { name: 'About Estimated fxSAVE received', exact: true });
+  const estimateHelp = page.getByRole('button', { name: 'About Receive', exact: true });
   await estimateHelp.focus();
   await estimateHelp.press('Enter');
-  const estimateExplanation = page.getByRole('dialog', { name: 'Estimated fxSAVE received', exact: true });
+  const estimateExplanation = page.getByRole('dialog', { name: 'Receive', exact: true });
   await expect(estimateExplanation).toBeVisible();
   await expect(estimateExplanation).toBeFocused();
   await expect(estimateExplanation).toHaveAccessibleDescription('Based on current vault assets and share supply.');
@@ -725,7 +737,7 @@ test('direct base-pool routes show config-based share estimates and verified emp
   // Explaining a display-only estimate must not build or confirm a transaction.
   expect(await latestPlan(page)).toBeUndefined();
   await expect(page.getByRole('region', { name: 'Earn review' })).toHaveCount(0);
-  await expect(page.getByText('Estimated fxSAVE received', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('Receive', { exact: true })).toHaveCount(1);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     const geometry = await page.evaluate(() => {
@@ -741,7 +753,7 @@ test('direct base-pool routes show config-based share estimates and verified emp
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
   await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
   await page.getByLabel('Amount', { exact: true }).fill('10');
-  await expect(page.getByText('Estimated fxSP received', { exact: true })).toBeVisible();
+  await expect(page.getByText('Receive', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSP', { exact: true })).toBeVisible();
 
   await mount(page, false, '2', 'deposit', { noExternal: true });

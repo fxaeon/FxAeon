@@ -496,7 +496,7 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   await expect(meter).toHaveAttribute('aria-valuetext', '≤ 66.67% of a 83.79% limit');
   await expect(meter).toHaveAttribute('aria-valuemax', '83.79');
   // No starting collateral means no prior ratio, rather than a fabricated zero LTV.
-  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
+  await expect(page.getByRole('region', { name: 'Borrowing outcome' })).toContainText('No position → ≤ 66.67%');
 });
 
 test('disconnected new borrow calculates live capacity and LTV without zero-balance warnings or execution', async ({ page }) => {
@@ -513,7 +513,7 @@ test('disconnected new borrow calculates live capacity and LTV without zero-bala
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
   const meter = page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' });
   await expect(meter).toHaveAttribute('aria-valuetext', '≤ 66.67% of a 83.79% limit');
-  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
+  await expect(page.getByRole('region', { name: 'Borrowing outcome' })).toContainText('No position → ≤ 66.67%');
   await expect(page.getByText(/Add ETH to your wallet to supply collateral/)).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(await page.evaluate(() => ({ planners: globalThis.__borrowHarness.plannerCount, walletRequests: globalThis.__borrowHarness.walletRequestCount })))
@@ -601,15 +601,21 @@ test('funding status distinguishes verified zero, positive and tiny positive cha
   await mount(page);
   const overview = page.getByRole('region', { name: 'fxUSD borrowing overview' });
   const metric = overview.locator('dl > div').filter({ hasText: 'Funding status' });
+  await expect(metric.locator('dt')).toContainText('Funding status: OFF');
   await expect(metric.locator('dd')).toHaveText('0% / 8h');
-  await expect(metric.getByRole('status')).toHaveText('Off');
+  await expect(metric.getByRole('status')).toHaveCount(0);
   await expect(metric).not.toContainText('APR');
+  const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
+  await expect(history).toContainText('Funding status: OFF');
+  await expect(history.locator('strong').first()).toHaveText('0% / 8h');
+  await expect(history.getByRole('button', { name: 'About Funding status: OFF', exact: true })).toBeVisible();
   await page.evaluate(() => { Object.assign(window, { __borrowFundingRatio: 35000000000000000n }); window.dispatchEvent(new Event('online')); });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
-  await expect(metric.getByRole('status')).toHaveText('On');
+  await expect(metric.locator('dt')).toContainText('Funding status: ON');
+  await expect(metric.getByRole('status')).toHaveCount(0);
   await page.evaluate(() => { Object.assign(window, { __borrowFundingRatio: 1n }); window.dispatchEvent(new Event('online')); });
   await expect(metric.locator('dd')).toHaveText('<0.0001% / 8h');
-  await expect(metric.getByRole('status')).toHaveText('On');
+  await expect(metric.locator('dt')).toContainText('Funding status: ON');
 });
 
 test('failed and expired funding quotes never retain a zero rate, and foreground recovery rereads', async ({ page }) => {
@@ -625,13 +631,14 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await page.keyboard.press('Escape');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false }); window.dispatchEvent(new Event('online')); });
   await expect(metric.locator('dd')).toHaveText('0% / 8h');
+  await expect(metric.locator('dt')).toContainText('Funding status: OFF');
   await page.evaluate(() => Object.assign(window, { __borrowFundingUnavailable: true }));
   await page.clock.fastForward(60_001);
   await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
   await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false, __borrowFundingRatio: 10000000000000000n }); document.dispatchEvent(new Event('visibilitychange')); });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0009% / 8h');
-  await expect(metric.getByRole('status')).toHaveText('On');
+  await expect(metric.locator('dt')).toContainText('Funding status: ON');
 });
 
 test('a late funding response from the previous market cannot replace the current pool quote', async ({ page }) => {
@@ -647,7 +654,7 @@ test('a late funding response from the previous market cannot replace the curren
     (window as unknown as { __resolveBorrowFunding: () => void }).__resolveBorrowFunding();
   });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
-  await expect(metric.getByRole('status')).toHaveText('On');
+  await expect(metric.locator('dt')).toContainText('Funding status: ON');
 });
 
 test('pointer-selected funding sample remains selected when the chart receives focus', async ({ page }) => {
@@ -736,7 +743,7 @@ test('borrowing previews debt separately from net proceeds and clears invalid or
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   await page.getByLabel('Collateral', { exact: true }).fill('0.5');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
-  const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome' });
+  const outcome = page.getByRole('region', { name: 'Borrowing outcome' });
   await expect(outcome).toContainText('Total debt0 fxUSD → 800 fxUSD');
   await expect(outcome).not.toContainText('Before conversion and fees');
   await expect(page.getByText('The amount borrowed is added to your debt. You receive fxUSD after the f(x) fee.')).toHaveCount(0);
@@ -763,7 +770,7 @@ test('repayment outcomes use the selected position debt and clear invalid input'
   await page.getByRole('button', { name: /^Manage (ETH|BTC) position #/ }).first().click();
   await page.getByRole('group', { name: 'Manage collateral position' }).getByRole('button', { name: 'Repay debt', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Repay debt', exact: true })).toBeVisible();
-  const outcome = page.getByRole('region', { name: 'Estimated position changes' });
+  const outcome = page.getByRole('region', { name: 'Position changes' });
   await page.getByLabel('Repay amount', { exact: true }).fill('40');
   await expect(outcome).toContainText('Total debt100 fxUSD → 60 fxUSD');
   await expect(outcome).not.toContainText('Before conversion and fees');
@@ -790,7 +797,7 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
     await page.getByLabel('Collateral', { exact: true }).fill('0.5');
     await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800.123456789012345678');
-    const outcome = page.getByRole('region', { name: 'Estimated borrowing outcome', exact: true });
+    const outcome = page.getByRole('region', { name: 'Borrowing outcome', exact: true });
     const debt = outcome.locator('dl > div').filter({ hasText: 'Total debt' }).locator('strong');
     await expect(debt).toBeVisible();
     await expect(debt.locator('details, summary')).toHaveCount(0);
@@ -801,7 +808,8 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     const heights = await expectFormMetricRows(rows);
     if (width === 390) expect(heights[0], 'Single-line borrowing terms use the compact rhythm').toBeLessThanOrEqual(36);
     const funding = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-    await expect(funding.getByRole('status')).toHaveText('Off');
+    await expect(funding.locator('dt')).toContainText('Funding status: OFF');
+    await expect(funding.locator('dt span[class*="fundingStatusOff"]')).toHaveCount(1);
     await expect(funding).not.toContainText('APR');
     await page.screenshot({ path: info.outputPath(`borrow-funding-status-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
@@ -820,7 +828,7 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     const definitions = history.locator('[data-info-help-trigger]');
     await expect(definitions).toHaveCount(3);
     expect(await definitions.evaluateAll(controls => controls.map(control => control.getAttribute('aria-label')))).toEqual([
-      'About Funding & costs', 'About Funding status', 'About Average cost APR',
+      'About Funding & costs', 'About Funding status: OFF', 'About Average cost APR',
     ]);
     for (const control of await definitions.all()) {
       await control.scrollIntoViewIfNeeded();

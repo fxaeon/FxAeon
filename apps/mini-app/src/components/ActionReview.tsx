@@ -59,6 +59,7 @@ import { ReviewTermRow } from './review/ReviewTermRow';
 import { MetricLabel } from './InfoHelp';
 import { INFO_HELP_CONTENT } from './infoHelpContent';
 import { BORROW_FUNDING_MAX_AGE_MS } from '@/lib/fx/borrowFunding';
+import { TRADE_FUNDING_MAX_AGE_MS } from '@/lib/fx/tradeFunding';
 import { reviewHelpDefinition } from './review/reviewHelp';
 import { transactionCardIdentity } from './review/transactionCardIdentity';
 import { AmountUsd, FeeUsd, FeeAmount, CollateralAmount } from './review/AmountUsd';
@@ -174,11 +175,17 @@ export function ActionReview(props: ActionReviewProps) {
   const bridgeReadAt = typeof bridgeQuote?.receiptReadAt === 'number' ? bridgeQuote.receiptReadAt : undefined;
   const savingsQuoteReadAt = route?.details?.fxSaveQuote?.readAt ?? bridgeReadAt;
   const fundingReadAt = route?.details?.borrowFundingQuote?.readAt;
+  const tradeFundingReadAt = route?.details?.tradeFundingQuote?.readAt;
   useEffect(() => {
     if (fundingReadAt === undefined || !Number.isSafeInteger(fundingReadAt) || fundingReadAt > Date.now()) return;
     const timer = window.setTimeout(() => refreshQuoteDisplay(value => value + 1), Math.max(0, fundingReadAt + BORROW_FUNDING_MAX_AGE_MS - Date.now() + 1));
     return () => window.clearTimeout(timer);
   }, [fundingReadAt]);
+  useEffect(() => {
+    if (tradeFundingReadAt === undefined || !Number.isSafeInteger(tradeFundingReadAt) || tradeFundingReadAt > Date.now()) return;
+    const timer = window.setTimeout(() => refreshQuoteDisplay(value => value + 1), Math.max(0, tradeFundingReadAt + TRADE_FUNDING_MAX_AGE_MS - Date.now() + 1));
+    return () => window.clearTimeout(timer);
+  }, [tradeFundingReadAt]);
   useEffect(() => {
     if (savingsQuoteReadAt === undefined || !Number.isSafeInteger(savingsQuoteReadAt) || savingsQuoteReadAt > Date.now()) return;
     const timer = window.setTimeout(() => refreshQuoteDisplay(value => value + 1), Math.max(0, savingsQuoteReadAt + ROUTE_PREFETCH_TTL_MS - Date.now() + 1));
@@ -457,12 +464,13 @@ export function ActionReview(props: ActionReviewProps) {
   const identity = transactionCardIdentity(route, acceptedAmountFacts, actionName);
   const actionHeading = tradingAction ? identity.name : identity.review;
   const identityLabel = identity.amount?.label;
-  const compactFacts = orderCompactReviewFacts(hierarchy.primary.filter(fact => fact.label !== identityLabel && !amountLabels.has(fact.label) && !(newBorrowReview && fact.label === 'Debt added' && positionChanges.paired.some(change => change.label === 'Debt')) && !pairedOutcomeLabels.has(fact.label.toLowerCase()) && !(tradingAction && fact.label === 'Price impact') && !(loanAction && fact.label === 'Borrow rate') && !(intent?.kind === 'fxsave-deposit' && fact.label === 'Current APY') && !['Position', 'Target leverage', 'Execution price', 'Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout', 'Slippage'].includes(fact.label)), intent?.kind === 'deposit-and-mint');
+  const compactFacts = orderCompactReviewFacts(hierarchy.primary.filter(fact => fact.label !== identityLabel && !amountLabels.has(fact.label) && !(newBorrowReview && fact.label === 'Debt added' && positionChanges.paired.some(change => change.label === 'Debt')) && !pairedOutcomeLabels.has(fact.label.toLowerCase()) && !(tradingAction && ['Price impact', 'Funding rate'].includes(fact.label)) && !(loanAction && fact.label === 'Borrow rate') && !(intent?.kind === 'fxsave-deposit' && fact.label === 'Current APY') && !['Position', 'Target leverage', 'Execution price', 'Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout', 'Slippage'].includes(fact.label)), intent?.kind === 'deposit-and-mint');
   const collateral = tradeReview ? acceptedAmountFacts.find(fact => fact.label === 'Estimated collateral') : undefined;
   const collateralValuation = tradeReview && route ? positionOutcomeFacts(route)?.collateral : undefined;
   const slippage = facts.find(fact => fact.label === 'Slippage');
   const priceImpact = facts.find(fact => fact.label === 'Price impact');
   const borrowRate = facts.find(fact => fact.label === 'Borrow rate');
+  const tradeFunding = facts.find(fact => fact.label === 'Funding rate');
   const currentApy = facts.find(fact => fact.label === 'Current APY');
   // Each visible term owns its exact value and explanation. Only additional
   // route limits and verification evidence belong in the technical disclosure.
@@ -473,6 +481,7 @@ export function ActionReview(props: ActionReviewProps) {
     ...(/(?:Position|Loan) #/.test(identity.subtitle ?? '') ? ['Position'] : []),
     ...(collateral ? ['Estimated collateral'] : []),
     ...(tradingAction ? ['Execution price', 'Price impact'] : []),
+    ...(tradingAction && tradeFunding ? [tradeFunding.label] : []),
     ...(tradeReview || leverageReview ? ['Target leverage'] : []),
     ...(slippage && !loanAction ? ['Slippage'] : []),
     ...(intent?.kind === 'fxsave-deposit' ? ['Current APY'] : []),
@@ -536,6 +545,7 @@ export function ActionReview(props: ActionReviewProps) {
             {hierarchy.primary.filter(fact => ['f(x) fee', 'Protocol fee'].includes(fact.label)).map(fact => <ReviewRow compact key={fact.label} label={fact.label} value={fact.value} title={fact.title} feeAmounts={fact.feeAmounts} />)}
           </div>}
           <div className={presentationStyles.costGroup}>
+            {tradingAction && tradeFunding && <ReviewTermRow displayLabel="Funding rate" fact={tradeFunding} />}
             {hierarchy.primary.filter(fact => (loanAction ? ['Gas fee', 'Bridge fee'] : ['Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee']).includes(fact.label)).map(fact =>
               <ReviewRow compact key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Gas fee' ? (/max/i.test(fact.value) ? 'Network fee (max)' : 'Network fee') : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} feeAmounts={fact.feeAmounts} quiet={stablePreparation} />)}
           </div>

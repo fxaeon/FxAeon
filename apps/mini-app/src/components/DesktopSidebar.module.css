@@ -23,23 +23,25 @@
   .sidebar:not([data-sidebar-expanded='false']) .brand span, .sidebar:not([data-sidebar-expanded='false']) .links a span { display: inline; }
   .sidebar:not([data-sidebar-expanded='false']) .links a { justify-content: flex-start; }
   .toggle { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; margin-left: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--mut); cursor: pointer; }
-  .sidebar[data-sidebar-expanded='false'] .brandRow { flex-direction: column; gap: 8px; }
-  .sidebar[data-sidebar-expanded='false'] .toggle { margin: 0; }
+  .sidebar[data-sidebar-expanded='false'] .brandRow { min-height: 96px; flex-direction: column; gap: 8px; }
+  .sidebar[data-sidebar-expanded='false'] .toggle { position: absolute; top: 52px; left: 2px; margin: 0; transition: top 160ms ease, left 160ms ease; }
   .sidebar[data-sidebar-expanded='false'] .links { margin-top: 12px; }
 }
 @media (hover: hover) { .toggle:hover { color: var(--text); background: var(--surface); } }
 /* A transient reveal overlays the content; the saved state still owns its inset. */
 @media (min-width: 840px) and (hover: hover) and (pointer: fine) {
   .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) { width: 224px; box-shadow: var(--elevation-2); }
-  .sidebar[data-sidebar-expanded='false'] .brandRow { width: 48px; }
+  .sidebar[data-sidebar-expanded='false'] .brandRow { width: 48px; transition: width 160ms ease; }
   .sidebar[data-sidebar-expanded='false'] .brand { position: relative; flex: 0 0 auto; justify-content: center; width: 48px; }
   .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) .brand span { position: absolute; top: 50%; left: 52px; transform: translateY(-50%); white-space: nowrap; }
   .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) .brand span,
   .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) .links a span { display: inline; }
+  .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) .brandRow { width: 100%; }
+  .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) .toggle { top: 0; left: calc(100% - 48px); }
   .sidebar[data-sidebar-expanded='false'] .links a { position: relative; justify-content: flex-start; padding-left: 14px; }
   .sidebar[data-sidebar-expanded='false']:is(:hover, :has(:focus-visible)) .links a span { position: absolute; top: 50%; left: 48px; transform: translateY(-50%); white-space: nowrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sidebar { transition: none; }
+  .sidebar, .brandRow, .toggle { transition: none; }
 }

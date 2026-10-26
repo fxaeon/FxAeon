@@ -1,7 +1,9 @@
 name: Deploy static Mini App
 
 on:
-  push:
+  workflow_run:
+    workflows: [Client CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -15,7 +17,13 @@ concurrency:
 jobs:
   deploy:
     name: Build and deploy Cloudflare Pages
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.repository.full_name == github.repository)
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
@@ -24,11 +32,15 @@ jobs:
       run:
         # Container jobs otherwise default to sh; deployment steps use Bash conditionals.
         shell: bash
-    # Allow complete verification and the separate production-configured rebuild.
+    # Allow manual full verification and the separate production-configured rebuild.
     timeout-minutes: 40
     environment: production
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Trust the container checkout
         # Checkout's temporary HOME does not persist Git trust for shell steps.
         run: |
@@ -42,6 +54,8 @@ jobs:
           node-version: '22'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Require release commit is current main
+        run: test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
       - name: Validate public build configuration
         env:
           NEXT_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
@@ -55,7 +69,8 @@ jobs:
           NEXT_PUBLIC_TELEGRAM_APP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: pnpm verify:production-env
-      - name: Run complete repository verification
+      - name: Run full verification for manual dispatch
+        if: github.event_name == 'workflow_dispatch'
         run: pnpm verify
       - name: Build production deployment artifact
         run: pnpm build
@@ -82,9 +97,7 @@ jobs:
           node scripts/verify_built_rpc_config.mjs
           pnpm check:bundle
       - name: Stamp production revision
-        run: node scripts/release_revision.mjs write "$GITHUB_SHA"
-        env:
-          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/release_revision.mjs write "$RELEASE_SHA"
       - name: Sync production Pages gas-oracle secret
         id: gas_secret
         env:
@@ -106,17 +119,16 @@ jobs:
           fi
       - name: Deploy verified production artifact
         run: |
-          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
-          pnpm exec wrangler pages deploy apps/mini-app/dist --project-name=fxaeon --branch=main --commit-hash="$GITHUB_SHA" --commit-message="Verified production artifact $GITHUB_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"
+          pnpm exec wrangler pages deploy apps/mini-app/dist --project-name=fxaeon --branch=main --commit-hash="$RELEASE_SHA" --commit-message="Verified production artifact $RELEASE_SHA"
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GITHUB_SHA: ${{ github.sha }}
           WRANGLER_SEND_METRICS: 'false'
       - name: Verify deployed revision
-        run: node scripts/release_revision.mjs verify "$GITHUB_SHA"
+        run: node scripts/release_revision.mjs verify "$RELEASE_SHA"
         env:
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ env.RELEASE_SHA }}
       - name: Check live gas-oracle binding
         id: gas_oracle
         run: node scripts/check_live_gas_oracle.mjs
@@ -131,7 +143,7 @@ jobs:
         run: node scripts/verify_live_public_config.mjs
         env:
           EXPECTED_PUBLIC_PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ env.RELEASE_SHA }}
           LIVE_APP_URL: https://fxaeon.com
       - name: Sync Telegram bot metadata and menu
         run: node scripts/sync_telegram_bot.mjs

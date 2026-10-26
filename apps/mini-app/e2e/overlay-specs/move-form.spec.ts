@@ -22,15 +22,15 @@ const mocks: Record<string, string> = {
   '@/lib/wallet': `export const usePrivyWallet=()=>({...globalThis.__moveForm.wallet,sendTransaction:()=>{throw new Error('No transactions in this fixture');}});`,
   '@/lib/telegram': `export const haptic=()=>{};export const openExternalLink=()=>false;`,
   '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes=async()=>({tiers:{standard:{gasPriceWei:1n},fast:{gasPriceWei:2n},rapid:{gasPriceWei:3n}}});`,
-  '@/components/ActionReview': `export const ActionReview=({editor,blocker,label})=><>{editor}<div className="reviewTrigger"><button className="button button-primary" disabled={Boolean(blocker)}>{blocker||label}</button></div></>;`,
+  '@/components/ActionReview': `export const ActionReview=({editor,blocker,label})=><>{editor}<div className="reviewTrigger"><button className="button button-primary" disabled={Boolean(blocker)}>{globalThis.__moveForm.wallet.address?blocker||label:'Connect wallet'}</button></div></>;`,
   '@/lib/fx': `export const asFxSdkRpcTransport=v=>v;export const assertAddress=v=>v;export const assertBridgeActionTarget=()=>{};export const advancedBridgePolicy=()=>({});export const assertChecksummedAddress=v=>v;export const assertPublicClientChain=()=>{};export const bridgeDeliveryLowerBound=()=>0n;export const getBridgeApprovalAllowance=async()=>0n;export const getFxReadFacade=()=>({});export const withReadDeadline=v=>v;export const getPublicClient=()=>({readContract:async()=>0n});export const planBridgeRoute=async()=>({});export const resolveBridgeApprovalTokenAddress=()=> '0x0000000000000000000000000000000000000001';export const resolveBridgeTokenAddress=resolveBridgeApprovalTokenAddress;export const requireRpcUrl=()=> 'http://localhost';export const restoreSignatureRequiredDraftFromSearch=()=>undefined;export const validateAdvancedBridgeContracts=async()=>({});`,
-  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL=30000;export const fetchBridgePreview=async({amount})=>{if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n,nativeBalance:10n**18n,sourceGas:2n*10n**15n};};export const fetchCanonicalBridgeEstimate=async({amount})=>{if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n};};export const isFreshBridgePreview=(p)=>Boolean(p&&Date.now()-p.readAt<30000);export const readBridgeReceiptEstimate=async()=>undefined;`,
+  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL=30000;export const fetchBridgePreview=async({amount})=>{if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n,nativeBalance:10n**18n,sourceGas:2n*10n**15n};};export const fetchCanonicalBridgeEstimate=async({amount})=>{if(globalThis.__moveForm.canonicalFetch)return globalThis.__moveForm.canonicalFetch(amount);if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n};};export const isFreshBridgePreview=(p)=>Boolean(p&&Date.now()-p.readAt<30000);export const readBridgeReceiptEstimate=async()=>undefined;`,
   '@/app/trade/fxUi': `import {parseUnits} from 'viem';export const parseAmount=value=>{try{return Number(value)>0?parseUnits(value,18):null;}catch{return null;}};`,
 };
 let bundle: { script: string; css: string };
 test.beforeAll(async () => {
   const result = await esbuild.build({
-    stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import MovePage from './src/app/move/page';globalThis.__moveForm={wallet:{ready:true,authenticated:true,address:'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',chainId:1,connectionVersion:1}};createRoot(document.getElementById('root')).render(<MovePage/>);`, loader: 'tsx', resolveDir: app },
+    stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import MovePage from './src/app/move/page';const disconnected=new URLSearchParams(location.search).has('disconnected');globalThis.__moveForm={wallet:{ready:true,authenticated:!disconnected,address:disconnected?undefined:'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',chainId:1,connectionVersion:1}};createRoot(document.getElementById('root')).render(<MovePage/>);`, loader: 'tsx', resolveDir: app },
     bundle: true, write: false, outdir: 'move-form-fixture', format: 'iife', platform: 'browser', target: 'es2022', jsx: 'automatic', loader: { '.module.css': 'local-css' },
     plugins: [{ name: 'move-fixtures', setup(build: any) {
       build.onResolve({ filter: /^(@\/|next\/)/ }, ({ path }: { path: string }) => {
@@ -45,7 +45,7 @@ test.beforeAll(async () => {
   bundle = { script: result.outputFiles.find((file: { path: string }) => file.path.endsWith('.js')).text,
     css: `${globals.css}\n${readFileSync(resolve(app, 'src/app/product-shell.css'), 'utf8')}\n${result.outputFiles.find((file: { path: string }) => file.path.endsWith('.css')).text}\n@font-face{font-family:MoveInter;src:url('/fixture-font.woff2');font-weight:100 900}:root{--font-sans:MoveInter}body{font-family:MoveInter,system-ui,sans-serif}.move-fixture-shell{padding:24px 16px 80px}.reviewTrigger{margin-top:12px}.reviewTrigger button{width:100%}` };
 });
-async function mount(page: Page, width: number) {
+async function mount(page: Page, width: number, disconnected = false) {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.setViewportSize({ width, height: 900 });
@@ -59,7 +59,7 @@ async function mount(page: Page, width: number) {
     const asset = resolve(app, 'public', `.${path}`);
     return /^\/(token-icons|chain-icons|fonts)\/[\w.-]+$/.test(path) && existsSync(asset) ? route.fulfill({ path: asset }) : route.abort();
   });
-  await page.goto('http://move.test/');
+  await page.goto(`http://move.test/${disconnected ? '?disconnected' : ''}`);
   await page.addStyleTag({ content: bundle.css });
   await page.addScriptTag({ content: bundle.script });
   await expect(page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true })).toBeEnabled();
@@ -111,7 +111,7 @@ test('Move keeps failed quotes and invalid recipients clear with enlarged text',
   await mount(page, 320);
   await page.evaluate(() => { (globalThis as any).__moveForm.failQuote = true; document.documentElement.style.fontSize = '32px'; });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  await expect(page.getByRole('status').filter({ hasText: 'Receipt estimate unavailable' })).toContainText('Receipt estimate unavailable');
+  await expect(page.getByRole('status').filter({ hasText: 'Receive amount unavailable' })).toContainText('Receive amount unavailable');
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('textbox', { name: 'Destination wallet', exact: true }).fill('invalid');
   await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');
@@ -134,6 +134,42 @@ test('Move quote rows stay compact and wrap at 320px with 200% text', async ({ p
     await enlargeFormText(page);
     await expectFormMetricRows(rows);
     await noOverflow(page);
+  }
+});
+
+test('Move canonical quote pending-to-ready preserves receive, quote and CTA geometry', async ({ page }) => {
+  await mount(page, 390, true);
+  await page.evaluate(() => {
+    (globalThis as any).__moveForm.canonicalFetch = (amount: bigint) => new Promise((resolve) => {
+      (globalThis as any).__moveForm.resolveCanonicalQuote = () => resolve({ readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: amount - 10n ** 16n, estimatedReceived: amount - 123456789012345n });
+    });
+  });
+  await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
+  await expect.poll(() => page.evaluate(() => typeof (globalThis as any).__moveForm.resolveCanonicalQuote)).toBe('function');
+  const receive = page.getByRole('region', { name: 'Receive assets', exact: true });
+  const quote = page.getByRole('region', { name: 'Bridge quote', exact: true });
+  const cta = page.getByRole('button', { name: 'Connect wallet', exact: true });
+  await expect(quote.getByRole('button', { name: 'Refresh quote', exact: true })).toBeDisabled();
+    await expect(receive.getByRole('status', { name: 'Loading receive amount' })).toHaveCount(1);
+  await expect(quote.getByRole('status', { name: 'Loading minimum received' })).toHaveCount(1);
+  await expect(quote.getByRole('status', { name: 'Loading bridge fee' })).toHaveCount(1);
+  const measure = async () => ({
+    receive: await receive.boundingBox(),
+    quote: await quote.boundingBox(),
+    cta: await cta.boundingBox(),
+  });
+  const pending = await measure();
+  await expect(cta).toBeVisible();
+  await page.evaluate(() => (globalThis as any).__moveForm.resolveCanonicalQuote());
+  await expect(receive.locator('[data-receive-amount]')).toBeVisible();
+  await expect(quote.locator('dt').filter({ hasText: /^Minimum received$/ }).locator('xpath=following-sibling::dd')).toContainText('99.99 fxUSD');
+  await expect(quote.locator('dt').filter({ hasText: /^Bridge fee$/ }).locator('xpath=following-sibling::dd')).toContainText('0.001 ETH');
+  const ready = await measure();
+  for (const key of ['receive', 'quote', 'cta'] as const) {
+    expect(pending[key] && ready[key]).toBeTruthy();
+    for (const dimension of ['x', 'y', 'width', 'height'] as const) {
+      expect(Math.abs(pending[key]![dimension] - ready[key]![dimension]), `${key} ${dimension} shifted while quote settled`).toBeLessThanOrEqual(1);
+    }
   }
 });
 

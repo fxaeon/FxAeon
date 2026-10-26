@@ -25,7 +25,7 @@ const mocks: Record<string, string> = {
       state.reads.push(address.toLowerCase());
       const count = state.reads.filter((item) => item === address.toLowerCase()).length;
       if (count <= (state.failAttempts[address.toLowerCase()] ?? 0)) throw new Error('transient position read failure');
-      const positions = [{ market: 'BTC', side: 'long', info: { positionId: 927, rawColls: 1n, rawDebts: 1n } }];
+      const positions = state.emptyWallets.includes(address.toLowerCase()) ? [] : [{ market: 'BTC', side: 'long', info: { positionId: 927, rawColls: 1n, rawDebts: 1n } }];
       if ((state.partialReads[address.toLowerCase()] ?? []).includes(count)) {
         return { positions: [], successfulGroups: [], failedGroups: [{ market: 'BTC', side: 'long', reason: new Error('transient group failure') }], status: 'unavailable' };
       }
@@ -65,21 +65,40 @@ let bundle = '';
 test.beforeAll(async () => { bundle = await buildHarness(); });
 
 async function mount(page: import('@playwright/test').Page, failAttempts: Record<string, number> = {}, foreground = true,
-  partialReads: Record<string, number[]> = {}, initialStatus = 'unavailable') {
+  partialReads: Record<string, number[]> = {}, initialStatus = 'unavailable', emptyWallets: string[] = []) {
   await page.setContent('<div id="root"></div>');
-  await page.evaluate(({ failures, foreground, partialReads }) => {
-    (window as typeof window & { __positionRetryConfig?: { failAttempts: Record<string, number>; partialReads: Record<string, number[]>; foreground: boolean } }).__positionRetryConfig = {
+  await page.evaluate(({ failures, foreground, partialReads, emptyWallets }) => {
+    (window as typeof window & { __positionRetryConfig?: { failAttempts: Record<string, number>; partialReads: Record<string, number[]>; foreground: boolean; emptyWallets: string[] } }).__positionRetryConfig = {
       failAttempts: Object.fromEntries(Object.entries(failures).map(([address, count]) => [address.toLowerCase(), count])),
       partialReads: Object.fromEntries(Object.entries(partialReads).map(([address, calls]) => [address.toLowerCase(), calls])),
+      emptyWallets,
       foreground,
     };
-  }, { failures: failAttempts, foreground, partialReads });
+  }, { failures: failAttempts, foreground, partialReads, emptyWallets });
   await page.addScriptTag({ content: bundle });
   await expect(page.getByTestId('status')).toHaveText(initialStatus);
 }
 
 const walletA = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const walletB = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+test('verified empty wallet avoids repeated block discovery while manual and new-wallet reads remain immediate', async ({ page }) => {
+  await mount(page, {}, true, {}, 'ready', [walletA]);
+  const block = async (number: number) => {
+    await page.evaluate((next) => (window as typeof window & { __positionRetryHarness: { setActivity: (pauses: number, block: number) => void } }).__positionRetryHarness.setActivity(0, next), number);
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  };
+  await expect(page.getByTestId('reads')).toHaveText('1');
+  await block(100);
+  await block(101);
+  await expect(page.getByTestId('reads')).toHaveText('1');
+  await page.getByRole('button', { name: 'Manual refresh' }).click();
+  await expect(page.getByTestId('reads')).toHaveText('2');
+  await block(102);
+  await expect(page.getByTestId('reads')).toHaveText('2');
+  await page.evaluate((next) => (window as typeof window & { __positionRetryHarness: { setWallet: (address: string) => void } }).__positionRetryHarness.setWallet(next), walletB);
+  await expect(page.getByTestId('reads')).toHaveText('3');
+});
 
 test('review pauses coalesce block refreshes while manual refresh and wallet changes remain available', async ({ page }) => {
   await mount(page, {}, true, {}, 'ready');

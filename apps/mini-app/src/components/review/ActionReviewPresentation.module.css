@@ -58,13 +58,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 12px;
 }
 
-.positionOutcome { margin-top: 8px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--surface-2); font-size: var(--fs-caption); line-height: 1.4; }
+.positionOutcome { margin-top: 8px; line-height: 1.4; }
 .positionOutcome > p { margin: 0 0 6px; color: var(--mut); font-weight: 600; }
 .positionOutcome dl { display: grid; gap: 6px; margin: 0; }
-.positionOutcome dl > div { display: grid; grid-template-columns: minmax(52px, .45fr) minmax(0, 1.55fr); gap: 8px; }
+.positionOutcome dl > div { display: grid; }
 .positionOutcome dt { color: var(--mut); }
 .positionOutcome dd { margin: 0; min-width: 0; overflow-wrap: anywhere; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 
@@ -73,24 +72,22 @@
   .quoteMetric { padding-inline: 4px; }
 }
 
-.reviewHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.reviewHeader { display: flex; gap: 12px; }
 .reviewHeader > div { min-width: 0; }
-.reviewHeader h3 { margin: 0; font-size: 20px; font-weight: 650; line-height: 1.2; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.reviewHeader h3 { margin: 0; line-height: 1.2; overflow-wrap: anywhere; }
 .reviewNotice { margin: 8px 0 0; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--warn-dim); color: var(--warn); font-size: var(--fs-caption); line-height: 1.5; }
-.editButton { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; min-height: 44px; min-width: 64px; margin: -6px 0 0; padding: 0 12px; border-radius: 999px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
+.editButton { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px; min-height: 44px; border-radius: 999px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .editButton:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .editButton:active:not(:disabled) { transform: scale(0.96); transition-duration: var(--dur-press); }
 .editButton:disabled { opacity: .45; }
-.reviewDetails { margin-top: 4px; border-top: 1px solid var(--line); }
-.reviewDetails > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; color: var(--mut); font-size: var(--fs-small); list-style: none; transition: color var(--dur-fast) ease; }
+.reviewDetails > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; transition: color var(--dur-fast) ease; }
 .reviewDetails > summary:hover { color: var(--text); }
 .reviewDetails > summary::-webkit-details-marker { display: none; }
 .reviewDetails > summary > span:last-child { display: inline-flex; align-items: center; gap: 8px; }
 .reviewDetails > summary > span > svg { transition: transform var(--dur-base) var(--ease-out); }
 .reviewDetails[open] > summary > span > svg { transform: rotate(180deg); }
 .reviewDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; border-radius: 4px; }
-.disclosures { border-top: 1px solid var(--line); }
-.transactionStep { min-width: 0; padding: 10px 0; }
+.transactionStep { min-width: 0; }
 .transactionStep + .transactionStep { border-top: 1px solid var(--line); }
 /* Progressive enhancement: native keyboard/AT disclosure behavior remains
    intact in older Telegram webviews that do not interpolate auto sizes. */
@@ -116,9 +113,6 @@
 /* Status: a tinted icon well, a short label and one sentence of guidance.
  * States that need the person (wallet prompts) breathe; the rest stay still. */
 .statusNotice {
-  border-radius: var(--radius-md);
-  background: var(--surface-2);
-  padding: 12px 14px;
   font-size: var(--fs-small);
   line-height: 1.4;
 }
@@ -126,11 +120,7 @@
   position: relative;
   display: grid;
   flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
   place-items: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 .statusIcon svg { width: 18px; height: 18px; }
 .statusNotice[data-waiting] .statusIcon::after {
@@ -144,7 +134,7 @@
 }
 @keyframes attention-ring { 0% { opacity: 0.55; transform: scale(1); } 100% { opacity: 0; transform: scale(1.55); } }
 .statusText { min-width: 0; }
-.statusText > span:first-child { display: block; font-size: var(--fs-body); font-weight: 650; line-height: 1.3; }
+.statusText > span:first-child { display: block; line-height: 1.3; }
 .statusText > span:last-child { display: block; margin-top: 2px; color: var(--mut); }
 @media (prefers-reduced-motion: reduce) { .statusNotice[data-waiting] .statusIcon::after { animation: none; } }
 
@@ -188,7 +178,7 @@
 @media (prefers-reduced-motion: reduce) { .hashLink, .inlineError { animation: none; } }
 
 /* Result: one mark, one sentence, receipts, and the next step. */
-.result { display: flex; width: 100%; min-width: 0; max-width: 480px; margin-inline: auto; flex-direction: column; align-items: stretch; padding: 4px; border: 0; background: transparent; text-align: left; }
+.result { display: flex; width: 100%; min-width: 0; margin-inline: auto; flex-direction: column; align-items: stretch; border: 0; background: transparent; text-align: left; }
 .result > h3 { line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
 .result > button { min-height: 48px; width: 100%; }
 .resultMark {
@@ -233,8 +223,8 @@
 .receiptOutcome [data-direction='sent'] dd { font-size: 15px; text-align: right; }
 .receiptOutcome [data-direction='sent'] dd > :first-child:not(span) { display: none; }
 .receiptCaveat { color: var(--mut); font-size: var(--fs-small) !important; font-weight: 400 !important; line-height: 1.5; }
-.resultDetails { width: 100%; margin-top: 20px; border-top: 1px solid var(--line); }
-.resultDetails > summary { display: flex; justify-content: space-between; align-items: center; min-height: 48px; gap: 12px; cursor: pointer; font-size: var(--fs-small); color: var(--mut); }
+.resultDetails { width: 100%; }
+.resultDetails > summary { display: flex; justify-content: space-between; align-items: center; min-height: 48px; gap: 12px; cursor: pointer; color: var(--mut); }
 .resultDetails > summary::-webkit-details-marker { display: none; }
 .resultDetails > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
 .resultDetails .resultMeta { margin: 0 0 12px; }
@@ -249,12 +239,9 @@
 .factEquivalent { display: block; margin-top: 1px; color: var(--mut); font-size: var(--fs-caption); font-weight: 500; }
 .amountUsd { display: block; color: var(--mut); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 
-.facts { gap: 0; padding-bottom: 4px; }
-.facts > [data-review-fact] { padding-block: 8px; }
-.facts > [data-review-fact] + [data-review-fact] { border-top: 1px solid var(--line); }
-.actions.actions { margin-top: 6px; padding-top: 10px; padding-bottom: 0; }
-.actions > button { border-radius: 12px; }
-.moreFacts { display: grid; gap: 10px; padding: 14px 0; }
+.facts { padding-bottom: 4px; }
+.actions.actions { padding-bottom: 0; }
+.moreFacts { display: grid; padding: 14px 0; }
 
 /* Keep one Trade card and reserve unknown values only during preparation. */
 /* Fit the verified content without reserving empty space in the card. */
@@ -301,39 +288,31 @@
 }
 
 /* Amount-led transaction shell. Existing product color tokens remain the authority. */
-.amountFlow { width: 100%; min-width: 0; padding: 18px 16px; border: 0; border-radius: 20px; background: var(--surface-2); }
+.amountFlow { width: 100%; min-width: 0; border: 0; background: var(--surface-2); }
 .flowCaption { margin: 0 0 12px; color: var(--mut); font-size: 12px; line-height: 1.45; }
-.flowAmount { display: flex; align-items: center; min-width: 0; gap: 12px; }
-.flowToken { position: relative; display: flex; flex: 0 0 40px; width: 40px; height: 40px; }
+.flowAmount { display: flex; min-width: 0; }
+.flowToken { position: relative; display: flex; flex: 0 0 40px; }
 .flowToken > span { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; padding: 2px; border-radius: 50%; background: var(--surface-2); }
 .flowValue { min-width: 0; flex: 1; }
-.flowLabel { display: block; margin-bottom: 1px; color: var(--mut); font-size: 12px; line-height: 1.4; }
-.flowExact { display: flex; align-items: center; gap: 5px; min-height: 38px; font-size: clamp(23px, 6.8vw, 29px); font-weight: 650; letter-spacing: -.035em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.flowLabel { display: block; color: var(--mut); }
+.flowExact { display: flex; align-items: center; font-variant-numeric: tabular-nums; }
 .flowExact > span { min-width: 0; overflow-wrap: normal; }
-.flowSubline { display: flex; flex-wrap: wrap; column-gap: 5px; row-gap: 2px; color: var(--mut); font-size: 12px; line-height: 1.4; }
+.flowSubline { display: flex; flex-wrap: wrap; column-gap: 5px; row-gap: 2px; color: var(--mut); }
 .flowSubline .amountUsd { display: inline; font-size: inherit; }
-.flowArrow { margin: 11px 0 11px 11px; color: var(--mut); }
+.flowArrow { color: var(--mut); }
 .facts { gap: 0; }
-.facts > .amountFlow { margin: 0 0 10px; }
 .facts > [data-review-fact] { padding-block: 6px; }
 .facts > [data-review-fact] + [data-review-fact] { border-top: 0; }
-.reviewDetails { margin-top: 12px; }
-.actions.actions { margin-top: 8px; padding-top: 12px; }
-.actions > button { min-height: 50px; border-radius: 16px; }
 .actualProgress { margin-bottom: 14px; }
-.statusNotice { border-radius: 18px; padding: 12px 14px; }
-.statusText > span:first-child { font-size: 14px; }
-.statusText > span:last-child { font-size: 12px; line-height: 1.45; }
 .result { max-width: none; padding: 0; }
-.resultStatus { display: flex; align-items: flex-start; gap: 12px; padding: 14px; border-radius: 18px; background: var(--surface-2); }
+.resultStatus { display: flex; align-items: flex-start; background: var(--surface-2); }
 .resultStatus > div { min-width: 0; }
 .resultStatus h3 { margin: 1px 0 0; font-size: 15px; line-height: 1.35; font-weight: 650; letter-spacing: -.015em; outline: none; }
 .resultStatus p { margin: 4px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
-.resultStatus .resultMark { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; animation: none; }
+.resultStatus .resultMark { flex: 0 0 34px; border-radius: 50%; animation: none; }
 .resultStatus .resultMark svg { width: 21px; height: 21px; }
 .resultStatus .resultMark circle, .resultStatus .resultMark path { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
 .resultStatus .resultMark::after { display: none; }
-.resultDetails { margin-top: 14px; }
 .positionOutcome { padding: 12px 0; border-radius: 0; background: transparent; font-size: 12px; }
 @media (max-width: 350px) {
  .amountFlow { padding: 16px 12px; }
@@ -348,18 +327,17 @@
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) > :first-child { align-items: flex-start; flex-wrap: wrap; }
 .result :global([aria-label="Bridge status"]:not([data-compact-bridge])) :global(.text-\[10\.5px\]) { font-size: 12px; }
 .flowExact > [data-long] { font-size: clamp(16px, 4.8vw, 21px); letter-spacing: -.03em; }
-.receiptLinks { margin-top: 14px; }
-.receiptLinks .hashLink { min-height: 44px; border-radius: 12px; padding: 8px 12px; font-size: 12px; background: var(--surface-2); }
+.receiptLinks .hashLink { font-size: 12px; }
 .receiptLinks .hashLink > span:first-child > span:last-child { font-size: 11px; }
 .resultStatus + .amountFlow { margin-top: 14px; }
 .result :global([data-compact-bridge]) { margin-top: 0; }
 .reviewViewport { scroll-margin-top: 88px; }
 
-.leverageTarget { display: block; margin: 0 0 14px; font-size: 29px; font-weight: 650; line-height: 1.2; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
-.leverageSummary dl { display: grid; gap: 8px; margin: 8px 0 0; font-size: 12px; }
+.leverageTarget { display: block; margin: 0 0 14px; line-height: 1.2; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.leverageSummary dl { display: grid; margin: 8px 0 0; }
 .leverageSummary dl > div { display: grid; grid-template-columns: minmax(54px, .4fr) minmax(0, 1.6fr); gap: 8px; }
 .leverageSummary dt { color: var(--mut); }
-.leverageSummary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.leverageSummary dd { min-width: 0; margin: 0; overflow-wrap: anywhere; text-align: right; font-variant-numeric: tabular-nums; }
 .resultStatus + .leverageSummary { margin-top: 14px; }
 
 .leveragePair { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; min-height: 28px; }
@@ -367,32 +345,27 @@
 @media (max-width: 350px) { .leverageSummary dl > div { grid-template-columns: 1fr; gap: 0; } }
 
 /* One transaction surface across review, execution and receipt. */
-.facts.facts { padding: 20px; gap: 0; border-radius: 20px; background: var(--surface-2); }
+.facts.facts { gap: 0; }
 .facts > .amountFlow { padding: 0; margin: 0; background: transparent; border-radius: 0; }
 .amountFlow { padding: 20px; border-radius: 20px; }
-.flowAmount { gap: 14px; align-items: center; }
+.flowAmount { gap: 14px; }
 .flowToken { width: 44px; height: 44px; flex-basis: 44px; }
 .flowToken > img, .flowToken > svg { width: 44px; height: 44px; }
-.flowExact { min-height: 42px; font-size: clamp(25px, 5.5vw, 32px); font-weight: 600; letter-spacing: -.04em; line-height: 1.18; gap: 7px; }
-.flowUnit { font-size: .62em; font-weight: 500; color: var(--text); letter-spacing: -.02em; white-space: nowrap; }
-.flowLabel { font-size: 12px; line-height: 1.4; margin-bottom: 2px; }
+.flowExact { letter-spacing: -.04em; line-height: 1.18; gap: 7px; }
+.flowUnit { white-space: nowrap; }
+.flowLabel { line-height: 1.4; margin-bottom: 2px; }
 .flowSubline { font-size: 13px; line-height: 1.4; }
 .flowArrow { display: block; margin: 8px 0 8px 14px; width: 16px; height: 16px; opacity: .65; }
-.consequenceGroup { display: grid; gap: 10px; margin-top: 22px; font-size: 13px; }
+.consequenceGroup { display: grid; margin-top: 22px; }
 .consequenceGroup:empty, .costGroup:empty { display: none; }
-.costGroup { display: grid; gap: 10px; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--line); }
+.costGroup { display: grid; border-top: 1px solid var(--line); }
 .consequenceGroup > div, .costGroup > div { line-height: 1.4; }
 .consequenceGroup [data-review-fact] > span:last-child, .costGroup [data-review-fact] > span:last-child { font-weight: 550; }
-.reviewDetails { margin-top: 8px; border-top: 0; }
-.reviewDetails > summary { min-height: 48px; padding: 0 4px; font-size: 13px; }
-.reviewHeader { align-items: center; margin-bottom: 20px; }
-.reviewHeader h3 { font-size: 22px; font-weight: 600; letter-spacing: -.035em; }
-.actions.actions { padding: 10px 0 0; margin-top: 4px; border-top: 0; }
-.actions > button { min-height: 52px; border-radius: 16px; font-size: 15px; font-weight: 600; }
+.reviewDetails { border-top: 0; }
+.actions.actions { padding: 10px 0 0; border-top: 0; }
 .statusNotice, .resultStatus { padding: 14px 16px; border-radius: 16px; background: transparent; border: 1px solid var(--line); }
 .statusText > span:first-child, .resultStatus h3 { font-size: 15px; font-weight: 600; }
 .statusText > span:last-child, .resultStatus p { font-size: 13px; line-height: 1.45; }
-.resultStatus + .amountFlow, .resultStatus + .leverageSummary { margin-top: 16px; }
 .receiptLinks { padding: 8px 0; border-radius: 16px; background: var(--surface-2); margin-top: 16px; }
 .receiptLinks > div { gap: 0; }
 .receiptLinks .hashLink { min-height: 52px; padding: 10px 16px; background: transparent; border-radius: 0; }
@@ -423,7 +396,6 @@
 .flowExact, .leveragePair { min-height: 44px; }
 
 /* The amount stays anchored while the state underneath changes. */
-.actualProgress { margin: 12px 0 0; }
 .resultStatus { padding: 14px 2px 6px; border: 0; border-radius: 0; gap: 10px; }
 .resultStatus h3 { margin-top: 6px; }
 .resultStatus .resultMark { width: 30px; height: 30px; flex-basis: 30px; }
@@ -433,15 +405,14 @@
 
 /* One disclosure level: quiet rows first, provenance notes last. */
 .advancedGroup { min-width: 0; padding: 16px 0; border-top: 1px solid var(--line); }
-.advancedGroupLabel { margin: 0 0 12px; color: var(--mut); font-size: 12px; font-weight: 500; }
-.advancedRows { display: grid; min-width: 0; gap: 12px; margin-top: 12px; }
+.advancedRows { display: grid; min-width: 0; }
 .advancedRows > [data-review-fact] > span:last-child { overflow-wrap: anywhere; }
 
-.evidenceRow { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 5px 0; font-size: 12px; }
+.evidenceRow { min-width: 0; display: grid; }
 .evidenceRow > span:first-child { color: var(--mut); }
-.evidenceRow > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
-.evidenceValue { min-width: 0; min-height: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: var(--text); font-variant-numeric: tabular-nums; }
-.evidenceCopy { display: inline-flex; flex-shrink: 0; min-height: 44px; align-items: center; justify-content: center; gap: 5px; padding: 0 6px; color: var(--mut); font-size: 11px; }
+.evidenceRow > div { display: flex; align-items: center; min-width: 0; }
+.evidenceValue { min-width: 0; min-height: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-variant-numeric: tabular-nums; }
+.evidenceCopy { display: inline-flex; flex-shrink: 0; min-height: 44px; align-items: center; justify-content: center; gap: 5px; color: var(--mut); font-size: 11px; }
 .evidenceRow button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; border-radius: 5px; }
 .evidenceRow > p { color: var(--warn); font-size: 11px; }
 .evidenceDialog { margin: auto; width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface-1, #171b22); color: var(--text); }
@@ -472,13 +443,12 @@
 .facts [data-review-fact] > span:last-child { font-size: 12.9px; font-weight: 600; }
 .facts .amountUsd { font-size: 10px; }
 .facts .positionOutcome { padding: 12px 0 0; margin-top: 12px; border-top: 1px solid var(--line); }
-.reviewHeader { align-items: center; margin-bottom: 12px; }
-.reviewHeader h3 { font-size: 18px; font-weight: 720; letter-spacing: -.03em; }
+.reviewHeader { align-items: center; }
 .editButton { min-width: 44px; width: 44px; margin: -6px 0 -6px 0; padding: 0; }
 .reviewDetails { margin-top: 3px; }
 .reviewDetails > summary { min-height: 44px; padding: 0 4px; font-size: 12.5px; }
-.actions.actions { margin-top: 0; padding-top: 0; }
-.actions > button { min-height: 48px; border-radius: 15px; font-size: 14.5px; font-weight: 730; }
+.actions.actions { margin-top: 0; }
+.actions > button { font-size: 14.5px; }
 .actualProgress { margin: 0 0 14px; }
 .statusNotice { padding: 17px 16px; border: 0; border-radius: 19px; background: var(--surface-2); }
 .statusIcon { width: 34px; height: 34px; border-radius: 50%; background: var(--mint-dim); }
@@ -488,7 +458,7 @@
 .resultHeadingIcon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; background: var(--success-dim, var(--mint-dim)); color: var(--success); }
 .resultHeadingIcon svg { width: 23px; height: 23px; }
 .resultHeadingCopy { min-width: 0; }
-.resultHeadingCopy h3 { margin: 0; font-size: 21px; line-height: 1.19; letter-spacing: -.035em; font-weight: 740; }
+.resultHeadingCopy h3 { margin: 0; line-height: 1.19; }
 .resultHeadingCopy p { margin: 6px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
 .resultStats { display: grid; gap: 15px; padding: 16px; border-radius: 19px; background: var(--surface-2); }
 .resultStatRow { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; font-size: 13px; }
@@ -566,19 +536,18 @@
    The shared spacing/type scale is the same for Borrow, Earn and Move. */
 .amountLedReview { min-width: 0; padding: 16px; border-radius: 20px; background: var(--surface-2); }
 .amountLedReview .amountFlow, .amountLedReview .facts.facts { padding: 0; border-radius: 0; background: transparent; }
-.amountLedReview .amountFlow + .facts { padding-top: 16px; }
 .amountLedReview .flowArrow { margin-block: 3px; }
 .amountLedReview .consequenceGroup { margin-top: 0; gap: 6px; }
 .amountLedReview .positionOutcome { padding-top: 8px; margin-top: 8px; }
 .amountLedReview .positionOutcome dl { gap: 2px; }
 .amountLedReview .riskGroup { gap: 6px; }
-.amountLedReview .costGroup { padding-top: 9px; margin-top: 9px; gap: 6px; }
+.amountLedReview .costGroup { gap: 6px; }
 .amountLedReview .costGroup + .costGroup { padding-top: 6px; margin-top: 0; border-top: 0; }
 .amountContext { margin: 0 0 16px; color: var(--mut); font-size: 12px; line-height: 1.4; }
 .amountContext strong { font-weight: 500; color: var(--text); }
 .amountLedReview .flowToken > span { background: var(--surface-2); }
 .amountLedReview .flowExact { font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
-.positionOutcomeHeading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 8px; margin-bottom: 4px; }
+.positionOutcomeHeading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 4px; }
 .positionOutcomeHeading p { margin: 0; color: var(--text); font-size: 12px; font-weight: 600; }
 .positionOutcomeHeading > span { color: var(--mut); font-size: 11px; }
 .positionOutcome dl > div { align-items: center; grid-template-columns: minmax(98px, .85fr) minmax(0, 1.4fr); gap: 8px; min-height: 24px; }
@@ -624,10 +593,10 @@
 /* Phone review: static amounts and one execution-details section. */
 .positionOutcomeHeading { justify-content: flex-end; }
 .pendingSummary { min-width: 0; }
-.pendingStatus { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; color: var(--text); font-size: var(--fs-body); }
+.pendingStatus { display: flex; align-items: center; gap: 12px; color: var(--text); font-size: var(--fs-body); }
 .pendingStatus > div { min-width: 0; }
 .pendingStatus strong { font-weight: 600; overflow-wrap: anywhere; }
-.pendingStatus p { margin: 4px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.pendingStatus p { margin: 4px 0 0; color: var(--mut); line-height: 1.5; }
 .pendingStatus .pendingWarning { color: var(--warn); }
 .pendingMark { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; color: var(--mint-text); background: var(--mint-dim); }
 .pendingStatus[data-warning] .pendingMark { color: var(--warn); background: var(--warn-dim); }
@@ -715,6 +684,14 @@
 .result .flowLabel, .pendingSummary .flowLabel { font-size: 12px; }
 .pendingStatus { margin-bottom: 14px; }
 .pendingStatus p { font-size: 12px; }
+/* Keep the receipt's outcome and cost visible on short phones without
+   shrinking its typography or the primary action's touch target. */
+@media (max-width: 600px) and (max-height: 620px) {
+  .reviewViewport[data-review-phase='result'] .resultHeading { padding-block: 4px 10px; }
+  .reviewViewport[data-review-phase='result'] .flowExact { min-height: 34px; }
+  .reviewViewport[data-review-phase='result'] .flowArrow { margin-block: 1px; height: 14px; }
+  .reviewViewport[data-review-phase='result'] .actions.actions { padding-top: 6px; }
+}
 @media (min-width: 601px) {
   .reviewViewport { max-height: none; }
   .reviewScrollBody { overflow: visible; }

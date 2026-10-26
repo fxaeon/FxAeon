@@ -87,7 +87,7 @@ test('ready card preserves separate approximate fxUSD and USDC amounts and final
   assert.match(html, /class="claimReady">Ready to claim/);
   assert.match(html, /fxUSD to receive<\/dt><dd>≈ 3\.125 fxUSD/);
   assert.match(html, /USDC to receive<\/dt><dd>≈ 0\.75 USDC/);
-  assert.match(html, /Amounts are estimates/);
+  assert.match(html, /A fresh read is required before review/);
   assert.match(html, /Final amounts may change/);
   assert.doesNotMatch(html, /Available to claim|No payout yet|Minimum|received<\/dt>/);
 });

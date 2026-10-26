@@ -154,6 +154,55 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expectSidebarFits(page, 224);
 });
 
+test('hover reveal returns the desktop toggle beside the brand without moving navigation icons', async ({ page }) => {
+  await open(page, { width: 1280 });
+  await setLab(page, { wallet: STATES[1][1] });
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const pinnedToggle = sidebar.getByRole('button', { name: 'Collapse navigation', exact: true });
+  const pinnedRect = await pinnedToggle.boundingBox();
+  expect(pinnedRect).not.toBeNull();
+
+  await pinnedToggle.click();
+  await page.mouse.move(600, 800);
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+  const collapsedToggle = sidebar.getByRole('button', { name: 'Expand navigation', exact: true });
+  await expect.poll(async () => (await collapsedToggle.boundingBox())?.y ?? 0).toBeGreaterThan(pinnedRect!.y + pinnedRect!.height);
+  const collapsedRect = await collapsedToggle.boundingBox();
+  expect(collapsedRect).not.toBeNull();
+
+  const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+    const rect = icon.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
+  }));
+  await sidebar.hover({ position: { x: 36, y: 120 } });
+  await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
+  await expect(collapsedToggle).toBeVisible();
+  const hoverRect = await collapsedToggle.boundingBox();
+  expect(hoverRect).not.toBeNull();
+  expect(hoverRect!.x).toBeCloseTo(pinnedRect!.x, 0);
+  expect(hoverRect!.y).toBeCloseTo(pinnedRect!.y, 0);
+  expect(hoverRect!.width).toBeGreaterThanOrEqual(44);
+  expect(hoverRect!.height).toBeGreaterThanOrEqual(44);
+  const hoverIcons = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+    const rect = icon.getBoundingClientRect();
+    return { left: rect.left, top: rect.top };
+  }));
+  expect(hoverIcons).toHaveLength(iconRects.length);
+  hoverIcons.forEach((rect, index) => {
+    expect(Math.abs(rect.left - iconRects[index].left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(rect.top - iconRects[index].top)).toBeLessThanOrEqual(1);
+  });
+
+  await collapsedToggle.click();
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expectSidebarFits(page, 224);
+  const clickedRect = await sidebar.getByRole('button', { name: 'Collapse navigation', exact: true }).boundingBox();
+  expect(clickedRect).not.toBeNull();
+  expect(clickedRect!.x).toBeCloseTo(pinnedRect!.x, 0);
+  expect(clickedRect!.y).toBeCloseTo(pinnedRect!.y, 0);
+  expect(await page.evaluate(() => sessionStorage.getItem('fxaeon:sidebar-expanded'))).toBe('true');
+});
+
 test('collapsed desktop rails reveal on hover without moving content or changing the saved preference', async ({ page }) => {
   await open(page, { width: 840, initScript: "sessionStorage.setItem('fxaeon:sidebar-expanded','false')" });
   await setLab(page, { wallet: STATES[1][1] });
@@ -164,7 +213,7 @@ test('collapsed desktop rails reveal on hover without moving content or changing
     await page.mouse.move(width - 20, 800);
     await expectSidebarFits(page, 72);
     const before = await page.locator('[data-shell-content]').boundingBox();
-    const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+    const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
       const rect = icon.getBoundingClientRect();
       return { left: rect.left, top: rect.top };
     }));
@@ -172,7 +221,7 @@ test('collapsed desktop rails reveal on hover without moving content or changing
     await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
     await expect(portfolio.locator('span')).toBeVisible();
     await expect.poll(() => sidebar.evaluate((element, before) => {
-      const after = [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+      const after = [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
         const rect = icon.getBoundingClientRect();
         return { left: rect.left, top: rect.top };
       });
@@ -190,7 +239,7 @@ test('collapsed desktop rails reveal on hover without moving content or changing
     await page.mouse.move(width - 20, 800);
     const closeSamples = await sidebar.evaluate(async (element, before) => {
       const samples: Array<Array<{ left: number; top: number }>> = [];
-      const capture = () => [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+      const capture = () => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
         const rect = icon.getBoundingClientRect();
         return { left: rect.left, top: rect.top };
       });
@@ -838,7 +887,10 @@ async function shellLayout(page: Page) {
       }),
       more: rect('[data-mobile-more]'),
       dock: [...document.querySelectorAll('.tabbar .nav-item-mobile')].map((item) => `${item.textContent}${item.classList.contains('nav-item-active') ? '*' : ''}`),
-      heading: rect('.app-content h1'),
+      // Screen-reader-only Portfolio headings have no visible layout to match;
+      // the public first paint and the lab's account body intentionally differ.
+      // Visible History headings must still hand over at exactly the same rect.
+      heading: (() => { const box = rect('.app-content h1'); return box && box[2] > 1 && box[3] > 1 ? box : null; })(),
     };
   });
 }

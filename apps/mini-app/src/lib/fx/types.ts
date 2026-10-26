@@ -65,8 +65,17 @@ export interface RouteDetails {
   positionEconomics?: import('./positionEconomics').PositionEconomics;
   /** Effective economic leverage independently calculated from the quote. */
   effectiveLeverage?: number;
-  /** Display-only current long-pool funding APR, bound to the reviewed pool.
+  /** Display-only current gross annual collateral funding, bound to market, side and pool.
    * The 1e18-scaled ratio applies to collateral and can change after this read. */
+  tradeFundingQuote?: {
+    market: import('./tokens').FxSdkMarket;
+    side: 'long' | 'short';
+    poolAddress: Address;
+    ratio: string;
+    readAt: number;
+    offset?: { oppositeRatio: string; longCollateral: string; shortCollateral: string; shortDebt: string; blockNumber: string };
+  };
+  /** Borrow long-pool charge, with an independently verified net offset when available. */
   borrowFundingQuote?: {
     poolAddress: Address;
     ratio: string;

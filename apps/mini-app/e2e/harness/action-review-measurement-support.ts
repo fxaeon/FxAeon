@@ -295,6 +295,14 @@ export async function openHarness(page: Page, options: { initialPreviewMode?: 'a
   // and avoids inheriting the production HTML response's CSP into an inline
   // harness document. The explicit marker below is the readiness signal.
   await page.evaluate(({ bundle, options }) => {
+    // Mobile contexts otherwise inherit about:blank's 980px layout viewport.
+    // Match the production document before mounting responsive review surfaces.
+    if (!document.querySelector('meta[name="viewport"]')) {
+      const viewport = document.createElement('meta');
+      viewport.name = 'viewport';
+      viewport.content = 'width=device-width, initial-scale=1';
+      document.head.append(viewport);
+    }
     document.body.replaceChildren();
     const root = document.createElement('div');
     root.id = 'root';

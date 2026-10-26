@@ -721,7 +721,6 @@ function SavingsSummary({ data, loading, balanceLoading = loading, connected, on
           <h2 title={tvlUsd !== null ? formatUsd(tvlUsd) : undefined}>{tvlUsd !== null
             ? formatVaultUsd(tvlUsd)
             : <MissingValue width="md" status={readWarnings.includes('vault configuration') || fxSaveApyStatus === 'unavailable' ? 'unavailable' : 'loading'} label="Vault holdings in USD" />}</h2>
-          {config && !readWarnings.includes('vault configuration') && <small title={`${formatUnits(config.totalAssetsWei, 18)} fxSP`}>≈ {formatDisplayAmount(config.totalAssetsWei, 18, 0)} fxSP</small>}
         </> : balanceUnavailable ? <>
           <h2><MissingValue width="md" status={balanceLoading ? 'loading' : 'unavailable'} label={balanceLoading ? 'Loading fxSAVE balance' : 'fxSAVE balance unavailable'} /></h2>
         </> : empty ? <>
@@ -803,7 +802,7 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
         No {labelToken(token)} available. <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
       </p>}
       {depositEstimate && <section className={presentation.outcome} aria-label="Deposit outcome">
-        <EstimateRow label="Estimated fxSAVE received" value={depositEstimate}
+        <EstimateRow label="Receive" value={depositEstimate}
           note={token === 'fxUSDBasePool' ? 'Based on current vault assets and share supply.' : undefined} />
       </section>}
     </>}
@@ -822,7 +821,7 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
       {instant && token !== 'fxUSDBasePool' && <div className={presentation.receiveRow}><span>Receive asset</span>{picker}</div>}
       {!config && <VaultTermsStatus loading={configLoading} onRetry={onRetryConfig} direct={token === 'fxUSDBasePool'} />}
       {(token === 'fxUSDBasePool' || !instant) && <section className={presentation.outcome} aria-label="Withdrawal outcome">
-      {directEstimate && <EstimateRow label="Estimated fxSP received" value={directEstimate} note="Based on current vault assets and share supply." />}
+      {directEstimate && <EstimateRow label="Receive" value={directEstimate} note="Based on current vault assets and share supply." />}
       {token !== 'fxUSDBasePool' && !instant && <div className={presentation.outcomeRow}><span>Claim assets</span><strong>fxUSD / USDC</strong></div>}
       {token === 'fxUSDBasePool' && <p className={presentation.outcomeNote}>Direct redemption to fxSP has no cooldown or queued claim.</p>}
       {token !== 'fxUSDBasePool' && !instant && <p className={presentation.outcomeNote}>Network fees apply to the withdrawal request and claim.</p>}
@@ -902,7 +901,7 @@ function ClaimState({ data }: { data: SaveData }) {
     </dl>
     <p className={presentation.claimCaveat}>
       {!ready && <>No payout yet. </>}
-      {preview ? 'Amounts are estimates. A fresh read is required before review. ' : 'Claimable amounts require fresh contract reads before review. '}
+      {preview ? 'A fresh read is required before review. ' : 'Claimable amounts require fresh contract reads before review. '}
       {!ready && !redeemableAt && <>Waiting for the configured cooldown. </>}
       Final amounts may change.
     </p>
@@ -913,6 +912,7 @@ function VaultDetails({ config }: { config: SaveConfig | null }) {
   return <Disclosure title="Vault details & transparency">
     {/* Withdrawal terms are available in the adjacent disclosure. */}
     {config ? <MetricRows rows={[
+      { label: 'Underlying vault assets', value: <span title={`${formatUnits(config.totalAssetsWei, 18)} fxSP`}>≈ {formatDisplayAmount(config.totalAssetsWei, 18, 0)} fxSP</span> },
       { label: 'fxSAVE supply', value: <span title={`${formatUnits(config.totalSupplyWei, 18)} fxSAVE`}>≈ {formatDisplayAmount(config.totalSupplyWei, 18, 0)} fxSAVE</span> },
       { label: 'Expense ratio', value: formatVaultRatio(config.expenseRatio) },
       { label: 'Harvester ratio', value: formatVaultRatio(config.harvesterRatio) },

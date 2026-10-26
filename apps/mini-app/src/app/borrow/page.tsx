@@ -256,6 +256,7 @@ export default function BorrowPage() {
   const limitMarket = selected?.market ?? market;
   const funding = useBorrowFundingRate(limitMarket);
   const fundingDisplay = funding.rate ? borrowFundingDisplay(funding.rate) : null;
+  const fundingStatusLabel = fundingDisplay ? `Funding status: ${fundingDisplay.status.toUpperCase()}` : 'Funding status';
   const [limitRevision, setLimitRevision] = useState(0);
   const [poolLimit, setPoolLimit] = useState<{ market: UiMarket; range: DebtRatioRange | null; pending: boolean }>({ market: 'ETH', range: null, pending: true });
   // Never carry one pool's verified range into a newly selected market, even
@@ -672,17 +673,17 @@ export default function BorrowPage() {
         : withdrawLimitWei > 0n ? `Up to ${formatSignificantDecimal(formatUnits(withdrawLimitWei, tokenDecimals(token)), 4)} ${symbol} at current prices`
         : 'Repay debt to withdraw collateral'} />}
     {!newPosition && !debtRange && !limitPending && (showMint || showWithdraw) && <div className={presentation.helper}>{retryLimit}</div>}
-    {showPositionEstimate && <section className={presentation.outcome} aria-label="Estimated borrowing outcome">
-      <div className={presentation.outcomeHeading}><span>Current → estimated</span></div>
+    {showPositionEstimate && <section className={presentation.outcome} aria-label="Borrowing outcome">
+      <div className={presentation.outcomeHeading}><span>Current → After</span></div>
       <dl className={presentation.outcomeRows}>
-        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'Estimated debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} /></strong></dd></div>
+        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} /></strong></dd></div>
       </dl>
       {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
     </section>}
-    {showManageEstimate && <section className={presentation.outcome} aria-label="Estimated position changes">
-      <div className={presentation.outcomeHeading}><span>Current → estimated</span></div>
+    {showManageEstimate && <section className={presentation.outcome} aria-label="Position changes">
+      <div className={presentation.outcomeHeading}><span>Current → After</span></div>
       <dl className={presentation.outcomeRows}>
-        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'Estimated debt', value: `${positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD` }} /></strong></dd></div>
+        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD` }} /></strong></dd></div>
         {withdrawPreviewWei! > 0n && <div><dt>Receive asset</dt><dd>{symbol}</dd></div>}
       </dl>
     </section>}
@@ -757,7 +758,7 @@ export default function BorrowPage() {
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt><MetricLabel minimalHelp label="Funding status" definition="borrowRate" help={fundingDisplay?.title ?? (funding.status !== 'loading' ? <>The current funding rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">View funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined)} /></dt><dd className={fundingDisplay ? presentation.fundingValue : presentation.rateUnavailable}>{fundingDisplay?.value ?? (funding.status === 'loading' ? <MissingValue width="md" status="loading" label="Loading funding rate" /> : <MissingValue width="md" status="unavailable" label="Funding rate unavailable" />)}</dd>{fundingDisplay ? <small role="status">{`${fundingDisplay.status}${funding.rate?.netRatio === undefined ? ' · Gross charge' : ''}`}</small> : funding.status !== 'loading' ? <small role="status">Not quoted</small> : null}</div>
+          <div><dt><MetricLabel minimalHelp label={fundingStatusLabel} visualLabel={fundingDisplay ? <>Funding status: <span className={fundingDisplay.status === 'On' ? presentation.fundingStatusOn : presentation.fundingStatusOff}>{fundingDisplay.status.toUpperCase()}</span></> : undefined} definition="borrowRate" help={fundingDisplay?.title ?? (funding.status !== 'loading' ? <>The current funding rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">View funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined)} /></dt><dd className={fundingDisplay ? presentation.fundingValue : presentation.rateUnavailable}>{fundingDisplay?.value ?? (funding.status === 'loading' ? <MissingValue width="md" status="loading" label="Loading funding rate" /> : <MissingValue width="md" status="unavailable" label="Funding rate unavailable" />)}</dd>{fundingDisplay && funding.rate?.netRatio === undefined ? <small role="status">Gross charge</small> : !fundingDisplay && funding.status !== 'loading' ? <small role="status">Not quoted</small> : null}</div>
           <div><dt><MetricLabel minimalHelp label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : limitPending ? <MissingValue width="md" status="loading" label="Loading pool maximum LTV" /> : <MissingValue width="md" status="unavailable" label="Pool maximum LTV unavailable" />}</dd>{!debtRange && !limitPending && <><small role="status">Live limit unavailable</small>{retryLimit}</>}</div>
         </dl>
       </section>}

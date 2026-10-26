@@ -208,7 +208,9 @@ test('deployment sync uses only the CI secret after Pages deploy', () => {
   assert.match(workflow.slice(syncIndex), /TELEGRAM_BOT_TOKEN:\s*\$\{\{\s*secrets\.TELEGRAM_BOT_TOKEN\s*\}\}/);
   assert.match(workflow.slice(syncIndex), /TELEGRAM_WEB_APP_URL:\s*https:\/\/fxaeon\.com\//);
   assert.doesNotMatch(workflow, /NEXT_PUBLIC_TELEGRAM_BOT_TOKEN/);
-  assert.match(workflow, /push:\s*\n\s*branches:\s*\[main\]/);
+  assert.match(workflow, /workflow_run:[\s\S]*workflows: \[Client CI\][\s\S]*branches: \[main\]/);
+  assert.match(workflow, /github\.event\.workflow_run\.event == 'push'/);
+  assert.match(workflow, /github\.event\.workflow_run\.conclusion == 'success'/);
   assert.match(script, /Never print the token|token out of logs/i);
 });
 

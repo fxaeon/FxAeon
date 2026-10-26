@@ -13,8 +13,9 @@
 .receiveValue { flex: 1; min-width: 0; container-type: inline-size; }
 .receiveValue .receiveAmount { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: clamp(14px, calc(100cqi / (var(--receive-length, 4) * .62 + .4)), 38px); white-space: nowrap; overflow-wrap: normal; line-height: 1.2; }
 .receiveValue { display: flex; align-items: center; min-height: 52px; }
-.receiveCaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin: 0; color: var(--mut); font-size: 12px; line-height: 1.4; }
+.receiveCaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; min-height: 1.52em; margin: 0; color: var(--mut); font-size: 12px; line-height: 1.4; }
 .receiveCaption > span { display: inline; }
+.receiveCaptionPlaceholder { display: inline-block !important; width: 8rem; height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--mut) 18%, transparent); }
 .quoteSummary { padding: 0 2px 4px; border-bottom: 1px solid var(--line); }
 .quoteHeading { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
 .quoteHeading button { color: var(--mint-text, var(--mint)); min-height: 44px; font-size: 12px; }
@@ -28,6 +29,8 @@
 .quoteSummary :global([data-review-value] > summary) { min-height: 24px; min-block-size: 24px; min-inline-size: 24px; }
 .quoteSummary dd { margin: 0; text-align: right; min-width: 0; max-width: 58%; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .quoteSummary dd > :global(span) { overflow-wrap: anywhere; }
+.quoteValuePlaceholder { display: flex; min-height: 1.45em; align-items: center; justify-content: flex-end; }
+.feeUsdPlaceholder { display: block; width: 4.25em; height: 1.45em; margin: 0 0 0 auto; border-radius: 999px; background: color-mix(in srgb, var(--mut) 18%, transparent); }
 .gasNote { margin: 0; color: var(--mut); font-size: 12px; line-height: 1.5; padding: 0 2px; }
 .gasNote[data-shortfall] { padding: 10px; border: 1px solid var(--warn); border-radius: 10px; color: var(--warn); background: var(--warn-dim); }
 .recipientIdentity { display: flex; align-items: center; min-width: 0; gap: 7px; font-size: 12px; flex-wrap: wrap; }

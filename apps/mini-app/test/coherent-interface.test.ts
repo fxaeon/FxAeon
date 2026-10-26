@@ -107,7 +107,8 @@ test('review continuity freezes the starting snapshot and returns without pushin
   assert.match(review, /displayLabel="Funding status"/);
   assert.match(review, /label: 'Borrow rate', value: 'Not quoted'/);
   assert.match(review, /Verify on f\(x\) Protocol/);
-  assert.match(source('app/borrow/page.tsx'), /label="Funding status"/);
+  assert.match(source('app/borrow/page.tsx'), /label=\{fundingStatusLabel\}/);
+  assert.match(source('app/borrow/page.tsx'), /visualLabel=\{fundingDisplay \?/);
   assert.doesNotMatch(review, /className=\{presentationStyles.riskNotice\}/);
   assert.match(source('components/infoHelpContent.ts'), /Rebalancing can reduce collateral and debt/);
   assert.equal((review.match(/<details\b/g) ?? []).length, 1);

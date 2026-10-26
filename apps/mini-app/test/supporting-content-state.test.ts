@@ -23,12 +23,12 @@ const imports: Record<string, unknown> = {
   './useChartWidth': { useChartWidth: () => ({ ref: chartRef, width: 260 }) },
   '@/lib/borrowSensitivity': { collateralScenarioLtv },
   '@/lib/tradeSensitivity': { tradeSensitivity, tradeScenarioPrice, tradeMarketReference },
-  '@/lib/fx/useBorrowFundingRate': { useBorrowFundingRate: () => ({ rate: null, status: 'unavailable' }) },
+  '@/lib/fx/useTradeFundingRate': { useTradeFundingRate: () => ({ rate: null, status: 'unavailable' }) },
   '@/lib/fx/usePoolCapacity': { usePoolCapacity: () => ({ value: null, status: 'unavailable' }) },
   '@/lib/fx/useOracleObservation': { useOracleObservation: () => ({ value: null, status: 'unavailable' }) },
   '@/lib/fx/useOracleMarketDifference': { useOracleMarketDifference: () => null },
   '@/lib/fx/poolCapacity': { poolCapacityUnits: () => ({ collateralSymbol: 'ETH', debtSymbol: 'fxUSD' }) },
-  '@/lib/fx/borrowFunding': { borrowFundingDisplay: () => null },
+  '@/lib/fx/tradeFunding': { tradeFundingDisplay: () => null },
 };
 function load(name: string) {
   const source = readFileSync(new URL('../src/components/' + name + '.tsx', import.meta.url), 'utf8');

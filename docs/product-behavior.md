@@ -20,9 +20,17 @@ Positions, borrowing, and fxSAVE accounting use Ethereum. Base is a supported br
 
 When disconnected, Portfolio remains a public starting point: it links the four products and shows ETH/BTC market price, 24-hour change, and a 24-hour trend. These market displays are not wallet balances or transaction inputs.
 
+First paint uses that same public presentation while wallet providers initialize.
+The account skeleton appears only after an authenticated selected wallet is known;
+wallet restoration does not manufacture a connected account or a zero balance.
+
 ## Inputs and previews
 
 A preview describes its matching ticket. Amount, asset, direction, recipient, or wallet changes invalidate it; stale values must not describe a newer intent.
+
+Forms use concise outcome labels (Receive, Current → After) without repeating
+“estimated”. Approximation marks, freshness checks and the detailed review
+remain unchanged; shorter wording does not turn a public quote into a guarantee.
 
 Trade's split shows debt and the trader's share, with preview context separate from a signed plan. Borrow derives its displayed limit and LTV from supported collateral and pool conditions. Move uses a live estimated receive amount when available; an unavailable quote is not zero.
 
@@ -53,6 +61,10 @@ hours first, with annualized APR as secondary context. Historical charges and
 their period average use the same eight-hour basis. Short-pool earnings are
 not folded into the chart's gross whole-collateral basis; historical values are
 not a current quote or an earned return.
+
+Borrow places the verified state beside its label: “Funding status: ON” or
+“Funding status: OFF”. Only ON is red and OFF green; the eight-hour rate remains
+separate. Loading or failed reads never imply OFF.
 
 ## Position rows and units
 
@@ -140,6 +152,12 @@ debt and LTV calculations; canonical Move shows its receive estimate and messagi
 fee. Empty or failed quotes never become fabricated amounts or zero balances.
 The action remains Connect wallet, without additional preview banners.
 
+Move keeps the receive and fee layout stable while a public quote is pending,
+including its initial debounce. Pending figures use quiet placeholders; genuine
+failed or expired quotes retain their recovery states. Refresh quote stays
+disabled until the pending request resolves. Earn's raw underlying fxSP quantity
+is available in Vault details rather than repeated beneath the USD holdings.
+
 Public estimates are display facts only. Trade discards the SDK planner's unsigned
 route at an isolated boundary; Earn uses the pool and vault previewDeposit reads;
 Move uses the official messaging quote and quoteOFT receipt. These facts cannot
@@ -147,3 +165,39 @@ enter an executable review. Connection preserves the entered ticket and requires
 fresh account-specific planning and checks. Input edits, expiry and context changes
 invalidate estimates. Cooldown withdrawal output remains protocol-determined;
 no future payout mix is inferred from the currently selected asset.
+
+## Current Trade funding and historical accounting
+
+Trade reviews show the current eight-hour net collateral funding rate when the
+reviewed SDK price sample and both pools' funding inputs are verified. The public
+Trade subsection explicitly says Gross funding charge. Reviews omit the rate
+when its net value cannot be verified. Neither value is an accrued payment or a fixed future rate.
+The row belongs in the cost group, appears once, and expires after 60 seconds.
+No funding row is added to position cards.
+
+Long and short pools use different configuration methods. Offset inputs are
+pinned to one Ethereum block; net conversion uses the reviewed route's native
+SDK price and ETH accounting conversion, never a display-token USD feed.
+Negative net funding remains signed. The public reader shares fresh same-pool
+requests without extending their original timestamp, and never caches failures.
+
+The official f(x) frontend's Funding History uses indexed CollIndexChanged and
+DebtIndexChanged events (debt reductions), valued with their event data. Current
+getPosition balances already incorporate index accounting. An additional
+current-rate-times-duration subtraction would double-count or misstate costs.
+FxAeon does not claim an all-time funding-paid total from those current rates.
+
+## Bounded background reads
+
+Fully verified empty wallets suppress automatic block-triggered position
+rediscovery for 15 seconds after a successful read. The next block after that
+window refreshes discovery. Occupied, partial, failed and changed-wallet states
+retain their prior refresh behavior; manual and post-confirmation reads bypass
+the gate. This reduces redundant reads without delaying transaction completion
+refreshes.
+
+When a collapsed desktop rail reveals on hover or keyboard focus at wide desktop
+sizes, its toggle returns beside the brand to the same coordinates used by the
+pinned-expanded rail. The brand and destination icons remain fixed, and transient
+reveal does not move content or replace the saved preference. The toggle retains
+its 44px target and respects reduced motion.

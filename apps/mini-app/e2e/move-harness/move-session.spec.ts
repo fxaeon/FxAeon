@@ -24,7 +24,7 @@ const mocks: Record<string, string> = {
   '@/components/ProtocolForm': `import React from 'react'; export const Segmented = () => null; export const AmountField = ({label,value,onChange}) => <label>{label}<input aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} /></label>; export const TokenSelect = ({label,value,options,onChange}) => <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>;`,
   '@/components/WalletDataProvider': `export const useMoveBalances = () => ({ data: { balances: {} }, status: 'ready', refresh: async () => {} });`,
   '@/lib/fx': `export const asFxSdkRpcTransport = (value) => value; export const assertAddress = (value) => value; export const assertBridgeActionTarget = () => {}; export const advancedBridgePolicy = () => ({}); export const assertChecksummedAddress = (value) => value; export const assertPublicClientChain = () => {}; export const bridgeDeliveryLowerBound = () => 0n; export const getBridgeApprovalAllowance = async () => 0n; export const getFxReadFacade = () => ({}); export const withReadDeadline = (value) => value; export const getPublicClient = () => ({ readContract: async () => 0n }); export const planBridgeRoute = async () => ({}); export const resolveBridgeApprovalTokenAddress = () => '0x0000000000000000000000000000000000000001'; export const resolveBridgeTokenAddress = () => '0x0000000000000000000000000000000000000001'; export const requireRpcUrl = () => 'http://localhost'; export const restoreSignatureRequiredDraftFromSearch = () => undefined; export const validateAdvancedBridgeContracts = async () => ({});`,
-  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL = 30000; export const fetchBridgePreview = (params,onUpdate) => { const h = globalThis.__moveSessionHarness; h.preview ??= { calls: [], pending: [], responses: [], defaultResponse: { readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 9n * 10n ** 17n, estimatedReceived: 95n * 10n ** 16n, nativeBalance: 10n ** 18n, sourceGas: 2n * 10n ** 15n } }; h.executionCount ??= 0; h.preview.calls.push(params); if (h.preview.fetch) return h.preview.fetch(params,onUpdate); return Promise.resolve(h.preview.responses.shift() ?? h.preview.defaultResponse); }; export const fetchCanonicalBridgeEstimate = (params) => { const h = globalThis.__moveSessionHarness; h.canonicalPreview ??= { calls: [] }; h.canonicalPreview.calls.push(params); const minimumReceived = params.amount - 10n ** 15n; return Promise.resolve({ readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived, estimatedReceived: minimumReceived }); }; export const isFreshBridgePreview = (preview, now = Date.now()) => Boolean(preview && preview.readAt <= now && now - preview.readAt < BRIDGE_PREVIEW_TTL); export const readBridgeReceiptEstimate = async () => undefined;`,
+  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL = 30000; export const fetchBridgePreview = (params,onUpdate) => { const h = globalThis.__moveSessionHarness; h.preview ??= { calls: [], pending: [], responses: [], defaultResponse: { readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 9n * 10n ** 17n, estimatedReceived: 95n * 10n ** 16n, nativeBalance: 10n ** 18n, sourceGas: 2n * 10n ** 15n } }; h.executionCount ??= 0; h.preview.calls.push(params); if (h.preview.fetch) return h.preview.fetch(params,onUpdate); return Promise.resolve(h.preview.responses.shift() ?? h.preview.defaultResponse); }; export const fetchCanonicalBridgeEstimate = (params) => { const h = globalThis.__moveSessionHarness; h.canonicalPreview ??= { calls: [] }; h.canonicalPreview.calls.push(params); if (h.canonicalPreview.fetch) return h.canonicalPreview.fetch(params); const minimumReceived = params.amount - 10n ** 15n; return Promise.resolve({ readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived, estimatedReceived: minimumReceived }); }; export const isFreshBridgePreview = (preview, now = Date.now()) => Boolean(preview && preview.readAt <= now && now - preview.readAt < BRIDGE_PREVIEW_TTL); export const readBridgeReceiptEstimate = async () => undefined;`,
   '@/lib/wallet': `export const usePrivyWallet = () => ({ ...globalThis.__moveSessionHarness.wallet, sendTransaction: async () => ({ hash: '0x' }) });`,
   '@/app/trade/fxUi': `export const parseAmount = (value) => { const parsed = Number(value); return Number.isFinite(parsed) && parsed > 0 ? BigInt(Math.round(parsed * 1e18)) : null; };`,
   '@/lib/transactionState': `export const resetTransactionAmounts = () => ({amount:'',deposit:'',mint:'',repay:'',withdraw:'',shares:'',fraction:0.5,leverage:2});`,
@@ -146,6 +146,37 @@ test('disconnected Move shows canonical amount and fee estimates without wallet-
   })).toEqual({ canonicalCalls: 1, walletPreviewCalls: 0, executionCount: 0 });
 });
 
+test('Move quote pending state uses labeled placeholders without unavailable or repeated loading copy', async ({ page }) => {
+  await page.setContent('<div id="root"></div>');
+  await page.addScriptTag({ content: bundle });
+  await expect(page.locator('html[data-harness-ready="true"]')).toHaveCount(1);
+  await page.evaluate(() => {
+    const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
+    h.wallet = { ...h.wallet, address: undefined, authenticated: false };
+    h.canonicalPreview = { calls: [], pending: [] };
+    h.canonicalPreview.fetch = (params: unknown) => new Promise(resolve => h.canonicalPreview.pending.push({ params, resolve }));
+    h.rerender?.();
+  });
+  await page.getByRole('textbox', { name: 'Amount', exact: true }).fill('1');
+  await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.canonicalPreview.pending.length)).toBe(1);
+
+  const quote = page.getByRole('region', { name: 'Bridge quote' });
+  await expect(quote.getByRole('status', { name: 'Loading minimum received' })).toHaveCount(1);
+  await expect(quote.getByRole('status', { name: 'Loading bridge fee' })).toHaveCount(1);
+  await expect(page.getByRole('status', { name: 'Loading receive amount' })).toHaveCount(1);
+  await expect(quote.getByText('Unavailable', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Getting a live quote…', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Refresh quote', exact: true })).toBeDisabled();
+
+  await page.evaluate(() => {
+    const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
+    h.canonicalPreview.pending[0].resolve({ readAt: Date.now(), nativeFee: 10n ** 15n, minimumReceived: 999n * 10n ** 15n, estimatedReceived: 999n * 10n ** 15n });
+  });
+  await expect(quote.locator('dt').filter({ hasText: /^Minimum received$/ }).locator('xpath=following-sibling::dd')).toContainText('0.999 fxUSD');
+  await expect(quote.locator('dt').filter({ hasText: /^Bridge fee$/ }).locator('xpath=following-sibling::dd')).toContainText('0.001 ETH');
+  await expect(page.getByRole('status', { name: 'Loading receive amount' })).toHaveCount(0);
+});
+
 test('Move keeps a late quote bound to the current amount and recipient', async ({ page }) => {
   await page.setContent('<div id="root"></div>');
   await page.addScriptTag({ content: bundle });
@@ -186,7 +217,7 @@ test('Move keeps a late quote bound to the current amount and recipient', async 
     const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
     h.preview.pending[1].update({ ...h.preview.current, sourceGas: 2n * 10n ** 15n });
   });
-  await expect(page.getByRole('alert')).toContainText('Your balance does not cover the bridge fee and estimated transaction gas');
+  await expect(page.getByRole('alert')).toContainText('Your balance does not cover the bridge fee and required network fees');
   const review = page.getByRole('button', { name: 'Add ETH on Ethereum for fees' });
   await expect(review).toBeDisabled();
   await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.executionCount)).toBe(0);

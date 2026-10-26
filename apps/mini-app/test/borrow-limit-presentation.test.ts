@@ -21,6 +21,6 @@ test('zero, tiny nonzero and unavailable LTV remain truthful without financial N
  const source=readFileSync(new URL('../src/components/review/borrowLimitPresentation.ts',import.meta.url),'utf8');
  assert.doesNotMatch(source,/Number\(|parseFloat|toFixed/);
  const page=readFileSync(new URL('../src/app/borrow/page.tsx',import.meta.url),'utf8');
- assert.equal((page.match(/label: 'Estimated debt', value:/g)||[]).length,2);
+ assert.equal((page.match(/label: 'After debt', value:/g)||[]).length,2);
  assert.match(page,/mintWei > capacity.maxAdditional/);
 });

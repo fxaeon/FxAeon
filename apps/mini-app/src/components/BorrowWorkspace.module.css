@@ -24,6 +24,8 @@
 .metrics > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 1px; min-width: 0; }
 .metrics .retryLimit { grid-column: 1 / -1; }
 .metrics .fundingValue { font-size: clamp(17px, 2.4vw, 24px); letter-spacing: -.025em; }
+.fundingStatusOn { color: var(--danger); }
+.fundingStatusOff { color: var(--success); }
 .retryLimit { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; min-width: 44px; min-height: 44px; color: var(--mut); font-size: 12px; }
 .retryLimit:hover { color: var(--text); }
 .retryLimit:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }

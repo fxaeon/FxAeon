@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { loadPositionRefresh } from '@/lib/positionRefreshQueue';
+import { loadPositionRefresh, positionBlockRefreshDue } from '@/lib/positionRefreshQueue';
 import { PositionRefreshActivityContext } from './PositionRefreshActivity';
 import {
   createPositionReadGuard,
@@ -294,6 +294,7 @@ function ProtocolPositionSession({ address, enabled, children }: { address: stri
     if (!enabled || !address || !realtimeEthereum.latestBlockNumber || (realtimeEthereum.status !== 'live' && realtimeEthereum.status !== 'polling')) return;
     if (lastRealtimeBlock.current === realtimeEthereum.latestBlockNumber) return;
     lastRealtimeBlock.current = realtimeEthereum.latestBlockNumber;
+    if (!positionBlockRefreshDue(snapshotRef.current, address, Date.now())) return;
     void loadAddress(address);
   }, [address, automaticRefreshPauses, enabled, loadAddress, realtimeEthereum.latestBlockNumber, realtimeEthereum.status]);
 

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { openHarness, metric } from '../harness/action-review-measurement-support';
 import { readReviewedTransactions } from '../fork/reviewedTransactions';
+import { FX_TOKENS } from '../../src/lib/fx/tokens';
 // Fixture controls simulate wallet/RPC events outside the product dialog. They
 // must not depend on clicking through the modal backdrop used by real users.
 async function harnessControl(page: import('@playwright/test').Page, name: string) {
@@ -64,7 +65,6 @@ for (const width of [320, 1280]) for (const theme of ['dark']) for (const declin
   test(`review, wallet signature and ${declined ? 'declined' : 'result'} polish at ${width}px in ${theme}`, async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width, height: width === 320 ? 568 : 900 });
-    await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
     await openHarness(page, { presentationMode: true });
     await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
     const screenshot = async (state: string) => {
@@ -150,6 +150,51 @@ async function expectReviewInside(review: import('@playwright/test').Locator) {
   expect(fit.pageOverflow, 'no horizontal page overflow').toBeLessThanOrEqual(0);
   expect(fit.bodyOverflow, 'no hidden horizontal overflow inside the card').toBeLessThanOrEqual(0);
   expect(fit.escaped, 'every label and value stays inside the card').toEqual([]);
+}
+
+for (const side of ['long', 'short'] as const) {
+  test(`Trade review shows the fresh ${side} pool funding once and drops it at expiry`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+    await openHarness(page, { presentationMode: true });
+    await page.evaluate(({ side, collateral, debt }) => {
+      const h = (window as typeof window & { __actionReviewHarness: { financialFacts?: boolean; reviewRoute?: unknown; rerender?: () => void; wallet: { address?: string } } }).__actionReviewHarness;
+      const wallet = h.wallet.address ?? '0x00000000000000000000000000000000000000aa';
+      const pool = side === 'long' ? '0x6Ecfa38FeE8a5277B91eFdA204c235814F0122E8' : '0x25707b9e6690B52C60aE6744d711cf9C1dFC1876';
+      h.financialFacts = true;
+      h.reviewRoute = {
+        operation: 'increasePosition', chainId: 1, walletAddress: wallet,
+        transactions: [{ chainId: 1, from: wallet, to: pool, data: '0x12345678', value: 0n, kind: 'action', type: 'increasePosition', operation: 'increasePosition' }],
+        policy: { walletAddress: wallet, chainId: 1, reviewedAction: {
+          kind: 'position-increase', poolAddress: pool, positionId: 42,
+          inputTokenAddress: '0x00000000000000000000000000000000000000c1', inputAmount: 250000000000000000n, nativeInput: false,
+          collateralTokenAddress: collateral, debtTokenAddress: debt,
+          positionType: side, requestedLeverage: 2, slippagePercent: 0.5,
+        } },
+        details: { tradeFundingQuote: { market: 'ETH', side, poolAddress: pool, ratio: '35000000000000000', readAt: Date.now(), offset: { oppositeRatio: '0', longCollateral: '1', shortCollateral: '1', shortDebt: '1', blockNumber: '1' } } },
+      };
+      h.rerender?.();
+    }, { side, collateral: side === 'long' ? FX_TOKENS.wstETH.address : FX_TOKENS.fxUSD.address, debt: side === 'long' ? FX_TOKENS.fxUSD.address : FX_TOKENS.wstETH.address });
+    await page.getByRole('button', { name: 'Review position', exact: true }).click();
+    const review = page.locator('[data-review-surface]');
+    await expect(review).toBeVisible();
+    const fact = review.locator('[data-review-fact="Funding rate"]');
+    await expect(fact).toHaveCount(1);
+    await expect(fact).toContainText('Funding rate');
+    await expect(fact).toContainText('/ 8h');
+    await expect(review.locator('details[aria-label="Advanced transaction details"] [data-review-fact="Funding rate"]')).toHaveCount(0);
+    await expectReviewInside(review);
+    const phoneSheet = page.locator('[data-mobile-review-sheet]');
+    await expect(phoneSheet).toBeVisible();
+    await phoneSheet.screenshot({ path: testInfo.outputPath(`funding-${side}-320-deterministic-fixture.png`), animations: 'disabled' });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(phoneSheet).toHaveCount(0);
+    await expectReviewInside(review);
+    await review.screenshot({ path: testInfo.outputPath(`funding-${side}-1280-deterministic-fixture.png`), animations: 'disabled' });
+    await page.clock.fastForward(60_001);
+    await expect(fact).toHaveCount(0);
+  });
 }
 
 for (const estimateKind of ['fxSAVE', 'Move'] as const) {

@@ -243,10 +243,10 @@ export function InfoHelp({ label, children, definition, className, minimal = fal
 }
 
 /** The label remains visible and meaningful without opening its explanation. */
-export function MetricLabel({ label, help, definition, className, minimalHelp = false }: {
-  label: string; help?: ReactNode; definition?: InfoHelpKey; className?: string; minimalHelp?: boolean;
+export function MetricLabel({ label, visualLabel, help, definition, className, minimalHelp = false }: {
+  label: string; visualLabel?: ReactNode; help?: ReactNode; definition?: InfoHelpKey; className?: string; minimalHelp?: boolean;
 }) {
   return <span className={[styles.label, className].filter(Boolean).join(' ')}>
-    <span>{label}</span><InfoHelp label={label} definition={definition} minimal={minimalHelp}>{help}</InfoHelp>
+    <span>{visualLabel ?? label}</span><InfoHelp label={label} definition={definition} minimal={minimalHelp}>{help}</InfoHelp>
   </span>;
 }

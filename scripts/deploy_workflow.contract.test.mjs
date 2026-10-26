@@ -5,6 +5,9 @@ import { test } from 'node:test';
 // Git may materialize checked-in YAML with CRLF on Windows. Keep the
 // contract's structural substring checks independent of checkout settings.
 const workflow = readFileSync(new URL('../.github/workflows/deploy-mini-app.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
+const ciWorkflow = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
+const anvilWorkflow = readFileSync(new URL('../.github/workflows/anvil-fork.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
+const verifyRunner = readFileSync(new URL('./verify.mjs', import.meta.url), 'utf8');
 const productionEnvValidator = readFileSync(new URL('./validate_production_env.mjs', import.meta.url), 'utf8');
 const pagesConfig = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
 const gasFunction = readFileSync(new URL('../functions/api/gas.ts', import.meta.url), 'utf8');
@@ -25,7 +28,37 @@ test('container shell steps trust only the checked-out workspace before verifica
   assert.ok(workflow.indexOf(trust) < workflow.indexOf('run: pnpm install --frozen-lockfile'));
 });
 
-test('production validation, deterministic verification, and deployment build are ordered', () => {
+test('push deployment requires successful same-repository main push CI; manual dispatch stays fully verified', () => {
+  assert.match(workflow, /workflow_run:\s*\n\s+workflows: \[Client CI\]\s*\n\s+types: \[completed\]\s*\n\s+branches: \[main\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  const job = workflow.slice(workflow.indexOf('  deploy:'), workflow.indexOf('    runs-on:', workflow.indexOf('  deploy:')));
+  assert.match(job, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/);
+  for (const condition of [
+    "github.event_name == 'workflow_run'",
+    "github.event.workflow_run.event == 'push'",
+    "github.event.workflow_run.conclusion == 'success'",
+    "github.event.workflow_run.head_branch == 'main'",
+    'github.event.workflow_run.repository.full_name == github.repository',
+  ]) assert.ok(job.includes(condition), `missing deployment gate ${condition}`);
+  assert.match(workflow, /ref: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/);
+  assert.match(workflow, /RELEASE_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/);
+
+  const manualVerify = step('Run full verification for manual dispatch');
+  assert.match(manualVerify, /if: github\.event_name == 'workflow_dispatch'/);
+  assert.match(manualVerify, /run: pnpm verify/);
+  assert.match(ciWorkflow, /run: pnpm verify --ci-source/);
+  assert.match(ciWorkflow, /run: pnpm verify --ci-build/);
+  assert.match(ciWorkflow, /run: pnpm verify --\$\{\{ matrix\.group \}\}/);
+  for (const isolated of ['ci-isolated-0', 'ci-isolated-1', 'ci-isolated-2']) {
+    assert.ok(verifyRunner.includes(isolated), `CI isolates ${isolated}`);
+  }
+  assert.match(ciWorkflow, /shard: \['1\/4', '2\/4', '3\/4', '4\/4'\]/);
+  assert.match(ciWorkflow, /pnpm --dir apps\/mini-app exec playwright test --shard=/);
+  assert.match(verifyRunner, /test:anvil:contract/);
+  assert.match(anvilWorkflow, /workflow_dispatch:/, 'the real protected Anvil fork remains its separate manual gate');
+});
+
+test('production validation, manual verification when requested, and deployment build are ordered', () => {
   const validation = workflow.indexOf('run: pnpm verify:production-env');
   const verification = workflow.indexOf('run: pnpm verify\n');
   const productionBuild = workflow.indexOf('run: pnpm build\n');
@@ -38,15 +71,15 @@ test('production validation, deterministic verification, and deployment build ar
   const gasVerify = workflow.indexOf('Verify live gas oracle');
   const liveConfig = workflow.indexOf('Verify live wallet configuration');
   const sync = workflow.indexOf('Sync Telegram bot metadata and menu');
-  assert.ok(validation >= 0 && validation < verification);
-  assert.ok(verification < productionBuild && productionBuild < artifactCheck);
+  assert.ok(validation >= 0 && validation < productionBuild);
+  assert.ok(verification > validation && verification < productionBuild);
   assert.ok(artifactCheck < stamp && stamp < secretSync && secretSync < deploy);
   assert.ok(deploy < revisionVerify && revisionVerify < gasCheck && gasCheck < gasVerify);
   assert.ok(gasVerify < liveConfig && liveConfig < sync);
 });
 
-test('complete verification has no production public variables in scope', () => {
-  const verification = step('Run complete repository verification');
+test('manual full verification has no production public variables in scope', () => {
+  const verification = step('Run full verification for manual dispatch');
   assert.match(verification, /run: pnpm verify/);
   assert.doesNotMatch(verification, /NEXT_PUBLIC_(?:PRIVY|ALCHEMY|TELEGRAM)/);
 });
@@ -71,7 +104,10 @@ test('the deployed artifact is rebuilt with every required production public var
 
 test('the verified production artifact is revision-stamped and uploaded only for the current main head', () => {
   assert.match(workflow, /permissions:\s*\n\s+contents: read\s*\n(?!\s+checks:)/);
-  assert.match(workflow, /jobs:\s*\n\s+deploy:\s*\n\s+name: Build and deploy Cloudflare Pages\s*\n\s+if: github\.ref == 'refs\/heads\/main'/);
+  const currentMain = step('Require release commit is current main');
+  assert.match(currentMain, /git ls-remote origin refs\/heads\/main/);
+  assert.match(currentMain, /RELEASE_SHA/);
+  assert.ok(workflow.indexOf(currentMain) < workflow.indexOf('Build production deployment artifact'));
   assert.doesNotMatch(workflow, /wait_for_cloudflare_check|checks: read|github\.token/);
 
   const artifactCheck = step('Check production artifact');
@@ -88,12 +124,11 @@ test('the verified production artifact is revision-stamped and uploaded only for
   assert.match(artifactCheck, /pnpm check:bundle/);
 
   const stamp = step('Stamp production revision');
-  assert.match(stamp, /node scripts\/release_revision\.mjs write "\$GITHUB_SHA"/);
-  assert.match(stamp, /GITHUB_SHA:\s*\$\{\{\s*github\.sha\s*\}\}/);
+  assert.match(stamp, /node scripts\/release_revision\.mjs write "\$RELEASE_SHA"/);
 
   const deploy = step('Deploy verified production artifact');
   assert.match(deploy, /git ls-remote origin refs\/heads\/main/);
-  assert.match(deploy, /\$GITHUB_SHA/);
+  assert.match(deploy, /\$RELEASE_SHA/);
   assert.match(deploy, /wrangler pages deploy apps\/mini-app\/dist --project-name=fxaeon --branch=main --commit-hash=/);
   assert.match(deploy, /CLOUDFLARE_API_TOKEN:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\}/);
   assert.match(deploy, /CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{\s*secrets\.CLOUDFLARE_ACCOUNT_ID\s*\}\}/);
@@ -102,8 +137,8 @@ test('the verified production artifact is revision-stamped and uploaded only for
   assert.match(deploy, /apps\/mini-app\/dist/);
 
   const revisionVerify = step('Verify deployed revision');
-  assert.match(revisionVerify, /node scripts\/release_revision\.mjs verify "\$GITHUB_SHA"/);
-  assert.match(revisionVerify, /GITHUB_SHA:\s*\$\{\{\s*github\.sha\s*\}\}/);
+  assert.match(revisionVerify, /node scripts\/release_revision\.mjs verify "\$RELEASE_SHA"/);
+  assert.match(revisionVerify, /GITHUB_SHA:\s*\$\{\{\s*env\.RELEASE_SHA\s*\}\}/);
   assert.match(workflow, /concurrency:\s*\n\s+group: fxaeon-production\s*\n\s+cancel-in-progress: false/);
 
   const secretSync = step('Sync production Pages gas-oracle secret');
@@ -146,7 +181,7 @@ test('the published Cloudflare bundle is checked for the protected public wallet
   const verification = step('Verify live wallet configuration');
   assert.match(verification, /run: node scripts\/verify_live_public_config\.mjs/);
   assert.match(verification, /EXPECTED_PUBLIC_PRIVY_APP_ID:\s*\$\{\{\s*secrets\.NEXT_PUBLIC_PRIVY_APP_ID\s*\}\}/);
-  assert.match(verification, /GITHUB_SHA:\s*\$\{\{\s*github\.sha\s*\}\}/);
+  assert.match(verification, /GITHUB_SHA:\s*\$\{\{\s*env\.RELEASE_SHA\s*\}\}/);
   assert.match(verification, /LIVE_APP_URL:\s*https:\/\/fxaeon\.com/);
   assert.match(workflow, /TELEGRAM_WEB_APP_URL:\s*https:\/\/fxaeon\.com\//);
 });

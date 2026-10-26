@@ -44,24 +44,24 @@ Disable automatic production Git deployments for the financial app before using 
 
 ## Production release sequence
 
-The [deployment workflow](../.github/workflows/deploy-mini-app.yml) runs on a `main` push or manual dispatch. Dispatch must target current `main`.
+The [deployment workflow](../.github/workflows/deploy-mini-app.yml) starts after [Client CI](../.github/workflows/ci.yml) completes successfully for a push to `main`, or by manual dispatch on `main`. A CI-triggered deployment checks out the exact SHA tested by that run, and verifies it still matches remote `main` before building and again before upload. If a newer commit reaches `main` while an older CI run is finishing, the older deployment stops instead of replacing it. A manual dispatch runs the full `pnpm verify` suite itself.
 
 Verification runs in a digest-pinned official Playwright image with browsers and system libraries already installed. The workflow still selects Node 22 and pnpm 11.19.0, and explicitly uses Bash for deployment conditionals. Keep its image version aligned with `@playwright/test`; the [testing guide](testing.md#ci-topology) describes the version contract.
 
 1. Install the pinned toolchain and frozen dependency graph.
-2. Validate protected production inputs.
-3. Run `pnpm verify` using its credential-free test configuration.
+2. Confirm the release SHA is still remote `main` and validate protected production inputs.
+3. For manual dispatch, run `pnpm verify` using its credential-free test configuration. For push deployment, require successful Client CI for the same-repository `main` SHA instead of repeating that suite.
 4. Build a separate production-configured static artifact.
 5. Scan the built output, verify supplied RPC endpoints are actually compiled into browser chunks, and enforce existing bundle/CSP budgets.
-6. Stamp the artifact with the source revision and synchronize the optional gas secret.
-7. Check that the revision is still remote `main` immediately before upload.
+6. Stamp the artifact with the release SHA and synchronize the optional gas secret.
+7. Check that the release SHA is still remote `main` immediately before upload.
 8. Upload the prebuilt artifact with Wrangler Pages, including root Functions.
 9. Verify deployed revision, gas response/configuration, and expected public Privy configuration.
 10. Synchronize Telegram bot metadata and its default Mini App menu.
 
 This uploads an existing export; Cloudflare does not rebuild it. Custom domains and bindings remain attached to the Pages project. Never replace this sequence with an unverified local upload during routine release work.
 
-The verification export and production-configured export intentionally remain separate. Sharing the browser runtime does not make a credential-free verification bundle suitable for deployment. The typecheck stage uses the [direct compiler runner](../scripts/typecheck.mjs), which retains app, fork, and E2E checks while avoiding nested package-manager resolution.
+The CI verification export and production-configured export intentionally remain separate. Sharing the browser runtime does not make a credential-free verification bundle suitable for deployment. The typecheck stage uses the [direct compiler runner](../scripts/typecheck.mjs), which retains app, fork, and E2E checks while avoiding nested package-manager resolution.
 
 [verify_built_rpc_config.mjs](../scripts/verify_built_rpc_config.mjs) requires each supplied RPC to appear as a complete string literal in exported browser JavaScript. HTML, source maps, manifests, and server output are insufficient. Diagnostics identify names/counts rather than endpoint values. The check proves inclusion, not live provider health, billing, or successful failover.
 

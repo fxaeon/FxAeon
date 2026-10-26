@@ -37,7 +37,7 @@ export function TradeOutcomePreview({ route, facts: publicFacts }: { market: 'ET
     { label: 'f(x) fee' },
   ];
   return (
-    <div className={styles.outcome} role="group" aria-label="Estimated position" aria-busy={!facts || undefined} data-trade-outcome={facts ? 'ready' : 'pending'}>
+    <div className={styles.outcome} role="group" aria-label="Position preview" aria-busy={!facts || undefined} data-trade-outcome={facts ? 'ready' : 'pending'}>
       <dl className={styles.facts}>
         {rows.map((row) => <div key={row.label} className={styles.row} data-outcome-fact={row.label}>
           <dt><MetricLabel label={row.label} definition={reviewHelpDefinition(row.label)} /></dt>
