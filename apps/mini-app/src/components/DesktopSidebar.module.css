@@ -10,6 +10,8 @@
   .sidebar .links { display: flex; flex: 1; min-height: 0; flex-direction: column; align-items: stretch; gap: 6px; margin: 28px 0 0; padding: 0; border: 0; border-radius: 0; background: transparent; overflow-y: auto; }
   .sidebar .links a { display: flex; flex: 0 0 auto; min-height: 46px; align-items: center; justify-content: center; gap: 12px; padding: 10px 12px; border-radius: 12px; color: var(--mut); font-size: 14px; font-weight: 550; white-space: normal; }
   .links a svg { flex: 0 0 20px; }
+  .links svg, .toggle svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .links [aria-current='page'] svg, .toggle svg { stroke-width: 2; }
   .links a span { display: none; }
   .sidebar .links a[aria-current='page'] { color: var(--mint-text); background: var(--mint-dim); }
   .sidebar .links .utility { margin-top: auto; }

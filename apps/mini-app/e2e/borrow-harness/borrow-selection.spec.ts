@@ -788,7 +788,10 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
     await expect(history.getByRole('slider', { name: 'Explore historical funding charge' })).toBeVisible();
     const definitions = history.locator('[data-info-help-trigger]');
-    await expect(definitions).toHaveCount(3);
+    await expect(definitions).toHaveCount(4);
+    expect(await definitions.evaluateAll(controls => controls.map(control => control.getAttribute('aria-label')))).toEqual([
+      'About Funding & costs', 'About Current charge', 'About Current cost APR', 'About Average cost APR',
+    ]);
     for (const control of await definitions.all()) {
       await control.scrollIntoViewIfNeeded();
       const geometry = await control.evaluate(element => {
