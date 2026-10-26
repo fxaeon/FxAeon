@@ -53,7 +53,7 @@ test.describe('Earn entry and honest unavailable state', () => {
     assertNoBackendRequests(requests);
   });
 
-  test('mobile withdrawal explains both methods without compressing the form', async ({ page, requests }) => {
+  test('mobile withdrawal exposes all three methods without compressing the form', async ({ page, requests }) => {
     await page.setViewportSize({ width: 390, height: 500 });
     await page.goto('/earn', { waitUntil: 'domcontentloaded' });
     const withdraw = page.getByRole('radio', { name: 'Withdraw', exact: true });
@@ -67,8 +67,8 @@ test.describe('Earn entry and honest unavailable state', () => {
     await expect(instant).toBeVisible();
     await cooldown.click();
     await expect(cooldown).toBeChecked();
-    await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('Claim later');
-    await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('fxUSD + USDC');
+    await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('Claim assets');
+    await expect(page.getByRole('region', { name: 'Withdrawal outcome' })).toContainText('fxUSD / USDC');
     const amount = page.getByLabel('Amount in fxSAVE');
     await expect(amount).toBeVisible();
     await expect(amount).toBeEnabled();

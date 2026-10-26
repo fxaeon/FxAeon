@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { encodeFunctionData, parseAbi, type Address, type Hex } from 'viem';
-import { BRIDGE_PREVIEW_TTL, isFreshBridgePreview, readBridgeReceiptEstimate } from '../src/lib/fx/bridgePreview';
+import { BRIDGE_PREVIEW_TTL, fetchCanonicalBridgeEstimate, isFreshBridgePreview, readBridgeReceiptEstimate } from '../src/lib/fx/bridgePreview';
 import { getPublicClient, resetPublicClientForTests } from '../src/lib/fx/clients';
+import { resetFxReadFacadeForTests } from '../src/lib/fx/readFacade';
+import { getFxSdk, resetFxSdkForTests } from '../src/lib/fx/sdk';
+import { resolveBridgeTokenAddress, expectedBridgeSendBytes, bridgeDeliveryLowerBound } from '../src/lib/fx/bridge';
 import type { BridgeRouteQuote, PlannedRoute } from '../src/lib/fx/types';
 
 const wallet = '0x1111111111111111111111111111111111111111' as Address;
@@ -77,4 +80,78 @@ test('preview freshness rejects expired, future, and missing snapshots', () => {
   assert.equal(isFreshBridgePreview(preview, 1_000 + BRIDGE_PREVIEW_TTL), false);
   assert.equal(isFreshBridgePreview(preview, 999), false);
   assert.equal(isFreshBridgePreview(undefined, 1_000), false);
+});
+
+test('disconnected canonical estimates use only official fee and exact source OFT receipt reads', async () => {
+  const previousUrl = process.env.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL;
+  process.env.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL = 'https://eth-mainnet.g.alchemy.com/v2/test-key';
+  resetPublicClientForTests(); resetFxSdkForTests(); resetFxReadFacadeForTests();
+  const sourceClient = getPublicClient(1);
+  const originalChainId = sourceClient.getChainId;
+  const originalRead = sourceClient.readContract;
+  const sdk = getFxSdk();
+  const originalQuote = sdk.getBridgeQuote;
+  const originalBuild = sdk.buildBridgeTx;
+  const quoteRequests: unknown[] = [];
+  const reads: Array<{ address: Address; functionName: string; args: unknown[] }> = [];
+  let balanceReads = 0;
+  const originalBalance = sourceClient.getBalance;
+  const amount = 1_234_567_890_123_456_789n;
+  let receiptResponse: unknown = [{}, [], { amountSentLD: amount - 123n, amountReceivedLD: amount - 10n ** 13n }];
+  const customRecipient = '0x4444444444444444444444444444444444444444' as Address;
+  sourceClient.getChainId = async () => 1;
+  sourceClient.getBalance = (async () => { balanceReads++; throw new Error('wallet balance must not be read'); }) as typeof sourceClient.getBalance;
+  sourceClient.readContract = (async (request: { address: Address; functionName: string; args: unknown[] }) => {
+    reads.push(request);
+    return receiptResponse;
+  }) as unknown as typeof sourceClient.readContract;
+  sdk.getBridgeQuote = (async (request: unknown) => {
+    quoteRequests.push(request);
+    return { nativeFee: 123n, lzTokenFee: 0n };
+  }) as typeof sdk.getBridgeQuote;
+  sdk.buildBridgeTx = (async () => { throw new Error('quote-only path must not build calldata'); }) as typeof sdk.buildBridgeTx;
+  try {
+    const preview = await fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount });
+    const custom = await fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount, recipient: customRecipient });
+    assert.equal(preview.nativeFee, 123n);
+    assert.equal(preview.minimumReceived, bridgeDeliveryLowerBound(amount));
+    assert.equal(preview.estimatedReceived, amount - 10n ** 13n);
+    assert.equal(preview.nativeBalance, undefined);
+    assert.equal(preview.sourceGas, undefined);
+    assert.equal(custom.estimatedReceived, preview.estimatedReceived);
+    const defaultQuote = quoteRequests[0] as { recipient: string; token: string; amount: bigint };
+    assert.equal(defaultQuote.recipient, '0x0000000000000000000000000000000000000001');
+    assert.equal(defaultQuote.token, 'fxUSD'); assert.equal(defaultQuote.amount, amount);
+    assert.equal((quoteRequests[1] as { recipient: string }).recipient, customRecipient);
+    const expectedBytes = expectedBridgeSendBytes('fxUSD');
+    assert.equal(reads[0].address, resolveBridgeTokenAddress('fxUSD', 1));
+    assert.equal(reads[0].functionName, 'quoteOFT');
+    assert.deepEqual(reads[0].args, [{ dstEid: 30184, to: `0x${'0'.repeat(24)}${'1'.padStart(40, '0')}`,
+      amountLD: amount, minAmountLD: bridgeDeliveryLowerBound(amount), ...expectedBytes }]);
+    assert.equal((reads[1].args[0] as { to: string }).to, `0x${'0'.repeat(24)}${customRecipient.slice(2).toLowerCase()}`);
+    assert.equal(reads.length, 2, 'the disconnected helper performs only the two canonical quote reads');
+    assert.ok(reads.every(read => read.functionName === 'quoteOFT'));
+    assert.equal(balanceReads, 0);
+    assert.equal(quoteRequests.length, 2);
+    receiptResponse = [{}, [], { amountSentLD: amount + 1n, amountReceivedLD: amount }];
+    assert.equal((await fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount })).estimatedReceived, undefined);
+    receiptResponse = [{}, [], { amountSentLD: amount - 1n, amountReceivedLD: amount }];
+    assert.equal((await fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount })).estimatedReceived, undefined);
+  } finally {
+    sourceClient.getChainId = originalChainId;
+    sourceClient.getBalance = originalBalance;
+    sourceClient.readContract = originalRead;
+    sdk.getBridgeQuote = originalQuote;
+    sdk.buildBridgeTx = originalBuild;
+    resetFxReadFacadeForTests(); resetFxSdkForTests(); resetPublicClientForTests();
+    if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL;
+    else process.env.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL = previousUrl;
+  }
+});
+
+test('disconnected estimate rejects invalid amounts and recipients before issuing quote reads', async () => {
+  const neverRecipient = '0x0000000000000000000000000000000000000000' as Address;
+  await assert.rejects(() => fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount: 0n }), /positive/);
+  await assert.rejects(() => fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount: 1n }), /four-decimal/);
+  await assert.rejects(() => fetchCanonicalBridgeEstimate({ sourceChainId: 1, destinationChainId: 8453, token: 'fxUSD', amount: 10n ** 18n, recipient: neverRecipient }), /non-zero/);
 });

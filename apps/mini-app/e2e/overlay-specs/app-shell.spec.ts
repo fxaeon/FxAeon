@@ -55,6 +55,7 @@ async function expectScreenReaderOnlyMoreHeading(page: Page) {
 }
 
 async function expectSidebarFits(page: Page, expectedWidth: number) {
+  await expect.poll(() => page.locator('[data-desktop-sidebar]').evaluate(element => element.getBoundingClientRect().width)).toBe(expectedWidth);
   const geometry = await page.locator('[data-desktop-sidebar]').evaluate(element => {
     const rect = element.getBoundingClientRect();
     const content = document.querySelector('[data-shell-content]')!.getBoundingClientRect();
@@ -96,6 +97,7 @@ test('desktop sidebar uses an accessible compact rail at 840px and 1024px', asyn
   const nav = sidebar.getByRole('navigation', { name: 'Primary navigation', exact: true });
   for (const width of [840, 1024]) {
     await page.setViewportSize({ width, height: 844 });
+    await page.mouse.move(width - 20, 800);
     await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
     await expectSidebarFits(page, 72);
     await expect(sidebar.getByRole('button', { name: 'Expand navigation', exact: true })).toBeHidden();
@@ -123,6 +125,7 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expectSidebarToggleControlsOwnNav(page);
   for (const name of ['Portfolio', 'Trade', 'Earn', 'Borrow', 'Move', 'More']) await expect(nav.getByRole('link', { name, exact: true }).locator('span')).toBeVisible();
   await sidebar.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
+  await page.mouse.move(600, 800);
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await expectSidebarFits(page, 72);
   await expectSidebarToggleControlsOwnNav(page);
@@ -131,6 +134,7 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expect(nav.getByRole('link', { name: 'Trade', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await page.reload();
+  await page.mouse.move(600, 800);
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await expectSidebarFits(page, 72);
   await sidebar.getByRole('button', { name: 'Expand navigation', exact: true }).click();
@@ -142,11 +146,100 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
   await expect(nav.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
   await page.setViewportSize({ width: 1024, height: 844 });
+  await page.mouse.move(1000, 800);
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await expectSidebarFits(page, 72);
   await page.setViewportSize({ width: 1280, height: 844 });
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
   await expectSidebarFits(page, 224);
+});
+
+test('collapsed desktop rails reveal on hover without moving content or changing the saved preference', async ({ page }) => {
+  await open(page, { width: 840, initScript: "sessionStorage.setItem('fxaeon:sidebar-expanded','false')" });
+  await setLab(page, { wallet: STATES[1][1] });
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const portfolio = sidebar.getByRole('link', { name: 'Portfolio', exact: true });
+  for (const width of [840, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.mouse.move(width - 20, 800);
+    await expectSidebarFits(page, 72);
+    const before = await page.locator('[data-shell-content]').boundingBox();
+    const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+      const rect = icon.getBoundingClientRect();
+      return { left: rect.left, top: rect.top };
+    }));
+    await sidebar.hover({ position: { x: 36, y: 120 } });
+    await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
+    await expect(portfolio.locator('span')).toBeVisible();
+    await expect.poll(() => sidebar.evaluate((element, before) => {
+      const after = [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+        const rect = icon.getBoundingClientRect();
+        return { left: rect.left, top: rect.top };
+      });
+      return after.length === before.length && after.every((rect, index) => Math.abs(rect.left - before[index].left) <= 1 && Math.abs(rect.top - before[index].top) <= 1);
+    }, iconRects)).toBe(true);
+    const brandLabel = await sidebar.getByRole('link', { name: 'FxAeon portfolio' }).locator('span').boundingBox();
+    const sidebarBox = await sidebar.boundingBox();
+    expect(brandLabel).not.toBeNull();
+    expect(sidebarBox).not.toBeNull();
+    expect(brandLabel!.x + brandLabel!.width).toBeLessThanOrEqual(sidebarBox!.x + sidebarBox!.width + 1);
+    await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+    expect(await page.locator('[data-shell-content]').boundingBox()).toEqual(before);
+    expect(await page.evaluate(() => sessionStorage.getItem('fxaeon:sidebar-expanded'))).toBe('false');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.mouse.move(width - 20, 800);
+    const closeSamples = await sidebar.evaluate(async (element, before) => {
+      const samples: Array<Array<{ left: number; top: number }>> = [];
+      const capture = () => [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+        const rect = icon.getBoundingClientRect();
+        return { left: rect.left, top: rect.top };
+      });
+      const started = performance.now();
+      await new Promise<void>(resolve => {
+        const frame = () => {
+          samples.push(capture());
+          if (performance.now() - started >= 220) resolve();
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      });
+      return samples.every(sample => sample.length === before.length && sample.every((rect, index) => Math.abs(rect.left - before[index].left) <= 1 && Math.abs(rect.top - before[index].top) <= 1));
+    }, iconRects);
+    expect(closeSamples).toBe(true);
+    await expectSidebarFits(page, 72);
+    await expect(portfolio.locator('span')).toBeHidden();
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await sidebar.hover({ position: { x: 36, y: 120 } });
+  await expect(portfolio.locator('span')).toBeVisible();
+  await page.mouse.move(1200, 800);
+  await expectSidebarFits(page, 72);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(sidebar).toBeHidden();
+  await expect(page.locator('nav.mobile-tabbar')).toBeVisible();
+});
+
+test('keyboard focus reveals collapsed navigation labels and mouse leave never collapses a saved expanded sidebar', async ({ page }) => {
+  await open(page, { width: 1280, initScript: "sessionStorage.setItem('fxaeon:sidebar-expanded','false')" });
+  await setLab(page, { wallet: STATES[1][1] });
+  await page.mouse.move(1200, 800);
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const trade = sidebar.getByRole('link', { name: 'Trade', exact: true });
+  await page.keyboard.press('Tab');
+  await trade.focus();
+  await expect(trade).toBeFocused();
+  await expect(trade.locator('span')).toBeVisible();
+  await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
+  await page.mouse.move(1200, 800);
+  await expect(trade.locator('span')).toBeVisible();
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).focus();
+  await expectSidebarFits(page, 72);
+  await sidebar.getByRole('button', { name: 'Expand navigation', exact: true }).click();
+  await page.mouse.move(1200, 800);
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expectSidebarFits(page, 224);
+  await expect(trade.locator('span')).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('fxaeon:sidebar-expanded'))).toBe('true');
 });
 
 test('mobile menu keeps its More heading accessible without a visible title row at 320px and 390px', async ({ page }) => {
@@ -943,8 +1036,8 @@ test('menu keyboard focus stays in visible controls and nested settings dismiss 
   await expect(page.locator('#mobile-more-menu')).toBeFocused();
   await expect(menu).toBeVisible();
   await expect(page).toHaveURL(initialUrl);
-  // The directory is lazy-loaded. Do not send Tab while Suspense still shows
-  // its loading status: at that point the next available control is the dock.
+  // The directory ships with the shell, so its first link is available when
+  // the menu opens, before keyboard navigation begins.
   const firstMenuLink = menu.getByRole('link', { name: /^Wallet & account/ });
   await expect(firstMenuLink).toBeVisible();
   const close = menu.getByRole('button', { name: 'Close menu', exact: true });
@@ -983,3 +1076,72 @@ test('mobile menu closes on desktop resize and reduced motion disables its anima
   await expect(page.locator('.desktop-navigation')).toBeVisible();
   await expectMenuDismissed(page, originalBodyOverflow);
 });
+
+for (const [path, readableWidth, childWidth] of [['/trade', 1120, 1120], ['/more', 800, 560], ['/send', 560, 560]] as const) {
+  test(`desktop ${readableWidth}px content gutters scroll the same main at 1920px`, async ({ page }) => {
+    await open(page, {width: 1920, height: 480});
+    await setLab(page, {path, wallet: STATES[2][1]});
+    const main = page.locator('[data-shell-content]');
+    const sidebar = page.locator('[data-desktop-sidebar]');
+    await expect(main.locator(path === '/more' ? '[data-utility-directory]' : path === '/trade' ? '.trade-workspace' : ':scope > div')).toBeVisible();
+    await expect.poll(() => main.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+    const geometry = await main.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const left = rect.left + parseFloat(style.paddingLeft);
+      const right = rect.right - parseFloat(style.paddingRight);
+      const sidebar = document.querySelector('[data-desktop-sidebar]')!.getBoundingClientRect();
+      const child = element.querySelector('.trade-workspace, [data-product-layout="account"], :scope > div')!.getBoundingClientRect();
+      return {left, right, mainLeft: rect.left, mainRight: rect.right,
+        y: rect.top + 100, sidebarRight: sidebar.right, width: right - left,
+        childWidth: child.width,
+        childCenter: child.x + child.width / 2};
+    });
+    expect(geometry.width).toBe(readableWidth);
+    expect(geometry.childWidth).toBe(childWidth);
+    expect(geometry.childCenter).toBe((geometry.sidebarRight + 1920) / 2);
+    expect(geometry.mainLeft).toBe(geometry.sidebarRight);
+    expect(geometry.mainRight).toBe(1920);
+    expect((geometry.left + geometry.right) / 2).toBe((geometry.sidebarRight + 1920) / 2);
+    for (const x of [(geometry.mainLeft + geometry.left) / 2, (geometry.right + geometry.mainRight) / 2]) {
+      await main.evaluate(element => { element.scrollTop = 0; });
+      await page.mouse.click(x, geometry.y);
+      await page.mouse.wheel(0, 240);
+      await expect.poll(() => main.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      await page.waitForTimeout(250);
+      await main.evaluate(element => { element.scrollTop = 0; });
+      await page.mouse.click(x, geometry.y);
+      await page.keyboard.press('PageDown');
+      await expect.poll(() => main.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      await page.waitForTimeout(250);
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    }
+    await main.evaluate(element => { element.scrollTop = 0; });
+    const sidebarBox = await sidebar.boundingBox();
+    await page.mouse.move(sidebarBox!.x + sidebarBox!.width / 2, sidebarBox!.y + 100);
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(250);
+    expect(await main.evaluate(element => element.scrollTop)).toBe(0);
+    await sidebar.getByRole('link', {name: 'Trade', exact: true}).focus();
+    await page.keyboard.press('PageDown');
+    await page.waitForTimeout(200);
+    expect(await main.evaluate(element => element.scrollTop)).toBe(0);
+    const settledWidth = await main.evaluate(element => {
+      const style = getComputedStyle(element);
+      return element.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    });
+    expect(settledWidth).toBe(readableWidth);
+    if (path === '/more') {
+      await page.getByRole('button', {name: /^Transaction settings,/}).click();
+      const dialog = page.getByRole('dialog', {name: 'Transaction settings', exact: true});
+      await expect(dialog).toBeVisible();
+      const previousScroll = await main.evaluate(element => element.scrollTop);
+      await page.mouse.move((geometry.mainLeft + geometry.left) / 2, geometry.y);
+      await page.mouse.wheel(0, 240);
+      await dialog.getByRole('button', {name: 'Close transaction settings', exact: true}).focus();
+      await page.keyboard.press('PageDown');
+      await page.waitForTimeout(200);
+      expect(await main.evaluate(element => element.scrollTop)).toBe(previousScroll);
+    }
+  });
+}

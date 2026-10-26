@@ -24,6 +24,7 @@
 .protection{border:1px solid var(--line);border-radius:20px;overflow:hidden}
 .protection summary{display:flex;align-items:center;gap:9px;list-style:none;cursor:pointer;min-height:62px;padding:17px 20px;font-size:14px;font-weight:550}
 .protection summary::-webkit-details-marker{display:none}
+.protection summary:focus-visible{outline-offset:-4px;border-radius:14px}
 .protection summary>svg:last-child{margin-left:auto;color:var(--mut);transition:transform .18s}
 .protection[open] summary>svg:last-child{transform:rotate(90deg)}
 .protectionBody{padding:0 20px 22px}

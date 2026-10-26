@@ -46,7 +46,7 @@ const mocks: Record<string, string> = {
 mocks['@/lib/fx/borrowFunding'] = `import { positionPoolAddress } from ${JSON.stringify(resolve(src, 'lib/fx/policy.ts'))}; export { borrowFundingDisplay, formatBorrowFundingApr, formatBorrowFundingEightHour, borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS } from ${JSON.stringify(resolve(src, 'lib/fx/borrowFunding.ts'))}; export async function readBorrowFundingRate(market) { globalThis.__borrowFundingReads = (globalThis.__borrowFundingReads ?? 0) + 1; if (globalThis.__borrowFundingUnavailable) throw new Error('Funding unavailable'); const ratio = globalThis.__borrowFundingRatio ?? 0n; const rate = { market, pool: positionPoolAddress(market, 'long'), ratio, netRatio: ratio, readAt: Date.now() }; if (globalThis.__borrowFundingPending) return new Promise(resolve => { globalThis.__resolveBorrowFunding = () => resolve(rate); }); return rate; }`;
 // History is illustrative and independent of wallet/rate-read availability.
 // This selection fixture must never contact the public funding index.
-mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market) { const endAt = Math.floor(Date.now() / 1000); const startAt = endAt - 30 * 86400; return { market, startAt, endAt, indexedAt: endAt, averageRatio: 52500000000000000n, snapshots: [{timestamp:startAt,ratio:35000000000000000n},{timestamp:endAt,ratio:70000000000000000n}] }; }`;
+mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market, {range = '1Y'} = {}) { const endAt = Math.floor(Date.now() / 1000); const days = {'1M':30,'3M':90,'6M':180,'1Y':365,All:450}[range]; const startAt = endAt - days * 86400; const averageRatio = range === '1M' ? 35000000000000000n : 52500000000000000n; return { market, startAt, endAt, indexedAt: endAt, averageRatio, snapshots: [{timestamp:startAt,ratio:averageRatio},{timestamp:endAt,ratio:70000000000000000n}] }; }`;
 
 // The real post-confirmation presentation imports receipt proof helpers. Keep
 // their SDK metadata intact, but fail closed if this selection-only fixture
@@ -155,7 +155,7 @@ test('collateral sensitivity illustrates entered amounts without changing borrow
   await mount(page);
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   const sensitivity = page.getByRole('region', { name: 'Collateral sensitivity', exact: true });
-  await expect(sensitivity).toContainText('Enter collateral and debt');
+  await expect(sensitivity).toHaveCount(0);
   await expect(sensitivity.getByRole('slider')).toHaveCount(0);
   await page.getByLabel('Collateral', { exact: true }).fill('1');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('1200');
@@ -167,7 +167,7 @@ test('collateral sensitivity illustrates entered amounts without changing borrow
   await expect(page.getByLabel('Collateral', { exact: true })).toHaveValue('1');
   await expect(page.getByLabel('fxUSD to borrow', { exact: true })).toHaveValue('1200');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('');
-  await expect(sensitivity).toContainText('Enter collateral and debt');
+  await expect(sensitivity).toHaveCount(0);
   await expect(sensitivity.getByRole('slider')).toHaveCount(0);
 });
 
@@ -499,6 +499,27 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
 });
 
+test('disconnected new borrow calculates live capacity and LTV without zero-balance warnings or execution', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, (harness) => {
+    harness.wallet = { ready: true, authenticated: false, chainId: 1, connectionVersion: 2 };
+    harness.shared = { ...harness.shared, walletAddress: null, positions: [], status: 'idle', failedGroups: [] };
+    harness.balances = undefined;
+    harness.prices = { ETH: 2400, fxUSD: 1 };
+  });
+
+  await page.getByLabel('Collateral', { exact: true }).fill('0.5');
+  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Up to 1,005.48 fxUSD with this collateral');
+  await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
+  const meter = page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' });
+  await expect(meter).toHaveAttribute('aria-valuetext', '≤ 66.67% of a 83.79% limit');
+  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
+  await expect(page.getByText(/Add ETH to your wallet to supply collateral/)).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(await page.evaluate(() => ({ planners: globalThis.__borrowHarness.plannerCount, walletRequests: globalThis.__borrowHarness.walletRequestCount })))
+    .toEqual({ planners: 0, walletRequests: 0 });
+});
+
 test('failed pool reads publish no guessed maximum and retry recovers after workspace navigation', async ({ page }) => {
   await mount(page, { limitUnavailable: true });
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2378.088360665706, fxUSD: 1 }; });
@@ -595,8 +616,8 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await page.clock.install();
   await mount(page, { fundingUnavailable: true });
   const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-  await expect(metric.locator('dd')).toHaveText('—');
-  await expect(metric.getByRole('status')).toHaveText('Not quoted');
+  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
+  await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
   await metric.getByRole('button', { name: 'About Funding status', exact: true }).click();
   const verification = page.getByRole('link', { name: /View funding on f\(x\)/ });
   await expect(verification).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
@@ -606,8 +627,8 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await expect(metric.locator('dd')).toHaveText('0% / 8h');
   await page.evaluate(() => Object.assign(window, { __borrowFundingUnavailable: true }));
   await page.clock.fastForward(60_001);
-  await expect(metric.locator('dd')).toHaveText('—');
-  await expect(metric.getByRole('status')).toHaveText('Not quoted');
+  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
+  await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false, __borrowFundingRatio: 10000000000000000n }); document.dispatchEvent(new Event('visibilitychange')); });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0009% / 8h');
   await expect(metric.getByRole('status')).toHaveText('On');
@@ -787,10 +808,19 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await expectFormMetricRows(rows);
     const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
     await expect(history.getByRole('slider', { name: 'Explore historical funding charge' })).toBeVisible();
+    const periods = history.getByRole('group', { name: 'Funding history period' });
+    await expect(periods.getByRole('button', { name: '1Y', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(history).toContainText('5.25%');
+    await periods.getByRole('button', { name: '1M', exact: true }).click();
+    await expect(periods.getByRole('button', { name: '1M', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(history).toContainText('3.5%');
+    await expect(history).not.toContainText('5.25%');
+    await periods.getByRole('button', { name: '1Y', exact: true }).click();
+    await expect(history).toContainText('5.25%');
     const definitions = history.locator('[data-info-help-trigger]');
-    await expect(definitions).toHaveCount(4);
+    await expect(definitions).toHaveCount(3);
     expect(await definitions.evaluateAll(controls => controls.map(control => control.getAttribute('aria-label')))).toEqual([
-      'About Funding & costs', 'About Current charge', 'About Current cost APR', 'About Average cost APR',
+      'About Funding & costs', 'About Funding status', 'About Average cost APR',
     ]);
     for (const control of await definitions.all()) {
       await control.scrollIntoViewIfNeeded();

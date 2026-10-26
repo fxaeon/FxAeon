@@ -61,3 +61,9 @@
 .secondaryReading strong { color: var(--mut); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .primaryReading > span, .secondaryReading > span { min-width: 0; }
 .sensitivityPrompt { margin: 6px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--mut); font-size: 13px; line-height: 1.5; }
+.fundingState { margin-left: 5px; color: var(--mut); font-size: 11px; }
+.fundingChartHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; }
+.fundingChartHeader > span { color: var(--mut); }
+.fundingPlot { position: relative; }
+.fundingInspection { position: absolute; top: 0; left: 8px; z-index: 1; display: flex; gap: 10px; padding: 4px 7px; border-radius: 6px; background: var(--surface); color: var(--mut); font-size: 11px; pointer-events: none; }
+.fundingInspection strong { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }

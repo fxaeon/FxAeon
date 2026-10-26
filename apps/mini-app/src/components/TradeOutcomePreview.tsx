@@ -2,7 +2,7 @@
 
 import { MissingValue } from '@/components/MissingValue';
 import { useRouteRiskQuote } from '@/lib/fx/useRouteRiskQuote';
-import { positionOutcomeFacts } from '@/lib/fx/reviewFormatting';
+import { positionOutcomeFacts, type PositionOutcomeFacts } from '@/lib/fx/reviewFormatting';
 import type { PlannedRoute } from '@/lib/fx/types';
 import { approximately } from '@/lib/tradeOutcome';
 import { ReviewFactValue } from './review/ReviewFactValue';
@@ -22,9 +22,9 @@ type Row = { label: string; value?: string; title?: string; feeAmounts?: import(
  * validates the route before anything is signed. `route` is null while the
  * warm-up runs: the same rows hold their place with placeholders.
  */
-export function TradeOutcomePreview({ route }: { market: 'ETH' | 'BTC'; side: 'long' | 'short'; route: PlannedRoute | null }) {
+export function TradeOutcomePreview({ route, facts: publicFacts }: { market: 'ETH' | 'BTC'; side: 'long' | 'short'; route: PlannedRoute | null; facts?: PositionOutcomeFacts }) {
   const risk = useRouteRiskQuote(route);
-  const facts = risk.route ? positionOutcomeFacts(risk.route) : null;
+  const facts = publicFacts ?? (risk.route ? positionOutcomeFacts(risk.route) : null);
   // A route the review cannot describe either has nothing to preview.
   if (route && !facts) return null;
   const rows: Row[] = facts ? [

@@ -145,22 +145,19 @@ test('pending, unavailable and fallback redemption reads never gain a ready acti
   }
 });
 
-test('per-share value is explicit when available and unavailable, including disconnected', () => {
-  assert.match(summary(), /Value per fxSAVE/);
-  assert.match(summary(), /\$1\.1235/);
-  const missing = summary({ snapshot: quote({ prices: { fxUSDBasePool: 1 }, updatedAt: Date.now() }) });
-  assert.match(missing, /Value per fxSAVE/);
-  assert.match(missing, /class="unavailableMetric">Unavailable/);
-  assert.doesNotMatch(missing, /\$1\.10<\/dd>/, 'wallet value divided by balance is not a quote');
-  assert.match(summary({ connected: false }), /Value per fxSAVE/);
+test('overview omits per-share row and retains connected vault holdings', () => {
+  assert.doesNotMatch(summary(), /Value per fxSAVE/);
+  assert.match(summary(), /Vault holdings/);
+  assert.doesNotMatch(summary({ connected: false }), /Value per fxSAVE/);
+  assert.match(summary({ connected: false }), /Vault holdings/);
 });
 
-function transitions() {
+function transitions(mode = 'withdraw', token = 'fxUSD') {
   const writes: Record<string, unknown> = {};
-  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
+  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision', 'ResumeReview', 'PublicDepositEstimate'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
   const code = [variable('resetEarnContext'), variable('changeMode'), variable('changeToken'), '({ resetEarnContext, changeMode, changeToken });'].join('\n');
   const actions = evaluate<{ resetEarnContext: () => void; changeMode: (mode: string) => void; changeToken: (token: string) => void }>(code,
-    { ...setters, useCallback: (callback: unknown) => callback, resetTransactionAmounts: () => ({ amount: '', shares: '' }), mode: 'withdraw' });
+    { ...setters, useCallback: (callback: unknown) => callback, resetTransactionAmounts: () => ({ amount: '', shares: '' }), mode, token });
   return { writes, ...actions };
 }
 
@@ -170,12 +167,28 @@ test('fresh withdrawal uses cooldown, but mode/token changes do not overwrite se
   assert.equal(evaluate<boolean>(`${initial[0]}\ninstant;`, { useState: (value: unknown) => [value, () => {}] }), false);
   const reset = transitions(); reset.resetEarnContext();
   assert.equal(reset.writes.Instant, false);
+  assert.equal(reset.writes.PublicDepositEstimate, null, 'changing mode clears a public quote');
   for (const action of [(t: ReturnType<typeof transitions>) => t.changeMode('withdraw'), (t: ReturnType<typeof transitions>) => t.changeToken('usdc')]) {
     const t = transitions(); action(t);
     assert.equal(Object.hasOwn(t.writes, 'Instant'), false, 'an explicit method must survive tab/asset changes');
-    assert.equal(t.writes.Amount, '');
-    assert.equal(t.writes.Shares, '', 'existing amount reset behavior stays unchanged');
+    if (t.writes.Mode) {
+      assert.equal(t.writes.Amount, '');
+      assert.equal(t.writes.Shares, '');
+    } else {
+      assert.equal(Object.hasOwn(t.writes, 'Shares'), false, 'receive-asset changes preserve fxSAVE input');
+      assert.equal(t.writes.ReviewStage, 'input');
+      assert.equal(t.writes.ResumeReview, 0);
+    }
   }
+});
+
+test('same Earn asset is a no-op, while actual deposit input-unit changes reset amounts', () => {
+  const unchanged = transitions(); unchanged.changeToken('fxUSD');
+  assert.deepEqual(unchanged.writes, {});
+  const changed = transitions('deposit'); changed.changeToken('usdc');
+  assert.equal(changed.writes.Amount, ''); assert.equal(changed.writes.Shares, '');
+  assert.equal(changed.writes.ReviewStage, 'input');
+  assert.equal(changed.writes.PublicDepositEstimate, null, 'changing the deposit asset clears its prior quote');
 });
 
 test('signature-required drafts preserve explicit method, amounts, token and slippage', () => {
@@ -200,7 +213,7 @@ test('signature-required drafts preserve explicit method, amounts, token and sli
 
 function editor(token: 'fxUSD' | 'fxUSDBasePool', instant: boolean, config: object | null) {
   const props = { mode: 'withdraw', token, instant, shares: '2', amount: '', config, estimateConfig: config, walletData: null,
-    configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onInstantChange() {}, onDeposit() {}, balanceUnavailable: false };
+    configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onWithdrawalMethodChange() {}, onDeposit() {}, balanceUnavailable: false };
   const ChoiceCards = ({ options }: { options: { value: string; label: string; description: string }[] }) => React.createElement('fieldset', null, options.map(option => React.createElement('label', { key: option.value }, option.label, ' ', option.description)));
   return renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'VaultTermsStatus'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
     props, ChoiceCards, AmountField: () => null, TokenSelect: () => null, labelToken: (key: string) => key === 'fxUSDBasePool' ? 'fxSP' : key,
@@ -213,7 +226,7 @@ test('Earn keeps deposit and withdrawal presets visible while preserving disconn
   for (const mode of ['deposit', 'withdraw']) {
     const fields: Record<string, unknown>[] = [];
     const props = { mode, token: 'fxUSD', instant: false, shares: '', amount: '', config, estimateConfig: null, walletData: null,
-      configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onInstantChange() {}, onDeposit() {}, balanceUnavailable: false };
+      configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onWithdrawalMethodChange() {}, onDeposit() {}, balanceUnavailable: false };
     renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'VaultTermsStatus'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
       props, ChoiceCards: () => null, AmountField: (field: Record<string, unknown>) => { fields.push(field); return null; }, TokenSelect: () => null,
       labelToken: (key: string) => key, parseAmount: (value: string) => value ? parseUnits(value, 18) : null,
@@ -228,10 +241,10 @@ test('Earn keeps deposit and withdrawal presets visible while preserving disconn
 });
 test('withdrawal fees, configured cooldown, queued payout units and unknown terms stay visible', () => {
   const queued = editor('fxUSD', false, config);
-  assert.match(queued, /90m · no instant fee/);
-  assert.match(queued, /Instant Fee quoted in review/);
-  assert.match(queued, /Claim later/);
-  assert.match(queued, /fxUSD \+ USDC/);
+  assert.match(queued, /90m/);
+  assert.match(queued, /Instant/);
+  assert.match(queued, /Claim assets/);
+  assert.match(queued, /fxUSD \/ USDC/);
   assert.match(queued, /Network fees apply to the withdrawal request and claim/);
   const missing = editor('fxUSD', false, null);
   assert.match(missing, /Cooldown and fee unavailable/);
@@ -247,6 +260,12 @@ test('direct fxSP redemption keeps no-cooldown terms visible outside optional es
   assert.match(html, /Direct redemption to fxSP has no cooldown or queued claim/);
   assert.match(html, /data-help="Based on current vault assets and share supply\."/);
   assert.doesNotMatch(html, /data-help="[^"]*no cooldown|24h|Instant 2% fee/);
+});
+
+test('direct withdrawal omits token-only receive fallback without an estimate', () => {
+  const html = editor('fxUSDBasePool', false, null);
+  assert.doesNotMatch(html, />Receive<|Estimated fxSP received/);
+  assert.match(html, /Direct redemption to fxSP/);
 });
 
 test('risk and audit access stays outside collapsed help and makes no UI audit claim', () => {
@@ -266,7 +285,7 @@ test('optional help does not introduce signing authority, price-oracle derivatio
   const summarySource = declaration(page, 'SavingsSummary');
   assert.match(summarySource, /!claimUnavailable && claim.status === 'ready'/);
   assert.match(pageText, /definition="fxSaveApy"/);
-  assert.match(pageText, /label="Value per fxSAVE" definition="fxSaveShares"/);
+  assert.doesNotMatch(pageText, /label="Value per fxSAVE"/);
   assert.doesNotMatch(declaration(page, 'VaultDetails'), /InfoHelp|MetricLabel/, 'no help buried inside vault details');
   assert.match(pageText, /config=\{activeReadWarnings.includes\('vault configuration'\) \? null : config\}/, 'stale configuration cannot appear current in choices');
 });

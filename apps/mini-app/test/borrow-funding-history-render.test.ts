@@ -21,15 +21,17 @@ test('Borrow history labels live and historical annualized figures as costs and 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const now = Math.floor(Date.now() / 1000);
   const ratio = 45318576060452136n;
-  client.setQueryData(['borrow-funding-history', 'ETH'], { market: 'ETH', startAt: now - 30 * 86_400, endAt: now, indexedAt: now,
+  client.setQueryData(['borrow-funding-history', 'ETH', '1Y'], { market: 'ETH', startAt: now - 365 * 86_400, endAt: now, indexedAt: now,
     averageRatio: ratio / 2n, snapshots: [{ timestamp: now - 30 * 86_400, ratio: 0n }, { timestamp: now - 15 * 86_400, ratio }] });
   const rate = { market: 'ETH' as const, pool: positionPoolAddress('ETH', 'long'), ratio, netRatio: ratio, readAt: Date.now() };
   const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH', rate, status: 'ready' })));
   assert.match(html, /Funding &amp; costs/);
-  assert.match(html, /class="primaryReading"[^]*?Current charge[^]*?0\.0041% \/ 8h/);
-  assert.match(html, /class="secondaryReading"[^]*?Current cost APR/);
+  assert.match(html, /class="secondaryReading"[^]*?Funding status[^]*?0\.0041% \/ 8h/);
+  assert.doesNotMatch(html, /Current cost APR|Period average/);
   assert.match(html, /Average cost APR/);
-  assert.match(html, /4\.5318%/);
+  assert.match(html, /2\.2659%/);
+  assert.match(html, /aria-pressed="true">1Y/);
+  assert.match(html, /Funding rate \/ 8h/);
   assert.match(html, /0\.0041%/);
   assert.match(html, /role="slider"/);
   assert.match(html, /aria-valuetext="[^"]*per eight hours"/);
@@ -42,7 +44,7 @@ test('aged cached history shows unavailable with retry rather than an endless lo
   const { BorrowFundingHistory } = await import('../src/components/BorrowFundingHistory');
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const now = Math.floor(Date.now() / 1000);
-  client.setQueryData(['borrow-funding-history', 'ETH'], { market: 'ETH', startAt: now - 30 * 86_400, endAt: now - 86_401, indexedAt: now - 86_401,
+  client.setQueryData(['borrow-funding-history', 'ETH', '1Y'], { market: 'ETH', startAt: now - 30 * 86_400, endAt: now - 86_401, indexedAt: now - 86_401,
     averageRatio: 0n, snapshots: [{ timestamp: now - 30 * 86_400, ratio: 0n }] });
   const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH', rate: null, status: 'unavailable' })));
   assert.match(html, /Funding history unavailable/);
@@ -80,6 +82,7 @@ test('no-cache offline history is explicit, then foreground connectivity enables
       if (name === '@tanstack/react-query') return { useQueryClient: () => queryClient, useQuery: (options: Record<string, unknown>) => { queryOptions = options; return { data: undefined, isError: false, isFetching: false, refetch: async () => undefined }; } };
       if (name === 'lucide-react') return { ExternalLink: () => null };
       if (name === './InfoHelp') return { MetricLabel: ({ label }: { label: string }) => React.createElement('span', null, label) };
+      if (name === './MissingValue') return { MissingValue: () => null };
       if (name === './useChartWidth') return { useChartWidth: () => ({ ref: null, width: 480 }) };
       if (name.endsWith('.css')) return { __esModule: true, default: {} };
       return funding;

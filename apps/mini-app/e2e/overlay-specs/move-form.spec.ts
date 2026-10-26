@@ -24,7 +24,7 @@ const mocks: Record<string, string> = {
   '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes=async()=>({tiers:{standard:{gasPriceWei:1n},fast:{gasPriceWei:2n},rapid:{gasPriceWei:3n}}});`,
   '@/components/ActionReview': `export const ActionReview=({editor,blocker,label})=><>{editor}<div className="reviewTrigger"><button className="button button-primary" disabled={Boolean(blocker)}>{blocker||label}</button></div></>;`,
   '@/lib/fx': `export const asFxSdkRpcTransport=v=>v;export const assertAddress=v=>v;export const assertBridgeActionTarget=()=>{};export const advancedBridgePolicy=()=>({});export const assertChecksummedAddress=v=>v;export const assertPublicClientChain=()=>{};export const bridgeDeliveryLowerBound=()=>0n;export const getBridgeApprovalAllowance=async()=>0n;export const getFxReadFacade=()=>({});export const withReadDeadline=v=>v;export const getPublicClient=()=>({readContract:async()=>0n});export const planBridgeRoute=async()=>({});export const resolveBridgeApprovalTokenAddress=()=> '0x0000000000000000000000000000000000000001';export const resolveBridgeTokenAddress=resolveBridgeApprovalTokenAddress;export const requireRpcUrl=()=> 'http://localhost';export const restoreSignatureRequiredDraftFromSearch=()=>undefined;export const validateAdvancedBridgeContracts=async()=>({});`,
-  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL=30000;export const fetchBridgePreview=async({amount})=>{if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n,nativeBalance:10n**18n,sourceGas:2n*10n**15n};};export const isFreshBridgePreview=(p)=>Boolean(p&&Date.now()-p.readAt<30000);export const readBridgeReceiptEstimate=async()=>undefined;`,
+  '@/lib/fx/bridgePreview': `export const BRIDGE_PREVIEW_TTL=30000;export const fetchBridgePreview=async({amount})=>{if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n,nativeBalance:10n**18n,sourceGas:2n*10n**15n};};export const fetchCanonicalBridgeEstimate=async({amount})=>{if(globalThis.__moveForm.failQuote)throw new Error('Quote unavailable');return {readAt:Date.now(),nativeFee:1234567890123456n,minimumReceived:amount-10000000000000000n,estimatedReceived:amount-123456789012345n};};export const isFreshBridgePreview=(p)=>Boolean(p&&Date.now()-p.readAt<30000);export const readBridgeReceiptEstimate=async()=>undefined;`,
   '@/app/trade/fxUi': `import {parseUnits} from 'viem';export const parseAmount=value=>{try{return Number(value)>0?parseUnits(value,18):null;}catch{return null;}};`,
 };
 let bundle: { script: string; css: string };
@@ -72,8 +72,8 @@ async function noOverflow(page: Page) {
 for (const width of [320, 390, 1280]) test(`Move form keeps amount, quote precision and route changes coherent at ${width}px`, async ({ page }, info) => {
   await mount(page, width);
   const received = page.getByRole('region', { name: 'Receive assets' });
-  await expect(received.getByText('—', { exact: true })).toBeVisible();
-  await expect(received.getByText('0.00', { exact: true })).toHaveCount(0);
+  await expect(received.getByText('—', { exact: true })).toHaveCount(0);
+  await expect(received.getByText('0.00', { exact: true })).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: info.outputPath('empty.png') });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
@@ -111,7 +111,7 @@ test('Move keeps failed quotes and invalid recipients clear with enlarged text',
   await mount(page, 320);
   await page.evaluate(() => { (globalThis as any).__moveForm.failQuote = true; document.documentElement.style.fontSize = '32px'; });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  await expect(page.getByRole('status')).toContainText('Receipt estimate unavailable');
+  await expect(page.getByRole('status').filter({ hasText: 'Receipt estimate unavailable' })).toContainText('Receipt estimate unavailable');
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('textbox', { name: 'Destination wallet', exact: true }).fill('invalid');
   await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');
@@ -135,4 +135,25 @@ test('Move quote rows stay compact and wrap at 320px with 200% text', async ({ p
     await expectFormMetricRows(rows);
     await noOverflow(page);
   }
+});
+
+test('Move current asset is a no-op and real asset changes retain recipient while resetting input units', async ({ page }) => {
+  await mount(page, 390);
+  const recipient = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  await page.getByRole('textbox', {name: 'Amount in fxUSD', exact: true}).fill('100');
+  await page.getByRole('button', {name: 'Change', exact: true}).click();
+  await page.getByRole('textbox', {name: 'Destination wallet', exact: true}).fill(recipient);
+  await page.getByRole('button', {name: 'Asset', exact: true}).click();
+  await page.getByRole('option', {name: /fxUSD/}).click();
+  await expect(page.getByRole('textbox', {name: 'Amount in fxUSD', exact: true})).toHaveValue('100');
+  await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveValue(recipient);
+  await expect(page.getByRole('button', {name: 'Asset', exact: true})).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', {name: 'Asset', exact: true}).click();
+  await page.getByRole('option', {name: /fxSAVE/}).click();
+  await expect(page.getByRole('textbox', {name: 'Amount in fxSAVE', exact: true})).toHaveValue('');
+  await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveValue(recipient);
+  await expect(page.getByRole('region', {name: 'Receive assets'}).getByText('0.00', {exact: true})).toBeVisible();
+  await page.getByRole('button', {name: /Reverse route to Ethereum/}).click();
+  await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveCount(0);
+  await expect(page.getByRole('button', {name: 'Change', exact: true})).toBeVisible();
 });

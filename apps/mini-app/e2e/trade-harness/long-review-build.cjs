@@ -14,9 +14,8 @@ const mocks={
   "next/navigation": "export const useRouter=()=>({push:()=>{},prefetch:()=>{}});export const usePathname=()=>'/trade';export const useSearchParams=()=>new URLSearchParams();",
   "@/components/WalletProfile": "export default function WalletProfile(){return null}",
   "@/components/NetworkSelector": "export default function NetworkSelector(){return null}",
-  "@/components/ConnectWalletButton": "export default function ConnectWalletButton(){throw Error('No signing or connections permitted in fixture')}",
   "@/components/WalletDataProvider": "const balances={balances:[{key:'ETH',decimals:18,amountWei:globalThis.__longReview.prices ? 1000000000000000000n : 400000000000000n},{key:'WBTC',decimals:8,amountWei:100000000n},{key:'wstETH',decimals:18,amountWei:1000000000000000000n}],failedTokens:[]};export const useWalletBalances=()=>({data:balances,status:'ready',refresh:async()=>{}});export const useInvalidateWalletData=()=>async()=>{};",
-  "@/lib/wallet": "export const usePrivyWallet=()=>({...globalThis.__longReview.wallet,wallets:[],sendTransaction:async()=>{throw Error('Wallet sending forbidden')},connect:async()=>{throw Error('Wallet connect forbidden')}});export const useWalletReadyTimeout=()=>false;",
+  "@/lib/wallet": "export const usePrivyWallet=()=>({...globalThis.__longReview.wallet,wallets:[],sendTransaction:async()=>{throw Error('Wallet sending forbidden')},connect:async()=>{throw Error('Wallet connect forbidden')}});export const useWalletReadyTimeout=()=>false;export const isWalletConnectCancellation=()=>false;",
   "@/lib/telegram": "export const haptic=()=>{};export const openExternalLink=()=>false;export const telegramExplorerUrl=()=>null;"
 };
 const instrument={

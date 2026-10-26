@@ -35,14 +35,16 @@ The displayed average is the arithmetic mean of the visible samples, not a
 realized return or earnings forecast. The live APY above the chart remains an
 independent f(x) read. Pointer, touch, and keyboard controls expose each sample;
 missing days break the line. Unavailable or stale history never blocks the form.
-On phones, the deposit or withdrawal form appears before the chart.
+On phones, the deposit or withdrawal form appears before the chart. On desktop,
+performance continues directly below the overview while disclosures follow the
+form, without forcing both columns to share their upper section's height.
 
 Borrow exposes a collateral-value scenario after valid amounts and a live form
 limit are available. Moving the slider changes only the illustration: debt stays
 constant while collateral value moves between −30% and +30%. The form limit is a
 borrowing guard, not a liquidation threshold. Funding, fees, rebalancing, and
 liquidation are excluded. The chart cannot change ticket values or a signed plan.
-Empty amounts show a compact input prompt. Entered amounts with unavailable
+Empty amounts omit the sensitivity section. Entered amounts with unavailable
 collateral valuation or an unverified form limit show “Sensitivity unavailable”
 without an invented zero value or risk curve.
 
@@ -93,8 +95,15 @@ Phone reviews retain reachable decisions above navigation, with internal scrolli
 The mobile top bar and bottom navigation remain below 840px. Desktop uses an
 icon rail from 840px through 1199px; at 1200px and wider the rail starts
 expanded and can collapse to icons, with the choice retained for the session.
+On hover-capable desktops, a collapsed rail reveals its labels while the pointer
+is over it and returns to the saved state on exit. This temporary reveal overlays
+content rather than moving it; keyboard focus can also reveal the labels.
 The mobile More directory is a modal menu; its heading is visually hidden but
 remains available to assistive technology.
+
+The wallet picker keeps its header and Other wallets action outside the scrolling
+wallet list. Compact rows retain at least 44px controls; long detected-wallet
+lists scroll independently without hiding the close or catalog entry point.
 
 Layouts must handle short/narrow phones, large integers, long addresses, enlarged text, unavailable data and reduced motion. Test actual control bounds and hit areas as well as rendered appearance. [Browser gates](browser-test-gates.md) document the relevant contracts.
 
@@ -103,3 +112,38 @@ The product uses the current shared dark appearance. Historical light/theme scre
 ## Evidence scope
 
 UI fixtures can show deterministic balances and receipts. They do not prove live account state, real authentication, signing, or bridge settlement. Use [testing](testing.md#evidence-boundaries), [security](security.md), and the [release checklist](launch-readiness.md) when assessing a result. Evidence must identify the tested revision and environment.
+
+Earn deposit forms omit the outcome row until a real received-amount estimate is available. A token-only Receive fxSAVE label is not shown; route quotes and reviewed outcomes keep their existing authority.
+
+Earn withdrawals choose a method first: After cooldown, Instant, or direct fxSP. Only Instant offers an fxUSD/USDC receive-asset selector. Cooldown claims use the protocol-determined fxUSD/USDC mix; neither asset is guaranteed to have a positive amount. Direct fxSP redemption has no queued claim. Method changes retain the entered share amount; resumed drafts retain their route semantics. The overview omits the Value per fxSAVE row; APY, vault holdings, connected position value, and Share value history remain.
+
+Earn chart help follows the selected APY or Share value series. Borrow funding history defaults to 1Y and offers 1M, 3M, 6M, 1Y, and All. Its selected-period average is time-weighted over the displayed dates and represents annualized gross collateral cost, not earned yield or a debt APR. Historical observations never substitute for current funding; current status and charges require a fresh live read. Direct Earn redemption omits token-only Receive fxSP when no received-amount estimate is available.
+
+Selecting the already active asset closes its picker without resetting the ticket. Earn Instant receive-asset changes preserve the fxSAVE amount and require a fresh review. Move asset changes retain a custom recipient on the same destination chain while clearing the amount and prior route review; wallet/chain context changes retain their full resets.
+
+## Navigation readiness
+
+The mobile menu is included in the app shell and opens without a separate code
+download or loading message. Opening and closing it preserves the mounted form
+and its scroll position.
+
+Desktop page gutters are part of the main scroll surface. Clicking either side
+of the centered content preserves wheel and keyboard scrolling; sidebar and
+modal interactions remain isolated from the page beneath them.
+
+## Estimates before connection
+
+Entering an amount exposes the same available form estimates before wallet
+connection. Trade shows execution price, liquidation price and protocol fee;
+Earn deposits show estimated fxSAVE received; Borrow shows its public collateral,
+debt and LTV calculations; canonical Move shows its receive estimate and messaging
+fee. Empty or failed quotes never become fabricated amounts or zero balances.
+The action remains Connect wallet, without additional preview banners.
+
+Public estimates are display facts only. Trade discards the SDK planner's unsigned
+route at an isolated boundary; Earn uses the pool and vault previewDeposit reads;
+Move uses the official messaging quote and quoteOFT receipt. These facts cannot
+enter an executable review. Connection preserves the entered ticket and requires
+fresh account-specific planning and checks. Input edits, expiry and context changes
+invalidate estimates. Cooldown withdrawal output remains protocol-determined;
+no future payout mix is inferred from the currently selected asset.

@@ -15,7 +15,7 @@ const NAMESPACES = [
   { path: ['trustwallet', 'ethereum'], rdns: 'com.trustwallet.app', name: 'Trust Wallet' },
 ] as const;
 
-export type LegacyWalletProvider = { readonly provider: Eip6963Provider; readonly name?: string };
+export type LegacyWalletProvider = { readonly provider: Eip6963Provider; readonly name?: string; readonly secondary?: boolean };
 // Reviewed capability paths, with names used only for display. The canonical
 // rdns suppresses a compatibility wrapper when that wallet already announced;
 // it is never assigned to a legacy provider or used to authorize one.
@@ -28,6 +28,8 @@ const LEGACY_NAMESPACES = [
   { path: ['coin98', 'provider'], name: 'Coin98 Wallet', rdns: 'com.coin98' },
   { path: ['$onekey', 'ethereum'], name: 'OneKey', rdns: 'so.onekey.app.wallet' },
   { path: ['talismanEth'], name: 'Talisman', rdns: 'xyz.talisman' },
+  // @keplr-wallet/provider@0.13.41 exposes the EVM provider at keplr.ethereum.
+  { path: ['keplr', 'ethereum'], name: 'Keplr', rdns: 'app.keplr' },
   { path: ['backpack', 'ethereum'], name: 'Backpack', rdns: 'app.backpack.mobile' },
   { path: ['safepalProvider'], name: 'SafePal', rdns: null },
 ] as const;
@@ -57,7 +59,8 @@ export function readLegacyWalletProviderSnapshot(
     if (!provider || seen.has(provider)) return;
     seen.add(provider); result.push({ provider, ...(name ? { name } : {}) });
   };
-  for (const { path, name, rdns } of LEGACY_NAMESPACES) {
+  for (const entry of LEGACY_NAMESPACES) {
+    const { path, name, rdns } = entry;
     const provider = namespaceProvider(host, path);
     if (rdns && announced.some(item => walletIdentityRdns(item.rdns) === rdns)) {
       if (provider) seen.add(provider);
@@ -75,7 +78,17 @@ export function readLegacyWalletProviderSnapshot(
       } catch { /* An inaccessible array entry must not hide later wallets. */ }
     }
   } catch { /* A getter on one compatibility surface must not hide the rest. */ }
-  if (!arrayHasProvider) add(namespaceProvider(host, ['ethereum']));
+  // Preserve a distinct standalone provider: it may be a real legacy wallet.
+  // Once explicit discovery succeeds, keep this unbranded compatibility route
+  // in Other wallets instead of promoting it as another detected primary row.
+  if (!arrayHasProvider) {
+    const provider = namespaceProvider(host, ['ethereum']);
+    const secondary = announced.length > 0 || result.length > 0;
+    if (provider && !seen.has(provider)) {
+      add(provider);
+      if (secondary) result[result.length - 1] = { provider, secondary: true };
+    }
+  }
   return result;
 }
 

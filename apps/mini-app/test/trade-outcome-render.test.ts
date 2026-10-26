@@ -162,3 +162,14 @@ test('a route the review could not describe shows nothing at all', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   assert.equal(renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'ETH', side: 'long', route: opened('ETH', 'long', {}) })), '');
 });
+
+test('facts-only public outcomes render the same figures without a route or another risk read', async () => {
+  const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
+  const { positionOutcomeFacts } = await import('../src/lib/fx/reviewFormatting');
+  const planned = opened('BTC', 'long', {colls:'2000000000000000000', debts:'1000000000000000000000', executionPrice:'2000', liquidationQuote:{poolAddress:positionPoolAddress('BTC','long'), liquidateRatio:'800000000000000000', readAt:Date.now()}});
+  const facts = positionOutcomeFacts(planned)!;
+  const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview,{market:'BTC',side:'long',route:null,facts}));
+  assert.equal(rows(html)[0][0], 'Execution price');
+  assert.match(html,/data-trade-outcome="ready"/);
+  assert.doesNotMatch(html,/Loading execution|Loading liquidation|Connect wallet|preview only/i);
+});

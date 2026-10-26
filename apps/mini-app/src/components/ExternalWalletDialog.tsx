@@ -19,11 +19,17 @@ export type WalletDialogAttempt = {
 };
 
 function WalletMark({ icon }: { icon?: string }) {
-  return <span className={`wallet-provider-mark${icon ? ' wallet-provider-brand' : ''}`} aria-hidden="true">
-    {icon ? <>
-      {/* Only reviewed local marks from the catalog, never provider-supplied URLs. */}
+  return <WalletMarkImage key={icon ?? 'fallback'} icon={icon} />;
+}
+
+function WalletMarkImage({ icon }: { icon?: string }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(icon && !failed);
+  return <span className={`wallet-provider-mark${showImage ? ' wallet-provider-brand' : ''}`} aria-hidden="true">
+    {showImage ? <>
+      {/* Local catalog marks or validated EIP-6963 data images; never inline SVG. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={icon} alt="" width={32} height={32} />
+      <img src={icon} alt="" width={32} height={32} onError={() => setFailed(true)} />
     </> : <Wallet size={24} />}
   </span>;
 }
@@ -84,7 +90,7 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
   const showGuideHelp = safeHelpLink(pending?.guideHref);
   const search = showAll ? query.trim().toLocaleLowerCase() : '';
   const visibleChoices = choices.filter((choice) => (
-    showAll || choice.primary || choice.injected === 'available'
+    showAll || choice.primary || (choice.injected === 'available' && !choice.secondary)
   ) && choice.name.toLocaleLowerCase().includes(search))
     .sort((left, right) => Number(right.injected === 'available') - Number(left.injected === 'available'));
 
@@ -194,14 +200,15 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
             <ChevronRight size={16} className="wallet-provider-chevron" aria-hidden="true" />
           </button>)}</div>
           {showAll && visibleChoices.length === 0 && <p role="status" className="wallet-provider-empty">No wallets match your search.</p>}
-          {!showAll && <button ref={otherRef} type="button" onClick={() => setShowAll(true)} className="wallet-provider-option wallet-provider-other">
+        </>}
+      </div>
+      {!showHelp && !pending && !showAll && <footer className="wallet-provider-footer">
+          <button ref={otherRef} type="button" onClick={() => setShowAll(true)} className="wallet-provider-option wallet-provider-other">
             <span className="wallet-provider-mark" aria-hidden="true"><Search size={23} /></span>
             <span className="wallet-provider-option-name">Other wallets</span>
             <ChevronRight size={16} className="wallet-provider-chevron" aria-hidden="true" />
-          </button>}
-        </>}
-      </div>
-      <footer className="wallet-provider-footer">FxAeon</footer>
+          </button>
+      </footer>}
     </div>
   </div>;
 }

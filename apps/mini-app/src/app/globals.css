@@ -344,7 +344,7 @@ main.utility-stage {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 16px 20px;
+  padding: 8px 16px 12px;
 }
 
 .wallet-provider-options { display: grid; gap: 4px; overflow: hidden; border: 0; border-radius: 0; background: transparent; }
@@ -353,8 +353,8 @@ main.utility-stage {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 66px;
-  padding: 10px 8px;
+  min-height: 56px;
+  padding: 8px;
   border-radius: 12px;
   background: transparent;
   color: var(--text);
@@ -393,7 +393,7 @@ main.utility-stage {
 .wallet-provider-search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-size: 16px; }
 .wallet-provider-search svg { flex-shrink: 0; }
 .wallet-provider-empty { margin: 12px 0; color: var(--mut); font-size: 13px; line-height: 1.5; }
-.wallet-provider-other { margin-top: 12px; border: 0; border-radius: 14px; background: var(--surface-2); }
+.wallet-provider-other { border: 0; border-radius: 12px; background: var(--surface-2); }
 .wallet-provider-recovery { width: 100%; margin-top: 12px; text-align: left; border-top: 1px solid var(--line); padding-top: 4px; }
 .wallet-provider-recovery summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-block: 12px; color: var(--mut); font-size: 13px; cursor: pointer; list-style: none; }
 .wallet-provider-recovery summary::-webkit-details-marker { display: none; }
@@ -414,7 +414,7 @@ main.utility-stage {
 .wallet-provider-copy-link { width: 100%; min-width: 0; }
 .wallet-provider-copy-link button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border-radius: 10px; color: var(--mut); font-size: 13px; font-weight: 500; }
 .wallet-provider-copy-link p, .wallet-provider-copy-link code { display: block; max-width: 100%; margin: 4px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
-.wallet-provider-footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; padding: 0 16px 18px; color: var(--mut); font-size: 12px; line-height: 1.5; }
+.wallet-provider-footer { flex: 0 0 auto; padding: 0 16px 16px; }
 .wallet-provider-education { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 24px; padding: 16px 4px 4px; text-align: center; }
 .wallet-provider-lesson { min-width: 0; }
 .wallet-provider-lesson > span { display: inline-grid; width: 56px; height: 56px; margin-bottom: 12px; place-items: center; border: 1px solid var(--line); border-radius: 16px; color: var(--mint-text); background: var(--mint-dim); }
@@ -438,7 +438,8 @@ main.utility-stage {
     max-height: calc(100dvh - max(16px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   }
   .wallet-provider-chooser-header { padding: 12px 8px 4px; }
-  .wallet-provider-chooser-content { padding: 8px 12px 16px; }
+  .wallet-provider-chooser-content { padding: 8px 12px 12px; }
+  .wallet-provider-footer { padding: 0 12px 12px; }
   .wallet-provider-option { gap: 10px; padding-inline: 8px; }
 }
 
@@ -1918,6 +1919,7 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
   .app-shell.app-shell-tabs {
     display: flex;
     max-width: var(--shell-max-width);
+    padding-inline: 0;
   }
 
   .app-workspace {
@@ -1927,11 +1929,19 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
     padding: 0;
   }
 
-  .app-content { max-width: 1120px; }
-  .app-content.utility-content { max-width: 560px; }
+  /* Side gutters belong to the scroll surface. Keep the readable content
+     width with padding, so pointer and keyboard scrolling work beside it. */
+  .app-shell-tabs .app-content {
+    --desktop-content-width: 1120px;
+    max-width: none;
+    padding-inline: max(var(--shell-inline-padding), calc((100% - var(--desktop-content-width)) / 2));
+  }
+  .app-shell-tabs .app-content.utility-content { --desktop-content-width: 560px; }
+  .app-shell-no-tabs .app-content { max-width: 1120px; }
+  .app-shell-no-tabs .app-content.utility-content { max-width: 560px; }
   /* Navigation belongs to the viewport; route content keeps its own readable
      width. The wallet control stays at the far edge on wide displays. */
-  .app-topbar { max-width: none; margin: 0 0 var(--header-gap); }
+  .app-topbar { max-width: none; margin: 0 0 var(--header-gap); padding-inline: var(--shell-inline-padding); }
   .desktop-navigation { display: flex; align-items: center; gap: 2px; margin-right: auto; margin-left: 12px; padding: 2px; border: 0; border-radius: 999px; background: transparent; box-shadow: none; }
   .desktop-navigation a { position: relative; display: grid; min-height: 44px; place-items: center; padding: 0 14px; border-radius: 12px; font-size: var(--fs-small); font-weight: 500; color: var(--mut); white-space: nowrap; transition: background-color var(--dur-base) ease, color var(--dur-base) ease; }
   .desktop-navigation a:hover { color: var(--text); background: var(--surface); }
@@ -1966,7 +1976,7 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
 /* The desktop rail owns navigation; wallet controls keep their own top-right
    lane. Compact widths automatically preserve room for transaction forms. */
 @media (min-width: 840px) {
-  .app-shell.app-shell-tabs:has([data-desktop-sidebar]) { --desktop-sidebar-width: 72px; padding-left: calc(var(--desktop-sidebar-width) + var(--shell-inline-padding)); }
+  .app-shell.app-shell-tabs:has([data-desktop-sidebar]) { --desktop-sidebar-width: 72px; padding-left: var(--desktop-sidebar-width); }
   .app-topbar > .mobile-brand { display: none; }
   .app-shell:has([data-desktop-sidebar]) .app-topbar { justify-content: flex-end; }
 }

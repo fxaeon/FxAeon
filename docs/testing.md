@@ -84,7 +84,17 @@ Keep tests for exact amounts, disclosure access, quote expiry, approvals, wallet
 For shell navigation changes, check the mobile bottom tabs and More dialog,
 the desktop icon rail at 840–1199px, and the expanded/collapsed rail at
 1200px and wider, including its session preference. The More dialog's heading
-is visually hidden and must remain available to assistive technology.
+is visually hidden and must remain available to assistive technology. Check that
+hover and keyboard label reveal preserve the collapsed content inset and saved
+preference. Wallet picker regressions cover long detected lists at desktop and
+short-phone sizes, including a fully visible fixed Other wallets action. Additional EIP-6963 wallet icons are bounded data images rendered through img; tests reject network/HTML/oversized payloads, verify malformed-image recovery and SVG isolation, and retain local catalog marks (including Base). A distinct standalone browser provider remains selectable through Other wallets when named providers are present; regression coverage verifies the exact selected provider receives the account request.
+
+Earn regressions cover method-first withdrawal selection: only Instant chooses
+fxUSD/USDC, cooldown claims report pool assets, and direct fxSP estimates require
+valid vault inputs. Performance help must describe only the selected series.
+Borrow history tests verify range-specific baselines, long-window time weighting,
+index-block pagination, and cache isolation when switching periods. At 320px and
+200% text, all period controls and metric help remain reachable without overflow.
 
 Reports and captures are generated evidence, not source. Inspect failure traces and screenshots before updating a baseline. Record browser, platform, revision, and fixture provenance.
 

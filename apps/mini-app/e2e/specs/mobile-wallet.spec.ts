@@ -147,10 +147,86 @@ test('wallet picker uses a bottom sheet on phones and a centered flat list on de
   await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeFocused();
 });
 
+test('long detected-wallet lists keep the picker header, close control, and Other wallets reachable in short viewports', async ({ page }) => {
+  await openHarness(page);
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await page.evaluate(() => {
+    for (let index = 1; index <= 10; index++) {
+      const provider = { request: async () => null, on: () => undefined, removeListener: () => undefined };
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+        detail: { info: { name: `Layout wallet ${index}`, rdns: `test.layout.wallet.${index}` }, provider },
+      }));
+    }
+  });
+  await expect(dialog.locator('[data-wallet-id^="injected:test.layout.wallet."]')).toHaveCount(10);
+  await expect(dialog.locator('.wallet-provider-detected')).toHaveCount(10);
+
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 320, height: 568 }]) {
+    await page.setViewportSize(viewport);
+    const content = dialog.locator('.wallet-provider-chooser-content');
+    await expect(dialog.getByRole('button', { name: 'Close wallet selection', exact: true })).toBeVisible();
+    await content.evaluate(element => { element.scrollTop = 0; });
+    await dialog.evaluate(async element => {
+      const finiteAnimations = element.getAnimations({ subtree: true }).filter(animation =>
+        animation.effect?.getComputedTiming().iterations !== Infinity);
+      await Promise.all(finiteAnimations.map(animation => animation.finished.catch(() => undefined)));
+    });
+
+    const geometry = await dialog.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const header = element.querySelector('.wallet-provider-chooser-header')!.getBoundingClientRect();
+      const close = element.querySelector<HTMLButtonElement>('[aria-label="Close wallet selection"]')!.getBoundingClientRect();
+      const content = element.querySelector('.wallet-provider-chooser-content')!;
+      const contentRect = content.getBoundingClientRect();
+      const footer = element.querySelector('.wallet-provider-footer')!.getBoundingClientRect();
+      return {
+        rect: { top: rect.top, bottom: rect.bottom },
+        header: { top: header.top, bottom: header.bottom },
+        close: { top: close.top, bottom: close.bottom, height: close.height },
+        content: { top: contentRect.top, bottom: contentRect.bottom, scrollHeight: content.scrollHeight, clientHeight: content.clientHeight },
+        footer: { top: footer.top, bottom: footer.bottom },
+        rowHeights: [...element.querySelectorAll('.wallet-provider-option')].map(row => row.getBoundingClientRect().height),
+      };
+    });
+    expect(geometry.header.top).toBeGreaterThanOrEqual(geometry.rect.top);
+    expect(geometry.close.top).toBeGreaterThanOrEqual(geometry.header.top);
+    expect(geometry.close.bottom).toBeLessThanOrEqual(geometry.header.bottom);
+    expect(geometry.close.height).toBeGreaterThanOrEqual(44);
+    expect(geometry.footer.bottom).toBeLessThanOrEqual(geometry.rect.bottom);
+    expect(geometry.content.bottom).toBeLessThanOrEqual(geometry.footer.top);
+    expect(geometry.content.scrollHeight).toBeGreaterThan(geometry.content.clientHeight);
+    for (const rowHeight of geometry.rowHeights) expect(rowHeight).toBeGreaterThanOrEqual(44);
+
+    const other = dialog.getByRole('button', { name: 'Other wallets', exact: true });
+    await content.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(other).toBeVisible();
+    const otherBounds = await other.evaluate(element => {
+      const row = element.getBoundingClientRect();
+      const chooser = element.closest('.wallet-provider-chooser')!;
+      const dialogRect = chooser.getBoundingClientRect();
+      const contentRect = chooser.querySelector('.wallet-provider-chooser-content')!.getBoundingClientRect();
+      const footer = element.closest('.wallet-provider-footer')!.getBoundingClientRect();
+      return { top: row.top, bottom: row.bottom, height: row.height, dialogTop: dialogRect.top, dialogBottom: dialogRect.bottom, contentBottom: contentRect.bottom, footerTop: footer.top, footerBottom: footer.bottom };
+    });
+    expect(otherBounds.height).toBeGreaterThanOrEqual(44);
+    expect(otherBounds.top).toBeGreaterThanOrEqual(otherBounds.footerTop);
+    expect(otherBounds.bottom).toBeLessThanOrEqual(otherBounds.footerBottom);
+    expect(otherBounds.top).toBeGreaterThanOrEqual(otherBounds.dialogTop);
+    expect(otherBounds.bottom).toBeLessThanOrEqual(otherBounds.dialogBottom);
+    expect(otherBounds.contentBottom).toBeLessThanOrEqual(otherBounds.footerTop);
+    await other.click();
+    await expect(dialog).toHaveAttribute('data-wallet-view', 'all');
+    await expect(dialog.getByRole('button', { name: 'Layout wallet 10', exact: true })).toHaveCount(1);
+    await dialog.getByRole('button', { name: 'Back to wallets', exact: true }).click();
+    await expect(dialog).toHaveAttribute('data-wallet-view', 'wallets');
+  }
+});
+
 async function connect(page: Page, choice = 0, legacy = false) {
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
-  await page.getByRole('button', { name: legacy ? 'Wallet' : `Test wallet ${choice + 1}`, exact: true }).click();
+  await page.getByRole('button', { name: legacy ? 'Browser wallet' : `Test wallet ${choice + 1}`, exact: true }).click();
   await expect(page.locator('main')).toHaveAttribute('data-connected', 'true');
 }
 async function snapshot(page: Page) {
@@ -171,7 +247,7 @@ test('delayed legacy array discovery deduplicates namespaces and preserves exact
   });
   await expect(page.getByRole('button', { name: 'Bitget Wallet', exact: true })).toBeVisible();
   await showOtherWallets(page);
-  await expect(page.getByRole('button', { name: /^Wallet \d+$/, exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Browser wallet \d+$/, exact: true })).toHaveCount(1);
   expect((await snapshot(page)).calls.flat()).toEqual([]);
   await page.getByRole('button', { name: 'Bitget Wallet', exact: true }).click();
   await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].promptsWaiting)).toBe(1);
@@ -218,7 +294,7 @@ test('remembered neutral legacy account never restores through an aggregate or r
   await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
-  await expect(page.getByRole('button', { name: /^Wallet \d+$/, exact: true })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Browser wallet \d+$/, exact: true })).toHaveCount(2);
   expect((await snapshot(page)).calls.flat()).toEqual([]);
 });
 
@@ -572,7 +648,7 @@ for (const mode of ['single', 'legacy'] as const) {
     await expect(page.getByRole('dialog', { name: 'Connect your wallet', exact: true })).toBeVisible();
     expect((await snapshot(page)).calls.flat().filter((call) => call.method === 'eth_requestAccounts')).toEqual([]);
     await showOtherWallets(page);
-    await page.getByRole('button', { name: mode === 'legacy' ? 'Wallet' : 'Test wallet 1', exact: true }).click();
+    await page.getByRole('button', { name: mode === 'legacy' ? 'Browser wallet' : 'Test wallet 1', exact: true }).click();
     await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect((await snapshot(page)).calls[0].filter((call) => call.method === 'eth_requestAccounts')).toHaveLength(1);
@@ -1664,4 +1740,49 @@ test('a delayed network-switch read cannot overwrite a newer chainChanged event'
   await expect(page.getByRole('alert')).toHaveText('Wallet network could not be verified.');
   expect((await snapshot(page)).calls[0].filter((call) => call.method === 'eth_sendTransaction')).toEqual([]);
   expect(observation.errors).toEqual([]);
+});
+
+test('distinct standalone fallback stays selectable in Other wallets without a duplicate primary row', async ({ page }) => {
+  await openHarness(page, 'none');
+  await page.evaluate(() => {
+    globalThis.__mobileWalletHarness.inject(1);
+    globalThis.__mobileWalletHarness.announceAs(0, 'Named provider', 'org.named.provider');
+  });
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { name: 'Named provider', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Browser wallet', exact: true })).toHaveCount(0);
+  await showOtherWallets(page);
+  await dialog.getByRole('button', { name: 'Browser wallet', exact: true }).click();
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountB);
+  const calls = (await snapshot(page)).calls;
+  expect(calls[0].filter(call => call.method === 'eth_requestAccounts')).toHaveLength(0);
+  expect(calls[1].filter(call => call.method === 'eth_requestAccounts')).toHaveLength(1);
+});
+
+test('unknown announced wallet icons load safely and recover from malformed SVG without network icons', async ({ page }) => {
+  const observation = await openHarness(page, 'none');
+  const announceIcon = async (icon: string) => page.evaluate(value => {
+    window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {detail: {
+      provider: globalThis.__mobileWalletHarness.wallets[0].provider,
+      info: {name: 'Automatic icon wallet', rdns: 'org.automatic.icon', icon: value},
+    }}));
+  }, icon);
+  await announceIcon('data:image/svg+xml,<svg');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const row = page.getByRole('button', {name: 'Automatic icon wallet', exact: true});
+  await expect(row).toBeVisible();
+  await expect(row.locator('img')).toHaveCount(0);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" onload="window.__walletIconScript=true"><script>window.__walletIconScript=true</script><image href="https://tracker.invalid/tracking.png"/><rect width="32" height="32" fill="blue"/></svg>';
+  await announceIcon('data:image/svg+xml,' + encodeURIComponent(svg));
+  await expect(row.locator('img')).toHaveCount(1);
+  await expect.poll(() => row.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(32);
+  expect(await page.evaluate(() => Reflect.get(window, '__walletIconScript'))).toBeUndefined();
+  expect(observation.requests.filter(url => url.includes('tracker.invalid'))).toEqual([]);
+  await announceIcon('data:image/svg+xml,broken');
+  await expect(row.locator('img')).toHaveCount(0);
+  await announceIcon('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14"/></svg>'));
+  await expect(row.locator('img')).toHaveCount(1);
+  await expect.poll(() => row.locator('img').evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(32);
+  expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
 });

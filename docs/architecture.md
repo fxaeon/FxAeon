@@ -45,7 +45,9 @@ Paths below are relative to `apps/mini-app/src/`.
 
 Desktop navigation is a vertical rail. It uses icons only from 840px through
 1199px; at 1200px and wider it is expanded by default and can collapse to the
-icon rail. The choice is stored for the browser session. On mobile, the bottom
+icon rail. The choice is stored for the browser session. Pointer hover and visible
+keyboard focus can transiently reveal a collapsed rail without changing that
+preference or the content inset. On mobile, the bottom
 tabs remain and More opens a modal directory while the current page is kept
 mounted behind it. The directory heading is visually hidden but remains in the
 accessible heading tree.
@@ -102,6 +104,13 @@ Reviews retain full source values and caveats through direct disclosures. USD eq
 Queries are scoped by wallet session, normalized address, and chain. Generation guards prevent old responses from replacing a newer wallet view. Invalidation cancels/refetches active reads; overlapping invalidations coalesce and later receipts schedule a trailing refresh.
 
 Claimability must be fresh, match the current wallet, and not be fetching or failed before it can enable a claim. A cache entry does not grant transaction authority. Detailed freshness windows belong with their owning query policies and tests.
+
+Disconnected forms may publish public outcome facts while keeping connection
+as the action. Trade's isolated planner adapter returns only facts and expiry,
+never the placeholder account's unsigned route; Earn uses the pool and vault
+deposit previews; canonical Move reads messaging fees and OFT receipt amounts.
+Their public state stays outside wallet-scoped route caches and execution.
+Connecting preserves the ticket but rebuilds the account-specific review.
 
 Portfolio preserves known holdings during refresh and distinguishes zero, partial, stale, and unavailable data. A headline total requires complete applicable valuation. Position value is collateral value minus debt when validated inputs exist; it is not P&L, ROI, health, or liquidation value.
 
@@ -162,6 +171,15 @@ Use the [testing guide](testing.md#performance-verification) to reproduce
 controlled checks for the source under review.
 
 ## Position presentation and activity
+
+Borrow funding history uses the public f(x) Goldsky funding index, independently
+of live on-chain funding reads. History queries are keyed by collateral market
+and period (1M/3M/6M/1Y/All, default 1Y), with block-pinned pagination and a
+pre-period baseline. The annualized average integrates each rate across its
+duration and stops at the verified index block. All starts at the first indexed
+observation; missing pre-index records are not synthesized. A history sample is
+never substituted for the current funding rate. The displayed history is a gross
+collateral charge, not an earned yield or a debt-based APR.
 
 Naming and units are shared across rows, reviews, and History. ETH long pool collateral is expressed in stETH accounting; wstETH backing requires a live conversion where relevant. Position brake reads pool ratios, thresholds, and oracle price for display. None of these presentation helpers plans or signs.
 

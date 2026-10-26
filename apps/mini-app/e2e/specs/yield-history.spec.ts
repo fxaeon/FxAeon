@@ -31,6 +31,10 @@ test('share-value history switches metrics and ranges, with fallback and keyboar
   await chart.press('End');
   await expect(chart).toHaveAttribute('aria-valuetext', /\$1\.1089 per fxSAVE/);
   await expect(history.getByRole('link', { name: /DefiLlama/ })).toHaveAttribute('href', FX_SAVE_SHARE_HISTORY_ENDPOINT);
+  await history.getByRole('button', { name: 'About Performance', exact: true }).click();
+  await expect(page.getByText(/Daily USD prices per fxSAVE/)).toBeVisible();
+  await expect(page.getByText(/arithmetic mean/)).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await history.getByRole('button', { name: 'APY', exact: true }).click();
   await expect(history.getByRole('slider', { name: 'Explore daily fxSAVE APY' })).toBeVisible();
 });
@@ -55,6 +59,7 @@ test('daily APY history supports ranges, keyboard exploration and a truthful sou
   await expect(history.getByRole('link', { name: /DefiLlama/ })).toHaveAttribute('href', FX_SAVE_HISTORY_SOURCE);
   await history.getByRole('button', { name: 'About Performance', exact: true }).click();
   await expect(page.getByText(/not a realized return/)).toBeVisible();
+  await expect(page.getByText(/not protocol NAV/)).toHaveCount(0);
   assertNoBackendRequests(requests);
 });
 

@@ -133,13 +133,19 @@ test.describe('cohesive responsive design', () => {
       await expect(sidebar.getByRole('navigation', { name: 'Primary navigation', exact: true })).toBeVisible();
       const bounds = await topbar.evaluate((element) => {
         const rect = element.getBoundingClientRect();
-        const content = document.querySelector('main.app-content')!.getBoundingClientRect();
+        const main = document.querySelector('main.app-content')!;
+        const content = main.getBoundingClientRect();
+        const padding = getComputedStyle(main);
+        const contentLeft = content.left + parseFloat(padding.paddingLeft);
+        const contentRight = content.right - parseFloat(padding.paddingRight);
         const sidebar = document.querySelector('[data-desktop-sidebar]')!;
         const sidebarRect = sidebar.getBoundingClientRect();
         const brand = sidebar.querySelector('a[aria-label="FxAeon portfolio"]')!.getBoundingClientRect();
         const nav = sidebar.querySelector('nav')!.getBoundingClientRect();
         const wallet = element.querySelector('.app-topbar-actions')!.getBoundingClientRect();
-        return { left: rect.left, right: rect.right, viewport: window.innerWidth, content: { left: content.left, right: content.right, width: content.width },
+        return { left: rect.left, right: rect.right, viewport: window.innerWidth,
+          scrollSurface: { left: content.left, right: content.right },
+          content: { left: contentLeft, right: contentRight, width: contentRight - contentLeft },
           sidebarRight: sidebarRect.right, sidebarWidth: sidebarRect.width,
           brandRight: brand.right, navLeft: nav.left, navRight: nav.right, walletLeft: wallet.left, walletRight: wallet.right };
       });
@@ -153,6 +159,9 @@ test.describe('cohesive responsive design', () => {
       expect(bounds.navLeft).toBeGreaterThanOrEqual(0);
       expect(bounds.navRight).toBeLessThanOrEqual(bounds.sidebarRight);
       expect(bounds.navRight).toBeLessThanOrEqual(bounds.walletLeft);
+      // Gutters scroll with main; only its padded readable area is width-limited.
+      expect(Math.abs(bounds.scrollSurface.left - bounds.sidebarRight)).toBeLessThanOrEqual(1);
+      expect(Math.abs(bounds.scrollSurface.right - bounds.viewport)).toBeLessThanOrEqual(1);
       expect(bounds.content.width).toBeLessThanOrEqual(1120);
       expect(Math.abs((bounds.content.left - bounds.sidebarRight) - (bounds.viewport - bounds.content.right))).toBeLessThanOrEqual(1);
       if (width === 1920) await page.screenshot({ path: testInfo.outputPath('earn-wide-navigation.png') });

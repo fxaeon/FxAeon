@@ -4,7 +4,7 @@
  * FxAeon shared UI kit — every screen composes these so the app feels like
  * one product instead of disconnected pages.
  */
-import { forwardRef, lazy, ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes, type MouseEventHandler } from 'react';
+import { forwardRef, ReactNode, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type HTMLAttributes, type MouseEventHandler } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -28,10 +28,7 @@ import headerWalletControl from '@/components/HeaderWalletControl.module.css';
 import navigation from '@/components/ShellNavigation.module.css';
 import { routeScrollMemory } from '@/lib/routeScroll';
 import { DesktopSidebar } from '@/components/DesktopSidebar';
-
-/* Load the directory only when requested; the underlying action page stays
-   mounted so opening navigation cannot discard a form or review draft. */
-const MobileMoreMenu = lazy(() => import('@/components/MobileMoreMenu'));
+import MobileMoreMenu from '@/components/MobileMoreMenu';
 
 /* ------------------------------------------------------------------ shell */
 
@@ -262,7 +259,7 @@ export function AppShell({
         </main>
         {mobileMoreOpen && <main id="mobile-more-menu" tabIndex={-1}
           className={`app-content app-content-tabs utility-content flex-1 outline-none ${navigation.mobileMenu}`}>
-          <Suspense fallback={<p role="status">Loading menu…</p>}><MobileMoreMenu /></Suspense>
+          <MobileMoreMenu />
         </main>}
       </div>
       {tabs && <TabBar />}

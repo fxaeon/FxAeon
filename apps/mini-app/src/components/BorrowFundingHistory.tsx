@@ -3,7 +3,7 @@
 import { useEffect, useId, useState, type PointerEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink } from 'lucide-react';
-import { readBorrowFundingHistory } from '@/lib/fx/borrowFundingHistory';
+import { readBorrowFundingHistory, type BorrowFundingHistoryRange } from '@/lib/fx/borrowFundingHistory';
 import { borrowFundingDisplay, borrowFundingIsFresh, formatBorrowFundingApr, formatBorrowFundingEightHour, type BorrowFundingRate } from '@/lib/fx/borrowFunding';
 import type { FxSdkMarket } from '@/lib/fx/tokens';
 import { MetricLabel } from './InfoHelp';
@@ -11,7 +11,8 @@ import { MissingValue } from './MissingValue';
 import { useChartWidth } from './useChartWidth';
 import styles from './ProductAnalytics.module.css';
 
-const date = (timestamp: number) => new Date(timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const date = (timestamp: number, year = false) => new Date(timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' });
+const ranges: BorrowFundingHistoryRange[] = ['1M', '3M', '6M', '1Y', 'All'];
 
 /** Official pool snapshots: eight-hour collateral charges, separate from yield. */
 export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMarket; rate: BorrowFundingRate | null; status: 'loading' | 'ready' | 'unavailable' }) {
@@ -20,13 +21,14 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
   const queryClient = useQueryClient();
   const [foreground, setForeground] = useState(false);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [range, setRange] = useState<BorrowFundingHistoryRange>('1Y');
   const [selected, setSelected] = useState<{ market: FxSdkMarket; index: number } | null>(null);
   useEffect(() => {
     const update = () => {
       const visible = document.visibilityState === 'visible' && navigator.onLine;
       setOnline(navigator.onLine);
       setForeground(visible);
-      if (!visible) void queryClient.cancelQueries({ queryKey: ['borrow-funding-history', market], exact: true });
+      if (!visible) void queryClient.cancelQueries({ queryKey: ['borrow-funding-history', market] });
     };
     update();
     document.addEventListener('visibilitychange', update);
@@ -36,10 +38,10 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
       document.removeEventListener('visibilitychange', update);
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
-      void queryClient.cancelQueries({ queryKey: ['borrow-funding-history', market], exact: true });
+      void queryClient.cancelQueries({ queryKey: ['borrow-funding-history', market] });
     };
   }, [market, queryClient]);
-  const history = useQuery({ queryKey: ['borrow-funding-history', market], queryFn: ({ signal }) => readBorrowFundingHistory(market, { signal }),
+  const history = useQuery({ queryKey: ['borrow-funding-history', market, range], queryFn: ({ signal }) => readBorrowFundingHistory(market, { signal, range }),
     enabled: foreground, staleTime: 5 * 60_000, gcTime: 10 * 60_000, retry: false, refetchOnWindowFocus: true,
     refetchInterval: foreground ? 5 * 60_000 : false, refetchIntervalInBackground: false });
   const data = !history.isError && history.data?.market === market && Date.now() / 1000 - history.data.indexedAt <= 86_400 ? history.data : null;
@@ -61,18 +63,21 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
     setSelected({ market, index });
   };
   return <section ref={ref} className={`${styles.section} ${styles.funding}`} aria-label={`${market} borrow funding history`}>
-    <header className={styles.header}><h3><MetricLabel minimalHelp label="Funding & costs" help="Official f(x) funding snapshots for this collateral pool, shown per eight hours as in fxMINT Advanced. The chart records gross charges on the whole collateral. Any short-pool earnings offset is separate. These rates are borrowing costs and can change." /></h3><span className={styles.axis}>30D</span></header>
-    <div className={styles.primaryReading}><span><MetricLabel minimalHelp label="Current charge" help={current?.title ?? 'The current eight-hour collateral charge could not be verified.'} /></span><strong>{current ? current.value : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading current funding charge" /> : 'Unavailable'}</strong></div>
-    {current && rate && <div className={styles.secondaryReading}><span><MetricLabel minimalHelp label="Current cost APR" help={current?.title ?? 'The current annualized gross charge on the whole collateral could not be verified. This is a borrowing cost; historical observations do not establish its current value.'} /></span><strong>{current && rate ? formatBorrowFundingApr(rate.ratio) : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading current cost APR" /> : 'Unavailable'}</strong></div>}
+    <header className={styles.header}><h3><MetricLabel minimalHelp label="Funding & costs" help="Official f(x) funding history for this collateral pool. The chart shows gross charges per eight hours, as in fxMINT Advanced. The average is annualized over the displayed dates. These variable costs apply to the whole collateral; any short-pool earnings offset is separate." /></h3></header>
+    <div className={styles.secondaryReading}><span><MetricLabel minimalHelp label="Funding status" help={current?.title ?? 'The current eight-hour collateral charge could not be verified. Historical observations do not establish the current rate.'} /></span><strong>{current ? <>{current.value} <span className={styles.fundingState}>{current.status}</span></> : status === 'loading' ? <MissingValue width="sm" status="loading" label="Loading current funding charge" /> : 'Unavailable'}</strong></div>
+    <div className={styles.overview}>
+      <div className={styles.performanceReading}><span><MetricLabel minimalHelp label="Average cost APR" help="Time-weighted annualized gross borrowing charge over the displayed dates. Each indexed rate applies until the next snapshot, ending at the index’s verified block. This is a historical cost average, not an earned return or forecast." /></span><strong>{data?.averageRatio !== null && data?.averageRatio !== undefined ? formatBorrowFundingApr(data.averageRatio) : <MissingValue status={history.isPending && online !== false ? 'loading' : 'unavailable'} label={history.isPending && online !== false ? 'Loading average funding cost' : 'Average funding cost unavailable'} />}</strong></div>
+    </div>
+    <div className={styles.fundingChartHeader}><span className={styles.axis}>Funding rate / 8h</span><div className={styles.ranges} role="group" aria-label="Funding history period">{ranges.map(value => <button key={value} type="button" aria-pressed={range === value} onClick={() => { setSelected(null); setRange(value); }}>{value}</button>)}</div></div>
     {data && last ? <>
-      <div className={styles.reading} aria-live="off"><span>{active ? date(active.timestamp) : data.averageRatio === null ? 'Latest observed' : 'Period average'}</span><strong title={active ? `Annualized gross charge: ${formatBorrowFundingApr(active.ratio)}` : data.averageRatio === null ? undefined : `Time-weighted annualized gross charge: ${formatBorrowFundingApr(data.averageRatio)}`}>{formatBorrowFundingEightHour(active?.ratio ?? data.averageRatio ?? last.ratio)} / 8h</strong></div>
+      <div className={styles.fundingPlot}>
+      {active && <div className={styles.fundingInspection} aria-live="off"><span>{date(active.timestamp)}</span><strong>{formatBorrowFundingEightHour(active.ratio)} / 8h</strong></div>}
       <svg className={styles.plot} viewBox={`0 0 ${width} 148`} role="slider" tabIndex={0} aria-label="Explore historical funding charge" aria-valuemin={0} aria-valuemax={points.length - 1} aria-valuenow={activeIndex ?? points.length - 1} aria-valuetext={`${date((active ?? last).timestamp)}: ${formatBorrowFundingEightHour((active ?? last).ratio)} per eight hours`} aria-describedby={`${id}-hint`}
         onPointerDown={inspect} onPointerMove={inspect} onPointerLeave={event => { if (event.pointerType === 'mouse') setSelected(null); }} onFocus={() => setSelected(value => value?.market === market && value.index >= 0 && value.index < points.length ? value : { market, index: points.length - 1 })} onBlur={() => setSelected(null)}
         onKeyDown={event => { if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); setSelected(value => ({ market, index: event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, (value?.market === market ? value.index : points.length - 1) + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1))) })); }}>
         <line x1="8" x2={width - 8} y1="126" y2="126" className={styles.guide} /><text x={width - 8} y="10" textAnchor="end" className={styles.axis}>{maximum.toFixed(4)}%</text><text x={width - 8} y="144" textAnchor="end" className={styles.axis}>0%</text>
         <path d={line} className={styles.trace} vectorEffect="non-scaling-stroke" />{active && <line x1={x(active.timestamp)} x2={x(active.timestamp)} y1="14" y2="126" className={styles.cursor} />}<circle cx={x(active ? active.timestamp : data.endAt)} cy={y((active ?? last).ratio)} r="4" className={styles.dot} vectorEffect="non-scaling-stroke" />
-      </svg><span id={`${id}-hint`} className="sr-only">Use the arrow keys to explore funding snapshots. Home and End move to the first and last observation.</span><div className={styles.dates}><span>{date(data.startAt)}</span><span>{date(data.endAt)}</span></div>
-      {data.averageRatio !== null && <div className={styles.secondaryReading}><span><MetricLabel minimalHelp label="Average cost APR" help="Time-weighted annualized gross borrowing charge across the dates shown. Each indexed rate applies until the next snapshot, ending at the index’s verified block. This is a historical cost average, not an earned return or forecast." /></span><strong>{formatBorrowFundingApr(data.averageRatio)}</strong></div>}
+      </svg></div><span id={`${id}-hint`} className="sr-only">Use the arrow keys to explore funding snapshots. Home and End move to the first and last observation.</span><div className={styles.dates}><span>{date(data.startAt, true)}</span><span>{date(data.endAt, true)}</span></div>
     </> : online === false || history.isError || history.data ? <div className={styles.empty} role="status"><span>{online === false ? 'Offline · funding history unavailable' : 'Funding history unavailable'}</span><button type="button" disabled={history.isFetching || !foreground} onClick={() => void history.refetch()}>{history.isFetching ? 'Loading…' : 'Retry'}</button></div> : <div className={styles.loading} role="status" aria-label="Loading funding history" />}
     <div className={styles.source}><span>Gross collateral charge · {market === 'ETH' ? 'stETH' : 'WBTC'}</span><a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">f(x) Advanced<ExternalLink size={11} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a></div>
   </section>;

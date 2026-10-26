@@ -24,14 +24,16 @@ const mocks: Record<string, string> = {
   '@/lib/fxSaveApy': `export const fetchFxSaveApy = async () => ({apy:6.25,observedAt:Date.now()});`,
   '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
   '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes = async (chainId) => { globalThis.__settingsGasReads = (globalThis.__settingsGasReads ?? 0) + 1; if (globalThis.__settingsGasFailure) throw new Error('Fixture gas rates unavailable'); const price = globalThis.__settingsGasPriceWei ?? 1n; return {chainId,fetchedAt:Date.now(),validUntil:Date.now()+30000,tiers:{standard:{gasPriceWei:price},fast:{gasPriceWei:price*2n},rapid:{gasPriceWei:price*3n}}}; };`,
-  '@/lib/wallet': `export const usePrivyWallet = () => ({address:'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',chainId:1,isEmbedded:true});`,
+  '@/lib/wallet': `import React from 'react'; export const usePrivyWallet = () => { const [connected,setConnected] = React.useState(globalThis.__earnWalletConnected !== false); React.useEffect(() => { const update = () => setConnected(globalThis.__earnWalletConnected !== false); window.addEventListener('earn-wallet-change',update); return () => window.removeEventListener('earn-wallet-change',update); },[]); return {address:connected ? '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' : undefined,chainId:connected ? 1 : undefined,isEmbedded:true}; };`,
+  '@/lib/earnPublicEstimate': `export const createEarnEstimateGuard = () => {let generation=0;return {next:() => ++generation,current:(request) => request === generation,invalidate:() => {generation++;}};};export const quotePublicFxSaveDeposit = async (_token, amount) => {globalThis.__earnQuoteCalls=(globalThis.__earnQuoteCalls ?? 0)+1;if(globalThis.__earnQuoteFailOnce && globalThis.__earnQuoteCalls===1)throw new Error('Fixture public read unavailable');return amount * 2n;};`,
   '@/components/WalletDataProvider': `const refresh = async () => {}; export const useFxSaveClaimable = () => ({status:'ready',data:{hasPendingRedeem:false},refresh});`,
   '@/components/ProtocolForm': `export const AmountField = ({label,value,onChange,tokenSelector,balanceState}) => <>{tokenSelector}<label>{label}<input aria-label={label} data-available={balanceState?.amount} value={value} onChange={event => onChange(event.target.value)} /></label></>; export const TokenSelect = ({value,onChange,options}) => <select aria-label="Earn asset" value={value} onChange={event => onChange(event.target.value)}>{options.map(token => <option key={token} value={token}>{token}</option>)}</select>; export const Segmented = ({options,onChange}) => <div>{options.map(option => <button key={option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; const refresh = async () => {}; const balancesFor = () => {const zero = new URLSearchParams(location.search).has('fixtureNoExternal'); const amount = zero ? '0' : '1000'; return {fxUSD:{status:'ready',amount},usdc:{status:'ready',amount},fxUSDBasePool:{status:'ready',amount}};}; export const useWalletTokenBalances = () => ({status:'ready',balances:balancesFor(),refresh});`,
-  '@/components/ActionReview': `import React from 'react'; export const ActionReview = ({editor,planBuilder,resumeReview,onStageChange,label,blocker}) => {
+  '@/components/ActionReview': `import React from 'react';import {usePrivyWallet} from '@/lib/wallet'; export const ActionReview = ({editor,planBuilder,resumeReview,onStageChange,label,blocker}) => {
+    const wallet=usePrivyWallet();
     const [review,setReview] = React.useState(false); const resumed = React.useRef(false);
     const open = async () => {if (!planBuilder || blocker) return; await planBuilder();setReview(true);onStageChange('review');};
     React.useEffect(() => {if(resumeReview && planBuilder && !resumed.current){resumed.current=true;void open();}},[resumeReview,planBuilder]);
-    return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p><button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<button disabled={!planBuilder || Boolean(blocker)} onClick={open}>{label}</button></>;
+    return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p><button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<button disabled={Boolean(wallet.address) && (!planBuilder || Boolean(blocker))} onClick={wallet.address ? open : () => globalThis.__earnHarness.connect()}>{wallet.address ? label : 'Connect wallet'}</button></>;
   };`,
   '@/lib/fx': `
     // Wallet asset formatting needs real address/token identities, not live balances.
@@ -58,7 +60,7 @@ test.beforeAll(async () => {
       // This fixture models an embedded wallet, including its app-managed gas settings.
       const render = content => root.render(<WalletProviderModeContext.Provider value="privy">{content}</WalletProviderModeContext.Provider>);
       const settingsTree = <WalletProviderModeContext.Provider value="privy"><TransactionSettings slippage /></WalletProviderModeContext.Provider>;
-      globalThis.__earnHarness = {plans:[],showUncontrolled:() => render(<TransactionSettings slippage />),hydrateSettings:() => {const container=document.createElement('div');container.dataset.testid='settings-hydration-root';container.dataset.hydrationErrors='0';const saved=localStorage.getItem('fxaeon.settings.v1');localStorage.removeItem('fxaeon.settings.v1');container.innerHTML=renderToString(settingsTree);container.dataset.serverSummary=container.querySelector('button')?.getAttribute('aria-label') ?? '';if(saved!==null)localStorage.setItem('fxaeon.settings.v1',saved);document.body.append(container);const errors=[];hydrateRoot(container,settingsTree,{onRecoverableError:error=>{errors.push(String(error));container.dataset.hydrationErrors=String(errors.length);}});return {container,errors};},navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
+      globalThis.__earnHarness = {plans:[],connect:() => {globalThis.__earnWalletConnected=true;window.dispatchEvent(new Event('earn-wallet-change'));},disconnect:() => {globalThis.__earnWalletConnected=false;window.dispatchEvent(new Event('earn-wallet-change'));},showUncontrolled:() => render(<TransactionSettings slippage />),hydrateSettings:() => {const container=document.createElement('div');container.dataset.testid='settings-hydration-root';container.dataset.hydrationErrors='0';const saved=localStorage.getItem('fxaeon.settings.v1');localStorage.removeItem('fxaeon.settings.v1');container.innerHTML=renderToString(settingsTree);container.dataset.serverSummary=container.querySelector('button')?.getAttribute('aria-label') ?? '';if(saved!==null)localStorage.setItem('fxaeon.settings.v1',saved);document.body.append(container);const errors=[];hydrateRoot(container,settingsTree,{onRecoverableError:error=>{errors.push(String(error));container.dataset.hydrationErrors=String(errors.length);}});return {container,errors};},navigate:() => render(<button onClick={() => {history.pushState({},'', '/earn');render(<EarnPage />);}}>Return to Earn</button>)};
       render(<EarnPage />);`,loader:'tsx',resolveDir:root},
     bundle:true,write:false,format:'iife',platform:'browser',target:'es2022',jsx:'automatic',
     outdir:resolve(root,'test-results','earn-form-harness'),absWorkingDir:root,loader:{'.module.css':'local-css'},
@@ -120,7 +122,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await expect(retry).toHaveCount(1);
   await retry.click();
   await expect(page.getByRole('radio', { name: /After cooldown.*1h/ })).toBeChecked();
-  await expect(page.getByRole('radio', { name: /Instant.*Fee quoted in review/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /^Instant/ })).toBeVisible();
   await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12.3456789');
   await expect(retry).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();
@@ -151,6 +153,44 @@ test('deposits never offer or forward an unused slippage setting', async ({ page
   await expect(page.getByRole('radio', { name: /After cooldown/ })).toBeChecked();
   await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   await openSettings(page, '0.5');
+});
+
+test('disconnected Earn shows the deposit amount and keeps it through wallet connection', async ({ page }) => {
+  await mount(page, false);
+  await page.evaluate(() => (globalThis as typeof globalThis & { __earnHarness: { disconnect: () => void } }).__earnHarness.disconnect());
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+  await page.getByLabel('Amount', { exact: true }).fill('12');
+  const outcome = page.getByRole('region', { name: 'Deposit outcome' });
+  await expect(outcome).toContainText('Estimated fxSAVE received');
+  await expect(outcome).toContainText('24 fxSAVE');
+  await expect(page.getByText(/No fxUSD available|No fxSAVE yet/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12');
+  await expect(outcome).toContainText('24 fxSAVE');
+  await expect(page.getByRole('button', { name: 'Review deposit', exact: true })).toBeEnabled();
+});
+
+test('disconnected Earn retries one failed public quote for the same amount without planning', async ({ page }) => {
+  await page.clock.install();
+  await mount(page, false);
+  await page.evaluate(() => {
+    const app = globalThis as typeof globalThis & { __earnHarness: { disconnect: () => void }; __earnQuoteFailOnce: boolean; __earnQuoteCalls: number };
+    app.__earnHarness.disconnect();
+    app.__earnQuoteFailOnce = true;
+    app.__earnQuoteCalls = 0;
+  });
+  await page.getByLabel('Amount', { exact: true }).fill('12');
+  await page.clock.runFor(250);
+  await expect(page.getByRole('region', { name: 'Deposit outcome' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+  await page.clock.runFor(15_100);
+  await expect(page.getByRole('region', { name: 'Deposit outcome' })).toContainText('24 fxSAVE');
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12');
+  const state = await page.evaluate(() => {
+    const app = globalThis as typeof globalThis & { __earnHarness: { plans: unknown[] }; __earnQuoteCalls: number };
+    return { quoteCalls: app.__earnQuoteCalls, plans: app.__earnHarness.plans.length };
+  });
+  expect(state).toEqual({ quoteCalls: 2, plans: 0 });
 });
 
 test('resumed stable deposits ignore only the unsupported tolerance without rewriting the saved preference', async ({ page }) => {
@@ -601,11 +641,12 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
   await mount(page, true, '0.291');
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   for (const token of ['fxUSD', 'usdc']) {
+    await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
     await page.getByLabel('Earn asset', { exact: true }).selectOption(token);
     await page.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
     const outcome = page.getByRole('region', { name: 'Withdrawal outcome', exact: true });
-    await expect(outcome.getByText('Claim later', { exact: true })).toBeVisible();
-    await expect(outcome.getByText('fxUSD + USDC', { exact: true })).toBeVisible();
+    await expect(outcome.getByText('Claim assets', { exact: true })).toBeVisible();
+    await expect(outcome.getByText('fxUSD / USDC', { exact: true })).toBeVisible();
     await gasOnlySettings(page);
     await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
     // Open the review unless the restored draft already resumed it. Whether a draft
@@ -626,17 +667,19 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
     expect(await latestPlan(page)).toMatchObject({ tokenOut: token, amount: '10000000000000000001', instant: true, slippage: 0.291 });
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
   }
-  await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
-  await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
+  await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
+  await expect(page.getByRole('radio', { name: /^fxSP/ })).toBeChecked();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Direct redemption to fxSP has no cooldown or queued claim.', { exact: true })).toBeVisible();
   await expect(page.getByText(/A queued withdrawal is claimed later/)).toHaveCount(0);
   await gasOnlySettings(page);
   await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
+  await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Earn review' })).toBeVisible();
   expect(await latestPlan(page)).toMatchObject({ tokenOut: 'fxUSDBasePool', amount: '10000000000000000001', instant: false });
   expect((await latestPlan(page))?.slippage).toBeUndefined();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSD');
+  await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   const dialog = await openSettings(page, '0.291');
   await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
   expect(await storedSlippage(page)).toBe(50);
@@ -645,12 +688,12 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
 test('hiding unused controls does not enable missing or invalid withdrawal amounts', async ({ page }) => {
   await mount(page, false);
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
-  for (const token of ['fxUSD', 'usdc', 'fxUSDBasePool']) {
-    await page.getByLabel('Earn asset', { exact: true }).selectOption(token);
-    if (token !== 'fxUSDBasePool') await page.getByRole('radio', { name: /After cooldown/ }).locator('..').click();
+  for (const method of [/After cooldown/, /^Instant/, /^fxSP/]) {
+    await page.getByRole('radio', { name: method }).locator('..').click();
+    await page.getByLabel('Amount', { exact: true }).fill('');
     const review = page.getByRole('button', { name: 'Review withdrawal', exact: true });
     await expect(review).toBeDisabled();
-    await gasOnlySettings(page);
+    if (method.source !== '^Instant') await gasOnlySettings(page);
     for (const amount of ['0', '-1', 'bad', '601', '1.0000000000000000001']) {
       await page.getByLabel('Amount', { exact: true }).fill(amount);
       await expect(review).toBeDisabled();
@@ -663,7 +706,9 @@ test('hiding unused controls does not enable missing or invalid withdrawal amoun
 
 test('direct base-pool routes show config-based share estimates and verified empty balances get in-card guidance', async ({ page }) => {
   await mount(page, false, '2', 'deposit');
+  await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
   await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
+  await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
   await page.getByLabel('Amount', { exact: true }).fill('10');
   await expect(page.getByText('Estimated fxSAVE received', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSAVE', { exact: true })).toBeVisible();
@@ -694,7 +739,7 @@ test('direct base-pool routes show config-based share estimates and verified emp
   }
 
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
-  await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
+  await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
   await page.getByLabel('Amount', { exact: true }).fill('10');
   await expect(page.getByText('Estimated fxSP received', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSP', { exact: true })).toBeVisible();
@@ -724,16 +769,59 @@ for (const instant of [false, true]) {
     expect(await latestPlan(page)).toMatchObject({ tokenOut: 'fxUSDBasePool', instant: false });
     expect((await latestPlan(page))?.slippage).toBeUndefined();
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
-    await expect(page.getByRole('group', { name: 'Withdrawal method' })).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: /^fxSP/ })).toBeChecked();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
     await gasOnlySettings(page);
+    await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
     await page.getByLabel('Earn asset', { exact: true }).selectOption('usdc');
     const methods = page.getByRole('group', { name: 'Withdrawal method' });
-    await expect(methods.getByRole('radio', { name: instant ? /^Instant/ : /After cooldown/ })).toBeChecked();
-    if (!instant) {
-      await gasOnlySettings(page);
-      await methods.getByRole('radio', { name: /^Instant/ }).locator('..').click();
-    }
+    await expect(methods.getByRole('radio', { name: /^Instant/ })).toBeChecked();
     const dialog = await openSettings(page, '0.101');
     await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
   });
 }
+
+for (const width of [320, 390]) {
+  test(`withdrawal methods fit a single accessible row at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mount(page, false, '2', 'withdraw');
+    await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+    const methods = page.getByRole('group', { name: 'Withdrawal method' });
+    const radios = methods.getByRole('radio');
+    await expect(radios).toHaveCount(3);
+    const bounds = await radios.evaluateAll(nodes => nodes.map(node => {
+      const label = node.closest('label')!;
+      const rect = label.getBoundingClientRect();
+      return { top: rect.top, width: rect.width, height: rect.height, overflow: label.scrollWidth > label.clientWidth };
+    }));
+    expect(new Set(bounds.map(rect => rect.top)).size).toBe(1);
+    for (const rect of bounds) {
+      expect(rect.width).toBeGreaterThanOrEqual(44);
+      expect(rect.height).toBeGreaterThanOrEqual(44);
+      expect(rect.overflow).toBe(false);
+    }
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Claim assets', { exact: true })).toBeVisible();
+    await radios.nth(1).focus();
+    await page.keyboard.press('Space');
+    await expect(radios.nth(1)).toBeChecked();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Earn asset', { exact: true }).locator('option')).toHaveText(['fxUSD', 'usdc']);
+    await expect(page.getByRole('region', { name: 'Withdrawal outcome', exact: true })).toHaveCount(0);
+    await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
+    await expect(page.getByLabel('Earn asset', { exact: true })).toHaveCount(0);
+    await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
+  });
+}
+
+test('Instant receive-asset edits preserve exact shares and require a new review, including resumed drafts', async ({ page }) => {
+  await mount(page, true, '0.291', 'withdraw', {token: 'fxUSD', instant: true});
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const amount = page.getByLabel('Amount', { exact: true });
+  await amount.fill('10.000000000000000001');
+  await page.getByLabel('Earn asset', { exact: true }).selectOption('usdc');
+  await expect(amount).toHaveValue('10.000000000000000001');
+  await expect(page.getByRole('region', { name: 'Earn review' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();
+  expect(await latestPlan(page)).toMatchObject({tokenOut: 'usdc', instant: true, amount: '10000000000000000001', slippage: 0.291});
+});

@@ -327,7 +327,7 @@ export function TokenSelect<T extends string>({
 
   const choose = (next: T) => {
     haptic('selection');
-    onChange(next);
+    if (next !== value) onChange(next);
     closePicker();
   };
 

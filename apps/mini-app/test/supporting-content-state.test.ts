@@ -49,12 +49,12 @@ function text(node: ReactNode): string {
   return typeof node === 'string' || typeof node === 'number' ? String(node) : '';
 }
 
-test('Borrow empty state is a compact prompt and restores its retained shock only with usable amounts', () => {
+test('Borrow hides empty sensitivity and restores its retained shock only with usable amounts', () => {
   const { BorrowSensitivity } = load('BorrowSensitivity');
   const unit = 10n ** 18n;
   shock = -20;
   const empty = BorrowSensitivity({ debt: 0n, collateralUsd: unit, limitBps: 8550n });
-  assert.match(text(empty), /Enter collateral and debt/);
+  assert.equal(empty, null);
   assert.doesNotMatch(text(empty), /Estimated LTV|Collateral change|0%/);
   assert.equal(elements(empty).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
   assert.equal(elements(empty).some(node => (node.props as { className?: string }).className === 'empty'), false);
@@ -62,6 +62,14 @@ test('Borrow empty state is a compact prompt and restores its retained shock onl
   const slider = elements(populated).find(node => node.type === 'input')!;
   assert.equal((slider.props as { value: number }).value, -20);
   assert.match(text(populated), /62.50%/);
+});
+
+test('Borrow keeps an honest unavailable state when entered debt has no verified collateral value', () => {
+  const { BorrowSensitivity } = load('BorrowSensitivity');
+  const unavailable = BorrowSensitivity({ debt: 10n ** 18n, collateralUsd: null, limitBps: 8550n });
+  assert.match(text(unavailable), /Sensitivity unavailable/);
+  assert.equal(elements(unavailable).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
+  assert.equal(BorrowSensitivity({ debt: 10n ** 18n, collateralUsd: 0n, limitBps: 8550n }), null);
 });
 
 test('Borrow SVG measures its unpadded plot wrapper rather than the padded section', () => {
@@ -84,7 +92,7 @@ test('Borrow sensitivity distinguishes empty amounts from unavailable valuation 
     { debt: unit, collateralUsd: 0n, limitBps: 0n },
   ]) {
     const tree = BorrowSensitivity(input);
-    assert.match(text(tree), /Enter collateral and debt/);
+    assert.equal(tree, null);
     assert.doesNotMatch(text(tree), /Sensitivity unavailable|Estimated LTV/);
     assert.equal(elements(tree).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
   }

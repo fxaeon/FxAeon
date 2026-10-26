@@ -38,9 +38,26 @@ cover the icon rail at 840px and 1024px, expansion at 1280px, collapse and
 reexpansion, session preferences across routes and reload, accessible link
 names and current destinations, and content clearance without overflow. The
 visible sidebar toggle must retain a 44px target and uniquely control its own
-visible navigation.
+visible navigation. Transient hover/focus expansion must not move the content or
+overwrite the saved preference, and it must retract after pointer/focus exit.
+
+Earn form gates cover the compact three-method withdrawal row at 320/390px,
+Instant-only output selection, and absence of token-only outcome rows. Funding
+gates switch 1Y/1M ranges and verify that the headline changes with the selected
+history while current funding remains independent. Both chart modes retain
+keyboard inspection and selected-series help. Wallet identity tests require
+bounded EIP-6963 data-image icons for additional wallets, existing catalog mark precedence (including Base), safe image-error fallbacks, preserve unknown explicit providers, and
+defer a distinct standalone global fallback to Other wallets after explicit provider discovery, retaining exact-provider selection.
 
 ## Run collection and artifacts correctly
+
+Disconnected form checks enter amounts and require the available public outcome
+without a zero-wallet-balance notice or extra preview banner. Connect wallet
+remains the action. Trade public facts must stay outside the wallet route cache;
+Earn public deposit estimates must survive only for the exact amount and token;
+Move public estimates must use the selected canonical chain pair and recipient.
+Connection retains the ticket and replaces public context with a fresh real
+account review. Cancellation, expiry and late responses are separate unit gates.
 
 Local built-route tests rebuild unless `E2E_BUILD=0` explicitly requests an existing artifact. Avoid stale-server reuse for release checks. The [E2E package guide](../apps/mini-app/e2e/README.md) explains setup and reports.
 
