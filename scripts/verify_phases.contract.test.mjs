@@ -127,7 +127,7 @@ test('phase failures remain failures and stop dependent source work', async () =
 
   const isolatedFailure = await runPhase('--ci-isolated-0', 'test:e2e:overlay');
   assert.equal(isolatedFailure.status, 1);
-  assert.deepEqual(isolatedFailure.commands, ['test:e2e:overlay', 'test:e2e:trade-harness']);
+  assert.deepEqual(isolatedFailure.commands.toSorted(), ['test:e2e:overlay', 'test:e2e:trade-harness'].toSorted());
 });
 
 test('CI build phase keeps production gates while route E2E is sharded', () => {

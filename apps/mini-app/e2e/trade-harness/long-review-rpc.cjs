@@ -42,6 +42,9 @@ function createFixture(options = {}) {
   const events=[]; const logical=[]; const t0=performance.now();
   const now=()=>Math.round(performance.now()-t0);
   const ethPool=sdk.pools.wstETH.poolAddress.toLowerCase(),btcPool=sdk.pools.WBTC.poolAddress.toLowerCase();
+  const longPools = new Set([ethPool, btcPool]);
+  const shortPools = new Set([sdk.pools.wstETH_short.poolAddress.toLowerCase(), sdk.pools.WBTC_short.poolAddress.toLowerCase()]);
+  const isPool = target => longPools.has(target?.toLowerCase()) || shortPools.has(target?.toLowerCase());
   function reply(data,target,group) {
     for(const abi of bySelector.get(data.slice(0,10)) || []) {
       let decoded;
@@ -50,7 +53,23 @@ function createFixture(options = {}) {
       if(name==='aggregate3') return viem.encodeFunctionResult({abi,functionName:name,result:args[0].map(call=>({success:true,returnData:reply(call.callData,call.target,group)}))});
       const item={at:now(),target:target?.toLowerCase(),name,args}; logical.push(item); group?.push(item);
       let result;
-      if(name==='getPoolInfo') result=[10n**36n,0n,0n,10n**36n,0n];
+      if(name==='configuration') {
+        assert.ok(isPool(target), 'configuration read must target a canonical fixture pool');
+        assert.equal(args.length, 0);
+        result=sdk.contracts.PoolConfiguration;
+      }
+      else if(name==='getLongPoolFundingRatio'||name==='getShortPoolFundingRatio') {
+        assert.equal(target?.toLowerCase(), sdk.contracts.PoolConfiguration.toLowerCase(), 'funding ratio must use the fixture configuration');
+        assert.equal(args.length, 1);
+        assert.ok((name==='getLongPoolFundingRatio'?longPools:shortPools).has(args[0]?.toLowerCase()), 'funding ratio must use the corresponding canonical pool side');
+        result=name==='getLongPoolFundingRatio'?35000000000000000n:0n;
+      }
+      else if(name==='getTotalRawCollaterals'||name==='getTotalRawDebts') {
+        assert.ok(isPool(target), 'funding totals must target a canonical fixture pool');
+        assert.equal(args.length, 0);
+        result=name==='getTotalRawDebts'?0n:shortPools.has(target.toLowerCase())?10000n*10n**18n:target.toLowerCase()===btcPool?10n*10n**18n:100n*10n**18n;
+      }
+      else if(name==='getPoolInfo') result=[10n**36n,0n,0n,10n**36n,0n];
       else if(name==='paused') result=false;
       else if(name==='getDebtRatioRange') result=[100000000000000000n,950000000000000000n];
       else if(name==='getLiquidateRatios') {
