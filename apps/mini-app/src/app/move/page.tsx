@@ -301,15 +301,17 @@ export default function MovePage() {
     return () => { contextAppliedRef.current = false; };
   }, []);
 
-  const resetBridgeContext = useCallback((nextToken: BridgeAsset = token) => {
+  const resetBridgeContext = useCallback((nextToken: BridgeAsset = token, preserveRecipient = false) => {
     const defaults = resetTransactionAmounts();
     setToken(nextToken);
     setAmount(defaults.amount);
     setSourceOft('');
     setDestinationOft('');
     setApprovalToken('');
-    setRecipientInput('');
-    setCustomRecipient(false);
+    if (!preserveRecipient) {
+      setRecipientInput('');
+      setCustomRecipient(false);
+    }
     setReviewStage('input');
     reviewedBridgeRef.current = null;
     setReviewRevision((revision) => revision + 1);
@@ -321,8 +323,9 @@ export default function MovePage() {
   }, [resetBridgeContext]);
 
   const changeToken = useCallback((nextToken: BridgeAsset) => {
-    resetBridgeContext(nextToken);
-  }, [resetBridgeContext]);
+    if (nextToken === token) return;
+    resetBridgeContext(nextToken, true);
+  }, [token, resetBridgeContext]);
 
   const changeMode = useCallback((nextMode: BridgeMode) => {
     if (nextMode === mode) return;

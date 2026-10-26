@@ -1036,8 +1036,8 @@ test('menu keyboard focus stays in visible controls and nested settings dismiss 
   await expect(page.locator('#mobile-more-menu')).toBeFocused();
   await expect(menu).toBeVisible();
   await expect(page).toHaveURL(initialUrl);
-  // The directory is lazy-loaded. Do not send Tab while Suspense still shows
-  // its loading status: at that point the next available control is the dock.
+  // The directory ships with the shell, so its first link is available when
+  // the menu opens, before keyboard navigation begins.
   const firstMenuLink = menu.getByRole('link', { name: /^Wallet & account/ });
   await expect(firstMenuLink).toBeVisible();
   const close = menu.getByRole('button', { name: 'Close menu', exact: true });

@@ -773,3 +773,15 @@ for (const width of [320, 390]) {
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
   });
 }
+
+test('Instant receive-asset edits preserve exact shares and require a new review, including resumed drafts', async ({ page }) => {
+  await mount(page, true, '0.291', 'withdraw', {token: 'fxUSD', instant: true});
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const amount = page.getByLabel('Amount', { exact: true });
+  await amount.fill('10.000000000000000001');
+  await page.getByLabel('Earn asset', { exact: true }).selectOption('usdc');
+  await expect(amount).toHaveValue('10.000000000000000001');
+  await expect(page.getByRole('region', { name: 'Earn review' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();
+  expect(await latestPlan(page)).toMatchObject({tokenOut: 'usdc', instant: true, amount: '10000000000000000001', slippage: 0.291});
+});

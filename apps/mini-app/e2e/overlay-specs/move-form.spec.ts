@@ -136,3 +136,24 @@ test('Move quote rows stay compact and wrap at 320px with 200% text', async ({ p
     await noOverflow(page);
   }
 });
+
+test('Move current asset is a no-op and real asset changes retain recipient while resetting input units', async ({ page }) => {
+  await mount(page, 390);
+  const recipient = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  await page.getByRole('textbox', {name: 'Amount in fxUSD', exact: true}).fill('100');
+  await page.getByRole('button', {name: 'Change', exact: true}).click();
+  await page.getByRole('textbox', {name: 'Destination wallet', exact: true}).fill(recipient);
+  await page.getByRole('button', {name: 'Asset', exact: true}).click();
+  await page.getByRole('option', {name: /fxUSD/}).click();
+  await expect(page.getByRole('textbox', {name: 'Amount in fxUSD', exact: true})).toHaveValue('100');
+  await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveValue(recipient);
+  await expect(page.getByRole('button', {name: 'Asset', exact: true})).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('button', {name: 'Asset', exact: true}).click();
+  await page.getByRole('option', {name: /fxSAVE/}).click();
+  await expect(page.getByRole('textbox', {name: 'Amount in fxSAVE', exact: true})).toHaveValue('');
+  await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveValue(recipient);
+  await expect(page.getByRole('region', {name: 'Receive assets'}).getByText('0.00', {exact: true})).toBeVisible();
+  await page.getByRole('button', {name: /Reverse route to Ethereum/}).click();
+  await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveCount(0);
+  await expect(page.getByRole('button', {name: 'Change', exact: true})).toBeVisible();
+});

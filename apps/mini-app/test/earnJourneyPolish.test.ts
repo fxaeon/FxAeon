@@ -152,12 +152,12 @@ test('overview omits per-share row and retains connected vault holdings', () => 
   assert.match(summary({ connected: false }), /Vault holdings/);
 });
 
-function transitions() {
+function transitions(mode = 'withdraw', token = 'fxUSD') {
   const writes: Record<string, unknown> = {};
-  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
+  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision', 'ResumeReview'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
   const code = [variable('resetEarnContext'), variable('changeMode'), variable('changeToken'), '({ resetEarnContext, changeMode, changeToken });'].join('\n');
   const actions = evaluate<{ resetEarnContext: () => void; changeMode: (mode: string) => void; changeToken: (token: string) => void }>(code,
-    { ...setters, useCallback: (callback: unknown) => callback, resetTransactionAmounts: () => ({ amount: '', shares: '' }), mode: 'withdraw' });
+    { ...setters, useCallback: (callback: unknown) => callback, resetTransactionAmounts: () => ({ amount: '', shares: '' }), mode, token });
   return { writes, ...actions };
 }
 
@@ -170,9 +170,23 @@ test('fresh withdrawal uses cooldown, but mode/token changes do not overwrite se
   for (const action of [(t: ReturnType<typeof transitions>) => t.changeMode('withdraw'), (t: ReturnType<typeof transitions>) => t.changeToken('usdc')]) {
     const t = transitions(); action(t);
     assert.equal(Object.hasOwn(t.writes, 'Instant'), false, 'an explicit method must survive tab/asset changes');
-    assert.equal(t.writes.Amount, '');
-    assert.equal(t.writes.Shares, '', 'existing amount reset behavior stays unchanged');
+    if (t.writes.Mode) {
+      assert.equal(t.writes.Amount, '');
+      assert.equal(t.writes.Shares, '');
+    } else {
+      assert.equal(Object.hasOwn(t.writes, 'Shares'), false, 'receive-asset changes preserve fxSAVE input');
+      assert.equal(t.writes.ReviewStage, 'input');
+      assert.equal(t.writes.ResumeReview, 0);
+    }
   }
+});
+
+test('same Earn asset is a no-op, while actual deposit input-unit changes reset amounts', () => {
+  const unchanged = transitions(); unchanged.changeToken('fxUSD');
+  assert.deepEqual(unchanged.writes, {});
+  const changed = transitions('deposit'); changed.changeToken('usdc');
+  assert.equal(changed.writes.Amount, ''); assert.equal(changed.writes.Shares, '');
+  assert.equal(changed.writes.ReviewStage, 'input');
 });
 
 test('signature-required drafts preserve explicit method, amounts, token and slippage', () => {

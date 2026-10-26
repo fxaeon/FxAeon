@@ -182,8 +182,17 @@ export default function EarnPage() {
   }, [resetEarnContext]);
 
   const changeToken = useCallback((nextToken: SaveToken) => {
+    if (nextToken === token) return;
+    if (mode === 'withdraw') {
+      // Receive-asset changes leave the fxSAVE input unit unchanged.
+      setToken(nextToken);
+      setResumeReview(0);
+      setReviewStage('input');
+      setReviewRevision((revision) => revision + 1);
+      return;
+    }
     resetEarnContext(mode, nextToken, true);
-  }, [mode, resetEarnContext]);
+  }, [mode, token, resetEarnContext]);
 
   useEffect(() => {
     const context = `${wallet.address?.toLowerCase() ?? ''}:${wallet.chainId ?? ''}`;

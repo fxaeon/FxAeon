@@ -226,7 +226,7 @@ test('long detected-wallet lists keep the picker header, close control, and Othe
 async function connect(page: Page, choice = 0, legacy = false) {
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
-  await page.getByRole('button', { name: legacy ? 'Wallet' : `Test wallet ${choice + 1}`, exact: true }).click();
+  await page.getByRole('button', { name: legacy ? 'Browser wallet' : `Test wallet ${choice + 1}`, exact: true }).click();
   await expect(page.locator('main')).toHaveAttribute('data-connected', 'true');
 }
 async function snapshot(page: Page) {
@@ -247,7 +247,7 @@ test('delayed legacy array discovery deduplicates namespaces and preserves exact
   });
   await expect(page.getByRole('button', { name: 'Bitget Wallet', exact: true })).toBeVisible();
   await showOtherWallets(page);
-  await expect(page.getByRole('button', { name: /^Wallet \d+$/, exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Browser wallet \d+$/, exact: true })).toHaveCount(1);
   expect((await snapshot(page)).calls.flat()).toEqual([]);
   await page.getByRole('button', { name: 'Bitget Wallet', exact: true }).click();
   await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].promptsWaiting)).toBe(1);
@@ -294,7 +294,7 @@ test('remembered neutral legacy account never restores through an aggregate or r
   await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
-  await expect(page.getByRole('button', { name: /^Wallet \d+$/, exact: true })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Browser wallet \d+$/, exact: true })).toHaveCount(2);
   expect((await snapshot(page)).calls.flat()).toEqual([]);
 });
 
@@ -648,7 +648,7 @@ for (const mode of ['single', 'legacy'] as const) {
     await expect(page.getByRole('dialog', { name: 'Connect your wallet', exact: true })).toBeVisible();
     expect((await snapshot(page)).calls.flat().filter((call) => call.method === 'eth_requestAccounts')).toEqual([]);
     await showOtherWallets(page);
-    await page.getByRole('button', { name: mode === 'legacy' ? 'Wallet' : 'Test wallet 1', exact: true }).click();
+    await page.getByRole('button', { name: mode === 'legacy' ? 'Browser wallet' : 'Test wallet 1', exact: true }).click();
     await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect((await snapshot(page)).calls[0].filter((call) => call.method === 'eth_requestAccounts')).toHaveLength(1);
