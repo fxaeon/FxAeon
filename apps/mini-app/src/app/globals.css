@@ -344,7 +344,7 @@ main.utility-stage {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 16px 20px;
+  padding: 8px 16px 12px;
 }
 
 .wallet-provider-options { display: grid; gap: 4px; overflow: hidden; border: 0; border-radius: 0; background: transparent; }
@@ -353,8 +353,8 @@ main.utility-stage {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 66px;
-  padding: 10px 8px;
+  min-height: 56px;
+  padding: 8px;
   border-radius: 12px;
   background: transparent;
   color: var(--text);
@@ -393,7 +393,7 @@ main.utility-stage {
 .wallet-provider-search input { width: 100%; min-width: 0; min-height: 44px; border: 0; background: transparent; color: var(--text); font-size: 16px; }
 .wallet-provider-search svg { flex-shrink: 0; }
 .wallet-provider-empty { margin: 12px 0; color: var(--mut); font-size: 13px; line-height: 1.5; }
-.wallet-provider-other { margin-top: 12px; border: 0; border-radius: 14px; background: var(--surface-2); }
+.wallet-provider-other { border: 0; border-radius: 12px; background: var(--surface-2); }
 .wallet-provider-recovery { width: 100%; margin-top: 12px; text-align: left; border-top: 1px solid var(--line); padding-top: 4px; }
 .wallet-provider-recovery summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-block: 12px; color: var(--mut); font-size: 13px; cursor: pointer; list-style: none; }
 .wallet-provider-recovery summary::-webkit-details-marker { display: none; }
@@ -414,7 +414,7 @@ main.utility-stage {
 .wallet-provider-copy-link { width: 100%; min-width: 0; }
 .wallet-provider-copy-link button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border-radius: 10px; color: var(--mut); font-size: 13px; font-weight: 500; }
 .wallet-provider-copy-link p, .wallet-provider-copy-link code { display: block; max-width: 100%; margin: 4px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
-.wallet-provider-footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 7px; padding: 0 16px 18px; color: var(--mut); font-size: 12px; line-height: 1.5; }
+.wallet-provider-footer { flex: 0 0 auto; padding: 0 16px 16px; }
 .wallet-provider-education { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 24px; padding: 16px 4px 4px; text-align: center; }
 .wallet-provider-lesson { min-width: 0; }
 .wallet-provider-lesson > span { display: inline-grid; width: 56px; height: 56px; margin-bottom: 12px; place-items: center; border: 1px solid var(--line); border-radius: 16px; color: var(--mint-text); background: var(--mint-dim); }
@@ -438,7 +438,8 @@ main.utility-stage {
     max-height: calc(100dvh - max(16px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   }
   .wallet-provider-chooser-header { padding: 12px 8px 4px; }
-  .wallet-provider-chooser-content { padding: 8px 12px 16px; }
+  .wallet-provider-chooser-content { padding: 8px 12px 12px; }
+  .wallet-provider-footer { padding: 0 12px 12px; }
   .wallet-provider-option { gap: 10px; padding-inline: 8px; }
 }
 

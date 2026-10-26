@@ -38,7 +38,8 @@ cover the icon rail at 840px and 1024px, expansion at 1280px, collapse and
 reexpansion, session preferences across routes and reload, accessible link
 names and current destinations, and content clearance without overflow. The
 visible sidebar toggle must retain a 44px target and uniquely control its own
-visible navigation.
+visible navigation. Transient hover/focus expansion must not move the content or
+overwrite the saved preference, and it must retract after pointer/focus exit.
 
 ## Run collection and artifacts correctly
 

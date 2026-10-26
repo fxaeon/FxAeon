@@ -155,7 +155,7 @@ test('collateral sensitivity illustrates entered amounts without changing borrow
   await mount(page);
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   const sensitivity = page.getByRole('region', { name: 'Collateral sensitivity', exact: true });
-  await expect(sensitivity).toContainText('Enter collateral and debt');
+  await expect(sensitivity).toHaveCount(0);
   await expect(sensitivity.getByRole('slider')).toHaveCount(0);
   await page.getByLabel('Collateral', { exact: true }).fill('1');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('1200');
@@ -167,7 +167,7 @@ test('collateral sensitivity illustrates entered amounts without changing borrow
   await expect(page.getByLabel('Collateral', { exact: true })).toHaveValue('1');
   await expect(page.getByLabel('fxUSD to borrow', { exact: true })).toHaveValue('1200');
   await page.getByLabel('fxUSD to borrow', { exact: true }).fill('');
-  await expect(sensitivity).toContainText('Enter collateral and debt');
+  await expect(sensitivity).toHaveCount(0);
   await expect(sensitivity.getByRole('slider')).toHaveCount(0);
 });
 
@@ -595,8 +595,8 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await page.clock.install();
   await mount(page, { fundingUnavailable: true });
   const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-  await expect(metric.locator('dd')).toHaveText('—');
-  await expect(metric.getByRole('status')).toHaveText('Not quoted');
+  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
+  await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
   await metric.getByRole('button', { name: 'About Funding status', exact: true }).click();
   const verification = page.getByRole('link', { name: /View funding on f\(x\)/ });
   await expect(verification).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
@@ -606,8 +606,8 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await expect(metric.locator('dd')).toHaveText('0% / 8h');
   await page.evaluate(() => Object.assign(window, { __borrowFundingUnavailable: true }));
   await page.clock.fastForward(60_001);
-  await expect(metric.locator('dd')).toHaveText('—');
-  await expect(metric.getByRole('status')).toHaveText('Not quoted');
+  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
+  await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false, __borrowFundingRatio: 10000000000000000n }); document.dispatchEvent(new Event('visibilitychange')); });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0009% / 8h');
   await expect(metric.getByRole('status')).toHaveText('On');

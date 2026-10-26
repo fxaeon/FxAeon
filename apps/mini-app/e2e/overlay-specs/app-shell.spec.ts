@@ -55,6 +55,7 @@ async function expectScreenReaderOnlyMoreHeading(page: Page) {
 }
 
 async function expectSidebarFits(page: Page, expectedWidth: number) {
+  await expect.poll(() => page.locator('[data-desktop-sidebar]').evaluate(element => element.getBoundingClientRect().width)).toBe(expectedWidth);
   const geometry = await page.locator('[data-desktop-sidebar]').evaluate(element => {
     const rect = element.getBoundingClientRect();
     const content = document.querySelector('[data-shell-content]')!.getBoundingClientRect();
@@ -96,6 +97,7 @@ test('desktop sidebar uses an accessible compact rail at 840px and 1024px', asyn
   const nav = sidebar.getByRole('navigation', { name: 'Primary navigation', exact: true });
   for (const width of [840, 1024]) {
     await page.setViewportSize({ width, height: 844 });
+    await page.mouse.move(width - 20, 800);
     await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
     await expectSidebarFits(page, 72);
     await expect(sidebar.getByRole('button', { name: 'Expand navigation', exact: true })).toBeHidden();
@@ -123,6 +125,7 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expectSidebarToggleControlsOwnNav(page);
   for (const name of ['Portfolio', 'Trade', 'Earn', 'Borrow', 'Move', 'More']) await expect(nav.getByRole('link', { name, exact: true }).locator('span')).toBeVisible();
   await sidebar.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
+  await page.mouse.move(600, 800);
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await expectSidebarFits(page, 72);
   await expectSidebarToggleControlsOwnNav(page);
@@ -131,6 +134,7 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expect(nav.getByRole('link', { name: 'Trade', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await page.reload();
+  await page.mouse.move(600, 800);
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await expectSidebarFits(page, 72);
   await sidebar.getByRole('button', { name: 'Expand navigation', exact: true }).click();
@@ -142,11 +146,100 @@ test('desktop sidebar collapses and reexpands with session preference retained a
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
   await expect(nav.getByRole('link', { name: 'More', exact: true })).toHaveAttribute('aria-current', 'page');
   await page.setViewportSize({ width: 1024, height: 844 });
+  await page.mouse.move(1000, 800);
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
   await expectSidebarFits(page, 72);
   await page.setViewportSize({ width: 1280, height: 844 });
   await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
   await expectSidebarFits(page, 224);
+});
+
+test('collapsed desktop rails reveal on hover without moving content or changing the saved preference', async ({ page }) => {
+  await open(page, { width: 840, initScript: "sessionStorage.setItem('fxaeon:sidebar-expanded','false')" });
+  await setLab(page, { wallet: STATES[1][1] });
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const portfolio = sidebar.getByRole('link', { name: 'Portfolio', exact: true });
+  for (const width of [840, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.mouse.move(width - 20, 800);
+    await expectSidebarFits(page, 72);
+    const before = await page.locator('[data-shell-content]').boundingBox();
+    const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+      const rect = icon.getBoundingClientRect();
+      return { left: rect.left, top: rect.top };
+    }));
+    await sidebar.hover({ position: { x: 36, y: 120 } });
+    await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
+    await expect(portfolio.locator('span')).toBeVisible();
+    await expect.poll(() => sidebar.evaluate((element, before) => {
+      const after = [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+        const rect = icon.getBoundingClientRect();
+        return { left: rect.left, top: rect.top };
+      });
+      return after.length === before.length && after.every((rect, index) => Math.abs(rect.left - before[index].left) <= 1 && Math.abs(rect.top - before[index].top) <= 1);
+    }, iconRects)).toBe(true);
+    const brandLabel = await sidebar.getByRole('link', { name: 'FxAeon portfolio' }).locator('span').boundingBox();
+    const sidebarBox = await sidebar.boundingBox();
+    expect(brandLabel).not.toBeNull();
+    expect(sidebarBox).not.toBeNull();
+    expect(brandLabel!.x + brandLabel!.width).toBeLessThanOrEqual(sidebarBox!.x + sidebarBox!.width + 1);
+    await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'false');
+    expect(await page.locator('[data-shell-content]').boundingBox()).toEqual(before);
+    expect(await page.evaluate(() => sessionStorage.getItem('fxaeon:sidebar-expanded'))).toBe('false');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+    await page.mouse.move(width - 20, 800);
+    const closeSamples = await sidebar.evaluate(async (element, before) => {
+      const samples: Array<Array<{ left: number; top: number }>> = [];
+      const capture = () => [...element.querySelectorAll('.brand svg, .toggle svg, .desktop-navigation a svg')].map(icon => {
+        const rect = icon.getBoundingClientRect();
+        return { left: rect.left, top: rect.top };
+      });
+      const started = performance.now();
+      await new Promise<void>(resolve => {
+        const frame = () => {
+          samples.push(capture());
+          if (performance.now() - started >= 220) resolve();
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      });
+      return samples.every(sample => sample.length === before.length && sample.every((rect, index) => Math.abs(rect.left - before[index].left) <= 1 && Math.abs(rect.top - before[index].top) <= 1));
+    }, iconRects);
+    expect(closeSamples).toBe(true);
+    await expectSidebarFits(page, 72);
+    await expect(portfolio.locator('span')).toBeHidden();
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await sidebar.hover({ position: { x: 36, y: 120 } });
+  await expect(portfolio.locator('span')).toBeVisible();
+  await page.mouse.move(1200, 800);
+  await expectSidebarFits(page, 72);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(sidebar).toBeHidden();
+  await expect(page.locator('nav.mobile-tabbar')).toBeVisible();
+});
+
+test('keyboard focus reveals collapsed navigation labels and mouse leave never collapses a saved expanded sidebar', async ({ page }) => {
+  await open(page, { width: 1280, initScript: "sessionStorage.setItem('fxaeon:sidebar-expanded','false')" });
+  await setLab(page, { wallet: STATES[1][1] });
+  await page.mouse.move(1200, 800);
+  const sidebar = page.locator('[data-desktop-sidebar]');
+  const trade = sidebar.getByRole('link', { name: 'Trade', exact: true });
+  await page.keyboard.press('Tab');
+  await trade.focus();
+  await expect(trade).toBeFocused();
+  await expect(trade.locator('span')).toBeVisible();
+  await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
+  await page.mouse.move(1200, 800);
+  await expect(trade.locator('span')).toBeVisible();
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).focus();
+  await expectSidebarFits(page, 72);
+  await sidebar.getByRole('button', { name: 'Expand navigation', exact: true }).click();
+  await page.mouse.move(1200, 800);
+  await expect(sidebar).toHaveAttribute('data-sidebar-expanded', 'true');
+  await expectSidebarFits(page, 224);
+  await expect(trade.locator('span')).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('fxaeon:sidebar-expanded'))).toBe('true');
 });
 
 test('mobile menu keeps its More heading accessible without a visible title row at 320px and 390px', async ({ page }) => {

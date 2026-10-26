@@ -84,7 +84,10 @@ Keep tests for exact amounts, disclosure access, quote expiry, approvals, wallet
 For shell navigation changes, check the mobile bottom tabs and More dialog,
 the desktop icon rail at 840–1199px, and the expanded/collapsed rail at
 1200px and wider, including its session preference. The More dialog's heading
-is visually hidden and must remain available to assistive technology.
+is visually hidden and must remain available to assistive technology. Check that
+hover and keyboard label reveal preserve the collapsed content inset and saved
+preference. Wallet picker regressions cover long detected lists at desktop and
+short-phone sizes, including a fully visible fixed Other wallets action.
 
 Reports and captures are generated evidence, not source. Inspect failure traces and screenshots before updating a baseline. Record browser, platform, revision, and fixture provenance.
 

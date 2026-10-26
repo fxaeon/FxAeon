@@ -194,14 +194,15 @@ export function ExternalWalletDialog({ choices, pending = null, onChoose, onBack
             <ChevronRight size={16} className="wallet-provider-chevron" aria-hidden="true" />
           </button>)}</div>
           {showAll && visibleChoices.length === 0 && <p role="status" className="wallet-provider-empty">No wallets match your search.</p>}
-          {!showAll && <button ref={otherRef} type="button" onClick={() => setShowAll(true)} className="wallet-provider-option wallet-provider-other">
+        </>}
+      </div>
+      {!showHelp && !pending && !showAll && <footer className="wallet-provider-footer">
+          <button ref={otherRef} type="button" onClick={() => setShowAll(true)} className="wallet-provider-option wallet-provider-other">
             <span className="wallet-provider-mark" aria-hidden="true"><Search size={23} /></span>
             <span className="wallet-provider-option-name">Other wallets</span>
             <ChevronRight size={16} className="wallet-provider-chevron" aria-hidden="true" />
-          </button>}
-        </>}
-      </div>
-      <footer className="wallet-provider-footer">FxAeon</footer>
+          </button>
+      </footer>}
     </div>
   </div>;
 }

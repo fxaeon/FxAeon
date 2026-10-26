@@ -45,7 +45,9 @@ Paths below are relative to `apps/mini-app/src/`.
 
 Desktop navigation is a vertical rail. It uses icons only from 840px through
 1199px; at 1200px and wider it is expanded by default and can collapse to the
-icon rail. The choice is stored for the browser session. On mobile, the bottom
+icon rail. The choice is stored for the browser session. Pointer hover and visible
+keyboard focus can transiently reveal a collapsed rail without changing that
+preference or the content inset. On mobile, the bottom
 tabs remain and More opens a modal directory while the current page is kept
 mounted behind it. The directory heading is visually hidden but remains in the
 accessible heading tree.

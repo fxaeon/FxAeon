@@ -18,6 +18,7 @@ import { TransactionSettings } from '@/components/TransactionSettings';
 import { MoveSections } from '@/components/ProductSections';
 import { AppShell, Card } from '@/components/ui';
 import { PageHeading } from '@/components/ProductUI';
+import { MissingValue } from '@/components/MissingValue';
 import { ActionWorkspace } from '@/components/ProductLayout';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import { AmountField, TokenSelect, type TokenBalanceView } from '@/components/ProtocolForm';
@@ -134,6 +135,13 @@ function draftEnum<T extends string>(value: unknown, values: readonly T[], fallb
 
 function draftBoolean(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function ReceiveAmountPlaceholder({ amount, loading }: { amount: string; loading: boolean }) {
+  const empty = amount.trim() === '' || /^(?:0+(?:\.0*)?|\.0+)$/.test(amount.trim());
+  return <strong className={moveStyles.receiveAmount} data-empty="true">
+    {empty ? '0.00' : <MissingValue width="lg" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading receive estimate' : 'Receive estimate unavailable'} />}
+  </strong>;
 }
 
 export default function MovePage() {
@@ -595,14 +603,14 @@ export default function MovePage() {
               <div className={moveStyles.receiveLine}>
                 {preview?.estimatedReceived !== undefined ? <div className={moveStyles.receiveValue}>
                   <strong className={moveStyles.receiveAmount} data-receive-amount style={{ '--receive-length': receiveDisplay.length } as CSSProperties}>{receiveDisplay}</strong>
-                </div> : <strong className={moveStyles.receiveAmount} data-empty="true" aria-label="Receive estimate unavailable">—</strong>}
+                </div> : <ReceiveAmountPlaceholder amount={amount} loading={previewStatus === 'loading'} />}
                 <span className={moveStyles.receiveAsset}>{!advanced && <TokenIcon symbol={token} size={24} />}<strong>{advanced ? 'Custom token' : token}</strong></span>
               </div>
               <p className={moveStyles.receiveCaption} role="status">
                 {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <><span>Estimated</span><span aria-hidden="true"> · </span><AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} /></>
                   : advanced ? 'Custom route checked at review' : !wallet.address ? 'Connect to preview this route'
                   : recipientError ? 'Check the destination address' : previewStatus === 'loading' ? 'Getting a live quote…'
-                  : previewStatus === 'expired' ? 'Quote expired — refresh below' : 'Receipt estimate unavailable'}
+                  : previewStatus === 'expired' ? 'Quote expired. Refresh below' : 'Receipt estimate unavailable'}
               </p>
             </section>
             {amountWei && !advanced && wallet.address && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">

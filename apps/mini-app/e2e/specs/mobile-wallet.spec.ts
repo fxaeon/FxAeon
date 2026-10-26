@@ -147,6 +147,82 @@ test('wallet picker uses a bottom sheet on phones and a centered flat list on de
   await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeFocused();
 });
 
+test('long detected-wallet lists keep the picker header, close control, and Other wallets reachable in short viewports', async ({ page }) => {
+  await openHarness(page);
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await page.evaluate(() => {
+    for (let index = 1; index <= 10; index++) {
+      const provider = { request: async () => null, on: () => undefined, removeListener: () => undefined };
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+        detail: { info: { name: `Layout wallet ${index}`, rdns: `test.layout.wallet.${index}` }, provider },
+      }));
+    }
+  });
+  await expect(dialog.locator('[data-wallet-id^="injected:test.layout.wallet."]')).toHaveCount(10);
+  await expect(dialog.locator('.wallet-provider-detected')).toHaveCount(10);
+
+  for (const viewport of [{ width: 1280, height: 720 }, { width: 320, height: 568 }]) {
+    await page.setViewportSize(viewport);
+    const content = dialog.locator('.wallet-provider-chooser-content');
+    await expect(dialog.getByRole('button', { name: 'Close wallet selection', exact: true })).toBeVisible();
+    await content.evaluate(element => { element.scrollTop = 0; });
+    await dialog.evaluate(async element => {
+      const finiteAnimations = element.getAnimations({ subtree: true }).filter(animation =>
+        animation.effect?.getComputedTiming().iterations !== Infinity);
+      await Promise.all(finiteAnimations.map(animation => animation.finished.catch(() => undefined)));
+    });
+
+    const geometry = await dialog.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const header = element.querySelector('.wallet-provider-chooser-header')!.getBoundingClientRect();
+      const close = element.querySelector<HTMLButtonElement>('[aria-label="Close wallet selection"]')!.getBoundingClientRect();
+      const content = element.querySelector('.wallet-provider-chooser-content')!;
+      const contentRect = content.getBoundingClientRect();
+      const footer = element.querySelector('.wallet-provider-footer')!.getBoundingClientRect();
+      return {
+        rect: { top: rect.top, bottom: rect.bottom },
+        header: { top: header.top, bottom: header.bottom },
+        close: { top: close.top, bottom: close.bottom, height: close.height },
+        content: { top: contentRect.top, bottom: contentRect.bottom, scrollHeight: content.scrollHeight, clientHeight: content.clientHeight },
+        footer: { top: footer.top, bottom: footer.bottom },
+        rowHeights: [...element.querySelectorAll('.wallet-provider-option')].map(row => row.getBoundingClientRect().height),
+      };
+    });
+    expect(geometry.header.top).toBeGreaterThanOrEqual(geometry.rect.top);
+    expect(geometry.close.top).toBeGreaterThanOrEqual(geometry.header.top);
+    expect(geometry.close.bottom).toBeLessThanOrEqual(geometry.header.bottom);
+    expect(geometry.close.height).toBeGreaterThanOrEqual(44);
+    expect(geometry.footer.bottom).toBeLessThanOrEqual(geometry.rect.bottom);
+    expect(geometry.content.bottom).toBeLessThanOrEqual(geometry.footer.top);
+    expect(geometry.content.scrollHeight).toBeGreaterThan(geometry.content.clientHeight);
+    for (const rowHeight of geometry.rowHeights) expect(rowHeight).toBeGreaterThanOrEqual(44);
+
+    const other = dialog.getByRole('button', { name: 'Other wallets', exact: true });
+    await content.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(other).toBeVisible();
+    const otherBounds = await other.evaluate(element => {
+      const row = element.getBoundingClientRect();
+      const chooser = element.closest('.wallet-provider-chooser')!;
+      const dialogRect = chooser.getBoundingClientRect();
+      const contentRect = chooser.querySelector('.wallet-provider-chooser-content')!.getBoundingClientRect();
+      const footer = element.closest('.wallet-provider-footer')!.getBoundingClientRect();
+      return { top: row.top, bottom: row.bottom, height: row.height, dialogTop: dialogRect.top, dialogBottom: dialogRect.bottom, contentBottom: contentRect.bottom, footerTop: footer.top, footerBottom: footer.bottom };
+    });
+    expect(otherBounds.height).toBeGreaterThanOrEqual(44);
+    expect(otherBounds.top).toBeGreaterThanOrEqual(otherBounds.footerTop);
+    expect(otherBounds.bottom).toBeLessThanOrEqual(otherBounds.footerBottom);
+    expect(otherBounds.top).toBeGreaterThanOrEqual(otherBounds.dialogTop);
+    expect(otherBounds.bottom).toBeLessThanOrEqual(otherBounds.dialogBottom);
+    expect(otherBounds.contentBottom).toBeLessThanOrEqual(otherBounds.footerTop);
+    await other.click();
+    await expect(dialog).toHaveAttribute('data-wallet-view', 'all');
+    await expect(dialog.getByRole('button', { name: 'Layout wallet 10', exact: true })).toHaveCount(1);
+    await dialog.getByRole('button', { name: 'Back to wallets', exact: true }).click();
+    await expect(dialog).toHaveAttribute('data-wallet-view', 'wallets');
+  }
+});
+
 async function connect(page: Page, choice = 0, legacy = false) {
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
   await showOtherWallets(page);
