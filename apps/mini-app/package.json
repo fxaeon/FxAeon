@@ -36,8 +36,8 @@
     "qrcode.react": "4.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "viem": "2.57.7",
-    "wagmi": "3.7.7"
+    "viem": "2.57.10",
+    "wagmi": "3.7.9"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
