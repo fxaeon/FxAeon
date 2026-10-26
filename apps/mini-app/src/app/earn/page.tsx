@@ -127,6 +127,7 @@ export default function EarnPage() {
   const [slippage, setSlippage] = useState(String(DEFAULT_SLIPPAGE_PERCENT));
   const savedSlippageRef = useRef(DEFAULT_SLIPPAGE_PERCENT);
   const [loading, setLoading] = useState(false);
+  const [readPending, setReadPending] = useState({ config: true, balance: true, redeemStatus: true });
   const [error, setError] = useState('');
   const [config, setConfig] = useState<SaveConfig | null>(null);
   const [data, setData] = useState<SaveData | null>(null);
@@ -146,12 +147,10 @@ export default function EarnPage() {
   const lastConnectedChainRef = useRef<number | undefined>(undefined);
   const readGuard = useRef(createEarnReadGuard());
   const dataRef = useRef<SaveData | null>(null);
-  const configRef = useRef<SaveConfig | null>(null);
   const refreshApyRef = useRef<() => Promise<void>>(async () => undefined);
   const fxSaveApyRef = useRef<FxSaveApyResponse | null>(null);
   fxSaveApyRef.current = fxSaveApy;
   useEffect(() => { dataRef.current = data; }, [data]);
-  useEffect(() => { configRef.current = config; }, [config]);
   // fxSAVE routes are Ethereum-only even when the connected wallet is
   // currently displaying another supported chain. Read the selected address
   // against Ethereum's reviewed public client, not wallet.chainId.
@@ -362,46 +361,46 @@ export default function EarnPage() {
     if (request === null) return;
     const address = wallet.address;
     setLoading(true);
+    setReadPending({ config: true, balance: Boolean(address), redeemStatus: Boolean(address) });
     setError('');
+    const previous = dataRef.current?.walletAddress?.toLowerCase() === address?.toLowerCase() ? dataRef.current : null;
+    let nextData: SaveData | null = address ? {
+      walletAddress: address, balance: previous?.balance ?? null, redeemStatus: previous?.redeemStatus ?? null, claimable: null,
+    } : null;
+    dataRef.current = nextData;
+    setData(nextData);
+    if (!address) setReadWarnings(warnings => warnings.filter(item => item === 'vault configuration'));
     try {
       await withReadDeadline(assertConfiguredPublicClientChain(1));
-      const sdk = getFxReadFacade();
-      if (!address) {
-        const result = await Promise.allSettled([sdk.getFxSaveConfig({})]);
-        if (!readGuard.current.isCurrent(request)) return;
-        if (result[0].status === 'fulfilled') {
-          setConfig(result[0].value);
-          setError('');
-          setReadWarnings([]);
-        } else {
-          setError('');
-          setReadWarnings(['vault configuration']);
-        }
-        setData(null);
-        return;
-      }
-      const [nextConfig, balance, redeemStatus] = await Promise.allSettled([
-        sdk.getFxSaveConfig({}),
-        sdk.getFxSaveBalance({ userAddress: address }),
-        sdk.getFxSaveRedeemStatus({ userAddress: address }),
-      ]);
       if (!readGuard.current.isCurrent(request)) return;
-      const previous = dataRef.current?.walletAddress?.toLowerCase() === address.toLowerCase() ? dataRef.current : null;
-      const nextConfigValue = nextConfig.status === 'fulfilled' ? nextConfig.value : configRef.current;
-      const nextData: SaveData = {
-        walletAddress: address,
-        balance: balance.status === 'fulfilled' ? balance.value : previous?.balance ?? null,
-        redeemStatus: redeemStatus.status === 'fulfilled' ? redeemStatus.value : previous?.redeemStatus ?? null,
-        claimable: null,
+      const sdk = getFxReadFacade();
+      const publish = async <T,>(key: keyof typeof readPending, warning: string, read: () => Promise<T>, apply: (value: T) => void) => {
+        try {
+          const value = await read();
+          if (!readGuard.current.isCurrent(request)) return;
+          apply(value);
+          setReadWarnings(warnings => warnings.filter(item => item !== warning));
+        } catch {
+          if (!readGuard.current.isCurrent(request)) return;
+          setReadWarnings(warnings => warnings.includes(warning) ? warnings : [...warnings, warning]);
+        } finally {
+          if (readGuard.current.isCurrent(request)) setReadPending(pending => ({ ...pending, [key]: false }));
+        }
       };
-      setConfig(nextConfigValue);
-      setData(nextData);
-      const warnings: string[] = [];
-      if (nextConfig.status === 'rejected') warnings.push('vault configuration');
-      if (balance.status === 'rejected') warnings.push('balance');
-      if (redeemStatus.status === 'rejected') warnings.push('redemption status');
-      setReadWarnings(warnings);
-      setError('');
+      const reads = [publish('config', 'vault configuration', () => sdk.getFxSaveConfig({}), setConfig)];
+      if (address && nextData) {
+        reads.push(publish('balance', 'balance', () => sdk.getFxSaveBalance({ userAddress: address }), value => {
+          nextData = { ...nextData!, balance: value };
+          dataRef.current = nextData;
+          setData(dataRef.current);
+        }));
+        reads.push(publish('redeemStatus', 'redemption status', () => sdk.getFxSaveRedeemStatus({ userAddress: address }), value => {
+          nextData = { ...nextData!, redeemStatus: value };
+          dataRef.current = nextData;
+          setData(dataRef.current);
+        }));
+      }
+      await Promise.all(reads);
     } catch (cause) {
       if (!readGuard.current.isCurrent(request)) return;
       setError(userSafeError(cause, ''));
@@ -411,7 +410,10 @@ export default function EarnPage() {
       setReadWarnings(address ? ['vault configuration', 'balance', 'redemption status'] : ['vault configuration']);
     } finally {
       readGuard.current.finish(request);
-      if (readGuard.current.isCurrent(request)) setLoading(false);
+      if (readGuard.current.isCurrent(request)) {
+        setLoading(false);
+        setReadPending({ config: false, balance: false, redeemStatus: false });
+      }
     }
   }, [wallet.address]);
 
@@ -453,8 +455,8 @@ export default function EarnPage() {
   }, [cooldownComplete, cooldownPending, cooldownRedeemableAt, hasCooldownState, hasWalletData, load, refreshClaimable]);
 
   const planBuilder = useMemo(() => {
-    if (!wallet.address) return null;
-    if (readWarnings.includes('vault configuration')) return null;
+    if (!wallet.address || !walletData) return null;
+    if (readPending.config || readWarnings.includes('vault configuration')) return null;
     if (mode === 'claim') {
       if (claimableQuery.status !== 'ready' || !claimAvailability(walletData?.claimable).canReview) return null;
       return () => planClaimWithPreview(
@@ -464,7 +466,7 @@ export default function EarnPage() {
       );
     }
     if (mode === 'deposit') {
-      if (readWarnings.includes('balance')) return null;
+      if (readPending.balance || readWarnings.includes('balance')) return null;
       const amountWei = parseAmount(amount, token === 'usdc' ? 'USDC' : token === 'fxUSDBasePool' ? 'fxUSDBasePool' : 'fxUSD');
       if (!amountWei) return null;
       return () => planDepositFxSave({
@@ -476,7 +478,7 @@ export default function EarnPage() {
     const sharesWei = shares.toLowerCase() === 'all'
       ? walletData?.balance?.balanceWei ?? null
       : parseAmount(shares, 'fxSAVE');
-    if (readWarnings.includes('balance') || !sharesWei || !walletData?.balance || sharesWei > walletData.balance.balanceWei) return null;
+    if (readPending.balance || readWarnings.includes('balance') || !sharesWei || !walletData?.balance || sharesWei > walletData.balance.balanceWei) return null;
     const slippageValue = Number(slippage);
     if (instant && token !== 'fxUSDBasePool' && (!Number.isFinite(slippageValue) || slippageValue <= 0 || slippageValue > MAX_FX_SLIPPAGE_PERCENT)) return null;
     return () => planWithdrawFxSave({
@@ -486,7 +488,7 @@ export default function EarnPage() {
       instant: token === 'fxUSDBasePool' ? false : instant,
       slippage: instant && token !== 'fxUSDBasePool' ? slippageValue : undefined,
     });
-  }, [amount, claimableQuery.status, instant, mode, readWarnings, shares, slippage, token, wallet.address, walletData]);
+  }, [amount, claimableQuery.status, instant, mode, readPending, readWarnings, shares, slippage, token, wallet.address, walletData]);
 
   const claimState = claimAvailability(walletData?.claimable);
   const refreshEarn = useCallback(() => runRefreshAction([
@@ -522,7 +524,7 @@ export default function EarnPage() {
         <PageHeading title="Earn" />
         <div className={presentation.vaultLayout} data-review={!inputStage || mode === 'claim'} data-claim-flow={mode === 'claim'}>
         {(inputStage || mode === 'claim') && <div ref={earningsSummaryRef} tabIndex={-1} role="region" aria-label="Your fxSAVE earnings" className={presentation.summarySlot} data-claim-background={mode === 'claim'}>
-        <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
+        <SavingsSummary data={walletData} loading={loading || refreshAction.refreshing} balanceLoading={readPending.balance} connected={Boolean(wallet.address)} onRefresh={refreshEarn}
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus}
           onClaim={() => changeMode('claim')} claimTriggerRef={claimTriggerRef} />
         </div>}
@@ -563,7 +565,7 @@ export default function EarnPage() {
                 shares={shares} onSharesChange={setShares} instant={instant} onInstantChange={setInstant}
                 config={activeReadWarnings.includes('vault configuration') ? null : config} walletData={walletData}
                 estimateConfig={activeReadWarnings.includes('vault configuration') ? null : config}
-                configLoading={loading} onRetryConfig={() => void load(true)}
+                configLoading={readPending.config} onRetryConfig={() => void load(true)}
                 onDeposit={() => changeMode('deposit')}
                 balances={saveBalances} balanceStatus={saveBalanceStatus} balanceUnavailable={readWarnings.includes('balance')} />
             </>}
@@ -574,7 +576,7 @@ export default function EarnPage() {
         {inputStage && mode !== 'claim' && <div className={presentation.vaultInfo}>
           <EarnSections cooldown={config && !readWarnings.includes('vault configuration') ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config && !readWarnings.includes('vault configuration') ? formatRatio(config.instantRedeemFeeRatio) : null}
             vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} showWithdrawalTerms
-            termsNotice={<VaultTermsStatus loading={loading} onRetry={() => void load(true)} />} />
+            termsNotice={<VaultTermsStatus loading={readPending.config} onRetry={() => void load(true)} />} />
           <VaultDetails config={readWarnings.includes('vault configuration') ? null : config} />
         </div>}
         </div>
@@ -605,8 +607,9 @@ type SaveData = {
   claimable: Awaited<ReturnType<ReturnType<typeof getFxReadFacade>['getFxSaveClaimable']>> | null;
 };
 
-function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, config, fxSaveApy, fxSaveApyStatus, onClaim, claimTriggerRef }: {
+function SavingsSummary({ data, loading, balanceLoading = loading, connected, onRefresh, readWarnings, config, fxSaveApy, fxSaveApyStatus, onClaim, claimTriggerRef }: {
   data: SaveData | null; loading: boolean; connected: boolean; onRefresh: () => Promise<void>; readWarnings: readonly string[];
+  balanceLoading?: boolean;
   config: SaveConfig | null;
   fxSaveApy: FxSaveApyResponse | null; fxSaveApyStatus: 'loading' | 'ready' | 'unavailable'; onClaim: () => void;
   claimTriggerRef: RefObject<HTMLButtonElement | null>;
@@ -650,15 +653,15 @@ function SavingsSummary({ data, loading, connected, onRefresh, readWarnings, con
           <h2 title={tvlUsd !== null ? formatUsd(tvlUsd) : undefined}>{tvlUsd !== null
             ? formatVaultUsd(tvlUsd)
             : <MissingValue width="md" status={readWarnings.includes('vault configuration') || fxSaveApyStatus === 'unavailable' ? 'unavailable' : 'loading'} label="Vault holdings in USD" />}</h2>
-          {config && !readWarnings.includes('vault configuration') && <small>{formatDisplayAmount(config.totalAssetsWei)} fxSP</small>}
+          {config && !readWarnings.includes('vault configuration') && <small title={`${formatUnits(config.totalAssetsWei, 18)} fxSP`}>≈ {formatDisplayAmount(config.totalAssetsWei, 18, 0)} fxSP</small>}
         </> : balanceUnavailable ? <>
-          <h2><MissingValue width="md" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading fxSAVE balance' : 'fxSAVE balance unavailable'} /></h2>
+          <h2><MissingValue width="md" status={balanceLoading ? 'loading' : 'unavailable'} label={balanceLoading ? 'Loading fxSAVE balance' : 'fxSAVE balance unavailable'} /></h2>
         </> : empty ? <>
           <h2>$0.00</h2>
           <small>0 fxSAVE</small>
         </> : <>
           <h2>{value === null
-            ? <MissingValue width="xl" status={loading || snapshot.status === 'loading' ? 'loading' : 'unavailable'} label={loading || snapshot.status === 'loading' ? 'Loading fxSAVE position value' : 'fxSAVE position value unavailable'} />
+            ? <MissingValue width="xl" status={balanceLoading || snapshot.status === 'loading' ? 'loading' : 'unavailable'} label={balanceLoading || snapshot.status === 'loading' ? 'Loading fxSAVE position value' : 'fxSAVE position value unavailable'} />
             : <ValueOrSkeleton value={formatUsd(value)} width="xl" label="fxSAVE position value" />}</h2>
           <small>{formatDisplayAmount(balance!.balanceWei)} fxSAVE</small>
         </>}
@@ -696,9 +699,10 @@ function ReadyClaimBanner({ onClaim, claimTriggerRef }: {
 }
 
 function VaultTermsStatus({ loading, onRetry, direct = false }: { loading: boolean; onRetry: () => void; direct?: boolean }) {
+  if (loading) return <div className={presentation.termsStatus}><span>Vault terms</span><MissingValue width="md" label="Loading vault terms" /></div>;
   return <div className={presentation.termsStatus}>
-    <span role="status">{loading ? 'Checking vault terms…' : direct ? 'Vault terms unavailable.' : 'Cooldown and fee unavailable.'}</span>
-    <button type="button" onClick={onRetry} disabled={loading} aria-label="Retry vault terms">Retry</button>
+    <span role="status">{direct ? 'Vault terms unavailable.' : 'Cooldown and fee unavailable.'}</span>
+    <button type="button" onClick={onRetry} aria-label="Retry vault terms">Retry</button>
   </div>;
 }
 
@@ -843,7 +847,7 @@ function VaultDetails({ config }: { config: SaveConfig | null }) {
   return <Disclosure title="Vault details & transparency">
     {/* Withdrawal terms are available in the adjacent disclosure. */}
     {config ? <MetricRows rows={[
-      { label: 'fxSAVE supply', value: `${formatDisplayAmount(config.totalSupplyWei)} fxSAVE` },
+      { label: 'fxSAVE supply', value: <span title={`${formatUnits(config.totalSupplyWei, 18)} fxSAVE`}>≈ {formatDisplayAmount(config.totalSupplyWei, 18, 0)} fxSAVE</span> },
       { label: 'Expense ratio', value: formatVaultRatio(config.expenseRatio) },
       { label: 'Harvester ratio', value: formatVaultRatio(config.harvesterRatio) },
       // The vault stakes idle fxSP in batches once it reaches this amount.

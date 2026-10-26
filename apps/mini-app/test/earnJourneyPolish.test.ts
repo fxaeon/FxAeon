@@ -270,3 +270,15 @@ test('optional help does not introduce signing authority, price-oracle derivatio
   assert.doesNotMatch(declaration(page, 'VaultDetails'), /InfoHelp|MetricLabel/, 'no help buried inside vault details');
   assert.match(pageText, /config=\{activeReadWarnings.includes\('vault configuration'\) \? null : config\}/, 'stale configuration cannot appear current in choices');
 });
+
+test('large vault totals keep whole-unit display precision and exact title values', () => {
+  const totalAssetsWei = parseUnits('70893681.65091987654321', 18);
+  const props = { data: null, connected: false, loading: false, onRefresh: async () => {}, readWarnings: [], config: { totalAssetsWei },
+    fxSaveApy: null, fxSaveApyStatus: 'unavailable', onClaim: () => {}, claimTriggerRef: { current: null } };
+  const html = renderToStaticMarkup(evaluate<React.ReactElement>([
+    helpers, declaration(page, 'SavingsSummary'), 'SavingsSummary(props);',
+  ].join('\n'), { props, useUsdPrices: () => quote({ prices: { fxSAVE: 1.12, fxUSDBasePool: 1.01 }, updatedAt: Date.now() }) }));
+  assert.match(html, /title="70893681\.65091987654321 fxSP"/);
+  assert.match(html, /≈ 70,893,681 fxSP<\/small>/);
+  assert.doesNotMatch(html, />70,893,681\.65091 fxSP</);
+});

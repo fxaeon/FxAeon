@@ -40,3 +40,28 @@ test('reader binds oracle discovery and price to one block, validates deployment
   assert.ok(calls.every(call => call.blockNumber === 123n));
   await assert.rejects(readOracleObservation('BTC', 'short', client), /basis not verified/);
 });
+
+test('oracle metadata and discovery start together with same-block validation', async () => {
+  let resolveBlock!: (block: { timestamp: bigint }) => void;
+  let discoveryStarted = false;
+  let priceReadStarted = false;
+  const block = new Promise<{ timestamp: bigint }>(resolve => { resolveBlock = resolve; });
+  const client = {
+    getChainId: async () => 1, getBlockNumber: async () => 123n,
+    getBlock: ({ blockNumber }: { blockNumber: bigint }) => { assert.equal(blockNumber, 123n); return block; },
+    readContract: async ({ functionName, blockNumber }: { functionName: string; blockNumber: bigint }) => {
+      assert.equal(blockNumber, 123n);
+      if (functionName === 'priceOracle') { discoveryStarted = true; return '0x0C5C61025f047cB7e3e85852dC8eAFd7b9a4Abfb'; }
+      priceReadStarted = true; return [2000n * wad, 1990n * wad, 2010n * wad];
+    },
+  } as unknown as FxPublicClient;
+  const pending = readOracleObservation('ETH', 'long', client);
+  await new Promise<void>(resolve => setImmediate(resolve));
+  const startedBeforeBlock = discoveryStarted;
+  assert.equal(priceReadStarted, false);
+  resolveBlock({ timestamp: BigInt(Math.floor(Date.now() / 1000)) });
+  const observation = await pending;
+  assert.equal(startedBeforeBlock, true);
+  assert.equal(observation.usd, 2000);
+  assert.equal(observation.blockNumber, 123n);
+});

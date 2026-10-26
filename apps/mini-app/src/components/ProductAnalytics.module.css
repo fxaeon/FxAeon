@@ -1,4 +1,4 @@
-.section { min-width: 0; margin: 0 0 28px; padding-top: 18px; border-top: 1px solid var(--line); }
+.section { min-width: 0; margin: 0 0 20px; padding-top: 12px; border-top: 1px solid var(--line); }
 .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 44px; }
 .header h3 { margin: 0; color: var(--text); font-size: 14px; font-weight: 500; }
 .ranges { display: flex; gap: 2px; }
@@ -22,7 +22,7 @@
 .cursor { stroke: var(--mut); stroke-width: 1; stroke-dasharray: 3 5; opacity: .5; }
 .axis { fill: var(--mut); font-size: 10px; }
 .dates, .source { display: flex; justify-content: space-between; gap: 12px; color: var(--mut); font-size: 11px; line-height: 1.5; }
-.source { margin-top: 10px; align-items: center; flex-wrap: wrap; }
+.source { margin-top: 4px; align-items: center; flex-wrap: wrap; }
 .source a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
 .source a:hover { color: var(--text); }
 .empty { display: flex; min-height: 164px; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); font-size: 13px; }
@@ -40,7 +40,7 @@
 .overview { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 12px 0 10px; }
 .performanceReading { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: var(--mut); font-size: 13px; }
 .performanceReading strong { color: var(--text); font-size: 28px; font-weight: 550; letter-spacing: -.7px; font-variant-numeric: tabular-nums; }
-.sensitivitySurface { padding: 17px; margin-top: 16px; border-radius: 20px; background: var(--surface); }
+.sensitivitySurface { padding: 17px; margin-top: 8px; border-radius: 20px; background: var(--surface); }
 .scenarioOverview { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .scenarioOverview > div { display: flex; flex-direction: column; gap: 6px; color: var(--mut); font-size: 12px; }
 .scenarioOverview > div:last-child { text-align: right; }
@@ -52,3 +52,12 @@
 .section > .header h3 { font-size: 19px; font-weight: 550; }
 .section .plot { color: var(--accent, #679afa); }
 @media (max-width: 359px) { .sensitivitySurface { padding: 14px; } .scenarioOverview strong { font-size: 23px; } .tabs button { padding-inline: 8px; } }
+
+.sourceOnly { justify-content: flex-end; }
+.primaryReading, .secondaryReading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); }
+.primaryReading { flex-wrap: wrap; row-gap: 2px; margin: 4px 0; min-height: 36px; font-size: 13px; }
+.primaryReading strong { color: var(--text); font-size: clamp(20px, 2vw, 24px); font-weight: 550; letter-spacing: -.025em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.secondaryReading { min-height: 28px; font-size: 12px; }
+.secondaryReading strong { color: var(--mut); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.primaryReading > span, .secondaryReading > span { min-width: 0; }
+.sensitivityPrompt { margin: 6px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--surface); color: var(--mut); font-size: 13px; line-height: 1.5; }

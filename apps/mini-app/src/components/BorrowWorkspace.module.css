@@ -17,7 +17,7 @@
 .vaultIdentity h2 { margin: 0; font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -.035em; }
 .vaultIdentity p { margin: 5px 0 0; color: var(--mut); font-size: 14px; }
 .network { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; margin-left: auto; color: var(--mut); font-size: 13px; }
-.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; }
+.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; align-items: start; }
 .metrics dt { grid-column: 1; align-self: center; min-width: 0; color: var(--mut); font-size: 14px; }
 .metrics dd { grid-column: 2; min-width: 0; margin: 0; color: var(--text); font-size: clamp(21px, 3vw, 28px); line-height: 1.15; font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
 .metrics small { grid-column: 1 / -1; display: block; color: var(--mut); font-size: 12px; line-height: 1.35; }
@@ -135,3 +135,22 @@
 .metrics dd.rateUnavailable { font-size: clamp(20px, 3.5vw, 27px); letter-spacing: -.025em; line-height: 1.3; color: var(--mut); }
 .metrics dt { min-height: 24px; }
 .metrics small { max-width: 26ch; }
+
+@media (min-width: 840px) {
+  .metrics > div { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
+  .metrics dt, .metrics dd { grid-column: 1; text-align: left; }
+}
+@media (min-width: 840px) and (max-width: 1199px) {
+  .metrics { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1200px) {
+  /* Preserve the form-first DOM order while each column continues below its
+     own summary. The empty flexible track absorbs extra funding-chart height after the
+     sensitivity, instead of inserting space above it. */
+  .layout { grid-template-areas: 'overview action' 'funding action' 'funding sensitivity' 'funding .' 'terms terms'; grid-template-rows: max-content min-content max-content auto min-content; row-gap: 24px; }
+  .details { display: contents; }
+  .details > section { margin-bottom: 0; }
+  .details > section:first-child { grid-area: funding; }
+  .details > section:nth-child(2) { grid-area: sensitivity; }
+  .details > div { grid-area: terms; width: 100%; }
+}

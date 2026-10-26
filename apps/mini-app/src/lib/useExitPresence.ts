@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 /** The longest overlay exit: phone sheets slide down over --dur-base. */
-const OVERLAY_EXIT_MS = 220;
+const OVERLAY_EXIT_MS = 180;
 
 /** Keep closing chrome for its brief exit; never retain a previous account's UI. */
 export function useExitPresence(open: boolean, identity: string, durationMs = OVERLAY_EXIT_MS) {

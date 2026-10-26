@@ -27,6 +27,7 @@ import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import headerWalletControl from '@/components/HeaderWalletControl.module.css';
 import navigation from '@/components/ShellNavigation.module.css';
 import { routeScrollMemory } from '@/lib/routeScroll';
+import { DesktopSidebar } from '@/components/DesktopSidebar';
 
 /* Load the directory only when requested; the underlying action page stays
    mounted so opening navigation cannot discard a form or review draft. */
@@ -227,14 +228,14 @@ export function AppShell({
       {mobileMoreOpen
         ? <button type="button" className="skip-link" onClick={() => document.getElementById('mobile-more-menu')?.focus()}>Skip to main content</button>
         : <a href="#main-content" className="skip-link">Skip to main content</a>}
+      {tabs && <DesktopSidebar pathname={pathname} />}
       <div className="app-workspace" data-route={pathname ?? ''}>
         {tabs && (
           <header className="app-topbar">
-            <Link href="/" aria-label="FxAeon portfolio" className="flex items-center gap-2.5">
+            <Link href="/" aria-label="FxAeon portfolio" className="mobile-brand flex items-center gap-2.5">
               <FxLogo size={32} />
               <span className="brand-wordmark">FxAeon</span>
             </Link>
-            <DesktopNavigation />
             <span className="app-topbar-actions">
               <HeaderWalletControl />
               <MobileMoreToggle ref={mobileMoreTriggerRef} open={mobileMoreOpen} onToggle={toggleMobileMore} />
@@ -396,21 +397,6 @@ export function TabBar() {
         </div>
       </nav>
     </>
-  );
-}
-
-function DesktopNavigation() {
-  const pathname = usePathname();
-  const t = useT();
-  return (
-    <nav className="desktop-navigation" aria-label="Primary navigation">
-      {[...TABS, MORE_TAB].map(({ href, labelKey, also }) => {
-        const active = isTabActive(pathname, href, also);
-        return <Link key={href} href={href} aria-current={active ? 'page' : undefined} onClick={() => haptic('selection')}>
-          {t(labelKey)}
-        </Link>;
-      })}
-    </nav>
   );
 }
 

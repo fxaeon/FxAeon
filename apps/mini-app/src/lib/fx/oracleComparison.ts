@@ -42,10 +42,12 @@ export async function readOracleObservation(market: 'ETH' | 'BTC', side: 'long' 
     if (typeof blockNumber !== 'bigint' || blockNumber <= 0n) throw new Error('Oracle block unavailable');
     // The production viem public client has this action. Keep the app's
     // broader transaction-client interface unchanged for unrelated consumers.
-    const block = await (reader as FxPublicClient & Pick<PublicClient, 'getBlock'>).getBlock({ blockNumber });
+    const [block, oracle] = await Promise.all([
+      (reader as FxPublicClient & Pick<PublicClient, 'getBlock'>).getBlock({ blockNumber }),
+      reader.readContract({ address: positionPoolAddress(market, side), abi: POOL_ABI, functionName: 'priceOracle', blockNumber }),
+    ]);
     const blockAt = Number(block.timestamp) * 1000;
     if (!Number.isSafeInteger(blockAt) || blockAt <= 0 || blockAt > readAt + 30_000 || readAt - blockAt > 120_000) throw new Error('Recent oracle block unavailable');
-    const oracle = await reader.readContract({ address: positionPoolAddress(market, side), abi: POOL_ABI, functionName: 'priceOracle', blockNumber });
     if (typeof oracle !== 'string' || !isAddress(oracle, { strict: false }) || oracle.toLowerCase() !== ORACLES[market][side].toLowerCase()) throw new Error('Oracle basis not verified');
     if (side === 'short') {
       const [underlying, rate] = await Promise.all([

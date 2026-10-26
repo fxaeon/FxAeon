@@ -17,7 +17,7 @@ test.describe('documentation provider lifecycle', () => {
     await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
     const initialReads = await walletReads();
     expect(initialReads).toBeGreaterThan(0);
-    await page.locator('.app-topbar').getByRole('link', { name: 'More', exact: true }).click();
+    await page.locator('[data-desktop-sidebar]').getByRole('link', { name: 'More', exact: true }).click();
     await page.getByRole('link', { name: /FxAeon docs/ }).click();
     await expect(page.getByRole('searchbox', { name: 'Search docs' })).toBeEnabled();
     await page.getByRole('link', { name: 'Open app', exact: true }).click();

@@ -94,6 +94,6 @@ export function FxSaveHistory() {
       <div className={styles.dates}><span>{date(first.timestamp)}</span><span>{date(last.timestamp)}</span></div>
     </> : history.isError || history.data ? <div className={styles.empty} role="status"><span>{metric === 'share' ? 'Share value history unavailable' : 'Yield history unavailable'}</span><button type="button" disabled={history.isFetching} onClick={() => void history.refetch()}>{history.isFetching ? 'Loading…' : 'Retry'}</button></div>
       : <div className={styles.loading} role="status" aria-label={metric === 'share' ? 'Loading share value history' : 'Loading yield history'} />}
-    {<div className={styles.source}><span>{metric === 'share' ? 'Reported daily share price' : 'Reported daily APY'}</span><a href={metric === 'share' ? FX_SAVE_SHARE_HISTORY_SOURCE : FX_SAVE_HISTORY_SOURCE} target="_blank" rel="noopener noreferrer">DefiLlama<ExternalLink size={11} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a></div>}
+    {<div className={`${styles.source} ${styles.sourceOnly}`}><a aria-label={metric === 'share' ? 'Share price history source: DefiLlama (opens in a new tab)' : 'APY history source: DefiLlama (opens in a new tab)'} href={metric === 'share' ? FX_SAVE_SHARE_HISTORY_SOURCE : FX_SAVE_HISTORY_SOURCE} target="_blank" rel="noopener noreferrer">DefiLlama<ExternalLink size={11} aria-hidden="true" /><span className="sr-only"> (opens in a new tab)</span></a></div>}
   </section>;
 }

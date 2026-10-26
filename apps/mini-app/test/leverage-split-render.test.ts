@@ -94,8 +94,7 @@ test('Trade sensitivity follows market, direction and selected leverage without 
         openPositions: null, positionsStatus: 'disconnected',
       }));
       assert.ok(textOf(html).includes('What if '+market+' moves?'));
-      assert.ok(textOf(html).includes('selected '+side+' responds'));
-      assert.ok(textOf(html).includes('3×'));
+      assert.ok(textOf(html).includes(`${side === 'long' ? 'Long' : 'Short'} · 3× initial leverage`));
       assert.ok(textOf(html).includes(side === 'long' ? '-30.0%' : '+30.0%'));
       assert.doesNotMatch(html, /Your existing exposure/);
       assert.match(html, /Sensitivity is not projected PnL/);

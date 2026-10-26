@@ -49,13 +49,15 @@ function text(node: ReactNode): string {
   return typeof node === 'string' || typeof node === 'number' ? String(node) : '';
 }
 
-test('Borrow empty state reports the same retained shock that its populated slider uses', () => {
+test('Borrow empty state is a compact prompt and restores its retained shock only with usable amounts', () => {
   const { BorrowSensitivity } = load('BorrowSensitivity');
   const unit = 10n ** 18n;
   shock = -20;
   const empty = BorrowSensitivity({ debt: 0n, collateralUsd: unit, limitBps: 8550n });
-  assert.match(text(empty), /Collateral change[-−]?20%/);
-  assert.doesNotMatch(text(empty), /Collateral change0%/);
+  assert.match(text(empty), /Enter collateral and debt/);
+  assert.doesNotMatch(text(empty), /Estimated LTV|Collateral change|0%/);
+  assert.equal(elements(empty).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
+  assert.equal(elements(empty).some(node => (node.props as { className?: string }).className === 'empty'), false);
   const populated = BorrowSensitivity({ debt: unit, collateralUsd: 2n * unit, limitBps: 8550n });
   const slider = elements(populated).find(node => node.type === 'input')!;
   assert.equal((slider.props as { value: number }).value, -20);

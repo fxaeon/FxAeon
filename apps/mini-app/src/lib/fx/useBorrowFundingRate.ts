@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BORROW_FUNDING_MAX_AGE_MS, borrowFundingIsFresh, readBorrowFundingRate, type BorrowFundingRate } from './borrowFunding';
 import type { FxSdkMarket } from './tokens';
 
 /** No shared RPC promises, wallet dependency, or stale-zero fallback. */
 export function useBorrowFundingRate(market: FxSdkMarket) {
   const [state, setState] = useState<{ market: FxSdkMarket; rate: BorrowFundingRate | null; status: 'loading' | 'ready' | 'unavailable' }>({ market, rate: null, status: 'loading' });
+  const rateRef = useRef(state.rate);
   useEffect(() => {
     let active = true;
     let generation = 0;
@@ -17,20 +18,29 @@ export function useBorrowFundingRate(market: FxSdkMarket) {
       clearTimeout(timer);
       const request = ++generation;
       pending = true;
-      setState({ market, rate: null, status: 'loading' });
+      const retained = borrowFundingIsFresh(rateRef.current, market) ? rateRef.current : null;
+      rateRef.current = retained;
+      setState({ market, rate: retained, status: retained ? 'ready' : 'loading' });
+      if (retained) timer = setTimeout(expire, Math.max(1, retained.readAt + BORROW_FUNDING_MAX_AGE_MS - Date.now()));
       void readBorrowFundingRate(market).then(rate => {
         if (!active || request !== generation) return;
         const fresh = borrowFundingIsFresh(rate, market);
-        setState({ market, rate: fresh ? rate : null, status: fresh ? 'ready' : 'unavailable' });
+        clearTimeout(timer);
+        rateRef.current = fresh ? rate : null;
+        setState({ market, rate: rateRef.current, status: fresh ? 'ready' : 'unavailable' });
         timer = setTimeout(expire, fresh ? Math.max(1, BORROW_FUNDING_MAX_AGE_MS - (Date.now() - rate.readAt)) : BORROW_FUNDING_MAX_AGE_MS);
       }).catch(() => {
         if (!active || request !== generation) return;
-        setState({ market, rate: null, status: 'unavailable' });
-        timer = setTimeout(load, BORROW_FUNDING_MAX_AGE_MS);
+        clearTimeout(timer);
+        const retained = borrowFundingIsFresh(rateRef.current, market) ? rateRef.current : null;
+        rateRef.current = retained;
+        setState({ market, rate: retained, status: retained ? 'ready' : 'unavailable' });
+        timer = setTimeout(retained ? expire : load, retained ? Math.max(1, retained.readAt + BORROW_FUNDING_MAX_AGE_MS - Date.now()) : BORROW_FUNDING_MAX_AGE_MS);
       }).finally(() => { if (request === generation) pending = false; });
     };
     const expire = () => {
       if (!active) return;
+      rateRef.current = null;
       setState({ market, rate: null, status: 'unavailable' });
       load();
     };
@@ -39,10 +49,12 @@ export function useBorrowFundingRate(market: FxSdkMarket) {
         ++generation;
         pending = false;
         clearTimeout(timer);
+        rateRef.current = null;
         setState({ market, rate: null, status: 'unavailable' });
       } else if (document.visibilityState === 'visible') load();
     };
-    setState({ market, rate: null, status: navigator.onLine ? 'loading' : 'unavailable' });
+    if (!navigator.onLine || !borrowFundingIsFresh(rateRef.current, market)) rateRef.current = null;
+    setState({ market, rate: rateRef.current, status: rateRef.current ? 'ready' : navigator.onLine ? 'loading' : 'unavailable' });
     load();
     document.addEventListener('visibilitychange', recover);
     window.addEventListener('online', recover);

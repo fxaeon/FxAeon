@@ -11,6 +11,22 @@ for (const width of [320, 390, 1280]) {
     const sensitivity = page.getByRole('region', { name: 'Collateral sensitivity' });
     await sensitivity.scrollIntoViewIfNeeded();
     await expect(sensitivity).toContainText('Enter collateral and debt');
+    expect(await sensitivity.evaluate(element => element.getBoundingClientRect().height)).toBeLessThan(160);
+    await expect(sensitivity.getByRole('slider')).toHaveCount(0);
+    if (width >= 1200) {
+      const layout = await funding.evaluate((element) => {
+        const workspace = element.parentElement!.parentElement!;
+        const overview = workspace.querySelector('[aria-label="fxUSD borrowing overview"]')!.getBoundingClientRect();
+        const action = workspace.querySelector('[data-testid="borrow-workspace-card"]')!.getBoundingClientRect();
+        const next = element.nextElementSibling!.getBoundingClientRect();
+        const terms = workspace.querySelector('[aria-label="Borrowing details"]')!.getBoundingClientRect();
+        const rect = element.getBoundingClientRect();
+        return { adjacent: rect.right <= next.left, belowOverview: rect.top >= overview.bottom - 1 && rect.top - overview.bottom <= 25,
+          belowAction: next.top >= action.bottom - 1 && next.top - action.bottom <= 25,
+          termsBelowBoth: terms.top >= Math.max(rect.bottom, next.bottom) - 1 };
+      });
+      expect(layout).toEqual({ adjacent: true, belowOverview: true, belowAction: true, termsBelowBoth: true });
+    }
     await sensitivity.screenshot({ path: info.outputPath('borrow-sensitivity.png') });
     await page.getByText('Borrowing terms & risk', { exact: true }).click();
     await expect(page.getByRole('link', { name: 'Borrowing details', exact: true })).toBeVisible();

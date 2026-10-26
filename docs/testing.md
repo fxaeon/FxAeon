@@ -81,6 +81,11 @@ Do not reuse output after changing source or build configuration. `E2E_REUSE_SER
 
 Keep tests for exact amounts, disclosure access, quote expiry, approvals, wallet-session changes, footer clearance, long values, narrow screens, keyboard dismissal, and enlarged text. Primary review actions retain at least 48px height; amount disclosures and recipient controls retain 44px targets. Compact review terms and inline form metrics use 24px info/disclosure targets with non-overlap and center-hit checks. Metric rows grow naturally for wrapped values and enlarged text rather than reserving button-height blank space. The complete closed review, including essential facts and the Execution details entry point, must fit initially without scrolling at 390×500 and 320×568 as well as normal phone and desktop sizes. Expanded details and enlarged text remain independently scrollable. Synthetic provider tests do not validate real emitted lazy chunks; add an artifact/consumer smoke when changing module partitioning.
 
+For shell navigation changes, check the mobile bottom tabs and More dialog,
+the desktop icon rail at 840–1199px, and the expanded/collapsed rail at
+1200px and wider, including its session preference. The More dialog's heading
+is visually hidden and must remain available to assistive technology.
+
 Reports and captures are generated evidence, not source. Inspect failure traces and screenshots before updating a baseline. Record browser, platform, revision, and fixture provenance.
 
 ## CI topology

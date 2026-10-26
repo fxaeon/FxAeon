@@ -32,6 +32,14 @@ The relevant package script owns its config and collection. Inspect that config 
 
 Built-route checks exercise exported metadata, navigation, form reachability, overflow, amount controls, and review interactions. Isolated suites preserve real controllers/components and replace wallet, SDK, RPC, or market leaves as documented by their fixtures. They cover their assertions; none independently establishes live RPC health, real signing, or production account configuration.
 
+The app-shell overlay suite checks the mobile More dialog, its accessible
+visually-hidden heading, focus handling and resize dismissal. Desktop checks
+cover the icon rail at 840px and 1024px, expansion at 1280px, collapse and
+reexpansion, session preferences across routes and reload, accessible link
+names and current destinations, and content clearance without overflow. The
+visible sidebar toggle must retain a 44px target and uniquely control its own
+visible navigation.
+
 ## Run collection and artifacts correctly
 
 Local built-route tests rebuild unless `E2E_BUILD=0` explicitly requests an existing artifact. Avoid stale-server reuse for release checks. The [E2E package guide](../apps/mini-app/e2e/README.md) explains setup and reports.

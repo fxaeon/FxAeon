@@ -155,3 +155,9 @@
   .withdrawOptions :global(label) { padding: 8px; }
   .withdrawOptions :global(fieldset) { gap: 6px; }
 }
+
+@media (min-width: 1200px) {
+  .vaultLayout { grid-template-areas: 'summary action' 'history information'; grid-template-rows: min-content min-content; row-gap: 24px; column-gap: 40px; }
+  .vaultInfo > div { width: 100%; margin-top: 0; }
+  .historySlot > section { margin-bottom: 0; }
+}

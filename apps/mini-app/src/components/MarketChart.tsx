@@ -151,14 +151,17 @@ export function TradeMarketChart({ market, onMarketChange }: { market: MarketSym
   const { prices, status: priceStatus } = useUsdPrices();
   const live = useLiveMarketQuote(market);
   const fallbackPrice = prices[market === 'ETH' ? 'ETH' : 'WBTC'];
-  const price = live.isFresh ? live.quote?.price : fallbackPrice ?? history.snapshot?.currentPrice;
-  const change = live.isFresh ? live.quote?.percentChange24h : history.snapshot?.percentChange;
+  const historyStats = history.snapshot?.market === market && history.snapshot.range === range ? history.snapshot : null;
+  const statsPeriod = live.isFresh || range === '1D' ? '24h' : range;
+  const statsPeriodLabel = statsPeriod === '24h' ? '24 hour' : statsPeriod === '1H' ? '1 hour' : statsPeriod === '7D' ? '7 day' : '30 day';
+  const price = live.isFresh ? live.quote?.price : fallbackPrice ?? historyStats?.currentPrice;
+  const change = live.isFresh ? live.quote?.percentChange24h : historyStats?.percentChange;
   // History loads only while the chart is open, so a closed chart never waits on it.
   const changeStatus = liveQuotePending(live.status) || (expanded && history.status === 'loading') ? 'loading' : 'unavailable';
   // The price can also come from the first price read; the range only from the feed or open history.
   const priceValueStatus = changeStatus === 'loading' || priceStatus === 'loading' ? 'loading' : 'unavailable';
-  const high = live.isFresh ? live.quote?.high24h : history.snapshot?.high;
-  const low = live.isFresh ? live.quote?.low24h : history.snapshot?.low;
+  const high = live.isFresh ? live.quote?.high24h : historyStats?.high;
+  const low = live.isFresh ? live.quote?.low24h : historyStats?.low;
   const positive = change !== undefined && change >= 0;
   // While a finger or pointer scrubs the chart, the header reads the hovered
   // bar instead of the live quote; releasing returns it to live.
@@ -194,10 +197,10 @@ export function TradeMarketChart({ market, onMarketChange }: { market: MarketSym
           {scrub.changePercent !== null && <><span aria-hidden="true">{scrubRising ? '↗' : '↘'}</span>{scrubRising ? '+' : ''}{scrub.changePercent.toFixed(2)}% · </>}
           <time dateTime={new Date(scrub.unixSeconds * 1_000).toISOString()} className="text-mut">{formatScrubTime(scrub.unixSeconds, range)}</time>
         </p>
-      </> : <><p className="text-display text-[24px] font-semibold tabular-nums"><ValueOrSkeleton value={formatUsdPrice(price) === '—' ? '—' : <RollingFigure value={formatUsdPrice(price)} />} width="lg" status={priceValueStatus} label={priceValueStatus === 'loading' ? 'Market price loading' : 'Market price unavailable'} /></p><p className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${change === undefined ? 'text-mut' : positive ? 'text-success' : 'text-danger'}`}><ValueOrSkeleton value={change === undefined ? '—' : <><span aria-hidden="true">{positive ? '↗' : '↘'}</span>{positive ? '+' : ''}{change.toFixed(2)}% 24h</>} width="md" status={changeStatus} label={changeStatus === 'loading' ? '24 hour change loading' : '24 hour change unavailable'} /></p></>}</div>
+      </> : <><p className="text-display text-[24px] font-semibold tabular-nums"><ValueOrSkeleton value={formatUsdPrice(price) === '—' ? '—' : <RollingFigure value={formatUsdPrice(price)} />} width="lg" status={priceValueStatus} label={priceValueStatus === 'loading' ? 'Market price loading' : 'Market price unavailable'} /></p><p className={`mt-1 inline-flex items-center gap-1 text-[11px] font-semibold ${change === undefined ? 'text-mut' : positive ? 'text-success' : 'text-danger'}`}><ValueOrSkeleton value={change === undefined ? '—' : <><span aria-hidden="true">{positive ? '↗' : '↘'}</span>{positive ? '+' : ''}{change.toFixed(2)}% {statsPeriod}</>} width="md" status={changeStatus} label={`${statsPeriodLabel} change ${changeStatus === 'loading' ? 'loading' : 'unavailable'}`} /></p></>}</div>
     </header>
     <div className="market-chart-instrument-meta">
-      <dl className="market-chart-stats"><div><dt>24h high</dt><dd><ValueOrSkeleton value={formatUsdPrice(high)} width="lg" status={changeStatus} label={changeStatus === 'loading' ? '24 hour high loading' : '24 hour high unavailable'} /></dd></div><div><dt>24h low</dt><dd><ValueOrSkeleton value={formatUsdPrice(low)} width="lg" status={changeStatus} label={changeStatus === 'loading' ? '24 hour low loading' : '24 hour low unavailable'} /></dd></div></dl>
+      <dl className="market-chart-stats"><div><dt>{statsPeriod} high</dt><dd><ValueOrSkeleton value={formatUsdPrice(high)} width="lg" status={changeStatus} label={`${statsPeriodLabel} high ${changeStatus === 'loading' ? 'loading' : 'unavailable'}`} /></dd></div><div><dt>{statsPeriod} low</dt><dd><ValueOrSkeleton value={formatUsdPrice(low)} width="lg" status={changeStatus} label={`${statsPeriodLabel} low ${changeStatus === 'loading' ? 'loading' : 'unavailable'}`} /></dd></div></dl>
     </div>
     {onMarketChange && <div className="market-chart-market-switch"><Segmented value={market} onChange={onMarketChange} ariaLabel="Market" options={[{ value: 'ETH', label: 'ETH', sub: 'Ethereum', ariaLabel: 'ETH', icon: <TokenIcon symbol="ETH" size={20} /> }, { value: 'BTC', label: 'BTC', sub: 'Wrapped BTC', ariaLabel: 'BTC', icon: <TokenIcon symbol="WBTC" size={20} /> }]} /></div>}
     <button type="button" className="market-chart-toggle" aria-expanded={expanded} aria-controls={chartId} aria-disabled={isMobile === null || undefined} disabled={isMobile === null} onClick={() => { setMobileExpanded((value) => !value); haptic('selection'); }}><BarChart3 className="h-4 w-4" aria-hidden="true" /><span>{expanded ? 'Hide chart' : 'Show chart'}</span><ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden="true" /></button>
@@ -328,6 +331,7 @@ function writeSeries(entry: SeriesEntry, candles: Candles, shift: number, tailOn
 }
 
 function LazyPriceChart({ snapshot, chartStyle, onScrub }: { snapshot: MarketCandleSnapshot; chartStyle: ChartStyle; onScrub?: (reading: ChartScrubReading | null) => void }) {
+  const [selectedBar, setSelectedBar] = useState<number | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
@@ -356,7 +360,9 @@ function LazyPriceChart({ snapshot, chartStyle, onScrub }: { snapshot: MarketCan
         const bar = (param.point && param.time !== undefined ? param.seriesData.get(state.entry.series) : undefined) as { value?: unknown; close?: unknown } | undefined;
         const raw = bar?.value ?? bar?.close;
         const price = typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined;
-        if (price === undefined || typeof param.time !== 'number') { report(null); return; }
+        if (price === undefined || typeof param.time !== 'number') { setSelectedBar(null); report(null); return; }
+        const index = candlesRef.current.findIndex(candle => candle.time === Number(param.time) - state.shift);
+        setSelectedBar(index < 0 ? null : index);
         report({ price, changePercent: scrubChangePercent(candlesRef.current[0]?.open, price), unixSeconds: param.time - state.shift });
       });
     }).catch(() => { if (active) setFailed(true); });
@@ -385,8 +391,31 @@ function LazyPriceChart({ snapshot, chartStyle, onScrub }: { snapshot: MarketCan
     if (!tailOnly) state.chart.timeScale().fitContent();
     renderedCandlesRef.current = next;
   }, [snapshot.candles]);
+  const selectedIndex = Math.min(snapshot.candles.length - 1, Math.max(0, selectedBar ?? snapshot.candles.length - 1));
+  const selectedCandle = snapshot.candles[selectedIndex];
+  const clearSelection = () => {
+    setSelectedBar(null);
+    chartRef.current?.chart.clearCrosshairPosition();
+    onScrubRef.current?.(null);
+  };
+  const inspectWithKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') { clearSelection(); return; }
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    const state = chartRef.current;
+    if (!state || !snapshot.candles.length) return;
+    event.preventDefault();
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? snapshot.candles.length - 1
+      : Math.min(snapshot.candles.length - 1, Math.max(0, selectedIndex + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1)));
+    const candle = snapshot.candles[index];
+    setSelectedBar(index);
+    state.chart.setCrosshairPosition(candle.close, (candle.time + state.shift) as UTCTimestamp, state.entry.series);
+    onScrubRef.current?.({ price: candle.close, changePercent: scrubChangePercent(snapshot.candles[0].open, candle.close), unixSeconds: candle.time });
+  };
   if (failed) return <div className="market-chart-empty" role="img" aria-label={`${snapshot.market} ${snapshot.range} USD price chart`}><BarChart3 className="h-6 w-6 text-mut" aria-hidden="true" /><span><strong>{snapshot.market} price chart</strong><small>Current {formatUsdPrice(snapshot.currentPrice)} · high {formatUsdPrice(snapshot.high)} · low {formatUsdPrice(snapshot.low)}</small></span></div>;
-  return <div ref={hostRef} className="market-chart-graphic" data-chart-style={chartStyle} role="img" aria-label={`${snapshot.market} ${snapshot.range} USD price chart, current price ${formatUsdPrice(snapshot.currentPrice)}`}><span className="sr-only">High {formatUsdPrice(snapshot.high)}. Low {formatUsdPrice(snapshot.low)}.</span></div>;
+  return <div ref={hostRef} className="market-chart-graphic focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]" data-chart-style={chartStyle} role="slider" tabIndex={0}
+    aria-label={`${snapshot.market} ${snapshot.range} USD price chart`} aria-valuemin={0} aria-valuemax={snapshot.candles.length - 1} aria-valuenow={selectedIndex}
+    aria-valuetext={selectedCandle ? `${formatScrubTime(selectedCandle.time, snapshot.range)}: ${formatUsdPrice(selectedCandle.close)}` : undefined}
+    onKeyDown={inspectWithKeyboard} onBlur={clearSelection}><span className="sr-only">Use arrow keys to inspect bars; Home and End select the first and last. Escape returns to live. High {formatUsdPrice(snapshot.high)}. Low {formatUsdPrice(snapshot.low)}.</span></div>;
 }
 
 /** `rising` is the change printed beside the line, so color and label never disagree. */

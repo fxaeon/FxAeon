@@ -100,9 +100,9 @@
      always quicker than entrances. */
   --dur-press: 90ms;
   --dur-fast: 140ms;
-  --dur-base: 220ms;
-  --dur-slow: 340ms;
-  --dur-sheet: 420ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
+  --dur-sheet: 320ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
@@ -1961,6 +1961,17 @@ input[type='range'].lever:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3p
   .app-topbar .brand-wordmark { display: none; }
   .desktop-navigation { margin-left: 0; }
   .desktop-navigation a { padding-inline: 10px; }
+}
+
+/* The desktop rail owns navigation; wallet controls keep their own top-right
+   lane. Compact widths automatically preserve room for transaction forms. */
+@media (min-width: 840px) {
+  .app-shell.app-shell-tabs:has([data-desktop-sidebar]) { --desktop-sidebar-width: 72px; padding-left: calc(var(--desktop-sidebar-width) + var(--shell-inline-padding)); }
+  .app-topbar > .mobile-brand { display: none; }
+  .app-shell:has([data-desktop-sidebar]) .app-topbar { justify-content: flex-end; }
+}
+@media (min-width: 1200px) {
+  .app-shell.app-shell-tabs:has([data-desktop-sidebar]:not([data-sidebar-expanded='false'])) { --desktop-sidebar-width: 224px; }
 }
 
 @media (max-width: 640px) {

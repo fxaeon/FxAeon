@@ -41,7 +41,7 @@ export async function readBridgeReceiptEstimate(route: PlannedRoute): Promise<bi
 export async function fetchBridgePreview(params: {
   sourceChainId: FxChainId; destinationChainId: FxChainId; token: 'fxUSD' | 'fxSAVE';
   amount: bigint; wallet: Address; recipient: Address;
-}): Promise<BridgePreview> {
+}, onUpdate?: (preview: BridgePreview) => void): Promise<BridgePreview> {
   const readAt = Date.now();
   const source = getPublicClient(params.sourceChainId);
   const destination = getPublicClient(params.destinationChainId);
@@ -66,10 +66,15 @@ export async function fetchBridgePreview(params: {
     const cost = await estimatePlannedRouteCost(route, { client: source, ttlMs: BRIDGE_PREVIEW_TTL });
     return cost.status === 'current' && cost.validUntil > Date.now() ? networkFeeWei(cost) : undefined;
   };
-  const [estimatedReceived, sourceGas] = await Promise.all([
-    readBridgeReceiptEstimate(route), withReadDeadline(gas()).catch(() => undefined),
-  ]);
-  return { readAt, nativeFee: route.quote.nativeFee, minimumReceived: route.quote.minAmountLD, estimatedReceived, nativeBalance, sourceGas };
+  const sourceGas = withReadDeadline(gas()).catch(() => undefined);
+  const estimatedReceived = await readBridgeReceiptEstimate(route);
+  const preview = { readAt, nativeFee: route.quote.nativeFee, minimumReceived: route.quote.minAmountLD, estimatedReceived, nativeBalance };
+  // Gas is optional context. It must neither delay verified receipt amounts
+  // nor renew the exact route's original freshness window.
+  void sourceGas.then(value => {
+    if (value !== undefined && isFreshBridgePreview(preview)) onUpdate?.({ ...preview, sourceGas: value });
+  }).catch(() => undefined);
+  return preview;
 }
 
 export function isFreshBridgePreview(preview: BridgePreview | undefined, now = Date.now()): preview is BridgePreview {

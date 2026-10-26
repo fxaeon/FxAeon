@@ -68,5 +68,10 @@ test('route-owned style keeps touch targets, neutral icons and visible keyboard 
   assert.match(css, /:focus-visible \{ outline: 2px solid var\(--focus-ring\)/);
   assert.match(css, /svg:first-child[^}]+color: var\(--mut\)/);
   assert.match(css, /max-width: 360px/);
-  assert.doesNotMatch(css, /overflow: ellipsis|text-overflow|white-space: nowrap/);
+  const hiddenHeading = css.match(/\.workspace > h1\[data-page-heading\] \{([^}]+)\}/);
+  assert.ok(hiddenHeading, 'the mobile page title retains a screen-reader-only rule');
+  assert.match(hiddenHeading[1], /width: 1px; height: 1px/);
+  assert.match(hiddenHeading[1], /clip: rect\(0, 0, 0, 0\)/);
+  // Screen-reader-only headings need nowrap; visible directory rows must wrap.
+  assert.doesNotMatch(css.replace(hiddenHeading[0], ''), /overflow: ellipsis|text-overflow|white-space: nowrap/);
 });

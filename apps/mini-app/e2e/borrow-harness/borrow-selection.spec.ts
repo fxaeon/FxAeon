@@ -46,7 +46,7 @@ const mocks: Record<string, string> = {
 mocks['@/lib/fx/borrowFunding'] = `import { positionPoolAddress } from ${JSON.stringify(resolve(src, 'lib/fx/policy.ts'))}; export { borrowFundingDisplay, formatBorrowFundingApr, formatBorrowFundingEightHour, borrowFundingIsFresh, BORROW_FUNDING_MAX_AGE_MS } from ${JSON.stringify(resolve(src, 'lib/fx/borrowFunding.ts'))}; export async function readBorrowFundingRate(market) { globalThis.__borrowFundingReads = (globalThis.__borrowFundingReads ?? 0) + 1; if (globalThis.__borrowFundingUnavailable) throw new Error('Funding unavailable'); const ratio = globalThis.__borrowFundingRatio ?? 0n; const rate = { market, pool: positionPoolAddress(market, 'long'), ratio, netRatio: ratio, readAt: Date.now() }; if (globalThis.__borrowFundingPending) return new Promise(resolve => { globalThis.__resolveBorrowFunding = () => resolve(rate); }); return rate; }`;
 // History is illustrative and independent of wallet/rate-read availability.
 // This selection fixture must never contact the public funding index.
-mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market) { const endAt = Math.floor(Date.now() / 1000); const startAt = endAt - 30 * 86400; return { market, startAt, endAt, indexedAt: endAt, averageRatio: 35000000000000000n, snapshots: [{timestamp:startAt,ratio:35000000000000000n}] }; }`;
+mocks['@/lib/fx/borrowFundingHistory'] = `export async function readBorrowFundingHistory(market) { const endAt = Math.floor(Date.now() / 1000); const startAt = endAt - 30 * 86400; return { market, startAt, endAt, indexedAt: endAt, averageRatio: 52500000000000000n, snapshots: [{timestamp:startAt,ratio:35000000000000000n},{timestamp:endAt,ratio:70000000000000000n}] }; }`;
 
 // The real post-confirmation presentation imports receipt proof helpers. Keep
 // their SDK metadata intact, but fail closed if this selection-only fixture
@@ -560,7 +560,9 @@ test('an unavailable limit does not guess withdrawals or block repayment and col
 test('a late pool read cannot publish the previous market limit', async ({ page }) => {
   await mount(page, { limitPending: true });
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, WBTC: 100000, fxUSD: 1 }; });
-  await expect(page.getByText('Checking live limit', { exact: true })).toBeVisible();
+  const loadingLimit = page.getByRole('status', { name: 'Loading pool maximum LTV' });
+  await expect(loadingLimit).toHaveCount(1);
+  await expect(loadingLimit).toHaveAttribute('aria-label', 'Loading pool maximum LTV');
   await page.evaluate(() => Object.assign(window, { __borrowLimitPending: false, __borrowLimitUnavailable: true }));
   await page.getByLabel('Collateral asset', { exact: true }).selectOption('WBTC');
   await expect(page.getByRole('button', { name: 'Retry borrowing limit' })).toBeVisible();
@@ -614,7 +616,9 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
 test('a late funding response from the previous market cannot replace the current pool quote', async ({ page }) => {
   await mount(page, { fundingPending: true });
   const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-  await expect(metric.getByRole('status')).toHaveText('Checking rate');
+  const loadingRate = metric.getByRole('status', { name: 'Loading funding rate' });
+  await expect(loadingRate).toHaveCount(1);
+  await expect(loadingRate).toHaveAttribute('aria-label', 'Loading funding rate');
   await page.evaluate(() => Object.assign(window, { __borrowFundingPending: false, __borrowFundingRatio: 35000000000000000n }));
   await page.getByLabel('Collateral asset', { exact: true }).selectOption('WBTC');
   await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
@@ -623,6 +627,20 @@ test('a late funding response from the previous market cannot replace the curren
   });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
   await expect(metric.getByRole('status')).toHaveText('On');
+});
+
+test('pointer-selected funding sample remains selected when the chart receives focus', async ({ page }) => {
+  await mount(page);
+  const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
+  const chart = history.getByRole('slider', { name: 'Explore historical funding charge' });
+  await expect(chart).toBeVisible();
+  await expect(chart).toHaveAttribute('aria-valuenow', '2');
+
+  // A pointerdown selects the first observation before the SVG receives focus.
+  // Focus must preserve that sample rather than replacing it with the latest.
+  await chart.click({ position: { x: 8, y: 80 } });
+  await expect(chart).toHaveAttribute('aria-valuenow', '1');
+  await expect(chart).toHaveAttribute('aria-valuetext', /per eight hours/);
 });
 
 test('the withdrawal field names how much collateral can leave before review', async ({ page }) => {
@@ -770,7 +788,10 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
     await expect(history.getByRole('slider', { name: 'Explore historical funding charge' })).toBeVisible();
     const definitions = history.locator('[data-info-help-trigger]');
-    await expect(definitions).toHaveCount(3);
+    await expect(definitions).toHaveCount(4);
+    expect(await definitions.evaluateAll(controls => controls.map(control => control.getAttribute('aria-label')))).toEqual([
+      'About Funding & costs', 'About Current charge', 'About Current cost APR', 'About Average cost APR',
+    ]);
     for (const control of await definitions.all()) {
       await control.scrollIntoViewIfNeeded();
       const geometry = await control.evaluate(element => {

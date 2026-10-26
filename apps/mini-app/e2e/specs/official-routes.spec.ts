@@ -409,15 +409,15 @@ test.describe("market price context", () => {
     expect((await showChart.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await showChart.click();
     await expect(page.getByRole("button", { name: "Hide chart", exact: true })).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("img", { name: /^ETH 1D USD price chart/ })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("slider", { name: /^ETH 1D USD price chart/ })).toBeVisible({ timeout: 15_000 });
     await expect.poll(async () => page.locator(".market-chart-frame").evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(170);
     const oneDay = page.getByRole("radio", { name: "1D" });
     await oneDay.focus();
     await oneDay.press("ArrowRight");
     await expect(page.getByRole("radio", { name: "7D" })).toBeFocused();
-    await expect(page.getByRole("img", { name: /^ETH 7D USD price chart/ })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("slider", { name: /^ETH 7D USD price chart/ })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("radio", { name: "BTC" }).click();
-    await expect(page.getByRole("img", { name: /^BTC 7D USD price chart/ })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("slider", { name: /^BTC 7D USD price chart/ })).toBeVisible({ timeout: 15_000 });
     await page.getByRole("radio", { name: "ETH" }).click();
     await page.getByRole("button", { name: "Hide chart", exact: true }).click();
     await expect(chartContent).toBeHidden();
@@ -446,7 +446,7 @@ test.describe("market price context", () => {
     const chartContent = page.locator(".market-chart-content");
     const toggle = page.locator(".market-chart-toggle");
     await expect(page.locator(".market-chart-panel")).toHaveAttribute("data-mobile-expanded", "true", { timeout: 15_000 });
-    await expect(page.getByRole("img", { name: /^ETH 1D USD price chart/ })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("slider", { name: /^ETH 1D USD price chart/ })).toBeVisible({ timeout: 15_000 });
     await expect(toggle).toBeHidden();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
@@ -485,7 +485,7 @@ test.describe("market price context", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/trade", { waitUntil: "domcontentloaded" });
     const panel = page.locator(".market-chart-panel");
-    const chart = page.getByRole("img", { name: /^ETH 1D USD price chart/ });
+    const chart = page.getByRole("slider", { name: /^ETH 1D USD price chart/ });
     await expect(chart).toBeVisible({ timeout: 15_000 });
     const box = (await chart.boundingBox())!;
     await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5);
@@ -504,7 +504,7 @@ test.describe("market price context", () => {
     await page.goto("/trade", { waitUntil: "domcontentloaded" });
     const panel = page.locator(".market-chart-panel");
     await page.locator(".market-chart-toggle").click();
-    const chart = page.getByRole("img", { name: /^ETH 1D USD price chart/ });
+    const chart = page.getByRole("slider", { name: /^ETH 1D USD price chart/ });
     await expect(chart).toBeVisible({ timeout: 15_000 });
     await chart.scrollIntoViewIfNeeded();
     const box = (await chart.boundingBox())!;
@@ -663,10 +663,21 @@ test.describe("browser wallet connection", () => {
 
   test("Move keeps recipient editable and centralizes wallet connection in review", async ({ page, requests }) => {
     await page.goto("/move", { waitUntil: "domcontentloaded" });
-    const recipient = page.getByText("Your wallet", { exact: true }).locator("xpath=../../..");
-    // The recipient row is a status, not a second connect control.
-    await expect(recipient.getByText("Not connected", { exact: true })).toBeVisible();
-    await expect(recipient.getByText("Connect wallet", { exact: true })).toHaveCount(0);
+    const recipient = page.getByRole('button', { name: 'Set recipient', exact: true });
+    // An explicit destination remains editable before connection; the review
+    // action owns wallet connection, without a second empty wallet status row.
+    await expect(recipient).toBeVisible();
+    await expect(recipient).toHaveAttribute('aria-expanded', 'false');
+    await expect(recipient).toHaveAttribute('aria-controls', 'move-recipient-address');
+    await expect(page.locator('#move-recipient-address')).toBeHidden();
+    await recipient.click();
+    const destination = page.getByRole('textbox', { name: 'Destination wallet', exact: true });
+    await expect(destination).toBeEditable();
+    await destination.fill('0x1111000000000000000000000000000000002222');
+    await expect(destination).toHaveValue('0x1111000000000000000000000000000000002222');
+    await page.getByRole('button', { name: 'Use your wallet', exact: true }).click();
+    await expect(recipient).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#move-recipient-address')).toBeHidden();
     await expect(page.locator(".reviewTrigger").getByRole("button", { name: "Connect wallet", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Connect wallet for recipient", exact: true })).toHaveCount(0);
     // The shortest phone layout keeps derived route metadata out of the first

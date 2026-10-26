@@ -25,6 +25,7 @@ The app at [fxaeon.com](https://fxaeon.com) and the marketing site at [fxaeon.xy
 | Ordinary browser wallets and phone handoff | [Wallet browser handoff](mobile-wallet-browser-handoff.md) |
 | Privy wallet identity, cancellation, and dispatch authority | [Privy wallet ownership](privy-wallet-ownership.md) |
 | Deterministic development component catalog | [UI state lab](ui-state-lab.md) |
+| Completed full-page UI review and capture notes | [UI audit — 26 October 2026](ui-audit-2026-10-26.md) |
 | Marks, licenses, social previews, and screenshot provenance | [Brand assets](brand-assets.md) |
 | Populated position capture setup | [Position screenshot fixture](position-screenshot-fixture.md) |
 

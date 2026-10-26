@@ -32,6 +32,7 @@ import activity from './WalletActivity.module.css';
 import account from '@/app/AccountWorkspace.module.css';
 import history from '@/app/history/History.module.css';
 import filter from './FilterSelect.module.css';
+import { DesktopSidebar } from './DesktopSidebar';
 
 /*
  * The first paint, before the wallet providers load. It draws the app shell
@@ -74,6 +75,7 @@ export function ProviderLoadingState() {
   }, []);
   return <div data-product-ui="v2" className="app-shell app-shell-tabs" role="status" aria-label="Loading FxAeon" aria-busy="true">
     <span className="sr-only">Loading FxAeon</span>
+    <DesktopSidebar pathname={pathname} loading />
     <div className="app-workspace" data-route={pathname} aria-hidden="true" inert>
       <ShellTopBar pathname={pathname} />
       {/* Shares .app-content's geometry but not the live page's scroll or card class names, which tests and scripts look up. */}
@@ -125,12 +127,8 @@ function isActive(pathname: string, href: string, also?: string[]) {
 
 /** The real top bar's geometry: mark, wordmark, and wallet control. */
 function ShellTopBar({ pathname }: { pathname: string }) {
-  const t = useT();
   return <div className="app-topbar">
-    <a className="flex items-center gap-2.5"><FxLogo size={32} /><span className="brand-wordmark">FxAeon</span></a>
-    <nav className="desktop-navigation">
-      {[...TABS, MORE_TAB].map(({ href, labelKey, also }) => <a key={href} aria-current={isActive(pathname, href, also) ? 'page' : undefined}>{t(labelKey)}</a>)}
-    </nav>
+    <a className="mobile-brand flex items-center gap-2.5"><FxLogo size={32} /><span className="brand-wordmark">FxAeon</span></a>
     <span className="app-topbar-actions">
       <span className={control.control}>
         <span className={control.identityPlaceholder}>

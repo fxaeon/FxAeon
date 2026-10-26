@@ -27,6 +27,7 @@ import { borrowLtvCeiling, formatBorrowBasisPoints } from '@/components/review/b
 import { ReviewFactValue } from '@/components/review/ReviewFactValue';
 import { formatReviewFactValue } from '@/components/review/reviewFactFormatting';
 import { MetricLabel } from '@/components/InfoHelp';
+import { MissingValue } from '@/components/MissingValue';
 import { confirmedPositionReadback, type ConfirmedPositionReadback } from '@/components/review/positionReview';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import { useProtocolPositions } from '@/components/ProtocolPositionProvider';
@@ -660,14 +661,14 @@ export default function BorrowPage() {
       maxLabel="Use borrowing maximum"
       maxAmount={capacity && capacity.maxAdditional > 0n ? formatUnits(borrowMaximumPreset(capacity.maxAdditional, capacity.minAdditional), 18) : null}
       hint={capacity ? (capacity.maxAdditional > 0n ? `Up to ${fxUsdLimit(capacity.maxAdditional)} fxUSD with this collateral` : 'This collateral cannot borrow more')
-        : !debtRange ? limitPending ? 'Checking the live borrowing limit' : 'Live borrowing limit unavailable'
+        : !debtRange ? limitPending ? undefined : 'Live borrowing limit unavailable'
         : collateralEntered ? 'Your limit shows once prices are available'
         : newPosition ? 'Enter collateral above to see your limit' : undefined} />}
     {showRepay && <AmountField compact label="Repay amount" symbol="fxUSD" value={repay} onChange={setRepay} allowAll allowZero maxDecimals={18}
       balanceState={balanceStateFor('fxUSD')} showPercentages={false} hint={selected ? `Debt: ${formatReviewFactValue({ label: 'Debt', value: formatPositionDebt(selected) }).display}` : undefined} />}
     {showWithdraw && <AmountField compact label="Collateral to withdraw" symbol={token} value={withdraw} onChange={setWithdraw}
       allowZero maxDecimals={tokenDecimals(token)} showMax={false} showPercentages={false} tokenSelector={picker}
-      hint={withdrawLimitWei === null ? !debtRange ? limitPending ? 'Checking the live borrowing limit' : 'Live borrowing limit unavailable' : 'Your limit shows once prices are available'
+      hint={withdrawLimitWei === null ? !debtRange ? limitPending ? undefined : 'Live borrowing limit unavailable' : 'Your limit shows once prices are available'
         : withdrawLimitWei > 0n ? `Up to ${formatSignificantDecimal(formatUnits(withdrawLimitWei, tokenDecimals(token)), 4)} ${symbol} at current prices`
         : 'Repay debt to withdraw collateral'} />}
     {!newPosition && !debtRange && !limitPending && (showMint || showWithdraw) && <div className={presentation.helper}>{retryLimit}</div>}
@@ -756,8 +757,8 @@ export default function BorrowPage() {
           <span className={presentation.network}><ChainIcon chainId={1} size={16} />Ethereum</span>
         </div>
         <dl className={presentation.metrics}>
-          <div><dt><MetricLabel minimalHelp label="Funding status" definition="borrowRate" help={fundingDisplay?.title ?? (funding.status !== 'loading' ? <>The current funding rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">View funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined)} /></dt><dd className={fundingDisplay ? presentation.fundingValue : presentation.rateUnavailable}>{fundingDisplay?.value ?? '—'}</dd><small role="status">{fundingDisplay ? `${fundingDisplay.status}${funding.rate?.netRatio === undefined ? ' · Gross charge' : ''}` : funding.status === 'loading' ? 'Checking rate' : 'Not quoted'}</small></div>
-          <div><dt><MetricLabel minimalHelp label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : '—'}</dd>{!debtRange && <><small role="status">{limitPending ? 'Checking live limit' : 'Live limit unavailable'}</small>{!limitPending && retryLimit}</>}</div>
+          <div><dt><MetricLabel minimalHelp label="Funding status" definition="borrowRate" help={fundingDisplay?.title ?? (funding.status !== 'loading' ? <>The current funding rate could not be verified. <a href="https://fx.aladdin.club/v2/fxmint" target="_blank" rel="noopener noreferrer">View funding on f(x)<span className="sr-only"> (opens in a new tab)</span></a>.</> : undefined)} /></dt><dd className={fundingDisplay ? presentation.fundingValue : presentation.rateUnavailable}>{fundingDisplay?.value ?? (funding.status === 'loading' ? <MissingValue width="md" status="loading" label="Loading funding rate" /> : '—')}</dd>{fundingDisplay ? <small role="status">{`${fundingDisplay.status}${funding.rate?.netRatio === undefined ? ' · Gross charge' : ''}`}</small> : funding.status !== 'loading' ? <small role="status">Not quoted</small> : null}</div>
+          <div><dt><MetricLabel minimalHelp label="Pool maximum LTV" help="The protocol ceiling is not the form’s borrowing limit. The form reserves a buffer for the SDK range and display-price differences; the reviewed route and simulation determine whether the action can proceed." /></dt><dd>{debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : limitPending ? <MissingValue width="md" status="loading" label="Loading pool maximum LTV" /> : '—'}</dd>{!debtRange && !limitPending && <><small role="status">Live limit unavailable</small>{retryLimit}</>}</div>
         </dl>
       </section>}
       <ProductSurface className={presentation.card} data-testid="borrow-workspace-card">

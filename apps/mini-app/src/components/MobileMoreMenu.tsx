@@ -10,7 +10,7 @@ import styles from '@/app/more/More.module.css';
  * mounted behind it. The standalone /more route remains available on desktop. */
 export default function MobileMoreMenu() {
   return <AccountWorkspace className={styles.workspace}>
-    <PageHeading title="More" visible />
+    <PageHeading title="More" />
     <div className={styles.directory} data-utility-directory>
       <section className={styles.group} aria-label="Account">
         <div className={styles.links}>

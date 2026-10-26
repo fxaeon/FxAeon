@@ -18,6 +18,8 @@ This guide describes implemented product behavior. [Architecture](architecture.m
 
 Positions, borrowing, and fxSAVE accounting use Ethereum. Base is a supported bridge network, not a second position or vault ledger.
 
+When disconnected, Portfolio remains a public starting point: it links the four products and shows ETH/BTC market price, 24-hour change, and a 24-hour trend. These market displays are not wallet balances or transaction inputs.
+
 ## Inputs and previews
 
 A preview describes its matching ticket. Amount, asset, direction, recipient, or wallet changes invalidate it; stale values must not describe a newer intent.
@@ -40,6 +42,12 @@ limit are available. Moving the slider changes only the illustration: debt stays
 constant while collateral value moves between −30% and +30%. The form limit is a
 borrowing guard, not a liquidation threshold. Funding, fees, rebalancing, and
 liquidation are excluded. The chart cannot change ticket values or a signed plan.
+
+Borrow funding history presents the current gross collateral charge per eight
+hours first, with annualized APR as secondary context. Historical charges and
+their period average use the same eight-hour basis. Short-pool earnings are
+not folded into the chart's gross whole-collateral basis; historical values are
+not a current quote or an earned return.
 
 ## Position rows and units
 
@@ -78,6 +86,12 @@ A bridge source receipt does not establish destination delivery. Move matches th
 ## Responsive and accessible behavior
 
 Phone reviews retain reachable decisions above navigation, with internal scrolling where needed. Desktop content can use natural page height. Controls keep complete 44px targets; amount/value disclosures support keyboard and touch, and focus remains visible.
+
+The mobile top bar and bottom navigation remain below 840px. Desktop uses an
+icon rail from 840px through 1199px; at 1200px and wider the rail starts
+expanded and can collapse to icons, with the choice retained for the session.
+The mobile More directory is a modal menu; its heading is visually hidden but
+remains available to assistive technology.
 
 Layouts must handle short/narrow phones, large integers, long addresses, enlarged text, unavailable data and reduced motion. Test actual control bounds and hit areas as well as rendered appearance. [Browser gates](browser-test-gates.md) document the relevant contracts.
 
