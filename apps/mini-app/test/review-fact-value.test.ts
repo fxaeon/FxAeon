@@ -129,10 +129,21 @@ test('review value renders a compact amount without a numeric disclosure or sour
   assert.doesNotMatch(css, /summary|expanded|original/);
 });
 
-test('short and unavailable review values remain static without exposing source titles', async () => {
+test('short review values stay compact and unavailable values remain visually blank with accessible labels', async () => {
   const { ReviewFactValue } = await import('../src/components/review/ReviewFactValue');
   const plain = renderToStaticMarkup(React.createElement(ReviewFactValue, { fact: { label: 'Gas fee', value: 'Unavailable' } }));
-  assert.equal(plain, '<span class="value">Unavailable</span>');
+  assert.match(plain, /aria-label="Gas fee unavailable"/);
+  assert.match(plain, /missing-value-unavailable/);
+  assert.doesNotMatch(plain, />Unavailable</);
   const caveat = renderToStaticMarkup(React.createElement(ReviewFactValue, { fact: { label: 'Gas fee', value: 'Unavailable', title: 'Simulation failed; not a zero fee.' } }));
-  assert.equal(caveat, '<span class="value">Unavailable</span>');
+  assert.match(caveat, /aria-label="Gas fee unavailable"/);
+  assert.doesNotMatch(caveat, /Simulation failed|>Unavailable</);
+});
+
+test('missing risk estimates keep their decision label and explanation without visible placeholder copy', async () => {
+  const { ReviewRiskPrices } = await import('../src/components/review/ReviewRiskPrices');
+  const html = renderToStaticMarkup(React.createElement(ReviewRiskPrices, { route: null }));
+  assert.match(html, /aria-label="Risk estimates unavailable"/);
+  assert.doesNotMatch(html, />Unavailable|>Checking pool risk/);
+  assert.match(html, /About Risk estimates/);
 });

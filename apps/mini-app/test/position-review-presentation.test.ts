@@ -51,6 +51,8 @@ test('actual Borrow input and repay outcome rows show static compact values whil
 test('Borrow manager summaries match review precision without nested disclosure controls',()=>{
  const html=renderToStaticMarkup(React.createElement(BorrowPositionAmount,{raw:720891476593066406250n,decimals:18,symbol:'fxUSD'}));
  assert.match(html,/≈ 720.89 fxUSD/);assert.doesNotMatch(html,/720\.89147659306640625|title=|<details|<button|<summary/);
+ const unavailable=renderToStaticMarkup(React.createElement(BorrowPositionAmount,{raw:1n,decimals:256,symbol:'fxUSD'}));
+ assert.match(unavailable,/aria-label="Position amount unavailable"/);assert.doesNotMatch(unavailable,/>Unavailable</);
  const manager=readFileSync(new URL('../src/components/BorrowPositionCards.tsx',import.meta.url),'utf8');
  assert.match(manager,/<details className=\{styles.details\}/);assert.match(manager,/<dt>Outstanding debt<\/dt><dd><PositionTokenAmount[^>]+symbol=\{position.info.rawDebtsToken\} \/>/);
 });

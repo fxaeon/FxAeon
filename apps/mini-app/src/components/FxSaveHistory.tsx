@@ -7,6 +7,7 @@ import { fetchFxSaveHistory, FX_SAVE_HISTORY_SOURCE, HISTORY_DAY_MS } from '@/li
 import { fetchFxSaveShareHistory, FX_SAVE_SHARE_HISTORY_SOURCE } from '@/lib/fxSaveShareHistory';
 import { formatUsd } from '@/lib/prices';
 import { MetricLabel } from './InfoHelp';
+import { MissingValue } from './MissingValue';
 import { useChartWidth } from './useChartWidth';
 import styles from './ProductAnalytics.module.css';
 
@@ -75,7 +76,7 @@ export function FxSaveHistory() {
       <div className={styles.tabs} aria-label="Performance metric">{(['apy', 'share'] as const).map(value => <button key={value} type="button" aria-pressed={metric === value} onClick={() => { setMetric(value); setSelected(null); }}>{value === 'apy' ? 'APY' : 'Share value'}</button>)}</div>
     </header>
     <div className={styles.overview}>
-      <div className={styles.performanceReading} aria-live="off"><span>{metric === 'share' ? `${active ? date(active.timestamp) : last ? date(last.timestamp) : 'Latest reported'} · per fxSAVE` : active ? date(active.timestamp) : `${range}-day average APY`}</span><strong>{ready ? metric === 'share' ? formatUsd((active ?? last).value, 4) : `${(active?.value ?? average).toFixed(2)}%` : history.isError ? 'Unavailable' : '—'}</strong></div>
+      <div className={styles.performanceReading} aria-live="off"><span>{metric === 'share' ? `${active ? date(active.timestamp) : last ? date(last.timestamp) : ''} · per fxSAVE` : active ? date(active.timestamp) : `${range}-day average APY`}</span><strong>{ready ? metric === 'share' ? formatUsd((active ?? last).value, 4) : `${(active?.value ?? average).toFixed(2)}%` : <MissingValue width="md" status={history.isPending && !history.isError ? 'loading' : 'unavailable'} announce={false} label={metric === 'share' ? 'Share value unavailable' : 'Average APY unavailable'} />}</strong></div>
       {<div className={styles.ranges} aria-label="Performance range">{([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={range === days} onClick={() => { setRange(days); setSelected(null); }}>{days}D</button>)}</div>}
     </div>
     {ready ? <>

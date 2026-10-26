@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import type { Address } from 'viem';
 import { normalizeRouteResult } from '../src/lib/fx/normalize';
 import { assertPositionEconomics } from '../src/lib/fx/positionEconomics';
+import { positionInputTokenOptions, TOKEN_META } from '../src/app/trade/fxUi';
+import { positionOutcomeFacts } from '../src/lib/fx/reviewFormatting';
 import { capabilityPolicy, positionCollateralTokenAddress, positionDebtTokenAddress, positionPoolAddress } from '../src/lib/fx/policy';
 import { validateReviewedAction } from '../src/lib/fx/actionValidation';
 import { validateRoute } from '../src/lib/fx/validation';
@@ -59,10 +61,12 @@ function installedPlannerFixture(bundle: 'index.js' | 'index.cjs', options: Opti
   const configure = (sdk: any) => {
     tokens = sdk.tokens;
     const asset = options.market === 'ETH' ? tokens.wstETH : tokens.WBTC;
-    for (const [src, dst] of [[tokens.fxUSD, asset], [asset, tokens.fxUSD]]) {
+    for (const src of Object.values(TOKEN_META).map(token => token.address.toLowerCase())) for (const dst of [asset, tokens.fxUSD]) {
       for (const isV3 of options.market === 'BTC' ? [false, true] : [false]) {
-        const route = sdk.getZapRoutes({ fromTokenAddress: src, toTokenAddress: dst, isV3 });
-        paths.set(key(route.encoding, route.routes), { src, dst });
+        try {
+          const route = sdk.getZapRoutes({ fromTokenAddress: src === tokens.eth ? tokens.weth : src, toTokenAddress: dst, isV3 });
+          paths.set(key(route.encoding, route.routes), { src: src === tokens.eth ? tokens.weth : src, dst });
+        } catch { /* Unsupported catalogue paths remain unavailable. */ }
       }
     }
   };
@@ -87,9 +91,10 @@ function installedPlannerFixture(bundle: 'index.js' | 'index.cjs', options: Opti
         const path = paths.get(key(args[1], args[2]));
         assert.ok(path, 'every converter route must be an installed, recognized path');
         const amount = BigInt(args[0]);
-        const output = path.src === tokens.fxUSD
-          ? amount * nativePrecision / wrappedPrice
-          : amount * wrappedPrice / nativePrecision;
+        const tokenPrice = (address: string) => address === tokens.wstETH ? wrappedPrice : address === tokens.WBTC ? price * WAD
+          : [tokens.weth, tokens.stETH].includes(address) ? price * WAD : WAD;
+        const tokenScale = (address: string) => address === tokens.WBTC ? 10n ** 8n : [tokens.usdc, tokens.usdt].includes(address) ? 10n ** 6n : WAD;
+        const output = amount * tokenPrice(path.src) * tokenScale(path.dst) / tokenScale(path.src) / tokenPrice(path.dst);
         if (searching && options.converter === 'failed') throw new Error('fixture converter unavailable');
         if (searching && options.converter === 'decreasing') return (1n << 240n) - output;
         if (searching && options.converter === 'unbracketed') return output / 100n;
@@ -178,6 +183,26 @@ function verifyPolicy(route: PlannedRoute, request: ReturnType<typeof requestFor
 }
 
 for (const bundle of ['index.js', 'index.cjs'] as const) {
+  test(`${bundle}: every offered market, side and input token produces validated public outcome amounts`, async () => {
+    for (const market of ['ETH', 'BTC'] as const) for (const side of ['long', 'short'] as const) {
+      for (const token of positionInputTokenOptions(market, side)) {
+        const f = installedPlannerFixture(bundle, { market, side });
+        const request = requestFor(f, market, side, 'new');
+        request.inputTokenAddress = TOKEN_META[token].address;
+        request.amount = (['USDC', 'USDT', 'fxUSD'].includes(token) ? 100n : token === 'WBTC' ? 1n : 1n) * 10n ** BigInt(TOKEN_META[token].decimals)
+          / (token === 'WBTC' ? 1000n : 1n);
+        const result = await new f.FxSdk().increasePosition(request);
+        const routes = normalizeRouteResult('increasePosition', result, WALLET);
+        assert.ok(routes.length, `${market} ${side} ${token}`);
+        for (const route of routes) {
+          assertPositionEconomics(route, request);
+          route.policy = capabilityPolicy({walletAddress: WALLET, chainId: 1, operation: 'increasePosition', reviewedAction: reviewedIntent(request, 'new')});
+          const facts = positionOutcomeFacts(route);
+          assert.ok(facts?.collateral && facts.debt && facts.executionPrice, `${market} ${side} ${token}`);
+        }
+      }
+    }
+  });
   test(`${bundle}: an upstream unblended debt-free add cannot borrow against old capital unnoticed`, async () => {
     for (const market of ['ETH', 'BTC'] as const) {
       const f = installedPlannerFixture(bundle, { market, side: 'long', currentDebts: 0n });

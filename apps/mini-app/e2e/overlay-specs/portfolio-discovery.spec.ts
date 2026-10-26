@@ -77,7 +77,7 @@ test('unavailable public data keeps all discovery routes usable without invented
   await expect(products.getByRole('link')).toHaveCount(4);
   const markets = page.getByRole('region', { name: 'Markets' });
   await expect(markets.getByRole('status', { name: 'Market price unavailable' })).toHaveCount(2);
-  await expect(markets.getByText('Chart unavailable')).toHaveCount(2);
+  await expect(markets.getByRole('status', { name: 'Market history unavailable' })).toHaveCount(2);
   await expect(markets.getByRole('link')).toHaveCount(2);
   await expect(page.locator('[data-portfolio-value]')).toHaveCount(0);
   expect(await page.locator('.app-content').evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);

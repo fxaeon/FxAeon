@@ -32,6 +32,12 @@ Forms use concise outcome labels (Receive, Current → After) without repeating
 “estimated”. Approximation marks, freshness checks and the detailed review
 remain unchanged; shorter wording does not turn a public quote into a guarantee.
 
+Missing numeric values remain blank, with their metric labels and accessible
+status retained. Pending reads may use the existing stable skeleton. Forms and
+reviews do not add “Not quoted”, “Live limit unavailable”, or alert icons as
+numeric placeholders. Retry controls and actionable transaction blockers remain;
+blank values never imply zero or authorize an action that lacks required data.
+
 Trade's split shows debt and the trader's share, with preview context separate from a signed plan. Borrow derives its displayed limit and LTV from supported collateral and pool conditions. Move uses a live estimated receive amount when available; an unavailable quote is not zero.
 
 Amount fields preserve decimal text and token precision. A shortened number is presentation; full values remain reachable directly. USD equivalents use fresh matching display prices and never set transaction amounts or limits.
@@ -53,7 +59,7 @@ constant while collateral value moves between −30% and +30%. The form limit is
 borrowing guard, not a liquidation threshold. Funding, fees, rebalancing, and
 liquidation are excluded. The chart cannot change ticket values or a signed plan.
 Empty amounts omit the sensitivity section. Entered amounts with unavailable
-collateral valuation or an unverified form limit show “Sensitivity unavailable”
+collateral valuation or an unverified form limit also omit the illustration,
 without an invented zero value or risk curve.
 
 Borrow funding history presents the current gross collateral charge per eight

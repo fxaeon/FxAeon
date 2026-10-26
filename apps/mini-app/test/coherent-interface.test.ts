@@ -134,7 +134,8 @@ test('Bridge default renders amount-led network badges, distinct optional help a
   assert.match(html, /About Min. received/);
   assert.doesNotMatch(html, /99.000000000000000001 fxUSD/);
   assert.equal(facts.find(fact => fact.label === 'Minimum received')?.title, '99.000000000000000001 fxUSD');
-  assert.match(html, /Unavailable/);
+  assert.match(html, /aria-label="Gas fee unavailable"/);
+  assert.doesNotMatch(html, />Unavailable</);
   assert.doesNotMatch(html, /<summary[^>]*>[^<]*<button/);
 });
 
@@ -196,6 +197,8 @@ test('Bridge groups hero digits without numeric conversion and does not expand a
   assert.doesNotMatch(html, /About Price impact/);
   const caveat = render([{ label: 'Price impact', value: 'Unavailable', title: 'Route validation failed; do not assume a zero price impact.' }]);
   assert.match(caveat, /About Price impact/);
+  assert.match(caveat, /aria-label="Price impact unavailable"/);
+  assert.doesNotMatch(caveat, />Unavailable</);
   assert.doesNotMatch(caveat, /Show full price impact/);
   const normal = renderToStaticMarkup(React.createElement(BridgeReviewSummary, {
     facts: [{ label: 'Amount', value: '2500 fxUSD' }, { label: 'Estimated received', value: '2500 fxUSD' }],

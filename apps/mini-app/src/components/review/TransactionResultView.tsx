@@ -10,6 +10,7 @@ import type { transactionCardIdentity } from './transactionCardIdentity';
 import { compactTransactionOutcomeModel } from './compactTransactionReceipt';
 import { ReviewFactValue } from './ReviewFactValue';
 import { TransactionAmountFlow } from './TransactionAmountFlow';
+import { MissingValue } from '@/components/MissingValue';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import { BridgeResultDetails } from './BridgeResultDetails';
 import { CompactTransactionFooter, hasCompactConfirmedTransaction } from './CompactTransactionFooter';
@@ -164,7 +165,7 @@ export function TransactionResultView({
               ariaLabel={simulated ? 'Simulated token movements' : 'Confirmed transaction amounts'}
             />}
             {queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>Claim status</dt><dd>Check live status</dd></dl>}
-            {!outcome.rows.length && !queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>{noTransferAdjustment ? 'Token transfers' : 'Token amounts'}</dt><dd>{noTransferAdjustment ? 'None' : 'Unavailable'}</dd></dl>}
+            {!outcome.rows.length && !queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>{noTransferAdjustment ? 'Token transfers' : 'Token amounts'}</dt><dd>{noTransferAdjustment ? 'None' : <MissingValue width="md" status="unavailable" announce={false} label="Token amounts unavailable" />}</dd></dl>}
             {hasAdditionalMovements && <dl className={styles.resultPositionStatus}><dt>Additional movements</dt><dd>See receipt details</dd></dl>}
             {queuedWithdrawal && <dl className={styles.resultPositionStatus} role="status"><dt>Payout</dt><dd>After cooldown</dd></dl>}
             {refreshing && !positionAction && <dl className={styles.resultPositionStatus} role="status"><dt>Balances</dt><dd>Refreshing</dd></dl>}

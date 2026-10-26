@@ -42,6 +42,11 @@
   overflow-wrap: anywhere;
 }
 .row dd > :global(span) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.row[data-outcome-fact='Execution price'] { grid-template-columns: minmax(0, 1fr) max-content; }
+.row[data-outcome-fact='Execution price'] dt,
+.row[data-outcome-fact='Execution price'] dt :global(span) { overflow-wrap: normal; word-break: normal; }
+.row[data-outcome-fact='Execution price'] dd,
+.row[data-outcome-fact='Execution price'] dd > :global(span) { max-width: none; white-space: nowrap; }
 .row dd :global([data-review-value] > summary) {
   min-width: 24px;
   min-height: 24px;

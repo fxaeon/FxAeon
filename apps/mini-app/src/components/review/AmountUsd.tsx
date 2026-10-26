@@ -9,6 +9,7 @@ import { freshDisplayPrices } from '@/lib/displayPrices';
 import { collateralUsdEstimate } from '@/lib/tradeOutcome';
 import { formatReviewFactValue } from './reviewFactFormatting';
 import { nativeCostAmount, amountUsdValue } from './transactionAmountPresentation';
+import { MissingValue } from '@/components/MissingValue';
 import styles from './ActionReviewPresentation.module.css';
 
 /** Matching-asset expiry redraws the value even when the provider is quiet. */
@@ -26,11 +27,12 @@ function useMatchingDisplayQuote(symbol: string) {
   return { quote, timestamp };
 }
 
-export function AmountUsd({ amount, symbol, fallback = 'USD value unavailable' }: { amount: string; symbol: string; receipt?: boolean; fallback?: string }) {
+export function AmountUsd({ amount, symbol, fallback }: { amount: string; symbol: string; receipt?: boolean; fallback?: string }) {
   const { quote } = useMatchingDisplayQuote(symbol);
   const usd = amountUsdValue(amount, symbol, quote);
-  return <span className={styles.amountUsd} data-usd-state={usd === null ? 'unavailable' : 'estimate'} aria-label={usd === null ? 'USD value unavailable' : undefined}>
-    {usd === null ? fallback : `${usd > 0 && usd < .01 ? '' : '≈ '}${formatUsd(usd)}`}
+  const visibleFallback = fallback && !/^(?:USD value unavailable|Unavailable|Not quoted|—|-)?$/i.test(fallback.trim()) ? fallback : undefined;
+  return <span className={styles.amountUsd} data-usd-state={usd === null ? 'unavailable' : 'estimate'}>
+    {usd === null ? visibleFallback ?? <MissingValue width="sm" status="unavailable" announce={false} label="USD value unavailable" /> : `${usd > 0 && usd < .01 ? '' : '≈ '}${formatUsd(usd)}`}
   </span>;
 }
 

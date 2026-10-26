@@ -1503,22 +1503,10 @@ select.field-control option {
   line-height: 1.4;
 }
 
-/* A market card whose 24h history failed: the sparkline's place says so. */
+/* Keep the compact chart's footprint stable when the history is absent. */
 .market-chart-empty-mini {
-  display: flex;
+  display: block;
   height: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: var(--mut);
-  font-size: var(--fs-micro);
-  font-weight: 500;
-}
-
-.market-chart-empty-mini svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
 }
 
 /* Chart areas share the placeholder shimmer above; a full chart frame keeps
@@ -1800,20 +1788,9 @@ select.field-control option {
   border-radius: var(--radius-full);
 }
 
-/* A settled "unavailable" needs no reserved width: the mark sits where the
-   value's edge would, so right-aligned columns keep their alignment. */
+/* An unavailable value stays visually blank while retaining its accessible
+   label and reserved width, so rows do not jump when reads settle. */
 .missing-value-unavailable {
-  width: auto;
-  color: var(--mut);
-}
-
-/* The mark stays at text size even inside a hero figure, where an em-sized
-   icon would read as a warning sign instead of a missing value. */
-.missing-value-icon {
-  width: .9em;
-  max-width: 18px;
-  height: .9em;
-  max-height: 18px;
   flex: 0 0 auto;
 }
 

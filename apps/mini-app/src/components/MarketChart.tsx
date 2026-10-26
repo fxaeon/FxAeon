@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { BarChart3, ChartCandlestick, ChartLine, ChevronDown, CircleAlert, RefreshCw } from 'lucide-react';
+import { BarChart3, ChartCandlestick, ChartLine, ChevronDown, RefreshCw } from 'lucide-react';
 import type { DeepPartial, IChartApi, ISeriesApi, TimeChartOptions, UTCTimestamp } from 'lightweight-charts';
 import TokenIcon from '@/components/TokenIcon';
 import { useLiveMarketQuote, useUsdPrices } from '@/components/PriceProvider';
@@ -229,7 +229,7 @@ export function MarketMiniCard({ market }: { market: MarketSymbol }) {
   // The whole card opens its market in Trade: named for where it goes, described by its price and change.
   return <Link href={`/trade?market=${market}`} aria-label={`Trade ${market}`} aria-describedby={`${id}-price ${id}-change`} className={`${miniCard.marketMiniCard} portfolio-market-card`}><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><TokenIcon symbol={market === 'BTC' ? 'WBTC' : 'ETH'} size={28} /><strong className="text-[13px]">{market}</strong></span><span id={`${id}-change`} title="24-hour price change" className={`text-[11px] font-semibold ${change === undefined ? 'text-mut' : positive ? 'text-success' : 'text-danger'}`}><ValueOrSkeleton value={change === undefined ? '—' : `${positive ? '+' : ''}${change.toFixed(2)}%`} width="md" status={changeStatus} label={changeStatus === 'loading' ? '24 hour change loading' : '24 hour change unavailable'} />{change !== undefined && <span className="sr-only"> over 24 hours</span>}</span></div><p id={`${id}-price`} className="mt-3 text-display text-[20px] font-semibold tabular-nums"><ValueOrSkeleton value={formatUsdPrice(price) === '—' ? '—' : <RollingFigure value={formatUsdPrice(price)} />} width="lg" status={priceValueStatus} label={priceValueStatus === 'loading' ? 'Market price loading' : 'Market price unavailable'} /></p><div className="market-chart-compact mt-2 h-[54px]">{history.status === 'ready' && history.snapshot ? <Sparkline snapshot={history.snapshot} rising={change === undefined ? undefined : positive} /> : history.status === 'loading' ? <div role="status" aria-label="Loading market history" className="market-chart-skeleton h-full" />
     // The whole card is a link into Trade, where the full chart retries; the card itself retries when the app returns to the foreground.
-    : <div role="status" className="market-chart-empty-mini"><CircleAlert aria-hidden="true" />Chart unavailable</div>}</div></Link>;
+    : <div role="status" aria-label="Market history unavailable" className="market-chart-empty-mini" />}</div></Link>;
 }
 
 type Candles = MarketCandleSnapshot['candles'];

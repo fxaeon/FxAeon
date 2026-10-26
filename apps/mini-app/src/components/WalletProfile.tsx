@@ -6,7 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import type { Address } from 'viem';
-import { ArrowDownToLine, ArrowUpRight, ChevronRight, CircleAlert, History, Layers2, ExternalLink, LogOut, RefreshCw, Settings, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpRight, ChevronRight, History, Layers2, ExternalLink, LogOut, RefreshCw, Settings, X } from 'lucide-react';
 import { AssetListSkeleton, AssetRowContent, networkLabel } from '@/components/AssetPresentation';
 import { ActionRow } from '@/components/ProductUI';
 import presentation from '@/components/WalletProfile.module.css';
@@ -202,7 +202,7 @@ export default function WalletProfile() {
                 ? <SplitFigure value={formatUsd(walletSnapshotValuation.totalUsd)} fractionClassName={balancePresentation.fraction} />
                 : walletValueLoading ? <MissingValue width="xl" status="loading" label="Loading wallet value" />
                   : <span className={presentation.totalUnavailable}>
-                    <span role="status" aria-label="Wallet value unavailable"><CircleAlert size={16} aria-hidden="true" />Value unavailable</span>
+                    <MissingValue width="xl" status="unavailable" label="Wallet value unavailable" />
                     <button type="button" onClick={refreshAll} disabled={manualRefresh.refreshing} aria-busy={manualRefresh.refreshing}>{manualRefresh.refreshing ? 'Trying…' : 'Try again'}</button>
                   </span>}</strong>
               <div className={presentation.actions}>

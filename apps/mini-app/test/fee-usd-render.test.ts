@@ -17,12 +17,13 @@ after(() => {
   if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css'];
   if (previousReact) globalReact.React = previousReact; else Reflect.deleteProperty(globalThis, 'React');
 });
-test('standalone fee conversion explicitly shows unavailable without a fresh provider', async () => {
+test('standalone fee conversion leaves a missing USD equivalent blank and accessible', async () => {
   const { AmountUsd, FeeUsd } = await import('../src/components/review/AmountUsd');
   for (const component of [React.createElement(AmountUsd, { amount: '0.00024', symbol: 'ETH', receipt: true }), React.createElement(FeeUsd, { fact: { value: 'Unavailable' } }), React.createElement(AmountUsd, { amount: '0', symbol: 'ETH' })]) {
     const html = renderToStaticMarkup(component);
-    assert.match(html, /USD value unavailable/);
+    assert.match(html, /aria-label="USD value unavailable"/);
     assert.match(html, /data-usd-state="unavailable"/);
+    assert.doesNotMatch(html, />USD value unavailable|>Unavailable</);
     assert.doesNotMatch(html, /\$0\.00/);
   }
 });

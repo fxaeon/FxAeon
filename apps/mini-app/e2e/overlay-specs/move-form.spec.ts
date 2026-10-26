@@ -111,7 +111,7 @@ test('Move keeps failed quotes and invalid recipients clear with enlarged text',
   await mount(page, 320);
   await page.evaluate(() => { (globalThis as any).__moveForm.failQuote = true; document.documentElement.style.fontSize = '32px'; });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  await expect(page.getByRole('status').filter({ hasText: 'Receive amount unavailable' })).toContainText('Receive amount unavailable');
+  await expect(page.getByRole('status', { name: 'Receive amount unavailable', exact: true })).toHaveText('');
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('textbox', { name: 'Destination wallet', exact: true }).fill('invalid');
   await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');

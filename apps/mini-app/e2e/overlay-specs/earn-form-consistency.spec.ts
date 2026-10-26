@@ -126,7 +126,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await mount(page, false, '2', 'withdraw', { configFailure: true });
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
   await page.getByLabel('Amount', { exact: true }).fill('12.3456789');
-  await expect(page.getByText('Cooldown and fee unavailable.', { exact: true })).toHaveCount(1);
+  await expect(page.getByText('Cooldown and fee unavailable.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Cooldown unavailable', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Fee unavailable', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeDisabled();

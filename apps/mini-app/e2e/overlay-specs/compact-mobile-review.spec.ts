@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
+import { positionPoolAddress } from '../../src/lib/fx/policy';
 import { openHarness, metric } from '../harness/action-review-measurement-support';
 import { essentialReviewGeometry, expectClosedReviewFits } from '../harness/review-essential-geometry';
 
@@ -113,7 +114,25 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       // Match a complete zero amount, not the trailing zero in 50 fxUSD or 50%.
       await expect(position).not.toContainText(/(?:^|[^\d.,])0(?:\.0+)?\s*(?:stETH|fxUSD|%)(?![A-Za-z])/);
       await expect(position.getByText('Current → estimated', { exact: true })).toHaveCount(0);
-      await expect(review.locator('[data-review-essential] [data-review-fact="Borrow rate"]')).toContainText('Not quoted');
+      const borrowRate = review.locator('[data-review-essential] [data-review-fact="Borrow rate"] [role="status"][aria-label="Borrow rate unavailable"]');
+      await expect(borrowRate).toBeAttached();
+      await expect(borrowRate).toHaveText('');
+    }
+    if (kind === 'trade' && size.width <= 390) {
+      const leg = review.locator('[data-compact-amounts] [data-review-fact]').first();
+      const usd = leg.locator('[data-usd-state="unavailable"]');
+      const network = leg.locator('[data-network]');
+      await expect(usd).toBeAttached();
+      await expect(usd).toHaveText('');
+      await expect(usd.getByRole('status', { name: 'USD value unavailable' })).toBeAttached();
+      await expect(network).toHaveText('Ethereum');
+      const metadata = await network.evaluate(element => ({
+        left: element.getBoundingClientRect().left,
+        lineLeft: element.parentElement!.getBoundingClientRect().left,
+        marker: getComputedStyle(element, '::before').content,
+      }));
+      expect(metadata.marker).toBe('none');
+      expect(Math.abs(metadata.left - metadata.lineLeft)).toBeLessThanOrEqual(1);
     }
     if (kind === 'move') {
       const amounts = review.getByRole('region', { name: 'Bridge amounts and terms' });
@@ -200,7 +219,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
         const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
         h.displayPrices = { USDC: 1.01 }; h.rerender?.();
       });
-      await expect(fee.locator('[data-usd-state]')).toHaveText('Unavailable');
+      await expect(fee.locator('[data-usd-state="unavailable"]')).toHaveText('');
       await expect(fee.locator('details, summary')).toHaveCount(0);
       await page.evaluate(() => {
         const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
@@ -302,5 +321,63 @@ test('compact amount headers wrap above figures at 320px with long roles and 200
     for (const { element, size } of text) element.style.setProperty('font-size', `${size * 2}px`, 'important');
   });
   await expectFlowGeometry();
+  expect(await metric(page, 'send')).toBe(0);
+});
+
+test('execution price keeps its amount and complete token unit on one line at phone widths', async ({ page }, info) => {
+  test.setTimeout(90_000);
+  const fixtures = (['ETH', 'BTC'] as const).flatMap(market => (['long', 'short'] as const).map(side => ({
+    market, side, pool: positionPoolAddress(market, side), price: market === 'ETH' ? '2000.123456' : '87542.35',
+  })));
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+  await openHarness(page, { presentationMode: true });
+  await page.evaluate(fixtures => {
+    const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
+    const wallet = h.wallet.address;
+    const install = ({ market, side, pool, price }: typeof fixtures[number]) => {
+      h.reviewOperationLabel = `Open ${market} ${side === 'long' ? 'Long' : 'Short'}`;
+      h.reviewRoute = { operation: 'increasePosition', chainId: 1, walletAddress: wallet,
+        transactions: [{ chainId: 1, from: wallet, to: '0x33636D49FbefBE798e15e7F356E8DBef543CC708', data: '0x12345678', value: 0n, kind: 'action', type: 'increasePosition', operation: 'increasePosition' }],
+        policy: { walletAddress: wallet, chainId: 1, reviewedAction: { kind: 'position-increase', poolAddress: pool, positionId: 0, positionType: side,
+          inputTokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', inputAmount: 100000000n, nativeInput: false,
+          requestedLeverage: 3, slippagePercent: .5 } },
+        details: { executionPrice: price, colls: '96000000000000000', debts: '200000000000000000000', stEthPerWstEth: '1250000000000000000', effectiveLeverage: 3 } };
+      h.rerender?.();
+    };
+    h.financialFacts = true;
+    install(fixtures[0]);
+    h.__installExecutionPriceFixture = install;
+  }, fixtures);
+  await page.getByRole('button', { name: 'Review position', exact: true }).click();
+  let first = true;
+  for (const fixture of fixtures) {
+    for (const width of [320, 390] as const) {
+      await page.setViewportSize({ width, height: 740 });
+      if (!first) {
+        await page.getByRole('button', { name: 'Close transaction review', exact: true }).click();
+        await page.evaluate(fixture => (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness.__installExecutionPriceFixture(fixture), fixture);
+        await page.getByRole('button', { name: 'Review position', exact: true }).click();
+      }
+      first = false;
+      const row = page.locator('[data-review-fact="Execution price"]');
+      await expect(row, `${fixture.market} ${fixture.side} at ${width}px`).toBeVisible();
+      const geometry = await row.evaluate(element => {
+        const value = element.querySelector(':scope > span:last-child') as HTMLElement;
+        const text = value.querySelector('.value') ?? value;
+        const range = document.createRange(); range.selectNodeContents(text);
+        const rects = [...range.getClientRects()];
+        const rowBox = element.getBoundingClientRect(); const valueBox = value.getBoundingClientRect();
+        return { text: text.textContent?.trim(), lineTops: [...new Set(rects.map(rect => Math.round(rect.top)))],
+          insideRow: valueBox.left >= rowBox.left - 1 && valueBox.right <= rowBox.right + 1,
+          textInsideValue: rects.every(rect => rect.left >= valueBox.left - 1 && rect.right <= valueBox.right + 1) };
+      });
+      expect(geometry.text).toMatch(fixture.market === 'ETH' ? /fxUSD \/ stETH$/ : /fxUSD \/ WBTC$/);
+      expect(geometry.lineTops, 'Price and quote denomination share one baseline').toHaveLength(1);
+      expect(geometry.insideRow).toBe(true);
+      expect(geometry.textInsideValue).toBe(true);
+      await page.screenshot({ path: info.outputPath(`execution-price-${fixture.market}-${fixture.side}-${width}.png`), animations: 'disabled' });
+    }
+  }
   expect(await metric(page, 'send')).toBe(0);
 });

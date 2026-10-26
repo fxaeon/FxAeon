@@ -66,7 +66,8 @@ test('protocol fee requires all charged-leg prices and rejects missing amount ba
     snapshot = invalid;
     assert.equal(protocolFeeUsdValue(fact, snapshot), null);
     const html = render(React.createElement(ProtocolFeeAmount, { fact }));
-    assert.match(html, /data-usd-state="unavailable">Unavailable/);
+    assert.match(html, /data-usd-state="unavailable"[^>]*><span[^>]*aria-label="USD value for f\(x\) fee unavailable"/);
+    assert.doesNotMatch(visible(html), /Unavailable/);
     assert.doesNotMatch(html, /<details|<summary|Full value|5%/);
   }
   assert.equal(protocolFeeUsdValue({ ...fact, feeAmounts: undefined }, fresh), null);

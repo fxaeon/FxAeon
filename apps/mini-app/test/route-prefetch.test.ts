@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Address } from "viem";
-import { RoutePrefetchStore, ROUTE_PREFETCH_TTL_MS, routePrefetchKey, type RoutePrefetchDescriptor } from "../src/lib/fx/routePrefetch";
+import { LatestOnlyWarmupQueue, RoutePrefetchStore, ROUTE_PREFETCH_TTL_MS, routePrefetchKey, type RoutePrefetchDescriptor } from "../src/lib/fx/routePrefetch";
 import type { PlannedRoute } from "../src/lib/fx/types";
 
 const WALLET = "0x1111111111111111111111111111111111111111" as Address;
@@ -27,6 +27,62 @@ function descriptor(overrides: Partial<RoutePrefetchDescriptor> = {}): RoutePref
 }
 
 const ROUTE = {} as PlannedRoute;
+
+test("advisory warmups start the first and latest edit while skipping superseded work", async () => {
+  const queue = new LatestOnlyWarmupQueue();
+  const started: string[] = [];
+  let finishFirst!: () => void;
+  const first = new Promise<void>((resolve) => { finishFirst = resolve; });
+  let latestStarted!: () => void;
+  const latest = new Promise<void>((resolve) => { latestStarted = resolve; });
+  queue.submit(async () => { started.push("first"); await first; });
+  await Promise.resolve();
+  queue.submit(async () => { started.push("middle"); });
+  queue.submit(async () => { started.push("latest"); latestStarted(); });
+  assert.deepEqual(started, ["first"]);
+  finishFirst();
+  await latest;
+  assert.deepEqual(started, ["first", "latest"]);
+});
+
+test("a warmup deadline never releases an uncancellable search or starts superseded work", async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const queue = new LatestOnlyWarmupQueue();
+  const started: string[] = [];
+  let finishFirst!: () => void;
+  const first = new Promise<void>((resolve) => { finishFirst = resolve; });
+  let latestStarted!: () => void;
+  const latest = new Promise<void>((resolve) => { latestStarted = resolve; });
+  queue.submit(async () => { started.push('first'); await first; });
+  await Promise.resolve();
+  queue.submit(async () => { started.push('middle'); });
+  queue.submit(async () => { started.push('latest'); latestStarted(); });
+  t.mock.timers.tick(ROUTE_PREFETCH_TTL_MS * 2 + 1);
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(started, ['first'], 'the SDK search remains active after a UI deadline');
+  finishFirst();
+  await latest;
+  assert.deepEqual(started, ['first', 'latest']);
+});
+
+test("discarding a pending warmup prevents it from starting after active work settles", async () => {
+  const queue = new LatestOnlyWarmupQueue();
+  const started: string[] = [];
+  let finishFirst!: () => void;
+  const first = new Promise<void>((resolve) => { finishFirst = resolve; });
+  queue.submit(async () => { started.push('first'); await first; });
+  await Promise.resolve();
+  queue.submit(async () => { started.push('discarded'); });
+  queue.discardPending();
+  finishFirst();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(started, ['first']);
+  let freshStarted!: () => void;
+  const fresh = new Promise<void>((resolve) => { freshStarted = resolve; });
+  queue.submit(async () => { started.push('fresh'); freshStarted(); });
+  await fresh;
+  assert.deepEqual(started, ['first', 'fresh']);
+});
 
 test("a stalled warm-up releases Review at its remaining TTL and ignores its late result", async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] });

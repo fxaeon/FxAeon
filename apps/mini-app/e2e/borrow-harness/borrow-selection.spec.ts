@@ -116,7 +116,7 @@ async function mount(page: import('@playwright/test').Page, { limitUnavailable =
   await expect(page.getByRole('heading', { name: 'Borrow', exact: true })).toBeVisible();
 }
 
-test('Borrow native Max warms independently, clears oversized cold input, and preserves later percentage edits', async ({ page }) => {
+test('Borrow native Max starts on demand, clears oversized cold input, and preserves later percentage edits', async ({ page }) => {
   await mount(page);
   await page.evaluate(() => {
     globalThis.__borrowHarness.balances = { ETH: { status: 'ready', amount: '0.00072128' } };
@@ -126,8 +126,10 @@ test('Borrow native Max warms independently, clears oversized cold input, and pr
   const collateral = page.getByRole('textbox', { name: 'Collateral', exact: true });
   const max = page.getByRole('button', { name: 'Calculate 100% after gas reserve' });
   await collateral.fill('1');
-  await expect.poll(() => page.evaluate(() => globalThis.__borrowHarness.maxRequests?.length)).toBe(1);
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => globalThis.__borrowHarness.maxRequests?.length)).toBe(0);
   await max.click();
+  await expect.poll(() => page.evaluate(() => globalThis.__borrowHarness.maxRequests?.length)).toBe(1);
   await expect(collateral).toHaveValue('');
   await expect(max).toBeDisabled();
   await page.evaluate(() => globalThis.__borrowHarness.maxRequests?.[0].reject(new Error('current gas estimate is unavailable')));
@@ -221,7 +223,7 @@ test('collateral and debt show dollar equivalents without guessing missing or st
 
   // Only the unavailable price is withheld; the token amounts remain readable.
   await changeSnapshot(page, (harness) => { harness.prices = { fxUSD: 0.99 }; });
-  await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toHaveText('');
   await expect(manager.locator('summary')).toContainText('≈ $99.00');
   await expect(manager.locator('dl')).toContainText('2 stETH');
 
@@ -230,9 +232,9 @@ test('collateral and debt show dollar equivalents without guessing missing or st
     harness.prices = { ETH: 2400, fxUSD: 0.99 };
     harness.shared = { ...harness.shared, status: 'partial', failedGroups: [{ market: 'ETH', side: 'long', reason: 'read timeout' }] };
   });
-  await expect(manager.locator('summary').getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
-  await expect(manager.locator('dl').getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
-  await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toBeVisible();
+  await expect(manager.locator('summary').getByLabel('Debt value unavailable', { exact: true })).toHaveText('');
+  await expect(manager.locator('dl').getByLabel('Debt value unavailable', { exact: true })).toHaveText('');
+  await expect(manager.getByLabel('Collateral value unavailable', { exact: true })).toHaveText('');
   await expect(manager.locator('summary')).not.toContainText('$0.00');
   expect(await page.evaluate(() => globalThis.__borrowHarness.walletRequestCount)).toBe(0);
 });
@@ -257,7 +259,7 @@ test('borrowing cards reveal complete first prices together and keep cached info
   await expect(loading).toHaveCount(0);
 });
 
-test('a failed first price read resolves the skeleton into explicit missing values', async ({ page }) => {
+test('a failed first price read clears the skeleton and leaves unknown values blank', async ({ page }) => {
   await mount(page);
   await changeSnapshot(page, (harness) => { harness.pricesPending = true; harness.prices = {}; });
   await page.getByRole('button', { name: 'Your positions' }).click();
@@ -266,7 +268,7 @@ test('a failed first price read resolves the skeleton into explicit missing valu
   const card = page.getByRole('button', { name: 'Manage ETH position #17', exact: true });
   await expect(card.getByText('100 fxUSD', { exact: true })).toBeVisible();
   await expect(card.locator('details, summary')).toHaveCount(0);
-  await expect(card.getByLabel('Debt value unavailable', { exact: true })).toBeVisible();
+  await expect(card.getByLabel('Debt value unavailable', { exact: true })).toHaveText('');
   await expect(card).not.toContainText('$0.00');
 });
 
@@ -479,7 +481,7 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   await changeSnapshot(page, (harness) => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   const borrow = page.getByLabel('fxUSD to borrow', { exact: true });
   const review = page.getByRole('button', { name: 'Review borrowing' });
-  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Enter collateral above to see your limit');
+  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveCount(0);
   await page.getByLabel('Collateral', { exact: true }).fill('0.5');
   // $1,200 of collateral under the fixture's 85.5% pool maximum, less FxAeon's 2% margin: exactly 1,005.48 fxUSD.
   await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Up to 1,005.48 fxUSD with this collateral');
@@ -526,7 +528,7 @@ test('failed pool reads publish no guessed maximum and retry recovers after work
   await page.getByLabel('Collateral', { exact: true }).fill('1');
   const borrow = page.getByLabel('fxUSD to borrow', { exact: true });
   await borrow.fill('1');
-  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Live borrowing limit unavailable');
+  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Use borrowing maximum' })).toHaveCount(0);
   await expect(page.getByRole('meter')).toHaveCount(0);
   // Manual input can still reach the authoritative SDK review; an old pool
@@ -554,7 +556,7 @@ test('a live range with a one-hundred-percent ceiling is rejected instead of bec
   await mount(page, { limitInvalid: true });
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2400, fxUSD: 1 }; });
   await page.getByLabel('Collateral', { exact: true }).fill('1');
-  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Live borrowing limit unavailable');
+  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Use borrowing maximum' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Retry borrowing limit' })).toBeEnabled();
 });
@@ -567,7 +569,7 @@ test('an unavailable limit does not guess withdrawals or block repayment and col
   const actions = page.getByRole('group', { name: 'Manage collateral position' });
   await actions.getByRole('button', { name: 'Withdraw collateral', exact: true }).click();
   await page.getByLabel('Collateral to withdraw', { exact: true }).fill('1.96');
-  await expect(page.locator('[data-hint="Collateral to withdraw"]')).toHaveText('Live borrowing limit unavailable');
+  await expect(page.locator('[data-hint="Collateral to withdraw"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review position changes' })).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Retry borrowing limit' })).toBeEnabled();
   await actions.getByRole('button', { name: 'Repay debt', exact: true }).click();
@@ -592,7 +594,7 @@ test('a late pool read cannot publish the previous market limit', async ({ page 
     resolve({ min: 25600000000000000n, max: 855000000000000000n, source: 'live' });
   });
   await page.getByLabel('Collateral', { exact: true }).fill('1');
-  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Live borrowing limit unavailable');
+  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Use borrowing maximum' })).toHaveCount(0);
   await expect(page.getByRole('meter')).toHaveCount(0);
 });
@@ -622,8 +624,8 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await page.clock.install();
   await mount(page, { fundingUnavailable: true });
   const metric = page.getByRole('region', { name: 'fxUSD borrowing overview' }).locator('dl > div').filter({ hasText: 'Funding status' });
-  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
-  await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
+  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toHaveText('');
+  await expect(metric.locator('small[role="status"]')).toHaveCount(0);
   await metric.getByRole('button', { name: 'About Funding status', exact: true }).click();
   const verification = page.getByRole('link', { name: /View funding on f\(x\)/ });
   await expect(verification).toHaveAttribute('href', 'https://fx.aladdin.club/v2/fxmint');
@@ -634,8 +636,8 @@ test('failed and expired funding quotes never retain a zero rate, and foreground
   await expect(metric.locator('dt')).toContainText('Funding status: OFF');
   await page.evaluate(() => Object.assign(window, { __borrowFundingUnavailable: true }));
   await page.clock.fastForward(60_001);
-  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toBeVisible();
-  await expect(metric.locator('small[role="status"]')).toHaveText('Not quoted');
+  await expect(metric.locator('dd').getByRole('status', { name: 'Funding rate unavailable', exact: true })).toHaveText('');
+  await expect(metric.locator('small[role="status"]')).toHaveCount(0);
   await page.evaluate(() => { Object.assign(window, { __borrowFundingUnavailable: false, __borrowFundingRatio: 10000000000000000n }); document.dispatchEvent(new Event('visibilitychange')); });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0009% / 8h');
   await expect(metric.locator('dt')).toContainText('Funding status: ON');
@@ -686,9 +688,9 @@ test('the withdrawal field names how much collateral can leave before review', a
   await expect(review).toHaveAttribute('data-blocker', 'Withdraw at most 1.95 ETH');
   await page.getByLabel('Collateral to withdraw', { exact: true }).fill('1.95');
   await expect(review).toBeEnabled();
-  // Without a price the field says so instead of guessing.
+  // Without a price, omit the capacity hint instead of guessing.
   await changeSnapshot(page, (harness) => { harness.prices = {}; });
-  await expect(hint).toHaveText('Your limit shows once prices are available');
+  await expect(hint).toHaveCount(0);
 });
 
 test('an existing position hands the review its loan-to-value against the live limit, rounded toward safety', async ({ page }) => {

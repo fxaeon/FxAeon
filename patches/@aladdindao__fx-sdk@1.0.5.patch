@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced27674874813b 100644
+index d1b42864fdfb2717e6d6046bee21de033228ff25..f4708ea7e601033e27197484b6a4a79451d745a8 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -15,6 +15,12 @@ var axios__default = /*#__PURE__*/_interopDefault(axios);
@@ -59,7 +59,40 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
  }
  
  // src/abis/AFPool.json
-@@ -2872,7 +2878,13 @@ var getRangeWithSlippage = (target, slippage) => {
+@@ -2755,11 +2761,12 @@ var getDecimals = async (address) => {
+     functionName: "decimals"
+   });
+ };
+-var getQueryConvert = async (amount, convertData) => {
++var getQueryConvert = async (amount, convertData, batch) => {
+   return await getClient().readContract({
+     address: contracts.TokenConverter_MultiPathConverter,
+     abi: MultiPathConverter_default,
+     functionName: "queryConvert",
++    ...(batch === false ? { batch: false } : {}),
+     args: [amount, convertData.encoding, convertData.routes]
+   });
+ };
+@@ -2809,7 +2816,8 @@ var FxRoute = class extends Aggregator {
+   async getQuote({
+     src,
+     dst,
+-    amount
++    amount,
++    batch
+   }) {
+     const convertData = getZapRoutes({
+       fromTokenAddress: src,
+@@ -2819,7 +2827,7 @@ var FxRoute = class extends Aggregator {
+     if (!convertData) {
+       throw new Error(`Conversion route not found for ${src} to ${dst}`);
+     }
+-    const outAmount = await getQueryConvert(amount, convertData);
++    const outAmount = await getQueryConvert(amount, convertData, batch);
+     return {
+       name: this.name,
+       src: amount,
+@@ -2872,7 +2880,13 @@ var getRangeWithSlippage = (target, slippage) => {
    return [minTarget, maxTarget];
  };
  var getEncodeMiscData = (minDebtRatio, maxDebtRatio) => {
@@ -74,7 +107,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
  };
  var getEncodeMiscDataWithSlippage = (targetDebtRatio, slippage) => {
    const [minDebtRatio, maxDebtRatio] = getDebtRatioRange(
-@@ -3079,6 +3091,9 @@ var Odos = class extends Aggregator {
+@@ -3079,6 +3093,9 @@ var Odos = class extends Aggregator {
  // src/utils/multicall.ts
  var MULTICALL_BATCH_SIZE = 50;
  var DELAY_TIME_MS = 500;
@@ -84,7 +117,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
  async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_SIZE, delayMs = DELAY_TIME_MS) {
    function chunkArray(arr, size) {
      const res = [];
-@@ -3089,52 +3104,85 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
+@@ -3089,52 +3106,85 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
    }
    const callChunks = chunkArray(contracts2, batchSize);
    let results = [];
@@ -201,7 +234,26 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
  };
  var selectBest = (results, reverse) => {
    const amounts = {};
-@@ -3218,6 +3266,7 @@ var getFxUSDByBorrowAmount = async ({
+@@ -3168,7 +3218,8 @@ var getQuote = async ({
+   dst,
+   amount,
+   chainId = 1,
+-  targets = []
++  targets = [],
++  batch
+ }) => {
+   const _targets = [...targets];
+   if (src === tokens.WBTC || dst === tokens.WBTC) {
+@@ -3179,7 +3230,7 @@ var getQuote = async ({
+   const selected = selectTargets(_targets);
+   const results = await Promise.allSettled(
+     selected.map(async (fn) => {
+-      return fn.getQuote({ src, dst, amount, chainId });
++      return fn.getQuote({ src, dst, amount, chainId, batch });
+     })
+   );
+   return selectBest(
+@@ -3218,6 +3269,7 @@ var getFxUSDByBorrowAmount = async ({
    baseTokenAddress
  }) => {
    const results = [];
@@ -209,7 +261,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    const zapRouteData = getZapRoutes({
      fromTokenAddress: tokens.fxUSD,
      toTokenAddress: baseTokenAddress
-@@ -3237,6 +3286,7 @@ var getFxUSDByBorrowAmount = async ({
+@@ -3237,6 +3289,7 @@ var getFxUSDByBorrowAmount = async ({
        dst: BigInt(borrowAmount)
      });
    } catch (err) {
@@ -217,7 +269,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    if (baseTokenAddress === tokens.WBTC) {
      const zapRouteData2 = getZapRoutes({
-@@ -3259,9 +3309,11 @@ var getFxUSDByBorrowAmount = async ({
+@@ -3259,9 +3312,11 @@ var getFxUSDByBorrowAmount = async ({
          dst: BigInt(borrowAmount)
        });
      } catch (err) {
@@ -229,7 +281,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
      throw Error(
        "Exceeds the maximum trading range. Please lower the position size."
      );
-@@ -3275,6 +3327,7 @@ var getBorrowByFxUSDAmount = async ({
+@@ -3275,6 +3330,7 @@ var getBorrowByFxUSDAmount = async ({
    precision
  }) => {
    const results = [];
@@ -237,7 +289,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    const zapRouteData = getZapRoutes({
      fromTokenAddress: baseTokenAddress,
      toTokenAddress: tokens.fxUSD
-@@ -3293,6 +3346,7 @@ var getBorrowByFxUSDAmount = async ({
+@@ -3293,6 +3349,7 @@ var getBorrowByFxUSDAmount = async ({
        dst: BigInt(fxUSDAmount)
      });
    } catch (err) {
@@ -245,7 +297,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    if (baseTokenAddress === tokens.WBTC) {
      const zapRouteData2 = getZapRoutes({
-@@ -3314,9 +3368,11 @@ var getBorrowByFxUSDAmount = async ({
+@@ -3314,9 +3371,11 @@ var getBorrowByFxUSDAmount = async ({
          dst: BigInt(fxUSDAmount)
        });
      } catch (err) {
@@ -257,7 +309,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
      throw Error(
        "Exceeds the maximum trading range. Please lower the position size."
      );
-@@ -3336,6 +3392,21 @@ var getRouteTargets = (symbol, targets) => {
+@@ -3336,6 +3395,21 @@ var getRouteTargets = (symbol, targets) => {
  };
  var PLEASE_INCREASE_LEVERAGE = "Your xPOSITION leverage is lower than the minimum leverage required, please increase your leverage level.";
  var PLEASE_LOWER_LEVERAGE = "Your xPOSITION leverage is higher than the maximum leverage allowed, please lower your leverage level.";
@@ -279,7 +331,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
  var openOrAddFlashLoanQuote = async ({
    tokenAddress,
    positionId,
-@@ -3448,6 +3519,7 @@ var openOrAddFlashLoanQuote = async ({
+@@ -3448,6 +3522,7 @@ var openOrAddFlashLoanQuote = async ({
        const realPrice = cBN(fxUSDAmount).div(borrowAmount).times(precision).div(rateRes).toString();
        routeList.push({
          params: {
@@ -287,7 +339,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
            routeType: name,
            positionLeverage: leverage,
            minOut: deltaCollAmountInWithSlippage,
-@@ -3793,6 +3865,7 @@ var downLeverageQuote = async ({
+@@ -3793,6 +3868,7 @@ var downLeverageQuote = async ({
        const __deltaCollToWithdraw = cBN(withdrawDeltaCollAmount).times(precision).div(PRECISION).toFixed(0);
        routeList.push({
          params: {
@@ -295,7 +347,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
            routeType: name,
            minOut: "0",
            positionLeverage: leverage,
-@@ -3802,7 +3875,7 @@ var downLeverageQuote = async ({
+@@ -3802,7 +3878,7 @@ var downLeverageQuote = async ({
            realPrice,
            priceImpact,
            dataSource,
@@ -304,7 +356,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
            debts: cBN(currentDebts).minus(fxUSDAmount).toFixed(0, 1)
          },
          data: [
-@@ -4768,6 +4841,7 @@ var openOrAddShortFlashLoanQuote = async ({
+@@ -4768,6 +4844,7 @@ var openOrAddShortFlashLoanQuote = async ({
        const realPrice = cBN(fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
        routeList.push({
          params: {
@@ -312,7 +364,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
            routeType: name,
            positionLeverage: leverage - 1,
            minOut: fxUSDAmountInWithSlippage,
-@@ -4964,7 +5038,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
+@@ -4964,7 +5041,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
          ]
        });
      } catch (err) {
@@ -320,7 +372,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
        if (name === "FxRoute" /* FX_ROUTE */) {
          mainError = err;
        }
-@@ -5076,6 +5149,7 @@ var downLeverageShortFlashLoanQuote = async ({
+@@ -5076,6 +5152,7 @@ var downLeverageShortFlashLoanQuote = async ({
        const realPrice = cBN(_fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
        routeList.push({
          params: {
@@ -328,7 +380,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
            routeType: name,
            positionLeverage: leverage - 1,
            positionId,
-@@ -5621,6 +5695,7 @@ var Position = class {
+@@ -5621,6 +5698,7 @@ var Position = class {
        return {
          routeType: item.params.routeType,
          leverage: item.params.positionLeverage,
@@ -336,7 +388,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
          executionPrice: item.params.curPrice,
          colls: item.params.colls,
          debts: item.params.debts,
-@@ -5721,6 +5796,7 @@ var Position = class {
+@@ -5721,6 +5799,7 @@ var Position = class {
        return {
          routeType: item.params.routeType,
          leverage: item.params.positionLeverage,
@@ -344,7 +396,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
          executionPrice: item.params.curPrice,
          minOut: item.params.minOut,
          colls: item.params.colls,
-@@ -5825,6 +5901,7 @@ var Position = class {
+@@ -5825,6 +5904,7 @@ var Position = class {
        return {
          routeType: item.params.routeType,
          leverage: item.params.positionLeverage,
@@ -352,7 +404,27 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
          executionPrice: item.params.curPrice,
          colls: item.params.colls,
          debts: item.params.debts,
-@@ -11894,12 +11971,14 @@ var Pool = class {
+@@ -11781,7 +11861,8 @@ var Price = class {
+       src: tokens.fxUSD,
+       dst: isShort ? deltaDebtAddress : deltaCollAddress,
+       amount: BigInt(fxUSDAmount),
+-      targets: ["FxRoute" /* FX_ROUTE */]
++      targets: ["FxRoute" /* FX_ROUTE */],
++      batch: false
+     });
+     const { best, amounts } = quote;
+     const { dst } = amounts[best];
+@@ -11813,7 +11894,8 @@ var Price = class {
+       src: isShort ? deltaDebtAddress : deltaCollAddress,
+       dst: tokens.fxUSD,
+       amount: BigInt(amount),
+-      targets: ["FxRoute" /* FX_ROUTE */]
++      targets: ["FxRoute" /* FX_ROUTE */],
++      batch: false
+     });
+     const { best, amounts } = quote;
+     const { dst } = amounts[best];
+@@ -11894,12 +11976,14 @@ var Pool = class {
        return {
          collateralCapacity: poolInfoRes[0],
          collateralBalance: poolInfoRes[1],
@@ -370,13 +442,15 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
          supplyFeeRatio: poolFeeRatioRes[0],
          withdrawFeeRatio: poolFeeRatioRes[1],
          repayFeeRatio: fxMintPoolFeeRatioRes[3]
-@@ -11914,13 +11993,28 @@ var Pool = class {
+@@ -11914,13 +11998,33 @@ var Pool = class {
     */
    async getPoolInfo() {
      const { isShort } = this.config;
 -    const poolData = await this.getPoolData();
 -    const rateRes = await this.price.getRateRes();
 -    const oraclePrice = await this.price.getOraclePrice();
+-    const buyPrice = cBN(await this.price.getBuyPrice()).times(1e18).div(rateRes).toString();
+-    const sellPrice = cBN(await this.price.getSellPrice()).times(1e18).div(rateRes).toString();
 +    // Only the view reads may share an automatic multicall. Converter quotes
 +    // are nonpayable and must keep their original, separate execution contexts.
 +    const poolReads = [
@@ -396,14 +470,19 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
 +      poolValues.push(read.value);
 +    }
 +    const [poolData, rateRes, oraclePrice] = poolValues;
-     const buyPrice = cBN(await this.price.getBuyPrice()).times(1e18).div(rateRes).toString();
-     const sellPrice = cBN(await this.price.getSellPrice()).times(1e18).div(rateRes).toString();
++    // Start independent spot quotes together, retaining buy-first error order.
++    const buyRead = this.price.getBuyPrice();
++    const sellRead = this.price.getSellPrice().then((value) => ({ value }), (reason) => ({ reason }));
++    const buyPrice = cBN(await buyRead).times(1e18).div(rateRes).toString();
++    const sellResult = await sellRead;
++    if ("reason" in sellResult) throw sellResult.reason;
++    const sellPrice = cBN(sellResult.value).times(1e18).div(rateRes).toString();
      const averagePrice = cBN(buyPrice).add(cBN(sellPrice)).div(2).toString();
 -    console.log("poolData-->", poolData);
      const poolInfo = {
        ...this.config,
        ...poolData,
-@@ -11935,11 +12029,22 @@ var Pool = class {
+@@ -11935,11 +12039,22 @@ var Pool = class {
        closeFeeRatio: cBN(poolData.withdrawFeeRatio ?? 0).div(1e9).toNumber(),
        repayFeeRatio: cBN(poolData.repayFeeRatio ?? 0).div(1e9).toNumber()
      };
@@ -427,7 +506,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
  // src/configs/layerzero.ts
  var LZ_ENDPOINT_ADDRESS = "0x1a44076050125825900e736c501f859c50fE728c";
  var EID_ETHEREUM = 30101;
-@@ -12110,7 +12215,8 @@ function getBridgeQuote(request) {
+@@ -12110,7 +12225,8 @@ function getBridgeQuote(request) {
      token,
      amount,
      recipient,
@@ -437,7 +516,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -12121,7 +12227,8 @@ function getBridgeQuote(request) {
+@@ -12121,7 +12237,8 @@ function getBridgeQuote(request) {
    }
    const { address: oftAddress, tokenKey } = resolveOftAddress(sourceChainId, token);
    const dstEid = getEidByChainId(destChainId);
@@ -447,7 +526,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    if (!rpcUrl) {
      throw new Error("Source RPC URL is required.");
    }
-@@ -12130,9 +12237,9 @@ function getBridgeQuote(request) {
+@@ -12130,9 +12247,9 @@ function getBridgeQuote(request) {
        id: sourceChainId,
        name: sourceChainId === 8453 ? "Base" : "Ethereum",
        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
@@ -459,7 +538,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    });
    const sendParam = {
      dstEid,
-@@ -12161,7 +12268,8 @@ async function buildBridgeTx(request) {
+@@ -12161,7 +12278,8 @@ async function buildBridgeTx(request) {
      amount,
      recipient,
      refundAddress,
@@ -469,7 +548,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16310,6 +16418,8 @@ function getDepositSpender(tokenIn) {
+@@ -16310,6 +16428,8 @@ function getDepositSpender(tokenIn) {
    return contracts.FxSave_fxSAVE;
  }
  async function depositFxSave(request) {
@@ -478,7 +557,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
    if (!viem.isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16350,7 +16460,8 @@ async function depositFxSave(request) {
+@@ -16350,7 +16470,8 @@ async function depositFxSave(request) {
        nonce: nonce++,
        chainId
      });
@@ -488,7 +567,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
      const fxRoute = new FxRoute();
-@@ -16418,9 +16529,11 @@ async function depositFxSave(request) {
+@@ -16418,9 +16539,11 @@ async function depositFxSave(request) {
      nonce: nonce++,
      chainId
    });
@@ -501,7 +580,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    const { userAddress, tokenOut, amount, instant = false, slippage } = request;
    if (!viem.isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16448,7 +16561,8 @@ async function withdrawFxSave(request) {
+@@ -16448,7 +16571,8 @@ async function withdrawFxSave(request) {
        nonce,
        chainId
      });
@@ -511,7 +590,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    if (!instant) {
      const data2 = viem.encodeFunctionData({
-@@ -16560,13 +16674,19 @@ async function withdrawFxSave(request) {
+@@ -16560,13 +16684,19 @@ async function withdrawFxSave(request) {
      nonce: instantNonce,
      chainId
    });
@@ -533,7 +612,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16660,10 +16780,10 @@ var FxSdk = class {
+@@ -16660,10 +16790,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -546,7 +625,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16731,10 +16851,10 @@ var FxSdk = class {
+@@ -16731,10 +16861,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -559,7 +638,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16783,7 +16903,7 @@ var FxSdk = class {
+@@ -16783,7 +16913,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -568,7 +647,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16843,10 +16963,10 @@ var FxSdk = class {
+@@ -16843,10 +16973,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -581,7 +660,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16906,10 +17026,10 @@ var FxSdk = class {
+@@ -16906,10 +17036,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -595,7 +674,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..c4a4a453110c3e1ec9a948fc3ced2767
    /**
     * Gets a fee quote for bridging tokens between Base and Ethereum via LayerZero V2 OFT.
 diff --git a/dist/index.d.cts b/dist/index.d.cts
-index 2a628882c348c5a6e3d20e64a3b82a946e226986..1500a82b0c27e6ea213d357eb2911cc766a8459a 100644
+index 2a628882c348c5a6e3d20e64a3b82a946e226986..c1e7e2c4468331f921679d23300301662b783506 100644
 --- a/dist/index.d.cts
 +++ b/dist/index.d.cts
 @@ -62,6 +62,10 @@ interface BridgeQuoteRequest {
@@ -626,7 +705,7 @@ index 2a628882c348c5a6e3d20e64a3b82a946e226986..1500a82b0c27e6ea213d357eb2911cc7
  export { type AdjustPositionLeverageRequest, BRIDGE_OFT_BY_TOKEN, type BridgeQuoteRequest, type BridgeQuoteResult, type BridgeTokenId, type BridgeTxPayload, type BuildBridgeTxRequest, type BuildBridgeTxResult, CHAIN_ID_BASE, CHAIN_ID_ETHEREUM, type ConvertData, DEFAULT_RPC_BY_CHAIN, type DepositAndMintRequest, EID_BASE, EID_ETHEREUM, type FxSaveClaimPreviewReceive, type FxSaveDepositRequest, type FxSaveDepositResult, type FxSaveTokenIn, type FxSaveTx, type FxSaveWithdrawRequest, type FxSaveWithdrawResult, FxSdk, type FxSdkConfig, type GetFxSaveBalanceRequest, type GetFxSaveBalanceResult, type GetFxSaveClaimableRequest, type GetFxSaveClaimableResult, type GetFxSaveRedeemStatusRequest, type GetFxSaveRedeemStatusResult, type GetRedeemTxRequest, type GetRedeemTxResult, type IncreasePositionRequest, LZ_ENDPOINT_ADDRESS, type Market, type PoolConfig, type PoolInfo, PoolName, type PositionInfo, type PositionRequest, type PositionType, type PriceOracle, type ReducePositionRequest, type RepayAndWithdrawRequest, SUPPORTED_BRIDGE_CHAIN_IDS, type SupportedBridgeChainId, type TokenSymbol, getEidByChainId, tokens };
 +import type { Transport } from 'viem';
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 2a628882c348c5a6e3d20e64a3b82a946e226986..eb20e20251cf7e60d057193a12978c10a9953da7 100644
+index 2a628882c348c5a6e3d20e64a3b82a946e226986..5bed88becc9ef6fff845c387c6522dc1794d04e1 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
 @@ -62,6 +62,10 @@ interface BridgeQuoteRequest {
@@ -657,7 +736,7 @@ index 2a628882c348c5a6e3d20e64a3b82a946e226986..eb20e20251cf7e60d057193a12978c10
  export { type AdjustPositionLeverageRequest, BRIDGE_OFT_BY_TOKEN, type BridgeQuoteRequest, type BridgeQuoteResult, type BridgeTokenId, type BridgeTxPayload, type BuildBridgeTxRequest, type BuildBridgeTxResult, CHAIN_ID_BASE, CHAIN_ID_ETHEREUM, type ConvertData, DEFAULT_RPC_BY_CHAIN, type DepositAndMintRequest, EID_BASE, EID_ETHEREUM, type FxSaveClaimPreviewReceive, type FxSaveDepositRequest, type FxSaveDepositResult, type FxSaveTokenIn, type FxSaveTx, type FxSaveWithdrawRequest, type FxSaveWithdrawResult, FxSdk, type FxSdkConfig, type GetFxSaveBalanceRequest, type GetFxSaveBalanceResult, type GetFxSaveClaimableRequest, type GetFxSaveClaimableResult, type GetFxSaveRedeemStatusRequest, type GetFxSaveRedeemStatusResult, type GetRedeemTxRequest, type GetRedeemTxResult, type IncreasePositionRequest, LZ_ENDPOINT_ADDRESS, type Market, type PoolConfig, type PoolInfo, PoolName, type PositionInfo, type PositionRequest, type PositionType, type PriceOracle, type ReducePositionRequest, type RepayAndWithdrawRequest, SUPPORTED_BRIDGE_CHAIN_IDS, type SupportedBridgeChainId, type TokenSymbol, getEidByChainId, tokens };
 +import type { Transport } from 'viem';
 diff --git a/dist/index.js b/dist/index.js
-index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e469fbfd109 100644
+index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..cc9cd7351740505b84956fc1f1a88eb53d754514 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -8,6 +8,12 @@ import axios from 'axios';
@@ -717,7 +796,40 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
  }
  
  // src/abis/AFPool.json
-@@ -2865,7 +2871,13 @@ var getRangeWithSlippage = (target, slippage) => {
+@@ -2748,11 +2754,12 @@ var getDecimals = async (address) => {
+     functionName: "decimals"
+   });
+ };
+-var getQueryConvert = async (amount, convertData) => {
++var getQueryConvert = async (amount, convertData, batch) => {
+   return await getClient().readContract({
+     address: contracts.TokenConverter_MultiPathConverter,
+     abi: MultiPathConverter_default,
+     functionName: "queryConvert",
++    ...(batch === false ? { batch: false } : {}),
+     args: [amount, convertData.encoding, convertData.routes]
+   });
+ };
+@@ -2802,7 +2809,8 @@ var FxRoute = class extends Aggregator {
+   async getQuote({
+     src,
+     dst,
+-    amount
++    amount,
++    batch
+   }) {
+     const convertData = getZapRoutes({
+       fromTokenAddress: src,
+@@ -2812,7 +2820,7 @@ var FxRoute = class extends Aggregator {
+     if (!convertData) {
+       throw new Error(`Conversion route not found for ${src} to ${dst}`);
+     }
+-    const outAmount = await getQueryConvert(amount, convertData);
++    const outAmount = await getQueryConvert(amount, convertData, batch);
+     return {
+       name: this.name,
+       src: amount,
+@@ -2865,7 +2873,13 @@ var getRangeWithSlippage = (target, slippage) => {
    return [minTarget, maxTarget];
  };
  var getEncodeMiscData = (minDebtRatio, maxDebtRatio) => {
@@ -732,7 +844,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
  };
  var getEncodeMiscDataWithSlippage = (targetDebtRatio, slippage) => {
    const [minDebtRatio, maxDebtRatio] = getDebtRatioRange(
-@@ -3072,6 +3084,9 @@ var Odos = class extends Aggregator {
+@@ -3072,6 +3086,9 @@ var Odos = class extends Aggregator {
  // src/utils/multicall.ts
  var MULTICALL_BATCH_SIZE = 50;
  var DELAY_TIME_MS = 500;
@@ -742,7 +854,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
  async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_SIZE, delayMs = DELAY_TIME_MS) {
    function chunkArray(arr, size) {
      const res = [];
-@@ -3082,52 +3097,85 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
+@@ -3082,52 +3099,85 @@ async function batchedMulticall(client, contracts2, batchSize = MULTICALL_BATCH_
    }
    const callChunks = chunkArray(contracts2, batchSize);
    let results = [];
@@ -859,7 +971,26 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
  };
  var selectBest = (results, reverse) => {
    const amounts = {};
-@@ -3211,6 +3259,7 @@ var getFxUSDByBorrowAmount = async ({
+@@ -3161,7 +3211,8 @@ var getQuote = async ({
+   dst,
+   amount,
+   chainId = 1,
+-  targets = []
++  targets = [],
++  batch
+ }) => {
+   const _targets = [...targets];
+   if (src === tokens.WBTC || dst === tokens.WBTC) {
+@@ -3172,7 +3223,7 @@ var getQuote = async ({
+   const selected = selectTargets(_targets);
+   const results = await Promise.allSettled(
+     selected.map(async (fn) => {
+-      return fn.getQuote({ src, dst, amount, chainId });
++      return fn.getQuote({ src, dst, amount, chainId, batch });
+     })
+   );
+   return selectBest(
+@@ -3211,6 +3262,7 @@ var getFxUSDByBorrowAmount = async ({
    baseTokenAddress
  }) => {
    const results = [];
@@ -867,7 +998,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    const zapRouteData = getZapRoutes({
      fromTokenAddress: tokens.fxUSD,
      toTokenAddress: baseTokenAddress
-@@ -3230,6 +3279,7 @@ var getFxUSDByBorrowAmount = async ({
+@@ -3230,6 +3282,7 @@ var getFxUSDByBorrowAmount = async ({
        dst: BigInt(borrowAmount)
      });
    } catch (err) {
@@ -875,7 +1006,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    if (baseTokenAddress === tokens.WBTC) {
      const zapRouteData2 = getZapRoutes({
-@@ -3252,9 +3302,11 @@ var getFxUSDByBorrowAmount = async ({
+@@ -3252,9 +3305,11 @@ var getFxUSDByBorrowAmount = async ({
          dst: BigInt(borrowAmount)
        });
      } catch (err) {
@@ -887,7 +1018,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
      throw Error(
        "Exceeds the maximum trading range. Please lower the position size."
      );
-@@ -3268,6 +3320,7 @@ var getBorrowByFxUSDAmount = async ({
+@@ -3268,6 +3323,7 @@ var getBorrowByFxUSDAmount = async ({
    precision
  }) => {
    const results = [];
@@ -895,7 +1026,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    const zapRouteData = getZapRoutes({
      fromTokenAddress: baseTokenAddress,
      toTokenAddress: tokens.fxUSD
-@@ -3286,6 +3339,7 @@ var getBorrowByFxUSDAmount = async ({
+@@ -3286,6 +3342,7 @@ var getBorrowByFxUSDAmount = async ({
        dst: BigInt(fxUSDAmount)
      });
    } catch (err) {
@@ -903,7 +1034,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    if (baseTokenAddress === tokens.WBTC) {
      const zapRouteData2 = getZapRoutes({
-@@ -3307,9 +3361,11 @@ var getBorrowByFxUSDAmount = async ({
+@@ -3307,9 +3364,11 @@ var getBorrowByFxUSDAmount = async ({
          dst: BigInt(fxUSDAmount)
        });
      } catch (err) {
@@ -915,7 +1046,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
      throw Error(
        "Exceeds the maximum trading range. Please lower the position size."
      );
-@@ -3329,6 +3385,21 @@ var getRouteTargets = (symbol, targets) => {
+@@ -3329,6 +3388,21 @@ var getRouteTargets = (symbol, targets) => {
  };
  var PLEASE_INCREASE_LEVERAGE = "Your xPOSITION leverage is lower than the minimum leverage required, please increase your leverage level.";
  var PLEASE_LOWER_LEVERAGE = "Your xPOSITION leverage is higher than the maximum leverage allowed, please lower your leverage level.";
@@ -937,7 +1068,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
  var openOrAddFlashLoanQuote = async ({
    tokenAddress,
    positionId,
-@@ -3441,6 +3512,7 @@ var openOrAddFlashLoanQuote = async ({
+@@ -3441,6 +3515,7 @@ var openOrAddFlashLoanQuote = async ({
        const realPrice = cBN(fxUSDAmount).div(borrowAmount).times(precision).div(rateRes).toString();
        routeList.push({
          params: {
@@ -945,7 +1076,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
            routeType: name,
            positionLeverage: leverage,
            minOut: deltaCollAmountInWithSlippage,
-@@ -3786,6 +3858,7 @@ var downLeverageQuote = async ({
+@@ -3786,6 +3861,7 @@ var downLeverageQuote = async ({
        const __deltaCollToWithdraw = cBN(withdrawDeltaCollAmount).times(precision).div(PRECISION).toFixed(0);
        routeList.push({
          params: {
@@ -953,7 +1084,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
            routeType: name,
            minOut: "0",
            positionLeverage: leverage,
-@@ -3795,7 +3868,7 @@ var downLeverageQuote = async ({
+@@ -3795,7 +3871,7 @@ var downLeverageQuote = async ({
            realPrice,
            priceImpact,
            dataSource,
@@ -962,7 +1093,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
            debts: cBN(currentDebts).minus(fxUSDAmount).toFixed(0, 1)
          },
          data: [
-@@ -4761,6 +4834,7 @@ var openOrAddShortFlashLoanQuote = async ({
+@@ -4761,6 +4837,7 @@ var openOrAddShortFlashLoanQuote = async ({
        const realPrice = cBN(fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
        routeList.push({
          params: {
@@ -970,7 +1101,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
            routeType: name,
            positionLeverage: leverage - 1,
            minOut: fxUSDAmountInWithSlippage,
-@@ -4957,7 +5031,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
+@@ -4957,7 +5034,6 @@ var closeOrRemoveShortFlashLoanQuote = async ({
          ]
        });
      } catch (err) {
@@ -978,7 +1109,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
        if (name === "FxRoute" /* FX_ROUTE */) {
          mainError = err;
        }
-@@ -5069,6 +5142,7 @@ var downLeverageShortFlashLoanQuote = async ({
+@@ -5069,6 +5145,7 @@ var downLeverageShortFlashLoanQuote = async ({
        const realPrice = cBN(_fxUSDAmount).div(wstETHToBorrow).times(precision).div(rateRes).toString();
        routeList.push({
          params: {
@@ -986,7 +1117,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
            routeType: name,
            positionLeverage: leverage - 1,
            positionId,
-@@ -5614,6 +5688,7 @@ var Position = class {
+@@ -5614,6 +5691,7 @@ var Position = class {
        return {
          routeType: item.params.routeType,
          leverage: item.params.positionLeverage,
@@ -994,7 +1125,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
          executionPrice: item.params.curPrice,
          colls: item.params.colls,
          debts: item.params.debts,
-@@ -5714,6 +5789,7 @@ var Position = class {
+@@ -5714,6 +5792,7 @@ var Position = class {
        return {
          routeType: item.params.routeType,
          leverage: item.params.positionLeverage,
@@ -1002,7 +1133,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
          executionPrice: item.params.curPrice,
          minOut: item.params.minOut,
          colls: item.params.colls,
-@@ -5818,6 +5894,7 @@ var Position = class {
+@@ -5818,6 +5897,7 @@ var Position = class {
        return {
          routeType: item.params.routeType,
          leverage: item.params.positionLeverage,
@@ -1010,7 +1141,27 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
          executionPrice: item.params.curPrice,
          colls: item.params.colls,
          debts: item.params.debts,
-@@ -11887,12 +11964,14 @@ var Pool = class {
+@@ -11774,7 +11854,8 @@ var Price = class {
+       src: tokens.fxUSD,
+       dst: isShort ? deltaDebtAddress : deltaCollAddress,
+       amount: BigInt(fxUSDAmount),
+-      targets: ["FxRoute" /* FX_ROUTE */]
++      targets: ["FxRoute" /* FX_ROUTE */],
++      batch: false
+     });
+     const { best, amounts } = quote;
+     const { dst } = amounts[best];
+@@ -11806,7 +11887,8 @@ var Price = class {
+       src: isShort ? deltaDebtAddress : deltaCollAddress,
+       dst: tokens.fxUSD,
+       amount: BigInt(amount),
+-      targets: ["FxRoute" /* FX_ROUTE */]
++      targets: ["FxRoute" /* FX_ROUTE */],
++      batch: false
+     });
+     const { best, amounts } = quote;
+     const { dst } = amounts[best];
+@@ -11887,12 +11969,14 @@ var Pool = class {
        return {
          collateralCapacity: poolInfoRes[0],
          collateralBalance: poolInfoRes[1],
@@ -1028,13 +1179,15 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
          supplyFeeRatio: poolFeeRatioRes[0],
          withdrawFeeRatio: poolFeeRatioRes[1],
          repayFeeRatio: fxMintPoolFeeRatioRes[3]
-@@ -11907,13 +11986,28 @@ var Pool = class {
+@@ -11907,13 +11991,33 @@ var Pool = class {
     */
    async getPoolInfo() {
      const { isShort } = this.config;
 -    const poolData = await this.getPoolData();
 -    const rateRes = await this.price.getRateRes();
 -    const oraclePrice = await this.price.getOraclePrice();
+-    const buyPrice = cBN(await this.price.getBuyPrice()).times(1e18).div(rateRes).toString();
+-    const sellPrice = cBN(await this.price.getSellPrice()).times(1e18).div(rateRes).toString();
 +    // Only the view reads may share an automatic multicall. Converter quotes
 +    // are nonpayable and must keep their original, separate execution contexts.
 +    const poolReads = [
@@ -1054,14 +1207,19 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
 +      poolValues.push(read.value);
 +    }
 +    const [poolData, rateRes, oraclePrice] = poolValues;
-     const buyPrice = cBN(await this.price.getBuyPrice()).times(1e18).div(rateRes).toString();
-     const sellPrice = cBN(await this.price.getSellPrice()).times(1e18).div(rateRes).toString();
++    // Start independent spot quotes together, retaining buy-first error order.
++    const buyRead = this.price.getBuyPrice();
++    const sellRead = this.price.getSellPrice().then((value) => ({ value }), (reason) => ({ reason }));
++    const buyPrice = cBN(await buyRead).times(1e18).div(rateRes).toString();
++    const sellResult = await sellRead;
++    if ("reason" in sellResult) throw sellResult.reason;
++    const sellPrice = cBN(sellResult.value).times(1e18).div(rateRes).toString();
      const averagePrice = cBN(buyPrice).add(cBN(sellPrice)).div(2).toString();
 -    console.log("poolData-->", poolData);
      const poolInfo = {
        ...this.config,
        ...poolData,
-@@ -11928,11 +12022,22 @@ var Pool = class {
+@@ -11928,11 +12032,22 @@ var Pool = class {
        closeFeeRatio: cBN(poolData.withdrawFeeRatio ?? 0).div(1e9).toNumber(),
        repayFeeRatio: cBN(poolData.repayFeeRatio ?? 0).div(1e9).toNumber()
      };
@@ -1085,7 +1243,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
  // src/configs/layerzero.ts
  var LZ_ENDPOINT_ADDRESS = "0x1a44076050125825900e736c501f859c50fE728c";
  var EID_ETHEREUM = 30101;
-@@ -12103,7 +12208,8 @@ function getBridgeQuote(request) {
+@@ -12103,7 +12218,8 @@ function getBridgeQuote(request) {
      token,
      amount,
      recipient,
@@ -1095,7 +1253,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -12114,7 +12220,8 @@ function getBridgeQuote(request) {
+@@ -12114,7 +12230,8 @@ function getBridgeQuote(request) {
    }
    const { address: oftAddress, tokenKey } = resolveOftAddress(sourceChainId, token);
    const dstEid = getEidByChainId(destChainId);
@@ -1105,7 +1263,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    if (!rpcUrl) {
      throw new Error("Source RPC URL is required.");
    }
-@@ -12123,9 +12230,9 @@ function getBridgeQuote(request) {
+@@ -12123,9 +12240,9 @@ function getBridgeQuote(request) {
        id: sourceChainId,
        name: sourceChainId === 8453 ? "Base" : "Ethereum",
        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
@@ -1117,7 +1275,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    });
    const sendParam = {
      dstEid,
-@@ -12154,7 +12261,8 @@ async function buildBridgeTx(request) {
+@@ -12154,7 +12271,8 @@ async function buildBridgeTx(request) {
      amount,
      recipient,
      refundAddress,
@@ -1127,7 +1285,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16303,6 +16411,8 @@ function getDepositSpender(tokenIn) {
+@@ -16303,6 +16421,8 @@ function getDepositSpender(tokenIn) {
    return contracts.FxSave_fxSAVE;
  }
  async function depositFxSave(request) {
@@ -1136,7 +1294,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
    if (!isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16343,7 +16453,8 @@ async function depositFxSave(request) {
+@@ -16343,7 +16463,8 @@ async function depositFxSave(request) {
        nonce: nonce++,
        chainId
      });
@@ -1146,7 +1304,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
      const fxRoute = new FxRoute();
-@@ -16411,9 +16522,11 @@ async function depositFxSave(request) {
+@@ -16411,9 +16532,11 @@ async function depositFxSave(request) {
      nonce: nonce++,
      chainId
    });
@@ -1159,7 +1317,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    const { userAddress, tokenOut, amount, instant = false, slippage } = request;
    if (!isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16441,7 +16554,8 @@ async function withdrawFxSave(request) {
+@@ -16441,7 +16564,8 @@ async function withdrawFxSave(request) {
        nonce,
        chainId
      });
@@ -1169,7 +1327,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    if (!instant) {
      const data2 = encodeFunctionData({
-@@ -16553,13 +16667,19 @@ async function withdrawFxSave(request) {
+@@ -16553,13 +16677,19 @@ async function withdrawFxSave(request) {
      nonce: instantNonce,
      chainId
    });
@@ -1191,7 +1349,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16653,10 +16773,10 @@ var FxSdk = class {
+@@ -16653,10 +16783,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1204,7 +1362,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16724,10 +16844,10 @@ var FxSdk = class {
+@@ -16724,10 +16854,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1217,7 +1375,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16776,7 +16896,7 @@ var FxSdk = class {
+@@ -16776,7 +16906,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1226,7 +1384,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16836,10 +16956,10 @@ var FxSdk = class {
+@@ -16836,10 +16966,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1239,7 +1397,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..07698723f43a5ed3b21a0e1f21432e46
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16899,10 +17019,10 @@ var FxSdk = class {
+@@ -16899,10 +17029,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });

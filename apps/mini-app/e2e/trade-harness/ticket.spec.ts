@@ -111,6 +111,18 @@ test('Trade outcome rows stay compact and wrap at 320px with 200% text', async (
     const planned = await planCount(page);
     await page.evaluate(() => document.fonts.ready);
     const rows = outcome(page).locator('[data-outcome-fact]');
+    const quote = fact(page, 'Execution price').locator('.figure');
+    const quoteGeometry = await quote.evaluate(element => {
+      const range = document.createRange(); range.selectNodeContents(element);
+      const rects = [...range.getClientRects()];
+      const row = element.closest('[data-outcome-fact]')!.getBoundingClientRect();
+      const value = element.getBoundingClientRect();
+      return { text: element.textContent?.trim(), lines: new Set(rects.map(rect => Math.round(rect.top))).size,
+        fitsRow: value.left >= row.left - 1 && value.right <= row.right + 1 };
+    });
+    expect(quoteGeometry.text).toMatch(/fxUSD \/ stETH$/);
+    expect(quoteGeometry.lines, `Execution quote value and unit stay together at ${width}px`).toBe(1);
+    expect(quoteGeometry.fitsRow).toBe(true);
     const heights = await expectFormMetricRows(rows);
     if (width === 390) expect(Math.min(...heights), 'Short terms retain a compact row while longer prices may wrap').toBeLessThan(44);
     await outcome(page).screenshot({ path: info.outputPath(`metric-rows-${width}.png`), animations: 'disabled' });
@@ -571,4 +583,60 @@ test('disconnected Trade shows isolated execution, liquidation and fee facts, th
   await expect(outcome(page)).toHaveAttribute('data-trade-outcome','pending');
   await expect(outcome(page)).toHaveAttribute('data-trade-outcome','ready');
   await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some(event=>event.name==='planIncreasePosition'&&event.walletAddress==='0x1111111111111111111111111111111111111111'&&event.amount==='300000000000000000'&&event.end!==undefined))).toBe(true);
+});
+
+test('disconnected preview refresh retains valid exact-ticket facts but never displays them after expiry', async ({page}) => {
+  let failed = false;
+  await page.clock.install();
+  await mount(page, {disconnected: true, failCalls: () => failed});
+  await page.getByRole('textbox', {name: 'Amount in ETH'}).fill('0.1');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+  const execution = await displayedFact(page, 'Execution price').innerText();
+  failed = true;
+  await page.clock.fastForward(15_001);
+  await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition').length)).toBeGreaterThanOrEqual(2);
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
+  await expect(displayedFact(page, 'Execution price')).toHaveText(execution);
+  await page.clock.fastForward(15_001);
+  await expect(outcome(page)).toHaveCount(0);
+});
+
+test('short input selector offers only native SDK conversion paths and safely switches away from stETH', async ({page}) => {
+  await mount(page, {disconnected: true});
+  await page.getByRole('button', {name: 'Input asset', exact: true}).click();
+  await page.getByRole('option', {name: /^stETH/}).click();
+  await expect(page.getByRole('textbox', {name: 'Amount in stETH'})).toBeVisible();
+  await page.getByRole('radio', {name: /Short/}).click();
+  await expect(page.getByRole('textbox', {name: 'Amount in ETH'})).toBeVisible();
+  await page.getByRole('button', {name: 'Input asset', exact: true}).click();
+  await expect(page.getByRole('option', {name: /^stETH/})).toHaveCount(0);
+  await expect(page.getByRole('option', {name: /^wstETH/})).toBeVisible();
+});
+
+test('rapid disconnected edits skip superseded queued converter searches', async ({page}) => {
+  await mount(page, {disconnected: true, delayMs: 50});
+  const amount = page.getByRole('textbox', {name: 'Amount in ETH'});
+  await amount.fill('0.1');
+  await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition').length)).toBe(1);
+  await amount.fill('0.2');
+  await page.waitForTimeout(120); // Cross the actual ticket debounce while the first SDK search is still running.
+  await amount.fill('0.3');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready', {timeout: 25_000});
+  const plans = await page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition'));
+  expect(plans.map(event => event.amount)).toEqual(['100000000000000000', '300000000000000000']);
+  expect(plans.every(event => event.walletAddress === '0x0000000000000000000000000000000000000001')).toBe(true);
+});
+
+test('rapid connected edits warm the first and latest tickets without planning superseded input', async ({page}) => {
+  await mount(page, {delayMs: 50});
+  const amount = page.getByRole('textbox', {name: 'Amount in ETH'});
+  await amount.fill('0.1');
+  await expect.poll(() => planCount(page)).toBe(1);
+  await amount.fill('0.2');
+  await page.waitForTimeout(120); // The middle edit crosses the warm-up debounce while the SDK is busy.
+  await amount.fill('0.3');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready', {timeout: 25_000});
+  const plans = await page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition' && event.purpose === 'ticket'));
+  expect(plans.map(event => event.amount)).toEqual(['100000000000000000', '300000000000000000']);
+  expect(plans.every(event => event.walletAddress === '0x1111111111111111111111111111111111111111')).toBe(true);
 });

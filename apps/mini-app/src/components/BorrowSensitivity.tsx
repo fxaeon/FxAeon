@@ -14,7 +14,7 @@ export function BorrowSensitivity({ debt, collateralUsd, limitBps }: { debt: big
   const highest = collateralUsd === null ? null : collateralScenarioLtv(debt, collateralUsd, -30);
   const empty = debt <= 0n || collateralUsd === 0n;
   if (empty) return null;
-  if (collateralUsd === null || current === null || stressed === null || highest === null || limitBps <= 0n) return <section className={styles.section} aria-label="Collateral sensitivity"><header className={styles.header}><h3>Collateral sensitivity</h3></header><p className={styles.sensitivityPrompt}>Sensitivity unavailable.</p></section>;
+  if (collateralUsd === null || current === null || stressed === null || highest === null || limitBps <= 0n) return null;
   const limit = Number(limitBps) / 100;
   const ceiling = Math.max(100, highest * 1.15, limit * 1.15);
   const x = (value: number) => 8 + (value + 30) / 60 * (width - 16);

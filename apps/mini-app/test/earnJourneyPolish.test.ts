@@ -247,8 +247,9 @@ test('withdrawal fees, configured cooldown, queued payout units and unknown term
   assert.match(queued, /fxUSD \/ USDC/);
   assert.match(queued, /Network fees apply to the withdrawal request and claim/);
   const missing = editor('fxUSD', false, null);
-  assert.match(missing, /Cooldown and fee unavailable/);
-  assert.equal((missing.match(/unavailable/g) ?? []).length, 1, 'missing terms have one shared explanation');
+  assert.doesNotMatch(missing, /Cooldown and fee unavailable/);
+  assert.match(missing, /Retry vault terms/);
+  assert.equal((missing.match(/unavailable/g) ?? []).length, 0, 'missing terms do not add placeholder captions');
   assert.match(missing, /aria-label="Retry vault terms"/);
   assert.doesNotMatch(missing, /24h|1% fee|0% fee/);
 });

@@ -9,7 +9,6 @@ import {
   Clock3,
   ChevronDown,
   ChevronRight,
-  CircleAlert,
   CircleDollarSign,
   Layers2,
   MoreHorizontal,
@@ -416,7 +415,7 @@ function SupportedValueCard({ displayTotalUsd, loading, refreshing, onRefresh, o
       <p className={`${presentation.valueNumber} ${balancePresentation.value}`} data-portfolio-value data-value-size={formattedTotal && formattedTotal.length > 16 ? 'extended' : formattedTotal && formattedTotal.length > 12 ? 'long' : undefined}>{formattedTotal !== null
         ? <SplitFigure value={formattedTotal} fractionClassName={balancePresentation.fraction} />
         : loading ? <MissingValue width="xl" status="loading" label="Loading portfolio value" />
-          : <span className={presentation.valueUnavailable} role="status" aria-label="Portfolio value unavailable"><CircleAlert size={16} aria-hidden="true" />Unavailable</span>}</p>
+          : <MissingValue width="xl" status="unavailable" label="Portfolio value unavailable" />}</p>
       <button type="button" aria-label="Refresh portfolio balances and positions" aria-busy={refreshing} title="Refresh balances and positions" disabled={refreshing || !onRefresh} onClick={onRefresh}>
         <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} aria-hidden="true" />
       </button>

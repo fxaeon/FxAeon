@@ -196,10 +196,14 @@ test('tiny-balance cold Max clears an oversized amount and never restores it whe
   await expect(max).toBeEnabled();
 });
 
-test('click-independent warm Max applies immediately and a manual edit cancels a cold request', async ({ page }) => {
+test('Max does no speculative work on mount or input edits, then reuses a verified tap result', async ({ page }) => {
   await mount(page);
   const amount = page.getByRole('textbox', { name: 'Amount in ETH' });
   const max = page.getByRole('button', { name: 'Calculate 100% after gas reserve' });
+  await amount.fill('0.3');
+  await page.getByRole('textbox', { name: 'Target leverage', exact: true }).fill('3');
+  await expect.poll(() => page.evaluate(() => globalThis.__tradeMaxHarness.requests.length)).toBe(0);
+  await max.click();
   await expect.poll(() => page.evaluate(() => globalThis.__tradeMaxHarness.requests.length)).toBe(1);
   await resolveRequest(page, 0, '0.9');
   await amount.fill('1');

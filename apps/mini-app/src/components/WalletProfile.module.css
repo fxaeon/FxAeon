@@ -36,7 +36,6 @@
 /* An unreadable total says so at text size inside the figure's line, with its retry. */
 .totalUnavailable { display: inline-flex; min-height: 1.02em; max-width: 100%; flex-wrap: wrap; align-items: center; column-gap: 8px; vertical-align: top; color: var(--mut); }
 .totalUnavailable > span { display: inline-flex; align-items: center; gap: 8px; }
-.totalUnavailable > span > svg { flex: 0 0 auto; }
 .totalUnavailable > :is(span, button) { font-size: var(--fs-body); font-weight: 500; letter-spacing: 0; line-height: 1.3; }
 .totalUnavailable button { display: inline-flex; min-height: 44px; align-items: center; padding: 0 4px; color: var(--mint-text); font-weight: 600; }
 .totalUnavailable button:disabled { opacity: .7; }

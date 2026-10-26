@@ -22,6 +22,9 @@
 .compact.compact .meta { margin-top: 4px; gap: 1px 4px; font-size: 12px; line-height: 1.3; }
 .compact .meta > :global([data-usd-state]) { line-height: 1.2; }
 .network { white-space: nowrap; }
+.network::before { content: '·'; margin-inline-end: 4px; }
+.meta:has(> [data-usd-state='unavailable']) > .network::before { content: none; }
+.meta:has(> [data-usd-state='unavailable']) > [aria-hidden='true'] { display: none; }
 .compact.compact .connector { position: absolute; top: calc(20px + var(--amount-gap) + .55 * var(--amount-size) - 6px); left: -15px; width: 12px; height: 12px; margin: 0; transform: rotate(-90deg); }
 .compact.compact .exact > :global([data-review-amount]) > span { font-size: 14px; }
 /* A single transfer gets the full-width amount hierarchy. Paired transfers

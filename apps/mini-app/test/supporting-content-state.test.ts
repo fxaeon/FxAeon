@@ -64,10 +64,10 @@ test('Borrow hides empty sensitivity and restores its retained shock only with u
   assert.match(text(populated), /62.50%/);
 });
 
-test('Borrow keeps an honest unavailable state when entered debt has no verified collateral value', () => {
+test('Borrow omits sensitivity when entered amounts do not have a verified valuation', () => {
   const { BorrowSensitivity } = load('BorrowSensitivity');
   const unavailable = BorrowSensitivity({ debt: 10n ** 18n, collateralUsd: null, limitBps: 8550n });
-  assert.match(text(unavailable), /Sensitivity unavailable/);
+  assert.equal(unavailable, null);
   assert.equal(elements(unavailable).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
   assert.equal(BorrowSensitivity({ debt: 10n ** 18n, collateralUsd: 0n, limitBps: 8550n }), null);
 });
@@ -102,7 +102,7 @@ test('Borrow sensitivity distinguishes empty amounts from unavailable valuation 
     { debt: unit, collateralUsd: null, limitBps: 0n },
   ]) {
     const tree = BorrowSensitivity(input);
-    assert.equal(text(tree), 'Collateral sensitivitySensitivity unavailable.');
+    assert.equal(tree, null);
     assert.doesNotMatch(text(tree), /Enter collateral and debt|Estimated LTV|Collateral change|0%/);
     assert.equal(elements(tree).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
   }

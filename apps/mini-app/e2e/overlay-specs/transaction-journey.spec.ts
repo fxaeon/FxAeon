@@ -5,12 +5,12 @@ import { FX_TOKENS } from '../../src/lib/fx/tokens';
 // The live components render deterministic local receipts. No wallet or RPC
 // is contacted; the amount deliberately differs from the accepted quote.
 const scenarios = [
-  { width: 320, height: 568, theme: 'dark', reduced: false },
-  { width: 390, height: 844, theme: 'dark', reduced: false },
-  { width: 390, height: 844, theme: 'dark', reduced: true },
-  { width: 412, height: 818, theme: 'dark', reduced: false },
-  { width: 480, height: 844, theme: 'dark', reduced: false },
-  { width: 1280, height: 900, theme: 'dark', reduced: false },
+  { width: 320, height: 568, theme: 'dark', reduced: false, missingUsd: true },
+  { width: 390, height: 844, theme: 'dark', reduced: false, missingUsd: false },
+  { width: 390, height: 844, theme: 'dark', reduced: true, missingUsd: false },
+  { width: 412, height: 818, theme: 'dark', reduced: false, missingUsd: false },
+  { width: 480, height: 844, theme: 'dark', reduced: false, missingUsd: false },
+  { width: 1280, height: 900, theme: 'dark', reduced: false, missingUsd: false },
 ] as const;
 
 for (const scenario of scenarios) test(`amounts stay truthful through wallet and receipt at ${scenario.width}px ${scenario.theme}${scenario.reduced ? ' reduced motion' : ''}`, async ({ page }, info) => {
@@ -21,10 +21,10 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   await page.emulateMedia({ reducedMotion: scenario.reduced ? 'reduce' : 'no-preference' });
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
   await openHarness(page, { presentationMode: true });
-  await page.evaluate(({ theme, usdc, fxusd }) => {
+  await page.evaluate(({ theme, usdc, fxusd, missingUsd }) => {
     document.documentElement.dataset.theme = theme;
     const h = (globalThis as any).__actionReviewHarness;
-    h.displayPrices = { ETH: 2691.56, USDC: 1, fxUSD: 0.9998 };
+    h.displayPrices = missingUsd ? undefined : { ETH: 2691.56, USDC: 1, fxUSD: 0.9998 };
     h.financialFacts = true;
     h.deferWalletResponse = true;
     h.deferReceipt = true;
@@ -44,7 +44,7 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
       { address: fxusd, topics: [topic, addressTopic(router), addressTopic(wallet)], data: `0x${(49741234567890123456n).toString(16).padStart(64, '0')}` },
     ];
     h.rerender();
-  }, { theme: scenario.theme, usdc: FX_TOKENS.USDC.address, fxusd: FX_TOKENS.fxUSD.address });
+  }, { theme: scenario.theme, usdc: FX_TOKENS.USDC.address, fxusd: FX_TOKENS.fxUSD.address, missingUsd: scenario.missingUsd });
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const viewport = page.locator('[data-review-viewport]');
   const cta = viewport.locator('[data-review-actions] button');
@@ -52,6 +52,15 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   await expect(cta).toHaveText('Borrow fxUSD');
   await expect(cta).toBeInViewport({ ratio: 1 });
   await expect(viewport.locator('[data-review-fact="Estimated fxUSD received"]')).toContainText('49.75');
+  if (scenario.missingUsd) {
+    const leg = viewport.locator('[data-amount-provenance="review"] [data-review-fact]').first();
+    const usd = leg.locator('[data-usd-state="unavailable"]');
+    const network = leg.locator('[data-network]');
+    await expect(usd).toHaveText('');
+    await expect(usd.getByRole('status', { name: 'USD value unavailable' })).toBeAttached();
+    await expect(network).toHaveText('Ethereum');
+    expect(await network.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none');
+  }
   const debt = viewport.getByRole('region', { name: 'Estimated position', exact: true }).locator('dl > div').filter({ hasText: 'Total debt' });
   await expect(debt).toContainText('50 fxUSD');
   await expect(viewport.locator('[data-review-fact="Liquidation price"]')).toContainText('$1,388.89');
@@ -119,6 +128,13 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   await expect(actual).toBeVisible();
   const received = actual.locator('[data-review-fact="Received"]');
   await expect(received).toContainText('≈ 49.74 fxUSD');
+  if (scenario.missingUsd) {
+    const usd = received.locator('[data-usd-state="unavailable"]');
+    await expect(usd).toHaveText('');
+    await expect(usd.getByRole('status', { name: 'USD value unavailable' })).toBeAttached();
+    await expect(received.locator('[data-network]')).toHaveCount(0);
+    await expect(received.locator('.flowSubline > span[aria-hidden="true"]')).toBeHidden();
+  }
   await expect(actual).not.toContainText('49.75');
   await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toContainText('Network fee');
   await expect(cta).toBeInViewport({ ratio: 1 });

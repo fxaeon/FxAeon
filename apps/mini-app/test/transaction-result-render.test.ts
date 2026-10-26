@@ -169,7 +169,8 @@ test('partial outcomes, bridge tracking and unknown-receipt fallback remain visi
     receipts: [{ ...receipts[0], movements: [], exactMovements: [], technicalMovements: [] }],
   });
   assert.match(confirmedEmptyReceipt, /aria-label="Confirmed transaction receipt"/);
-  assert.match(confirmedEmptyReceipt, /Token amounts<\/dt><dd>Unavailable/);
+  assert.match(confirmedEmptyReceipt, /Token amounts<\/dt><dd><span[^>]*aria-label="Token amounts unavailable"/);
+  assert.doesNotMatch(confirmedEmptyReceipt, />Unavailable</);
   assert.match(confirmedEmptyReceipt, /Receipt details/);
   assert.doesNotMatch(confirmedEmptyReceipt, /<dt>Received/);
 });
@@ -192,7 +193,8 @@ test('confirmed unknown-token fallback keeps technical evidence without replayin
     reviewedFacts: [{ label: 'Deposit', value: '100 fxUSD' }, { label: 'Estimated fxSAVE received', value: '90 fxSAVE' }],
   });
   assert.match(html, /aria-label="Confirmed transaction receipt"/);
-  assert.match(html, /Token amounts<\/dt><dd>Unavailable/);
+  assert.match(html, /Token amounts<\/dt><dd><span[^>]*aria-label="Token amounts unavailable"/);
+  assert.doesNotMatch(html, />Unavailable</);
   assert.doesNotMatch(html, /Reviewed terms|100 fxUSD|90 fxSAVE/);
   assert.match(html, /Unknown token 0x2222: 100000000 base units/);
   assert.match(html, /<summary>Receipt details/);

@@ -33,15 +33,15 @@ test('missing value placeholders distinguish unknown reads from verified values'
   assert.doesNotMatch(negative, /missing-value/);
 });
 
-test('unavailable placeholders are neutral, explicit, and support value or children', () => {
+test('unavailable values stay visually blank while retaining an accessible label and reserved width', () => {
   const unavailable = render(React.createElement(MissingValue, { status: 'unavailable', width: 'sm' }));
   assert.match(unavailable, /missing-value-sm missing-value-unavailable/);
   assert.match(unavailable, /aria-label="Value unavailable"/);
   assert.doesNotMatch(unavailable, /aria-label="Loading value"/);
-  assert.match(unavailable, /lucide-circle-alert/);
-  assert.match(unavailable, /class="[^"]*missing-value-icon[^"]*" aria-hidden="true"/);
+  assert.match(unavailable, /role="status"/);
+  assert.doesNotMatch(unavailable, /title=|lucide-circle-alert|missing-value-icon/);
   assert.doesNotMatch(unavailable, /missing-value-bar/);
-  assert.doesNotMatch(unavailable, />—</);
+  assert.match(unavailable, />\s*<\/span>$/);
 
   const unavailableByLoading = render(React.createElement(MissingValue, { loading: false }));
   assert.match(unavailableByLoading, /missing-value-unavailable/);
@@ -58,4 +58,15 @@ test('unavailable placeholders are neutral, explicit, and support value or child
   const wide = render(React.createElement(ValueOrSkeleton, { value: '—', width: 'xl' }));
   assert.match(wide, /missing-value-xl/);
   assert.doesNotMatch(wide, /style=/);
+});
+
+test('generic value placeholder also blanks explicit unavailable and unquoted sentinels', () => {
+  for (const value of ['Unavailable', 'Not quoted']) {
+    const html = render(React.createElement(ValueOrSkeleton, { value }));
+    assert.match(html, /aria-label="Value unavailable"/);
+    assert.match(html, /missing-value-unavailable/);
+    assert.doesNotMatch(html, new RegExp(`>${value}<`));
+  }
+  const labeled = render(React.createElement(ValueOrSkeleton, { value: 'Unavailable', label: 'Gas price unavailable' }));
+  assert.match(labeled, /aria-label="Gas price unavailable"/);
 });

@@ -77,7 +77,6 @@
 .readyClaim button:hover { background: color-mix(in srgb, var(--mint) 12%, transparent); }
 .readyClaim button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
 .unavailableMetric { color: var(--mut); font-size: var(--fs-caption); font-weight: 400; }
-.marketFreshness { display: block; margin-top: 4px; color: var(--warn); font-size: var(--fs-caption); line-height: 1.4; }
 .riskSummary { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .riskSummary p { margin: 0; }
 .riskSummary nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 4px; }

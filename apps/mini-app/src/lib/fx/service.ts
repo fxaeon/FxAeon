@@ -104,7 +104,8 @@ const ETH_POSITION_INPUT_TOKENS = [
   sdkTokens.usdt,
   sdkTokens.fxUSD,
 ] as const;
-const ETH_SHORT_OUTPUT_TOKENS = ETH_POSITION_INPUT_TOKENS.filter(
+// Native SDK conversion paths support this set for both short input and output.
+const ETH_SHORT_POSITION_TOKENS = ETH_POSITION_INPUT_TOKENS.filter(
   (token) => token.toLowerCase() !== sdkTokens.stETH.toLowerCase(),
 );
 const BTC_POSITION_TOKENS = [sdkTokens.WBTC, sdkTokens.usdc, sdkTokens.usdt, sdkTokens.fxUSD] as const;
@@ -123,10 +124,10 @@ function assertAllowedProtocolToken(
   return address;
 }
 
-function positionInputToken(value: string, market: "ETH" | "BTC"): `0x${string}` {
+function positionInputToken(value: string, market: "ETH" | "BTC", side: "long" | "short"): `0x${string}` {
   return assertAllowedProtocolToken(
     value,
-    market === "ETH" ? ETH_POSITION_INPUT_TOKENS : BTC_POSITION_TOKENS,
+    market === "ETH" ? side === "short" ? ETH_SHORT_POSITION_TOKENS : ETH_POSITION_INPUT_TOKENS : BTC_POSITION_TOKENS,
     "position input token",
   );
 }
@@ -135,7 +136,7 @@ function positionOutputToken(value: string, market: "ETH" | "BTC", type: "long" 
   const allowed = market === "BTC"
     ? BTC_POSITION_TOKENS
     : type === "short"
-      ? ETH_SHORT_OUTPUT_TOKENS
+      ? ETH_SHORT_POSITION_TOKENS
       : ETH_POSITION_INPUT_TOKENS;
   return assertAllowedProtocolToken(value, allowed, "position output token");
 }
@@ -244,7 +245,7 @@ export function createFxService(): FxSdkFacade {
 export async function planIncreasePosition(request: IncreasePositionRequest): Promise<PlannedRoute[]> {
   validateCommonPositionRequest({ ...request, allowNew: true });
   assertPositiveAmount(request.amount, "position input amount");
-  const inputTokenAddress = positionInputToken(request.inputTokenAddress, request.market);
+  const inputTokenAddress = positionInputToken(request.inputTokenAddress, request.market, request.type);
   await assertConfiguredPublicClientChain(1);
   const funding = Promise.resolve().then(() => readTradeFundingRate(request.market, request.type)).catch(() => undefined);
   const accounting = ethLongAccounting(request.market, request.type, request.positionId);

@@ -14,10 +14,12 @@ const source = fs.readFileSync(process.env.FX_SDK_BENCHMARK_SOURCE || entry, 'ut
 const original = `    const poolData = await this.getPoolData();
     const rateRes = await this.price.getRateRes();
     const oraclePrice = await this.price.getOraclePrice();
+    const buyPrice = cBN(await this.price.getBuyPrice()).times(1e18).div(rateRes).toString();
+    const sellPrice = cBN(await this.price.getSellPrice()).times(1e18).div(rateRes).toString();
 `;
 const methodStart = source.indexOf('  async getPoolInfo() {');
 const readsStart = source.indexOf('    // Only the view reads may share', methodStart);
-const quotesStart = source.indexOf('    const buyPrice = ', methodStart);
+const quotesStart = source.indexOf('    const averagePrice = ', methodStart);
 assert.ok(readsStart > methodStart && quotesStart > readsStart, 'install the safe view-read patch before benchmarking');
 const concurrentReads = source.slice(readsStart, quotesStart);
 function load(parallelize) {
@@ -83,7 +85,7 @@ const hash = value => createHash('sha256').update(canonicalJson(value)).digest('
 const median = values => [...values].sort((a,b)=>a-b)[Math.floor(values.length / 2)];
 (async()=>{
  const repetitions = 3;
- console.log(JSON.stringify({runtime:process.version,repetitions,fixedRpcDelayMs:100,sourceSha256:createHash('sha256').update(source).digest('hex'),profile:'safe-view-reads-only',excludedFinalMulticallDelay:true}));
+ console.log(JSON.stringify({runtime:process.version,repetitions,fixedRpcDelayMs:100,sourceSha256:createHash('sha256').update(source).digest('hex'),profile:'parallel-views-and-isolated-spots',excludedFinalMulticallDelay:true}));
  for(const [operation,pool] of [['getPoolInfo','wstETH'],['getPoolInfo','WBTC'],['getPoolInfo','wstETH_short'],['getPoolInfo','WBTC_short'],['depositAndMint','wstETH'],['depositAndMint','WBTC']]) {
   const samples=[];
   let resultHash;
@@ -102,6 +104,6 @@ const median = values => [...values].sort((a,b)=>a-b)[Math.floor(values.length /
    samples.push({serialMs:serial.ms,parallelMs:parallel.ms,logicalReads:serial.logical.length,serialRequests:serial.rpc,parallelRequests:parallel.rpc});
   }
   const serialMedianMs=median(samples.map(s=>s.serialMs)),parallelMedianMs=median(samples.map(s=>s.parallelMs));
-  console.log(JSON.stringify({operation,pool,profile:'safe-view-reads-only',repetitions,fixedRpcDelayMs:100,excludedFinalMulticallDelay:true,serialMedianMs,parallelMedianMs,savedMedianMs:serialMedianMs-parallelMedianMs,serialResultSha256:resultHash,parallelResultSha256:resultHash,identicalCompleteResult:true,identicalLogicalReads:true,samples}));
+  console.log(JSON.stringify({operation,pool,profile:'parallel-views-and-isolated-spots',repetitions,fixedRpcDelayMs:100,excludedFinalMulticallDelay:true,serialMedianMs,parallelMedianMs,savedMedianMs:serialMedianMs-parallelMedianMs,serialResultSha256:resultHash,parallelResultSha256:resultHash,identicalCompleteResult:true,identicalLogicalReads:true,samples}));
  }
 })().catch(e=>{console.error(e);process.exitCode=1});

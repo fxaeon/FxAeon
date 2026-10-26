@@ -25,6 +25,39 @@ export type PrefetchedRoutes = PlannedRoute | readonly PlannedRoute[];
 
 export const ROUTE_PREFETCH_TTL_MS = 30_000;
 
+/** Advisory plans cannot cancel SDK converter searches once started. Keep at
+ * most one pending edit, so a slow plan is followed by the latest ticket only.
+ * Explicit Review does not use this queue. */
+export class LatestOnlyWarmupQueue {
+  private running = false;
+  private pending: (() => Promise<void>) | null = null;
+
+  submit(task: () => Promise<void>): void {
+    if (this.running) {
+      this.pending = task;
+      return;
+    }
+    this.run(task);
+  }
+
+  discardPending(): void {
+    this.pending = null;
+  }
+
+  private run(task: () => Promise<void>): void {
+    this.running = true;
+    // A UI deadline cannot stop SDK work. Keep this lane until the actual
+    // task settles; releasing it on a timer would accumulate live searches.
+    // Explicit Review remains independent and bounds advisory reuse itself.
+    void Promise.resolve().then(task).catch(() => {}).finally(() => {
+      this.running = false;
+      const next = this.pending;
+      this.pending = null;
+      if (next) this.run(next);
+    });
+  }
+}
+
 function finiteNumberKey(value: number, label: string): string {
   if (!Number.isFinite(value)) throw new TypeError(`${label} must be finite`);
   return value.toString();

@@ -11,7 +11,7 @@ test.describe('fixed dock clearance', () => {
     await installRefinementGalleryFixtures(page);
     await page.goto('/borrow');
     await expect(page.getByRole('button', { name: 'Retry borrowing limit', exact: true })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText('Live limit unavailable', { exact: true })).toBeVisible();
+    await expect(page.getByText('Live limit unavailable', { exact: true })).toHaveCount(0);
     const retry = await page.getByRole('button', { name: 'Retry borrowing limit', exact: true }).boundingBox();
     expect(retry!.height).toBeGreaterThanOrEqual(44);
     await page.evaluate(async () => document.fonts.ready);
@@ -85,7 +85,7 @@ test('baseline forms keep their action above navigation and Move stays centered'
     await page.goto(route);
     if (route === '/borrow') {
       await expect(page.getByRole('button', { name: 'Retry borrowing limit', exact: true })).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText('Live limit unavailable', { exact: true })).toBeVisible();
+      await expect(page.getByText('Live limit unavailable', { exact: true })).toHaveCount(0);
     }
     const action = page.locator('.reviewTrigger .button-primary');
     await expect(action).toBeVisible();
