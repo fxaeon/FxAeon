@@ -140,7 +140,7 @@ function draftBoolean(value: unknown, fallback = false): boolean {
 function ReceiveAmountPlaceholder({ amount, loading }: { amount: string; loading: boolean }) {
   const empty = amount.trim() === '' || /^(?:0+(?:\.0*)?|\.0+)$/.test(amount.trim());
   return <strong className={moveStyles.receiveAmount} data-empty="true">
-    {empty ? '0.00' : <MissingValue width="lg" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading receive estimate' : 'Receive estimate unavailable'} />}
+    {empty ? '0.00' : <MissingValue width="lg" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading receive amount' : 'Receive amount unavailable'} />}
   </strong>;
 }
 
@@ -621,10 +621,10 @@ export default function MovePage() {
                 <span className={moveStyles.receiveAsset}>{!advanced && <TokenIcon symbol={token} size={24} />}<strong>{advanced ? 'Custom token' : token}</strong></span>
               </div>
               {quotePending ? <p className={moveStyles.receiveCaption} aria-hidden="true"><span className={moveStyles.receiveCaptionPlaceholder} /></p> : <p className={moveStyles.receiveCaption} role="status">
-                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <><span>Estimated</span><span aria-hidden="true"> · </span><AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} /></>
+                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} />
                   : advanced ? 'Custom route checked at review'
                   : recipientError ? 'Check the destination address' : customRecipient && !recipientInput.trim() ? 'Enter a recipient to preview'
-                  : previewStatus === 'expired' ? 'Quote expired. Refresh below' : 'Receipt estimate unavailable'}
+                  : previewStatus === 'expired' ? 'Quote expired. Refresh below' : 'Receive amount unavailable'}
               </p>}
             </section>
             {amountWei && !advanced && (!customRecipient || (isAddress(recipientInput.trim()) && !/^0x0{40}$/i.test(recipientInput.trim()))) && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
@@ -638,7 +638,7 @@ export default function MovePage() {
             </section>}
             {Boolean(amountWei) && nativeShortfall && <p className={moveStyles.gasNote} data-shortfall role="alert">
               {preview?.sourceGas !== undefined
-                ? `Add ETH on ${sourceName}. Your balance does not cover the bridge fee and estimated transaction gas.`
+                ? `Add ETH on ${sourceName}. Your balance does not cover the bridge fee and required network fees.`
                 : `Add ETH on ${sourceName}. Your balance does not cover the bridge fee; transaction gas is also required.`}
             </p>}
 

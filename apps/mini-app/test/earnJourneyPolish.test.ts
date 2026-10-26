@@ -290,14 +290,29 @@ test('optional help does not introduce signing authority, price-oracle derivatio
   assert.match(pageText, /config=\{activeReadWarnings.includes\('vault configuration'\) \? null : config\}/, 'stale configuration cannot appear current in choices');
 });
 
-test('large vault totals keep whole-unit display precision and exact title values', () => {
+test('large vault totals keep compact USD summary and exact underlying amounts in vault details', () => {
   const totalAssetsWei = parseUnits('70893681.65091987654321', 18);
   const props = { data: null, connected: false, loading: false, onRefresh: async () => {}, readWarnings: [], config: { totalAssetsWei },
     fxSaveApy: null, fxSaveApyStatus: 'unavailable', onClaim: () => {}, claimTriggerRef: { current: null } };
   const html = renderToStaticMarkup(evaluate<React.ReactElement>([
     helpers, declaration(page, 'SavingsSummary'), 'SavingsSummary(props);',
   ].join('\n'), { props, useUsdPrices: () => quote({ prices: { fxSAVE: 1.12, fxUSDBasePool: 1.01 }, updatedAt: Date.now() }) }));
-  assert.match(html, /title="70893681\.65091987654321 fxSP"/);
-  assert.match(html, /≈ 70,893,681 fxSP<\/small>/);
-  assert.doesNotMatch(html, />70,893,681\.65091 fxSP</);
+  assert.match(html, /title="\$71,602,618\.47"/);
+  assert.match(html, />\$71\.60?M<\/h2>/);
+  assert.doesNotMatch(html, /Underlying vault assets|70,893,681 fxSP/);
+  const config = { totalAssetsWei, totalSupplyWei: parseUnits('63000000.123456', 18), expenseRatio: 0n, harvesterRatio: 0n, threshold: 0n };
+  const details = renderToStaticMarkup(evaluate<React.ReactElement>([
+    helpers, declaration(page, 'formatVaultRatio'), declaration(page, 'VaultDetails'), 'VaultDetails({ config });',
+  ].join('\n'), {
+    config,
+    Disclosure: ({ children }: { children: React.ReactNode }) => React.createElement('section', null, children),
+    MetricRows: ({ rows }: { rows: { label: string; value: React.ReactNode }[] }) => React.createElement('dl', null, rows.map(row => React.createElement('div', { key: row.label }, React.createElement('dt', null, row.label), React.createElement('dd', null, row.value)))),
+    VaultRiskNotice: () => null,
+  }));
+  assert.match(details, /Underlying vault assets/);
+  assert.match(details, /title="70893681\.65091987654321 fxSP"/);
+  assert.match(details, /≈ 70,893,681 fxSP<\/span>/);
+  assert.match(details, /title="63000000\.123456 fxSAVE"/);
+  assert.match(details, /≈ 63,000,000 fxSAVE<\/span>/);
+  assert.doesNotMatch(details, />70,893,681\.65091 fxSP</);
 });

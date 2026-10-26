@@ -163,7 +163,7 @@ test('Move quote pending state uses labeled placeholders without unavailable or 
   const quote = page.getByRole('region', { name: 'Bridge quote' });
   await expect(quote.getByRole('status', { name: 'Loading minimum received' })).toHaveCount(1);
   await expect(quote.getByRole('status', { name: 'Loading bridge fee' })).toHaveCount(1);
-  await expect(page.getByRole('status', { name: 'Loading receive estimate' })).toHaveCount(1);
+  await expect(page.getByRole('status', { name: 'Loading receive amount' })).toHaveCount(1);
   await expect(quote.getByText('Unavailable', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Getting a live quote…', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Refresh quote', exact: true })).toBeDisabled();
@@ -174,7 +174,7 @@ test('Move quote pending state uses labeled placeholders without unavailable or 
   });
   await expect(quote.locator('dt').filter({ hasText: /^Minimum received$/ }).locator('xpath=following-sibling::dd')).toContainText('0.999 fxUSD');
   await expect(quote.locator('dt').filter({ hasText: /^Bridge fee$/ }).locator('xpath=following-sibling::dd')).toContainText('0.001 ETH');
-  await expect(page.getByRole('status', { name: 'Loading receive estimate' })).toHaveCount(0);
+  await expect(page.getByRole('status', { name: 'Loading receive amount' })).toHaveCount(0);
 });
 
 test('Move keeps a late quote bound to the current amount and recipient', async ({ page }) => {
@@ -217,7 +217,7 @@ test('Move keeps a late quote bound to the current amount and recipient', async 
     const h = (window as Window & { __moveSessionHarness: any }).__moveSessionHarness;
     h.preview.pending[1].update({ ...h.preview.current, sourceGas: 2n * 10n ** 15n });
   });
-  await expect(page.getByRole('alert')).toContainText('Your balance does not cover the bridge fee and estimated transaction gas');
+  await expect(page.getByRole('alert')).toContainText('Your balance does not cover the bridge fee and required network fees');
   const review = page.getByRole('button', { name: 'Add ETH on Ethereum for fees' });
   await expect(review).toBeDisabled();
   await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.executionCount)).toBe(0);

@@ -70,7 +70,7 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
   await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some((event) => event.name === 'readLeverageBounds' && event.end !== undefined))).toBe(true);
 }
 const planCount = (page: Page) => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').length);
-const outcome = (page: Page) => page.getByRole('group', { name: 'Estimated position' });
+const outcome = (page: Page) => page.getByRole('group', { name: 'Position preview' });
 const fact = (page: Page, label: string) => outcome(page).locator(`[data-outcome-fact="${label}"] dd`);
 const displayedFact = (page: Page, label: string) => fact(page, label).locator(':scope > span').first();
 /** A preview row's estimate, as displayed on the ticket. */

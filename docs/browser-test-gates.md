@@ -74,6 +74,12 @@ amount and ticker. Move form tests delay a quote and compare the Receive panel,
 quote summary and CTA rectangles before/after resolution (1px tolerance), while
 requiring placeholders rather than false Unavailable values during the debounce.
 
+Portfolio startup checks compare the public discovery and market-card geometry
+before provider initialization, during wallet restoration with no known account,
+and after disconnection resolves. A known authenticated wallet keeps its account
+loading state until verified reads settle. Borrow checks cover ON/OFF, unavailable
+data, neutral labels and state-only color at narrow phone widths.
+
 Use [protected Ethereum fork tests](testing.md#protected-ethereum-fork-tests) for their supported protocol execution. Real native Telegram login/recovery, physical wallet handoff, live Base delivery, and emitted SDK chunk loading require their own appropriately scoped checks.
 
 Do not describe a mocked provider run as live authentication or a rendered review as a signed transaction. Record the revision, fixture, environment, and limitations with each result.

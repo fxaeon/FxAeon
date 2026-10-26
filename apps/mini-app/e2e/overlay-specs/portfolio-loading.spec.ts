@@ -68,32 +68,41 @@ async function portfolioLandmarks(page: Page) {
 }
 
 for (const width of [320, 393, 480, 1280]) {
-  test(`the first paint draws Portfolio in the place the live page takes at ${width}px`, async ({ page }) => {
+  test(`first visitors see public Explore through provider startup at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1700 });
-    await open(page, 'provider');
-    const fallback = await portfolioLandmarks(page);
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await open(page, 'wallet');
-    const live = await portfolioLandmarks(page);
-    // Everything below the top bar sits exactly where the live page puts it.
-    expect({ ...fallback, topBarActions: null }).toEqual({ ...live, topBarActions: null });
-    expect(fallback.figure).not.toBeNull();
-    expect(fallback.actions).toHaveLength(4);
-    expect(fallback.assetRows).toHaveLength(3);
-    expect(fallback.marketCards).toHaveLength(0);
-    expect(fallback.portfolioTabs).toEqual([
-      ['Tokens', 'true', 'portfolio-tab-panel'], ['DeFi', 'false', 'portfolio-tab-panel'], ['Activity', 'false', 'portfolio-tab-panel'],
-    ]);
-    await expect(page.getByRole('heading', { name: 'Markets', exact: true })).toHaveCount(0);
-    // The fallback never answers the live page's own lookups (scroll area or market cards).
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
-    await open(page, 'provider');
-    expect(await page.locator('.app-content-tabs, .portfolio-market-card, [data-shell-tabs], [data-header-wallet-control]').count()).toBe(0);
-    // The wallet control keeps its height; its width only follows the label text.
-    expect(fallback.topBarActions![3]).toBe(live.topBarActions![3]);
-    expect(Math.abs(fallback.topBarActions![2] - live.topBarActions![2])).toBeLessThanOrEqual(8);
+    let firstPaint: number[][] | undefined;
+    for (const stage of ['provider', 'wallet', 'disconnected']) {
+      await open(page, stage);
+      await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
+      await expect(page.locator('#portfolio-explore-heading')).toContainText('moves with you.');
+      await expect(page.locator('[data-product]')).toHaveCount(4);
+      await expect(page.locator('[data-portfolio-value], [aria-label="Portfolio views"], [class*="quickActions"]')).toHaveCount(0);
+      const landmarks = await page.locator('[data-product], [data-market-placeholder], .portfolio-market-card').evaluateAll(elements => elements.map(element => { const r = element.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
+      if (stage === 'provider') firstPaint = landmarks;
+      else expect(landmarks, 'public cards retain their first-paint geometry').toEqual(firstPaint);
+      const geometry = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth }));
+      expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+    }
   });
 }
+
+test('a known returning wallet waits for verification and then shows its account', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await open(page, 'restoring');
+  await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Tokens', exact: true })).toBeVisible();
+  await expect(page.locator('.missing-value-xl .missing-value-bar')).toBeVisible();
+  await expect(page.locator('[data-portfolio-value]')).not.toContainText('$0');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await open(page, 'reads');
+  await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+  await expect(page.locator('.missing-value-xl .missing-value-bar')).toBeVisible();
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
+  await open(page, 'loaded');
+  await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+  await expect(page.locator('[data-portfolio-value]')).toContainText('$');
+});
 
 test('placeholders hold the loaded figure line, so the page does not move when values land', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 1400 });
@@ -282,7 +291,7 @@ test('the live page takes over the first paint without fading in a second time',
   const samples = await page.evaluate(`(async () => {
     const read = () => {
       const content = document.querySelector('.app-content > *');
-      const bar = document.querySelector('.missing-value-xl .missing-value-bar');
+      const bar = document.querySelector('#portfolio-explore-heading');
       return { opacity: Number(getComputedStyle(content).opacity), bar: Math.round(bar.getBoundingClientRect().top) };
     };
     const out = [read()];
@@ -290,7 +299,7 @@ test('the live page takes over the first paint without fading in a second time',
     for (let frame = 0; frame < 10; frame += 1) { await new Promise((done) => requestAnimationFrame(() => done())); out.push(read()); }
     return out;
   })()`) as Array<{ opacity: number; bar: number }>;
-  await expect(page.getByRole('button', { name: 'Refresh portfolio balances and positions' })).toBeAttached();
+  await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
   for (const sample of samples) expect(sample).toEqual(samples[0]);
   expect(samples[0].opacity).toBe(1);
 });

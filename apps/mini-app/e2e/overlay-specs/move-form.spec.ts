@@ -111,7 +111,7 @@ test('Move keeps failed quotes and invalid recipients clear with enlarged text',
   await mount(page, 320);
   await page.evaluate(() => { (globalThis as any).__moveForm.failQuote = true; document.documentElement.style.fontSize = '32px'; });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  await expect(page.getByRole('status').filter({ hasText: 'Receipt estimate unavailable' })).toContainText('Receipt estimate unavailable');
+  await expect(page.getByRole('status').filter({ hasText: 'Receive amount unavailable' })).toContainText('Receive amount unavailable');
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('textbox', { name: 'Destination wallet', exact: true }).fill('invalid');
   await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');
@@ -150,7 +150,7 @@ test('Move canonical quote pending-to-ready preserves receive, quote and CTA geo
   const quote = page.getByRole('region', { name: 'Bridge quote', exact: true });
   const cta = page.getByRole('button', { name: 'Connect wallet', exact: true });
   await expect(quote.getByRole('button', { name: 'Refresh quote', exact: true })).toBeDisabled();
-  await expect(receive.getByRole('status', { name: 'Loading receive estimate' })).toHaveCount(1);
+    await expect(receive.getByRole('status', { name: 'Loading receive amount' })).toHaveCount(1);
   await expect(quote.getByRole('status', { name: 'Loading minimum received' })).toHaveCount(1);
   await expect(quote.getByRole('status', { name: 'Loading bridge fee' })).toHaveCount(1);
   const measure = async () => ({

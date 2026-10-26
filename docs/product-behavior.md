@@ -20,9 +20,17 @@ Positions, borrowing, and fxSAVE accounting use Ethereum. Base is a supported br
 
 When disconnected, Portfolio remains a public starting point: it links the four products and shows ETH/BTC market price, 24-hour change, and a 24-hour trend. These market displays are not wallet balances or transaction inputs.
 
+First paint uses that same public presentation while wallet providers initialize.
+The account skeleton appears only after an authenticated selected wallet is known;
+wallet restoration does not manufacture a connected account or a zero balance.
+
 ## Inputs and previews
 
 A preview describes its matching ticket. Amount, asset, direction, recipient, or wallet changes invalidate it; stale values must not describe a newer intent.
+
+Forms use concise outcome labels (Receive, Current → After) without repeating
+“estimated”. Approximation marks, freshness checks and the detailed review
+remain unchanged; shorter wording does not turn a public quote into a guarantee.
 
 Trade's split shows debt and the trader's share, with preview context separate from a signed plan. Borrow derives its displayed limit and LTV from supported collateral and pool conditions. Move uses a live estimated receive amount when available; an unavailable quote is not zero.
 
@@ -53,6 +61,10 @@ hours first, with annualized APR as secondary context. Historical charges and
 their period average use the same eight-hour basis. Short-pool earnings are
 not folded into the chart's gross whole-collateral basis; historical values are
 not a current quote or an earned return.
+
+Borrow places the verified state beside its label: “Funding status: ON” or
+“Funding status: OFF”. Only ON is red and OFF green; the eight-hour rate remains
+separate. Loading or failed reads never imply OFF.
 
 ## Position rows and units
 

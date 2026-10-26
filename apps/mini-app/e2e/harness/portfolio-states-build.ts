@@ -35,11 +35,11 @@ const mocks: Record<string, string> = {
   'next/link': `import React from 'react'; export default React.forwardRef(function Link({ href, children, prefetch, scroll, replace, ...props }, ref) { return <a ref={ref} href={typeof href === 'string' ? href : '#'} {...props} onClick={(event) => { event.preventDefault(); props.onClick?.(event); }}>{children}</a>; });`,
   'next/navigation': `export const useRouter = () => ({ push() {}, replace() {}, back() {}, prefetch() {} }); export const usePathname = () => globalThis.__portfolioStates.route; export const useSearchParams = () => new URLSearchParams();`,
   '@/lib/wallet': `${shared}
-const ready = () => !['wallet', 'timeout'].includes(stage());
+const ready = () => !['wallet', 'timeout', 'restoring'].includes(stage());
 export const isWalletConnectCancellation = () => false;
 export function useWalletReadyTimeout(isReady) { return !isReady && stage() === 'timeout'; }
 export function usePrivyWallet() {
-  const address = ready() && stage() !== 'disconnected' ? '${WALLET}' : undefined;
+  const address = (ready() || stage() === 'restoring') && stage() !== 'disconnected' ? '${WALLET}' : undefined;
   return { ready: ready(), authenticated: Boolean(address), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
     selectedWallet: address ? { address } : null, connect: async () => {}, disconnect: async () => {}, switchChain: async () => {}, sendTransaction: async () => {} };
 }`,

@@ -3,15 +3,12 @@
 import { useLayoutEffect, type CSSProperties } from 'react';
 import { usePathname } from 'next/navigation';
 import {
-  ArrowDownToLine,
   ArrowLeftRight,
-  ArrowUpFromLine,
   CandlestickChart,
   ChevronDown,
   CircleDollarSign,
   Home,
   Menu,
-  MoreHorizontal,
   PiggyBank,
   RefreshCw,
   Search,
@@ -25,9 +22,11 @@ import control from './HeaderWalletControl.module.css';
 import navigation from './ShellNavigation.module.css';
 import layout from './ProductLayout.module.css';
 import portfolio from './PortfolioWorkspace.module.css';
-import balance from './BalanceSummary.module.css';
-import assets from './PortfolioAssets.module.css';
-import assetRows from './AssetPresentation.module.css';
+import { PortfolioExploreView } from './PortfolioExploreView';
+import explore from './PortfolioExplore.module.css';
+import market from './trade-surfaces.module.css';
+import TokenIcon from './TokenIcon';
+import { MissingValue } from './MissingValue';
 import activity from './WalletActivity.module.css';
 import account from '@/app/AccountWorkspace.module.css';
 import history from '@/app/history/History.module.css';
@@ -36,9 +35,8 @@ import { DesktopSidebar } from './DesktopSidebar';
 
 /*
  * The first paint, before the wallet providers load. It draws the app shell
- * (top bar and dock) and, on Portfolio, the page itself with the same classes
- * as the real page: fixed labels and controls as they will be, and every value
- * that still has to be read as a placeholder in its final place. Nothing here
+ * (top bar and dock) and, on Portfolio, public discovery with the same classes
+ * as the live page. Only public market values wait in their final places. Nothing here
  * can be focused or read out; the live page replaces it in place.
  *
  * Presentation only: wallet initialization must not be needed to paint it, so
@@ -158,60 +156,11 @@ function ShellDock({ pathname }: { pathname: string }) {
   </div>;
 }
 
-const QUICK_ACTIONS: { label: string; icon: LucideIcon }[] = [
-  { label: 'Send', icon: ArrowUpFromLine },
-  { label: 'Receive', icon: ArrowDownToLine },
-  { label: 'Trade', icon: CandlestickChart },
-  { label: 'More', icon: MoreHorizontal },
-];
-
-/** Portfolio first paint mirrors the account balance and selected Tokens view. */
+/** Unknown wallet state never implies account holdings. */
 function PortfolioSilhouette() {
   return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
     <h1 className="sr-only">Portfolio</h1>
-    <div className={portfolio.dashboard}>
-      <div className={portfolio.primary}>
-        <section className={`${portfolio.valueCard} ${balance.hero}`}>
-          <div className={portfolio.valueTop}>
-            <p className={`${portfolio.valueNumber} ${balance.value}`}><span className="missing-value missing-value-xl"><span className="missing-value-bar" /></span></p>
-            <button type="button" tabIndex={-1}><RefreshCw size={18} aria-hidden="true" /></button>
-          </div>
-          <section aria-labelledby="portfolio-fallback-actions-title">
-            <h2 id="portfolio-fallback-actions-title" className="sr-only">Actions</h2>
-            <div className={portfolio.quickActions}>
-              {QUICK_ACTIONS.map(({ label, icon: Icon }) => <button key={label} type="button" tabIndex={-1} className={portfolio.quickAction}>
-                <span><Icon className="h-5 w-5" aria-hidden="true" /></span><strong>{label}</strong>
-              </button>)}
-            </div>
-          </section>
-        </section>
-        <div className={portfolio.sectionToolbar}>
-          <div className={portfolio.sectionNav} role="tablist" aria-label="Portfolio views">
-          <button id="portfolio-tab-tokens" type="button" role="tab" aria-selected="true" aria-controls="portfolio-tab-panel" tabIndex={-1}>Tokens</button>
-          <button id="portfolio-tab-defi" type="button" role="tab" aria-selected="false" aria-controls="portfolio-tab-panel" tabIndex={-1}>DeFi</button>
-          <button id="portfolio-tab-activity" type="button" role="tab" aria-selected="false" aria-controls="portfolio-tab-panel" tabIndex={-1}>Activity</button>
-          </div>
-          <div className={portfolio.sectionFilter}>
-            <div className={assets.networkSelect}>
-              <button type="button" className={assets.networkTrigger} disabled tabIndex={-1} aria-label="Portfolio network: All networks" aria-haspopup="menu" aria-expanded="false">
-                <span>All networks</span><ChevronDown size={15} aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className={portfolio.tabPanel} role="tabpanel" id="portfolio-tab-panel" aria-labelledby="portfolio-tab-tokens" tabIndex={-1}>
-          <section className={`${assets.assets} ${assets.ledgerSurface}`}>
-            <h2 id="portfolio-assets-heading" className="sr-only">Wallet assets</h2>
-            <div className={`${assetRows.loadingList} ${assets.loadingList}`}>
-              {[0, 1, 2].map((row) => <div key={row} className={assetRows.loadingRow}>
-                <span className={`${assetRows.loadingIcon} skeleton`} />
-                <span className={assetRows.loadingName}><span className="skeleton" /><span className="skeleton" /></span>
-                <span className={assetRows.loadingWorth}><span className="skeleton" /><span className="skeleton" /></span>
-              </div>)}
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
+    <PortfolioExploreView connect={<button type="button" tabIndex={-1} className={`button button-primary ${explore.connect}`}>Connect wallet</button>}
+      markets={<>{['ETH', 'BTC'].map(symbol => <div key={symbol} className={`${market.marketMiniCard} portfolio-market-card`} data-market-placeholder={symbol}><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><TokenIcon symbol={symbol === 'BTC' ? 'WBTC' : 'ETH'} size={28} /><strong className="text-[13px]">{symbol}</strong></span><span className="text-[11px] font-semibold text-mut"><MissingValue width="md" /></span></div><p className="mt-3 text-display text-[20px] font-semibold tabular-nums"><MissingValue width="lg" /></p><div className="market-chart-compact mt-2 h-[54px]"><div className="market-chart-skeleton h-full" /></div></div>)}</>} />
   </div>;
 }

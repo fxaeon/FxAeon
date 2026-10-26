@@ -17,7 +17,7 @@ import { ProviderLoadingState } from '../../src/components/ProviderLoadingState'
  * - loaded / empty / unavailable / dust: settled reads
  * - positions: settled reads with two open positions and their brake reads
  */
-export type PortfolioStage = 'provider' | 'handoff' | 'wallet' | 'timeout' | 'reads' | 'loaded' | 'empty' | 'unavailable' | 'partial' | 'disconnected' | 'positions' | 'dust';
+export type PortfolioStage = 'provider' | 'restoring' | 'handoff' | 'wallet' | 'timeout' | 'reads' | 'loaded' | 'empty' | 'unavailable' | 'partial' | 'disconnected' | 'positions' | 'dust';
 type HarnessState = { stage: PortfolioStage; route: string; theme: 'official' | 'dark' | 'light'; handoff?: () => void };
 
 const state = ((globalThis as { __portfolioStates?: Partial<HarnessState> }).__portfolioStates ?? {}) as HarnessState;

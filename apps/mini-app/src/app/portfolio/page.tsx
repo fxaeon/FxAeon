@@ -188,13 +188,11 @@ function PortfolioWallet() {
     void loadProtocol();
   }, [identity, loadProtocol, realtime.latestBlockNumber, realtime.status, walletAddress]);
 
-  // A view of this same tree, not a separate component: when the wallet settles,
-  // React keeps its controls (the actions, the network choice) instead of remounting them.
+  // An initializing provider is not evidence of an account. Keep public
+  // discovery visible until an authenticated selected wallet is known.
+  // All wallet reads above still require ready and the verified address.
+  if (!authenticated || !wallet) return <DisconnectedPortfolio />;
   if (!ready || !walletState.ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: selectNetwork, selectedTab, onTabChange: selectTab });
-
-  if (!authenticated || !wallet) {
-    return <DisconnectedPortfolio />;
-  }
 
   const loading = walletBalances.status === 'idle' || walletBalances.status === 'loading';
   const liveLoading = liveAssets.status === 'idle' || liveAssets.status === 'loading';
