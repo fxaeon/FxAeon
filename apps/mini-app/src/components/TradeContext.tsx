@@ -6,14 +6,14 @@ import { ArrowRight, ChevronRight, ChartNoAxesCombined, ShieldCheck, TrendingDow
 import { useLiveMarketQuote, useUsdPrices } from './PriceProvider';
 import { MissingValue } from './MissingValue';
 import { MetricLabel } from './InfoHelp';
-import { useBorrowFundingRate } from '@/lib/fx/useBorrowFundingRate';
+import { useTradeFundingRate } from '@/lib/fx/useTradeFundingRate';
 import { poolCapacityUnits } from '@/lib/fx/poolCapacity';
 import { usePoolCapacity } from '@/lib/fx/usePoolCapacity';
 import { useOracleObservation } from '@/lib/fx/useOracleObservation';
 import { useOracleMarketDifference } from '@/lib/fx/useOracleMarketDifference';
 import { formatUnits } from 'viem';
 import { formatBalanceDecimal } from '@/lib/amount';
-import { borrowFundingDisplay } from '@/lib/fx/borrowFunding';
+import { tradeFundingDisplay } from '@/lib/fx/tradeFunding';
 import { formatUsdPrice, USD_PRICE_MAX_AGE_MS } from '@/lib/prices';
 import { tradeSensitivity, tradeScenarioPrice, tradeMarketReference } from '@/lib/tradeSensitivity';
 import { ChainIcon } from './TokenIcon';
@@ -35,12 +35,12 @@ export function TradeContext({ market, side, leverage, openPositions, positionsS
   const [change, setChange] = useState(-10);
   const live = useLiveMarketQuote(market);
   const prices = useUsdPrices();
-  const funding = useBorrowFundingRate(market);
+  const funding = useTradeFundingRate(market, side);
   const capacity = usePoolCapacity(market, side);
   const capacityUnits = poolCapacityUnits(market, side);
   const oracle = useOracleObservation(market, side);
   const oracleDifference = useOracleMarketDifference(oracle.value, prices);
-  const fundingDisplay = funding.rate ? borrowFundingDisplay(funding.rate) : null;
+  const fundingDisplay = funding.rate ? tradeFundingDisplay(funding.rate) : null;
   const price = tradeScenarioPrice(live.isFresh ? live.quote?.price : tradeMarketReference(prices, market), change);
   const sensitivity = tradeSensitivity(change, leverage, side);
   const observed = prices.updatedAts?.fxUSD ?? prices.updatedAt;
@@ -58,7 +58,7 @@ export function TradeContext({ market, side, leverage, openPositions, positionsS
     <section className={styles.surface} aria-labelledby="trade-conditions-title">
       <header className={styles.heading}><h2 id="trade-conditions-title">Protocol conditions</h2><span className={styles.caption}>Ethereum</span></header>
       <dl className={styles.conditions}>
-        <div><dt><MetricLabel minimalHelp label="Long-pool funding" help="Current collateral-based funding in the selected market's long pool. This is not a short-position funding quote or a debt APR. Net funding is shown only when its offset is verified." /></dt><dd title={fundingDisplay?.title}>{fundingDisplay ? `${fundingDisplay.status} · ${fundingDisplay.value}` : <MissingValue width="lg" status={funding.status === 'loading' ? 'loading' : 'unavailable'} label="Long-pool funding" />}</dd><small>{funding.rate?.netRatio === undefined ? 'Gross collateral charge' : 'Collateral-based rate'}</small></div>
+        <div><dt><MetricLabel minimalHelp label="Gross funding charge" help={fundingDisplay?.title ?? `Current gross ${side}-pool collateral charge per eight hours. The earnings offset is unverified. Variable; separate from protocol and network fees.`} /></dt><dd title={fundingDisplay?.title}>{fundingDisplay?.value ?? <MissingValue width="lg" status={funding.status === 'loading' ? 'loading' : 'unavailable'} label={`${side === 'long' ? 'Long' : 'Short'} pool gross funding charge`} />}</dd></div>
         <div><dt><MetricLabel minimalHelp label="fxUSD reference" help="A display-only token market price from the app's price feed. It is not the protocol oracle price or an executable redemption value." /></dt><dd>{fxUSD !== undefined ? formatUsdPrice(fxUSD) : <MissingValue width="md" status={prices.status === 'loading' ? 'loading' : 'unavailable'} label="fxUSD reference price" />}</dd><small>Token market price</small></div>
         <div><dt><MetricLabel minimalHelp label="Pool capacity" help="Remaining collateral and debt capacity from the selected pool manager. These are separate protocol ceilings, not a maximum trade amount. K, M and B mean thousand, million and billion; approximate values are rounded down. Short debt room uses normalized 18-decimal accounting units; ETH shorts are shown in stETH equivalent. Review checks the route, balances and current limits." /></dt><dd title={capacity.value ? `${formatUnits(capacity.value.collateralRemaining, capacityUnits.collateralDecimals)} ${capacityUnits.collateralSymbol}` : undefined}>{capacity.value ? <>{formatCapacityDisplay(capacity.value.collateralRemaining, capacityUnits.collateralDecimals)} {capacityUnits.collateralSymbol}</> : <MissingValue width="lg" status={capacity.status === 'loading' ? 'loading' : 'unavailable'} label="Remaining pool collateral capacity" />}</dd><small>Collateral room · {side} pool</small>{capacity.value && <small title={`${formatUnits(capacity.value.debtRemaining, capacityUnits.debtDecimals)} ${capacityUnits.debtSymbol}`}>Debt room: {formatCapacityDisplay(capacity.value.debtRemaining, capacityUnits.debtDecimals)} {capacityUnits.debtSymbol}</small>}</div>
         <div><dt><MetricLabel minimalHelp label="Oracle difference" help="The selected pool's anchor oracle price relative to the market USD quote for the same token: (oracle ÷ market − 1) × 100. ETH long compares stETH; ETH short inverts its oracle to USD/wstETH. BTC compares WBTC. Oracle reads expire after 60 seconds; market quotes and observation times must be within five minutes. This comparison is separate from the pool's liquidation price." /></dt><dd>{oracleDifference ? `${oracleDifference.percent > 0 ? '+' : ''}${oracleDifference.percent.toFixed(2)}%` : <MissingValue width="md" status={oracle.status === 'loading' || prices.status === 'loading' ? 'loading' : 'unavailable'} label="Oracle and token market price difference" />}</dd><small>{oracleDifference ? `${oracleDifference.token} · oracle vs market` : 'Awaiting comparable prices'}</small></div>

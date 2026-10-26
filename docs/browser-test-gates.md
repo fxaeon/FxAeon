@@ -83,3 +83,14 @@ data, neutral labels and state-only color at narrow phone widths.
 Use [protected Ethereum fork tests](testing.md#protected-ethereum-fork-tests) for their supported protocol execution. Real native Telegram login/recovery, physical wallet handoff, live Base delivery, and emitted SDK chunk loading require their own appropriately scoped checks.
 
 Do not describe a mocked provider run as live authentication or a rendered review as a signed transaction. Record the revision, fixture, environment, and limitations with each result.
+
+The funding review gate covers separate long/short pools, exact market/pool
+binding, negative net offsets, omission of unverified net rates, expired and malformed reads,
+shared-request deduplication and late-response isolation. Browser fixtures require
+a single cost-group row at 320px and desktop widths, no duplicate in execution
+details, and removal when its 60-second freshness window expires.
+
+An empty-wallet provider fixture emits consecutive blocks and requires no repeat
+discovery within the 15-second window, while manual refresh and wallet changes
+still read immediately. Unit boundaries include elapsed-window, occupied,
+uncertain and backward-clock cases.

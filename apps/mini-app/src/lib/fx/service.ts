@@ -20,6 +20,8 @@ import { validateReviewedAction } from "./actionValidation";
 import { readEthLongAccounting, type EthLongAccounting } from "./ethLongAccounting";
 import { readLiquidationQuote } from "./liquidationQuote";
 import { readBorrowFundingRate } from "./borrowFunding";
+import { readTradeFundingRate } from "./tradeFunding";
+import { withReadDeadline } from "./readFacade";
 import { capabilityPolicy, positionCollateralTokenAddress, positionDebtTokenAddress, positionPoolAddress } from "./policy";
 import { FX_TOKENS } from "./tokens";
 import {
@@ -244,6 +246,7 @@ export async function planIncreasePosition(request: IncreasePositionRequest): Pr
   assertPositiveAmount(request.amount, "position input amount");
   const inputTokenAddress = positionInputToken(request.inputTokenAddress, request.market);
   await assertConfiguredPublicClientChain(1);
+  const funding = Promise.resolve().then(() => readTradeFundingRate(request.market, request.type)).catch(() => undefined);
   const accounting = ethLongAccounting(request.market, request.type, request.positionId);
   const liquidation = request.positionId === 0 ? readLiquidationQuote({
     market: request.market, side: request.type,
@@ -257,6 +260,7 @@ export async function planIncreasePosition(request: IncreasePositionRequest): Pr
   });
   const accountingDetails = accounting ? await accounting : {};
   const liquidationQuote = liquidation ? await liquidation : undefined;
+  const fundingRate = await withReadDeadline(funding, 100).catch(() => undefined);
   return normalizeRouteResult("increasePosition", result, assertAddress(request.userAddress)).map((route) => {
     const { effectiveLeverage } = assertPositionEconomics(route, request);
     assertSdkSlippage(route, request.slippage);
@@ -285,6 +289,8 @@ export async function planIncreasePosition(request: IncreasePositionRequest): Pr
       },
     }), {
       ...accountingDetails,
+      ...(fundingRate === undefined ? {} : { tradeFundingQuote: { market: fundingRate.market, side: fundingRate.side, poolAddress: fundingRate.pool, ratio: fundingRate.ratio.toString(), readAt: fundingRate.readAt,
+        ...(fundingRate.offset ? { offset: { oppositeRatio: fundingRate.offset.oppositeRatio.toString(), longCollateral: fundingRate.offset.longCollateral.toString(), shortCollateral: fundingRate.offset.shortCollateral.toString(), shortDebt: fundingRate.offset.shortDebt.toString(), blockNumber: fundingRate.offset.blockNumber.toString() } } : {}) } }),
       effectiveLeverage,
       ...(liquidationQuote === undefined ? {} : { liquidationQuote }),
       requestedAmount: request.amount.toString(),
@@ -337,6 +343,7 @@ export async function planAdjustPositionLeverage(
 ): Promise<PlannedRoute[]> {
   validateCommonPositionRequest(request);
   await assertConfiguredPublicClientChain(1);
+  const funding = Promise.resolve().then(() => readTradeFundingRate(request.market, request.type)).catch(() => undefined);
   const accounting = ethLongAccounting(request.market, request.type, request.positionId);
   const result = await getFxSdk().adjustPositionLeverage({
     ...request,
@@ -344,6 +351,7 @@ export async function planAdjustPositionLeverage(
     targets: auditedTargets(request.targets),
   });
   const accountingDetails = accounting ? await accounting : {};
+  const fundingRate = await withReadDeadline(funding, 100).catch(() => undefined);
   return normalizeRouteResult("adjustPositionLeverage", result, assertAddress(request.userAddress)).map((route) => {
     const { effectiveLeverage } = assertPositionEconomics(route, request);
     assertSdkSlippage(route, request.slippage);
@@ -365,6 +373,8 @@ export async function planAdjustPositionLeverage(
       },
     }), {
       ...accountingDetails,
+      ...(fundingRate === undefined ? {} : { tradeFundingQuote: { market: fundingRate.market, side: fundingRate.side, poolAddress: fundingRate.pool, ratio: fundingRate.ratio.toString(), readAt: fundingRate.readAt,
+        ...(fundingRate.offset ? { offset: { oppositeRatio: fundingRate.offset.oppositeRatio.toString(), longCollateral: fundingRate.offset.longCollateral.toString(), shortCollateral: fundingRate.offset.shortCollateral.toString(), shortDebt: fundingRate.offset.shortDebt.toString(), blockNumber: fundingRate.offset.blockNumber.toString() } } : {}) } }),
       effectiveLeverage,
       requestedLeverage: request.leverage,
       slippagePercent: request.slippage,

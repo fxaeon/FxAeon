@@ -68,7 +68,7 @@ function rows(html: string) {
 test('while the warm-up runs, the same rows hold their place with announced-off placeholders', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'ETH', side: 'long', route: null }));
-  assert.match(html, /^<div class="test-outcome" role="group" aria-label="Estimated position" aria-busy="true" data-trade-outcome="pending">/);
+  assert.match(html, /^<div class="test-outcome" role="group" aria-label="Position preview" aria-busy="true" data-trade-outcome="pending">/);
   assert.deepEqual(rows(html).map(([label]) => label), ['Execution price', 'Liquidation price', 'f(x) fee']);
   for (const label of ['Loading execution price', 'Loading liquidation price', 'Loading f(x) fee']) {
     assert.ok(html.includes(`role="status" aria-live="off" aria-label="${label}"`));

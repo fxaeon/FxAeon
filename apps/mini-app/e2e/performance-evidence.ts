@@ -1,8 +1,8 @@
 import type { Browser, Page, TestInfo } from '@playwright/test';
 import { performance } from 'node:perf_hooks';
 
-export type PerformanceStage = 'editable-form' | 'usable-quote' | 'refreshed-account';
-export type PerformanceSource = 'browser-route' | 'deterministic-simulation';
+export type PerformanceStage = 'editable-form' | 'usable-quote' | 'refreshed-account' | 'menu-open';
+export type PerformanceSource = 'browser-route' | 'browser-interaction' | 'deterministic-simulation';
 
 export interface PerformanceSample {
   stage: PerformanceStage;
@@ -11,8 +11,8 @@ export interface PerformanceSample {
   detail: string;
 }
 
-/** Record a duration using the browser's monotonic clock. Call only after the
- * corresponding user-visible state is asserted, so timings describe usable UI. */
+/** Record a duration using Node's monotonic clock, including Playwright action
+ * and assertion overhead. Call only after the corresponding visible state is asserted. */
 export async function measureUntil(
   page: Page,
   stage: PerformanceStage,
@@ -57,7 +57,7 @@ export async function reportPerformanceEvidence(
       test: testInfo.title,
     },
     samples,
-    interpretation: 'Single-run timings are observations, not a performance-improvement claim. Simulated delays are labeled separately from browser-route measurements.',
+    interpretation: 'Single-run timings are observations, not a performance-improvement claim. Each sample identifies its measurement source; simulated delays are labeled separately.',
   };
   const body = `${JSON.stringify(report, null, 2)}\n`;
   await testInfo.attach('performance-evidence.json', { body, contentType: 'application/json' });

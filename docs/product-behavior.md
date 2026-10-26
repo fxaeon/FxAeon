@@ -165,3 +165,39 @@ enter an executable review. Connection preserves the entered ticket and requires
 fresh account-specific planning and checks. Input edits, expiry and context changes
 invalidate estimates. Cooldown withdrawal output remains protocol-determined;
 no future payout mix is inferred from the currently selected asset.
+
+## Current Trade funding and historical accounting
+
+Trade reviews show the current eight-hour net collateral funding rate when the
+reviewed SDK price sample and both pools' funding inputs are verified. The public
+Trade subsection explicitly says Gross funding charge. Reviews omit the rate
+when its net value cannot be verified. Neither value is an accrued payment or a fixed future rate.
+The row belongs in the cost group, appears once, and expires after 60 seconds.
+No funding row is added to position cards.
+
+Long and short pools use different configuration methods. Offset inputs are
+pinned to one Ethereum block; net conversion uses the reviewed route's native
+SDK price and ETH accounting conversion, never a display-token USD feed.
+Negative net funding remains signed. The public reader shares fresh same-pool
+requests without extending their original timestamp, and never caches failures.
+
+The official f(x) frontend's Funding History uses indexed CollIndexChanged and
+DebtIndexChanged events (debt reductions), valued with their event data. Current
+getPosition balances already incorporate index accounting. An additional
+current-rate-times-duration subtraction would double-count or misstate costs.
+FxAeon does not claim an all-time funding-paid total from those current rates.
+
+## Bounded background reads
+
+Fully verified empty wallets suppress automatic block-triggered position
+rediscovery for 15 seconds after a successful read. The next block after that
+window refreshes discovery. Occupied, partial, failed and changed-wallet states
+retain their prior refresh behavior; manual and post-confirmation reads bypass
+the gate. This reduces redundant reads without delaying transaction completion
+refreshes.
+
+When a collapsed desktop rail reveals on hover or keyboard focus at wide desktop
+sizes, its toggle returns beside the brand to the same coordinates used by the
+pinned-expanded rail. The brand and destination icons remain fixed, and transient
+reveal does not move content or replace the saved preference. The toggle retains
+its 44px target and respects reduced motion.

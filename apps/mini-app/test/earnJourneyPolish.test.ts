@@ -255,7 +255,7 @@ test('withdrawal fees, configured cooldown, queued payout units and unknown term
 
 test('direct fxSP redemption keeps no-cooldown terms visible outside optional estimate help', () => {
   const html = editor('fxUSDBasePool', false, config);
-  assert.match(html, /Estimated fxSP received/);
+  assert.match(html, /Receive/);
   assert.match(html, /≈ 2\.4 fxSP/);
   assert.match(html, /Direct redemption to fxSP has no cooldown or queued claim/);
   assert.match(html, /data-help="Based on current vault assets and share supply\."/);

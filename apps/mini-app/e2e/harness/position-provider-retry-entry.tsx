@@ -7,6 +7,7 @@ type RetryHarnessState = {
   wallet: { ready: boolean; authenticated: boolean; address: string };
   failAttempts: Record<string, number>;
   partialReads: Record<string, number[]>;
+  emptyWallets: string[];
   reads: string[];
   foreground: boolean;
   block: bigint | null;
@@ -17,11 +18,12 @@ type RetryHarnessState = {
   unmount: () => void;
 };
 
-const initial = (window as Window & { __positionRetryConfig?: { failAttempts?: Record<string, number>; partialReads?: Record<string, number[]>; foreground?: boolean } }).__positionRetryConfig;
+const initial = (window as Window & { __positionRetryConfig?: { failAttempts?: Record<string, number>; partialReads?: Record<string, number[]>; emptyWallets?: string[]; foreground?: boolean } }).__positionRetryConfig;
 const state: RetryHarnessState = {
   wallet: { ready: true, authenticated: true, address: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
   failAttempts: Object.fromEntries(Object.entries(initial?.failAttempts ?? {}).map(([address, count]) => [address.toLowerCase(), count])),
   partialReads: Object.fromEntries(Object.entries(initial?.partialReads ?? {}).map(([address, calls]) => [address.toLowerCase(), calls])),
+  emptyWallets: (initial?.emptyWallets ?? []).map(address => address.toLowerCase()),
   reads: [],
   foreground: initial?.foreground ?? true,
   block: null,

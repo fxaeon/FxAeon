@@ -30,10 +30,10 @@ test('Trade retains exact capacity units in titles and keeps price sensitivity i
   const nothing = () => null;
   const tree = evaluate(['formatCapacityDisplay', 'TradeContext'], "TradeContext({ market: 'ETH', side: 'short', leverage: 2, openPositions: null, positionsStatus: 'disconnected' });", {
     useState: () => [-10, nothing], useLiveMarketQuote: () => ({ isFresh: true, quote: { price: 2000 }, status: 'ready' }),
-    useUsdPrices: () => ({ status: 'ready', prices: {}, updatedAt: null }), useBorrowFundingRate: () => ({ rate: null, status: 'unavailable' }),
+    useUsdPrices: () => ({ status: 'ready', prices: {}, updatedAt: null }), useTradeFundingRate: () => ({ rate: null, status: 'unavailable' }),
     usePoolCapacity: () => ({ value, status: 'ready' }), poolCapacityUnits: () => ({ collateralDecimals: 18, debtDecimals: 18, collateralSymbol: 'fxUSD', debtSymbol: 'stETH' }),
     useOracleObservation: () => ({ value: null, status: 'unavailable' }), useOracleMarketDifference: () => null,
-    borrowFundingDisplay: nothing, tradeSensitivity, tradeScenarioPrice, tradeMarketReference, formatUsdPrice, USD_PRICE_MAX_AGE_MS,
+    tradeFundingDisplay: nothing, tradeSensitivity, tradeScenarioPrice, tradeMarketReference, formatUsdPrice, USD_PRICE_MAX_AGE_MS,
     styles: {}, MissingValue: nothing, MetricLabel: nothing, Link: nothing, ShieldCheck: nothing, ChevronRight: nothing, ChartNoAxesCombined: nothing, ArrowRight: nothing, TrendingDown: nothing,
   }) as React.ReactElement;
   const elements = (node: any): any[] => Array.isArray(node) ? node.flatMap(elements) : node?.props ? [node, ...elements(node.props.children)] : [];

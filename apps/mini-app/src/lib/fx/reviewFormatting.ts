@@ -8,6 +8,7 @@ import { parseStEthPerWstEth, stEthForWstEth } from './wstEthRate';
 import { projectedLiquidationPrice } from './liquidationQuote';
 import { acceptedFxSaveQuote } from './fxSaveReviewQuote';
 import { borrowFundingDisplay, borrowFundingIsFresh } from './borrowFunding';
+import { tradeFundingDisplay, tradeFundingIsFresh, tradeFundingNetRatio } from './tradeFunding';
 import { normalizePositionEconomics } from './positionEconomics';
 
 /**
@@ -240,6 +241,7 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
 
   if (pool) {
     add(protocolFeeReviewFact(route, intent));
+    add(tradeFundingReviewFact(route));
     if (intent.kind === 'deposit-and-mint' && intent.mintAmount > 0n) {
       add(borrowFundingReviewFact(route));
       const fee = protocolFeeReviewFact(route, intent);
@@ -324,6 +326,28 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
   }
   if (unsupportedLimits) add({ label: 'Additional limits', value: 'See advanced details' });
   return facts;
+}
+
+/** Informational verified net funding, bound to the reviewed pool. */
+export function tradeFundingReviewFact(route: PlannedRoute, now = Date.now()): ReviewFact | undefined {
+  const intent = route.policy?.reviewedAction;
+  if (route.chainId !== 1 || !intent || !['position-increase', 'position-adjust'].includes(intent.kind)
+    || (intent.kind === 'position-increase' ? route.operation !== 'increasePosition' : route.operation !== 'adjustPositionLeverage')) return undefined;
+  const pool = knownPool(intent);
+  const quote = route.details?.tradeFundingQuote;
+  if (!pool || !quote || quote.market !== pool.market || quote.side !== pool.side
+    || typeof quote.poolAddress !== 'string' || typeof quote.ratio !== 'string' || !/^\d{1,78}$/.test(quote.ratio)) return undefined;
+  const offset = quote.offset && (['oppositeRatio', 'longCollateral', 'shortCollateral', 'shortDebt', 'blockNumber'] as const).every(key => typeof quote.offset![key] === 'string' && /^\d{1,78}$/.test(quote.offset![key]))
+    ? { oppositeRatio: BigInt(quote.offset.oppositeRatio), longCollateral: BigInt(quote.offset.longCollateral), shortCollateral: BigInt(quote.offset.shortCollateral), shortDebt: BigInt(quote.offset.shortDebt), blockNumber: BigInt(quote.offset.blockNumber) } : undefined;
+  const rate = { market: quote.market, side: quote.side, pool: quote.poolAddress, ratio: BigInt(quote.ratio), readAt: quote.readAt, offset };
+  if (!tradeFundingIsFresh(rate, pool.market, pool.side, now)) return undefined;
+  const economics = normalizePositionEconomics(route.details?.positionEconomics);
+  const validPrice = economics && (route.operation === 'increasePosition' ? economics.operation === 'increase' : economics.operation !== 'increase')
+    && (pool.market !== 'BTC' || economics.rateRes === '1000000000000000000');
+  const net = tradeFundingNetRatio(rate, validPrice ? BigInt(economics.priceWad) : undefined, validPrice ? BigInt(economics.rateRes) : undefined);
+  if (net === undefined) return undefined;
+  const display = tradeFundingDisplay(rate, net);
+  return { label: display.label, value: display.value, title: display.title };
 }
 
 /** Current funding is pool-bound information, never a fixed loan rate. */

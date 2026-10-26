@@ -1,0 +1,13 @@
+.marketMiniCard {
+  display: block;
+  color: inherit;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--mint) 6%, transparent), transparent 60%),
+    var(--surface);
+  box-shadow: var(--ring-inset);
+  padding: 16px;
+  transition: border-color var(--dur-base) ease, transform var(--dur-slow) var(--ease-spring);
+}
+.marketMiniCard:active { transform: scale(0.985); transition-duration: var(--dur-press); }

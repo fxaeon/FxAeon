@@ -7,7 +7,7 @@ test('Move omits only the generic gas reminder and preserves native shortfall al
   const move = source('app/move/page.tsx');
   assert.doesNotMatch(move, /Keep ETH on .*for bridge fees and gas/);
   assert.match(move, /Boolean\(amountWei\) && nativeShortfall && <p[^>]+role="alert"/);
-  assert.match(move, /Your balance does not cover the bridge fee and estimated transaction gas/);
+  assert.match(move, /Your balance does not cover the bridge fee and required network fees/);
   assert.match(move, /Your balance does not cover the bridge fee; transaction gas is also required/);
 });
 

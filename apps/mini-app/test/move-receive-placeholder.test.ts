@@ -23,11 +23,11 @@ test('a pending or unavailable receive quote never masquerades as zero', () => {
   for (const loading of [true, false]) {
     const html = renderToStaticMarkup(render({ amount: '12.5', loading }));
     assert.match(html, /role="status"/);
-    assert.match(html, loading ? /aria-label="Loading receive estimate"/ : /aria-label="Receive estimate unavailable"/);
+    assert.match(html, loading ? /aria-label="Loading receive amount"/ : /aria-label="Receive amount unavailable"/);
     assert.doesNotMatch(html, /0\.00|—/);
     assert.equal(html.includes('missing-value-unavailable'), !loading);
   }
   const invalid = renderToStaticMarkup(render({ amount: 'invalid', loading: false }));
   assert.doesNotMatch(invalid, /0\.00|—/);
-  assert.match(invalid, /Receive estimate unavailable/);
+  assert.match(invalid, /Receive amount unavailable/);
 });

@@ -24,7 +24,7 @@ import layout from './ProductLayout.module.css';
 import portfolio from './PortfolioWorkspace.module.css';
 import { PortfolioExploreView } from './PortfolioExploreView';
 import explore from './PortfolioExplore.module.css';
-import market from './trade-surfaces.module.css';
+import market from './MarketMiniCard.module.css';
 import TokenIcon from './TokenIcon';
 import { MissingValue } from './MissingValue';
 import activity from './WalletActivity.module.css';

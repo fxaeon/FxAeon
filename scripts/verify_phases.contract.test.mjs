@@ -103,6 +103,14 @@ test('isolated CI phases partition all nine browser harnesses exactly once', asy
     const commands = phases.flatMap(({ commands }) => commands);
     const harnessCommands = commands.filter((command) => command.includes('test:e2e:'));
     assert.deepEqual(harnessCommands.sort(), expected, `${serial ? 'serial' : 'default'} mode runs every harness exactly once`);
+    assert.deepEqual(phases[0].commands.filter((command) => command.includes('test:e2e:')).map((command) => command.split(' ').at(-1)).sort(), [
+      'test:e2e:overlay',
+      'test:e2e:trade-harness',
+    ]);
+    assert.deepEqual(phases[1].commands.filter((command) => command.includes('test:e2e:')).map((command) => command.split(' ').at(-1)).sort(), [
+      'test:e2e:mobile-wallet-harness',
+      'test:e2e:move-harness',
+    ]);
     assert.ok(!commands.some((command) => command.includes('verify:scope') || command === 'build'));
   }
 });
@@ -119,7 +127,7 @@ test('phase failures remain failures and stop dependent source work', async () =
 
   const isolatedFailure = await runPhase('--ci-isolated-0', 'test:e2e:overlay');
   assert.equal(isolatedFailure.status, 1);
-  assert.deepEqual(isolatedFailure.commands, ['test:e2e:overlay']);
+  assert.deepEqual(isolatedFailure.commands, ['test:e2e:overlay', 'test:e2e:trade-harness']);
 });
 
 test('CI build phase keeps production gates while route E2E is sharded', () => {
