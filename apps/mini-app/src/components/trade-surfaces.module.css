@@ -346,7 +346,7 @@
  * before it must not count as part of the action's place. */
 .tradeTicket > :global(.sticky-action-sentinel) { margin-top: -10px; }
 
-.sideControl { min-width: 0; }
+.sideControl { min-width: 0; margin-bottom: 12px; }
 .sideControl :global(.segmented) { padding: 4px; }
 .sideControl :global(.segmented-option) { min-height: 56px; padding-block: 6px; }
 .sideControl :global(.segmented-option > span:first-child) { font-size: var(--fs-body); }

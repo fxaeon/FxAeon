@@ -126,11 +126,11 @@ test('Trade outcome rows stay compact and wrap at 320px with 200% text', async (
     expect(quoteGeometry.text).toMatch(/fxUSD \/ stETH$/);
     expect(quoteGeometry.baselineSpread, `Execution quote value and unit stay on one visual line at ${width}px`).toBeLessThanOrEqual(2);
     expect(quoteGeometry.fitsRow).toBe(true);
-    const heights = await expectFormMetricRows(rows);
+    const heights = await expectFormMetricRows(rows, { allowStacked: true });
     if (width === 390) expect(Math.min(...heights), 'Short terms retain a compact row while longer prices may wrap').toBeLessThan(44);
     await outcome(page).screenshot({ path: info.outputPath(`metric-rows-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
-    await expectFormMetricRows(rows);
+    await expectFormMetricRows(rows, { allowStacked: true });
     const dock = page.locator('nav.mobile-tabbar');
     await expect.poll(() => dock.evaluate(element => {
       const main = document.querySelector('main.app-content')!;
@@ -193,23 +193,19 @@ test.describe('the ticket’s outcome preview', () => {
     const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
     await expect(collateralValue).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
     await expect(collateralValue).not.toHaveAttribute('title', /wstETH at .* per wstETH/);
-    const details = page.getByLabel('Advanced transaction details', { exact: true });
-    await details.locator(':scope > summary').click();
+    await expect(page.getByLabel('Advanced transaction details', { exact: true })).toHaveCount(0);
     await expect(page.locator('[data-review-fact="Estimated collateral"]')).toHaveCount(1);
-    // The native estimate remains compact while the accepted route owns the exact amount.
     await expect(collateral.locator('details, summary')).toHaveCount(0);
-    const debt = reviewFact(page, 'Estimated debt');
-    await expect(debt).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
-    await expect(debt.locator('details, summary')).toHaveCount(0);
+    const facts = await page.evaluate(() => (globalThis as typeof globalThis & { __longReview: { reviewedFacts: Array<{ label: string; value: string; equivalent?: string }> } }).__longReview.reviewedFacts);
+    expect(facts.find(fact => fact.label === 'Estimated debt')?.value).toMatch(/^≈ [\d,]+(?:\.\d+)? fxUSD$/);
     const fee = reviewFact(page, 'f(x) fee');
     await expect(fee.locator('[data-usd-state]')).toHaveText(preview.fee);
     await expect(fee.locator('details, summary')).toHaveCount(0);
-    // A compact floor may round for display, but its full signed wstETH
-    // amount remains exact; the separate stETH equivalent is only an estimate.
-    const floor = reviewFact(page, 'Minimum converted input');
-    await expect(floor.locator('details, summary')).toHaveCount(0);
-    await expect(floor).toContainText(/wstETH/);
-    await expect(floor.locator(':scope > span').last()).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
+    // The exact signed native floor remains in the accepted route model even
+    // though implementation-only conversion evidence is absent from the card.
+    const floor = facts.find(fact => fact.label === 'Minimum converted input');
+    expect(floor?.value).toMatch(/wstETH/);
+    expect(floor?.equivalent).toMatch(/^≈ [\d,]+(?:\.\d+)? stETH$/);
     // The review reused the warm route it validated: the preview cost no plan of its own.
     expect(await planCount(page)).toBe(plansBeforeReview);
   });
@@ -643,4 +639,16 @@ test('rapid connected edits warm the first and latest tickets without planning s
   const plans = await page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition' && event.purpose === 'ticket'));
   expect(plans.map(event => event.amount)).toEqual(['100000000000000000', '300000000000000000']);
   expect(plans.every(event => event.walletAddress === '0x1111111111111111111111111111111111111111')).toBe(true);
+});
+
+test('390px Trade side selector leaves twelve pixels before Amount', async ({ page }) => {
+ await page.setViewportSize({ width: 390, height: 844 });
+ await mount(page);
+ const side = page.getByRole('radiogroup', { name: 'Position side', exact: true });
+ const amount = page.locator('[data-amount-field="unified"]');
+ await expect(side).toBeVisible();
+ await expect(amount).toBeVisible();
+ const [sideBox, amountBox] = await Promise.all([side.boundingBox(), amount.boundingBox()]);
+ expect(amountBox!.y - sideBox!.y - sideBox!.height).toBeGreaterThanOrEqual(11.5);
+ expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });

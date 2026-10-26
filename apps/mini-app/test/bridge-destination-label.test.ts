@@ -38,7 +38,7 @@ function render(overrides: Record<string, unknown> = {}) {
     sourceChain: 'Ethereum', destinationChain: 'Base', detectedDestinationTxHash: null,
     amount: '0.0001', token: 'fxUSD', className: '', sourceEventFound: true,
     canRetry: false, autoStart: true, manualStarted: false, verificationError: null,
-    compact: false, headingRef: undefined, advancedContent: undefined,
+    compact: false, headingRef: undefined, simulated: false,
     ...overrides,
   };
   const element = runInNewContext(compiled, {
@@ -51,7 +51,7 @@ function render(overrides: Record<string, unknown> = {}) {
   const markup = renderToStaticMarkup(element);
   assert.match(markup, /Destination verification/);
   assert.doesNotMatch(markup, /Waiting for destination/);
-  assert.match(markup, /Delivery requires the matching bridge message, recipient, amount, and 1 destination confirmation\./);
+  assert.doesNotMatch(markup, /Delivery requires the matching bridge message/);
   assert.doesNotMatch(markup, /1 destination confirmations|3 destination confirmations/);
   assert.match(markup, new RegExp(`${input.amount.replace('.', '\\.')}.*${input.token}`));
   assert.match(markup, new RegExp(`${input.sourceChain} → ${input.destinationChain}`));

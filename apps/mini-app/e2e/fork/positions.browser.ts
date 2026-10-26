@@ -343,12 +343,12 @@ async function runProof(captureStage: string) {
   let documentationCaptureFailure: string | undefined;
   try {
     const buildEnv = { ...process.env, NEXT_PUBLIC_PRIVY_APP_ID: '', NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: '',
-      NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: '', NEXT_PUBLIC_FX_SCREENSHOT_MODE: '', NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE: '1',
+      NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: '', NEXT_PUBLIC_FX_SCREENSHOT_MODE: '', NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE: '1', FX_E2E_REVIEW_EVIDENCE: '1',
       NEXT_PUBLIC_FX_LOCAL_FORK_RPC_URL: rpcUrl, NEXT_PUBLIC_TELEGRAM_APP_URL: 'https://t.me/FxAeonBot' };
     console.log(previewMode
       ? `Building isolated preview artifact ${process.env.FX_E2E_DIST_DIR} with localhost-only RPC`
       : 'Building browser acceptance artifact with localhost-only RPC');
-    await waitForExit(spawn(process.execPath, [resolve(appRoot, 'node_modules/next/dist/bin/next'), 'build'],
+    await waitForExit(spawn(process.execPath, [resolve(appRoot, 'node_modules/next/dist/bin/next'), 'build', '--webpack'],
       { cwd: appRoot, env: buildEnv, stdio: 'inherit', windowsHide: true }));
     server = spawn(process.execPath, ['e2e/serve.mjs'], { cwd: appRoot, env: { ...buildEnv, E2E_BUILD: '0', PORT: String(port) }, stdio: 'inherit', windowsHide: true });
     await expect.poll(async () => {
@@ -582,7 +582,7 @@ async function runProof(captureStage: string) {
       const queryWallet = sdkQueryWallet ?? historyQueryWallet;
       if (group && queryWallet) await discoverPreviewCandidates(group, queryWallet);
       if (group && query.startsWith('queryWalletPositionOrders{')) {
-        const match = query.match(/^queryWalletPositionOrders\{orders\(first:5,skip:(0|[1-9][0-9]*),where:\{positionId_in:\[([0-9,\"]*)\],type_in:\["Open","Close"\]\},orderBy:blockNumber,orderDirection:desc\)\{idtypehashblockNumbertimestamp\}\}$/);
+        const match = query.match(/^queryWalletPositionOrders\{orders\(first:5,skip:(0|[1-9][0-9]*),where:\{positionId_in:\[([0-9,"]*)\],type_in:\["Open","Close"\]\},orderBy:blockNumber,orderDirection:desc\)\{idtypehashblockNumbertimestamp\}\}$/);
         assert.ok(!url.search && !url.hash && route.request().method() === 'POST'
           && Object.keys(body).length === 1 && match, 'unexpected indexer order query');
         const queriedIds = [...match[2].matchAll(/"([1-9][0-9]{0,15})"/g)].map(value => Number(value[1]));

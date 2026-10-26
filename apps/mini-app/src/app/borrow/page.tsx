@@ -671,15 +671,13 @@ export default function BorrowPage() {
         : 'Repay debt to withdraw collateral'} />}
     {!newPosition && !debtRange && !limitPending && (showMint || showWithdraw) && <div className={presentation.helper}>{retryLimit}</div>}
     {showPositionEstimate && <section className={presentation.outcome} aria-label="Borrowing outcome">
-      <div className={presentation.outcomeHeading}><span>Current → After</span></div>
-      <dl className={presentation.outcomeRows}>
+      <dl className={presentation.outcomeRows} aria-label="Current amounts and estimated amounts after this action">
         <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} /></strong></dd></div>
       </dl>
       {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
     </section>}
     {showManageEstimate && <section className={presentation.outcome} aria-label="Position changes">
-      <div className={presentation.outcomeHeading}><span>Current → After</span></div>
-      <dl className={presentation.outcomeRows}>
+      <dl className={presentation.outcomeRows} aria-label="Current amounts and estimated amounts after this action">
         <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD` }} /></strong></dd></div>
         {withdrawPreviewWei! > 0n && <div><dt>Receive asset</dt><dd>{symbol}</dd></div>}
       </dl>

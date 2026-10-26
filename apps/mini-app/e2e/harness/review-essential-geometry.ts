@@ -53,8 +53,8 @@ export function expectEssentialReviewFits(geometry: Awaited<ReturnType<typeof es
   expect(geometry.bottom, 'All essential terms must fit before scrolling or opening details').toBeLessThanOrEqual(geometry.visibleBottom + 1);
 }
 
-/** The closed review includes its execution-details entry point, not just facts. */
+/** The full review includes its notices and action footer, not just facts. */
 export function expectClosedReviewFits(geometry: Awaited<ReturnType<typeof essentialReviewGeometry>>) {
   expectEssentialReviewFits(geometry);
-  expect(geometry.closedBodyFits, 'The complete closed review, including Execution details, must fit without scrolling').toBe(true);
+  expect(geometry.closedBodyFits, 'The complete review must fit without scrolling').toBe(true);
 }

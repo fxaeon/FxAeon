@@ -377,8 +377,9 @@ export default function MovePage() {
   const moveBalanceStatusForPicker = !advanced && wallet.address
     ? (balanceQuery.status === 'idle' ? 'loading' : balanceQuery.status)
     : undefined;
-  const moveBalanceState = advanced ? advancedBalance : moveBalances?.[token]
-    ?? (moveBalanceStatusForPicker ? { status: moveBalanceStatusForPicker } : undefined);
+  const moveBalanceState: TokenBalanceView | undefined = !wallet.address ? { status: 'disconnected' }
+    : advanced ? advancedBalance : moveBalances?.[token]
+      ?? (moveBalanceStatusForPicker ? { status: moveBalanceStatusForPicker } : undefined);
 
   // Custom OFTs do not have a canonical asset identity for the shared wallet
   // cache. Read the validated source OFT's underlying token directly, scoped
@@ -600,7 +601,7 @@ export default function MovePage() {
             <section className={moveStyles.sourcePanel} aria-label="Send assets">
               <AmountField compact label="Amount" symbol={advanced ? 'OFT' : token} value={amount} onChange={setAmount}
                 labelContent={<NetworkField label="Send" name={sourceName} chainId={sourceChainId} />}
-                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false} showPercentages={false}
+                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false} showShortcuts
                 tokenSelector={!advanced ? <TokenSelect compact label="Asset" value={token} options={['fxUSD', 'fxSAVE'] as const} onChange={changeToken} balances={moveBalances} balanceStatus={wallet.address ? moveBalanceStatusForPicker : 'disconnected'} /> : undefined} />
             </section>
             <button
@@ -628,8 +629,8 @@ export default function MovePage() {
               </p>}
             </section>
             {amountWei && !advanced && (!customRecipient || (isAddress(recipientInput.trim()) && !/^0x0{40}$/i.test(recipientInput.trim()))) && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
-              <div className={moveStyles.quoteHeading}><span>Via LayerZero</span>
-                <button type="button" disabled={quotePending} onClick={() => setPreviewRevision(value => value + 1)}>Refresh quote</button>
+              <div className={moveStyles.quoteHeading}><span>Bridge quote</span>
+                <button type="button" aria-label="Refresh quote" disabled={quotePending} onClick={() => setPreviewRevision(value => value + 1)}>Refresh</button>
               </div>
               <dl>
                 <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : ''} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} pending={quotePending} />

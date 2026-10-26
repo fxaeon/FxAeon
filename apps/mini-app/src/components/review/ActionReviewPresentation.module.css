@@ -613,7 +613,7 @@
 .resultPositionStatus > dd { margin: 0; }
 
 /* One amount scale through review, wallet handoff, and the verified receipt. */
-.flowExact { min-height: 44px; font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(27px, 6.3vw, 34px); font-weight: 600; }
+.flowExact { min-height: 34px; font-family: Manrope, var(--font-sans), sans-serif; font-size: clamp(23px, 6vw, 28px); font-weight: 600; }
 .flowUnit { color: var(--mut); font-size: .62em; font-weight: 500; letter-spacing: -.015em; }
 .flowExact > [data-long], .amountLedReview .flowExact > [data-long] { font-size: clamp(17px, 4.7vw, 23px); }
 .amountLedReview .flowSubline { margin-top: 2px; }
@@ -639,14 +639,16 @@
 /* Review terms are a compact list. Inline definitions use distinct 24px
    targets; amounts, navigation and confirmation retain their larger targets.
    No negative hit-area margins: adjacent controls never overlap. */
-.reviewViewport[data-review-phase='review'] .compactFact { min-height: 28px; font-size: 14px; line-height: 1.4; }
-.reviewViewport[data-review-phase='review'] .compactFact > span:last-child { font-size: 14px; font-weight: 550; }
+.reviewViewport[data-review-phase='review'] .compactFact { min-height: 26px; font-size: 13px; line-height: 1.35; gap: 0 4px; flex-wrap: wrap; }
+.reviewViewport[data-review-phase='review'] .compactFact > span:last-child { font-size: 13px; font-weight: 550; max-width: 100%; flex-shrink: 0; margin-left: auto; white-space: normal; }
+.reviewViewport[data-review-phase='review'] .compactFact[data-review-fact='Execution price'] > span:last-child > span { white-space: normal; }
+.reviewViewport[data-review-phase='review'] .compactFact > span:first-child { flex-wrap: nowrap; gap: 0; }
 .reviewViewport[data-review-phase='review'] .compactFact .amountUsd { font-size: inherit; }
 .reviewViewport[data-review-phase='review'] .compactFact[data-review-fact='Borrow rate'] > span:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 6px; }
 .compactFact[data-review-fact='Borrow rate'] small { padding: 2px 5px; border-radius: 5px; background: var(--surface); font-size: 12px; line-height: 1.2; }
 .reviewViewport[data-review-phase='review'] .compactFact :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .reviewViewport[data-review-phase='review'] .compactFact:has(:global(details[open])) { align-items: flex-start; padding-block: 4px; }
-.reviewViewport[data-review-phase='review'] .amountLedReview { padding: 18px; border-radius: 24px; }
+.reviewViewport[data-review-phase='review'] .amountLedReview { padding: 14px; border-radius: 20px; }
 .reviewViewport[data-review-phase='review'] .reviewDetails { margin-top: 2px; }
 .reviewViewport[data-review-phase='review'] .reviewDetails > summary { min-height: 32px; }
 .reviewViewport[data-review-phase='review'] .actions.actions { padding-top: 6px; }
@@ -676,23 +678,27 @@
 .quoteUpdateAction { font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 .quoteUpdate > div { padding: 0 12px 12px; color: var(--text); }
 .compactRisk { min-width: 0; }
-.compactRisk .compactFact { display: grid; grid-template-columns: minmax(0, 1fr) max-content; gap: 6px; }
-.compactRisk .compactFact > span:last-child { max-width: none; white-space: nowrap; }
+.compactRisk .compactFact { display: flex; gap: 0 6px; }
+.compactRisk .compactFact > span:last-child { max-width: 100%; }
 @media (max-width: 350px) {
   .reviewViewport[data-review-phase='review'] .compactRisk .compactFact > span:first-child { font-size: 12px; }
-  .reviewViewport[data-review-phase='review'] .compactRisk .compactFact > span:last-child { font-size: 13px; }
+  .reviewViewport[data-review-phase='review'] .compactFact,
+  .reviewViewport[data-review-phase='review'] .compactFact > span:last-child { font-size: 12px; }
+  .reviewViewport[data-review-phase='review'] .amountLedReview { padding-inline: 10px; }
 }
 .flowAmount { align-items: flex-start; }
 .flowToken { margin-top: 3px; }
 .flowLabel { font-size: 12px; }
 .amountContext { margin-bottom: 10px; }
 .resultHeading { margin-bottom: 0; }
-.result .amountFlow, .pendingSummary .amountFlow { padding: 16px; }
+.result .amountFlow, .pendingSummary .amountFlow { padding: 14px; }
 .amountFlow.amountFlowEmbedded { padding: 0; border-radius: 0; background: transparent; }
 .result .flowArrow, .pendingSummary .flowArrow { margin-block: 3px; }
-.result .flowSubline, .pendingSummary .flowSubline { font-size: 13px; }
+.result .flowSubline, .pendingSummary .flowSubline { font-size: 12px; }
+.result .flowToken, .pendingSummary .flowToken,
+.result .flowToken > img, .pendingSummary .flowToken > img { width: 34px; height: 34px; flex-basis: 34px; }
 .result .flowLabel, .pendingSummary .flowLabel { font-size: 12px; }
-.pendingStatus { margin-bottom: 14px; }
+.pendingStatus { margin-bottom: 10px; }
 .pendingStatus p { font-size: 12px; }
 /* Keep the receipt's outcome and cost visible on short phones without
    shrinking its typography or the primary action's touch target. */

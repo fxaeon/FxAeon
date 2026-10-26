@@ -52,14 +52,14 @@
 .actionTabs :global(.segmented-option) { min-height: 44px; border-radius: 12px; font-weight: 500; }
 .panel :global(.reviewTrigger .button-primary) { min-height: 52px; border-radius: 26px; }
 .outcome { display: grid; gap: 4px; min-width: 0; margin-top: 0; padding-top: 2px; }
-.outcomeRow { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 12px; font-size: var(--fs-small); line-height: 1.5; }
+.outcomeRow { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 8px; font-size: 12px; line-height: 1.35; }
 .outcomeRow > span { color: var(--mut); }
 .outcomeRow > strong { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-weight: 500; text-align: right; }
 .outcomeNote { margin: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .estimateRow { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .estimateRow > div { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
-.estimateRow span { color: var(--mut); font-size: var(--fs-small); }
-.estimateRow strong { min-width: 0; max-width: 60%; color: var(--text); font-size: var(--fs-small); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.estimateRow span { color: var(--mut); font-size: 12px; }
+.estimateRow strong { min-width: 0; max-width: 60%; color: var(--text); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: normal; }
 .estimateRow small { color: var(--mut); font-size: var(--fs-caption); line-height: 1.4; }
 .fundingGuide { margin: -2px 0 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .fundingGuide a, .fundingGuide button { color: var(--mint-text, var(--mint)); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
@@ -162,4 +162,10 @@
   .vaultLayout:not([data-review='true']) .overview { padding-bottom: 0; }
   .vaultInfo > div { width: 100%; margin-top: 0; }
   .historySlot > section { margin-bottom: 0; }
+}
+
+.outcome { container-type: inline-size; }
+@container (max-width: 220px) {
+  .estimateRow > div, .outcomeRow { flex-wrap: wrap; row-gap: 0; }
+  .estimateRow strong, .outcomeRow > strong { max-width: 100%; margin-left: auto; }
 }

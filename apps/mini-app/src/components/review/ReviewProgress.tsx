@@ -7,7 +7,6 @@ import { openExternalLink } from '@/lib/telegram';
 import { transactionExplorerUrl, transactionStepKind, transactionStepProgress } from '@/lib/transactionProgress';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import presentation from './ActionReviewPresentation.module.css';
-import { TechnicalEvidenceRow } from './TechnicalEvidenceRow';
 
 export function chainName(chainId: number): string {
   return chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `Chain ${chainId}`;
@@ -80,8 +79,4 @@ export function StatusNotice({ label, body, className, icon, waiting = false }: 
 
 export function InlineError({ message }: { message: string }) {
   return <div role="alert" className={presentation.inlineError}><AlertTriangle aria-hidden="true" /><span>{message}</span></div>;
-}
-
-export function CalldataDisclosure({ data }: { data: string }) {
-  return <TechnicalEvidenceRow label="Calldata" value={data} preview={`${data.slice(0, 10)} · ${Math.max(0, (data.length - 2) / 2)} bytes`} />;
 }

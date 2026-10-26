@@ -6,7 +6,8 @@
   display: grid;
   grid-template-rows: 1fr;
   min-width: 0;
-  padding: 0 16px;
+  padding: 0 8px;
+  container-type: inline-size;
 }
 .facts {
   display: grid;
@@ -16,15 +17,15 @@
   overflow: hidden;
 }
 .row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   column-gap: 8px;
-  font-size: var(--fs-caption);
+  font-size: 12px;
   line-height: 1.35;
 }
-.row dt { min-width: 0; color: var(--mut); font-weight: 500; }
-.row dt > :global(span) { display: flex; flex-wrap: wrap; align-items: center; }
+.row dt { flex: 1 0 auto; min-width: 0; color: var(--mut); font-weight: 500; }
+.row dt > :global(span) { display: flex; flex-wrap: nowrap; align-items: center; }
 .row dt > :global(span) > :global(span) { min-width: 0; overflow-wrap: anywhere; }
 .row dt :global([data-info-help-trigger]) {
   width: 24px;
@@ -33,8 +34,10 @@
   min-height: 24px;
 }
 .row dd {
+  flex: 0 1 auto;
   min-width: 0;
-  margin: 0;
+  max-width: 100%;
+  margin: 0 0 0 auto;
   color: var(--text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -42,18 +45,17 @@
   overflow-wrap: anywhere;
 }
 .row dd > :global(span) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-.row[data-outcome-fact='Execution price'] { grid-template-columns: minmax(0, 1fr) max-content; }
 .row[data-outcome-fact='Execution price'] dt,
 .row[data-outcome-fact='Execution price'] dt :global(span) { overflow-wrap: normal; word-break: normal; }
 .row[data-outcome-fact='Execution price'] dd,
-.row[data-outcome-fact='Execution price'] dd > :global(span) { max-width: none; white-space: nowrap; }
+.row[data-outcome-fact='Execution price'] dd > :global(span) { max-width: 100%; white-space: normal; }
 .row dd :global([data-review-value] > summary) {
   min-width: 24px;
   min-height: 24px;
   min-block-size: 24px;
 }
 @media (max-width: 640px) {
-  .outcome { padding-inline: 14px; }
+  .outcome { padding-inline: 6px; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -62,3 +64,14 @@
 }
 @keyframes trade-outcome-open { from { grid-template-rows: 0fr; opacity: 0; } }
 @keyframes trade-outcome-figure { from { opacity: 0; } }
+
+/* Keep quoted figures and their units together, with natural row reflow at zoom. */
+.row dd > :global(span) { display: inline-block; overflow-wrap: normal; }
+@media (max-width: 359px) { .row { column-gap: 4px; } }
+
+.row dt > :global(span) > :global(span) { overflow-wrap: normal; }
+@container (max-width: 220px) {
+  .row dt { flex-basis: 100%; }
+  .row dd { padding-bottom: 4px; }
+  .row[data-outcome-fact='Execution price'] dd > :global(span) { white-space: normal; overflow-wrap: anywhere; }
+}

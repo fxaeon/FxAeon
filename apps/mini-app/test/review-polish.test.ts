@@ -11,12 +11,10 @@ test('Move omits only the generic gas reminder and preserves native shortfall al
   assert.match(move, /Your balance does not cover the bridge fee; transaction gas is also required/);
 });
 
-test('review removes the duplicate stepper but retains approval/action CTA and full approval evidence', () => {
+test('review retains approval and action signing labels without technical evidence', () => {
   const review = source('components/ActionReview.tsx');
   assert.doesNotMatch(review, /stepSequence|aria-label=\{bridgeReview \? "Wallet request sequence"/);
   assert.match(review, /confirmLabel = nextTransaction\?\.kind === 'approval' \? stepTitle\(nextTransaction\)/);
-  assert.match(review, /TechnicalEvidenceRow label="Approval spender" value=\{approval.spender\}/);
-  assert.match(review, /TechnicalEvidenceRow label=\{approval.valueLabel\} value=\{approval.value.toString\(\)\}/);
 });
 
 test('visual review titles remain available as focus targets and accessible dialog names', () => {
@@ -29,12 +27,9 @@ test('visual review titles remain available as focus targets and accessible dial
   assert.match(source('app/send/page.tsx'), /<h2 className="sr-only">Review send<\/h2>/);
 });
 
-test('Execution details keep one disclosure, grouped limits and exact copy/view controls', () => {
-  const review = source('components/ActionReview.tsx');
-  const evidence = source('components/review/TechnicalEvidenceRow.tsx');
-  assert.equal((review.match(/<details\b/g) ?? []).length, 1);
-  for (const label of ['Route & limits', 'Wallet requests', 'Verification data', 'Network speed']) assert.ok(review.includes(label), label);
-  assert.match(evidence, /copyText\(value\)/);
-  assert.match(evidence, /aria-label=\{`Copy full \$\{label.toLowerCase\(\)\}`\}/);
-  assert.match(evidence, /<textarea readOnly[^>]*value=\{value\}/);
+test('review exposes network speed without execution details', () => {
+ const review = source('components/ActionReview.tsx');
+ assert.doesNotMatch(review, /Execution details|<details|TechnicalEvidenceRow/);
+ assert.match(review, /stage === 'review' && feeSpeedControl/);
+ assert.match(review, /Network fee speed/);
 });

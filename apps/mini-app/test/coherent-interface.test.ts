@@ -94,7 +94,7 @@ test('shared definitions are explicit and never selected from arbitrary financia
   assert.equal(reviewHelpDefinition('Approval spender'), undefined);
   assert.equal(reviewHelpDefinition('Exact amount (raw units)'), undefined);
   assert.doesNotMatch(source('components/review/reviewHelp.ts'), /fact\.title/);
-  assert.match(source('components/ActionReview.tsx'), /TechnicalEvidenceRow label="Approval spender"/);
+  assert.doesNotMatch(source('components/ActionReview.tsx'), /TechnicalEvidenceRow|Execution details/);
 });
 
 test('review continuity freezes the starting snapshot and returns without pushing a new position route', () => {
@@ -111,7 +111,7 @@ test('review continuity freezes the starting snapshot and returns without pushin
   assert.match(source('app/borrow/page.tsx'), /visualLabel=\{fundingDisplay \?/);
   assert.doesNotMatch(review, /className=\{presentationStyles.riskNotice\}/);
   assert.match(source('components/infoHelpContent.ts'), /Rebalancing can reduce collateral and debt/);
-  assert.equal((review.match(/<details\b/g) ?? []).length, 1);
+  assert.equal((review.match(/<details\b/g) ?? []).length, 0);
 });
 
 const require = createRequire(import.meta.url);

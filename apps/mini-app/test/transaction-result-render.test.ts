@@ -70,7 +70,7 @@ function result(status: TransactionExecutionResult['status'], options: { hash?: 
 async function renderResult(input: {
   result: TransactionExecutionResult;
   receipts?: readonly ReceiptPresentation[];
-  bridgeTracker?: (advancedContent: React.ReactNode) => React.ReactNode;
+  bridgeTracker?: (completionContent?: (hash: string) => React.ReactNode) => React.ReactNode;
   refreshing?: boolean;
   reviewedFacts?: readonly { label: string; value: string; title?: string }[];
   simulated?: boolean;
@@ -143,14 +143,9 @@ test('partial outcomes, bridge tracking and unknown-receipt fallback remain visi
   const bridge = await renderResult({
     result: result('confirmed', { operation: 'buildBridgeTx', receipt: true }),
     receipts: [{ ...receipts[0], technicalMovements: ['technical movement details'] }],
-    bridgeTracker: advancedContent => React.createElement(React.Fragment, null,
-      React.createElement('p', null, 'Confirmed on source. Destination delivery is still being verified.'),
-      React.createElement('details', null, React.createElement('summary', null, 'Advanced'), advancedContent)),
+    bridgeTracker: () => React.createElement('p', null, 'Confirmed on source. Destination delivery is still being verified.'),
   });
-  assert.equal((bridge.match(/<summary>Advanced/g) ?? []).length, 1);
-  assert.equal((bridge.match(/<details\b/g) ?? []).length, 1, 'bridge has one flat Advanced container');
-  assert.ok(bridge.indexOf('0.001 ETH') > bridge.indexOf('<summary>Advanced'), 'receipt fees share tracker Advanced');
-  assert.ok(bridge.indexOf('technical movement details') > bridge.indexOf('<summary>Advanced'), 'technical movement rows stay accessible without nested disclosure');
+  assert.doesNotMatch(bridge, /<details|Execution details|technical movement details/);
   assert.doesNotMatch(bridge, /You send|You receive|Estimated received/);
   assert.doesNotMatch(bridge, /test-receiptLinks/);
   assert.match(bridge, /Confirmed on source/);
@@ -161,7 +156,7 @@ test('partial outcomes, bridge tracking and unknown-receipt fallback remain visi
     receipts: [{ ...receipts[0], movements: [], exactMovements: [], technicalMovements: [] }],
   });
   assert.match(unknownReceipt, /Confirmation unknown/);
-  assert.match(unknownReceipt, /No wallet token transfers appear in this receipt\./);
+  assert.doesNotMatch(unknownReceipt, /No wallet token transfers appear in this receipt/);
   assert.doesNotMatch(unknownReceipt, /Amounts are from verified receipts/);
 
   const confirmedEmptyReceipt = await renderResult({
@@ -171,7 +166,7 @@ test('partial outcomes, bridge tracking and unknown-receipt fallback remain visi
   assert.match(confirmedEmptyReceipt, /aria-label="Confirmed transaction receipt"/);
   assert.match(confirmedEmptyReceipt, /Token amounts<\/dt><dd><span[^>]*aria-label="Token amounts unavailable"/);
   assert.doesNotMatch(confirmedEmptyReceipt, />Unavailable</);
-  assert.match(confirmedEmptyReceipt, /Receipt details/);
+  assert.doesNotMatch(confirmedEmptyReceipt, /Receipt details/);
   assert.doesNotMatch(confirmedEmptyReceipt, /<dt>Received/);
 });
 
@@ -226,7 +221,7 @@ test('Base unknown-token receipt never borrows mainnet decimals or reviewed unit
   const html = await renderResult({ result: baseResult, receipts: [unknown], reviewedFacts: [{ label: 'Deposit', value: '1 fxUSD' }] });
   assert.match(html, /1000000 base units/);
   assert.match(html, /Fee data incomplete/);
-  assert.match(html, /Partial fee data/);
+  assert.match(html, /Fee data incomplete/);
   assert.match(html, /https:\/\/basescan.org\/tx/);
   assert.doesNotMatch(html, /data-amount-provenance="receipt"|<dt>You deposited/);
 });
@@ -295,11 +290,11 @@ test('declined, reverted and unknown outcomes retain recovery guidance above com
     assert.match(html, sample.expected);
     assert.match(html, /3× BTC Short/);
     assert.match(html, /test-transactionIdentity/);
-    assert.match(html, /Reviewed amounts, not final outcomes/);
-    assert.match(html, /Slippage/);
+    assert.doesNotMatch(html, /Reviewed amounts, not final outcomes|Execution details/);
+    assert.doesNotMatch(html, /<dt>Slippage/);
     assert.ok(html.indexOf('test-resultRecoveryStatus') < html.indexOf('test-transactionIdentity'));
-    assert.ok(html.indexOf('test-transactionIdentity') < html.indexOf('<summary>Execution details'));
-    const visible = html.slice(0, html.indexOf('<summary>Execution details'));
+
+    const visible = html;
     assert.doesNotMatch(visible, /<dt>Target leverage|<dt>Position|<dt>Amount|test-amountFlow|data-amount-provenance="receipt"/);
     if (sample.noSubmission) assert.doesNotMatch(html, /View on explorer/);
     else assert.match(visible, /View on explorer/);
@@ -350,8 +345,8 @@ test('partial recovery shows already confirmed wallet movements separately from 
   assert.match(html, />1 ETH<\/span>/);
   assert.match(html, /Already received/);
   assert.match(html, />2 fxUSD<\/span>/);
-  assert.match(html, /Reviewed amounts, not final outcomes/);
-  assert.ok(html.indexOf('Already confirmed') < html.indexOf('Reviewed amounts, not final outcomes'));
+  assert.doesNotMatch(html, /Reviewed amounts, not final outcomes/);
+
   assert.doesNotMatch(html, /Transaction confirmed|test-resultHeading/);
 });
 
@@ -361,7 +356,7 @@ test('actual phone receipt and fresh readback decimals stay compact while raw re
  const readback={walletAddress:WALLET,chainId:1,transactionHash:HASH,key:'ETH:long:42',readAt:1002,facts:[{label:'Collateral',value:'0.358481260986328125 stETH'},{label:'Debt',value:'720.89147659306640625 fxUSD'},{label:'Leverage',value:'2×'}]};
  const receipt: ReceiptPresentation={...receipts[0],movements:['received 720.89147659306640625 fxUSD'],exactMovements:[{direction:'received' as const,amount:'720.89147659306640625',symbol:'fxUSD'}]};
  const html=await renderResult({result:execution,confirmedPosition:readback,receipts:[receipt]});
- const main=html.split('<summary>Execution details')[0];
+ const main=html;
  assert.match(main,/≈ 720\.89 <span class="test-flowUnit">fxUSD<\/span>/);
  assert.match(main,/Position #42/);assert.match(main,/>Collateral<\/dt>/);assert.match(main,/>Debt<\/dt>/);
  assert.doesNotMatch(main,/>Updated<|Not the earlier quote/);
@@ -387,4 +382,18 @@ test('pending preserves long identities and static readable tiny or large units'
  }
  const css=readFileSync(new URL('../src/components/review/ActionReviewPresentation.module.css',import.meta.url),'utf8');
  assert.match(css,/\.pendingStatus strong \{[^}]*overflow-wrap: anywhere/);
+});
+
+test('unresolved receipt movement without detail retains the explorer without an empty disclosure', async () => {
+ const html = await renderResult({ result: result('confirmed', { receipt: true }), receipts: [{ ...receipts[0], movements: ['Token movement could not be resolved'], exactMovements: [], technicalMovements: [] }] });
+ assert.match(html, /Additional movements/);
+ assert.match(html, /Details unavailable · view receipt/);
+ assert.doesNotMatch(html, /<details|See receipt details/);
+ assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
+});
+
+test('single submitted recovery transaction has one explorer link', async () => {
+ const html = await renderResult({ result: result('partial') });
+ assert.equal((html.match(new RegExp(`href="https://etherscan.io/tx/${HASH}"`, 'g')) ?? []).length, 1);
+ assert.doesNotMatch(html, /aria-label="Transaction receipts"/);
 });

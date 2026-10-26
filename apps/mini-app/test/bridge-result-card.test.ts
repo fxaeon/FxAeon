@@ -11,7 +11,6 @@ const previousCss = require.extensions['.css'];
 require.extensions['.css'] = (loaded, filename) => { loaded.exports = Object.fromEntries([...readFileSync(filename, 'utf8').matchAll(/\.([_a-zA-Z][\w-]*)/g)].map(match => [match[1], match[1]])); };
 after(() => { if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css']; });
 const { BridgeResultCard } = require('../src/components/review/BridgeResultCard') as typeof import('../src/components/review/BridgeResultCard');
-const { BridgeResultDetails } = require('../src/components/review/BridgeResultDetails') as typeof import('../src/components/review/BridgeResultDetails');
 const HASH = `0x${'1'.repeat(64)}`;
 const DEST = `0x${'2'.repeat(64)}`;
 const RECIPIENT = `0x${'3'.repeat(40)}`;
@@ -31,11 +30,11 @@ test('bridge outcome uses verified source and destination amounts, never the req
   assert.doesNotMatch(primary, /100.123456789|You receive|estimated|Requested|Action 2/);
   assert.match(html, new RegExp(`https://basescan.org/tx/${DEST}`));
   assert.match(html, new RegExp(`https://etherscan.io/tx/${HASH}`));
-  assert.equal((html.match(/<details\b/g) ?? []).length, 1, 'only the shared execution details disclosure remains');
+  assert.equal((html.match(/<details\b/g) ?? []).length, 0, 'no execution disclosure remains');
   assert.doesNotMatch(html.slice(html.indexOf('<details class="advanced">')), /99.9876 fxUSD/, 'the technical panel does not repeat the same observed amount');
   assert.equal(proof.sourceAmount, '100.1234');
   assert.equal(proof.receivedAmount, '99.9876');
-  assert.match(html, /Copy full recipient/);
+  assert.match(html, /Recipient/);
 });
 
 test('pending, source-only, failed and legacy amount-less proofs stay honest', () => {
@@ -76,7 +75,7 @@ test('fxSAVE outcomes show static readable small and large amounts without fake 
       assert.doesNotMatch(html, /1234567890123456789\.123456789012345678/);
     }
     assert.match(html, /USD value unavailable/);
-    assert.equal((html.match(/<details\b/g) ?? []).length, 1);
+    assert.equal((html.match(/<details\b/g) ?? []).length, 0);
     assert.doesNotMatch(html, /\$1|NaN|Infinity/);
   }
   const css = readFileSync(new URL('../src/components/review/BridgeResultCard.module.css', import.meta.url), 'utf8');
@@ -92,31 +91,17 @@ test('source and destination proof amounts come from matched events and reset du
   assert.match(tracker, /if \(!simulated\) updatePendingBridgeDeliveryProof/);
 });
 
-test('bridge Advanced keeps receipt fees in aligned rows with partial Base caveat', () => {
-  const receipt = { transactionKind: 'action' as const, movements: [], technicalMovements: [], executionFee: '0.00024 ETH', exactFees: { execution: '0.00024' }, feeLabel: 'Action execution fee', totalFeeLabel: null, l1DataFee: null, operatorFee: null, totalExecutionFee: null, feeCaveat: 'Partial fee data', nativeValue: '0.0001 ETH', exactNativeValue: '0.0001', nativeValueLabel: 'Bridge fee' as const };
-  const result = { chainId: 8453, steps: [] } as unknown as import('../src/lib/fx').TransactionExecutionResult;
-  const html = renderToStaticMarkup(React.createElement(BridgeResultDetails, { result, receipts: [receipt], reviewedFacts: [{ label: 'Estimated received', value: '≈ 99.99 fxUSD', title: '99.9876 fxUSD' }] }));
-  assert.match(html, /Bridge execution fee/);
-  assert.match(html, /Bridge fee sent/);
-  assert.match(html, /Partial fee data/);
-  assert.match(html, /Quoted output/);
-  assert.match(html, /≈ 99\.99 fxUSD/);
-  assert.doesNotMatch(html, /99\.9876 fxUSD/);
-  assert.doesNotMatch(html, /<details|network total|Bridge fee paid|You receive|Received/);
-});
-
-
-test('completed bridge stays compact with one shared Execution details disclosure', () => {
-  const html = render({ state: 'destination_verified', sourceAmount: '10', receivedAmount: '9.99', completionContent: React.createElement('p', null, 'Transaction Confirmed: receipt · Source gas fee'), advancedContent: React.createElement('p', null, 'Full route diagnostics') });
+test('completed bridge stays compact without execution details', () => {
+  const html = render({ state: 'destination_verified', sourceAmount: '10', receivedAmount: '9.99', completionContent: React.createElement('p', null, 'Transaction Confirmed: receipt · Source gas fee') });
   assert.match(html, /Transaction Confirmed: receipt/);
-  assert.match(html, /Execution details/);
-  assert.match(html, /Full route diagnostics/);
-  assert.ok(html.indexOf('Full route diagnostics') > html.indexOf('<details class="advanced">'));
+  assert.doesNotMatch(html, /Execution details|Full route diagnostics|<details/);
+
+
   assert.doesNotMatch(html, /<span>Advanced<\/span>/);
   assert.match(html, /<p class="[^"]*amount[^"]*"[^>]*>10<span> fxUSD<\/span><\/p>/);
   assert.match(html, /<p class="[^"]*amount[^"]*"[^>]*>9\.99<span> fxUSD<\/span><\/p>/);
   assert.doesNotMatch(html, /Show exact|Exact sent|Exact received|class="exactAmount"/);
-  assert.equal((html.match(/<details\b/g) ?? []).length, 1, 'one shared Execution details disclosure');
+  assert.equal((html.match(/<details\b/g) ?? []).length, 0, 'no technical disclosure');
 });
 
 test('compact simulated completion avoids a duplicate badge and keeps amounts static', () => {
@@ -141,9 +126,9 @@ test('all bridge lifecycle states keep static readable amounts and preserve unce
   const html=render(proof);
   assert.match(html,/≈ 720\.89/); assert.doesNotMatch(html,/720\.89147659306640625 fxUSD|Show exact|Exact sent|Exact received/);
   assert.equal(proof.sourceAmount,'720.89147659306640625');
-  assert.equal((html.match(/lucide-chevron-down/g)||[]).length,1);
-  assert.equal((html.match(/<details\b/g)||[]).length,1);
-  assert.match(html,/Execution details/);
+  assert.equal((html.match(/lucide-chevron-down/g)||[]).length,0);
+  assert.equal((html.match(/<details\b/g)||[]).length,0);
+  assert.doesNotMatch(html,/Execution details/);
   if(state==='failed')assert.match(html,/Delivery unverified · do not repeat/);
  }
 });

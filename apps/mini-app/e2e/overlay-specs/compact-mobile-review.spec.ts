@@ -44,6 +44,8 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
         details: borrow ? { colls: '40000000000000000', debts: '50000000000000000000', stEthPerWstEth: '1250000000000000000', effectiveLeverage: 2, protocolFeeQuote: { poolAddress: pool, routerAddress: mintRouter, ratios: ['0', '0', '5000000', '0'] } } : instant ? { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: '100000000000000000000', tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } } : {},
       };
       if (kind === 'move') {
+        // Deliberately unpegged fixture prices exercise token/USD presentation.
+        h.displayPrices = { fxUSD: .997, ETH: 2300 };
         h.reviewOperationLabel = 'Send fxUSD to Base';
         h.reviewRoute = { operation: 'buildBridgeTx', chainId: 1, walletAddress: wallet,
           transactions: [{ chainId: 1, from: wallet, to: router, data: '0xc7c7f5b3', value: 100000000000000n, kind: 'action', type: 'buildBridgeTx', operation: 'buildBridgeTx' }],
@@ -74,7 +76,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     await info.attach('initial-essential-geometry', { body: evidence, contentType: 'application/json' });
     await page.screenshot({ path: info.outputPath(`${kind}-${size.width}.png`), animations: 'disabled' });
     expectClosedReviewFits(essential);
-    await expect(review.locator('details[data-review-secondary] > summary')).toBeInViewport({ ratio: 1 });
+    await expect(review.locator('details[data-review-secondary]')).toHaveCount(0);
     await expect(review.locator('[data-review-essential] [data-review-fact="Gas fee"]')).toBeVisible();
     if (kind === 'trade' || kind === 'borrow') {
       const expectedPrices = kind === 'borrow'
@@ -183,15 +185,40 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await expect(review.locator('[data-review-fact="Networks"]')).toHaveCount(0);
       await expect(review.locator('[data-review-fact="Minimum received"]')).toContainText('2,475 fxUSD');
       const recipient = review.locator('[data-review-fact="Recipient"]');
-      await expect(recipient.getByRole('button', { name: 'Copy full recipient address' })).toBeHidden();
-      await expect(recipient.locator('summary')).toHaveAccessibleName(/^Show full recipient address:/);
-      await recipient.locator('summary').click();
-      await expect(recipient.locator('[translate="no"]')).toHaveText('0x00000000000000000000000000000000000000aa');
-      await expect(recipient.getByRole('button', { name: 'Copy full recipient address' })).toBeVisible();
-      await expect(recipient.locator('summary')).toHaveCount(1);
-      await recipient.locator('summary').click();
+      const copyRecipient = recipient.getByRole('button', { name: 'Copy recipient address: 0x00000000000000000000000000000000000000aa', exact: true });
+      await expect(copyRecipient).toBeVisible();
+      await expect(copyRecipient).toHaveText('0x0000…00aa');
+      await expect(recipient.locator('details, summary')).toHaveCount(0);
+      await page.evaluate(() => {
+        const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
+        Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => { h.copiedRecipient = text; } } });
+      });
+      await copyRecipient.click();
+      await expect(recipient.getByRole('status')).toHaveText('Recipient address copied.');
+      expect(await page.evaluate(() => (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness.copiedRecipient)).toBe('0x00000000000000000000000000000000000000aa');
+      if (size.width === 390 && size.height === 740) {
+        await page.evaluate(() => {
+          Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Clipboard denied'); } } });
+        });
+        await copyRecipient.click();
+        await expect(recipient.getByText('Recipient address copied.', { exact: true })).toHaveCount(0);
+        await expect(recipient.getByText('Couldn’t copy. Try again.', { exact: true })).toBeVisible();
+        await expect(copyRecipient).toBeEnabled();
+      }
       await expect(action).toBeInViewport({ ratio: 1 });
-      await expect(review.locator('[data-review-fact="Bridge fee"]')).toContainText('0.0001 ETH');
+      await expect(review.locator('[data-review-fact="Amount"] [data-usd-state]')).toHaveText('≈ $2,492.50');
+      await expect(review.locator('[data-review-fact="Estimated received"] [data-usd-state]')).toHaveText('≈ $2,490.01');
+      await expect(review.locator('[data-review-fact="Bridge fee"]')).toContainText('≈ $0.23');
+      await expect(review.locator('[data-review-fact="Gas fee"]')).toContainText('≈ $2.32');
+      if (size.width === 390 && size.height === 740) {
+        await page.evaluate(() => {
+          const h = (globalThis as typeof globalThis & { __actionReviewHarness: any }).__actionReviewHarness;
+          h.displayPrices = {}; h.rerender?.();
+        });
+        await expect(review.locator('[data-review-fact="Bridge fee"]')).toContainText('0.0001 ETH');
+        await expect(review.locator('[data-review-fact="Amount"] [data-usd-state]')).toHaveAttribute('data-usd-state', 'unavailable');
+      }
       await expect(review.locator('[data-review-fact="Delivery estimate"]')).toHaveCount(0);
     }
     if (kind === 'earn-instant') {
@@ -234,15 +261,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
     if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toHaveCount(0);
-    const more = review.locator('details[aria-label="Advanced transaction details"] > summary');
-    await more.scrollIntoViewIfNeeded();
-    expect(await more.evaluate(node => {
-      const bounds = node.getBoundingClientRect();
-      const body = node.closest('[data-review-scroll]')!.getBoundingClientRect();
-      return bounds.top >= body.top - 1 && bounds.bottom <= body.bottom + 1;
-    }), 'the last disclosure is reachable inside the terms region').toBe(true);
-    await expect(action).toBeInViewport({ ratio: 1 });
-    await more.click();
+    await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveCount(0);
     await expect(action).toBeInViewport({ ratio: 1 });
     const close = page.getByRole('button', { name: 'Close transaction review', exact: true });
     if (await close.count()) await close.click();

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openHarness, metric } from '../harness/action-review-measurement-support';
 
-for (const width of [320, 390, 1280]) test(`quiet review keeps approval, details and accessible title at ${width}px`, async ({ page }, info) => {
+for (const width of [320, 390, 1280]) test(`quiet review keeps approval, decision rows and accessible title at ${width}px`, async ({ page }, info) => {
   await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
   await openHarness(page, { presentationMode: true });
@@ -25,19 +25,9 @@ for (const width of [320, 390, 1280]) test(`quiet review keeps approval, details
   await expect(page.getByRole('heading', { name: 'Add to ETH Long', exact: true })).toHaveCount(1);
   if (width <= 600) await expect(page.getByRole('dialog')).toHaveAccessibleName(await title.textContent() ?? '');
   await page.screenshot({ path: info.outputPath('review.png'), animations: 'disabled' });
-  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
-  const details=review.locator('details[aria-label="Advanced transaction details"]');
-  await expect(details.getByRole('region', { name: 'Route and limits' })).toBeVisible();
-  await expect(details.getByRole('region', { name: 'Prepared transactions' })).toBeVisible();
-  await expect(details.getByRole('button', { name: 'Copy full approval spender', exact: true })).toBeVisible();
-  const copyTarget = await details.getByRole('button', { name: 'Copy full approval spender', exact: true }).boundingBox();
-  expect(copyTarget!.width).toBeGreaterThanOrEqual(44);
-  expect(copyTarget!.height).toBeGreaterThanOrEqual(44);
-  await details.getByRole('button', { name: 'View full approval spender', exact: true }).click();
-  const dialog=page.getByRole('dialog', { name: 'Full approval spender', exact: true });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('textbox')).toHaveValue('0x0000000000000000000000000000000000000000');
-  await page.keyboard.press('Escape');
+  await expect(review.getByText('Execution details', { exact: true })).toHaveCount(0);
+  await expect(review.locator('[data-review-fact="Gas fee"]')).toBeVisible();
+  await expect(review.locator('[data-review-fact="Slippage"]')).toBeVisible();
   await expect(review).toBeVisible();
   await expect(cta).toBeInViewport({ ratio: 1 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
@@ -81,10 +71,9 @@ for (const width of [320, 390, 768, 1280]) test(`context help is keyboard/touch 
   await slippageHelp.press('Enter');
   await expect(panel).toHaveCount(1);
   await expect(panel).toHaveAccessibleName('Max. slippage');
-  const advancedSummary = review.locator('details[aria-label="Advanced transaction details"] > summary');
-  await advancedSummary.focus();
+  await review.locator('[data-review-actions] button').focus();
   await expect(panel).toHaveCount(0);
-  await expect(review.locator('details[aria-label="Advanced transaction details"]')).not.toHaveAttribute('open');
+  await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveCount(0);
   expect(await page.evaluate(() => history.length)).toBe(beforeHistory);
   // Help should reflow at enlarged text, not reduce the font to fit.
   await page.evaluate(() => document.documentElement.style.fontSize = '200%');

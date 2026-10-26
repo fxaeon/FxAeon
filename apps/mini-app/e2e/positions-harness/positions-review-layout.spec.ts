@@ -29,6 +29,7 @@ const mocks: Record<string, string> = {
       const review = async () => { if (!props.planBuilder) return; setStage('planning'); const planned = await props.planBuilder(); setAccepted(Array.isArray(planned)?planned[0]:(planned ?? route(wallet.address))); setStage('review'); };
       const reset = () => { setStage('input'); setAccepted(null); };
       const selected = accepted ?? route(wallet.address);
+      globalThis.__positionsReviewHarness.reviewedWallet = selected.walletAddress;
       const result = stage === 'result' ? {status:'confirmed',operation:'reducePosition',chainId:1,walletAddress:selected.walletAddress,steps:[{index:1,transaction:selected.transactions[1],status:'confirmed',hash:'0x'+'1'.repeat(64)}]} : null;
       const feeTiers={standard:{tier:'standard',gasPriceWei:25000000000n,maxFeePerGas:30000000000n,maxPriorityFeePerGas:5000000000n,source:'rpc'},fast:{tier:'fast',gasPriceWei:30000000000n,maxFeePerGas:50000000000n,maxPriorityFeePerGas:10000000000n,source:'rpc'},rapid:{tier:'rapid',gasPriceWei:40000000000n,maxFeePerGas:60000000000n,maxPriorityFeePerGas:20000000000n,source:'rpc'}};
       return { canSelectReviewedRoute:false,endConnectFlow:()=>{},error:null,execute:async()=>{},feeSelection:wallet.isEmbedded?{snapshot:{chainId:1,tiers:feeTiers},tier:'standard'}:null,gasCost:{checking:false,estimate:{status:'current',gas:240000n,executionGasFeeWei:2400000000000000n,totalNativeCostWei:2400000000000000n,nativeValueWei:0n},estimateIsCurrent:true,status:'ready'},headingRef:{current:null},loading,networkSwitching:false,quoteChanges:[],quoteExpired:false,refreshReviewedQuote:async()=>{},refreshing:false,reset,result,review,reviewTitle:'Close ETH long position',route:stage==='input'?null:selected,routeSummaries:[],routes:[selected],selectedRoute:0,selectReviewedRoute:()=>{},startConnectFlow:()=>{},stage,status:stage==='executing'?'submitted':'reviewing',statusDetail:'',stepResults,triggerRef:{current:null},wallet:{...wallet,ready:true,authenticated:true,isEmbedded:wallet.isEmbedded} };
@@ -86,12 +87,12 @@ async function buildHarness(): Promise<{ script: string; css: string }> {
   };
 }
 
-async function openAdvanced(page: Page) {
-  const advanced = page.getByLabel('Advanced transaction details', { exact: true });
-  if (await advanced.getAttribute('open') === null) await advanced.locator(':scope > summary').click();
-  const transactions = advanced.getByRole('region', { name: 'Prepared transactions', exact: true });
-  await expect(transactions).toBeVisible();
-  await expect(transactions.getByRole('group', { name: /^Transaction [12]$/ })).toHaveCount(2);
+async function expectCompactReview(page: Page) {
+  await expect(page.getByLabel('Advanced transaction details', { exact: true })).toHaveCount(0);
+  const information = page.getByRole('region', { name: 'Review information', exact: true });
+  await expect(information.locator('[data-review-fact="Minimum received"]')).toContainText('99 USDC');
+  await expect(information.locator('[data-review-fact="Gas fee"]')).toContainText('0.0024 ETH');
+  await expect(page.getByRole('button', { name: 'Approve position', exact: true })).toBeVisible();
 }
 
 // IntersectionObserver rounds fractional layout edges differently across browsers.
@@ -135,7 +136,7 @@ let harness: { script: string; css: string };
 test.beforeAll(async () => { harness = await buildHarness(); });
 
 for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
-  test(`review decisions remain accessible with expanded content at ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
+  test(`compact review decisions remain accessible at ${viewport.width}x${viewport.height}`, async ({ page }, info) => {
     await page.route('http://positions.test/**', route => route.fulfill({ contentType: 'text/html', body: '<html></html>' }));
     await page.setViewportSize(viewport);
     await page.goto('http://positions.test/positions');
@@ -152,7 +153,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
     const decision = page.getByRole('button', { name: 'Approve position', exact: true });
     await expect(decision).toBeVisible();
     if (viewport.width <= 600) await expectDecisionReachable(decision);
-    await openAdvanced(page);
+    await expectCompactReview(page);
     const information = page.getByRole('region', { name: 'Review information', exact: true });
     await expect(information).toHaveCSS('overflow-y', viewport.width <= 600 ? 'auto' : 'visible');
     if (viewport.width <= 600) {
@@ -160,13 +161,11 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
       await expect.poll(() => information.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
       await expectDecisionReachable(decision);
     }
-    // Advanced animates its height. Keep requesting the actual end while it
-    // expands rather than testing a scroll offset captured mid-animation.
-    const finalEvidence = information.locator('[data-review-evidence]').last();
+    // Read the final decision row and keep the primary action reachable.
+    const finalEvidence = information.locator('[data-review-fact]').last();
     if (viewport.width > 600) {
       // Desktop lets the surrounding page scroll instead of clipping a second
-      // scroll region. The disclosure's height animation can move this row
-      // after a one-shot scroll, so keep bringing it into view until its full
+      // scroll region. Keep bringing the final row into view until its full
       // bounds fit inside the viewport. Centering avoids fractional row edges
       // landing just outside the viewport when scrollTop rounds to an integer.
       let scrollEvidence: unknown;
@@ -184,7 +183,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 740 }
                 position: css.position, hidden: ancestor.hidden, ariaHidden: ancestor.getAttribute('aria-hidden') });
               ancestor = ancestor.parentElement;
             }
-            return { label: node.getAttribute('data-review-evidence'), text: (node as HTMLElement).innerText,
+            return { label: node.getAttribute('data-review-fact'), text: (node as HTMLElement).innerText,
               bounds: node.getBoundingClientRect().toJSON(), window: { width: innerWidth, height: innerHeight, scrollY,
                 visualTop: visualViewport?.offsetTop, visualHeight: visualViewport?.height },
               informationCount: document.querySelectorAll('[aria-label="Review information"]').length, ancestors };
@@ -305,7 +304,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
   await reviewAction.click();
   const embeddedConfirm = page.getByRole('button', { name: 'Approve position', exact: true });
   await expect(embeddedConfirm).toBeVisible();
-  await openAdvanced(page);
+  await expectCompactReview(page);
   await expect(page.locator('input[name="review-gas-tier"]')).toHaveCount(3);
   await expect(page.getByText('Network fee', { exact: true })).toBeVisible();
   const embeddedBox = await embeddedConfirm.boundingBox();
@@ -319,7 +318,7 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
     content.scrollTop = content.scrollHeight;
   });
   await embeddedConfirm.scrollIntoViewIfNeeded();
-  // Expanded details scroll in the terms region while the decision remains
+  // Overflowing terms scroll in their region while the decision remains
   // after that region and clear of the navigation.
   const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
   await expect(reviewInformation).toHaveCSS('overflow-y', 'auto');
@@ -329,7 +328,8 @@ test('four-position Close review stays in its sheet, preserves approvals and fee
     const action = await embeddedConfirm.boundingBox();
     const nav = await page.locator('[data-app-navigation]').boundingBox();
     const bottom = await page.locator('[data-position-sheet-body]').evaluate(node => node.getBoundingClientRect().bottom);
-    return contentScrollTop > 0 && Boolean(action && nav && action.y >= 0 && action.y + action.height <= bottom);
+    const scrollNeeded = await reviewInformation.evaluate(node => node.scrollHeight > node.clientHeight + 1);
+    return (!scrollNeeded || contentScrollTop > 0) && Boolean(action && nav && action.y >= 0 && action.y + action.height <= bottom);
   }).toBe(true);
   expect(await embeddedConfirm.evaluate((button) => {
     for (let node: Element | null = button; node && !node.matches('[data-position-sheet-body], [data-shell-content]'); node = node.parentElement) {
@@ -438,14 +438,12 @@ test('Add, Reduce, Close, and Leverage use one desktop review column and an iner
     h.rerender?.();
   });
   await expect(preservedManager).toBeVisible();
-  // This lifecycle fixture has a hash but no verified receipt, so it retains
-  // Advanced evidence instead of claiming compact verified success. The
-  // submitting wallet must survive a later connected-account change.
+  // A hash without a verified receipt remains a recovery result. The accepted
+  // session retains the submitting wallet even after the connected account changes.
   await expect(preservedManager.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
-  const resultDetails = preservedManager.locator('details').filter({ has: page.getByText('Execution details', { exact: true }) });
-  await resultDetails.locator(':scope > summary').click();
-  await expect(preservedManager.locator('[title="0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]')).toBeVisible();
-  await expect(preservedManager.getByRole('link', { name: /^Action 2: Submitted\. View transaction/ })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
+  await expect(preservedManager.getByText('Execution details', { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { reviewedWallet: string } }).__positionsReviewHarness.reviewedWallet)).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+  await expect(preservedManager.getByRole('link', { name: 'View on explorer', exact: true })).toHaveAttribute('href', 'https://etherscan.io/tx/0x' + '1'.repeat(64));
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);
 });
 
@@ -467,7 +465,7 @@ test('submitted transaction status and explorer link remain reachable inside the
     await reviewAction.click();
 
     const reviewInformation = page.getByRole('region', { name: 'Review information', exact: true });
-    await openAdvanced(page);
+    await expectCompactReview(page);
     await expect(reviewInformation).toHaveCSS('overflow-y', 'auto');
     await expect.poll(() => reviewInformation.evaluate(node => node.clientHeight)).toBeGreaterThan(0);
 
@@ -486,14 +484,8 @@ test('submitted transaction status and explorer link remain reachable inside the
       h.setReviewStage?.('executing');
     }, hash);
 
-    // Entering execution intentionally closes secondary details and resets the
-    // review scroll position. Open Advanced in the rendered execution phase,
-    // rather than measuring descendants of the now-closed review disclosure.
     await expect(page.locator('[data-position-stage="executing"]')).toHaveCount(1);
-    const advanced = page.getByLabel('Advanced transaction details', { exact: true });
-    await expect(advanced).toHaveJSProperty('open', false);
-    await openAdvanced(page);
-    await expect(advanced).toHaveJSProperty('open', true);
+    await expect(page.getByLabel('Advanced transaction details', { exact: true })).toHaveCount(0);
 
     const progress = page.getByRole('region', { name: 'Transaction progress', exact: true });
     await expect(progress).toBeVisible();
@@ -524,7 +516,9 @@ test('submitted transaction status and explorer link remain reachable inside the
     await expect.poll(async () => { await progress.scrollIntoViewIfNeeded(); return fitsReview(); }).toBe(true);
     const beforeScroll = await progress.boundingBox();
     await reviewInformation.evaluate(node => { node.scrollTop += 80; });
-    await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
+    if (await reviewInformation.evaluate(node => node.scrollHeight > node.clientHeight + 1)) {
+      await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
+    } else await expect.poll(fitsReview).toBe(true);
     await progress.scrollIntoViewIfNeeded();
     await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/submitted-progress-${viewport.width}x${viewport.height}.png`), fullPage: false });
   }

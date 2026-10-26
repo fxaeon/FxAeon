@@ -5,7 +5,6 @@ import { ArrowDown, Check, Copy } from 'lucide-react';
 import { ChainIcon, TokenIcon } from '@/components/TokenIcon';
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import { groupDigits } from '@/lib/amount';
-import { GroupedAddress } from '@/components/GroupedAddress';
 import { copyText } from '@/lib/clipboard';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { readableReviewAmount, reviewFactLabel } from './reviewHierarchy';
@@ -64,22 +63,13 @@ function Recipient({ fact }: { fact: ReviewFact }) {
   if (!isAddress) return <ReviewTermRow fact={fact} displayLabel="Recipient" />;
   const compactAddress = `${fact.value.slice(0, 6)}…${fact.value.slice(-4)}`;
   return <div data-review-fact={fact.label} className={styles.recipient}>
-    <details className={styles.recipientDetails}>
-      <summary aria-label={`Show full recipient address: ${fact.value}`}>
-        <span className={styles.recipientLabel}>Recipient</span>
-        <span className={styles.recipientPreview} title={fact.value}>{compactAddress}</span>
-        <span className={styles.recipientAction}><span>Show full</span><span>Hide</span></span>
-      </summary>
-      <div className={styles.recipientExpanded}>
-        <GroupedAddress address={fact.value} />
-        <button type="button" aria-label="Copy full recipient address" disabled={copyState === 'copying'} aria-busy={copyState === 'copying'} onClick={() => void copyRecipient()}>
-          {copyState === 'copied' ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-          <span>{copyState === 'copied' ? 'Copied' : copyState === 'copying' ? 'Copying…' : 'Copy exact address'}</span>
-        </button>
-      </div>
-    </details>
+    <span className={styles.recipientLabel}>Recipient</span>
+    <button className={styles.recipientCopy} type="button" title={fact.value} aria-label={`Copy recipient address: ${fact.value}`} disabled={copyState === 'copying'} aria-busy={copyState === 'copying'} onClick={() => void copyRecipient()}>
+      <span className={styles.recipientPreview} translate="no">{compactAddress}</span>
+      {copyState === 'copied' ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+    </button>
     <span className="sr-only" role="status">{copyState === 'copied' ? 'Recipient address copied.' : ''}</span>
-    {copyState === 'unconfirmed' && <p className={styles.copyStatus} role="status">Copy not confirmed. You can select the full address above.</p>}
+    {copyState === 'unconfirmed' && <p className={styles.copyStatus} role="status">Couldn’t copy. Try again.</p>}
   </div>;
 }
 

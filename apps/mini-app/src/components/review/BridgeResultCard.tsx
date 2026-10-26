@@ -1,14 +1,13 @@
 'use client';
 
 import type { ReactNode, Ref } from 'react';
-import { ArrowDown, CheckCircle2, ChevronDown, Clock3, ExternalLink, XCircle } from 'lucide-react';
+import { ArrowDown, CheckCircle2, Clock3, ExternalLink, XCircle } from 'lucide-react';
 import { ChainIcon, TokenIcon } from '@/components/TokenIcon';
 import { openExternalLink } from '@/lib/telegram';
 import { compactAddress } from '@/lib/addressPresentation';
 import { AmountUsd } from './AmountUsd';
 import { MissingValue } from '@/components/MissingValue';
 import { readableReviewAmount } from './reviewHierarchy';
-import { TechnicalEvidenceRow } from './TechnicalEvidenceRow';
 import styles from './BridgeResultCard.module.css';
 
 export type BridgeResultState = 'pending' | 'source_confirmed' | 'destination_verified' | 'failed';
@@ -19,13 +18,13 @@ type Chain = 'Ethereum' | 'Base';
 export function BridgeResultCard({
   state, sourceChain, destinationChain, token, requestedAmount, sourceAmount, receivedAmount,
   sourceTxHash, destinationTxHash, recipient, simulated, sourceReverted = false,
-  advancedContent, verificationDetails, retryAction, headingRef, completionContent,
+  retryAction, headingRef, completionContent,
 }: {
   state: BridgeResultState; sourceChain: Chain; destinationChain: Chain; token: string;
   requestedAmount: string; sourceAmount?: string; receivedAmount?: string;
   sourceTxHash?: string | null; destinationTxHash?: string | null; recipient?: string;
-  simulated: boolean; sourceReverted?: boolean; advancedContent?: ReactNode; completionContent?: ReactNode;
-  verificationDetails?: ReactNode; retryAction?: ReactNode; headingRef?: Ref<HTMLHeadingElement>;
+  simulated: boolean; sourceReverted?: boolean; completionContent?: ReactNode;
+  retryAction?: ReactNode; headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const delivered = state === 'destination_verified';
   const failed = state === 'failed';
@@ -57,19 +56,10 @@ export function BridgeResultCard({
         label={delivered ? 'Received' : 'Destination'} receipt={delivered} />
     </div>
     {!conciseComplete && <div className={styles.timeline} aria-label="Bridge progress"><BridgeReceiptRow label={sourceConfirmed ? "Source confirmed" : "Source transaction"} chain={sourceChain} hash={sourceTxHash} simulated={simulated} status={sourceReverted ? 'Reverted' : sourceConfirmed ? 'Confirmed' : sourceTxHash ? 'Pending' : 'Not submitted'} /><BridgeReceiptRow label={`Delivering to ${destinationChain}`} chain={destinationChain} hash={destinationTxHash} simulated={simulated} status={delivered ? 'Confirmed' : destinationTxHash ? 'Confirming' : 'Pending'} /></div>}
-    {!conciseComplete && recipient && <div className={styles.recipient}><span>Recipient</span><span title={recipient}>{compactAddress(recipient)}</span></div>}
+    {recipient && <div className={styles.recipient}><span>Recipient</span><span title={recipient}>{compactAddress(recipient)}</span></div>}
     {retryAction}
 
     {conciseComplete && <div className={styles.completion}>{completionContent}</div>}
-    {<details className={styles.advanced}>
-      <summary><span>Execution details</span><ChevronDown size={16} aria-hidden="true" /></summary>
-      <div className={styles.detailsBody}>
-        {recipient && <section className={styles.group}><TechnicalEvidenceRow label="Recipient" value={recipient} preview={compactAddress(recipient)} /></section>}
-        {advancedContent}
-        {verificationDetails && <section className={styles.notes} aria-label="Delivery verification">{verificationDetails}</section>}
-        {!simulated && <p className={styles.priceNote}>Sent and received amounts come from verified bridge events.</p>}
-      </div>
-    </details>}
   </section>;
 }
 

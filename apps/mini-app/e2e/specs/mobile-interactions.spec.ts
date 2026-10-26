@@ -146,7 +146,7 @@ test.describe('shared amount shortcuts', () => {
   for (const { route, labels } of [
     { route: '/trade', labels: ['25%', '50%', '75%', 'Max'] },
     { route: '/borrow', labels: ['25%', '50%', '75%', 'Max'] },
-    { route: '/move', labels: ['Max'] },
+    { route: '/move', labels: ['25%', '50%', '75%', 'Max'] },
   ]) {
     test(`keeps the intended shortcuts visible on ${route} before balances load`, async ({ page }) => {
       await page.setViewportSize({ width: 393, height: 852 });

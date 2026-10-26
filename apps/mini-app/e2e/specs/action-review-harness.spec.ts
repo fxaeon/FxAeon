@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { openHarness, metric } from '../harness/action-review-measurement-support';
-import { readReviewedTransactions } from '../fork/reviewedTransactions';
 import { FX_TOKENS } from '../../src/lib/fx/tokens';
 // Fixture controls simulate wallet/RPC events outside the product dialog. They
 // must not depend on clicking through the modal backdrop used by real users.
@@ -272,13 +271,11 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveCount(0);
   await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · est.', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-fact="f(x) fee"]');
-  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
   await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
   await expect(fee.locator('details, summary')).toHaveCount(0);
   await expect(review.locator('[data-review-fact="Availability"]')).toContainText('After confirmation');
-  await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
-  await expect(review.getByText('Execution details', { exact: true })).toBeVisible();
-  await expect(review.locator('[data-review-evidence="Mode"]')).toBeHidden();
+  await expect(review.getByText('Execution details', { exact: true })).toHaveCount(0);
+  await expect(review.locator('[data-review-evidence="Mode"]')).toHaveCount(0);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await expectReviewInside(review);
@@ -310,66 +307,19 @@ async function resolvePreviewRequest(page: import('@playwright/test').Page, requ
 }
 
 test.describe('ActionReview isolated orchestration', () => {
-  test('renders each reviewed transaction once in Advanced with exact wei and calldata', async ({ page }, testInfo) => {
-    await page.setViewportSize({ width: 393, height: 852 });
-    await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
+  test('keeps a multi-step approval review compact without exposing prepared requests', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 844 });
     await openHarness(page);
     await harnessControl(page, 'Use approval route');
     await harnessControl(page, 'Use multi-step route');
     await harnessControl(page, 'Use nonzero transaction values');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-
-    const review = page.locator('.reviewInlineContent');
-    const advanced = review.locator('details[aria-label="Advanced transaction details"]');
-    await expect(advanced).toHaveCount(1);
-    await expect(advanced).toHaveJSProperty('open', false);
-    await expect(advanced.locator(':scope > summary')).toHaveText('Execution details');
-    await expect(review.getByRole('region', { name: 'Prepared transactions', exact: true, includeHidden: true })).toBeHidden();
-    const reviewed = await readReviewedTransactions(review, { collapseAfterRead: false });
-    expect(reviewed.map((transaction) => transaction.heading)).toEqual(['Approve fxUSD 1', 'Confirm 2', 'Confirm 3']);
-    // A route checked for signing must not imply that any receipt exists.
-    expect(reviewed.map((transaction) => transaction.status)).toEqual(['', '', '']);
-    expect(reviewed.some((transaction) => transaction.status === 'Confirmed')).toBe(false);
-    expect(reviewed.map((transaction) => transaction.valueWei)).toEqual(['0', '123', '456']);
-    expect(reviewed.map((transaction) => transaction.calldata)).toEqual([
-      `0x095ea7b3${'0'.repeat(24)}${'0'.repeat(40)}${'0'.repeat(63)}1`,
-      '0x12345678',
-      '0x87654321',
-    ]);
-    const steps = review.getByRole('region', { name: 'Prepared transactions', exact: true });
-    const cards = steps.getByRole('group', { name: /^Transaction \d+$/ });
-    for (let index = 0; index < await cards.count(); index += 1) {
-      const dimensions = await cards.nth(index).evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth }));
-      expect(dimensions.scrollWidth, `transaction ${index + 1} must fit without horizontal overflow`).toBeLessThanOrEqual(dimensions.clientWidth);
-    }
-    expect(await metric(page, 'send')).toBe(0);
-
-    // Keep the stress route assertions above, but capture a representative
-    // approval-plus-action review instead of presenting the synthetic third
-    // step as a normal product state.
-    await (await reviewExitControl(page)).click();
-    await page.evaluate(() => {
-      const harness = (window as typeof window & { __actionReviewHarness?: { multiStepExecution: boolean; rerender?: () => void } }).__actionReviewHarness;
-      if (!harness) throw new Error('ActionReview fixture state is missing');
-      harness.multiStepExecution = false;
-      harness.rerender?.();
-    });
-    await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(advanced).toHaveJSProperty('open', false);
-    await expect(advanced.locator(':scope > summary')).toHaveText('Execution details');
-    const representative = await readReviewedTransactions(review, { collapseAfterRead: false });
-    expect(representative.map((transaction) => transaction.heading)).toEqual(['Approve fxUSD 1', 'Confirm 2']);
-    expect(representative.map((transaction) => transaction.status)).toEqual(['', '']);
-    await expect(steps).toHaveCount(1);
-    await steps.evaluate((node) => {
-      const label = document.createElement('p');
-      label.textContent = 'Synthetic test fixture · no wallet signature requested';
-      label.style.cssText = 'font-size:10px;color:var(--mut);padding:0 0 8px';
-      node.prepend(label);
-    });
-    await page.locator('[role="toolbar"]').evaluate((node) => { (node as HTMLElement).style.display = 'none'; });
-    await steps.scrollIntoViewIfNeeded();
-    await steps.screenshot({ path: testInfo.outputPath('action-review-steps-expanded.png') });
+    const review = page.locator('[data-review-viewport]');
+    await expect(page.getByRole('button', { name: 'Approve fxUSD', exact: true })).toBeEnabled();
+    await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveCount(0);
+    await expect(review.getByRole('region', { name: 'Prepared transactions', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Transaction receipts', exact: true })).toHaveCount(0);
+    await expectReviewInside(review);
     expect(await metric(page, 'send')).toBe(0);
   });
 
@@ -383,7 +333,6 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(approval).toBeVisible();
 
     const rapid = page.locator('input[name="review-gas-tier"][value="rapid"]');
-    await page.locator('details[aria-label="Advanced transaction details"] > summary').click();
     await rapid.scrollIntoViewIfNeeded();
     await rapid.check({ force: true });
     await expect(rapid).toBeChecked();
@@ -399,8 +348,6 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Use approval route');
     await harnessControl(page, 'Defer wallet response');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    const requests = await readReviewedTransactions(page.locator('[data-review-viewport]'));
-    expect(requests.map(request => request.heading)).toEqual(['Approve fxUSD 1', 'Confirm 2']);
     const progress = page.getByRole('region', { name: 'Transaction progress', exact: true });
     await page.getByRole('button', { name: 'Approve fxUSD', exact: true }).click();
     await expect(page.locator('[data-review-actions]')).toHaveCount(0);
@@ -409,8 +356,6 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Defer wallet response');
     await harnessControl(page, 'Resolve wallet response');
     await expect(progress.getByRole('status')).toContainText('Confirm in wallet');
-    const steps = await readReviewedTransactions(page.locator('[data-review-viewport]'));
-    expect(steps.map(request => request.status)).toEqual(['Confirmed', '']);
     await expect(page.locator('[data-review-actions]')).toHaveCount(0);
     expect(await metric(page, 'send')).toBe(2);
     await harnessControl(page, 'Resolve wallet response');
@@ -453,7 +398,7 @@ test.describe('ActionReview isolated orchestration', () => {
     expect((await harnessMetrics(page)).hasFeeSelection).toBe(false);
   });
 
-  test('review fits its mobile sheet and keeps confirmation available while details scroll', async ({ page }, testInfo) => {
+  test('compact review fits its mobile sheet and keeps confirmation available across viewports', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 393, height: 852 });
     // The harness mounts into the current document; seed a real viewport meta
     // so mobile emulation does not retain the blank page's 980px layout width.
@@ -491,26 +436,12 @@ test.describe('ActionReview isolated orchestration', () => {
     const review = page.locator('[data-review-viewport]');
     const reviewBox = await review.boundingBox();
     expect(reviewBox!.height, 'the review fits below the mobile sheet header').toBeLessThanOrEqual(sheetBox!.height - headerBox!.height);
-    const details = review.locator('details[aria-label="Advanced transaction details"]');
-    await details.locator(':scope > summary').focus();
-    await page.keyboard.press('Enter');
-    await expect(details).toHaveJSProperty('open', true);
-    await page.keyboard.press('Enter');
-    await expect(details).toHaveJSProperty('open', false);
-    // Expanded metadata scrolls independently; the decision remains available.
-    await review.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = true; }));
-    const scrollBody = page.getByRole('region', { name: 'Review information', exact: true });
-    expect(await scrollBody.evaluate((node) => getComputedStyle(node).overflowY)).toBe('auto');
-    await expect.poll(() => scrollBody.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeGreaterThan(0);
+    await expect(review.locator('details[aria-label="Advanced transaction details"]')).toHaveCount(0);
     await expect(confirm).toBeInViewport();
-    const expandedActionTop = await confirm.evaluate(button => button.getBoundingClientRect().top);
-    await scrollBody.evaluate(node => { node.scrollTop = node.scrollHeight; });
-    await expect.poll(() => scrollBody.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
-    expect(await confirm.evaluate(button => button.getBoundingClientRect().top)).toBeCloseTo(expandedActionTop, 0);
     expect(await confirm.evaluate(button => getComputedStyle(button.parentElement!).position)).toBe('static');
     await confirm.scrollIntoViewIfNeeded();
     await expect(confirm).toBeInViewport();
-    await page.screenshot({ path: testInfo.outputPath('action-review-expanded-flow.png') });
+    await page.screenshot({ path: testInfo.outputPath('action-review-compact-flow.png') });
     for (const size of [{ width: 320, height: 568 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(size);
       await expect(sheet).toHaveCount(size.width <= 600 ? 1 : 0);
@@ -526,19 +457,15 @@ test.describe('ActionReview isolated orchestration', () => {
           return (!sheet || sheet.top >= 0 && sheet.bottom <= window.innerHeight)
             && action.top >= 0 && action.bottom <= bottom;
         });
-      }, { message: `expanded review confirmation fits ${size.width}×${size.height}` }).toBe(true);
+      }, { message: `compact review confirmation fits ${size.width}×${size.height}` }).toBe(true);
     }
     await page.setViewportSize({ width: 393, height: 852 });
     // Crossing the phone breakpoint moves the review into a new portal node.
     // Wait for that owner before evaluating or scrolling its contents.
     const phoneReview = sheet.locator('[data-review-viewport]');
     await expect(phoneReview).toBeVisible();
-    await phoneReview.locator('details').evaluateAll((nodes) => nodes.forEach((node) => { (node as HTMLDetailsElement).open = false; }));
     await phoneReview.scrollIntoViewIfNeeded();
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    const duration = await details.locator(':scope > summary svg').evaluate((node) => getComputedStyle(node).transitionDuration);
-    // The global reduced-motion reset uses 0.01ms to preserve end events.
-    expect(Number.parseFloat(duration)).toBeLessThanOrEqual(0.00001);
     expect(navBox!.y + navBox!.height).toBeLessThanOrEqual(852);
     await page.screenshot({ path: testInfo.outputPath('action-review-393x852.png') });
     // Existing-position additions keep their position identity; the separate
@@ -590,8 +517,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(page.getByRole('status').getByText('Confirm in wallet', { exact: true })).toBeVisible();
     await expect(await reviewExitControl(page)).toBeDisabled();
-    const progressDetails = page.locator('details[aria-label="Advanced transaction details"]');
-    await expect(progressDetails).toHaveJSProperty('open', false);
+    await expect(page.getByText('Execution details', { exact: true })).toHaveCount(0);
 
     await harnessControl(page, 'Change terms');
     await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
@@ -613,12 +539,8 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(page.getByRole('status').getByText('Confirm in wallet', { exact: true })).toBeVisible();
-    // The compact pending summary keeps the accepted action and the exact
-    // prepared requests available without inventing on-chain progress.
+    // The compact pending summary keeps the accepted action visible.
     await expect(page.getByRole('heading', { name: 'Open position v1', exact: true })).toBeVisible();
-    const requests = await readReviewedTransactions(page.locator('[data-review-viewport]'));
-    expect(requests.map(request => request.heading)).toEqual(['Confirm 1', 'Confirm 2']);
-    expect(requests.map(request => request.status)).toEqual(['', '']);
 
     await harnessControl(page, 'Switch account');
     await expect(page.getByText('Open position v1', { exact: true }).filter({ visible: true }).first()).toBeVisible();
@@ -627,11 +549,11 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('heading', { name: 'Partially completed', exact: true })).toBeVisible();
     // The real receipt link retains the exact submitted hash; the fixture
     // never follows it or contacts a chain.
-    const receipts = page.getByRole('region', { name: 'Transaction receipts', exact: true });
-    await page.locator('[data-review-viewport] details').filter({ has: page.getByText('Execution details', { exact: true }) }).locator(':scope > summary').click();
-    await expect(receipts).toBeVisible();
-    await expect(receipts.getByRole('link')).toHaveCount(1);
-    await expect(receipts.getByRole('link')).toHaveAttribute('href', 'https://etherscan.io/tx/0x1111111111111111111111111111111111111111111111111111111111111111');
+    const transactionStatus = page.getByRole('region', { name: 'Transaction status', exact: true });
+    await expect(transactionStatus).toBeVisible();
+    await expect(transactionStatus.getByRole('link')).toHaveCount(1);
+    await expect(transactionStatus.getByRole('link')).toHaveAttribute('href', 'https://etherscan.io/tx/0x1111111111111111111111111111111111111111111111111111111111111111');
+    await expect(page.getByRole('region', { name: 'Transaction receipts', exact: true })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
     expect(await metric(page, 'send')).toBe(1);
     const callbacks = await page.evaluate(() => {
@@ -839,10 +761,10 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Use stable Trade review');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const review = page.locator('[data-review-viewport]');
-    const originalFacts = { Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' };
+    const originalFacts = { Amount: '0.25 fxUSD', Slippage: '0.5%' };
     const expectOriginalFacts = async () => {
       for (const [label, value] of Object.entries(originalFacts)) {
-        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] [data-review-amount]' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] [data-review-amount]' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
     };
@@ -857,7 +779,13 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('status').getByText('Confirm in wallet', { exact: true })).toBeVisible();
     await harnessControl(page, 'Change terms');
     await harnessControl(page, 'Switch account');
-    await expectOriginalFacts();
+    // Pending keeps the accepted payment visible; secondary review terms are
+    // intentionally absent once the wallet request is underway. The route
+    // version asserted after settlement still binds signing to this review.
+    const pendingAmounts = review.getByRole('region', { name: 'Reviewed transaction amounts', exact: true });
+    await expect(pendingAmounts.getByText('0.25 fxUSD', { exact: true })).toBeVisible();
+    await expect(pendingAmounts.getByText('0.5 fxUSD', { exact: true })).toHaveCount(0);
+    await expect(review.locator('[data-review-fact="Slippage"]')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: '3× ETH Long', exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toContainText('selected wallet changed during this action');
     expect(await metric(page, 'send')).toBe(1);
@@ -893,7 +821,6 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const review = page.locator('[data-review-viewport]');
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
-    await review.locator('details[aria-label="Advanced transaction details"] > summary').click();
     await expect(review.getByText('25 Gwei', { exact: true })).toBeVisible();
     await page.clock.runFor(31_001);
     await harnessControl(page, 'Change quote terms to v2');
@@ -957,7 +884,6 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Use stable Trade review');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Open ETH Long', exact: true })).toBeEnabled();
-    await page.locator('details[aria-label="Advanced transaction details"] > summary').click();
     const announcement = page.locator('[data-review-viewport] [role="status"][aria-live="polite"]');
     await expect(announcement).toHaveCount(1);
     const readyAnnouncement = await announcement.textContent();
@@ -1006,8 +932,8 @@ test.describe('ActionReview isolated orchestration', () => {
       }
     });
     const expectCheckedRoute = async () => {
-      for (const [label, value] of Object.entries({ Amount: '0.25 fxUSD', Position: 'New position', Slippage: '0.5%' })) {
-        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] [data-review-amount]' : label === 'Position' ? '[data-review-evidence="Position"] > span' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
+      for (const [label, value] of Object.entries({ Amount: '0.25 fxUSD', Slippage: '0.5%' })) {
+        await expect(review.locator(label === 'Amount' ? '[data-review-fact="Amount"] [data-review-amount]' : `[data-review-fact="${label}"] > span`).last()).toHaveText(value);
       }
       await expectReviewHeadingLeverage(page, '3×');
       expect(await liveStatuses.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent))).toEqual(baselineStatuses);
@@ -1136,7 +1062,9 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(page.getByRole('heading', { name: 'Preparing review', exact: true })).toHaveCount(0);
     await expect(page.locator('[data-review-viewport]')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByRole('status').filter({ hasText: 'Simulating each step and checking network fees.' })).toBeVisible();
+    const preparationStatus = page.getByRole('status').filter({ hasText: 'Simulating each step and checking network fees.' });
+    await expect(preparationStatus).toBeAttached();
+    await expect(preparationStatus).toHaveClass('sr-only');
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
     const preparedHeading = (await visibleReviewHeader(page)).getByRole('heading', { name: 'Review transaction', exact: true });
     await expect(preparedHeading).toBeVisible();
@@ -1160,11 +1088,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const approve = page.getByRole('button', { name: 'Approve fxUSD', exact: true });
     await expect(approve).toBeEnabled();
-    // The primary action names approval; exact prepared requests remain
-    // available in details, and neither may claim a confirmed receipt.
-    const requests = await readReviewedTransactions(page.locator('[data-review-viewport]'));
-    expect(requests.map(request => request.heading)).toEqual(['Approve fxUSD 1', 'Confirm 2']);
-    expect(requests.map(request => request.status)).toEqual(['', '']);
+    // The primary action names approval before any wallet request is sent.
     expect(await metric(page, 'send')).toBe(0);
     await harnessControl(page, 'Fail before wallet request');
     await approve.click();
@@ -1309,7 +1233,6 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const confirm = page.getByRole('button', { name: 'Confirm', exact: true });
     await expect(confirm).toBeVisible();
-    await page.locator('details[aria-label="Advanced transaction details"] > summary').click();
     const fastTier = page.locator('input[name="review-gas-tier"][value="fast"]');
     const rapidTier = page.locator('input[name="review-gas-tier"][value="rapid"]');
     await expect(fastTier).toBeChecked();

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { getEidByChainId } from '@aladdindao/fx-sdk';
 import { formatUnits, type Address, type Hex } from 'viem';
-import { CheckCircle2, ChevronDown, Clock3, ExternalLink, LoaderCircle, Network, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, ExternalLink, LoaderCircle, Network, RefreshCw, XCircle } from 'lucide-react';
 import { assertPublicClientChain, getPublicClient } from '@/lib/fx/clients';
 import { userSafeError } from '@/lib/errors';
 import {
@@ -47,7 +47,6 @@ export interface BridgeTrackerProps {
   compact?: boolean;
   headingRef?: Ref<HTMLHeadingElement>;
   /** Receipt facts share this tracker’s single Advanced disclosure. */
-  advancedContent?: ReactNode;
   completionContent?: (destinationTxHash: string) => ReactNode;
 }
 
@@ -94,7 +93,6 @@ export function BridgeTracker({
   className = '',
   compact = false,
   headingRef,
-  advancedContent,
   completionContent,
 }: BridgeTrackerProps) {
   const simulated = useTransactionEvidence() === 'simulation';
@@ -355,18 +353,19 @@ export function BridgeTracker({
       <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {manualStarted || canRetry ? 'Check destination again' : 'Check destination'}
     </button>
   ) : null;
+  const deliveryHelp = !delivered && sourceDone && <div role="status">
+    {canRetry && verificationError && <p className="text-[12px] text-mut">Delivery is still pending. Check the destination again or track your bridge.</p>}
+    {!hasVerificationContext && <p className="text-[12px] text-mut">Delivery tracking is unavailable. Check your bridge before trying again.</p>}
+    {!simulated && layerzeroScan && <a href={layerzeroScan} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-mint">Track bridge <ExternalLink size={13} aria-hidden="true" /></a>}
+  </div>;
   if (compact) return <BridgeResultCard state={effectiveStatus} sourceChain={sourceChain} destinationChain={destinationChain}
     token={token} requestedAmount={amount}
     sourceAmount={sourceDone && sourceAmountProof?.context === verificationContextKey ? formatUnits(sourceAmountProof.amount, 18) : undefined}
     receivedAmount={delivered && destinationAmountProof?.context === verificationContextKey ? formatUnits(destinationAmountProof.amount, 18) : undefined}
     sourceTxHash={sourceTxHash} destinationTxHash={detectedDestinationTxHash} recipient={recipient}
-    simulated={simulated} sourceReverted={sourceReverted} advancedContent={advancedContent}
-    completionContent={delivered && detectedDestinationTxHash ? completionContent?.(detectedDestinationTxHash) : undefined} headingRef={headingRef} retryAction={retryAction}
-    verificationDetails={<>
-      <p>{delivered ? `Verified matching bridge message, recipient and amount with ${DESTINATION_CONFIRMATION_LABEL}.` : !hasVerificationContext ? 'Recovery details are missing. Destination delivery cannot be verified from this hash alone.' : canRetry ? 'Automatic checking has paused. Use Check destination again to resume.' : `Delivery requires a matching bridge message, recipient, amount and ${DESTINATION_CONFIRMATION_LABEL}.`}</p>
-      {verificationError && !delivered && <p>Last check: {verificationError}</p>}
-      {!simulated && layerzeroScan && !delivered && <a href={layerzeroScan} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-mint">Track bridge message <ExternalLink size={13} aria-hidden="true" /></a>}
-    </>} />;
+    simulated={simulated} sourceReverted={sourceReverted}
+    completionContent={delivered && detectedDestinationTxHash ? completionContent?.(detectedDestinationTxHash) : undefined} headingRef={headingRef} retryAction={<>{deliveryHelp}{retryAction}</>}
+    />;
   return (
     <section data-compact-bridge={compact || undefined} aria-label="Bridge status" aria-live="polite" aria-atomic="false" className={`flex flex-col rounded-xl border border-[var(--line-strong)] bg-[var(--surface-2)] p-4 ${className}`}>
       <div className="flex items-center justify-between gap-3">
@@ -382,9 +381,6 @@ export function BridgeTracker({
         </span>}
       </div>
       {compact && <p className="mt-2 text-[12px] leading-relaxed text-mut">{delivered ? `Delivery verified on ${destinationChain}.` : failed ? 'Destination delivery is not verified. Check the details before trying again.' : sourceDone ? `Destination delivery on ${destinationChain} is not verified yet.` : 'Waiting for source confirmation.'}{simulated && ' Simulated receipts only.'}</p>}
-      <details open={compact ? undefined : true} className={compact ? 'mt-2' : ''}>
-      <summary style={compact ? undefined : { display: 'none' }} className="flex min-h-11 cursor-pointer items-center justify-between text-[12px] text-mut">Execution details<ChevronDown size={14} aria-hidden="true" /></summary>
-      {advancedContent}
       <div className="mt-4 flex flex-col gap-3">
         <TimelineRow
           state={failed ? 'failed' : submitted ? 'done' : 'active'}
@@ -410,15 +406,7 @@ export function BridgeTracker({
           action={destinationExplorer ? { label: 'Explorer', onClick: () => { openExternalLink(destinationExplorer); } } : undefined}
         />
       </div>
-      {(verificationError || hasVerificationContext) && (
-        <section className="mt-3 border-t border-[var(--line)] pt-3" aria-label="Delivery verification">
-          <div className="pb-2 text-[10.5px] leading-relaxed text-mut">
-            <p>Delivery requires the matching bridge message, recipient, amount, and {DESTINATION_CONFIRMATION_LABEL}.</p>
-            {verificationError && !delivered && <p className="mt-2 break-words text-[var(--mut-2)]">Last check: {verificationError}</p>}
-          </div>
-        </section>
-      )}
-      </details>
+      {deliveryHelp}
       {sourceDone && hasVerificationContext && !delivered && !failed && (canRetry || (!autoStart && !manualStarted)) && (
         <button
           type="button"
