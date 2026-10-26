@@ -12,6 +12,10 @@ test.describe('unified product presentation', () => {
     const amount = page.getByLabel('Amount in ETH', { exact: true });
     await expect(amount).toBeEnabled();
     await amount.fill('0.0025');
+    // Compare the same quote state on both sides of the chart transition.
+    // This build has no live RPC configuration; public outcome placeholders
+    // settle independently of the chart and are covered by quote-specific tests.
+    await expect(ticket.locator('[data-trade-outcome="pending"]')).toHaveCount(0);
     const before = await ticket.boundingBox();
     expect(before).not.toBeNull();
     await page.getByRole('button', { name: /show chart/i }).click();
