@@ -773,7 +773,7 @@ export default function BorrowPage() {
       {/* A limit, so rounded down to the tenth of a percent. */}
       {inputStage && <div className={presentation.details}>
         <BorrowFundingHistory market={limitMarket} rate={funding.rate} status={funding.status} />
-        <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd ?? 0n} limitBps={limitBps} />
+        <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} />
         <BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} />
       </div>}
       </div>
