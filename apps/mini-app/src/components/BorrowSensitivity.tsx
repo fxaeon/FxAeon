@@ -6,13 +6,14 @@ import { MetricLabel } from './InfoHelp';
 import { useChartWidth } from './useChartWidth';
 import styles from './ProductAnalytics.module.css';
 
-export function BorrowSensitivity({ debt, collateralUsd, limitBps }: { debt: bigint; collateralUsd: bigint; limitBps: bigint }) {
+export function BorrowSensitivity({ debt, collateralUsd, limitBps }: { debt: bigint; collateralUsd: bigint | null; limitBps: bigint }) {
   const [change, setChange] = useState(0);
   const { ref, width } = useChartWidth();
-  const current = collateralScenarioLtv(debt, collateralUsd, 0);
-  const stressed = collateralScenarioLtv(debt, collateralUsd, change);
-  const highest = collateralScenarioLtv(debt, collateralUsd, -30);
-  if (debt <= 0n || current === null || stressed === null || highest === null || limitBps <= 0n) return <section className={styles.section} aria-label="Collateral sensitivity"><header className={styles.header}><h3>Collateral sensitivity</h3></header><p className={styles.sensitivityPrompt}>Enter collateral and debt to explore how price changes affect your loan-to-value.</p></section>;
+  const current = collateralUsd === null ? null : collateralScenarioLtv(debt, collateralUsd, 0);
+  const stressed = collateralUsd === null ? null : collateralScenarioLtv(debt, collateralUsd, change);
+  const highest = collateralUsd === null ? null : collateralScenarioLtv(debt, collateralUsd, -30);
+  const empty = debt <= 0n || collateralUsd === 0n;
+  if (empty || collateralUsd === null || current === null || stressed === null || highest === null || limitBps <= 0n) return <section className={styles.section} aria-label="Collateral sensitivity"><header className={styles.header}><h3>Collateral sensitivity</h3></header><p className={styles.sensitivityPrompt}>{empty ? 'Enter collateral and debt to explore how price changes affect your loan-to-value.' : 'Sensitivity unavailable.'}</p></section>;
   const limit = Number(limitBps) / 100;
   const ceiling = Math.max(100, highest * 1.15, limit * 1.15);
   const x = (value: number) => 8 + (value + 30) / 60 * (width - 16);

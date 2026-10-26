@@ -75,6 +75,36 @@ test('Borrow SVG measures its unpadded plot wrapper rather than the padded secti
   assert.equal((svg.props as { viewBox: string }).viewBox, '0 0 260 148');
 });
 
+test('Borrow sensitivity distinguishes empty amounts from unavailable valuation or form limits', () => {
+  const { BorrowSensitivity } = load('BorrowSensitivity');
+  const unit = 10n ** 18n;
+  shock = -20;
+  for (const input of [
+    { debt: 0n, collateralUsd: null, limitBps: 0n },
+    { debt: unit, collateralUsd: 0n, limitBps: 0n },
+  ]) {
+    const tree = BorrowSensitivity(input);
+    assert.match(text(tree), /Enter collateral and debt/);
+    assert.doesNotMatch(text(tree), /Sensitivity unavailable|Estimated LTV/);
+    assert.equal(elements(tree).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
+  }
+  for (const input of [
+    { debt: unit, collateralUsd: null, limitBps: 8550n },
+    { debt: unit, collateralUsd: 2n * unit, limitBps: 0n },
+    { debt: unit, collateralUsd: null, limitBps: 0n },
+  ]) {
+    const tree = BorrowSensitivity(input);
+    assert.equal(text(tree), 'Collateral sensitivitySensitivity unavailable.');
+    assert.doesNotMatch(text(tree), /Enter collateral and debt|Estimated LTV|Collateral change|0%/);
+    assert.equal(elements(tree).filter(node => node.type === 'svg' || node.type === 'input').length, 0);
+  }
+  const ready = BorrowSensitivity({ debt: unit, collateralUsd: 2n * unit, limitBps: 8550n });
+  assert.match(text(ready), /62\.50%/);
+  assert.equal(elements(ready).filter(node => node.type === 'svg').length, 1);
+  const slider = elements(ready).find(node => node.type === 'input')!;
+  assert.equal((slider.props as { value: number }).value, -20);
+});
+
 test('Trade shows terminal price unavailability for a paused socket, and loading only for a pending source', () => {
   const { TradeContext } = load('TradeContext');
   for (const [socket, prices, expected] of [['paused', 'unavailable', 'unavailable'], ['paused', 'ready', 'unavailable'], ['paused', 'loading', 'loading'], ['connecting', 'unavailable', 'loading'], ['unavailable', 'unavailable', 'unavailable']]) {

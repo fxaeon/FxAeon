@@ -42,6 +42,9 @@ limit are available. Moving the slider changes only the illustration: debt stays
 constant while collateral value moves between −30% and +30%. The form limit is a
 borrowing guard, not a liquidation threshold. Funding, fees, rebalancing, and
 liquidation are excluded. The chart cannot change ticket values or a signed plan.
+Empty amounts show a compact input prompt. Entered amounts with unavailable
+collateral valuation or an unverified form limit show “Sensitivity unavailable”
+without an invented zero value or risk curve.
 
 Borrow funding history presents the current gross collateral charge per eight
 hours first, with annualized APR as secondary context. Historical charges and
