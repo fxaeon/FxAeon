@@ -45,7 +45,7 @@ import {
 } from '@/lib/fx';
 import { configuredRpcUrls } from '@/lib/fx/config';
 import { getRpcTransport } from '@/lib/fx/clients';
-import { BRIDGE_PREVIEW_TTL, fetchBridgePreview, isFreshBridgePreview, readBridgeReceiptEstimate, type BridgePreview } from '@/lib/fx/bridgePreview';
+import { BRIDGE_PREVIEW_TTL, fetchBridgePreview, fetchCanonicalBridgeEstimate, isFreshBridgePreview, readBridgeReceiptEstimate, type BridgePreview } from '@/lib/fx/bridgePreview';
 import { usePrivyWallet } from '@/lib/wallet';
 import { parseAmount } from '@/app/trade/fxUi';
 import { resetTransactionAmounts } from '@/lib/transactionState';
@@ -189,7 +189,8 @@ export default function MovePage() {
   const recipientError = customRecipient && recipientInput.trim()
     ? (!isAddress(recipientInput.trim()) || /^0x0{40}$/i.test(recipientInput.trim()) ? 'Enter a valid, non-zero destination address.' : undefined)
     : undefined;
-  const previewKey = `${wallet.address}:${sourceChainId}:${token}:${amountWei}:${recipientValue}:${advanced}:${previewRevision}`;
+  const previewRecipientKey = customRecipient ? recipientInput.trim().toLowerCase() : wallet.address?.toLowerCase() ?? 'disconnected-default';
+  const previewKey = `${wallet.address?.toLowerCase() ?? 'disconnected'}:${sourceChainId}:${destinationChainId}:${token}:${amountWei}:${previewRecipientKey}:${advanced}:${previewRevision}`;
   const preview = previewState?.key === previewKey && previewState.status === 'ready' && isFreshBridgePreview(previewState.data) ? previewState.data : undefined;
   const previewStatus = previewState?.key === previewKey ? previewState.status : undefined;
   const receiveFigure = preview?.estimatedReceived !== undefined
@@ -198,7 +199,10 @@ export default function MovePage() {
     ? `${receiveFigure.shortened ? '≈ ' : ''}${groupDigits(receiveFigure.value)}` : '';
   const nativeShortfall = preview?.nativeBalance !== undefined && preview.nativeBalance < preview.nativeFee + (preview.sourceGas ?? 0n);
   useEffect(() => {
-    if (advanced || !wallet.address || !amountWei || !isAddress(recipientValue) || /^0x0{40}$/i.test(recipientValue) || reviewStage !== 'input') return;
+    if (advanced || !amountWei || reviewStage !== 'input') return;
+    const estimateRecipient = customRecipient ? recipientInput.trim() : wallet.address;
+    if (customRecipient && (!estimateRecipient || !isAddress(estimateRecipient) || /^0x0{40}$/i.test(estimateRecipient))) return;
+    if (wallet.address && (!isAddress(recipientValue) || /^0x0{40}$/i.test(recipientValue))) return;
     let active = true;
     let expires: ReturnType<typeof setTimeout> | undefined;
     setPreviewState({ key: previewKey, status: 'loading' });
@@ -211,11 +215,14 @@ export default function MovePage() {
       expires = setTimeout(() => { if (active) setPreviewState({ key: previewKey, status: 'expired' }); }, Math.max(0, data.readAt + BRIDGE_PREVIEW_TTL - Date.now()));
     };
     const debounce = setTimeout(() => {
-      void fetchBridgePreview({ sourceChainId, destinationChainId, token, amount: amountWei, wallet: wallet.address as Address, recipient: recipientValue as Address }, publish)
+      const request = wallet.address
+        ? fetchBridgePreview({ sourceChainId, destinationChainId, token, amount: amountWei, wallet: wallet.address as Address, recipient: recipientValue as Address }, publish)
+        : fetchCanonicalBridgeEstimate({ sourceChainId, destinationChainId, token, amount: amountWei, ...(estimateRecipient ? { recipient: estimateRecipient as Address } : {}) });
+      void request
         .then(publish).catch(() => { if (active) setPreviewState({ key: previewKey, status: 'unavailable' }); });
     }, 400);
     return () => { active = false; clearTimeout(debounce); if (expires) clearTimeout(expires); };
-  }, [advanced, amountWei, destinationChainId, previewKey, recipientValue, reviewStage, sourceChainId, token, wallet.address]);
+  }, [advanced, amountWei, customRecipient, destinationChainId, previewKey, recipientInput, recipientValue, reviewStage, sourceChainId, token, wallet.address]);
   const draftState = useMemo(() => ({
     direction,
     mode,
@@ -611,12 +618,12 @@ export default function MovePage() {
               </div>
               <p className={moveStyles.receiveCaption} role="status">
                 {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <><span>Estimated</span><span aria-hidden="true"> · </span><AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} /></>
-                  : advanced ? 'Custom route checked at review' : !wallet.address ? 'Connect to preview this route'
-                  : recipientError ? 'Check the destination address' : previewStatus === 'loading' ? 'Getting a live quote…'
+                  : advanced ? 'Custom route checked at review'
+                  : recipientError ? 'Check the destination address' : customRecipient && !recipientInput.trim() ? 'Enter a recipient to preview' : previewStatus === 'loading' ? 'Getting a live quote…'
                   : previewStatus === 'expired' ? 'Quote expired. Refresh below' : 'Receipt estimate unavailable'}
               </p>
             </section>
-            {amountWei && !advanced && wallet.address && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
+            {amountWei && !advanced && (!customRecipient || (isAddress(recipientInput.trim()) && !/^0x0{40}$/i.test(recipientInput.trim()))) && <section className={moveStyles.quoteSummary} aria-label="Bridge quote">
               <div className={moveStyles.quoteHeading}><span>Via LayerZero</span>
                 <button type="button" disabled={previewStatus === 'loading'} onClick={() => setPreviewRevision(value => value + 1)}>{previewStatus === 'loading' ? 'Updating…' : 'Refresh quote'}</button>
               </div>

@@ -33,6 +33,7 @@ import { routeGasCostCache } from '@/lib/fx/gasCost';
 import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy';
 import { readGasTier } from '@/lib/settings';
 import { RoutePrefetchStore, type RoutePrefetchDescriptor } from '@/lib/fx/routePrefetch';
+import { readPublicTradeOutcome, type PublicTradeOutcome } from '@/lib/fx/publicTradeOutcome';
 import { TradeOutcomePreview } from '@/components/TradeOutcomePreview';
 import { currentTradeOutcome, settledTradeOutcome, tradeOutcomeKey, type TradeOutcomeState } from '@/lib/tradeOutcome';
 import { usePrivyWallet } from '@/lib/wallet';
@@ -128,6 +129,7 @@ export default function TradePage() {
     setReviewStage(stage);
   }, []);
   const [outcome, setOutcome] = useState<TradeOutcomeState | null>(null);
+  const [publicOutcome, setPublicOutcome] = useState<({key: string; status: 'ready'} & PublicTradeOutcome) | {key: string; status: 'pending' | 'failed'} | null>(null);
   const prefetchStoreRef = useRef<RoutePrefetchStore | null>(null);
   const prefetchSessionRef = useRef(createPrefetchSessionId());
   const prefetchDescriptorRef = useRef<RoutePrefetchDescriptor | null>(null);
@@ -385,11 +387,11 @@ export default function TradePage() {
   // The ticket previews the route warmed for exactly its current inputs; any
   // change gives a new key, so earlier figures can never describe this ticket.
   const warmAmountWei = validAmount ? parseAmount(validAmount, token) : null;
-  const outcomeKey = wallet.address && warmAmountWei && Number.isFinite(leverage)
+  const outcomeKey = warmAmountWei && Number.isFinite(leverage)
     && leverage >= leverageBounds.min && leverage <= leverageBounds.max
     && Number.isFinite(slippageValue) && slippageValue > 0 && slippageValue <= MAX_FX_SLIPPAGE_PERCENT
     ? tradeOutcomeKey({
-      walletAddress: wallet.address, walletChainId: wallet.chainId ?? null, market, side, token,
+      walletAddress: wallet.address ?? 'disconnected', walletChainId: wallet.address ? wallet.chainId ?? null : null, market, side, token,
       amountWei: warmAmountWei, leverage, slippagePercent: slippageValue,
       leverageMin: leverageBounds.min, leverageMax: leverageBounds.max,
     })
@@ -478,6 +480,33 @@ export default function TradePage() {
       prefetchDescriptorRef.current = null;
     };
   }, [editorEpoch, foreground, leverage, leverageBounds.max, leverageBounds.min, market, outcomeKey, side, slippageValue, token, validAmount, wallet.address, wallet.chainId]);
+  // Public facts never enter the wallet-scoped route prefetch store.
+  useEffect(() => {
+    if (wallet.address || !foreground || !outcomeKey || !warmAmountWei || reviewStageRef.current !== 'input') return;
+    let active = true;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const key = outcomeKey;
+    const load = async () => {
+      if (!active || document.visibilityState !== 'visible' || !navigator.onLine || reviewStageRef.current !== 'input') return;
+      setPublicOutcome({key, status: 'pending'});
+      try {
+        const result = await readPublicTradeOutcome({market, type: side, inputTokenAddress: tokenAddress(token), amount: warmAmountWei, leverage, slippage: slippageValue}, {signal: controller.signal});
+        if (!active) return;
+        setPublicOutcome({key, status: 'ready', ...result});
+        timer = setTimeout(() => { void load(); }, Math.max(1, result.validUntil - Date.now()));
+      } catch {
+        if (!active) return;
+        setPublicOutcome({key, status: 'failed'});
+        timer = setTimeout(() => { void load(); }, 15_000);
+      }
+    };
+    timer = setTimeout(() => { void load(); }, 220);
+    return () => { active = false; controller.abort(); clearTimeout(timer); };
+  }, [editorEpoch, foreground, leverage, market, outcomeKey, side, slippageValue, token, wallet.address, warmAmountWei]);
+  const shownPublicOutcome = foreground && !wallet.address && outcomeKey
+    ? publicOutcome?.key === outcomeKey && (publicOutcome.status !== 'ready' || publicOutcome.validUntil > Date.now()) ? publicOutcome : {key: outcomeKey, status: 'pending' as const}
+    : null;
   const shownOutcome = foreground ? currentTradeOutcome(outcome, outcomeKey) : null;
 
   const prefetchedPlan = useCallback(async (): Promise<PlannedRoute | readonly PlannedRoute[] | null> => {
@@ -632,8 +661,9 @@ export default function TradePage() {
                   <div className={styles.fieldStack}>
                     <AmountField compact label="Amount" symbol={token} value={amount} onChange={changeAmount} maxDecimals={tokenDecimals(token)} showMax showUnitPrice={false} constraintError={token === 'ETH' ? nativeMax.error : undefined} maxAmount={token === 'ETH' ? nativeMaxAmount : undefined} onMax={token === 'ETH' ? nativeMax.resolveMax : undefined} maxPending={token === 'ETH' && nativeMax.pending} balanceState={selectedTokenBalance} tokenSelector={<TokenSelect compact label="Input asset" value={token} options={tokenOptions} onChange={changeToken} balances={wallet.address ? walletBalances.balances : undefined} balanceStatus={wallet.address ? (walletBalances.status !== 'idle' ? walletBalances.status : undefined) : 'disconnected'} />} />
                     <LeverageField label="Target leverage" value={leverage} onChange={changeLeverage} min={leverageBounds.min} max={leverageBounds.max} error={leverageError} compact split={{ side }} />
-                    {/* Only a connected, complete ticket is warmed; a failed warm-up shows nothing. */}
-                    {shownOutcome && shownOutcome.status !== 'failed' && <TradeOutcomePreview market={market} side={side} route={shownOutcome.status === 'ready' ? shownOutcome.route : null} />}
+                    {/* Complete tickets show quote facts; wallet-scoped routes stay separate from public facts. */}
+                    {wallet.address ? shownOutcome && shownOutcome.status !== 'failed' && <TradeOutcomePreview market={market} side={side} route={shownOutcome.status === 'ready' ? shownOutcome.route : null} />
+                      : shownPublicOutcome && shownPublicOutcome.status !== 'failed' && <TradeOutcomePreview market={market} side={side} route={null} facts={shownPublicOutcome.status === 'ready' ? shownPublicOutcome.facts : undefined} />}
                   </div>
                 </>
               }

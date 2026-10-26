@@ -499,6 +499,27 @@ test('borrowing limits round toward safety: room rounds down, minimums and loan-
   await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
 });
 
+test('disconnected new borrow calculates live capacity and LTV without zero-balance warnings or execution', async ({ page }) => {
+  await mount(page);
+  await changeSnapshot(page, (harness) => {
+    harness.wallet = { ready: true, authenticated: false, chainId: 1, connectionVersion: 2 };
+    harness.shared = { ...harness.shared, walletAddress: null, positions: [], status: 'idle', failedGroups: [] };
+    harness.balances = undefined;
+    harness.prices = { ETH: 2400, fxUSD: 1 };
+  });
+
+  await page.getByLabel('Collateral', { exact: true }).fill('0.5');
+  await expect(page.locator('[data-hint="fxUSD to borrow"]')).toHaveText('Up to 1,005.48 fxUSD with this collateral');
+  await page.getByLabel('fxUSD to borrow', { exact: true }).fill('800');
+  const meter = page.getByRole('meter', { name: 'Loan-to-value against the borrowing limit' });
+  await expect(meter).toHaveAttribute('aria-valuetext', '≤ 66.67% of a 83.79% limit');
+  await expect(page.getByRole('region', { name: 'Estimated borrowing outcome' })).toContainText('No position → ≤ 66.67%');
+  await expect(page.getByText(/Add ETH to your wallet to supply collateral/)).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(await page.evaluate(() => ({ planners: globalThis.__borrowHarness.plannerCount, walletRequests: globalThis.__borrowHarness.walletRequestCount })))
+    .toEqual({ planners: 0, walletRequests: 0 });
+});
+
 test('failed pool reads publish no guessed maximum and retry recovers after workspace navigation', async ({ page }) => {
   await mount(page, { limitUnavailable: true });
   await changeSnapshot(page, harness => { harness.prices = { ETH: 2378.088360665706, fxUSD: 1 }; });

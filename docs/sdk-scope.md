@@ -78,6 +78,15 @@ This matrix is the implementation contract for the locked surface. “Refresh”
 
 The matrix describes what the app can safely represent, not an independent protocol implementation. Raw calldata, contract addresses, and route fingerprints remain available only in the review disclosure for informed signing and recovery.
 
+The Earn input form can show a display-only fxSAVE deposit amount without a
+wallet. For fxUSD or USDC it reads the base pool's `previewDeposit(token,
+amount)` and then the vault's `previewDeposit(basePoolShares)`, matching the
+pinned SDK planner's public preview sequence. The configured Ethereum public
+client makes these reads with a deadline, and no account balance, allowance,
+nonce, route, or transaction is requested. Input edits, quote expiry, and tab
+suspension discard late results. Review builds a fresh wallet-scoped SDK plan;
+the form estimate never becomes transaction data.
+
 ## Implementation and patch notes
 
 The debt-ratio packing fix is a local correction, not a claim that the pinned
@@ -329,7 +338,8 @@ Otherwise it explicitly labels the independently verified gross charge and
 discloses that the net offset is unavailable; it does not substitute an external
 spot price. The current gross annualized cost remains available below the form.
 
-The 30-day history uses the official public `fx-v2-funding/v0.0.2` Goldsky index,
+History defaults to one year and supports 1M, 3M, 6M, 1Y and All through the
+official public `fx-v2-funding/v0.0.2` Goldsky index,
 selecting `wstETH` for ETH or `WBTC` for BTC. Observed annualized gross ratios are
 displayed per eight hours. A preceding baseline preserves zero-funding periods;
 the average is time-weighted through the index's verified block, never extended
@@ -337,6 +347,22 @@ to the present using an old observation. Pagination is pinned to that same
 block, requests are cancellable and globally bounded, and malformed, mismatched,
 errored, or stale index data remains unavailable. The existing CSP permits the
 `api.goldsky.com` host. No new provider or credentials are required.
+
+## Disconnected transaction estimates
+
+Trade's public outcome helper uses the existing validated increase-position
+planner with a fixed nonzero display account, then returns only formatted facts
+and their original expiry. The SDK may read that account's allowance and nonce
+while constructing its unsigned result; approvals, calldata, policy and route
+are discarded inside the helper. Public facts never enter RoutePrefetchStore,
+ActionReview or execution. A real connection plans again for the actual account.
+
+Canonical Move estimates call the approved getBridgeQuote read and quoteOFT for
+the exact token, source, destination, amount and valid recipient. An internal
+nonzero recipient is used only when disconnected without a custom recipient.
+It never enters the form or an executable route. This path does not read balances,
+allowances or account gas estimates. Custom routes retain their review-only
+quote behavior. These additions do not expand the approved SDK method surface.
 
 ## Position brake
 

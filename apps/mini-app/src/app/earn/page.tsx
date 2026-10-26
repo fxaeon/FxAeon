@@ -50,6 +50,7 @@ import TokenIcon, { ChainIcon } from '@/components/TokenIcon';
 import { MobileFlowSheet } from '@/components/MobileFlowSheet';
 import { MetricLabel } from '@/components/InfoHelp';
 import { FxSaveHistory } from '@/components/FxSaveHistory';
+import { createEarnEstimateGuard, quotePublicFxSaveDeposit } from '@/lib/earnPublicEstimate';
 
 type EarnMode = 'deposit' | 'withdraw' | 'claim';
 
@@ -129,6 +130,9 @@ export default function EarnPage() {
   const [readPending, setReadPending] = useState({ config: true, balance: true, redeemStatus: true });
   const [error, setError] = useState('');
   const [config, setConfig] = useState<SaveConfig | null>(null);
+  const [publicDepositEstimate, setPublicDepositEstimate] = useState<{ key: string; shares: bigint; readAt: number } | null>(null);
+  const [estimateRefreshEpoch, setEstimateRefreshEpoch] = useState(0);
+  const publicEstimateGuard = useRef(createEarnEstimateGuard());
   const [data, setData] = useState<SaveData | null>(null);
   const [readWarnings, setReadWarnings] = useState<string[]>([]);
   const [fxSaveApy, setFxSaveApy] = useState<FxSaveApyResponse | null>(null);
@@ -166,8 +170,54 @@ export default function EarnPage() {
   const saveBalanceStatus = wallet.address
     ? (balanceSnapshot.status === 'idle' ? 'loading' : balanceSnapshot.status)
     : undefined;
+  const publicEstimateKey = mode === 'deposit' && token !== 'fxUSDBasePool'
+    ? `${token}:${amount}` : '';
+  useEffect(() => {
+    const invalidate = () => {
+      setPublicDepositEstimate(null);
+      setEstimateRefreshEpoch(epoch => epoch + 1);
+    };
+    document.addEventListener('visibilitychange', invalidate);
+    window.addEventListener('online', invalidate);
+    window.addEventListener('offline', invalidate);
+    return () => {
+      document.removeEventListener('visibilitychange', invalidate);
+      window.removeEventListener('online', invalidate);
+      window.removeEventListener('offline', invalidate);
+    };
+  }, []);
+  useEffect(() => {
+    const guard = publicEstimateGuard.current;
+    const request = guard.next();
+    let expiryTimer: number | undefined;
+    const depositWei = mode === 'deposit' && token !== 'fxUSDBasePool'
+      ? parseAmount(amount, token === 'usdc' ? 'USDC' : 'fxUSD') : null;
+    if (depositWei && depositWei > 0n && token !== 'fxUSDBasePool'
+      && document.visibilityState === 'visible' && navigator.onLine) {
+      const debounceTimer = window.setTimeout(() => {
+        void quotePublicFxSaveDeposit(token, depositWei).then((sharesOut) => {
+          if (!guard.current(request)) return;
+          setPublicDepositEstimate({ key: publicEstimateKey, shares: sharesOut, readAt: Date.now() });
+          expiryTimer = window.setTimeout(() => {
+            if (!guard.current(request)) return;
+            setPublicDepositEstimate(null);
+            setEstimateRefreshEpoch(epoch => epoch + 1);
+          }, 30_000);
+        }).catch(() => {
+          if (guard.current(request)) setPublicDepositEstimate(null);
+        });
+      }, 200);
+      return () => {
+        window.clearTimeout(debounceTimer);
+        if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+        guard.invalidate();
+      };
+    }
+    return () => guard.invalidate();
+  }, [amount, estimateRefreshEpoch, mode, publicEstimateKey, token]);
   const resetEarnContext = useCallback((nextMode: EarnMode = 'deposit', nextToken: SaveToken = 'fxUSD', preserveWithdrawalMethod = false) => {
     const defaults = resetTransactionAmounts();
+    setPublicDepositEstimate(null);
     setMode(nextMode);
     setToken(nextToken);
     setAmount(defaults.amount);
@@ -183,6 +233,7 @@ export default function EarnPage() {
 
   const changeToken = useCallback((nextToken: SaveToken) => {
     if (nextToken === token) return;
+    setPublicDepositEstimate(null);
     if (mode === 'withdraw') {
       // Receive-asset changes leave the fxSAVE input unit unchanged.
       setToken(nextToken);
@@ -569,10 +620,12 @@ export default function EarnPage() {
                 action={<button type="button" aria-label="Retry fxSAVE data" title="Retry fxSAVE data" className={presentation.retryButton}
                   disabled={loading || refreshAction.refreshing} onClick={() => void refreshEarn()}><RefreshCw size={16} aria-hidden="true" /></button>} />}
               {loading && !walletData && wallet.address && <span role="status" className="sr-only">Reading fxSAVE data</span>}
-              <EarnActionEditor mode={mode} token={token} onTokenChange={changeToken} amount={amount} onAmountChange={setAmount}
+              <EarnActionEditor mode={mode} token={token} onTokenChange={changeToken} amount={amount} onAmountChange={(value) => { setPublicDepositEstimate(null); setAmount(value); }}
                 shares={shares} onSharesChange={setShares} instant={instant} onWithdrawalMethodChange={(method) => { setInstant(method === 'instant'); setToken(method === 'direct' ? 'fxUSDBasePool' : token === 'fxUSDBasePool' ? 'fxUSD' : token); }}
                 config={activeReadWarnings.includes('vault configuration') ? null : config} walletData={walletData}
                 estimateConfig={activeReadWarnings.includes('vault configuration') ? null : config}
+                publicDepositEstimate={publicDepositEstimate?.key === publicEstimateKey && Date.now() - publicDepositEstimate.readAt < 30_000
+                  ? publicDepositEstimate.shares : null}
                 configLoading={readPending.config} onRetryConfig={() => void load(true)}
                 onDeposit={() => changeMode('deposit')}
                 balances={saveBalances} balanceStatus={saveBalanceStatus} balanceUnavailable={readWarnings.includes('balance')} />
@@ -710,11 +763,11 @@ function VaultTermsStatus({ loading, onRetry, direct = false }: { loading: boole
 }
 
 function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, shares, onSharesChange, instant, onWithdrawalMethodChange,
-  config, estimateConfig, configLoading, onRetryConfig, onDeposit, walletData, balances, balanceStatus, balanceUnavailable,
+  config, estimateConfig, publicDepositEstimate, configLoading, onRetryConfig, onDeposit, walletData, balances, balanceStatus, balanceUnavailable,
 }: {
   mode: EarnMode; token: SaveToken; onTokenChange: (value: SaveToken) => void; amount: string; onAmountChange: (value: string) => void;
   shares: string; onSharesChange: (value: string) => void; instant: boolean; onWithdrawalMethodChange: (value: 'cooldown' | 'instant' | 'direct') => void;
-  config: SaveConfig | null; estimateConfig: SaveConfig | null; onDeposit: () => void; walletData?: SaveData | null;
+  config: SaveConfig | null; estimateConfig: SaveConfig | null; publicDepositEstimate: bigint | null; onDeposit: () => void; walletData?: SaveData | null;
   configLoading: boolean; onRetryConfig: () => void;
   balances?: TokenBalanceMap; balanceStatus?: 'loading' | 'ready' | 'unavailable' | 'disconnected'; balanceUnavailable: boolean;
 }) {
@@ -725,6 +778,8 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
   const shareBalance = !walletData ? disconnected : balanceUnavailable ? { status: 'unavailable' as const }
     : walletData.balance ? { status: 'ready' as const, amount: formatUnits(walletData.balance.balanceWei, 18) } : { status: 'loading' as const };
   const directEstimate = directFxSaveEstimate(mode, token, amount, shares, estimateConfig, walletData?.balance?.balanceWei);
+  const depositEstimate = token === 'fxUSDBasePool' ? directEstimate
+    : publicDepositEstimate && publicDepositEstimate > 0n ? `≈ ${formatDisplayAmount(publicDepositEstimate)} fxSAVE` : undefined;
   const zeroExternalBalance = mode === 'deposit' && amountBalance.status === 'ready'
     && typeof amountBalance.amount === 'string' && /^0+(?:\.0+)?$/.test(amountBalance.amount);
   const zeroShareBalance = mode === 'withdraw' && shareBalance.status === 'ready'
@@ -739,8 +794,8 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
       {zeroExternalBalance && <p className={presentation.fundingGuide}>
         No {labelToken(token)} available. <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
       </p>}
-      {directEstimate && <section className={presentation.outcome} aria-label="Deposit outcome">
-        <EstimateRow label="Estimated fxSAVE received" value={directEstimate} note="Based on current vault assets and share supply." />
+      {depositEstimate && <section className={presentation.outcome} aria-label="Deposit outcome">
+        <EstimateRow label="Estimated fxSAVE received" value={depositEstimate} />
       </section>}
     </>}
     {mode === 'withdraw' && <>
@@ -792,7 +847,7 @@ function directFxSaveEstimate(
   return undefined;
 }
 
-function EstimateRow({ label, value, note }: { label: string; value: string; note: string }) {
+function EstimateRow({ label, value, note }: { label: string; value: string; note?: string }) {
   return <div className={presentation.estimateRow}>
     <div><span><MetricLabel minimalHelp label={label} help={note} /></span><strong>{value}</strong></div>
   </div>;

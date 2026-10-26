@@ -51,6 +51,14 @@ defer a distinct standalone global fallback to Other wallets after explicit prov
 
 ## Run collection and artifacts correctly
 
+Disconnected form checks enter amounts and require the available public outcome
+without a zero-wallet-balance notice or extra preview banner. Connect wallet
+remains the action. Trade public facts must stay outside the wallet route cache;
+Earn public deposit estimates must survive only for the exact amount and token;
+Move public estimates must use the selected canonical chain pair and recipient.
+Connection retains the ticket and replaces public context with a fresh real
+account review. Cancellation, expiry and late responses are separate unit gates.
+
 Local built-route tests rebuild unless `E2E_BUILD=0` explicitly requests an existing artifact. Avoid stale-server reuse for release checks. The [E2E package guide](../apps/mini-app/e2e/README.md) explains setup and reports.
 
 `pnpm verify` runs isolated projects with at most two concurrent browsers, or serially on constrained hosts. CI divides them into three bounded groups, separately from the four built-route shards. A nonzero focused suite fails the gate and identifies its name.

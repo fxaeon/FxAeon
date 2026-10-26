@@ -130,3 +130,20 @@ and its scroll position.
 Desktop page gutters are part of the main scroll surface. Clicking either side
 of the centered content preserves wheel and keyboard scrolling; sidebar and
 modal interactions remain isolated from the page beneath them.
+
+## Estimates before connection
+
+Entering an amount exposes the same available form estimates before wallet
+connection. Trade shows execution price, liquidation price and protocol fee;
+Earn deposits show estimated fxSAVE received; Borrow shows its public collateral,
+debt and LTV calculations; canonical Move shows its receive estimate and messaging
+fee. Empty or failed quotes never become fabricated amounts or zero balances.
+The action remains Connect wallet, without additional preview banners.
+
+Public estimates are display facts only. Trade discards the SDK planner's unsigned
+route at an isolated boundary; Earn uses the pool and vault previewDeposit reads;
+Move uses the official messaging quote and quoteOFT receipt. These facts cannot
+enter an executable review. Connection preserves the entered ticket and requires
+fresh account-specific planning and checks. Input edits, expiry and context changes
+invalidate estimates. Cooldown withdrawal output remains protocol-determined;
+no future payout mix is inferred from the currently selected asset.

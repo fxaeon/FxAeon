@@ -15,15 +15,16 @@ let bundle: { script: string; css: string };
 test.beforeAll(async () => { bundle = await buildHarness(); });
 
 type Control = {
-  wallet: { ready: boolean; authenticated: boolean; isEmbedded: boolean; address: string; chainId: number; connectionVersion: number };
-  events: Array<{ name: string; start: number; end?: number; error?: string; purpose?: 'native-max' | 'ticket'; amount?: string; leverage?: number }>;
+  wallet: { ready: boolean; authenticated: boolean; isEmbedded: boolean; address?: string; chainId: number; connectionVersion: number };
+  events: Array<{ name: string; start: number; end?: number; error?: string; purpose?: 'native-max' | 'ticket'; amount?: string; leverage?: number; walletAddress?: string }>;
   trace: (name: string, fn: () => Promise<unknown>, args?: unknown[]) => Promise<unknown>;
   prices?: import('../../src/lib/prices').UsdPriceSnapshot;
+  rerender?: () => void;
 };
 type Harness = typeof globalThis & { __longReview: Control };
 
 /** `failCalls` makes every contract read fail while it returns true (the bounds read has settled by then). */
-async function mount(page: Page, options: { delayMs?: number; failCalls?: () => boolean; reducedMotion?: 'reduce' | 'no-preference'; pricedProtocolFees?: boolean } = {}) {
+async function mount(page: Page, options: { delayMs?: number; failCalls?: () => boolean; reducedMotion?: 'reduce' | 'no-preference'; pricedProtocolFees?: boolean; disconnected?: boolean } = {}) {
   const fixture = createFixture({ delayMs: options.delayMs ?? 20, ethBalance: options.pricedProtocolFees ? 1000000000000000000n : 400000000000000n });
   await page.route('**/*', async (route) => {
     const url = route.request().url();
@@ -48,21 +49,21 @@ async function mount(page: Page, options: { delayMs?: number; failCalls?: () => 
   });
   await page.emulateMedia({ reducedMotion: options.reducedMotion ?? 'reduce' });
   await page.goto('http://long-review.test/trade');
-  await page.evaluate((pricedProtocolFees) => {
+  await page.evaluate(({pricedProtocolFees, disconnected}) => {
     (globalThis as unknown as { process: { env: Record<string, string> } }).process = { env: {} };
     const h: Control = {
-      wallet: { ready: true, authenticated: true, isEmbedded: true, address: '0x1111111111111111111111111111111111111111', chainId: 1, connectionVersion: 1 },
+      wallet: { ready: true, authenticated: !disconnected, isEmbedded: true, address: disconnected ? undefined : '0x1111111111111111111111111111111111111111', chainId: 1, connectionVersion: 1 },
       events: [],
       ...(pricedProtocolFees ? { prices: { status: 'ready' as const, prices: { ETH: 2000, wstETH: 2400, stETH: 2000, fxUSD: .99 }, updatedAt: Date.now() } } : {}),
       async trace(name, fn, args = []) {
-        const request = args[0] as { amount?: bigint; leverage?: number } | undefined;
+        const request = args[0] as { amount?: bigint; leverage?: number; userAddress?: string } | undefined;
         const event: Control['events'][number] = { name, start: performance.now(), ...(name === 'planIncreasePosition'
-          ? { purpose: args[1] === 'native-max' ? 'native-max' as const : 'ticket' as const, amount: request?.amount?.toString(), leverage: request?.leverage } : {}) }; h.events.push(event);
+          ? { purpose: args[1] === 'native-max' ? 'native-max' as const : 'ticket' as const, amount: request?.amount?.toString(), leverage: request?.leverage, walletAddress: request?.userAddress } : {}) }; h.events.push(event);
         try { return await fn(); } catch (cause) { event.error = String(cause); throw cause; } finally { event.end = performance.now(); }
       },
     };
     (globalThis as Harness).__longReview = h;
-  }, options.pricedProtocolFees ?? false);
+  }, {pricedProtocolFees: options.pricedProtocolFees ?? false, disconnected: options.disconnected ?? false});
   await page.addStyleTag({ content: bundle.css });
   await page.addScriptTag({ content: bundle.script });
   await expect(page.getByRole('textbox', { name: 'Amount in ETH' })).toBeVisible();
@@ -543,4 +544,31 @@ test.describe('the leverage slider uses its live minimum and maximum', () => {
       expect(await element.evaluate((node) => getComputedStyle(node).transitionDuration.split(',').every((duration) => parseFloat(duration) < 0.001))).toBe(true);
     }
   });
+});
+
+test('disconnected Trade shows isolated execution, liquidation and fee facts, then requotes the preserved ticket for the real wallet', async ({page}) => {
+  await mount(page,{disconnected:true,pricedProtocolFees:true,delayMs:50});
+  const amount = page.getByRole('textbox',{name:'Amount in ETH'});
+  await amount.fill('0.1');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome','ready');
+  for (const label of ['Execution price','Liquidation price','f(x) fee']) await expect(fact(page,label)).not.toContainText('Unavailable');
+  await expect(page.getByRole('button',{name:'Connect wallet',exact:true}).last()).toBeVisible();
+  await expect(page.getByText(/balance unavailable|no ETH available|insufficient balance/i)).toHaveCount(0);
+  expect(await page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event=>event.name==='planIncreasePosition').every(event=>event.walletAddress==='0x0000000000000000000000000000000000000001'))).toBe(true);
+  await amount.fill('0.2');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome','pending');
+  await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some(event=>event.name==='planIncreasePosition'&&event.amount==='200000000000000000'))).toBe(true);
+  await amount.fill('0.3');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome','pending');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome','ready');
+  expect(await page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event=>event.name==='planIncreasePosition'&&event.walletAddress==='0x0000000000000000000000000000000000000001').at(-1)?.amount)).toBe('300000000000000000');
+  await page.evaluate(() => {
+    const h=(globalThis as Harness).__longReview;
+    h.wallet={...h.wallet,authenticated:true,address:'0x1111111111111111111111111111111111111111',connectionVersion:2};
+    h.rerender!();
+  });
+  await expect(amount).toHaveValue('0.3');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome','pending');
+  await expect(outcome(page)).toHaveAttribute('data-trade-outcome','ready');
+  await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.some(event=>event.name==='planIncreasePosition'&&event.walletAddress==='0x1111111111111111111111111111111111111111'&&event.amount==='300000000000000000'&&event.end!==undefined))).toBe(true);
 });
