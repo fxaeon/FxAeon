@@ -72,8 +72,8 @@ async function noOverflow(page: Page) {
 for (const width of [320, 390, 1280]) test(`Move form keeps amount, quote precision and route changes coherent at ${width}px`, async ({ page }, info) => {
   await mount(page, width);
   const received = page.getByRole('region', { name: 'Receive assets' });
-  await expect(received.getByText('—', { exact: true })).toBeVisible();
-  await expect(received.getByText('0.00', { exact: true })).toHaveCount(0);
+  await expect(received.getByText('—', { exact: true })).toHaveCount(0);
+  await expect(received.getByText('0.00', { exact: true })).toBeVisible();
   await noOverflow(page);
   await page.screenshot({ path: info.outputPath('empty.png') });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
@@ -111,7 +111,7 @@ test('Move keeps failed quotes and invalid recipients clear with enlarged text',
   await mount(page, 320);
   await page.evaluate(() => { (globalThis as any).__moveForm.failQuote = true; document.documentElement.style.fontSize = '32px'; });
   await page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true }).fill('100');
-  await expect(page.getByRole('status')).toContainText('Receipt estimate unavailable');
+  await expect(page.getByRole('status').filter({ hasText: 'Receipt estimate unavailable' })).toContainText('Receipt estimate unavailable');
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   await page.getByRole('textbox', { name: 'Destination wallet', exact: true }).fill('invalid');
   await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');
