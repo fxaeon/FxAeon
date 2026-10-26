@@ -177,6 +177,25 @@ test('focused transaction preview uses the real phone sheet without a second car
   }
 });
 
+test('short-phone receipts keep amounts, position facts and network fee above the action', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  for (const product of ['borrow', 'earn']) {
+    await page.goto(`/?view=transaction&product=${product}&stage=confirmed`);
+    const sheet = page.locator('[data-mobile-review-sheet]');
+    const fee = sheet.getByRole('region', { name: 'Simulated transaction receipt', exact: true });
+    const action = sheet.locator('[data-review-actions]');
+    await expect(sheet.getByRole('region', { name: 'Simulated token movements', exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(fee).toContainText('Network fee');
+    await expect(fee).toBeInViewport({ ratio: 1 });
+    if (product === 'borrow') await expect(sheet.getByRole('region', { name: 'Latest position read', exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(action).toBeInViewport({ ratio: 1 });
+    const feeBounds = await fee.boundingBox();
+    const actionBounds = await action.boundingBox();
+    expect(feeBounds!.y + feeBounds!.height).toBeLessThanOrEqual(actionBounds!.y);
+    expect((await action.locator('button').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test('catalogs deterministic data states through the real provider-independent amount field', async ({ page }) => {
   await openLab(page);
   const input = page.getByRole('textbox', { name: 'Amount in ETH' });

@@ -721,7 +721,6 @@ function SavingsSummary({ data, loading, balanceLoading = loading, connected, on
           <h2 title={tvlUsd !== null ? formatUsd(tvlUsd) : undefined}>{tvlUsd !== null
             ? formatVaultUsd(tvlUsd)
             : <MissingValue width="md" status={readWarnings.includes('vault configuration') || fxSaveApyStatus === 'unavailable' ? 'unavailable' : 'loading'} label="Vault holdings in USD" />}</h2>
-          {config && !readWarnings.includes('vault configuration') && <small title={`${formatUnits(config.totalAssetsWei, 18)} fxSP`}>≈ {formatDisplayAmount(config.totalAssetsWei, 18, 0)} fxSP</small>}
         </> : balanceUnavailable ? <>
           <h2><MissingValue width="md" status={balanceLoading ? 'loading' : 'unavailable'} label={balanceLoading ? 'Loading fxSAVE balance' : 'fxSAVE balance unavailable'} /></h2>
         </> : empty ? <>
@@ -913,6 +912,7 @@ function VaultDetails({ config }: { config: SaveConfig | null }) {
   return <Disclosure title="Vault details & transparency">
     {/* Withdrawal terms are available in the adjacent disclosure. */}
     {config ? <MetricRows rows={[
+      { label: 'Underlying vault assets', value: <span title={`${formatUnits(config.totalAssetsWei, 18)} fxSP`}>≈ {formatDisplayAmount(config.totalAssetsWei, 18, 0)} fxSP</span> },
       { label: 'fxSAVE supply', value: <span title={`${formatUnits(config.totalSupplyWei, 18)} fxSAVE`}>≈ {formatDisplayAmount(config.totalSupplyWei, 18, 0)} fxSAVE</span> },
       { label: 'Expense ratio', value: formatVaultRatio(config.expenseRatio) },
       { label: 'Harvester ratio', value: formatVaultRatio(config.harvesterRatio) },

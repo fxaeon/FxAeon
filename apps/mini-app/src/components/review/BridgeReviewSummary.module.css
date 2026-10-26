@@ -78,7 +78,7 @@
   border-radius: 6px;
 }
 
-.flowUnit { color: var(--mut); font-size: .66em; font-weight: 500; white-space: nowrap; }
+.flowUnit { margin-left: .24em; color: var(--mut); font-size: .66em; font-weight: 500; white-space: nowrap; }
 
 .networkLine {
   display: flex;
@@ -103,6 +103,7 @@
 
 .amounts[data-wide-amounts] { grid-template-columns: minmax(0, 1fr); }
 .amounts[data-wide-amounts] .exactAmount > span { align-items: baseline; column-gap: 4px; }
+.amounts[data-wide-amounts] .exactAmount .flowUnit { margin-left: 0; }
 .amounts[data-wide-amounts] .direction { margin: 3px auto; transform: none; }
 .amounts[data-wide-amounts] .exactAmount > span { font-size: 24px; }
 .amounts[data-wide-amounts] .exactAmount .flowUnit { font-size: 14px; }

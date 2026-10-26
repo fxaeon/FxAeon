@@ -128,6 +128,17 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await expect(received.locator('details')).toHaveCount(0);
       await expect(received.getByText('Base', { exact: true })).toBeVisible();
       for (const leg of [sent, received]) {
+        const unitGap = await leg.evaluate(element => {
+          const amount = element.querySelector('[class*="amountText"] > div > span')!;
+          const figure = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? '')) as Text | undefined;
+          const unit = amount.querySelector('[class*="flowUnit"]');
+          if (!figure || !unit) throw new Error('Bridge fixture requires a visible amount and unit');
+          const range = document.createRange();
+          range.selectNodeContents(figure);
+          range.setEnd(figure, figure.textContent!.trimEnd().length);
+          return unit.getBoundingClientRect().left - range.getBoundingClientRect().right;
+        });
+        expect(unitGap, 'Bridge amount and unit remain visibly separated on one line').toBeGreaterThanOrEqual(2);
         const graphics = await leg.evaluate(element => {
           const amount = element.querySelector('[class*="amountText"] > div > span')!;
           const number = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? ''));

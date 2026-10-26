@@ -140,6 +140,12 @@ debt and LTV calculations; canonical Move shows its receive estimate and messagi
 fee. Empty or failed quotes never become fabricated amounts or zero balances.
 The action remains Connect wallet, without additional preview banners.
 
+Move keeps the receive and fee layout stable while a public quote is pending,
+including its initial debounce. Pending figures use quiet placeholders; genuine
+failed or expired quotes retain their recovery states. Refresh quote stays
+disabled until the pending request resolves. Earn's raw underlying fxSP quantity
+is available in Vault details rather than repeated beneath the USD holdings.
+
 Public estimates are display facts only. Trade discards the SDK planner's unsigned
 route at an isolated boundary; Earn uses the pool and vault previewDeposit reads;
 Move uses the official messaging quote and quoteOFT receipt. These facts cannot

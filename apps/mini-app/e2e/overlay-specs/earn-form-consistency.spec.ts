@@ -110,6 +110,18 @@ async function storedSlippage(page:Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1')!).slippageBps);
 }
 
+test('disconnected Earn keeps share-denominated vault assets in details, not the USD overview', async ({ page }) => {
+  await mount(page, false);
+  await page.evaluate(() => (globalThis as any).__earnHarness.disconnect());
+  const overview = page.getByRole('region', { name: 'Your fxSAVE earnings', exact: true });
+  await expect(overview.getByText('Vault holdings', { exact: true })).toBeVisible();
+  await expect(overview.locator('small').filter({ hasText: 'fxSP' })).toHaveCount(0);
+  const details = page.getByRole('region', { name: 'Vault details & transparency', exact: true });
+  const assets = details.locator('dl > div').filter({ hasText: 'Underlying vault assets' });
+  await expect(assets).toContainText('1,000 fxSP');
+  await expect(assets.locator('dd span')).toHaveAttribute('title', '1000 fxSP');
+});
+
 test('missing withdrawal terms have one retry and recover without losing the amount', async ({ page }) => {
   await mount(page, false, '2', 'withdraw', { configFailure: true });
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
