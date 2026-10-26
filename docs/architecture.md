@@ -105,6 +105,13 @@ Queries are scoped by wallet session, normalized address, and chain. Generation 
 
 Claimability must be fresh, match the current wallet, and not be fetching or failed before it can enable a claim. A cache entry does not grant transaction authority. Detailed freshness windows belong with their owning query policies and tests.
 
+Disconnected forms may publish public outcome facts while keeping connection
+as the action. Trade's isolated planner adapter returns only facts and expiry,
+never the placeholder account's unsigned route; Earn uses the pool and vault
+deposit previews; canonical Move reads messaging fees and OFT receipt amounts.
+Their public state stays outside wallet-scoped route caches and execution.
+Connecting preserves the ticket but rebuilds the account-specific review.
+
 Portfolio preserves known holdings during refresh and distinguishes zero, partial, stale, and unavailable data. A headline total requires complete applicable valuation. Position value is collateral value minus debt when validated inputs exist; it is not P&L, ROI, health, or liquidation value.
 
 ### Product analytics

@@ -154,7 +154,7 @@ test('overview omits per-share row and retains connected vault holdings', () => 
 
 function transitions(mode = 'withdraw', token = 'fxUSD') {
   const writes: Record<string, unknown> = {};
-  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision', 'ResumeReview'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
+  const setters = Object.fromEntries(['Mode', 'Token', 'Amount', 'Shares', 'Instant', 'ReviewStage', 'ReviewRevision', 'ResumeReview', 'PublicDepositEstimate'].map(key => [`set${key}`, (value: unknown) => { writes[key] = value; }]));
   const code = [variable('resetEarnContext'), variable('changeMode'), variable('changeToken'), '({ resetEarnContext, changeMode, changeToken });'].join('\n');
   const actions = evaluate<{ resetEarnContext: () => void; changeMode: (mode: string) => void; changeToken: (token: string) => void }>(code,
     { ...setters, useCallback: (callback: unknown) => callback, resetTransactionAmounts: () => ({ amount: '', shares: '' }), mode, token });
@@ -167,6 +167,7 @@ test('fresh withdrawal uses cooldown, but mode/token changes do not overwrite se
   assert.equal(evaluate<boolean>(`${initial[0]}\ninstant;`, { useState: (value: unknown) => [value, () => {}] }), false);
   const reset = transitions(); reset.resetEarnContext();
   assert.equal(reset.writes.Instant, false);
+  assert.equal(reset.writes.PublicDepositEstimate, null, 'changing mode clears a public quote');
   for (const action of [(t: ReturnType<typeof transitions>) => t.changeMode('withdraw'), (t: ReturnType<typeof transitions>) => t.changeToken('usdc')]) {
     const t = transitions(); action(t);
     assert.equal(Object.hasOwn(t.writes, 'Instant'), false, 'an explicit method must survive tab/asset changes');
@@ -187,6 +188,7 @@ test('same Earn asset is a no-op, while actual deposit input-unit changes reset 
   const changed = transitions('deposit'); changed.changeToken('usdc');
   assert.equal(changed.writes.Amount, ''); assert.equal(changed.writes.Shares, '');
   assert.equal(changed.writes.ReviewStage, 'input');
+  assert.equal(changed.writes.PublicDepositEstimate, null, 'changing the deposit asset clears its prior quote');
 });
 
 test('signature-required drafts preserve explicit method, amounts, token and slippage', () => {

@@ -207,7 +207,6 @@ test('Move expires and refreshes its quote, and blocks zero or invalid recipient
   await page.evaluate((response) => { (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.responses.push(response); }, fresh());
   await page.getByRole('button', { name: 'Refresh quote' }).click();
   await expect(page.locator('section[aria-label="Receive assets"] strong').first()).toHaveText('0.95');
-  const quote = page.locator('section[aria-label="Bridge quote"]');
   const callCount = await page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.preview.calls.length);
   await page.getByRole('button', { name: 'Change', exact: true }).click();
   const destination = page.getByRole('textbox', { name: 'Destination wallet' });
@@ -215,7 +214,8 @@ test('Move expires and refreshes its quote, and blocks zero or invalid recipient
     await destination.fill(value);
     await expect(destination).toHaveAttribute('aria-invalid', 'true');
     await expect(page.getByRole('alert')).toContainText('Enter a valid, non-zero destination address.');
-    await expect(quote.getByText('Unavailable').first()).toBeVisible();
+    await expect(page.locator('section[aria-label="Bridge quote"]')).toHaveCount(0);
+    await expect(page.locator('[data-receive-amount]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Enter a valid address' })).toBeDisabled();
     await expect.poll(() => page.evaluate(() => (window as Window & { __moveSessionHarness: any }).__moveSessionHarness.executionCount)).toBe(0);
   }

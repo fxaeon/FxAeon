@@ -25,7 +25,7 @@ const mocks: Record<string, string> = {
   '@/lib/telegram': `export const haptic = () => {}; export const openExternalLink = () => false;`,
   '@/lib/fx/gasFeePolicy': `export const fetchGasTierQuotes = async (chainId) => { globalThis.__settingsGasReads = (globalThis.__settingsGasReads ?? 0) + 1; if (globalThis.__settingsGasFailure) throw new Error('Fixture gas rates unavailable'); const price = globalThis.__settingsGasPriceWei ?? 1n; return {chainId,fetchedAt:Date.now(),validUntil:Date.now()+30000,tiers:{standard:{gasPriceWei:price},fast:{gasPriceWei:price*2n},rapid:{gasPriceWei:price*3n}}}; };`,
   '@/lib/wallet': `import React from 'react'; export const usePrivyWallet = () => { const [connected,setConnected] = React.useState(globalThis.__earnWalletConnected !== false); React.useEffect(() => { const update = () => setConnected(globalThis.__earnWalletConnected !== false); window.addEventListener('earn-wallet-change',update); return () => window.removeEventListener('earn-wallet-change',update); },[]); return {address:connected ? '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' : undefined,chainId:connected ? 1 : undefined,isEmbedded:true}; };`,
-  '@/lib/earnPublicEstimate': `export const createEarnEstimateGuard = () => {let generation=0;return {next:() => ++generation,current:(request) => request === generation,invalidate:() => {generation++;}};};export const quotePublicFxSaveDeposit = async (_token, amount) => amount * 2n;`,
+  '@/lib/earnPublicEstimate': `export const createEarnEstimateGuard = () => {let generation=0;return {next:() => ++generation,current:(request) => request === generation,invalidate:() => {generation++;}};};export const quotePublicFxSaveDeposit = async (_token, amount) => {globalThis.__earnQuoteCalls=(globalThis.__earnQuoteCalls ?? 0)+1;if(globalThis.__earnQuoteFailOnce && globalThis.__earnQuoteCalls===1)throw new Error('Fixture public read unavailable');return amount * 2n;};`,
   '@/components/WalletDataProvider': `const refresh = async () => {}; export const useFxSaveClaimable = () => ({status:'ready',data:{hasPendingRedeem:false},refresh});`,
   '@/components/ProtocolForm': `export const AmountField = ({label,value,onChange,tokenSelector,balanceState}) => <>{tokenSelector}<label>{label}<input aria-label={label} data-available={balanceState?.amount} value={value} onChange={event => onChange(event.target.value)} /></label></>; export const TokenSelect = ({value,onChange,options}) => <select aria-label="Earn asset" value={value} onChange={event => onChange(event.target.value)}>{options.map(token => <option key={token} value={token}>{token}</option>)}</select>; export const Segmented = ({options,onChange}) => <div>{options.map(option => <button key={option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; const refresh = async () => {}; const balancesFor = () => {const zero = new URLSearchParams(location.search).has('fixtureNoExternal'); const amount = zero ? '0' : '1000'; return {fxUSD:{status:'ready',amount},usdc:{status:'ready',amount},fxUSDBasePool:{status:'ready',amount}};}; export const useWalletTokenBalances = () => ({status:'ready',balances:balancesFor(),refresh});`,
   '@/components/ActionReview': `import React from 'react';import {usePrivyWallet} from '@/lib/wallet'; export const ActionReview = ({editor,planBuilder,resumeReview,onStageChange,label,blocker}) => {
@@ -168,6 +168,29 @@ test('disconnected Earn shows the deposit amount and keeps it through wallet con
   await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12');
   await expect(outcome).toContainText('24 fxSAVE');
   await expect(page.getByRole('button', { name: 'Review deposit', exact: true })).toBeEnabled();
+});
+
+test('disconnected Earn retries one failed public quote for the same amount without planning', async ({ page }) => {
+  await page.clock.install();
+  await mount(page, false);
+  await page.evaluate(() => {
+    const app = globalThis as typeof globalThis & { __earnHarness: { disconnect: () => void }; __earnQuoteFailOnce: boolean; __earnQuoteCalls: number };
+    app.__earnHarness.disconnect();
+    app.__earnQuoteFailOnce = true;
+    app.__earnQuoteCalls = 0;
+  });
+  await page.getByLabel('Amount', { exact: true }).fill('12');
+  await page.clock.runFor(250);
+  await expect(page.getByRole('region', { name: 'Deposit outcome' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+  await page.clock.runFor(15_100);
+  await expect(page.getByRole('region', { name: 'Deposit outcome' })).toContainText('24 fxSAVE');
+  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12');
+  const state = await page.evaluate(() => {
+    const app = globalThis as typeof globalThis & { __earnHarness: { plans: unknown[] }; __earnQuoteCalls: number };
+    return { quoteCalls: app.__earnQuoteCalls, plans: app.__earnHarness.plans.length };
+  });
+  expect(state).toEqual({ quoteCalls: 2, plans: 0 });
 });
 
 test('resumed stable deposits ignore only the unsupported tolerance without rewriting the saved preference', async ({ page }) => {

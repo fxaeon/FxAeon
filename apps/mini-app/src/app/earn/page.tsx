@@ -190,11 +190,13 @@ export default function EarnPage() {
     const guard = publicEstimateGuard.current;
     const request = guard.next();
     let expiryTimer: number | undefined;
+    let retryTimer: number | undefined;
     const depositWei = mode === 'deposit' && token !== 'fxUSDBasePool'
       ? parseAmount(amount, token === 'usdc' ? 'USDC' : 'fxUSD') : null;
     if (depositWei && depositWei > 0n && token !== 'fxUSDBasePool'
       && document.visibilityState === 'visible' && navigator.onLine) {
-      const debounceTimer = window.setTimeout(() => {
+      const load = () => {
+        if (!guard.current(request) || document.visibilityState !== 'visible' || !navigator.onLine) return;
         void quotePublicFxSaveDeposit(token, depositWei).then((sharesOut) => {
           if (!guard.current(request)) return;
           setPublicDepositEstimate({ key: publicEstimateKey, shares: sharesOut, readAt: Date.now() });
@@ -204,12 +206,18 @@ export default function EarnPage() {
             setEstimateRefreshEpoch(epoch => epoch + 1);
           }, 30_000);
         }).catch(() => {
-          if (guard.current(request)) setPublicDepositEstimate(null);
+          if (!guard.current(request)) return;
+          setPublicDepositEstimate(null);
+          if (document.visibilityState === 'visible' && navigator.onLine) retryTimer = window.setTimeout(load, 15_000);
         });
+      };
+      const debounceTimer = window.setTimeout(() => {
+        load();
       }, 200);
       return () => {
         window.clearTimeout(debounceTimer);
         if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+        if (retryTimer !== undefined) window.clearTimeout(retryTimer);
         guard.invalidate();
       };
     }
@@ -795,7 +803,8 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
         No {labelToken(token)} available. <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
       </p>}
       {depositEstimate && <section className={presentation.outcome} aria-label="Deposit outcome">
-        <EstimateRow label="Estimated fxSAVE received" value={depositEstimate} />
+        <EstimateRow label="Estimated fxSAVE received" value={depositEstimate}
+          note={token === 'fxUSDBasePool' ? 'Based on current vault assets and share supply.' : undefined} />
       </section>}
     </>}
     {mode === 'withdraw' && <>
