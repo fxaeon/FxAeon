@@ -132,7 +132,7 @@ test('Move quote rows stay compact and wrap at 320px with 200% text', async ({ p
     const heights = await expectFormMetricRows(rows);
     if (width === 390) expect(heights[0], 'A single-line minimum row must use the compact rhythm').toBeLessThanOrEqual(32);
     await enlargeFormText(page);
-    await expectFormMetricRows(rows);
+    await expectFormMetricRows(rows, { allowStacked: true });
     await noOverflow(page);
   }
 });
@@ -192,4 +192,38 @@ test('Move current asset is a no-op and real asset changes retain recipient whil
   await page.getByRole('button', {name: /Reverse route to Ethereum/}).click();
   await expect(page.getByRole('textbox', {name: 'Destination wallet', exact: true})).toHaveCount(0);
   await expect(page.getByRole('button', {name: 'Change', exact: true})).toBeVisible();
+});
+
+for (const width of [320, 390]) test(`Move shared shortcuts use selected token balances at ${width}px`, async ({ page }) => {
+  await mount(page, width);
+  const shortcuts = page.getByRole('group', { name: 'Amount shortcuts', exact: true });
+  const input = page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true });
+  for (const [preset, amount] of [['25%', '250'], ['50%', '500'], ['75%', '750']]) {
+    await shortcuts.getByRole('button', { name: preset, exact: true }).click();
+    await expect(input).toHaveValue(amount);
+  }
+  // Both bridge assets are ERC-20s: ETH for network fees must not be deducted
+  // from their token balances by the shared Max control.
+  await shortcuts.getByRole('button', { name: 'Use 100% of available balance', exact: true }).click();
+  await expect(input).toHaveValue('1000');
+  await page.getByRole('button', { name: 'Asset', exact: true }).click();
+  await page.getByRole('option', { name: /fxSAVE/ }).click();
+  const shares = page.getByRole('textbox', { name: 'Amount in fxSAVE', exact: true });
+  await shortcuts.getByRole('button', { name: '25%', exact: true }).click();
+  await expect(shares).toHaveValue('50');
+  await shortcuts.getByRole('button', { name: 'Use 100% of available balance', exact: true }).click();
+  await expect(shares).toHaveValue('200');
+  await noOverflow(page);
+  const targets = await shortcuts.getByRole('button').evaluateAll(buttons => buttons.map(button => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })));
+  expect(targets).toHaveLength(4);
+  for (const target of targets) { expect(target.width).toBeGreaterThanOrEqual(44); expect(target.height).toBeGreaterThanOrEqual(44); }
+});
+
+test('Move disconnected shortcuts remain visible and disabled despite cached balances', async ({ page }) => {
+  await mount(page, 390, true);
+  const shortcuts = page.getByRole('group', { name: 'Amount shortcuts', exact: true });
+  await expect(shortcuts.getByRole('button')).toHaveCount(4);
+  for (const button of await shortcuts.getByRole('button').all()) await expect(button).toBeDisabled();
+  await expect(page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true })).toHaveValue('');
+  await noOverflow(page);
 });

@@ -377,8 +377,9 @@ export default function MovePage() {
   const moveBalanceStatusForPicker = !advanced && wallet.address
     ? (balanceQuery.status === 'idle' ? 'loading' : balanceQuery.status)
     : undefined;
-  const moveBalanceState = advanced ? advancedBalance : moveBalances?.[token]
-    ?? (moveBalanceStatusForPicker ? { status: moveBalanceStatusForPicker } : undefined);
+  const moveBalanceState: TokenBalanceView | undefined = !wallet.address ? { status: 'disconnected' }
+    : advanced ? advancedBalance : moveBalances?.[token]
+      ?? (moveBalanceStatusForPicker ? { status: moveBalanceStatusForPicker } : undefined);
 
   // Custom OFTs do not have a canonical asset identity for the shared wallet
   // cache. Read the validated source OFT's underlying token directly, scoped
@@ -600,7 +601,7 @@ export default function MovePage() {
             <section className={moveStyles.sourcePanel} aria-label="Send assets">
               <AmountField compact label="Amount" symbol={advanced ? 'OFT' : token} value={amount} onChange={setAmount}
                 labelContent={<NetworkField label="Send" name={sourceName} chainId={sourceChainId} />}
-                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false} showPercentages={false}
+                maxDecimals={18} balanceState={moveBalanceState} showUnitPrice={false} showShortcuts
                 tokenSelector={!advanced ? <TokenSelect compact label="Asset" value={token} options={['fxUSD', 'fxSAVE'] as const} onChange={changeToken} balances={moveBalances} balanceStatus={wallet.address ? moveBalanceStatusForPicker : 'disconnected'} /> : undefined} />
             </section>
             <button

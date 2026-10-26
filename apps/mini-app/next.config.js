@@ -26,6 +26,18 @@ const nextConfig = {
   distDir: configuredDistDir || (process.env.NODE_ENV === 'development' ? '.next' : 'dist'),
   images: { unoptimized: true },
   webpack: (config, { webpack, isServer }) => {
+    // Read-only evidence for the disposable local-fork test artifact only.
+    // Keep this out of normal builds instead of retaining hidden product UI.
+    if (process.env.FX_E2E_REVIEW_EVIDENCE === '1') {
+      if (process.env.NEXT_PUBLIC_FX_LOCAL_FORK_TEST_MODE !== '1') {
+        throw new Error('Review evidence instrumentation requires local-fork test mode');
+      }
+      config.module.rules.push({
+        test: /[\\/]components[\\/]ActionReview\.tsx$/,
+        enforce: 'pre',
+        use: [{ loader: path.resolve(__dirname, 'e2e/fork/review-evidence-loader.cjs') }],
+      });
+    }
     // Wallet/data libraries share a vendor graph. Keep that graph in bounded,
     // cacheable chunks instead of growing one mobile-WebView download every
     // time a shared hook is added. The independent release budgets still

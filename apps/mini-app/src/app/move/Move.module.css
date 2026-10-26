@@ -52,7 +52,7 @@
 .moveCard .sourcePanel :global(.amount-control) input { min-height: 44px; }
 /* This surface has no inner padding to contain the shared shortcut bleed.
    Keep the complete 44px target inside its edge. */
-.moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin-right: 2px; }
+.moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin: 0 2px 0 auto; }
 .moveCard .sourcePanel :global(.amount-control) [role='group'] button > span { background: transparent; box-shadow: none; color: inherit; }
 .moveCard .sourcePanel :global(.amount-control) [role='group'] button:enabled { color: var(--mint-text); }
 .routeNode { display: flex; align-items: center; gap: 12px; min-height: 30px; color: var(--mut); font-size: 13px; font-weight: 400; }
@@ -97,7 +97,7 @@
 @media (prefers-reduced-motion: reduce) { .routeSwap svg { transition: none; } }
 
 /* Currency amounts and USD equivalents wrap as complete values. */
-.quoteSummary dd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 2px 6px; max-width: 66%; }
+.quoteSummary dd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 2px 6px; max-width: 100%; flex-shrink: 0; }
 .quoteSummary dd > :global(span) { display: inline-block; white-space: nowrap; overflow-wrap: normal; }
 .quoteSummary dd :global([data-usd-state]) { display: inline; margin: 0; font-size: inherit; color: var(--mut); }
 .quoteValuePlaceholder, .feeUsdPlaceholder { display: inline-flex; height: 1em; min-height: 1em; margin: 0; }
@@ -108,3 +108,8 @@
   .quoteSummary dt { flex-basis: 100%; }
   .quoteSummary dd { margin-left: auto; max-width: 100%; }
 }
+
+/* Reflow complete terms when text is enlarged rather than clipping units. */
+.quoteSummary dl > div { flex-wrap: wrap; row-gap: 0; }
+.quoteSummary dt { flex: 1 0 auto; }
+.quoteSummary dd { flex: 0 1 auto; margin-left: auto; }

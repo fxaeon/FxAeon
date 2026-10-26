@@ -203,7 +203,7 @@ export const useInvalidateWalletData = () => async () => {
   '@/components/BridgeTracker': `export const BridgeTracker = () => null;`,
   '@/components/review/ReviewProgress': `
     import React from 'react';
-    export { CalldataDisclosure, stepProgress, TransactionHashLink } from './src/components/review/ReviewProgress';
+    export { stepProgress, TransactionHashLink } from './src/components/review/ReviewProgress';
     export const chainName = (id) => id === 8453 ? 'Base' : 'Ethereum';
     export const StatusNotice = ({ label, body }) => <div role="status"><strong>{label}</strong><span>{body}</span></div>;
     export const InlineError = ({ message }) => <div role="alert">{message}</div>;

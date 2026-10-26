@@ -229,3 +229,8 @@ movements not otherwise displayed. Bridge source confirmation remains distinct
 from destination delivery, with retry and external tracking available while
 delivery is unverified. Simulation keeps its explicit label and has no public
 transaction links. Signing-time and destination verification guards are unchanged.
+
+Bridge review presents Recipient beside a right-aligned, directly copyable address.
+The compact address copies the full accepted recipient, exposes it in its accessible
+name and hover title, and shows a check only after clipboard success. There is no
+Show full disclosure or extra address panel.

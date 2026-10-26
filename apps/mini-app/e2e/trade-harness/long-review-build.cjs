@@ -33,6 +33,15 @@ async function buildHarness(){const build=await esbuild.build({stdin:{contents:e
  if(args.path.startsWith('@/')){let p=path.join(src,args.path.slice(2));for(const candidate of [p,p+'.ts',p+'.tsx',path.join(p,'index.ts')])if(fs.existsSync(candidate)&&fs.statSync(candidate).isFile())return {path:candidate};}
  });
  b.onLoad({filter:/.*/,namespace:'fixture'},args=>({contents:mocks[args.path],loader:'tsx',resolveDir:path.join(repo,'apps/mini-app')}));
+ // Capture the real accepted review model in this offline test bundle only.
+ // Financial assertions use its exact facts rather than removed diagnostic DOM.
+ b.onLoad({filter:/[\\/]components[\\/]ActionReview\.tsx$/},args=>{
+   let contents=fs.readFileSync(args.path,'utf8');
+   const hook='  const reviewFacts = splitReviewFacts(facts);';
+   if(!contents.includes(hook)) throw new Error('Accepted review facts hook no longer matches');
+   contents=contents.replace(hook,hook+'\n  globalThis.__longReview.reviewedFacts = facts;');
+   return {contents,loader:'tsx'};
+ });
  // Tag Max's route probes explicitly: a probe may legitimately use the same
  // amount as the ticket, so amount/timing alone cannot identify duplicate plans.
  b.onLoad({filter:/[\\/]app[\\/]trade[\\/]page\.tsx$/},args=>{

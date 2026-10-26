@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /** Check real dt/dd rows after their source data has settled. */
-export async function expectFormMetricRows(rows: Locator) {
+export async function expectFormMetricRows(rows: Locator, options: { allowStacked?: boolean } = {}) {
   const count = await rows.count();
   expect(count).toBeGreaterThan(0);
   const heights: number[] = [];
@@ -18,10 +18,10 @@ export async function expectFormMetricRows(rows: Locator) {
         return { width: box.width, height: box.height, minHeight: Number.parseFloat(getComputedStyle(control).minHeight),
           hit: hit === control || Boolean(hit && control.contains(hit)) };
       });
-      return { labelRight: label.right, valueLeft: value.left, left: rect.left, right: rect.right,
+      return { text: element.textContent, labelRight: label.right, valueLeft: value.left, labelBottom: label.bottom, valueTop: value.top, left: rect.left, right: rect.right,
         height: rect.height, overflow: element.scrollWidth - element.clientWidth, controls };
     });
-    expect(geometry.labelRight, 'Metric labels must not intersect their values').toBeLessThanOrEqual(geometry.valueLeft + 1);
+    expect(geometry.labelRight <= geometry.valueLeft + 1 || Boolean(options.allowStacked && geometry.labelBottom <= geometry.valueTop + 1), `Metric labels and values remain separate horizontally or after accessible reflow: ${JSON.stringify(geometry)}`).toBe(true);
     expect(geometry.left).toBeGreaterThanOrEqual(-1);
     expect(geometry.right).toBeLessThanOrEqual(await row.page().evaluate(() => innerWidth) + 1);
     expect(geometry.overflow, 'Wrapped metrics must remain within their row').toBeLessThanOrEqual(1);
