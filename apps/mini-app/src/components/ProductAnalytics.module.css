@@ -39,12 +39,12 @@
 
 .overview { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 12px 0 10px; }
 .performanceReading { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: var(--mut); font-size: 13px; }
-.performanceReading strong { color: var(--text); font-size: 28px; font-weight: 550; letter-spacing: -.7px; font-variant-numeric: tabular-nums; }
+.performanceReading strong { color: var(--text); font-size: 28px; font-weight: 550; font-variant-numeric: tabular-nums; }
 .sensitivitySurface { padding: 17px; margin-top: 8px; border-radius: 20px; background: var(--surface); }
 .scenarioOverview { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .scenarioOverview > div { display: flex; flex-direction: column; gap: 6px; color: var(--mut); font-size: 12px; }
 .scenarioOverview > div:last-child { text-align: right; }
-.scenarioOverview strong { color: var(--text); font-weight: 550; font-size: 27px; letter-spacing: -.8px; }
+.scenarioOverview strong { color: var(--text); font-weight: 550; font-size: 27px; }
 .scenarioOverview strong[data-negative] { color: var(--negative, #f56a83); }
 .thresholdRow { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--mut); font-size: 12px; }
 .thresholdRow strong { color: var(--text); font-weight: 550; }
@@ -56,7 +56,7 @@
 .sourceOnly { justify-content: flex-end; }
 .primaryReading, .secondaryReading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); }
 .primaryReading { flex-wrap: wrap; row-gap: 2px; margin: 4px 0; min-height: 36px; font-size: 13px; }
-.primaryReading strong { color: var(--text); font-size: clamp(20px, 2vw, 24px); font-weight: 550; letter-spacing: -.025em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.primaryReading strong { color: var(--text); font-size: clamp(20px, 2vw, 24px); font-weight: 550; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .secondaryReading { min-height: 28px; font-size: 12px; }
 .secondaryReading strong { color: var(--mut); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .primaryReading > span, .secondaryReading > span { min-width: 0; }

@@ -1,19 +1,19 @@
 .context{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:12px;margin-top:8px}
 .surface{min-width:0;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
 .heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-.heading h2{font-size:17px;font-weight:600;letter-spacing:-.35px}
+.heading h2{font-size:17px;font-weight:600;}
 .heading a,.protection a{display:inline-flex;align-items:center;gap:4px;min-height:44px;color:var(--mint);font-size:12px;font-weight:550}
 .note{font-size:13px;line-height:1.65;color:var(--mut)}
 .reading{display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px;gap:12px}
 .reading label{color:var(--mut);font-size:13px}
-.reading output{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.6px}
+.reading output{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;}
 .slider{width:100%;min-height:28px}
 .scale{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin:5px 0 18px}
 .results{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:17px 0;border-top:1px solid var(--line)}
 .results>div{display:flex;flex-direction:column;min-width:0}
 .results dt{margin-bottom:7px}
 .results dt,.conditions dt{font-size:11px;color:var(--mut);line-height:1.5}
-.results dd{font-size:23px;font-weight:600;letter-spacing:-.5px;margin-top:auto;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.results dd{font-size:23px;font-weight:600;margin-top:auto;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .caption{font-size:11px;color:var(--mut);line-height:1.65}
 .conditions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 16px;margin-top:18px}
 .conditions dd{font-size:15px;font-weight:550;margin-top:7px;line-height:1.5;overflow-wrap:anywhere}

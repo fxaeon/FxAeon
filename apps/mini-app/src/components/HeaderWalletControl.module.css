@@ -91,7 +91,6 @@
   background: var(--mint);
   font-size: 13px;
   font-weight: 650;
-  letter-spacing: -.01em;
 }
 
 @media (hover: hover) {

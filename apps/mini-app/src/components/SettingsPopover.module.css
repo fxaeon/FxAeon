@@ -7,7 +7,7 @@
 .backdrop { position: fixed; inset: 0; z-index: 70; background: var(--scrim); backdrop-filter: blur(3px); }
 .panel { position: fixed; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--elevation-2); animation: settings-enter var(--motion-enter) var(--motion-ease) both; }
 .panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 6px 20px; flex-shrink: 0; }
-.panel header strong { font-size: 20px; font-weight: 550; letter-spacing: -.035em; }
+.panel header strong { font-size: 20px; font-weight: 550; }
 .panel header button { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: var(--mut); border-radius: 50%; }
 .panel header button:hover { background: var(--surface-2); }
 .body { overflow: auto; overscroll-behavior: contain; padding: 2px 20px 12px; min-height: 0; scrollbar-width: thin; }

@@ -17,7 +17,7 @@
   align-items: center; gap: 24px; max-width: 1536px; min-height: 72px;
   margin: auto; padding: 12px 32px;
 }
-.docsBrand { display: inline-flex; align-items: center; gap: 10px; width: fit-content; min-height: 44px; font-size: 17px; font-weight: 600; letter-spacing: -.03em; color: var(--text); text-decoration: none; white-space: nowrap; }
+.docsBrand { display: inline-flex; align-items: center; gap: 10px; width: fit-content; min-height: 44px; font-size: 17px; font-weight: 600; color: var(--text); text-decoration: none; white-space: nowrap; }
 .docsBrand svg { flex: 0 0 auto; }
 .searchRow { position: relative; display: flex; align-items: center; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); transition: border-color var(--dur-fast); }
 .searchRow:focus-within { border-color: var(--focus-ring); box-shadow: 0 0 0 1px var(--focus-ring); }
@@ -63,7 +63,7 @@
 .breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; color: var(--mut-2); font-size: 13px; line-height: 1.6; }
 .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; color: var(--mut); text-decoration: none; }
 .breadcrumb a:hover { color: var(--mint-text); }
-.docsIntro h1 { margin: 0; font-size: clamp(30px, 3vw, 40px); line-height: 1.18; font-weight: 600; letter-spacing: -.04em; text-wrap: balance; }
+.docsIntro h1 { margin: 0; font-size: clamp(30px, 3vw, 40px); line-height: 1.18; font-weight: 600; text-wrap: balance; }
 .lead { max-width: 62ch; margin: 16px 0 0; color: var(--mut); font-size: 17px; line-height: 1.75; }
 .versionLine { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; color: var(--mut-2); font-size: 12px; line-height: 1.6; }
 .versionBadge { border: 1px solid var(--line); border-radius: 6px; padding: 3px 7px; font-family: ui-monospace, monospace; }
@@ -71,7 +71,7 @@
 .section { margin-top: 56px; scroll-margin-top: calc(var(--docs-chrome-height) + 24px); }
 .section:first-child { margin-top: 0; }
 .section > span[id] { display: block; scroll-margin-top: calc(var(--docs-chrome-height) + 24px); }
-.articleBody h2, .articleBody h3 { color: var(--text); letter-spacing: -.025em; scroll-margin-top: calc(var(--docs-chrome-height) + 24px); overflow-wrap: anywhere; }
+.articleBody h2, .articleBody h3 { color: var(--text); scroll-margin-top: calc(var(--docs-chrome-height) + 24px); overflow-wrap: anywhere; }
 .articleBody h2 { margin: 44px 0 16px; font-size: 26px; line-height: 1.35; font-weight: 600; }
 .articleBody h2:first-child { margin-top: 0; }
 .articleBody h3 { margin: 36px 0 12px; font-size: 21px; line-height: 1.45; font-weight: 550; }
@@ -127,7 +127,7 @@
 .productGuides small { margin-top: auto; color: var(--mut-2); font-size: 12px; }
 .articleBody .startGuide { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; margin-bottom: 36px; border: 1px solid var(--line-strong); border-radius: 16px; color: var(--text); background: var(--surface); text-decoration: none; }
 .startGuide > span { display: flex; flex-direction: column; gap: 8px; }
-.startGuide strong { font-size: 18px; letter-spacing: -.02em; }
+.startGuide strong { font-size: 18px; }
 .startGuide small { color: var(--mut); font-size: 14px; line-height: 1.65; }
 .startGuide > :is(svg, i) { flex: 0 0 auto; color: var(--mint-text); }
 .articleBody .startGuide:hover { border-color: var(--mint-text); }

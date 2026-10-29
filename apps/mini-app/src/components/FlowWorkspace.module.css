@@ -32,7 +32,7 @@
   min-width: 0;
   max-width: 480px;
   margin-inline: auto;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 42%, var(--line));
+  border: 0;
   box-shadow: none;
 }
 
@@ -46,7 +46,6 @@
 .reviewInlineActions {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--line);
   padding-bottom: 4px;
 }
 
@@ -108,10 +107,10 @@
   min-width: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 46%, var(--line));
+  border: 0;
   border-radius: 999px;
   color: var(--mut);
-  background: transparent;
+  background: var(--surface-2);
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
@@ -121,7 +120,6 @@
   border-radius: var(--radius-md);
   font-size: var(--fs-body);
   font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .reviewTrigger .primaryAction:global(.button-primary):focus-visible,
