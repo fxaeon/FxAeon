@@ -83,16 +83,16 @@ test('typed dollars become a token amount rounded down to a meaningful precision
 
 test('amount legs lead with the reader’s unit and offer the other as the toggle', () => {
   unit = 'token';
-  const figure = (amount: string) => render(React.createElement(AmountFigure, { amount, symbol: 'ETH' }, '0.5 ETH'));
+  const figure = (amount: string) => render(React.createElement(AmountFigure, { amount, symbol: 'ETH', children: '0.5 ETH' }));
   const counterpart = (amount: string) => render(React.createElement(AmountCounterpart, { amount, symbol: 'ETH', token: '0.5 ETH' }));
   assert.equal(visible(figure('0.5')), '0.5 ETH');
   assert.match(counterpart('0.5'), /<button type="button"[^>]*data-unit-swap="usd"[^>]*><span>≈ \$1,728\.39<\/span>/);
-  assert.match(counterpart('0.5'), /show amounts in US dollars/);
+  assert.match(counterpart('0.5'), /title="Show amounts in US dollars"/);
 
   unit = 'usd';
   assert.equal(visible(figure('0.5')), '≈ $1,728.39');
   assert.match(counterpart('0.5'), /data-unit-swap="token"[^>]*><span>0\.5 ETH<\/span>/);
-  assert.match(counterpart('0.5'), /show amounts in tokens/);
+  assert.match(counterpart('0.5'), /title="Show amounts in tokens"/);
 
   // Without a fresh price the token leads and nothing pretends to toggle.
   snapshot = { ...snapshot, prices: { fxUSD: 1 } };
@@ -122,7 +122,7 @@ test('the amount field’s value line switches entry to dollars, as on Jumper', 
   const tokens = field({});
   assert.match(tokens, /aria-label="Amount in ETH"/);
   assert.match(tokens, /data-unit-swap="usd"[^>]*><span>≈ \$1,728\.39<\/span>/);
-  assert.match(tokens, /enter the amount in US dollars/);
+  assert.match(tokens, /title="Enter the amount in US dollars"/);
   assert.doesNotMatch(tokens, /data-amount-unit="usd"/);
 
   unit = 'usd';
@@ -131,7 +131,7 @@ test('the amount field’s value line switches entry to dollars, as on Jumper', 
   assert.match(dollars, /data-amount-unit="usd"/);
   assert.match(dollars, /class="currency"[^>]*>\$<\/span>/);
   assert.match(dollars, /data-unit-swap="token"[^>]*><span>0\.5 ETH<\/span>/, 'the token amount the form keeps is shown beneath');
-  assert.match(dollars, /enter the amount in ETH/);
+  assert.match(dollars, /title="Enter the amount in ETH"/);
 
   // No fresh price: tokens only, and the value line is not a control.
   const unpriced = field({ unitPrice: undefined, priceStatus: 'unavailable' });

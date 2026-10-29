@@ -152,7 +152,7 @@
   -webkit-tap-highlight-color: transparent;
   transition: color var(--dur-fast) ease;
 }
-.unitToggle::before { content: ''; position: absolute; inset: -12px -8px; }
+.unitToggle::before { content: ''; position: absolute; inset: -12px 0; }
 .unitToggle > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .unitToggle > svg { flex: none; width: 13px; height: 13px; opacity: .75; transition: opacity var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .unitToggle:hover:not(:disabled) { color: var(--text); }

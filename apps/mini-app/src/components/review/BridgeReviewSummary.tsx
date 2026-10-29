@@ -9,7 +9,7 @@ import { copyText } from '@/lib/clipboard';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { readableReviewAmount, reviewFactLabel } from './reviewHierarchy';
 import styles from './BridgeReviewSummary.module.css';
-import { AmountCounterpart, AmountFigure } from './AmountUsd';
+import { AmountCounterpart, AmountFigure, useLeadingUsdFigures } from './AmountUsd';
 import { tokenAmountParts } from './transactionAmountPresentation';
 import { ReviewTermRow } from './ReviewTermRow';
 
@@ -91,7 +91,9 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
   const destination = allFacts.find(fact => fact.label === 'Destination network');
   const amountsShowNetworks = Boolean(sent && received && source && destination);
   const priceImpact = allFacts.find(fact => fact.label === 'Price impact');
-  const wideAmounts = needsWideAmountLayout(sent) || needsWideAmountLayout(received);
+  // USD figures, while they lead, stack the legs just as long token amounts do.
+  const usdFigures = useLeadingUsdFigures([sent, received].map(fact => (fact && tokenAmountParts(fact)) || { amount: '', symbol: '' }));
+  const wideAmounts = needsWideAmountLayout(sent) || needsWideAmountLayout(received) || usdFigures.some(text => text !== null && text.length > 9);
   const slippage = allFacts.find(fact => fact.label === 'Slippage');
   const remaining = facts.filter(fact => !(fact.label === 'Delivery estimate' && /^(?:Not provided by bridge|Unavailable|Unknown|—)?$/i.test(fact.value.trim())) && fact !== sent && fact !== received && !(amountsShowNetworks && fact.label === 'Networks'));
   return <section className={styles.summary} aria-label="Bridge amounts and terms">

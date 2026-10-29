@@ -184,9 +184,9 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
       </div>
       {(showUsdValue || showBalance) && <div className={styles.usd} data-amount-usd>
         {showUsdValue && <span>{usd !== null && price
-          ? <button type="button" className={styles.unitToggle} onClick={switchUnit} disabled={!hydrated} data-unit-swap={usdEntry ? 'token' : 'usd'}>
+          ? <button type="button" className={styles.unitToggle} onClick={switchUnit} disabled={!hydrated} data-unit-swap={usdEntry ? 'token' : 'usd'}
+            title={usdEntry ? `Enter the amount in ${tokenSymbol(symbol)}` : 'Enter the amount in US dollars'}>
             <span>{usdEntry ? tokenWorth : usd}</span><ArrowUpDown aria-hidden="true" />
-            <span className="sr-only">{usdEntry ? `, enter the amount in ${tokenSymbol(symbol)}` : ', enter the amount in US dollars'}</span>
           </button>
           : usd ?? <ValueOrSkeleton value="—" width="sm" status={priceStatus === 'loading' ? 'loading' : 'unavailable'} label={priceStatus === 'loading' ? 'Loading USD value' : 'USD value unavailable'} />}</span>}
         {showBalance && <span className={styles.balance} id={`${id}-balance`} title={balanceState?.reason ?? (available ? `${available} ${tokenSymbol(symbol)}` : 'Balance unavailable')}>

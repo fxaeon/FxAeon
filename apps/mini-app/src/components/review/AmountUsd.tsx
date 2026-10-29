@@ -60,17 +60,33 @@ export function useAmountInUnit(amount: string | null | undefined, symbol: strin
  * tap switches every amount in the app between tokens and US dollars.
  */
 export function UnitSwap({ children, toUsd, onToggle, className = '' }: { children: ReactNode; toUsd: boolean; onToggle: () => void; className?: string }) {
+  // The figure stays the button's name; what the tap does is its description.
   return <button type="button" className={`${styles.unitSwap} ${className}`} data-unit-swap={toUsd ? 'usd' : 'token'}
+    title={toUsd ? 'Show amounts in US dollars' : 'Show amounts in tokens'}
     onClick={(event) => { event.stopPropagation(); haptic('selection'); onToggle(); }}>
     <span>{children}</span><ArrowUpDown aria-hidden="true" />
-    <span className="sr-only">{toUsd ? ', show amounts in US dollars' : ', show amounts in tokens'}</span>
   </button>;
 }
 
-/** An amount leg's figure: the token amount it is given, or its USD estimate in USD mode. */
+/**
+ * An amount leg's figure: the token amount it is given, or its USD estimate in
+ * USD mode. The estimate is bare text so it takes the figure's own size, not
+ * the smaller size a figure gives its unit.
+ */
 export function AmountFigure({ amount, symbol, children }: { amount: string; symbol: string; children: ReactNode }) {
   const value = useAmountInUnit(amount, symbol);
-  return value.showUsd ? <span data-amount-unit="usd">{value.usdText}</span> : <>{children}</>;
+  return <>{value.showUsd ? value.usdText : children}</>;
+}
+
+/** Each amount's USD figure while USD leads (null where a token leads), for layouts sized by the shown text. */
+export function useLeadingUsdFigures(amounts: readonly { amount: string; symbol: string }[]): (string | null)[] {
+  const [unit] = useAmountUnit();
+  const quote = useUsdPrices();
+  useEffect(() => priceDemandRegistry.acquire(), []);
+  return amounts.map(({ amount, symbol }) => {
+    const usd = unit === 'usd' && amount ? amountUsdValue(amount, symbol, quote) : null;
+    return usd === null ? null : usdEstimateText(usd);
+  });
 }
 
 /** An amount leg's secondary line: the other unit, which swaps the app's unit when tapped. */

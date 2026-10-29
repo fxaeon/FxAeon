@@ -77,3 +77,8 @@
   .compact.compact[data-compact-wide] .meta { margin-top: 0; }
   .compact.compact[data-compact-wide] .connector { top: -8px; }
 }
+
+/* Beside two legs, the USD value and its unit toggle fill the line, so the
+   network reads on its own line rather than wrapping after a separator. */
+.compact[data-compact-amounts='2'] .meta > .network { flex-basis: 100%; }
+.compact[data-compact-amounts='2'] .meta > .network::before { content: none; }

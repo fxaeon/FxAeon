@@ -3,7 +3,7 @@ import { ArrowDown, Plus } from 'lucide-react';
 import { TokenIcon, ChainIcon } from '@/components/TokenIcon';
 import type { PairedPositionFact } from './actionReviewModel';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
-import { AmountCounterpart, AmountFigure } from './AmountUsd';
+import { AmountCounterpart, AmountFigure, useLeadingUsdFigures } from './AmountUsd';
 import { groupDigits } from '@/lib/amount';
 import { plainAmountLabel, tokenAmountParts } from './transactionAmountPresentation';
 import { formatReviewFactValue } from './reviewFactFormatting';
@@ -20,16 +20,19 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
   /** Review-only density; pending and receipt presentations keep their rhythm. */
   compact?: boolean;
 }) {
+  // Size the pair by the figures actually shown: USD figures, while they lead, are usually the longer.
+  const usdFigures = useLeadingUsdFigures(facts.map(fact => tokenAmountParts(fact) ?? { amount: '', symbol: '' }));
   if (!facts.length) return null;
   const dense = compact && !receipt;
   // Both sides use the same type scale so their baselines remain aligned.
-  const longPair = dense && facts.length === 2 && facts.some(fact => {
+  const longPair = dense && facts.length === 2 && facts.some((fact, index) => {
     const parts = tokenAmountParts(fact);
-    return parts && groupDigits(readableReviewAmount(parts.amount).value.replace(/,/g, '')).length > 6;
+    return parts && !usdFigures[index] && groupDigits(readableReviewAmount(parts.amount).value.replace(/,/g, '')).length > 6;
   });
-  const widePair = dense && facts.length === 2 && facts.some(fact => {
+  const widePair = dense && facts.length === 2 && facts.some((fact, index) => {
     const parts = tokenAmountParts(fact);
     if (!parts) return false;
+    if (usdFigures[index]) return usdFigures[index]!.length > 9;
     const display = readableReviewAmount(parts.amount);
     return `${display.shortened || parts.approximate ? '≈ ' : ''}${groupDigits(display.value.replace(/,/g, ''))} ${parts.symbol}`.length > 14;
   });

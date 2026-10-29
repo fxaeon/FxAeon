@@ -4,7 +4,7 @@ import { useNavigationInputs } from '@/lib/useNavigationInputs';
 
 import { MetricLabel, InfoHelp } from '@/components/InfoHelp';
 import { reviewHelpDefinition } from '@/components/review/reviewHelp';
-import { AmountCounterpart, FeeAmount, InlineAmount, useAmountInUnit } from '@/components/review/AmountUsd';
+import { AmountCounterpart, FeeUsd, InlineAmount, useAmountInUnit } from '@/components/review/AmountUsd';
 import { ReviewFactValue } from '@/components/review/ReviewFactValue';
 import { readableReviewAmount } from '@/components/review/reviewHierarchy';
 import { groupDigits } from '@/lib/amount';
@@ -785,12 +785,11 @@ function displayBridgeAmount(value: bigint): string {
   const omitted = /[1-9]/.test(fraction.slice(8));
   return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
 }
-/** The same presentation as the review: amounts carry their USD estimate; the fee reads in USD. */
+/** Each quote figure carries its USD estimate; a pending row reserves that space so nothing moves when the quote lands. */
 function QuoteRow({ label, value, title, pending = false, priced }: { label: string; value: string; title?: string; pending?: boolean; priced?: { amount: string; symbol: string } }) {
   const fact = { label, value, title };
   return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd>{pending
-    ? <span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>
-    : label === 'Bridge fee' && value && value !== 'Unavailable' ? <FeeAmount fact={fact} />
+    ? <><span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>{(label === 'Bridge fee' || priced) && <span className={moveStyles.feeUsdPlaceholder} aria-hidden="true" />}</>
     : priced ? <InlineAmount amount={priced.amount} symbol={priced.symbol} token={<ReviewFactValue fact={fact} />} />
-    : <ReviewFactValue fact={fact} />}</dd></div>;
+    : <><ReviewFactValue fact={fact} />{label === 'Bridge fee' && Boolean(value) && value !== 'Unavailable' && <FeeUsd fact={{ value, title }} />}</>}</dd></div>;
 }
