@@ -65,6 +65,7 @@ test('production validation, manual verification when requested, and deployment 
   const artifactCheck = workflow.indexOf('Check production artifact');
   const stamp = workflow.indexOf('Stamp production revision');
   const secretSync = workflow.indexOf('Sync production Pages gas-oracle secret');
+  const botIdSync = workflow.indexOf('Sync production Pages Telegram bot ID');
   const deploy = workflow.indexOf('Deploy verified production artifact');
   const revisionVerify = workflow.indexOf('Verify deployed revision');
   const gasCheck = workflow.indexOf('Check live gas-oracle binding');
@@ -73,7 +74,7 @@ test('production validation, manual verification when requested, and deployment 
   const sync = workflow.indexOf('Sync Telegram bot metadata and menu');
   assert.ok(validation >= 0 && validation < productionBuild);
   assert.ok(verification > validation && verification < productionBuild);
-  assert.ok(artifactCheck < stamp && stamp < secretSync && secretSync < deploy);
+  assert.ok(artifactCheck < stamp && stamp < secretSync && secretSync < botIdSync && botIdSync < deploy);
   assert.ok(deploy < revisionVerify && revisionVerify < gasCheck && gasCheck < gasVerify);
   assert.ok(gasVerify < liveConfig && liveConfig < sync);
 });
@@ -154,6 +155,19 @@ test('the verified production artifact is revision-stamped and uploaded only for
   assert.match(secretSync, /Pages secret sync was not authorized/);
   assert.doesNotMatch(secretSync, /wrangler pages secret put[^\n]*\$\{\{/);
   assert.match(secretSync, /WRANGLER_SEND_METRICS:\s*['"]?false/);
+
+  // Telegram admission receives only the bot's public numeric ID, derived in
+  // the shell and piped to wrangler: the token never reaches Pages or a log.
+  const botIdSync = step('Sync production Pages Telegram bot ID');
+  assert.match(botIdSync, /TELEGRAM_BOT_TOKEN:\s*\$\{\{\s*secrets\.TELEGRAM_BOT_TOKEN\s*\}\}/);
+  assert.match(botIdSync, /bot_id="\$\{TELEGRAM_BOT_TOKEN%%:\*\}"/);
+  assert.match(botIdSync, /printf '%s' "\$bot_id" \| pnpm exec wrangler pages secret put TELEGRAM_BOT_ID --project-name=fxaeon --env=production/);
+  assert.match(botIdSync, /TELEGRAM_ADMISSION:-\}" == "on"[\s\S]*exit 1/);
+  assert.doesNotMatch(botIdSync, /wrangler pages secret put[^\n]*\$\{\{/);
+  assert.doesNotMatch(botIdSync, /secret put TELEGRAM_BOT_TOKEN|echo[^\n]*\$bot_id/);
+  assert.match(botIdSync, /WRANGLER_SEND_METRICS:\s*['"]?false/);
+  assert.match(step('Build production deployment artifact'), /NEXT_PUBLIC_TELEGRAM_ADMISSION:\s*\$\{\{\s*vars\.NEXT_PUBLIC_TELEGRAM_ADMISSION\s*\}\}/);
+  assert.match(step('Validate public build configuration'), /NEXT_PUBLIC_TELEGRAM_ADMISSION:\s*\$\{\{\s*vars\.NEXT_PUBLIC_TELEGRAM_ADMISSION\s*\}\}/);
 
   const gasCheck = step('Check live gas-oracle binding');
   assert.match(gasCheck, /run: node scripts\/check_live_gas_oracle\.mjs/);

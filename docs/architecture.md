@@ -1,6 +1,6 @@
 # Architecture
 
-FxAeon has two independently deployed applications: a static financial client for web and Telegram, and a static marketing site. Two small read-only Pages Functions provide gas and landing market data. There is no FxAeon transaction server or account database.
+FxAeon has two independently deployed applications: a static financial client for web and Telegram, and a static marketing site. Two small read-only Pages Functions provide gas and landing market data, and a third admits Telegram users to the Privy wallet up to a fixed capacity. There is no FxAeon transaction server; the only stored identities are the Telegram user IDs in that admission cohort and its waitlist.
 
 ## System map
 
@@ -189,7 +189,7 @@ Activity discovery uses the same four market indexes as the SDK, associates orde
 
 | Artifact | Build/output | Runtime support |
 | --- | --- | --- |
-| Financial app | Next.js static export in `apps/mini-app/dist/` | Optional root [`/api/gas`](../functions/api/gas.ts), fixed read-only Ethereum gas oracle |
+| Financial app | Next.js static export in `apps/mini-app/dist/` | Optional root [`/api/gas`](../functions/api/gas.ts), fixed read-only Ethereum gas oracle; [`/api/telegram-admission`](../functions/api/telegram-admission.ts), Telegram admission and waitlist (D1) |
 | Landing | Independent static build in `apps/landing/dist/` | Landing [`/api/market-data`](../apps/landing/functions/api/market-data.ts), fixed public display feeds |
 
 The landing does not initialize wallets or the SDK. Its calculator produces scenarios, not executable quotes, balances, borrowing limits, or liquidation estimates. Its original WebGL sculpture has static fallbacks and does not gate entry controls.

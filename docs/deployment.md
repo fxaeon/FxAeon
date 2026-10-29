@@ -24,6 +24,8 @@ The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect 
 | `TELEGRAM_BOT_TOKEN` | GitHub secret | Bot metadata and menu synchronization; never a public build input |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | GitHub secrets | Pages artifact upload and optional secret synchronization |
 | `ETHERSCAN_API_KEY` | Optional GitHub/Pages production secret | Read-only app gas Function |
+| `NEXT_PUBLIC_TELEGRAM_ADMISSION` | GitHub variable, `on` or unset | Telegram admission gate in front of Privy; off until the D1 binding is deployed |
+| `TELEGRAM_BOT_ID` | Pages secret, synced by the release workflow | The bot’s public numeric ID, derived from `TELEGRAM_BOT_TOKEN`; the token itself never reaches Pages |
 | `LIVE_GAS_ORACLE_URL` | Workflow environment | Probe destination only; does not configure the Function |
 
 The Cloudflare token needs Pages Edit on the deployment account. Privy must allow the intended origins and Ethereum/Base configuration. The local-development app ID in the example is rejected by production validation.
@@ -89,7 +91,26 @@ The landing build image/install controls are recorded in its Wrangler configurat
 
 Bot synchronization does not configure BotFather's native Main Mini App/profile launch button. Set those explicitly and verify real `startapp` entry on a phone.
 
-Public web mode and Telegram Privy mode have different configuration and identity paths. Changing provider settings does not migrate accounts or move funds. There is no admission/waitlist service or account database in this deployment.
+Public web mode and Telegram Privy mode have different configuration and identity paths. Changing provider settings does not migrate accounts or move funds.
+
+### Telegram admission and waitlist
+
+Privy’s free plan covers up to 499 monthly active users, so Telegram users are admitted to the Privy wallet as a permanent first-come cohort of `TELEGRAM_ADMISSION_CAPACITY` (default 480, leaving room for team accounts). Later visitors can join a waitlist and continue on the web app with their own wallet; they never load Privy.
+
+1. Create the D1 database `fxaeon-admission` and add its binding to `wrangler.toml` as `ADMISSION_DB`. The Function creates its tables on first use. The deploy token needs D1 edit access.
+2. Deploy. The release workflow syncs `TELEGRAM_BOT_ID`.
+3. Set the GitHub variable `NEXT_PUBLIC_TELEGRAM_ADMISSION=on` and deploy again. With it on, a failed bot-ID sync fails the release instead of refusing every new user.
+
+Raising the capacity admits the next people to open the app. To let waitlisted people in first, in join order, run in the D1 console (adjust the limit):
+
+```sql
+INSERT INTO telegram_admission (telegram_user_id, admitted_at)
+SELECT telegram_user_id, unixepoch() * 1000 FROM telegram_waitlist
+WHERE telegram_user_id NOT IN (SELECT telegram_user_id FROM telegram_admission)
+ORDER BY joined_at LIMIT 20;
+```
+
+This gate bounds who loads Privy in FxAeon. Making the cap impossible to bypass needs Privy custom (JWT) authentication, which Privy grants per app, and native Telegram and email sign-up turned off afterwards.
 
 ## Rollback and diagnosis
 

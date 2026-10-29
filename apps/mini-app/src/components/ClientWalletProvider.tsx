@@ -7,6 +7,7 @@ import { getWebApp, hasTelegramMiniAppLaunchData, hasTelegramNativeHostHint, has
 import { BrowserWalletProvider } from '@/lib/wallet';
 import { WalletProviderModeContext, type WalletProviderMode } from '@/lib/wallet/providerMode';
 import { ProviderLoadingState } from '@/components/ProviderLoadingState';
+import { TelegramAdmissionGate } from '@/components/TelegramAdmissionGate';
 import WalletRouteProviders from '@/components/WalletRouteProviders';
 
 // The SDK and its authentication/session effects are loaded only for Telegram.
@@ -38,9 +39,11 @@ export default function ClientWalletProvider({ children }: { children: React.Rea
   // Once selected, never replace a connected wallet after navigation or a
   // later bridge update. A missing bridge falls back after the bounded wait.
   if (mode === null) return <ProviderLoadingState />;
+  // Admission runs before the Privy chunk is requested: a waitlisted Telegram
+  // user never initializes Privy or counts as one of its monthly users.
   return <WalletProviderModeContext.Provider value={mode}>
     {mode === 'privy'
-      ? <TelegramWalletProvider>{children}</TelegramWalletProvider>
+      ? <TelegramAdmissionGate><TelegramWalletProvider>{children}</TelegramWalletProvider></TelegramAdmissionGate>
       : <BrowserWalletProvider allowTelegramHost={Boolean(PRIVY_APP_ID)}><WalletRouteProviders>{children}</WalletRouteProviders></BrowserWalletProvider>}
   </WalletProviderModeContext.Provider>;
 }

@@ -69,3 +69,14 @@ test('optional Infura endpoints reject placeholder project identifiers before a 
     assert.ok(!result.stderr.includes('YOUR_INFURA_PROJECT_ID'));
   }
 });
+
+test('the Telegram admission flag accepts only on, off or unset', () => {
+  for (const value of ['', 'on', 'off']) {
+    assert.equal(validate({ NEXT_PUBLIC_TELEGRAM_ADMISSION: value }).status, 0, `"${value}" is a valid admission flag`);
+  }
+  for (const value of ['ON', 'true', '1', 'enforce']) {
+    const result = validate({ NEXT_PUBLIC_TELEGRAM_ADMISSION: value });
+    assert.equal(result.status, 1, `"${value}" must not silently leave admission off`);
+    assert.ok(result.stderr.includes('NEXT_PUBLIC_TELEGRAM_ADMISSION must be "on", "off", or unset'), result.stderr);
+  }
+});
