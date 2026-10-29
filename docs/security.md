@@ -35,7 +35,7 @@ Ordinary web selects an explicitly accepted injected provider. Provider announce
 
 Only configured Telegram launches with nonempty data choose Privy. Host detection is a UX decision; Privy verifies signed identity. Connection events do not silently accept another wallet, sign, or resume a prior form action.
 
-Wallet-browser links strip query/fragment/launch data and carry only reviewed public routes. Opening another app or download page is not a completed connection. There is no admission/waitlist backend or account database; client-side host detection does not enforce a provider billing cap.
+Wallet-browser links strip query/fragment/launch data and carry only reviewed public routes. Opening another app or download page is not a completed connection. When `NEXT_PUBLIC_TELEGRAM_ADMISSION=on`, a Telegram launch asks `/api/telegram-admission` before Privy loads. The Function verifies Telegram’s Ed25519 launch signature with the bot’s public numeric ID (it holds no bot token or key), checks that the launch is under 24 hours old, and admits a permanent first-come cohort in D1. A user outside the cohort sees a waitlist and never loads Privy. Until Privy custom authentication replaces native Telegram sign-in, this gates everyone using FxAeon but cannot stop someone who calls Privy’s API directly with their own launch data, so it bounds the cohort rather than every billing input.
 
 ## Public inputs and server functions
 
@@ -43,7 +43,7 @@ All `NEXT_PUBLIC_*` values are public build inputs. Browser credentials need ori
 
 Reviewed HTTPS Alchemy/Infura endpoints and chain probes protect selected read boundaries. Explicit local-fork builds have separate loopback rules and are rejected by production environment validation.
 
-The root optional `/api/gas` Function reads a fixed Ethereum gas oracle. The separate landing `/api/market-data` Function reads fixed public display feeds. Neither accepts protocol plans, signs transactions, or acts as a general RPC proxy.
+The root optional `/api/gas` Function reads a fixed Ethereum gas oracle. The separate landing `/api/market-data` Function reads fixed public display feeds. The admission Function makes no outbound request and only verifies signatures. None accepts protocol plans, signs transactions, or acts as a general RPC proxy.
 
 Local storage, cached/indexed data and display quotes remain untrusted inputs to financial decisions. Missing/stale reads are not zero. Position valuation and rebalance-distance displays are not P&L, ROI, health or liquidation guarantees. The separate estimated PnL and entry price come from indexed order history and the SDK mid price; they are display-only, hidden while the index disagrees with the chain, and never enter execution decisions.
 

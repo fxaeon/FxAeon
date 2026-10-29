@@ -77,6 +77,14 @@ function assertTelegramBotToken() {
   }
 }
 
+/** Only "on" enables the admission gate; reject near misses that would silently leave it off. */
+function assertTelegramAdmissionFlag() {
+  const value = process.env.NEXT_PUBLIC_TELEGRAM_ADMISSION?.trim() ?? '';
+  if (value && value !== 'on' && value !== 'off') {
+    throw new Error('NEXT_PUBLIC_TELEGRAM_ADMISSION must be "on", "off", or unset');
+  }
+}
+
 try {
   // Local screenshot/fork settings are valid for disposable local builds,
   // but must never be accepted as production deployment configuration. Whole
@@ -102,6 +110,7 @@ try {
   assertAlchemyDataKey();
   assertTelegramMiniAppUrl();
   assertTelegramBotToken();
+  assertTelegramAdmissionFlag();
 
   console.log('FxAeon production environment verified: Privy, RPC, and Telegram configuration are structurally valid.');
 } catch (error) {

@@ -120,6 +120,22 @@ test('compact simulated completion avoids a duplicate badge and keeps amounts st
 });
 
 
+test('the reviewed receive estimate stays visible, labelled, until delivery is verified', () => {
+  for (const state of ['pending', 'source_confirmed', 'failed'] as const) {
+    const html = render({ state, estimatedAmount: '98.5' });
+    const primary = html.slice(0, html.indexOf('<details class="advanced">'));
+    assert.match(primary, />Estimated</, `${state} labels the destination as an estimate`);
+    assert.match(primary, /≈ 98\.5<span> fxUSD/);
+    assert.match(primary, />Requested</, `${state} keeps the requested source amount`);
+    assert.doesNotMatch(primary, />Received<|aria-label="Destination amount unavailable"/);
+  }
+  const delivered = render({ state: 'destination_verified', estimatedAmount: '98.5', sourceAmount: '100.1234', receivedAmount: '99.9876', destinationTxHash: DEST });
+  assert.doesNotMatch(delivered, /98\.5|>Estimated</, 'a verified receipt replaces the estimate');
+  const unproven = render({ state: 'destination_verified', estimatedAmount: '98.5' });
+  assert.match(unproven, /aria-label="Received amount unavailable"/, 'the estimate never stands in for a verified amount');
+  assert.doesNotMatch(unproven, /98\.5/);
+});
+
 test('all bridge lifecycle states keep static readable amounts and preserve uncertainty', () => {
  for(const state of ['pending','source_confirmed','destination_verified','failed'] as const){
   const proof = { state, sourceAmount:'720.89147659306640625',receivedAmount:'720.89147659306640625',completionContent:state==='destination_verified'?React.createElement('p',null,'Receipt'):undefined };

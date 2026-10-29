@@ -29,6 +29,8 @@ export interface BridgeTrackerProps {
   destinationChain: 'Ethereum' | 'Base';
   token: string;
   amount: string;
+  /** The reviewed receive estimate, shown as an estimate until delivery is verified. */
+  estimatedAmount?: string;
   sourceTxHash?: string | null;
   /** A source receipt is not proof of LayerZero delivery. */
   status?: BridgeStepStatus;
@@ -80,6 +82,7 @@ export function BridgeTracker({
   destinationChain,
   token,
   amount,
+  estimatedAmount,
   sourceTxHash,
   status = 'pending',
   sourceOftAddress,
@@ -359,7 +362,7 @@ export function BridgeTracker({
     {!simulated && layerzeroScan && <a href={layerzeroScan} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1 text-mint">Track bridge <ExternalLink size={13} aria-hidden="true" /></a>}
   </div>;
   if (compact) return <BridgeResultCard state={effectiveStatus} sourceChain={sourceChain} destinationChain={destinationChain}
-    token={token} requestedAmount={amount}
+    token={token} requestedAmount={amount} estimatedAmount={estimatedAmount}
     sourceAmount={sourceDone && sourceAmountProof?.context === verificationContextKey ? formatUnits(sourceAmountProof.amount, 18) : undefined}
     receivedAmount={delivered && destinationAmountProof?.context === verificationContextKey ? formatUnits(destinationAmountProof.amount, 18) : undefined}
     sourceTxHash={sourceTxHash} destinationTxHash={detectedDestinationTxHash} recipient={recipient}

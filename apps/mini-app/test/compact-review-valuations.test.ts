@@ -82,7 +82,8 @@ test('long collateral values original wstETH quote, not normalized stETH or exec
   snapshot = { ...fresh, prices: { wstETH: 2880, stETH: 10000, ETH: 100000 } };
   const html = renderCollateral();
   assert.match(visible(html), /≈ \$1,930\.79/);
-  assert.doesNotMatch(html, /title=/);
+  // No exact-number tooltip; the unit toggle's title only says what a tap does.
+  assert.doesNotMatch(html, /title="[^"]*\d/);
   assert.doesNotMatch(html, /1\.245861716930919999 stETH per wstETH/);
 });
 test('collateral keeps native amount for missing, stale, future or invalid matching asset', () => {

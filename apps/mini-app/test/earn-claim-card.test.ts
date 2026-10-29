@@ -36,7 +36,9 @@ const functions = [
 ].join('\n');
 function evaluate<T>(code: string, bindings: object): T {
   const js = ts.transpileModule(code, { compilerOptions: { target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.React, module: ts.ModuleKind.CommonJS } }).outputText;
-  return runInNewContext(js, { React, Check, Info, TokenIcon, ChainIcon, claimAvailability, formatUnits, presentation, styles: {}, ...bindings }) as T;
+  // Without a price provider an amount renders only its token text, as InlineAmount does without a fresh price.
+  const InlineAmount = ({ token }: { token: React.ReactNode }) => token;
+  return runInNewContext(js, { React, Check, Info, TokenIcon, ChainIcon, claimAvailability, formatUnits, presentation, styles: {}, InlineAmount, ...bindings }) as T;
 }
 
 type ClaimRead = ClaimableLike & { previewReceive?: { amountYieldOutWei: bigint; amountStableOutWei: bigint } };

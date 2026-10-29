@@ -9,7 +9,7 @@ import { copyText } from '@/lib/clipboard';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { readableReviewAmount, reviewFactLabel } from './reviewHierarchy';
 import styles from './BridgeReviewSummary.module.css';
-import { AmountUsd } from './AmountUsd';
+import { AmountCounterpart, AmountFigure, useLeadingUsdFigures } from './AmountUsd';
 import { tokenAmountParts } from './transactionAmountPresentation';
 import { ReviewTermRow } from './ReviewTermRow';
 
@@ -19,6 +19,7 @@ function BridgeAmount({ fact, network, chainId, received = false }: {
   const parts = tokenAmountParts(fact);
   const figure = parts ? readableReviewAmount(parts.amount) : undefined;
   const unit = parts?.symbol;
+  const tokenText = figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : '';
   return <div data-review-fact={fact.label} className={styles.amount}>
     <span className={styles.token} aria-hidden="true">
       {unit && <TokenIcon symbol={unit} size={34} />}
@@ -26,9 +27,11 @@ function BridgeAmount({ fact, network, chainId, received = false }: {
     </span>
     <div className={styles.amountText}>
       <div className={styles.exactAmount} data-long={(figure?.value.length ?? 0) > 15 || undefined}>
-        <span>{figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : <ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" />} {unit && <span className={styles.flowUnit}>{unit}</span>}</span>
+        <span>{parts && figure
+          ? <AmountFigure amount={parts.amount} symbol={parts.symbol}>{tokenText} <span className={styles.flowUnit}>{unit}</span></AmountFigure>
+          : <><ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" /> {unit && <span className={styles.flowUnit}>{unit}</span>}</>}</span>
       </div>
-      <span className={styles.networkLine}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountUsd amount={parts.amount} symbol={parts.symbol} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
+      <span className={styles.networkLine}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountCounterpart amount={parts.amount} symbol={parts.symbol} token={`${tokenText} ${parts.symbol}`} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
     </div>
   </div>;
 }
@@ -88,7 +91,9 @@ export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinatio
   const destination = allFacts.find(fact => fact.label === 'Destination network');
   const amountsShowNetworks = Boolean(sent && received && source && destination);
   const priceImpact = allFacts.find(fact => fact.label === 'Price impact');
-  const wideAmounts = needsWideAmountLayout(sent) || needsWideAmountLayout(received);
+  // USD figures, while they lead, stack the legs just as long token amounts do.
+  const usdFigures = useLeadingUsdFigures([sent, received].map(fact => (fact && tokenAmountParts(fact)) || { amount: '', symbol: '' }));
+  const wideAmounts = needsWideAmountLayout(sent) || needsWideAmountLayout(received) || usdFigures.some(text => text !== null && text.length > 9);
   const slippage = allFacts.find(fact => fact.label === 'Slippage');
   const remaining = facts.filter(fact => !(fact.label === 'Delivery estimate' && /^(?:Not provided by bridge|Unavailable|Unknown|—)?$/i.test(fact.value.trim())) && fact !== sent && fact !== received && !(amountsShowNetworks && fact.label === 'Networks'));
   return <section className={styles.summary} aria-label="Bridge amounts and terms">

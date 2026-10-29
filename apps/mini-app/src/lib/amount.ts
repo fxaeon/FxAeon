@@ -220,3 +220,34 @@ export function calculateFractionDecimal(
 
   return fraction ? `${integer}.${fraction}` : integer;
 }
+
+/**
+ * The token amount worth a typed US-dollar amount at a display price, for
+ * entering an amount in dollars. Rounded down to the place where one unit is
+ * worth at most $0.0001 (8 decimals for ETH, 4 for a dollar stablecoin), so it
+ * never exceeds what was typed. The token amount is what the form reviews.
+ */
+export function tokenAmountForUsd(usd: string, price: number, maxDecimals: number): string {
+  const typed = usd.trim().replace(/\.$/, '');
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(typed) || !Number.isFinite(price) || price <= 0
+    || !Number.isInteger(maxDecimals) || maxDecimals < 0 || maxDecimals > 35) return '';
+  const dollars = decimalToUnits(typed, 18);
+  if (dollars === null) return '0';
+  const places = Math.min(maxDecimals, Math.max(0, Math.ceil(Math.log10(price) + 4)));
+  const priceUnits = BigInt(Math.round(price * 1e8));
+  if (priceUnits <= 0n) return '';
+  const units = dollars * 10n ** BigInt(places) * 100_000_000n / (priceUnits * 10n ** 18n);
+  const digits = units.toString().padStart(places + 1, '0');
+  const integer = places ? digits.slice(0, -places) : digits;
+  const fraction = places ? digits.slice(-places).replace(/0+$/, '') : '';
+  return fraction ? `${integer}.${fraction}` : integer;
+}
+
+/** A token amount's worth as a dollar entry: whole cents, rounded down, "12.5" kept as "12.50". */
+export function usdEntryForToken(token: string, price: number): string {
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(token) || !Number.isFinite(price) || price <= 0) return '';
+  const cents = Math.floor(Number(token) * price * 100 + 1e-6);
+  if (!Number.isSafeInteger(cents) || cents < 0) return '';
+  const fraction = cents % 100;
+  return `${Math.floor(cents / 100)}${fraction ? `.${String(fraction).padStart(2, '0')}` : ''}`;
+}
