@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { ArrowUpDown } from 'lucide-react';
 import TokenIcon from '@/components/TokenIcon';
 import { DecimalInput } from '@/components/DecimalInput';
 import { useUsdPrices } from '@/components/PriceProvider';
 import { ValueOrSkeleton } from '@/components/MissingValue';
 import type { TokenBalanceView } from '@/components/wallet-balance-cache';
-import { calculateFractionDecimal, compareExactDecimals, decimalInputError, formatBalanceDecimal, positiveDecimal } from '@/lib/amount';
+import { calculateFractionDecimal, compareExactDecimals, decimalInputError, formatBalanceDecimal, positiveDecimal, tokenAmountForUsd, usdEntryForToken } from '@/lib/amount';
+import { useAmountUnit } from '@/lib/amountUnit';
 import { formatUsd, formatUsdPrice, priceKeyForSymbol, usdValueForDecimal } from '@/lib/prices';
 import { ASSET_PRICE_MAX_AGE_MS } from '@/lib/walletAssets';
 import { tokenSymbol } from '@/lib/fx/tokenPresentation';
@@ -35,7 +37,10 @@ export type AmountFieldProps = {
 export type AmountFieldViewProps = AmountFieldProps & { unitPrice?: number; priceStatus?: 'loading' | 'ready' | 'unavailable' };
 
 /** One input for Trade, Earn, Borrow and Move. Shortcuts never round-trip
- * through USD; native-token maxima remain owned by the route/gas planner. */
+ * through USD; native-token maxima remain owned by the route/gas planner.
+ * Tapping the value line switches entry to US dollars (as on Jumper): the
+ * dollars typed are converted down to a token amount, which the form keeps,
+ * reviews and signs. */
 /** Connected convenience wrapper. Provider access stays at this boundary. */
 export function AmountField(props: AmountFieldProps) {
   const quote = useUsdPrices();
@@ -95,6 +100,19 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
   const worth = worthOf && !decimalInputError(worthOf, maxDecimals, { allowZero: true }) ? usdValueForDecimal(worthOf, price) : null;
   // Nothing entered is exactly $0.00; "≈" marks only a priced estimate, and "<$0.01" already says it is approximate.
   const usd = /^[0.]*$/.test(entered) ? '$0.00' : worth === null ? null : worth > 0 && worth < 0.01 ? formatUsd(worth) : `≈ ${formatUsd(worth)}`;
+  // Dollar entry needs a fresh price; without one the field stays in tokens.
+  const [unit, toggleUnit] = useAmountUnit();
+  const usdEntry = unit === 'usd' && showUsdValue && Boolean(price);
+  const [usdDraft, setUsdDraft] = useState('');
+  // The token amount this field last derived from typed dollars. Any other
+  // change (a shortcut, Max, a reset) redraws the dollars from the tokens.
+  const derived = useRef<string | null>(null);
+  useEffect(() => {
+    if (!usdEntry || !price) return;
+    if (derived.current !== null && derived.current === worthOf) return;
+    derived.current = null;
+    setUsdDraft(worthOf ? usdEntryForToken(worthOf, price) : '');
+  }, [usdEntry, worthOf, price]);
   const hasBalance = Boolean(available && positiveDecimal(available, maxDecimals));
   const maximum = maxAmount === null ? null : maxAmount ?? available;
   const hasMaximum = Boolean(maximum && positiveDecimal(maximum, maxDecimals));
@@ -114,6 +132,17 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
   const describedBy = [hint && `${id}-hint`, showBalance && `${id}-balance`, error && `${id}-error`, maxError && `${id}-max-error`].filter(Boolean).join(' ') || undefined;
   const inactive = disabled || !hydrated;
   const change = (next: string) => { setMaxError(''); setEntryError(''); onChange(next); };
+  const changeUsd = (next: string) => {
+    // Dollars carry cents at most; a further digit is ignored, as in a till.
+    if (/\.\d{3,}$/.test(next) || !price) return;
+    setUsdDraft(next);
+    const tokens = next ? tokenAmountForUsd(next, price, maxDecimals) : '';
+    derived.current = tokens;
+    change(tokens);
+  };
+  const entryValue = usdEntry ? usdDraft : displayValue;
+  const tokenWorth = `${worthOf && !decimalInputError(worthOf, maxDecimals, { allowZero: true }) ? formatBalanceDecimal(worthOf, 8) : '0'} ${tokenSymbol(symbol)}`;
+  const switchUnit = () => { haptic('selection'); toggleUnit(); };
   const chooseMax = async () => {
     haptic('selection'); setMaxError(''); setEntryError('');
     if (allowAll) { change('all'); return; }
@@ -141,19 +170,25 @@ export function AmountFieldView({ value, onChange, symbol, label, labelContent, 
       </div>
       {hint && <span className={styles.meta} id={`${id}-hint`}>{hint}</span>}
       <div className={styles.entryRow}>
-        <span className={styles.entryFit} data-amount-preview={preview ? '' : undefined} data-amount-expanded={entryExpanded && displayValue.length > 12 ? '' : undefined} data-amount-long={displayValue.length > 12 ? '' : undefined}>
-        <DecimalInput id={id} value={displayValue} onValueChange={next => { if (next.length > 12) setEntryExpanded(true); change(next); }} onInvalidInput={setEntryError} policy={inputPolicy}
-          style={{ '--amount-entry-length': Math.max(displayValue.length, placeholder.length, 1) } as CSSProperties}
-          title={preview ? displayValue : undefined}
-          onFocus={() => { if (displayValue.length > 12) setEntryExpanded(true); }}
-          onKeyDown={submitNearestAction} disabled={inactive} autoComplete="off" spellCheck={false} placeholder={placeholder} maxLength={100}
-          aria-label={`${label} in ${tokenSymbol(symbol)}`} aria-describedby={describedBy} aria-invalid={Boolean(error)} aria-errormessage={error ? `${id}-error` : undefined} required={!allowZero} />
-        {preview && <span className={styles.entryPreview} aria-hidden="true" style={{ '--amount-preview-length': preview.length } as CSSProperties}>{preview}</span>}
+        <span className={styles.entryFit} data-amount-unit={usdEntry ? 'usd' : undefined} data-amount-preview={preview && !usdEntry ? '' : undefined} data-amount-expanded={!usdEntry && entryExpanded && displayValue.length > 12 ? '' : undefined} data-amount-long={!usdEntry && displayValue.length > 12 ? '' : undefined}
+          style={{ '--amount-entry-length': Math.max(entryValue.length, placeholder.length, 1) + (usdEntry ? 1 : 0) } as CSSProperties}>
+        {usdEntry && <span className={styles.currency} aria-hidden="true">$</span>}
+        <DecimalInput id={id} value={entryValue} onValueChange={usdEntry ? changeUsd : next => { if (next.length > 12) setEntryExpanded(true); change(next); }} onInvalidInput={setEntryError} policy={usdEntry ? 'dot-decimal' : inputPolicy}
+          title={preview && !usdEntry ? displayValue : undefined}
+          onFocus={() => { if (!usdEntry && displayValue.length > 12) setEntryExpanded(true); }}
+          onKeyDown={submitNearestAction} disabled={inactive} autoComplete="off" spellCheck={false} placeholder={usdEntry ? '0' : placeholder} maxLength={100}
+          aria-label={usdEntry ? `${label} in US dollars` : `${label} in ${tokenSymbol(symbol)}`} aria-describedby={describedBy} aria-invalid={Boolean(error)} aria-errormessage={error ? `${id}-error` : undefined} required={!allowZero} />
+        {preview && !usdEntry && <span className={styles.entryPreview} aria-hidden="true" style={{ '--amount-preview-length': preview.length } as CSSProperties}>{preview}</span>}
         </span>
         <div className={styles.token}>{tokenSelector ?? <span className={styles.tokenLabel} title={tokenSymbol(symbol)}><TokenIcon symbol={symbol} size={24} /><span>{tokenSymbol(symbol)}</span></span>}</div>
       </div>
       {(showUsdValue || showBalance) && <div className={styles.usd} data-amount-usd>
-        {showUsdValue && <span>{usd ?? <ValueOrSkeleton value="—" width="sm" status={priceStatus === 'loading' ? 'loading' : 'unavailable'} label={priceStatus === 'loading' ? 'Loading USD value' : 'USD value unavailable'} />}</span>}
+        {showUsdValue && <span>{usd !== null && price
+          ? <button type="button" className={styles.unitToggle} onClick={switchUnit} disabled={!hydrated} data-unit-swap={usdEntry ? 'token' : 'usd'}>
+            <span>{usdEntry ? tokenWorth : usd}</span><ArrowUpDown aria-hidden="true" />
+            <span className="sr-only">{usdEntry ? `, enter the amount in ${tokenSymbol(symbol)}` : ', enter the amount in US dollars'}</span>
+          </button>
+          : usd ?? <ValueOrSkeleton value="—" width="sm" status={priceStatus === 'loading' ? 'loading' : 'unavailable'} label={priceStatus === 'loading' ? 'Loading USD value' : 'USD value unavailable'} />}</span>}
         {showBalance && <span className={styles.balance} id={`${id}-balance`} title={balanceState?.reason ?? (available ? `${available} ${tokenSymbol(symbol)}` : 'Balance unavailable')}>
           Available: <strong><ValueOrSkeleton value={available != null ? `${formatBalanceDecimal(available, 8)} ${tokenSymbol(symbol)}` : '—'} width="sm"
             status={balanceState?.status === 'loading' || !balanceState && available == null ? 'loading' : 'unavailable'} label="Available balance" /></strong>

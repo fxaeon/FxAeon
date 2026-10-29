@@ -4,7 +4,7 @@ import { useNavigationInputs } from '@/lib/useNavigationInputs';
 
 import { MetricLabel, InfoHelp } from '@/components/InfoHelp';
 import { reviewHelpDefinition } from '@/components/review/reviewHelp';
-import { AmountUsd, FeeUsd } from '@/components/review/AmountUsd';
+import { AmountCounterpart, FeeAmount, InlineAmount, useAmountInUnit } from '@/components/review/AmountUsd';
 import { ReviewFactValue } from '@/components/review/ReviewFactValue';
 import { readableReviewAmount } from '@/components/review/reviewHierarchy';
 import { groupDigits } from '@/lib/amount';
@@ -135,6 +135,13 @@ function draftEnum<T extends string>(value: unknown, values: readonly T[], fallb
 
 function draftBoolean(value: unknown, fallback = false): boolean {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+/** The estimate in the reader's unit; its size follows whichever figure is shown. */
+function ReceiveFigure({ amount, display, token }: { amount: string; display: string; token: string }) {
+  const value = useAmountInUnit(amount, token);
+  const shown = value.showUsd && value.usdText ? value.usdText : display;
+  return <strong className={moveStyles.receiveAmount} data-receive-amount data-amount-unit={value.showUsd ? 'usd' : undefined} style={{ '--receive-length': shown.length } as CSSProperties}>{shown}</strong>;
 }
 
 function ReceiveAmountPlaceholder({ amount, loading }: { amount: string; loading: boolean }) {
@@ -617,12 +624,12 @@ export default function MovePage() {
             <NetworkField label="Receive" name={destinationName} chainId={destinationChainId} />
               <div className={moveStyles.receiveLine}>
                 {preview?.estimatedReceived !== undefined ? <div className={moveStyles.receiveValue}>
-                  <strong className={moveStyles.receiveAmount} data-receive-amount style={{ '--receive-length': receiveDisplay.length } as CSSProperties}>{receiveDisplay}</strong>
+                  <ReceiveFigure amount={formatUnits(preview.estimatedReceived, 18)} display={receiveDisplay} token={token} />
                 </div> : <ReceiveAmountPlaceholder amount={amount} loading={quotePending} />}
                 <span className={moveStyles.receiveAsset}>{!advanced && <TokenIcon symbol={token} size={24} />}<strong>{advanced ? 'Custom token' : token}</strong></span>
               </div>
               {quotePending ? <p className={moveStyles.receiveCaption} aria-hidden="true"><span className={moveStyles.receiveCaptionPlaceholder} /></p> : <p className={moveStyles.receiveCaption} role="status">
-                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <AmountUsd amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} />
+                {!amountWei ? 'Enter an amount to preview' : preview?.estimatedReceived !== undefined ? <AmountCounterpart amount={formatUnits(preview.estimatedReceived, 18)} symbol={token} token={`${receiveDisplay} ${token}`} />
                   : advanced ? 'Custom route checked at review'
                   : recipientError ? 'Check the destination address' : customRecipient && !recipientInput.trim() ? 'Enter a recipient to preview'
                   : previewStatus === 'expired' ? 'Quote expired. Refresh below' : null}
@@ -633,7 +640,8 @@ export default function MovePage() {
                 <button type="button" aria-label="Refresh quote" disabled={quotePending} onClick={() => setPreviewRevision(value => value + 1)}>Refresh</button>
               </div>
               <dl>
-                <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : ''} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} pending={quotePending} />
+                <QuoteRow label="Minimum received" value={preview ? `${displayBridgeAmount(preview.minimumReceived)} ${token}` : ''} title={preview ? `${formatUnits(preview.minimumReceived, 18)} ${token}` : undefined} pending={quotePending}
+                  priced={preview ? { amount: formatUnits(preview.minimumReceived, 18), symbol: token } : undefined} />
                 <QuoteRow label="Bridge fee" value={preview ? `${displayBridgeAmount(preview.nativeFee)} ETH` : ''} title={preview ? `${formatUnits(preview.nativeFee, 18)} ETH` : undefined} pending={quotePending} />
               </dl>
             </section>}
@@ -777,6 +785,12 @@ function displayBridgeAmount(value: bigint): string {
   const omitted = /[1-9]/.test(fraction.slice(8));
   return `${omitted ? '≈ ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${shown ? `.${shown}` : ''}`;
 }
-function QuoteRow({ label, value, title, pending = false }: { label: string; value: string; title?: string; pending?: boolean }) {
-  return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd>{pending ? <><span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>{label === 'Bridge fee' && <span className={moveStyles.feeUsdPlaceholder} aria-hidden="true" />}</> : <><ReviewFactValue fact={{ label, value, title }} />{label === 'Bridge fee' && Boolean(value) && value !== 'Unavailable' && <FeeUsd fact={{ value, title }} />}</>}</dd></div>;
+/** The same presentation as the review: amounts carry their USD estimate; the fee reads in USD. */
+function QuoteRow({ label, value, title, pending = false, priced }: { label: string; value: string; title?: string; pending?: boolean; priced?: { amount: string; symbol: string } }) {
+  const fact = { label, value, title };
+  return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd>{pending
+    ? <span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>
+    : label === 'Bridge fee' && value && value !== 'Unavailable' ? <FeeAmount fact={fact} />
+    : priced ? <InlineAmount amount={priced.amount} symbol={priced.symbol} token={<ReviewFactValue fact={fact} />} />
+    : <ReviewFactValue fact={fact} />}</dd></div>;
 }

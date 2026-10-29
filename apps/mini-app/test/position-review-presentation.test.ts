@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test, after } from 'node:test';
 import { runInNewContext } from 'node:vm';
+import { formatUnits } from 'viem';
 import { transpileModule, ScriptTarget, JsxEmit } from 'typescript';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -22,7 +23,8 @@ const source=readFileSync(new URL('../src/app/borrow/page.tsx',import.meta.url),
 // This is a render check, not whole-page/native interaction evidence.
 function evaluate<T>(snippet:string,bindings:object):T{
  const js=transpileModule(snippet,{compilerOptions:{target:ScriptTarget.ES2020,jsx:JsxEmit.React},fileName:'source-expression.tsx'}).outputText;
- return runInNewContext(js,{React,ReviewFactValue,positionTokenPresentation,positionCollateralDecimals,positionDebtDecimals,positionCollateralSymbol,...bindings}) as T;
+ // Without a price provider an amount renders only its token text.
+ return runInNewContext(js,{React,ReviewFactValue,positionTokenPresentation,positionCollateralDecimals,positionDebtDecimals,positionCollateralSymbol,formatUnits,InlineAmount:({token}:{token:React.ReactNode})=>token,...bindings}) as T;
 }
 function position():UiPosition{return {market:'ETH',side:'long',info:{positionId:42,rawColls:10n**12n,rawDebts:10n**15n,rawCollsDecimals:18,rawDebtsDecimals:18,rawCollsToken:'ETH',rawDebtsToken:'fxUSD',currentLeverage:0,lsdLeverage:0}};}
 test('Borrow review-before and repay source formatters preserve exact units without changing position state',()=>{

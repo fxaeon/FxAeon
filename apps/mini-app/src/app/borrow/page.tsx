@@ -25,6 +25,7 @@ import { fetchGasTierQuotes, selectedGasTierQuote } from '@/lib/fx/gasFeePolicy'
 import { readGasTier, SETTINGS_KEY, SETTINGS_UPDATED_EVENT } from '@/lib/settings';
 import { borrowLtvCeiling, formatBorrowBasisPoints } from '@/components/review/borrowLimitPresentation';
 import { ReviewFactValue } from '@/components/review/ReviewFactValue';
+import { InlineAmount } from '@/components/review/AmountUsd';
 import { formatReviewFactValue } from '@/components/review/reviewFactFormatting';
 import { MetricLabel } from '@/components/InfoHelp';
 import { MissingValue } from '@/components/MissingValue';
@@ -672,13 +673,13 @@ export default function BorrowPage() {
     {!newPosition && !debtRange && !limitPending && (showMint || showWithdraw) && <div className={presentation.helper}>{retryLimit}</div>}
     {showPositionEstimate && <section className={presentation.outcome} aria-label="Borrowing outcome">
       <dl className={presentation.outcomeRows} aria-label="Current amounts and estimated amounts after this action">
-        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} /></strong></dd></div>
+        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><InlineAmount amount={formatUnits(debtAfter, 18)} symbol="fxUSD" token={<ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(debtAfter, 18).text} fxUSD` }} />} /></strong></dd></div>
       </dl>
       {ltvBps !== null && collateralAfterUsd !== null && limitBps > 0n && debtRange && <BorrowLimitMeter debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} before={previousLtv} />}
     </section>}
     {showManageEstimate && <section className={presentation.outcome} aria-label="Position changes">
       <dl className={presentation.outcomeRows} aria-label="Current amounts and estimated amounts after this action">
-        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD` }} /></strong></dd></div>
+        <div><dt>Total debt</dt><dd><span><ReviewFactValue fact={{ label: 'Current debt', value: `${positionTokenPresentation(existingDebt, 18).text} fxUSD` }} /></span><span aria-hidden="true"> → </span><strong><InlineAmount amount={formatUnits(existingDebt - repayPreviewWei!, 18)} symbol="fxUSD" token={<ReviewFactValue fact={{ label: 'After debt', value: `${positionTokenPresentation(existingDebt - repayPreviewWei!, 18).text} fxUSD` }} />} /></strong></dd></div>
         {withdrawPreviewWei! > 0n && <div><dt>Receive asset</dt><dd>{symbol}</dd></div>}
       </dl>
     </section>}

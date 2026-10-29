@@ -718,3 +718,35 @@
   .pendingSpinner, .resultHeadingIcon, .resultHeadingIcon path { animation: none; }
   .resultHeadingIcon path { stroke-dashoffset: 0; }
 }
+
+/* Tapping a secondary figure swaps every amount between tokens and US dollars.
+ * The figure keeps its quiet type; a transparent hit area keeps the 44px touch
+ * target without moving the lines around it. */
+.unitSwap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-fast) ease;
+}
+.unitSwap::before { content: ''; position: absolute; inset: -14px -8px; }
+.unitSwap > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.unitSwap > svg { flex: none; width: 1em; height: 1em; opacity: .7; transition: opacity var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
+.unitSwap:hover { color: var(--text); }
+.unitSwap:hover > svg { opacity: 1; }
+.unitSwap:active > svg { transform: rotate(180deg); }
+.unitSwap:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 4px; }
+.inlineCounterpart { display: block; }
+@media (prefers-reduced-motion: reduce) { .unitSwap > svg { transition: none; } .unitSwap:active > svg { transform: none; } }

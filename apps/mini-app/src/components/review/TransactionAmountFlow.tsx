@@ -3,7 +3,7 @@ import { ArrowDown, Plus } from 'lucide-react';
 import { TokenIcon, ChainIcon } from '@/components/TokenIcon';
 import type { PairedPositionFact } from './actionReviewModel';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
-import { AmountUsd } from './AmountUsd';
+import { AmountCounterpart, AmountFigure } from './AmountUsd';
 import { groupDigits } from '@/lib/amount';
 import { plainAmountLabel, tokenAmountParts } from './transactionAmountPresentation';
 import { formatReviewFactValue } from './reviewFactFormatting';
@@ -41,6 +41,7 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
       if (!parts) return null;
       const display = readableReviewAmount(parts.amount);
       const figure = groupDigits(display.value.replace(/,/g, ''));
+      const approximate = display.shortened || parts.approximate ? '≈ ' : '';
       const amountLabel = labels?.[fact.label] ?? plainAmountLabel(fact.label);
       const role = dense && facts.length === 1 ? amountLabel : amountCaption(amountLabel, dense);
       const network = chainId === 8453 ? 'Base' : chainId === 1 ? 'Ethereum' : `chain ${chainId}`;
@@ -52,9 +53,9 @@ export function TransactionAmountFlow({ facts, chainId, caption, receipt = false
           <div className={densityClass(styles.flowValue, compactStyles.value)}>
             <div className={densityClass(styles.flowExact, compactStyles.exact)}>
               {dense && !widePair && <span className={compactStyles.heading}>{token}<span className={compactStyles.role}>{role}</span></span>}
-              <span data-long={longPair || figure.length > 9 || undefined} data-extended={display.value.length > 15 || undefined} data-review-amount={dense ? '' : undefined}>{display.shortened || parts.approximate ? '≈ ' : ''}{figure} <span className={styles.flowUnit}>{parts.symbol}</span></span>
+              <span data-long={longPair || figure.length > 9 || undefined} data-extended={display.value.length > 15 || undefined} data-review-amount={dense ? '' : undefined}><AmountFigure amount={parts.amount} symbol={parts.symbol}>{approximate}{figure} <span className={styles.flowUnit}>{parts.symbol}</span></AmountFigure></span>
             </div>
-            <div className={densityClass(styles.flowSubline, compactStyles.meta)}>{(!dense || widePair) && <><span>{role}</span><span aria-hidden="true">·</span></>}<AmountUsd amount={parts.amount} symbol={parts.symbol} receipt={receipt} fallback={dense ? '—' : undefined} />{index === 0 && showNetwork && <span data-network className={compactStyles.network}>{network}</span>}</div>
+            <div className={densityClass(styles.flowSubline, compactStyles.meta)}>{(!dense || widePair) && <><span>{role}</span><span aria-hidden="true">·</span></>}<AmountCounterpart amount={parts.amount} symbol={parts.symbol} token={`${approximate}${figure} ${parts.symbol}`} fallback={dense ? '—' : undefined} />{index === 0 && showNetwork && <span data-network className={compactStyles.network}>{network}</span>}</div>
           </div>
         </div>
       </div>;

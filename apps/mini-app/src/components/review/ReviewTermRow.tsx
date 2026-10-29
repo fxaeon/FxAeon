@@ -3,8 +3,9 @@ import type { ReviewFact } from '@/lib/fx/reviewFormatting';
 import { MetricLabel } from '@/components/InfoHelp';
 import { INFO_HELP_CONTENT } from '@/components/infoHelpContent';
 import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
-import { FeeAmount } from './AmountUsd';
+import { FeeAmount, InlineAmount } from './AmountUsd';
 import { ReviewFactValue } from './ReviewFactValue';
+import { tokenAmountParts } from './transactionAmountPresentation';
 import { ProtocolFeeAmount } from './ProtocolFeeAmount';
 import { reviewHelpDefinition } from './reviewHelp';
 import styles from './ActionReviewPresentation.module.css';
@@ -23,10 +24,17 @@ export function ReviewTermRow({ fact, displayLabel, displayValue, help: helpOver
         : unavailable ? <MissingValue width="md" status="unavailable" announce={!quiet} label={`${fact.label} unavailable`} />
         : ['Gas fee', 'Bridge fee'].includes(fact.label) ? <FeeAmount fact={fact} />
         : ['f(x) fee', 'Protocol fee'].includes(fact.label) ? <ProtocolFeeAmount fact={fact} />
-        : <ReviewFactValue fact={fact} display={displayValue} />}
+        : <PricedFactValue fact={fact} display={displayValue} />}
       {fact.equivalent && <small>{fact.equivalent}</small>}
     </span>
   </div>;
+}
+
+/** A token amount carries its USD estimate, like every amount leg; other values stay as reviewed. */
+function PricedFactValue({ fact, display }: { fact: ReviewFact; display?: ReactNode }) {
+  const value = <ReviewFactValue fact={fact} display={display} />;
+  const parts = display === undefined && !fact.equivalent ? tokenAmountParts(fact) : null;
+  return parts ? <InlineAmount amount={parts.amount} symbol={parts.symbol} token={value} /> : value;
 }
 
 /** Definitions stay short; transaction precision remains in the accepted model. */

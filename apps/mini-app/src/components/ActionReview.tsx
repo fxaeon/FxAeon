@@ -313,6 +313,7 @@ export function ActionReview(props: ActionReviewProps) {
               destinationChain={route.chainId === 1 ? 'Base' : 'Ethereum'}
               token={bridgeQuote.bridgeToken ?? 'Bridge asset'}
               amount={bridgeQuote.bridgeAmount === undefined ? '' : formatUnits(bridgeQuote.bridgeAmount, 18)}
+              estimatedAmount={reviewedBridgeEstimate(bridgeQuote)}
               sourceTxHash={bridgeStep?.hash}
               status={bridgeStatus}
               sourceOftAddress={bridgeQuote.sourceOftAddress}
@@ -601,7 +602,15 @@ type BridgeReviewQuote = {
   sourceApprovalRequired?: boolean;
   destinationApprovalRequired?: boolean;
   approvalTokenAddress?: string;
+  estimatedReceived?: bigint;
 };
+
+/** The receive estimate the review showed, within the same bounds it checked. */
+function reviewedBridgeEstimate(quote: BridgeReviewQuote): string | undefined {
+  const { estimatedReceived, minAmountLD, bridgeAmount } = quote;
+  return typeof estimatedReceived === 'bigint' && typeof minAmountLD === 'bigint' && typeof bridgeAmount === 'bigint'
+    && estimatedReceived >= minAmountLD && estimatedReceived <= bridgeAmount ? formatUnits(estimatedReceived, 18) : undefined;
+}
 
 function isBridgeQuote(value: unknown): value is BridgeReviewQuote {
   return Boolean(value && typeof value === 'object' && 'nativeFee' in value && typeof (value as { nativeFee?: unknown }).nativeFee === 'bigint');

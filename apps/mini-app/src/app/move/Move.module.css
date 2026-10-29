@@ -5,7 +5,8 @@
 .cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: -4px 2px 8px; }
 .cardHead > span { font-size: 20px; font-weight: 600; letter-spacing: -.025em; }
 .moveCard.moveCard .moveFormFields { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.sourcePanel, .destinationPanel { min-width: 0; padding: 12px; border: 0; border-radius: 18px; background: var(--surface-2); }
+/* Send and receive read as the same amount surfaces as Earn and Borrow. */
+.sourcePanel, .destinationPanel { min-width: 0; padding: 14px; border: 0; border-radius: 22px; background: var(--surface-2); }
 .destinationPanel { display: flex; flex-direction: column; gap: 2px; }
 .receiveLine { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; }
 .receiveAmount { min-width: 0; overflow-wrap: anywhere; font-size: clamp(28px, 8.5vw, 38px); font-weight: 500; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
@@ -53,8 +54,6 @@
 /* This surface has no inner padding to contain the shared shortcut bleed.
    Keep the complete 44px target inside its edge. */
 .moveCard .sourcePanel :global(.amount-control) [role='group'][aria-label$='shortcuts'] { margin: 0 2px 0 auto; }
-.moveCard .sourcePanel :global(.amount-control) [role='group'] button > span { background: transparent; box-shadow: none; color: inherit; }
-.moveCard .sourcePanel :global(.amount-control) [role='group'] button:enabled { color: var(--mint-text); }
 .routeNode { display: flex; align-items: center; gap: 12px; min-height: 30px; color: var(--mut); font-size: 13px; font-weight: 400; }
 .routeIdentity { display: flex; align-items: center; min-width: 0; gap: 6px; color: var(--text); font-size: 13px; font-weight: 500; }
 .chainLogo { flex: 0 0 auto; }
@@ -63,8 +62,9 @@
 .routeSwap svg { transform: rotate(90deg); transition: transform 200ms ease; }
 .routeSwap[data-direction='reverse'] svg { transform: rotate(270deg); }
 .routeSwap:hover { color: var(--text); }
-.receiveAsset { display: flex; align-items: center; gap: 8px; flex-shrink: 0; padding-inline: 6px; }
-.receiveAsset strong { font-size: 16px; font-weight: 550; letter-spacing: -.02em; }
+/* The received asset sits in the same pill as the asset picker above it. */
+.receiveAsset { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 6px 12px 6px 6px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface); }
+.receiveAsset strong { font-size: var(--fs-body); font-weight: 600; }
 .recipientSection { min-width: 0; padding: 0 2px; }
 .recipientHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .recipientChange { flex: 0 0 auto; min-height: 44px; padding: 0 8px; border-radius: 8px; color: var(--mint-text); font-size: 12px; font-weight: 500; transition: background-color var(--dur-fast) ease; }
@@ -79,15 +79,15 @@
 .expertRisk { min-width: 0; }
 .moveCard :global(.sticky-action) { position: static; }
 .moveCard :global(.sticky-action)::before { display: none; }
-.moveCard :global(.button-primary) { min-height: 52px; border-radius: 14px; }
+.moveCard :global(.button-primary) { min-height: 52px; border-radius: 26px; }
 @media (max-width: 640px) {
   .moveWorkspace.moveWorkspace { margin-top: 0; min-height: calc(var(--tg-viewport-height, 100dvh) - 144px); padding-block: 8px; }
   .moveCard.moveCard { padding: 14px; }
-  .sourcePanel, .destinationPanel { padding: 12px; }
+  .sourcePanel, .destinationPanel { padding: 14px; }
 }
 @media (max-width: 359px) {
   .moveCard.moveCard { padding: 12px; }
-  .sourcePanel, .destinationPanel { padding: 10px; }
+  .sourcePanel, .destinationPanel { padding: 12px; }
   .sourcePanel :global(.amount-control) button[aria-haspopup='dialog'] { column-gap: 6px; padding-right: 8px; }
   .sourcePanel :global(.amount-control) button[aria-haspopup='dialog'] > span { column-gap: 8px; }
 }
