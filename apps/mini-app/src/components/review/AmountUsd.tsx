@@ -98,14 +98,18 @@ export function AmountCounterpart({ amount, symbol, token, fallback }: { amount:
   </span>;
 }
 
-/** A token amount in a fact row: the chosen unit leads and the other sits beneath it. */
-export function InlineAmount({ amount, symbol, token }: { amount: string; symbol: string; token: ReactNode }) {
+/**
+ * A token amount in a fact row: the chosen unit leads and the other sits
+ * beneath it. Compact form metric rows keep one line: `beside` places the
+ * other unit after the value as a 24px inline control.
+ */
+export function InlineAmount({ amount, symbol, token, beside = false }: { amount: string; symbol: string; token: ReactNode; beside?: boolean }) {
   const value = useAmountInUnit(amount, symbol);
   if (value.usd === null) return <>{token}</>;
   return <>
     <span data-amount-unit={value.showUsd ? 'usd' : 'token'}>{value.showUsd ? value.usdText : token}</span>
-    <small className={styles.inlineCounterpart} data-usd-state="estimate">
-      <UnitSwap toUsd={!value.showUsd} onToggle={value.toggle}>{value.showUsd ? token : value.usdText}</UnitSwap>
+    <small className={beside ? styles.besideCounterpart : styles.inlineCounterpart} data-usd-state="estimate">
+      <UnitSwap toUsd={!value.showUsd} onToggle={value.toggle} className={beside ? styles.unitSwapInline : ''}>{value.showUsd ? token : value.usdText}</UnitSwap>
     </small>
   </>;
 }

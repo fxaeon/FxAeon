@@ -169,7 +169,3 @@
   .estimateRow > div, .outcomeRow { flex-wrap: wrap; row-gap: 0; }
   .estimateRow strong, .outcomeRow > strong { max-width: 100%; margin-left: auto; }
 }
-
-/* An estimate's USD value sits beneath its figure, aligned with it. */
-.estimateRow strong, .claimRows dd { display: flex; flex-direction: column; align-items: flex-end; }
-.estimateRow strong > small, .claimRows dd > small { color: var(--mut); font-size: var(--fs-caption); font-weight: 400; line-height: 1.35; }

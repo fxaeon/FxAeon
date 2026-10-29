@@ -750,3 +750,8 @@
 .unitSwap:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 4px; }
 .inlineCounterpart { display: block; }
 @media (prefers-reduced-motion: reduce) { .unitSwap > svg { transition: none; } .unitSwap:active > svg { transform: none; } }
+/* Beside a value in a compact metric row: one line, and the 24px control
+ * those rows give every inline button. */
+.besideCounterpart { display: inline-flex; align-items: center; margin-left: .4em; color: var(--mut); font-weight: 400; }
+.unitSwapInline { min-height: 24px; }
+.unitSwapInline::before { content: none; }

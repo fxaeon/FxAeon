@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useState, type MouseEvent, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
 import FxLogo from '@/components/FxLogo';
-import { Button } from '@/components/ui';
 import { ProviderLoadingState } from '@/components/ProviderLoadingState';
 import { getWebApp, haptic, openExternalLink, waitForTelegramWebApp } from '@/lib/telegram';
 import {
@@ -96,10 +94,25 @@ const COPY: Record<Exclude<GateView, 'open' | 'checking'>, { title: string; lead
   },
 };
 
+/**
+ * The shared button look without the app shell module: this screen renders
+ * before any wallet provider, so it imports nothing the shell depends on.
+ */
+const ACTION = 'button glass-press astryx-interactive flex min-h-12 w-full items-center justify-center gap-2 px-5 py-3';
+
+function ActionButton({ children, onClick, busy = false }: { children: ReactNode; onClick: () => void; busy?: boolean }) {
+  return <button type="button" className={`${ACTION} button-primary font-semibold`} disabled={busy} aria-busy={busy || undefined}
+    onClick={() => { haptic('medium'); onClick(); }}>
+    {busy && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true" />}
+    {children}
+  </button>;
+}
+
 function AdmissionScreen({ view, busy, notice, onJoin, onRetry }: {
   view: Exclude<GateView, 'open' | 'checking'>; busy: boolean; notice: string; onJoin: () => void; onRetry: () => void;
 }) {
-  const href = webAppUrl(usePathname() ?? '/');
+  // Only rendered in the Telegram client, never during static rendering.
+  const href = webAppUrl(typeof window === 'undefined' ? '/' : window.location.pathname);
   const openWeb = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && openExternalLink(href)) {
       event.preventDefault();
@@ -114,11 +127,11 @@ function AdmissionScreen({ view, busy, notice, onJoin, onRetry }: {
       <h1 className={styles.authTitle}>{COPY[view].title}</h1>
       <p className={styles.authLead}>{COPY[view].lead}</p>
       <div className={styles.authActions}>
-        {view === 'full' && <Button onClick={onJoin} loading={busy}>Join the waitlist</Button>}
-        {view === 'unavailable' && <Button onClick={onRetry} loading={busy}>Try again</Button>}
-        {close && <Button onClick={() => close()}>Close FxAeon</Button>}
+        {view === 'full' && <ActionButton onClick={onJoin} busy={busy}>Join the waitlist</ActionButton>}
+        {view === 'unavailable' && <ActionButton onClick={onRetry} busy={busy}>Try again</ActionButton>}
+        {close && <ActionButton onClick={() => close()}>Close FxAeon</ActionButton>}
         <a href={href} target="_blank" rel="noopener noreferrer" onClick={openWeb}
-          className={`button ${webPrimary && !close ? 'button-primary font-semibold' : 'button-ghost text-[var(--text)]'} glass-press flex min-h-12 w-full items-center justify-center gap-2 px-5 py-3`}>
+          className={`${ACTION} ${webPrimary && !close ? 'button-primary font-semibold' : 'button-ghost text-[var(--text)]'}`}>
           Continue on the web <ArrowUpRight aria-hidden="true" />
         </a>
       </div>

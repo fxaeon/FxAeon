@@ -790,6 +790,6 @@ function QuoteRow({ label, value, title, pending = false, priced }: { label: str
   const fact = { label, value, title };
   return <div><dt><MetricLabel minimalHelp label={label} definition={reviewHelpDefinition(label)} /></dt><dd>{pending
     ? <><span className={moveStyles.quoteValuePlaceholder}><MissingValue width="md" announce={false} label={`Loading ${label.toLowerCase()}`} /></span>{(label === 'Bridge fee' || priced) && <span className={moveStyles.feeUsdPlaceholder} aria-hidden="true" />}</>
-    : priced ? <InlineAmount amount={priced.amount} symbol={priced.symbol} token={<ReviewFactValue fact={fact} />} />
+    : priced ? <InlineAmount beside amount={priced.amount} symbol={priced.symbol} token={<ReviewFactValue fact={fact} />} />
     : <><ReviewFactValue fact={fact} />{label === 'Bridge fee' && Boolean(value) && value !== 'Unavailable' && <FeeUsd fact={{ value, title }} />}</>}</dd></div>;
 }
