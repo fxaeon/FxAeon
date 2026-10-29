@@ -493,7 +493,7 @@
 .reviewViewport:is([data-review-phase]) .compactFact[data-review-fact='Execution price'] > span:last-child > span { white-space: normal; }
 .reviewViewport:is([data-review-phase]) .compactFact > span:first-child { flex-wrap: nowrap; gap: 0; }
 .reviewViewport:is([data-review-phase]) .compactFact .amountUsd { font-size: inherit; }
-.reviewViewport:is([data-review-phase]) .compactFact[data-review-fact='Borrow rate'] > span:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 6px; }
+.reviewViewport:is([data-review-phase]) .compactFact[data-review-fact='Borrow rate'] > span:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; gap: 2px 6px; }
 .compactFact[data-review-fact='Borrow rate'] small { color: var(--mut); font-size: 13px; line-height: 1.2; }
 .reviewViewport:is([data-review-phase]) .compactFact :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .reviewViewport:is([data-review-phase]) .compactFact:has(:global(details[open])) { align-items: flex-start; padding-block: 4px; }

@@ -3,6 +3,7 @@
 .receiptLabel { color: var(--mut); }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; min-height: 36px; margin: 0; font-size: 15px; line-height: 1.4; }
 .row dt, .row h3 { color: var(--mut); padding: 0; text-align: left; }
+.row dt :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
 .row h3 { margin: 0; font-size: inherit; font-weight: 400; line-height: inherit; outline: none; }
 .row dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; font-weight: 500; font-variant-numeric: tabular-nums; }
 .confirmation { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--mut); }
