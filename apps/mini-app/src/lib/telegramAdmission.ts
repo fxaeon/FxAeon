@@ -7,8 +7,14 @@
  */
 import { getWebApp } from '@/lib/telegram';
 
-/** Off unless the deployment opts in, so an unconfigured service changes nothing. */
-export const TELEGRAM_ADMISSION_ENABLED = process.env.NEXT_PUBLIC_TELEGRAM_ADMISSION === 'on';
+/**
+ * Off unless the deployment opts in, so an unconfigured service changes
+ * nothing. Next inlines the variable; an isolated bundle that never defines
+ * it (and has no `process`) stays off instead of failing to load.
+ */
+export const TELEGRAM_ADMISSION_ENABLED = (() => {
+  try { return process.env.NEXT_PUBLIC_TELEGRAM_ADMISSION === 'on'; } catch { return false; }
+})();
 export const TELEGRAM_ADMISSION_ENDPOINT = '/api/telegram-admission';
 export const TELEGRAM_ADMISSION_CACHE_KEY = 'fxaeon:telegram-admission:v1';
 export const TELEGRAM_ADMISSION_TIMEOUT_MS = 8_000;
