@@ -45,7 +45,7 @@ Reviewed HTTPS Alchemy/Infura endpoints and chain probes protect selected read b
 
 The root optional `/api/gas` Function reads a fixed Ethereum gas oracle. The separate landing `/api/market-data` Function reads fixed public display feeds. Neither accepts protocol plans, signs transactions, or acts as a general RPC proxy.
 
-Local storage, cached/indexed data and display quotes remain untrusted inputs to financial decisions. Missing/stale reads are not zero. Position valuation and rebalance-distance displays are not P&L, ROI, health or liquidation guarantees.
+Local storage, cached/indexed data and display quotes remain untrusted inputs to financial decisions. Missing/stale reads are not zero. Position valuation and rebalance-distance displays are not P&L, ROI, health or liquidation guarantees. The separate estimated PnL and entry price come from indexed order history and the SDK mid price; they are display-only, hidden while the index disagrees with the chain, and never enter execution decisions.
 
 ## Release and dependency controls
 

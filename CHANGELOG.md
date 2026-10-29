@@ -6,6 +6,8 @@ All notable changes to FxAeon are documented here. The project currently maintai
 
 ### Added
 
+- An entry price and estimated PnL for each position, worked out from its orders on the f(x) index the way the official f(x) app does and taken at the SDK's DEX mid price. They show only once the index matches the chain, and exclude fees and exit costs.
+- The rebalance price (f(x)'s liquidation brake) in the Trade ticket's preview, ahead of the liquidation price, and on Borrow position cards.
 - A leverage slider on Trade drawn as the position's split between debt and your share, still a native slider in leverage units.
 - An outcome preview on the Trade ticket: the estimated collateral, estimated debt and protocol fee rate of the route its review would open.
 - A rebalance marker on each position row, read live from the position's debt ratio and its pool's rebalance and liquidation thresholds, with one line saying how far the price can move first.
@@ -22,6 +24,7 @@ All notable changes to FxAeon are documented here. The project currently maintai
 
 ### Changed
 
+- Without a live market quote, a position's estimated rebalance and liquidation prices show the pool's own price per stETH or WBTC instead of a dash.
 - Position cards are now compact borderless rows. On a phone, a row opens its position with Add, Reduce, Leverage and Close, and Back returns to the list.
 - ETH long collateral reads in stETH, the unit the pool records. New collateral estimates are converted from wstETH at the live rate, and signed wstETH minimums show their stETH equivalent.
 - Receipts of ETH-paid actions state the ETH sent instead of saying token movements could not be established.
