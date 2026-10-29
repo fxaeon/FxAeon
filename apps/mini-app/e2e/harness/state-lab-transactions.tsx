@@ -90,7 +90,8 @@ export function LabTransaction({ product, stage, onReset, onContinue, framed = f
               {stage === 'Editing' && <p className={styles.stableReviewStatus}>Unsubmitted fixture draft</p>}
               <TransactionHero title={pending ? sample.identity.name : sample.identity.review} legs={sample.facts} lead={sample.borrow ? 1 : 0} caption={sample.identity.subtitle}
                 ariaLabel={pending ? 'Reviewed transaction amounts' : 'Transaction amounts'} provenance="review" />
-              <div className={`${styles.facts} ${styles.consequenceGroup}`}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Current APY' ? 'APY' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
+              {/* While signing, as in the real review, only the accepted amounts stay. */}
+              {!pending && <div className={`${styles.facts} ${styles.consequenceGroup}`}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Current APY' ? 'APY' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>}
             </div>
           </div>
           <div data-review-dock={pending ? 'executing' : 'review'} data-review-actions={pending ? undefined : ''} className={`${flowStyles.reviewInlineActions} ${styles.actions}`}>

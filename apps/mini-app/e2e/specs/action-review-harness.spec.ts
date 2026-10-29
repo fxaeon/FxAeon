@@ -267,9 +267,9 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   });
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('.reviewInlineContent');
-  await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"] [data-amount-unit]')).toHaveText('99 USDC');
   await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveCount(0);
-  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · est.', { exact: true })).toBeVisible();
+  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('You receive · est.', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-fact="f(x) fee"]');
   await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
   await expect(fee.locator('details, summary')).toHaveCount(0);
@@ -284,7 +284,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   expect(await metric(page, 'send')).toBe(0);
   await page.clock.fastForward(30_001);
   // Accepted amounts remain evidence of the old review, not a fresh quote.
-  await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"] [data-amount-unit]')).toHaveText('99 USDC');
   await expect(review.getByText('Quote expired · review again', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Withdraw instantly', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
@@ -986,7 +986,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Use Base route');
     await harnessControl(page, 'Gas balance insufficient by an unknown amount');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Transaction summary', exact: true }).getByText('Base', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Transaction amounts', exact: true }).locator('[data-hero-caption]').getByText('Base', { exact: true })).toBeVisible();
     await expect(review.locator('[role="status"]', { hasText: 'needs more ETH' })).toHaveText('This wallet needs more ETH on Base for network fees. Receive ETH');
     await expect(action).toBeDisabled();
     expect(await metric(page, 'send')).toBe(0);

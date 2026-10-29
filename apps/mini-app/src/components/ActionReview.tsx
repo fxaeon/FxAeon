@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { formatUnits } from 'viem';
+import { compactAddress } from '@/lib/addressPresentation';
 import { useRouter } from 'next/navigation';
 import { haptic } from '@/lib/telegram';
 import { usePauseAutomaticPositionRefresh } from './PositionRefreshActivity';
@@ -454,13 +455,16 @@ export function ActionReview(props: ActionReviewProps) {
   // otherwise what is paid, deposited, repaid or sent. Other legs follow it.
   const heroLegs = amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : !leverageReview && identity.amount ? [identity.amount] : [];
   const borrowedLeg = intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n ? heroLegs.findIndex(fact => fact.label === 'Estimated fxUSD received' || fact.label === 'Debt added') : -1;
+  // A route without a specific intent is titled "Review transaction"; its own name stays beside its network.
+  const genericReview = identity.review === 'Review transaction' && identity.name !== identity.review;
   // A bridge moves one token between networks, so its marks are that token on each network.
   const hero = <TransactionHero title={stage === 'executing' ? identity.name : actionHeading} headingRef={headingRef}
     legs={heroLegs} lead={Math.max(0, borrowedLeg)} labels={bridgeReview ? { Amount: 'You send', 'Input amount': 'You send' } : undefined}
     tokens={bridgeReview && identity.symbol ? [{ symbol: identity.symbol, chainId: reviewChainId === 8453 ? 8453 : 1 }, { symbol: identity.symbol, chainId: (acceptedBridgeQuote?.destinationChainId ?? (reviewChainId === 1 ? 8453 : 1)) === 8453 ? 8453 : 1 }] : undefined}
-    value={heroLegs.length ? undefined : identity.value} caption={identity.subtitle}
+    value={heroLegs.length ? undefined : identity.value}
+    caption={genericReview ? <><span>{identity.name}</span> · <span>{identity.subtitle}</span></> : identity.subtitle}
     ariaLabel={stage === 'executing' ? 'Reviewed transaction amounts' : 'Transaction amounts'} provenance="review" />;
-  const decisionContent = (bridgeReview ? <>{hero}<BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} /></> : <div className={presentationStyles.amountLedReview}>
+  const decisionContent = (bridgeReview ? <div className={presentationStyles.amountLedReview}>{hero}<BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} /></div> : <div className={presentationStyles.amountLedReview}>
         {hero}
         {leverageReview && <LeverageChangeSummary facts={[]} changes={positionChangeRows} />}
         <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
@@ -534,8 +538,12 @@ export function ActionReview(props: ActionReviewProps) {
       )}
 
       {showExecutionProgress && stage !== 'executing' && <div className={presentationStyles.actualProgress}><StatusNotice {...progress} /></div>}
-      {/* The same terms stay in place through the wallet request; only the action below becomes its progress. */}
-      <div data-review-essential>{decisionContent}</div>
+      {/* Once the wallet request is open only the accepted amounts stay (and a bridge's recipient): live terms
+          could change underneath and no longer match what is being signed. The action below becomes its progress. */}
+      <div data-review-essential>{stage === 'executing' ? <div className={presentationStyles.amountLedReview}>
+        {hero}
+        {bridgeReview && acceptedBridgeQuote?.recipient && <div className={presentationStyles.detailFact} data-pending-recipient><span>Recipient</span><span title={acceptedBridgeQuote.recipient}>{compactAddress(acceptedBridgeQuote.recipient)}</span></div>}
+      </div> : decisionContent}</div>
 
 
 

@@ -167,7 +167,7 @@ test('leverage review keeps explicit position identity next to its target', () =
   const review = source('components/ActionReview.tsx');
   assert.match(review, /actionHeading = tradingAction \? identity.name : identity.review/);
   // The hero leads with the target leverage and names the position beneath it; the change rows follow.
-  assert.match(review, /value=\{heroLegs.length \? undefined : identity.value\} caption=\{identity.subtitle\}/);
+  assert.match(review, /value=\{heroLegs.length \? undefined : identity.value\}\s*caption=\{genericReview \? <><span>\{identity.name\}<\/span> · <span>\{identity.subtitle\}<\/span><\/> : identity.subtitle\}/);
   assert.match(review, /\{hero\}\s*\{leverageReview && <LeverageChangeSummary facts=\{\[\]\} changes=\{positionChangeRows\} \/>\}/);
   assert.match(review, /stage === 'executing' \? identity.name : actionHeading/);
 });
@@ -175,7 +175,7 @@ test('leverage review keeps explicit position identity next to its target', () =
 
 test('amount-led review names its network once and groups its terms by space, not rules', () => {
   const review = source('components/ActionReview.tsx');
-  assert.match(review, /caption=\{identity.subtitle\}/);
+  assert.match(review, /caption=\{genericReview \?[^\n]*: identity\.subtitle\}/);
   assert.doesNotMatch(source('components/review/TransactionHero.tsx'), /data-network/);
   assert.doesNotMatch(review, /className=\{presentationStyles.positionBasis\}/);
   assert.match(source('components/infoHelpContent.ts'), /ETH long positions use wstETH backing/);

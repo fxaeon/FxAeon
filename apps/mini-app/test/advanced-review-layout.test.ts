@@ -33,8 +33,8 @@ test('bridge cards preserve proof guards and receipt links without diagnostic di
 test('signing keeps the reviewed terms once and preparation keeps one visible loading message', () => {
  const source = component('ActionReview.tsx');
  assert.doesNotMatch(source, /aria-label="Reviewed terms"|Checking network fees and available ETH/);
- // A bridge's recipient stays in its terms while the wallet request is open, so it is never repeated beneath them.
- assert.doesNotMatch(source, /data-pending-recipient/);
+ // Signing keeps only accepted amounts, and a bridge's recipient, which is part of what is signed.
+ assert.match(source, /data-pending-recipient/);
  assert.match(source, /<p className="sr-only" role="status" aria-live="polite">\{preparationStep\(status\)\}/);
  assert.match(source, /<button type="button" onClick=\{reset\}>Cancel/);
 });

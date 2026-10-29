@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
 
-test('the review leads with one hero, keeps its terms through signing, and turns its action into progress', () => {
+test('the review leads with one hero, keeps only accepted amounts while signing, and turns its action into progress', () => {
   const review = source('components/ActionReview.tsx');
   const hero = source('components/review/TransactionHero.tsx');
-  // The same terms stay in place through the wallet request; only the action becomes progress.
-  assert.match(review, /<div data-review-essential>\{decisionContent\}<\/div>/);
+  // While signing, live terms could change underneath; only the accepted amounts stay, and the action becomes progress.
+  assert.match(review, /<div data-review-essential>\{stage === 'executing' \? <div className=\{presentationStyles.amountLedReview\}>\s*\{hero\}/);
   assert.doesNotMatch(review, /stage === 'executing' \? <PendingTransactionSummary/);
   assert.doesNotMatch(review, /stage === 'executing' && <section[^]*?aria-label="Reviewed terms"/);
   assert.match(review, /data-review-dock=\{stage\} data-review-actions=\{stage === 'review' \? '' : undefined\}/);
