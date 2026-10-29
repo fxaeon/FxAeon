@@ -1,6 +1,7 @@
 import type { Address } from 'viem';
 import { positionPoolAddress } from '@/lib/fx/policy';
 import { withReadDeadline } from '@/lib/fx/readFacade';
+import { parseStEthPerWstEth } from '@/lib/fx/wstEthRate';
 import { checkBasisDebtRatio } from '@/lib/positionBrake';
 import type { UiMarket, UiSide } from './fxUi';
 
@@ -22,6 +23,16 @@ export const POSITION_BRAKE_ORACLE_ABI = [
   { type: 'function', name: 'getPrice', stateMutability: 'view', inputs: [], outputs: [{ name: 'anchorPrice', type: 'uint256' }, { name: 'minPrice', type: 'uint256' }, { name: 'maxPrice', type: 'uint256' }] },
 ] as const;
 
+/**
+ * wstETH, whose `stEthPerToken()` prices an ETH short's wstETH debt per stETH,
+ * as the Trade ticket's threshold does (test/position-brake-reader.test.ts
+ * checks the address against the SDK's).
+ */
+export const POSITION_BRAKE_WSTETH = '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0' as Address;
+export const POSITION_BRAKE_WSTETH_RATE_ABI = [
+  { type: 'function', name: 'stEthPerToken', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+] as const;
+
 /** Thresholds and the oracle address are governance settings, cached briefly per pool. */
 export const POOL_BRAKE_PARAMETER_TTL_MS = 60_000;
 /** Calldata bytes per multicall request: room for about a hundred positions in one call. */
@@ -39,6 +50,8 @@ export interface PoolBrakeParameters {
   liquidateRatio: bigint;
   oracle: Address;
   readAt: number;
+  /** The wstETH short's stETH per wstETH (1e18); absent elsewhere or when its read failed. */
+  stEthPerWstEth?: bigint;
 }
 
 export interface PositionBrakeSample {
@@ -48,6 +61,8 @@ export interface PositionBrakeSample {
   anchorDebtRatio: bigint;
   rebalanceRatio: bigint;
   liquidateRatio: bigint;
+  /** The pool's stETH per wstETH, for a wstETH short. */
+  stEthPerWstEth?: bigint;
 }
 
 export type PositionBrakeOutcome =
@@ -142,18 +157,27 @@ export async function readPositionBrakes(params: {
   const stale = pools.filter((pool) => !params.cache.get(pool, now()));
   if (stale.length) {
     try {
-      const results = await read(stale.flatMap((pool) => [
+      // The wstETH short's rate rides along; an unreadable rate only leaves its pool price unknown.
+      const wstEthShort = positionPoolAddress('ETH', 'short').toLowerCase();
+      const calls = stale.map((pool) => [
         { address: pool, abi: POSITION_BRAKE_POOL_ABI, functionName: 'getRebalanceRatios' },
         { address: pool, abi: POSITION_BRAKE_POOL_ABI, functionName: 'getLiquidateRatios' },
         { address: pool, abi: POSITION_BRAKE_POOL_ABI, functionName: 'priceOracle' },
-      ]));
+        ...(pool.toLowerCase() === wstEthShort ? [{ address: POSITION_BRAKE_WSTETH, abi: POSITION_BRAKE_WSTETH_RATE_ABI, functionName: 'stEthPerToken' }] : []),
+      ]);
+      const results = await read(calls.flat());
+      let offset = 0;
       stale.forEach((pool, index) => {
+        const at = offset;
+        offset += calls[index].length;
         try {
-          const [rebalanceRatio] = uints(resultOf(results[index * 3], 'rebalance ratios'), 2, 'rebalance ratios');
-          const [liquidateRatio] = uints(resultOf(results[index * 3 + 1], 'liquidation ratios'), 2, 'liquidation ratios');
-          const oracle = oracleAddress(resultOf(results[index * 3 + 2], 'price oracle'));
+          const [rebalanceRatio] = uints(resultOf(results[at], 'rebalance ratios'), 2, 'rebalance ratios');
+          const [liquidateRatio] = uints(resultOf(results[at + 1], 'liquidation ratios'), 2, 'liquidation ratios');
+          const oracle = oracleAddress(resultOf(results[at + 2], 'price oracle'));
           if (rebalanceRatio === 0n || liquidateRatio <= rebalanceRatio) throw new RangeError('pool thresholds are not ordered');
-          params.cache.set(pool, { rebalanceRatio, liquidateRatio, oracle, readAt: now() });
+          const rate = calls[index].length > 3 && results[at + 3]?.status === 'success'
+            ? parseStEthPerWstEth((results[at + 3] as { result: unknown }).result) : undefined;
+          params.cache.set(pool, { rebalanceRatio, liquidateRatio, oracle, readAt: now(), ...(rate === undefined ? {} : { stEthPerWstEth: rate }) });
         } catch (reason) {
           poolFailures.set(pool, reason);
         }
@@ -196,10 +220,13 @@ export async function readPositionBrakes(params: {
         const price = prices.get(poolOf(target))!;
         if ('reason' in price) throw price.reason;
         const anchorDebtRatio = uint(resultOf(results[index], 'position debt ratio'), 'position debt ratio');
-        const { rebalanceRatio, liquidateRatio } = parameters.get(poolOf(target))!;
+        const { rebalanceRatio, liquidateRatio, stEthPerWstEth } = parameters.get(poolOf(target))!;
         outcomes.set(target.key, {
           status: 'ready',
-          sample: { debtRatio: checkBasisDebtRatio(anchorDebtRatio, price.anchor, price.min), anchorDebtRatio, rebalanceRatio, liquidateRatio },
+          sample: {
+            debtRatio: checkBasisDebtRatio(anchorDebtRatio, price.anchor, price.min), anchorDebtRatio, rebalanceRatio, liquidateRatio,
+            ...(stEthPerWstEth === undefined ? {} : { stEthPerWstEth }),
+          },
         });
       } catch (reason) {
         fail(target, reason);

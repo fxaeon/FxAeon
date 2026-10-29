@@ -4,7 +4,9 @@ import type { UiPosition } from '../../src/app/trade/fxUi';
 import { ProtocolPositionCard, ProtocolPositionDetails, ProtocolPositionList, ProtocolPositionSkeleton } from '../../src/components/ProtocolPositionCard';
 import { PositionBrakeContext, type PositionBrakeStore } from '../../src/components/PositionBrakeContext';
 import PositionBrakeProvider from '../../src/components/PositionBrakeProvider';
+import PositionCostBasisProvider from '../../src/components/PositionCostBasisProvider';
 import { liveMarketStore } from '../../src/lib/liveMarketStore';
+import type { IndexedOrder } from '../../src/lib/positionCostBasis';
 
 /**
  * Position cards with the real brake provider and reader. The spec sets
@@ -14,7 +16,7 @@ import { liveMarketStore } from '../../src/lib/liveMarketStore';
  * position's read revert. Values come from mainnet at block 26,149,707.
  */
 type Variant = 'article' | 'link' | 'button';
-type Config = { theme?: 'official' | 'dark' | 'light'; scenarios?: string[]; variant?: Variant; quotes?: { ETH?: number; BTC?: number }; loading?: boolean; skeleton?: boolean; details?: string };
+type Config = { theme?: 'official' | 'dark' | 'light'; scenarios?: string[]; variant?: Variant; quotes?: { ETH?: number; BTC?: number }; loading?: boolean; skeleton?: boolean; details?: string; costBasis?: boolean };
 type Call = { address: string; functionName: string; args?: readonly unknown[] };
 
 const config = ((globalThis as { __brakeConfig?: Config }).__brakeConfig ?? {}) as Config;
@@ -72,12 +74,49 @@ let holding = Boolean(config.loading);
 const held: Array<() => void> = [];
 let showCards = true;
 
+/**
+ * Index records for the cost-basis provider: each position opened in one
+ * order at the entry its row shows on the Positions screens. The index's
+ * collateral and debt start level with the chain and stay there until the
+ * spec catches it up; `fail` refuses its reads.
+ */
+const OPENS: Record<string, { rate: bigint; execPrice: bigint; targetLeverage: string }> = {
+  long: { rate: 1_200_000_000_000_000_000n, execPrice: units('2833.4862'), targetLeverage: '2.743386892734676281' },
+  short: { rate: E18, execPrice: units('80120.40'), targetLeverage: '4.22' },
+};
+const indexed = new Map<string, { colls: bigint; debts: bigint } | 'fail'>(Object.keys(OPENS).map((key) => [key, { colls: SCENARIOS[key].position.info.rawColls, debts: SCENARIOS[key].position.info.rawDebts }]));
+const historyCalls: Array<{ key: string; incremental: boolean }> = [];
+const priceCalls: string[] = [];
+function indexedHistory(key: string, previousBlock: bigint | null) {
+  const { position: item } = SCENARIOS[key];
+  const open = OPENS[key];
+  const record = indexed.get(key);
+  if (!open || !record || record === 'fail') throw new Error('index unavailable');
+  const long = item.side === 'long';
+  const order: IndexedOrder = {
+    id: `${item.info.positionId}_open`, type: 'Open', blockNumber: 100n, logIndex: 1,
+    // An ETH long buys wstETH, which the pool counts in stETH at the rate; a BTC short borrows WBTC in its 8 decimals.
+    deltaColls: long ? item.info.rawColls * E18 / open.rate : 0n,
+    deltaDebts: long ? 0n : item.info.rawDebts / 10n ** 10n,
+    positionColls: item.info.rawColls, positionDebts: item.info.rawDebts, oldPositionColls: null,
+    execPrice: open.execPrice, price: 0n, priceRate: open.rate, protocolFees: null,
+  };
+  return {
+    market: item.market, side: item.side, positionId: item.info.positionId, block: 200n + BigInt(historyCalls.length),
+    colls: record.colls, debts: record.debts, targetLeverage: open.targetLeverage, isClosed: false,
+    orders: previousBlock === null ? [order] : [],
+  };
+}
+const scenarioOf = (positionId: number) => scenarioKeys.find((key) => SCENARIOS[key].position.info.positionId === positionId) ?? '';
+
 function respond(call: Call): { status: 'success'; result: unknown } | { status: 'failure'; error: Error } {
   const pool = call.address.toLowerCase();
   if (call.functionName === 'getRebalanceRatios') return { status: 'success', result: [pool === POOLS['ETH:short'] || pool === POOLS['BTC:short'] ? 900n * E18 / 1000n : 880n * E18 / 1000n, 25_000_000n] };
   if (call.functionName === 'getLiquidateRatios') return { status: 'success', result: [950n * E18 / 1000n, 40_000_000n] };
   if (call.functionName === 'priceOracle') return { status: 'success', result: ORACLES[pool] };
   if (call.functionName === 'getPrice') return { status: 'success', result: ORACLE_PRICES[pool] };
+  // stETH per wstETH, as the two ETH oracles put it at that block.
+  if (call.functionName === 'stEthPerToken') return { status: 'success', result: 1_245_860_000_000_000_000n };
   const ratio = ratios.get(`${pool}:${String(call.args?.[0])}`);
   return ratio === undefined || ratio === 'fail' ? { status: 'failure', error: new Error('execution reverted') } : { status: 'success', result: ratio };
 }
@@ -108,6 +147,33 @@ const harness = {
   setQuote,
   release: () => { holding = false; held.splice(0).forEach((resolve) => resolve()); },
   setCardsShown: (shown: boolean) => { showCards = shown; listeners.forEach((listener) => listener()); },
+  historyCalls,
+  priceCalls,
+  loadHistory: async ({ market, side, positionId, previous }: { market: string; side: string; positionId: number; previous?: { block: bigint } | null }) => {
+    historyCalls.push({ key: `${market}:${side}:${positionId}`, incremental: Boolean(previous) });
+    return indexedHistory(scenarioOf(positionId), previous ? previous.block : null);
+  },
+  /** The SDK mid price (2,311.88 per stETH, 81,354.96 per WBTC) with each market's rate. */
+  readPriceContext: async ({ group }: { group: { market: 'ETH' | 'BTC' } }) => {
+    priceCalls.push(group.market);
+    return group.market === 'ETH'
+      ? { rate: 1_245_860_000_000_000_000n, averageNumerator: 231_188n, averageDenominator: 100n }
+      : { rate: E18, averageNumerator: 8_135_496n, averageDenominator: 100n };
+  },
+  /** The chain moves (funding takes collateral) while the index has not yet seen it. */
+  moveChain: (key: string, collateral: string) => {
+    const id = SCENARIOS[key].position.info.positionId;
+    snapshot = {
+      ...snapshot, lastVerifiedAt: Date.now() + 1,
+      positions: snapshot.positions.map((item) => item.info.positionId === id ? { ...item, info: { ...item.info, rawColls: item.info.rawColls + BigInt(collateral) } } : item),
+    };
+    listeners.forEach((listener) => listener());
+  },
+  /** The index catches up with the chain, or refuses its reads. */
+  setIndex: (key: string, state: 'chain' | 'fail') => {
+    const item = snapshot.positions.find((position) => position.info.positionId === SCENARIOS[key].position.info.positionId)!;
+    indexed.set(key, state === 'fail' ? 'fail' : { colls: item.info.rawColls, debts: item.info.rawDebts });
+  },
 };
 (globalThis as { __brakeHarness?: typeof harness }).__brakeHarness = harness;
 
@@ -121,11 +187,15 @@ const loadingStore: PositionBrakeStore = { entries: new Map(), register: () => (
 
 function Cards() {
   const shown = useSyncExternalStore(harness.subscribe, () => showCards, () => showCards);
+  const live = useSyncExternalStore(harness.subscribe, harness.snapshot, harness.snapshot);
   const variant = config.variant ?? 'article';
+  // The details follow the chain, as a verified refresh would bring them.
+  const detailsId = config.details ? SCENARIOS[config.details].position.info.positionId : null;
+  const detailsPosition = live.positions.find((item) => item.info.positionId === detailsId) ?? (config.details ? SCENARIOS[config.details].position : null);
   return <main style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16, maxWidth: 680, margin: '0 auto' }}>
     {config.skeleton && <section data-scenario="skeleton"><ProtocolPositionSkeleton /></section>}
     {config.skeleton && <section data-scenario="loading"><PositionBrakeContext.Provider value={loadingStore}><ProtocolPositionCard position={SCENARIOS[scenarioKeys[0]].position} /></PositionBrakeContext.Provider></section>}
-    {config.details && <section data-scenario="details"><ProtocolPositionDetails position={SCENARIOS[config.details].position} headingId="details-heading" /></section>}
+    {detailsPosition && <section data-scenario="details"><ProtocolPositionDetails position={detailsPosition} headingId="details-heading" /></section>}
     {/* Rows sit in a ruled list, as every page lists them. */}
     {shown && <ProtocolPositionList label="Positions">
       {scenarioKeys.map((key) => <section key={key} data-scenario={key}>
@@ -136,5 +206,7 @@ function Cards() {
   </main>;
 }
 
-createRoot(document.getElementById('root')!).render(<PositionBrakeProvider><Cards /></PositionBrakeProvider>);
+createRoot(document.getElementById('root')!).render(<PositionBrakeProvider>
+  {config.costBasis ? <PositionCostBasisProvider><Cards /></PositionCostBasisProvider> : <Cards />}
+</PositionBrakeProvider>);
 document.documentElement.dataset.harnessReady = 'true';

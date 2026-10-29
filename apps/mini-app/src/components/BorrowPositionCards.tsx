@@ -4,12 +4,14 @@ import { useId, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, CircleAlert, Layers3, RefreshCw, Wallet, X } from 'lucide-react';
 import TokenIcon from '@/components/TokenIcon';
-import { ValueOrSkeleton } from '@/components/MissingValue';
-import { useUsdPrices } from '@/components/PriceProvider';
+import { MissingValue, ValueOrSkeleton } from '@/components/MissingValue';
+import { usePositionBrake } from '@/components/PositionBrakeContext';
+import { useLiveMarketQuote, useUsdPrices } from '@/components/PriceProvider';
 import { MobileFlowSheetContext } from '@/components/MobileFlowSheet';
 import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { useInitialReadPending } from '@/lib/useInitialReadPending';
 import { freshDisplayPrices } from '@/lib/displayPrices';
+import { brakeThresholdText, positionBrakeView } from '@/lib/positionBrake';
 import { priceKeyForSymbol } from '@/lib/prices';
 import { calculatePositionUsdPresentation, debtCollateralRatioPercent } from '@/lib/positionValuation';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
@@ -41,6 +43,21 @@ function usePositionFigures(position: UiPosition, stale = false) {
   };
 }
 
+/**
+ * The position's estimated rebalance price, as its Positions row shows it: on
+ * the live market quote's basis, or the pool's own price per stETH or WBTC.
+ */
+function RebalancePrice({ position, stale }: { position: UiPosition; stale: boolean }) {
+  const brake = usePositionBrake(position);
+  const { quote, isFresh } = useLiveMarketQuote(position.market);
+  if (brake.status === 'none') return <>No debt</>;
+  const view = !stale && brake.status === 'ready' ? positionBrakeView(brake.reading, isFresh && quote ? quote.price : null) : null;
+  if (view && view.state !== 'clear') return <span className={styles.reached}>Reached</span>;
+  const text = view ? brakeThresholdText(view, 'rebalance', position.market) : null;
+  const loading = !stale && brake.status === 'loading';
+  return <>{text ?? <MissingValue width="sm" status={loading ? 'loading' : 'unavailable'} label={loading ? 'Loading rebalance price' : 'Estimated rebalance price unavailable'} />}</>;
+}
+
 export function BorrowPositionCard({ position, stale, onOpen }: { position: UiPosition; stale: boolean; onOpen: (trigger: HTMLButtonElement) => void }) {
   const figures = usePositionFigures(position, stale);
   const figuresId = useId();
@@ -48,7 +65,7 @@ export function BorrowPositionCard({ position, stale, onOpen }: { position: UiPo
   if (pending) return <div className={styles.card} role="status" aria-label="Loading borrowing position" aria-busy="true">
     <span className={styles.loadingIdentity} aria-hidden="true"><i className="skeleton" /><span><i className="skeleton" /><i className="skeleton" /></span></span>
     <span className={styles.loadingDebt} aria-hidden="true"><i className="skeleton" /><i className="skeleton" /><i className="skeleton" /></span>
-    <span className={styles.loadingFacts} aria-hidden="true">{[0, 1].map(index => <span key={index}><i className="skeleton" /><i className="skeleton" /><i className="skeleton" /></span>)}</span>
+    <span className={styles.loadingFacts} aria-hidden="true">{[0, 1, 2].map(index => <span key={index}><i className="skeleton" /><i className="skeleton" /><i className="skeleton" /></span>)}</span>
   </div>;
   return <button type="button" className={styles.card} aria-label={`Manage ${position.market} position #${position.info.positionId}`} aria-describedby={`${figuresId}-debt ${figuresId}-facts`} onClick={event => onOpen(event.currentTarget)}>
     <span className={styles.identity}>
@@ -62,6 +79,7 @@ export function BorrowPositionCard({ position, stale, onOpen }: { position: UiPo
     <span id={`${figuresId}-facts`} className={styles.facts}>
       <span><span>Collateral</span><strong><BorrowPositionAmount raw={position.info.rawColls} decimals={positionCollateralDecimals(position)} symbol={positionCollateralSymbol(position)} /></strong><DollarEquivalent value={figures.collateralUsdText} status={figures.status} label="Collateral value" /></span>
       <span><span>Loan-to-value</span><strong><ValueOrSkeleton value={figures.ltv ?? '—'} status={figures.status} label="Loan-to-value unavailable" /></strong></span>
+      <span><span>Est. rebalance</span><strong data-position-price="rebalance"><RebalancePrice position={position} stale={stale} /></strong></span>
     </span>
     {stale && <span className={styles.stale}><CircleAlert size={14} aria-hidden="true" />Update needed before managing</span>}
   </button>;

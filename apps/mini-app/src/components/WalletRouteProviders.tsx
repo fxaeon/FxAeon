@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import WalletRecoveryCoordinator from '@/components/WalletRecoveryCoordinator';
 import ProtocolPositionProvider from '@/components/ProtocolPositionProvider';
 import PositionBrakeProvider from '@/components/PositionBrakeProvider';
+import PositionCostBasisProvider from '@/components/PositionCostBasisProvider';
 import WalletDataProvider from '@/components/WalletDataProvider';
 import { walletDemandForPathname } from '@/lib/walletDemand';
 import WalletDemandProvider, { useEffectiveWalletDemand } from '@/components/WalletDemandProvider';
@@ -21,7 +22,7 @@ function RouteDataProviders({ children }: { children: React.ReactNode }) {
   return <WalletDataProvider enabled={demand.enabled} expandedAssets={demand.expandedAssets} chainPulse={demand.chainPulse}>
     <ProtocolPositionProvider enabled={demand.positions}>
       <WalletRecoveryCoordinator />
-      <PositionBrakeProvider>{children}</PositionBrakeProvider>
+      <PositionBrakeProvider><PositionCostBasisProvider>{children}</PositionCostBasisProvider></PositionBrakeProvider>
     </ProtocolPositionProvider>
   </WalletDataProvider>;
 }

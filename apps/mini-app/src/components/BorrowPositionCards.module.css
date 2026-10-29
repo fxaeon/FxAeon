@@ -10,7 +10,7 @@
 .debt > span, .facts > span > span { color: var(--mut); font-size: 12px; }
 .debt > strong { font-size: 26px; line-height: 1.2; font-weight: 600; letter-spacing: -.025em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .debt small { font-size: 13px; font-weight: 500; color: var(--mut); letter-spacing: 0; }
-.facts { display: flex; justify-content: space-between; gap: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.facts { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .facts > span { display: grid; min-width: 0; gap: 5px; }
 .facts > span, .managerMetrics > span { align-content: start; }
 .dollarEquivalent { display: block; color: var(--mut); font-size: 12px; line-height: 1.4; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
@@ -25,8 +25,9 @@
 .loadingFacts { display: flex; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--line); }
 .loadingFacts i { display: block; width: 90px; height: 12px; border-radius: 4px; }
 .loadingFacts > span:last-child i { width: 60px; }
-.facts > span:last-child { text-align: right; flex-shrink: 0; }
+.facts > span:last-child { margin-left: auto; text-align: right; flex-shrink: 0; }
 .facts strong { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.reached { color: var(--warn); }
 .stale { display: flex; align-items: center; gap: 6px; color: var(--warn); font-size: 12px; margin-top: -10px; }
 .state { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 40px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); text-align: center; }
 .stateIcon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 15px; color: var(--mut); background: var(--surface-2); }
