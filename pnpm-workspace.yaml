@@ -40,7 +40,7 @@ overrides:
   # GHSA-wq5f-xc86-pv6w: librsvg CVE-2026-96889 bundled with sharp < 0.35.5.
   'next>sharp': '0.35.5'
   'miniflare>sharp': '0.35.5'
-  postcss: '8.5.30'
+  postcss: '8.5.31'
   # 6.1.4 preserves Tailwind 3 group-*/peer-* variants; 6.1.5 adds the
   # GHSA-rj75-hqrm-r3gf linear-time parsing fix on the compatible 6.x line.
   postcss-selector-parser: '6.1.5'
