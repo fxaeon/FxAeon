@@ -16,7 +16,15 @@ const DEST = `0x${'2'.repeat(64)}`;
 const RECIPIENT = `0x${'3'.repeat(40)}`;
 const base = { sourceChain: 'Ethereum' as const, destinationChain: 'Base' as const, token: 'fxUSD', requestedAmount: '100.123456789', sourceTxHash: HASH, recipient: RECIPIENT, simulated: false };
 const render = (props: Partial<React.ComponentProps<typeof BridgeResultCard>> = {}) => renderToStaticMarkup(React.createElement(BridgeResultCard, { ...base, state: 'source_confirmed', ...props }));
-const visible = (html: string) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
+function visible(html: string) {
+  let text = html;
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^<>]*>/g, '');
+  } while (text !== previous);
+  return text.replace(/\s+/g, ' ');
+}
 
 test('bridge outcome uses verified source and destination amounts, never the requested quote', () => {
   const proof = { state: 'destination_verified' as const, sourceAmount: '100.1234', receivedAmount: '99.9876', destinationTxHash: DEST };
