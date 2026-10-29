@@ -131,3 +131,46 @@
 .maxSpinner { display: inline-block; width: 10px; height: 10px; margin-left: 4px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: middle; animation: max-spin .8s linear infinite; }
 @keyframes max-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .maxSpinner, .error { animation: none; } .entryFit > input { transition: none; } }
+
+/* Dollar entry, as on Jumper: the value line under the amount is the switch.
+ * Its type stays quiet. Its box is a full 44px target that reaches mostly
+ * down into the field's padding, so the line keeps its height and the
+ * amount input above keeps its own touch area. */
+.unitToggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-fast) ease;
+}
+.unitToggle { min-height: 44px; margin-block: -6px -18px; padding-block: 6px 18px; align-items: flex-start; }
+.unitToggle > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unitToggle > svg { flex: none; width: 13px; height: 13px; opacity: .75; transition: opacity var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
+.unitToggle:hover:not(:disabled) { color: var(--text); }
+.unitToggle:hover:not(:disabled) > svg { opacity: 1; }
+.unitToggle:active:not(:disabled) > svg { transform: rotate(180deg); }
+.unitToggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; border-radius: 4px; }
+.unitToggle:disabled { cursor: default; }
+/* The "$" sits in the figure itself, at the figure's size, so it scales with the amount. */
+.currency {
+  flex: none;
+  align-self: center;
+  color: var(--text);
+  font-size: clamp(14px, calc(100cqi / (var(--amount-entry-length, 4) * 0.62 + 0.4)), var(--amount-max-size, var(--fs-amount)));
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-figure);
+}
+.entryFit[data-amount-unit='usd'] > input { flex: 1 1 auto; width: auto; padding-left: 1px; }
+@media (prefers-reduced-motion: reduce) { .unitToggle > svg { transition: none; } .unitToggle:active:not(:disabled) > svg { transform: none; } }

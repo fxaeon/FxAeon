@@ -27,7 +27,10 @@ test('all position and loan reviews retain risk rows without manufacturing price
   assert.match(review, /\[\.\.\.hierarchy.primary, \.\.\.hierarchy.more\]/);
   assert.match(review, /CollateralAmount collateral=\{collateralValuation\}/);
   assert.match(review, /ReviewTermRow fact=\{collateral\}[^]*?displayValue=\{collateralValuation/);
-  assert.match(source('components/review/ReviewTermRow.tsx'), /ReviewFactValue fact=\{fact\} display=\{displayValue\}/);
+  // Reviewed values render as reviewed; a priced token amount adds its USD estimate beneath.
+  assert.match(source('components/review/ReviewTermRow.tsx'), /PricedFactValue fact=\{fact\} display=\{displayValue\}/);
+  assert.match(source('components/review/ReviewTermRow.tsx'), /ReviewFactValue fact=\{fact\} display=\{display\}/);
+  assert.match(source('components/review/ReviewTermRow.tsx'), /InlineAmount amount=\{parts\.amount\} symbol=\{parts\.symbol\}/);
   assert.match(source('components/review/ReviewFactValue.tsx'), /value.display/);
   assert.doesNotMatch(source('components/review/ReviewFactValue.tsx'), /<details/);
 });

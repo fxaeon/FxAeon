@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { after, test } from 'node:test';
 import { runInNewContext } from 'node:vm';
+import { tokenAmountParts } from '../src/components/review/transactionAmountPresentation';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Check, ExternalLink, Info, RefreshCw } from 'lucide-react';
@@ -66,7 +67,9 @@ function evaluate<T>(code: string, bindings: object = {}): T {
   return runInNewContext(js, {
     React, Check, ExternalLink, Info, RefreshCw, MetricLabel, TokenIcon, ChainIcon, MissingValue, ValueOrSkeleton,
     freshDisplayPrices, fxSaveShareUsdValue, fxSaveUsdValue, fxSaveVaultUsdValue, normalizedFxSaveAssetsWei,
-    claimAvailability, selectWalletTasks, formatUsd, formatUnits, presentation, styles: {}, ...bindings,
+    claimAvailability, selectWalletTasks, formatUsd, formatUnits, presentation, styles: {},
+    // Without a price provider an amount renders only its token text.
+    InlineAmount: ({ token }: { token: React.ReactNode }) => token, tokenAmountParts, ...bindings,
   }) as T;
 }
 const helpers = ['formatDisplayAmount', 'formatVaultUsd', 'formatTimestamp', 'formatRatio', 'formatCooldown'].map(name => declaration(page, name)).join('\n')

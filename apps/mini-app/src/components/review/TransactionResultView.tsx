@@ -9,6 +9,7 @@ import { TransactionIdentity } from './TransactionIdentity';
 import type { transactionCardIdentity } from './transactionCardIdentity';
 import { compactTransactionOutcomeModel } from './compactTransactionReceipt';
 import { ReviewFactValue } from './ReviewFactValue';
+import { InlineAmount } from './AmountUsd';
 import { TransactionAmountFlow } from './TransactionAmountFlow';
 import { MissingValue } from '@/components/MissingValue';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
@@ -38,7 +39,7 @@ export type NewPositionView = {
 
 /** Readable receipt amounts stay static; the original value remains in the receipt model. */
 function ResultAmount({ amount, symbol }: { amount: string; symbol: string }) {
-  return <ReviewFactValue fact={{ label: 'Receipt amount', value: `${amount} ${symbol}` }} />;
+  return <InlineAmount amount={amount} symbol={symbol} token={<ReviewFactValue fact={{ label: 'Receipt amount', value: `${amount} ${symbol}` }} />} />;
 }
 
 export function TransactionResultView({

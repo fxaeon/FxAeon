@@ -11,6 +11,8 @@ import { freshDisplayPrices } from '@/lib/displayPrices';
 import { ActionReview, type ActionReviewStage } from '@/components/ActionReview';
 import { isReviewInputStage } from '@/components/review/actionReviewTypes';
 import { planClaimWithPreview } from '@/components/review/claimPreviewPresentation';
+import { InlineAmount } from '@/components/review/AmountUsd';
+import { tokenAmountParts } from '@/components/review/transactionAmountPresentation';
 import { AmountField, Segmented, TokenSelect, useWalletTokenBalances, type TokenBalanceMap } from '@/components/ProtocolForm';
 import { TransactionSettings } from '@/components/TransactionSettings';
 import { EarnSections } from '@/components/ProductSections';
@@ -854,8 +856,10 @@ function directFxSaveEstimate(
 }
 
 function EstimateRow({ label, value, note }: { label: string; value: string; note?: string }) {
+  // The estimate carries its USD value like every other preview and review amount.
+  const parts = tokenAmountParts({ value });
   return <div className={presentation.estimateRow}>
-    <div><span><MetricLabel minimalHelp label={label} help={note} /></span><strong>{value}</strong></div>
+    <div><span><MetricLabel minimalHelp label={label} help={note} /></span><strong>{parts ? <InlineAmount beside amount={parts.amount} symbol={parts.symbol} token={value} /> : value}</strong></div>
   </div>;
 }
 
@@ -887,14 +891,14 @@ function ClaimState({ data }: { data: SaveData }) {
       </div>
     </div>
     <dl className={presentation.claimRows}>
-      <div><dt>Amount queued</dt><dd>{shortenedPendingAmount ? '≈ ' : ''}{visiblePendingAmount} fxSP</dd></div>
+      <div><dt>Amount queued</dt><dd><InlineAmount beside amount={exactPendingAmount} symbol="fxSP" token={`${shortenedPendingAmount ? '≈ ' : ''}${visiblePendingAmount} fxSP`} /></dd></div>
       {ready && <div><dt>Claimable assets</dt><dd>fxUSD / USDC</dd></div>}
       <div><dt>Claim status</dt><dd className={ready ? presentation.claimReady : undefined}>{ready ? 'Ready to claim' : 'Waiting'}</dd></div>
       {!ready && redeemableAt ? <div><dt>Available to claim</dt><dd>{formatTimestamp(redeemableAt)}</dd></div> : null}
       {/* The live preview is display-only. Never present it as a minimum or receipt. */}
       {preview && <>
-        <div className={presentation.claimPreviewStart}><dt>fxUSD to receive</dt><dd>≈ {formatDisplayAmount(preview.amountYieldOutWei)} fxUSD</dd></div>
-        <div><dt>USDC to receive</dt><dd>≈ {formatDisplayAmount(preview.amountStableOutWei, 6)} USDC</dd></div>
+        <div className={presentation.claimPreviewStart}><dt>fxUSD to receive</dt><dd><InlineAmount beside amount={formatUnits(preview.amountYieldOutWei, 18)} symbol="fxUSD" token={`≈ ${formatDisplayAmount(preview.amountYieldOutWei)} fxUSD`} /></dd></div>
+        <div><dt>USDC to receive</dt><dd><InlineAmount beside amount={formatUnits(preview.amountStableOutWei, 6)} symbol="USDC" token={`≈ ${formatDisplayAmount(preview.amountStableOutWei, 6)} USDC`} /></dd></div>
       </>}
     </dl>
     <p className={presentation.claimCaveat}>

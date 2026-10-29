@@ -227,22 +227,35 @@ for (const file of sourceFiles) {
   }
 }
 
-// The optional gas oracle is the sole Pages Function exception. It is a fixed,
-// read-only Ethereum price proxy; it cannot become a general backend or signer.
+// Two bounded Pages Functions exist, and neither can become a general backend
+// or signer. The gas oracle is a fixed, read-only Ethereum price proxy. The
+// Telegram admission route verifies Telegram's launch signature (verify-only
+// crypto, no outbound requests) and keeps its own cohort in D1.
 const functionsDirectory = join(root, 'functions');
 const functionFiles = await walk(functionsDirectory).catch(() => []);
-const allowedFunction = join(functionsDirectory, 'api', 'gas.ts');
+const gasFunction = join(functionsDirectory, 'api', 'gas.ts');
+const admissionFunction = join(functionsDirectory, 'api', 'telegram-admission.ts');
+const signingAuthority = /PRIVATE_KEY|privateKey|\bsigner\b|walletClient|sendTransaction|subtle\.sign\b|generateKey/i;
 for (const file of functionFiles) {
-  if (file !== allowedFunction) fail(`unsupported Pages Function: ${relative(root, file)}`);
   const source = await readFile(file, 'utf8');
-  for (const [label, pattern] of [
-    ['function private-key authority', /PRIVATE_KEY|privateKey|sign(?:er|ature)|walletClient|sendTransaction/i],
-    ['function arbitrary proxy', /fetch(?:Impl)?\([^)]*(?:request\.url|searchParams\.get|target|endpoint)/is],
-  ]) {
-    if (pattern.test(source)) fail(`${label} remains in ${relative(root, file)}`);
-  }
-  if (!source.includes('ETHERSCAN_API_KEY') || !source.includes('ETHEREUM_CHAIN_ID')) {
-    fail(`the gas Pages Function must use its fixed secret binding and chain: ${relative(root, file)}`);
+  if (file === gasFunction) {
+    for (const [label, pattern] of [
+      ['function private-key authority', /PRIVATE_KEY|privateKey|sign(?:er|ature)|walletClient|sendTransaction/i],
+      ['function arbitrary proxy', /fetch(?:Impl)?\([^)]*(?:request\.url|searchParams\.get|target|endpoint)/is],
+    ]) {
+      if (pattern.test(source)) fail(`${label} remains in ${relative(root, file)}`);
+    }
+    if (!source.includes('ETHERSCAN_API_KEY') || !source.includes('ETHEREUM_CHAIN_ID')) {
+      fail(`the gas Pages Function must use its fixed secret binding and chain: ${relative(root, file)}`);
+    }
+  } else if (file === admissionFunction) {
+    if (signingAuthority.test(source)) fail(`function signing authority remains in ${relative(root, file)}`);
+    if (/\bfetch\s*\(/.test(source)) fail(`the admission Pages Function must not make outbound requests: ${relative(root, file)}`);
+    if (!source.includes('ADMISSION_DB') || !source.includes('TELEGRAM_BOT_ID') || !source.includes('crypto.subtle.verify')) {
+      fail(`the admission Pages Function must verify launch data against its fixed bindings: ${relative(root, file)}`);
+    }
+  } else {
+    fail(`unsupported Pages Function: ${relative(root, file)}`);
   }
 }
 
@@ -257,4 +270,4 @@ for (const file of workflowFiles) {
   }
 }
 
-console.log(`FxAeon scope verified: ${expectedMethods.length} official methods, ${allowedRoutes.size} routes, no app-layer backend authority; optional fixed read-only gas oracle is bounded.`);
+console.log(`FxAeon scope verified: ${expectedMethods.length} official methods, ${allowedRoutes.size} routes, no app-layer backend authority; the read-only gas oracle and verify-only Telegram admission route are bounded.`);
