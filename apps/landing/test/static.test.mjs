@@ -138,7 +138,7 @@ test('calculator figures start blank where live data is required, use concise la
   assert.match(outcomes, /<span class="amount-currency">USD<\/span>/);
   assert.match(outcomes, /<div class="amount-presets" role="group" aria-label="Starting amount">/);
   for (const amount of ['100', '1000', '10000']) assert.match(outcomes, new RegExp(`data-dollar-preset="${amount}"`));
-  assert.match(html, /Loan-to-value<\/span><strong>50%<\/strong>/);
+  assert.match(outcomes, /<dt>Scenario loan-to-value<\/dt><dd>50%<\/dd>/);
   assert.match(html, /<label for="example-leverage">Leverage<\/label>/);
   assert.match(html, /class="visual-label" data-earn-result hidden>After 1 year<\/span>/);
   assert.match(html, /<dt>Earnings<\/dt>/);
