@@ -18,7 +18,8 @@ for (const width of [320, 390, 1280]) test(`quiet review keeps approval, decisio
   await expect(cta).toHaveText('Approve fxUSD');
   await expect(cta).toBeEnabled();
   await expect(cta).toBeInViewport({ ratio: 1 });
-  const title = width <= 600 ? page.locator('[data-mobile-review-sheet] > header h2') : review.locator('[data-review-focus]');
+  // The hero's heading is the visible title everywhere; on phones it also matches the sheet's dialog name.
+  const title = review.locator('[data-review-focus]');
   await expect(title).not.toHaveText('');
   await expect(title).toBeVisible();
   expect(await title.evaluate(el => { const box=el.getBoundingClientRect(); return box.width > 1 && box.height > 1; })).toBe(true);

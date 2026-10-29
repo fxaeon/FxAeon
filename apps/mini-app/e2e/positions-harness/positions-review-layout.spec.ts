@@ -493,19 +493,18 @@ test('submitted transaction status and explorer link remain reachable inside the
     const receipt = progress.locator(`a[href="https://etherscan.io/tx/${hash}"]`);
     await expect(receipt).toBeVisible();
     await expect(receipt).toHaveAttribute('href', `https://etherscan.io/tx/${hash}`);
-    await expect(receipt).toContainText(hash.slice(0, 8));
-    await progress.scrollIntoViewIfNeeded();
-    // The management sheet overlays the background tabbar. Its own terms
-    // region is the clipping boundary; a z40 tabbar under the z60 sheet isn't.
-    const fitsReview = async () => {
+    // The link names the explorer; its accessible name keeps the full transaction hash.
+    await expect(receipt).toHaveText('View on Etherscan');
+    await expect(receipt).toHaveAttribute('aria-label', new RegExp(`View transaction ${hash} on Ethereum explorer`));
+    // The status takes the action's place below the terms, inside the sheet, and stays put while the terms scroll.
+    const fitsSheet = async () => {
       const [submittedBox, receiptBox, termsBox, sheetBox] = await Promise.all([
         progress.boundingBox(), receipt.boundingBox(), reviewInformation.boundingBox(),
         page.locator('[data-position-sheet-body]').boundingBox(),
       ]);
       if (!submittedBox || !receiptBox || !termsBox || !sheetBox) return false;
-      const top = Math.max(0, termsBox.y, sheetBox.y);
-      const bottom = Math.min(viewport.height, termsBox.y + termsBox.height, sheetBox.y + sheetBox.height);
-      const fullyInside = submittedBox.y >= top - 1 && submittedBox.y + submittedBox.height <= bottom + 1
+      const bottom = Math.min(viewport.height, sheetBox.y + sheetBox.height);
+      const fullyInside = submittedBox.y >= termsBox.y + termsBox.height - 1 && submittedBox.y + submittedBox.height <= bottom + 1
         && submittedBox.x >= 0 && submittedBox.x + submittedBox.width <= viewport.width
         && receiptBox.y >= submittedBox.y - 1 && receiptBox.y + receiptBox.height <= submittedBox.y + submittedBox.height + 1;
       return fullyInside && await receipt.evaluate(node => {
@@ -513,13 +512,11 @@ test('submitted transaction status and explorer link remain reachable inside the
         return node.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2));
       });
     };
-    await expect.poll(async () => { await progress.scrollIntoViewIfNeeded(); return fitsReview(); }).toBe(true);
+    await expect.poll(fitsSheet).toBe(true);
     const beforeScroll = await progress.boundingBox();
     await reviewInformation.evaluate(node => { node.scrollTop += 80; });
-    if (await reviewInformation.evaluate(node => node.scrollHeight > node.clientHeight + 1)) {
-      await expect.poll(async () => (await progress.boundingBox())!.y < beforeScroll!.y - 40).toBe(true);
-    } else await expect.poll(fitsReview).toBe(true);
-    await progress.scrollIntoViewIfNeeded();
+    expect((await progress.boundingBox())!.y, 'Scrolling the terms leaves the status in place').toBeCloseTo(beforeScroll!.y, 0);
+    await expect.poll(fitsSheet).toBe(true);
     await page.screenshot({ path: resolve(root, `apps/mini-app/e2e/.positions-harness-results/submitted-progress-${viewport.width}x${viewport.height}.png`), fullPage: false });
   }
   expect(await page.evaluate(() => (globalThis as typeof globalThis & { __positionsReviewHarness: { walletRequests: number } }).__positionsReviewHarness.walletRequests)).toBe(0);

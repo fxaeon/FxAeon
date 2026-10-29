@@ -3,7 +3,7 @@ import { Button, Card } from '@/components/ui';
 import { MobileFlowSheet } from '@/components/MobileFlowSheet';
 import { PendingTransactionSummary } from '@/components/review/PendingTransactionSummary';
 import { TransactionResultView } from '@/components/review/TransactionResultView';
-import { TransactionAmountFlow } from '@/components/review/TransactionAmountFlow';
+import { TransactionHero } from '@/components/review/TransactionHero';
 import { ReviewTermRow } from '@/components/review/ReviewTermRow';
 import { ReviewViewport } from '@/components/review/ReviewViewport';
 import { TransactionEvidenceContext } from '@/components/review/TransactionEvidenceContext';
@@ -84,23 +84,25 @@ export function LabTransaction({ product, stage, onReset, onContinue, framed = f
         receipts={stage === 'Confirmed' ? [sample.movementReceipt] : stage === 'Partial completion' ? [buildReceiptPresentation({ chainId: 1, status: 'success', transactionKind: 'approval', executionCostWei: 30000000000000n })] : []}
         nextLabel={stage === 'Confirmed' ? sample.borrow ? 'View position' : 'Back to Earn' : stage === 'Uncertain' ? 'Check History' : 'Review again'} onNext={onReset} />
         : <ReviewViewport phase={pending ? 'executing' : 'review'}>
-          <header data-review-header className={styles.reviewHeader}><h3>{pending ? sample.identity.name : sample.identity.review}</h3></header>
           <div data-review-scroll className={styles.reviewScrollBody} role="region" aria-label="Review information" tabIndex={0}>
-          {pending ? <PendingTransactionSummary identity={sample.identity} facts={sample.facts} chainId={1} status={stage === 'Submitted' ? 'submitted' : 'awaiting-user'}
-            steps={stage === 'Submitted' ? [{ ...step, receipt: undefined, status: 'submitted' }] : []} networkSwitching={false} nextKind="action" showIdentity={false}
-            requestLabel={stage === 'Signature required' ? 'Signature required · not submitted' : sample.identity.name} requestNumber={1} requestCount={1} />
-            : <div data-review-essential className={styles.amountLedReview}>
+            <div data-review-essential className={styles.amountLedReview}>
               {stage === 'Preparing' && <p role="status" className={styles.stableReviewStatus}>Preparing fixture terms</p>}
               {stage === 'Editing' && <p className={styles.stableReviewStatus}>Unsubmitted fixture draft</p>}
-              <TransactionAmountFlow facts={sample.facts} chainId={1} compact />
-              <div className={styles.consequenceGroup}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Current APY' ? 'APY' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
-            </div>}
+              <TransactionHero title={pending ? sample.identity.name : sample.identity.review} legs={sample.facts} lead={sample.borrow ? 1 : 0} caption={sample.identity.subtitle}
+                ariaLabel={pending ? 'Reviewed transaction amounts' : 'Transaction amounts'} provenance="review" />
+              <div className={`${styles.facts} ${styles.consequenceGroup}`}>{sample.terms.map(fact => <ReviewTermRow key={fact.label} fact={fact} displayLabel={fact.label === 'Borrow rate' ? 'Funding status' : fact.label === 'Current APY' ? 'APY' : fact.label === 'Gas fee' ? 'Network fee' : undefined} />)}</div>
+            </div>
           </div>
-          {!pending && <div data-review-actions className={`${flowStyles.reviewInlineActions} ${styles.actions}`}><Button className={flowStyles.primaryAction} disabled={stage !== 'Review'} onClick={onContinue}>{sample.identity.confirm}</Button></div>}
+          <div data-review-dock={pending ? 'executing' : 'review'} data-review-actions={pending ? undefined : ''} className={`${flowStyles.reviewInlineActions} ${styles.actions}`}>
+            {pending ? <PendingTransactionSummary heading={sample.identity.name} chainId={1} status={stage === 'Submitted' ? 'submitted' : 'awaiting-user'}
+              steps={stage === 'Submitted' ? [{ ...step, receipt: undefined, status: 'submitted' }] : []} networkSwitching={false} nextKind="action"
+              requestLabel={stage === 'Signature required' ? 'Signature required · not submitted' : sample.identity.confirm} requestNumber={1} requestCount={1} />
+              : <Button className={flowStyles.primaryAction} disabled={stage !== 'Review'} onClick={onContinue}>{sample.identity.confirm}</Button>}
+          </div>
         </ReviewViewport>}
     </>;
   return <TransactionEvidenceContext.Provider value="simulation">{framed
-    ? <FocusedTransactionFrame product={product} stage={stage} title={resultStage ? stage === 'Confirmed' ? sample.borrow ? 'fxUSD borrowed' : 'Deposited into fxSAVE' : 'Review transaction' : pending ? sample.identity.name : sample.identity.review} hideTitle={resultStage}>{content}</FocusedTransactionFrame>
+    ? <FocusedTransactionFrame product={product} stage={stage} title={resultStage ? stage === 'Confirmed' ? sample.borrow ? 'fxUSD borrowed' : 'Deposited into fxSAVE' : 'Review transaction' : pending ? sample.identity.name : sample.identity.review} hideTitle>{content}</FocusedTransactionFrame>
     : <section className="transaction-preview" data-fixture-product={product} data-fixture-stage={stage} aria-label={`${product === 'borrow' ? 'Borrow' : 'Earn'} transaction preview`}>{content}</section>}</TransactionEvidenceContext.Provider>;
 }
 

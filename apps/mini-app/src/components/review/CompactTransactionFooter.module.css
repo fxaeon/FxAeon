@@ -1,10 +1,10 @@
 .footer { width: 100%; min-width: 0; margin: 0; padding: 8px 2px 6px; }
-.embedded { margin-top: 16px; padding: 8px 0 0; border-top: 1px solid var(--line); }
+.embedded { margin-top: 14px; padding: 0; }
 .receiptLabel { color: var(--mut); }
-.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; min-height: 36px; margin: 0; font-size: 12.8px; line-height: 1.5; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; min-height: 36px; margin: 0; font-size: 15px; line-height: 1.4; }
 .row dt, .row h3 { color: var(--mut); padding: 0; text-align: left; }
 .row h3 { margin: 0; font-size: inherit; font-weight: 400; line-height: inherit; outline: none; }
-.row dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; font-weight: 550; font-variant-numeric: tabular-nums; }
+.row dd { min-width: 0; margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; font-weight: 500; font-variant-numeric: tabular-nums; }
 .confirmation { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--mut); }
 .confirmation > svg { flex: 0 0 auto; color: var(--success); }
 .links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 12px; min-width: 0; text-align: right; }
@@ -13,11 +13,11 @@
 .link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .link:focus-visible, .fee:focus-visible { border-radius: 4px; outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 .fee { padding: 8px 0; }
-.note { color: var(--mut); font-size: 11px; font-weight: 400; }
+.note { color: var(--mut); font-size: 13px; font-weight: 400; }
 .fee .note { display: block; margin-top: 1px; }
 .fee[data-fee-state='priced'] .note { display: inline; margin-left: 4px; }
-@media (max-width: 360px) { .row { column-gap: 10px; font-size: 12px; } }
+@media (max-width: 360px) { .row { column-gap: 10px; font-size: 14px; } }
 @media (max-width: 600px) and (max-height: 620px) {
-  .embedded { margin-top: 8px; padding-top: 4px; }
+  .embedded { margin-top: 6px; }
   .fee { padding-block: 4px; }
 }

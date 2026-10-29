@@ -124,13 +124,15 @@ const oldReact = (globalThis as any).React;
 (globalThis as any).React = React;
 after(() => { if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css']; (globalThis as any).React = oldReact; });
 
-test('Bridge default renders amount-led network badges, distinct optional help and exact evidence', async () => {
+test('Move leads with what is sent and its estimate across networks, then terms with exact evidence kept', async () => {
   const { BridgeReviewSummary } = await import('../src/components/review/BridgeReviewSummary');
+  const { TransactionHero } = await import('../src/components/review/TransactionHero');
   const facts = [{ label: 'Amount', value: '100 fxUSD' }, { label: 'Estimated received', value: '99.9 fxUSD' }, { label: 'Minimum received', value: '99 fxUSD', title: '99.000000000000000001 fxUSD' }, { label: 'Gas fee', value: 'Unavailable' }];
-  const html = renderToStaticMarkup(React.createElement(BridgeReviewSummary, { facts, allFacts: [...facts, { label: 'Source network', value: 'Ethereum' }, { label: 'Destination network', value: 'Base' }, { label: 'Slippage', value: '0.5%' }], sourceChainId: 1, destinationChainId: 8453 }));
-  assert.match(html, />Send</); assert.match(html, />Estimated</);
-  assert.match(html, /Ethereum/); assert.match(html, /Base/);
-  assert.doesNotMatch(html, /Bridge fxUSD/);
+  const hero = renderToStaticMarkup(React.createElement(TransactionHero, { title: 'Review bridge', legs: facts.slice(0, 2), labels: { Amount: 'You send' }, caption: 'Ethereum → Base', ariaLabel: 'Transaction amounts' }));
+  assert.match(hero, />You send</); assert.match(hero, />You receive · est\.</);
+  assert.match(hero, /Ethereum → Base/);
+  const html = renderToStaticMarkup(React.createElement(BridgeReviewSummary, { facts, allFacts: [...facts, { label: 'Source network', value: 'Ethereum' }, { label: 'Destination network', value: 'Base' }, { label: 'Slippage', value: '0.5%' }] }));
+  assert.doesNotMatch(html, /Bridge fxUSD|data-review-fact="Amount"|data-review-fact="Estimated received"/);
   assert.match(html, /About Min. received/);
   assert.doesNotMatch(html, /99.000000000000000001 fxUSD/);
   assert.equal(facts.find(fact => fact.label === 'Minimum received')?.title, '99.000000000000000001 fxUSD');
@@ -149,7 +151,7 @@ test('paired before/after values stay compact while exact quote evidence remains
   assert.equal(paired.find(fact => fact.label === 'Debt')?.afterTitle, '300.123456789123456789 fxUSD');
   assert.match(paired.find(fact => fact.label === 'Collateral')?.afterTitle ?? '', /^0.250123456789123456 stETH; accepted f\(x\) supply fee/);
   const { PositionOutcomeSummary } = await import('../src/components/review/ActionReviewSummary');
-  const { LeverageChangeSummary } = await import('../src/components/review/TransactionAmountFlow');
+  const { LeverageChangeSummary } = await import('../src/components/review/LeverageChangeSummary');
   for (const html of [renderToStaticMarkup(React.createElement(PositionOutcomeSummary, { facts: paired })), renderToStaticMarkup(React.createElement(LeverageChangeSummary, { facts, changes: paired }))]) {
     assert.match(html, /300\.12 fxUSD/);
     assert.match(html, /200\.12 fxUSD/);
@@ -164,35 +166,43 @@ test('paired before/after values stay compact while exact quote evidence remains
 test('leverage review keeps explicit position identity next to its target', () => {
   const review = source('components/ActionReview.tsx');
   assert.match(review, /actionHeading = tradingAction \? identity.name : identity.review/);
-  assert.match(review, /leverageReview \?[^]*?\{identity.subtitle\}[^]*?<LeverageChangeSummary/);
+  // The hero leads with the target leverage and names the position beneath it; the change rows follow.
+  assert.match(review, /value=\{heroLegs.length \? undefined : identity.value\} caption=\{identity.subtitle\}/);
+  assert.match(review, /\{hero\}\s*\{leverageReview && <LeverageChangeSummary facts=\{\[\]\} changes=\{positionChangeRows\} \/>\}/);
   assert.match(review, /stage === 'executing' \? identity.name : actionHeading/);
 });
 
 
-test('amount-led mobile review removes only repeated network context and compacts supporting spacing', () => {
+test('amount-led review names its network once and groups its terms by space, not rules', () => {
   const review = source('components/ActionReview.tsx');
-  assert.match(review, /identity.subtitle.toLowerCase\(\) !== chainName\(reviewChainId\).toLowerCase\(\)/);
+  assert.match(review, /caption=\{identity.subtitle\}/);
+  assert.doesNotMatch(source('components/review/TransactionHero.tsx'), /data-network/);
   assert.doesNotMatch(review, /className=\{presentationStyles.positionBasis\}/);
   assert.match(source('components/infoHelpContent.ts'), /ETH long positions use wstETH backing/);
   assert.match(source('components/infoHelpContent.ts'), /Short positions use fxUSD collateral accounting/);
   assert.doesNotMatch(review, /className=\{presentationStyles.riskNotice\}/);
   assert.match(source('components/infoHelpContent.ts'), /Rebalancing can reduce collateral and debt/);
   const css = source('components/review/ActionReviewPresentation.module.css');
-  assert.match(css, /\.amountLedReview \.flowArrow \{ margin-block: 3px/);
   assert.match(css, /\.amountLedReview \.costGroup \+ \.costGroup \{ padding-top: 6px; margin-top: 0; border-top: 0/);
+  assert.doesNotMatch(css, /\.(?:costGroup|riskGroup|amountLedReview)[^{]*\{[^}]*border-top: 1px/);
+  assert.doesNotMatch(css, /\.amountLedReview \{[^}]*background/);
   assert.doesNotMatch(css, /\.positionOutcome dl > div \{ grid-template-columns: 1fr;/);
 });
 
 
 test('Bridge groups hero digits without numeric conversion and does not expand a missing-value explanation', async () => {
   const { BridgeReviewSummary } = await import('../src/components/review/BridgeReviewSummary');
+  const { TransactionHero } = await import('../src/components/review/TransactionHero');
   const amount = { label: 'Amount', value: '1865.6 fxUSD', title: '1865.600000000000000001 fxUSD' };
-  const render = (extra: ReviewFact[] = []) => renderToStaticMarkup(React.createElement(BridgeReviewSummary, { facts: [amount, { label: 'Estimated received', value: '9007199254740993.12 fxUSD' }, { label: 'Minimum received', value: '1,865.6 fxUSD' }], allFacts: [{ label: 'Source network', value: 'Ethereum' }, { label: 'Destination network', value: 'Base' }, ...extra], sourceChainId: 1, destinationChainId: 8453 }));
+  const received = { label: 'Estimated received', value: '9007199254740993.12 fxUSD' };
+  const hero = renderToStaticMarkup(React.createElement(TransactionHero, { title: 'Review bridge', legs: [amount, received], ariaLabel: 'Transaction amounts' }));
+  assert.match(hero, /1,865.6/);
+  assert.match(hero, /9,007,199,254,740,993.12/);
+  assert.doesNotMatch(hero, /1865.600000000000000001 fxUSD/);
+  assert.equal(amount.title, '1865.600000000000000001 fxUSD');
+  const render = (extra: ReviewFact[] = []) => renderToStaticMarkup(React.createElement(BridgeReviewSummary, { facts: [amount, received, { label: 'Minimum received', value: '1,865.6 fxUSD' }], allFacts: [{ label: 'Source network', value: 'Ethereum' }, { label: 'Destination network', value: 'Base' }, ...extra] }));
   const html = render();
   assert.match(html, /1,865.6/);
-  assert.match(html, /9,007,199,254,740,993.12/);
-  assert.doesNotMatch(html, /1865.600000000000000001 fxUSD/);
-  assert.equal(amount.title, '1865.600000000000000001 fxUSD');
   assert.doesNotMatch(html, /Show full price impact/);
   assert.doesNotMatch(html, /About Price impact/);
   const caveat = render([{ label: 'Price impact', value: 'Unavailable', title: 'Route validation failed; do not assume a zero price impact.' }]);
@@ -200,16 +210,11 @@ test('Bridge groups hero digits without numeric conversion and does not expand a
   assert.match(caveat, /aria-label="Price impact unavailable"/);
   assert.doesNotMatch(caveat, />Unavailable</);
   assert.doesNotMatch(caveat, /Show full price impact/);
-  const normal = renderToStaticMarkup(React.createElement(BridgeReviewSummary, {
-    facts: [{ label: 'Amount', value: '2500 fxUSD' }, { label: 'Estimated received', value: '2500 fxUSD' }],
-    allFacts: [], sourceChainId: 1,
-  }));
-  assert.doesNotMatch(normal, /data-wide-amounts/);
-  const wide = renderToStaticMarkup(React.createElement(BridgeReviewSummary, {
-    facts: [{ label: 'Amount', value: '2500 fxUSD' }, { label: 'Estimated received', value: '1,000,000.12 fxUSD' }],
-    allFacts: [], sourceChainId: 1,
-  }));
-  assert.match(wide, /data-wide-amounts/);
+  // A long leading figure takes the hero's smaller step rather than splitting digits.
+  const normal = renderToStaticMarkup(React.createElement(TransactionHero, { title: 'Review bridge', legs: [{ label: 'Amount', value: '2500 fxUSD' }], ariaLabel: 'Transaction amounts' }));
+  assert.doesNotMatch(normal, /data-long/);
+  const wide = renderToStaticMarkup(React.createElement(TransactionHero, { title: 'Review bridge', legs: [{ label: 'Estimated received', value: '1,000,000.12 fxUSD' }], ariaLabel: 'Transaction amounts' }));
+  assert.match(wide, /data-long="true"/);
   assert.match(wide, /1,000,000\.12/);
   const { reviewTermHelp } = await import('../src/components/review/ReviewTermRow');
   assert.equal(reviewTermHelp({ label: 'Price impact', value: 'Unavailable', title: 'Route validation failed; do not assume a zero price impact.' }), 'Route validation failed; do not assume a zero price impact.');
@@ -223,7 +228,7 @@ test('Bridge groups hero digits without numeric conversion and does not expand a
 
 test('Bridge minimum with phone-like precision stays compact and static', async () => {
  const { BridgeReviewSummary } = await import('../src/components/review/BridgeReviewSummary');
- const html=renderToStaticMarkup(React.createElement(BridgeReviewSummary,{facts:[{label:'Minimum received',value:'720.89147659306640625 fxUSD'}],allFacts:[],sourceChainId:1,destinationChainId:8453}));
+ const html=renderToStaticMarkup(React.createElement(BridgeReviewSummary,{facts:[{label:'Minimum received',value:'720.89147659306640625 fxUSD'}],allFacts:[]}));
  assert.match(html,/≈ 720.89 fxUSD/);
  assert.doesNotMatch(html,/Show full minimum received value|720.89147659306640625 fxUSD/);
  assert.doesNotMatch(html,/lucide-chevron-down/);

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import Link from 'next/link';
 import { formatUnits } from 'viem';
-import { compactAddress } from '@/lib/addressPresentation';
 import { useRouter } from 'next/navigation';
+import { haptic } from '@/lib/telegram';
 import { usePauseAutomaticPositionRefresh } from './PositionRefreshActivity';
 import { usePresentedTransactions } from '@/lib/pendingActivity';
 import {
@@ -48,8 +48,8 @@ import { MobileFlowSheet } from '@/components/MobileFlowSheet';
 import { positionPoolAddress } from '@/lib/fx/policy';
 import { stableTradeReviewFacts } from './review/stableTradeReviewFacts';
 import { orderCompactReviewFacts, reviewFactLabel, reviewHierarchy } from './review/reviewHierarchy';
-import { TransactionIdentity } from './review/TransactionIdentity';
-import { TransactionAmountFlow, LeverageChangeSummary } from './review/TransactionAmountFlow';
+import { LeverageChangeSummary } from './review/LeverageChangeSummary';
+import { TransactionHero } from './review/TransactionHero';
 import { transactionAmountFacts } from './review/transactionAmountPresentation';
 import { positionReviewBefore } from './review/positionReview';
 import { PendingTransactionSummary } from './review/PendingTransactionSummary';
@@ -146,6 +146,14 @@ export function ActionReview(props: ActionReviewProps) {
   usePauseAutomaticPositionRefresh(stage === 'planning' || stage === 'review' || stage === 'executing' || refreshing);
   // This review shows its own progress and result; the header notice stays for steps settling elsewhere.
   usePresentedTransactions([...stepResults, ...(result?.steps ?? [])].map((step) => step.hash));
+  // The phone answers each real change of state: the submission, then its outcome.
+  const hapticState = stage === 'result' ? `result:${result?.status}` : stage === 'executing' ? `executing:${status}` : stage;
+  useEffect(() => {
+    if (hapticState === 'result:confirmed') haptic('success');
+    else if (hapticState === 'result:failed') haptic('error');
+    else if (hapticState.startsWith('result:')) haptic('warning');
+    else if (hapticState === 'executing:submitted') haptic('light');
+  }, [hapticState]);
 
   if (stage === 'input' || stage === 'planning') {
     const preparing = stage === 'planning';
@@ -442,11 +450,19 @@ export function ActionReview(props: ActionReviewProps) {
           <span><strong>{tier === 'standard' ? 'Standard' : tier === 'fast' ? 'Fast' : 'Rapid'}</strong><small>{visibleFeeSelection ? `${formatGasPriceGwei(visibleFeeSelection.snapshot.tiers[tier].gasPriceWei)} Gwei` : <MissingValue width="xs" status={status === 'failed' ? 'unavailable' : 'loading'} announce={!stablePreparation} label={status === 'failed' ? `${tier} gas price unavailable` : `Loading ${tier} gas price`} />}</small></span>
         </label>)}
       </fieldset></section>;
-  const decisionContent = (bridgeReview ? <BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} sourceChainId={reviewChainId} destinationChainId={acceptedBridgeQuote?.destinationChainId} /> : <div className={amountLed || leverageReview ? presentationStyles.amountLedReview : undefined}>
-        {amountLed ? <>
-          {identity.subtitle && identity.subtitle.toLowerCase() !== chainName(reviewChainId).toLowerCase() && <p className={presentationStyles.amountContext}>{identity.subtitle}</p>}
-          <TransactionAmountFlow facts={amountFacts} chainId={reviewChainId} compact />
-        </> : leverageReview ? <><p className={presentationStyles.amountContext}>{identity.subtitle}</p><LeverageChangeSummary facts={acceptedAmountFacts} changes={positionChangeRows} /></> : <TransactionIdentity {...identity} />}
+  // The hero leads with the amount the action is named for: what is borrowed,
+  // otherwise what is paid, deposited, repaid or sent. Other legs follow it.
+  const heroLegs = amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : !leverageReview && identity.amount ? [identity.amount] : [];
+  const borrowedLeg = intent?.kind === 'deposit-and-mint' && intent.mintAmount > 0n ? heroLegs.findIndex(fact => fact.label === 'Estimated fxUSD received' || fact.label === 'Debt added') : -1;
+  // A bridge moves one token between networks, so its marks are that token on each network.
+  const hero = <TransactionHero title={stage === 'executing' ? identity.name : actionHeading} headingRef={headingRef}
+    legs={heroLegs} lead={Math.max(0, borrowedLeg)} labels={bridgeReview ? { Amount: 'You send', 'Input amount': 'You send' } : undefined}
+    tokens={bridgeReview && identity.symbol ? [{ symbol: identity.symbol, chainId: reviewChainId === 8453 ? 8453 : 1 }, { symbol: identity.symbol, chainId: (acceptedBridgeQuote?.destinationChainId ?? (reviewChainId === 1 ? 8453 : 1)) === 8453 ? 8453 : 1 }] : undefined}
+    value={heroLegs.length ? undefined : identity.value} caption={identity.subtitle}
+    ariaLabel={stage === 'executing' ? 'Reviewed transaction amounts' : 'Transaction amounts'} provenance="review" />;
+  const decisionContent = (bridgeReview ? <>{hero}<BridgeReviewSummary facts={stableBridgeFacts} allFacts={[...summaryFacts, ...reviewFacts.details]} /></> : <div className={presentationStyles.amountLedReview}>
+        {hero}
+        {leverageReview && <LeverageChangeSummary facts={[]} changes={positionChangeRows} />}
         <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
           <div className={presentationStyles.consequenceGroup}>
             {collateral && <ReviewTermRow fact={collateral} displayLabel="Position size · collateral" displayValue={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : undefined} />}
@@ -474,14 +490,9 @@ export function ActionReview(props: ActionReviewProps) {
         </div>
       </div>);
   return (
-    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: stage === 'executing' ? identity.name : actionHeading, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing' }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
+    <ReviewSurface stable={stablePreparation} surface={surface} mobileSheet={{ title: stage === 'executing' ? identity.name : actionHeading, onClose: reset, triggerRef, dismissible: !loading && stage !== 'executing', hideTitle: true }} className={`${styles.reviewCard} ${styles.reviewInlineCard} p-4 sm:p-5`}>
       <ReviewViewport stable={stablePreparation} compact={compactReview} phase={stage === 'executing' ? 'executing' : 'review'}>
       <header data-review-header className={presentationStyles.reviewHeader}>
-        <div>
-          <h3 ref={headingRef} data-review-focus tabIndex={-1} className="outline-none">
-            {stage === 'executing' ? identity.name : actionHeading}
-          </h3>
-        </div>
         <button data-review-edit type="button" disabled={loading} onClick={reset} className={presentationStyles.editButton}>
           <X aria-hidden="true" className="h-5 w-5" /><span className="sr-only">Close transaction review</span>
         </button>
@@ -489,7 +500,7 @@ export function ActionReview(props: ActionReviewProps) {
       <div data-review-scroll className={presentationStyles.reviewScrollBody} role="region" aria-label="Review information" tabIndex={0}>
 
       {stage === 'review' && routes.length > 1 && (
-        <div className="mt-3 flex flex-col gap-2" role="radiogroup" aria-label="Route options">
+        <div className="mt-11 flex flex-col gap-2" role="radiogroup" aria-label="Route options">
           <p className="text-[12px] font-medium text-mut">Choose route</p>
           {routes.map((candidate, index) => (
             <button
@@ -523,7 +534,8 @@ export function ActionReview(props: ActionReviewProps) {
       )}
 
       {showExecutionProgress && stage !== 'executing' && <div className={presentationStyles.actualProgress}><StatusNotice {...progress} /></div>}
-      {stage === 'executing' ? <PendingTransactionSummary showIdentity={false} identity={identity} facts={amountLed ? amountFacts : bridgeReview ? transactionAmountFacts(acceptedAmountFacts) : identity.amount ? [identity.amount] : []} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind} requestLabel={nextTransaction ? nextTransaction.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm : undefined} requestNumber={activeStep + 1} requestCount={stepCount} /> : <div data-review-essential>{decisionContent}</div>}
+      {/* The same terms stay in place through the wallet request; only the action below becomes its progress. */}
+      <div data-review-essential>{decisionContent}</div>
 
 
 
@@ -535,24 +547,25 @@ export function ActionReview(props: ActionReviewProps) {
       {route && unsupportedNetwork && <p role="status" className={presentationStyles.reviewNotice}>Network unavailable · {chainName(reviewChainId)} required</p>}
 
       {stage === 'review' && feeSpeedControl}
-      {stage === 'executing' && bridgeReview && acceptedBridgeQuote?.recipient && <div className={presentationStyles.detailFact} data-pending-recipient><span>Recipient</span><span title={acceptedBridgeQuote.recipient}>{compactAddress(acceptedBridgeQuote.recipient)}</span></div>}
       {/* A failed check is told once, by its error below, not again as "Action stopped". */}
       {!stablePreparation && !showExecutionProgress && !(stage === 'review' && status === 'reviewing') && !(stage === 'review' && status === 'failed' && error) && <div className="mt-4"><StatusNotice {...progress} /></div>}
       {(!stablePreparation || stage === 'executing') && error && <div className="mt-3"><InlineError message={error} /></div>}
       </div>
-      {stage === 'review' && (
-        <div data-review-actions className={`${styles.reviewInlineActions} ${presentationStyles.actions}`}>
+      {/* One element through both stages, so the pressed action turns into its progress in place. */}
+      <div data-review-dock={stage} data-review-actions={stage === 'review' ? '' : undefined} className={`${styles.reviewInlineActions} ${presentationStyles.actions}`}>
+        {stage === 'review' ? <>
           {stablePreparation && <><span className="sr-only" role="status" aria-live="polite">{quoteExpired ? 'Review expired.' : 'Transaction route checked.'}</span>{actionNotice && <p role={error ? 'alert' : undefined} aria-live={error ? 'assertive' : 'off'} className={`${presentationStyles.stableReviewStatus} ${error || fundsNotice || quoteExpired ? 'text-warn' : 'text-mut'}`}>{actionNotice}</p>}</>}
           {!stablePreparation && fundsNotice && <p className={styles.fundsNote} role="status">
             {fundsNotice} <ReceiveLink />
           </p>}
           <Button variant={destructive ? 'danger' : 'primary'} data-blocked={fundsNotice ? true : undefined}
             disabled={disabled || !planBuilder || loading || (!quoteExpired && (status === 'failed' || fundsShort || checkingGas))} loading={loading} className={styles.primaryAction}
-            onClick={() => quoteExpired ? void refreshReviewedQuote() : void execute()}>
+            onClick={() => { if (quoteExpired) { void refreshReviewedQuote(); return; } haptic('medium'); void execute(); }}>
             {quoteExpired ? 'Review updated quote' : fundsShort ? 'Not enough ETH' : checkingGas ? 'Checking network fees…' : confirmLabel}
           </Button>
-        </div>
-      )}
+        </> : <PendingTransactionSummary heading={identity.name} status={status} steps={stepResults} chainId={reviewChainId} networkSwitching={networkSwitching} nextKind={nextTransaction?.kind}
+          requestLabel={nextTransaction ? nextTransaction.kind === 'approval' ? stepTitle(nextTransaction) : identity.confirm ?? actionCopy.confirm : undefined} requestNumber={activeStep + 1} requestCount={stepCount} />}
+      </div>
       </ReviewViewport>
     </ReviewSurface>
   );

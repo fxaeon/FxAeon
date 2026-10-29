@@ -137,38 +137,38 @@ for (const fixture of [
     await page.evaluate(async () => { await document.fonts.ready; });
     await page.screenshot({ path: info.outputPath(`wide-move-${size.width}x${size.height}.png`), animations: 'disabled' });
     const closed = await essentialReviewGeometry(review);
-    const amounts = review.getByRole('region', { name: 'Bridge amounts and terms' });
+    const amounts = review.getByRole('region', { name: 'Transaction amounts', exact: true });
     const figures = await amounts.evaluate(element => ['Amount', 'Estimated received'].map(label => {
-      const leg = element.querySelector(`[data-review-fact="${label}"]`)!;
-      const amount = leg.querySelector('[class*="amountText"] > div > span')!;
-      const numericText = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? ''));
-      if (!numericText) throw new Error('Wide Move fixture requires a numeric amount');
-      const range = document.createRange();
-      range.selectNodeContents(numericText);
-      return { label, leg: leg.getBoundingClientRect().toJSON(), amount: amount.getBoundingClientRect().toJSON(),
-        number: range.getBoundingClientRect().toJSON(), numberLines: [...range.getClientRects()].map(rect => rect.toJSON()),
-        unit: amount.querySelector('span')!.getBoundingClientRect().toJSON(),
-        fontSize: getComputedStyle(amount).fontSize, unitFontSize: getComputedStyle(amount.querySelector('span')!).fontSize,
-        overflow: leg.scrollWidth - leg.clientWidth };
-    }));
+        const leg = element.querySelector(`[data-review-fact="${label}"]`)!;
+        const lead = leg.querySelector('[data-review-amount]');
+        const value = (lead ?? leg.querySelector('[data-amount-unit]'))!;
+        const numeric = lead ? [...lead.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? '')) : value;
+        if (!numeric) throw new Error(`${label} requires a visible numeric amount`);
+        const range = document.createRange();
+        range.selectNodeContents(numeric);
+        const whole = document.createRange();
+        whole.selectNodeContents(value);
+        const unit = lead ? lead.querySelector('span:last-child')! : value;
+        return { label, lead: Boolean(lead), leg: leg.getBoundingClientRect().toJSON(), number: range.getBoundingClientRect().toJSON(),
+          lines: [...whole.getClientRects()].filter(rect => rect.width > 0).sort((a, b) => a.top - b.top)
+            .reduce((count, rect, index, rects) => count + (index > 0 && rect.top >= rects[index - 1].bottom - 1 ? 1 : 0), 1),
+          unit: unit.getBoundingClientRect().toJSON(), overflow: leg.scrollWidth - leg.clientWidth };
+      }));
     const evidence = JSON.stringify({ closed, figures }, null, 2);
     await writeFile(info.outputPath('wide-move-geometry.json'), evidence);
     await info.attach('wide-move-geometry', { body: evidence, contentType: 'application/json' });
-    await expect(amounts.locator('[data-wide-amounts]')).toHaveAttribute('data-wide-amounts', 'true');
-    await expect(amounts.locator('[data-review-fact="Amount"] [class*="amountText"] > div > span')).toHaveText(fixture.sent);
-    await expect(amounts.locator('[data-review-fact="Estimated received"] [class*="amountText"] > div > span')).toHaveText(fixture.received);
+    await expect(amounts.locator('[data-review-fact="Amount"] [data-review-amount]')).toHaveText(fixture.sent);
+    await expect(amounts.locator('[data-review-fact="Estimated received"] [data-amount-unit]')).toHaveText(fixture.received);
     await expect(amounts.locator('[data-review-fact="Price impact"]')).toHaveCount(0);
     expect(figures[1].leg.top, 'Long bridge legs stack without overlapping').toBeGreaterThanOrEqual(figures[0].leg.bottom);
     for (const figure of figures) {
-      expect(figure.numberLines, `${figure.label} numerals remain on one line`).toHaveLength(1);
+      expect(figure.lines, `${figure.label} keeps its numerals and unit on one line`).toBe(1);
       expect(figure.overflow, `${figure.label} never clips the value or unit`).toBeLessThanOrEqual(1);
       for (const rect of [figure.number, figure.unit]) {
         expect(rect.left).toBeGreaterThanOrEqual(figure.leg.left - 1);
         expect(rect.right).toBeLessThanOrEqual(figure.leg.right + 1);
       }
-      expect(figure.fontSize).toBe('24px');
-      expect(figure.unitFontSize).toBe('14px');
-      expect(Math.abs(figure.number.bottom - figure.unit.bottom), `${figure.label} token unit aligns beside the number`).toBeLessThanOrEqual(8);
+      if (!figure.lead) continue;
       expect(figure.unit.left, `${figure.label} token unit follows the complete number`).toBeGreaterThanOrEqual(figure.number.right - 1);
       const unitCenter = (figure.unit.top + figure.unit.bottom) / 2;
       expect(unitCenter, `${figure.label} token unit remains on the number's line`).toBeGreaterThan(figure.number.top);
@@ -238,17 +238,21 @@ for (const fixture of [
     await page.screenshot({ path: info.outputPath(`large-borrow-${size.width}x${size.height}.png`), animations: 'disabled' });
     const closed = await essentialReviewGeometry(review);
     const geometry = await review.evaluate(element => {
-      const flow = element.querySelector('[data-compact-amounts="2"]')!;
-      const figures = ['Deposit', 'Estimated fxUSD received'].map(label => {
-        const leg = flow.querySelector(`[data-review-fact="${label}"]`)!;
-        const amount = leg.querySelector('[data-review-amount]')!;
-        const numericText = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? ''));
-        if (!numericText) throw new Error('Large Borrow fixture requires a numeric amount');
+      const figures = ['Estimated fxUSD received', 'Deposit'].map(label => {
+        const leg = element.querySelector(`[data-review-fact="${label}"]`)!;
+        const lead = leg.querySelector('[data-review-amount]');
+        const value = (lead ?? leg.querySelector('[data-amount-unit]'))!;
+        const numeric = lead ? [...lead.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? '')) : value;
+        if (!numeric) throw new Error(`${label} requires a visible numeric amount`);
         const range = document.createRange();
-        range.selectNodeContents(numericText);
-        return { label, leg: leg.getBoundingClientRect().toJSON(), number: range.getBoundingClientRect().toJSON(),
-          numberLines: [...range.getClientRects()].map(rect => rect.toJSON()),
-          unit: amount.querySelector('span')!.getBoundingClientRect().toJSON(), overflow: leg.scrollWidth - leg.clientWidth };
+        range.selectNodeContents(numeric);
+        const whole = document.createRange();
+        whole.selectNodeContents(value);
+        const unit = lead ? lead.querySelector('span:last-child')! : value;
+        return { label, lead: Boolean(lead), leg: leg.getBoundingClientRect().toJSON(), number: range.getBoundingClientRect().toJSON(),
+          lines: [...whole.getClientRects()].filter(rect => rect.width > 0).sort((a, b) => a.top - b.top)
+            .reduce((count, rect, index, rects) => count + (index > 0 && rect.top >= rects[index - 1].bottom - 1 ? 1 : 0), 1),
+          unit: unit.getBoundingClientRect().toJSON(), overflow: leg.scrollWidth - leg.clientWidth };
       });
       const positionValues = [...element.querySelectorAll('[data-new-position] dl > div')].map(cell => {
         const value = cell.querySelector('strong')!;
@@ -262,19 +266,20 @@ for (const fixture of [
     const evidence = JSON.stringify({ closed, ...geometry }, null, 2);
     await writeFile(info.outputPath('large-borrow-geometry.json'), evidence);
     await info.attach('large-borrow-geometry', { body: evidence, contentType: 'application/json' });
-    await expect(review.locator('[data-review-fact="Deposit"] [data-review-amount]')).toHaveText(fixture.depositText);
+    await expect(review.locator('[data-review-fact="Deposit"] [data-amount-unit]')).toHaveText(fixture.depositText);
     await expect(review.locator('[data-review-fact="Estimated fxUSD received"] [data-review-amount]')).toHaveText(fixture.netText);
     const position = review.getByRole('region', { name: 'Estimated position', exact: true });
     await expect(position.locator('dl > div').filter({ hasText: 'Collateral' })).toContainText(fixture.collateralText);
     await expect(position.locator('dl > div').filter({ hasText: 'Total debt' })).toContainText(fixture.debtText);
     expect(geometry.figures[1].leg.top).toBeGreaterThanOrEqual(geometry.figures[0].leg.bottom);
     for (const figure of geometry.figures) {
-      expect(figure.numberLines, `${figure.label} keeps the complete quantity together`).toHaveLength(1);
+      expect(figure.lines, `${figure.label} keeps the complete quantity together`).toBe(1);
       expect(figure.overflow).toBeLessThanOrEqual(1);
       for (const rect of [figure.number, figure.unit]) {
         expect(rect.left).toBeGreaterThanOrEqual(figure.leg.left - 1);
         expect(rect.right).toBeLessThanOrEqual(figure.leg.right + 1);
       }
+      if (!figure.lead) continue;
       expect(figure.unit.left).toBeGreaterThanOrEqual(figure.number.right - 1);
       expect(Math.abs(figure.number.bottom - figure.unit.bottom)).toBeLessThanOrEqual(8);
     }
@@ -353,18 +358,22 @@ for (const size of [{ width: 390, height: 700 }, { width: 390, height: 500 }, { 
     await page.screenshot({ path: info.outputPath(`tiny-borrow-${size.width}x${size.height}.png`), animations: 'disabled' });
     const closed = await essentialReviewGeometry(review);
     const alignment = await review.evaluate(element => {
-      const flow = element.querySelector('[data-compact-amounts="2"]')!;
-      const figures = ['Deposit', 'Estimated fxUSD received'].map(label => {
-        const leg = flow.querySelector(`[data-review-fact="${label}"]`)!;
-        const amount = leg.querySelector('[data-review-amount]')!;
-        const numericText = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? ''));
-        if (!numericText) throw new Error('Tiny native fixture requires a visible numeric amount');
+      const flow = element.querySelector('[data-amount-provenance="review"]')!;
+      const figures = ['Estimated fxUSD received', 'Deposit'].map(label => {
+        const leg = element.querySelector(`[data-review-fact="${label}"]`)!;
+        const lead = leg.querySelector('[data-review-amount]');
+        const value = (lead ?? leg.querySelector('[data-amount-unit]'))!;
+        const numeric = lead ? [...lead.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? '')) : value;
+        if (!numeric) throw new Error(`${label} requires a visible numeric amount`);
         const range = document.createRange();
-        range.selectNodeContents(numericText);
-        const number = range.getBoundingClientRect();
-        return { leg: leg.getBoundingClientRect().toJSON(), amount: amount.getBoundingClientRect().toJSON(), unit: amount.querySelector('span')!.getBoundingClientRect().toJSON(),
-          number: { left: number.left, right: number.right, top: number.top, bottom: number.bottom },
-          overflow: leg.scrollWidth - leg.clientWidth };
+        range.selectNodeContents(numeric);
+        const whole = document.createRange();
+        whole.selectNodeContents(value);
+        const unit = lead ? lead.querySelector('span:last-child')! : value;
+        return { label, lead: Boolean(lead), leg: leg.getBoundingClientRect().toJSON(), number: range.getBoundingClientRect().toJSON(),
+          lines: [...whole.getClientRects()].filter(rect => rect.width > 0).sort((a, b) => a.top - b.top)
+            .reduce((count, rect, index, rects) => count + (index > 0 && rect.top >= rects[index - 1].bottom - 1 ? 1 : 0), 1),
+          unit: unit.getBoundingClientRect().toJSON(), overflow: leg.scrollWidth - leg.clientWidth };
       });
       const position = element.querySelector('[data-new-position]')!;
       const cells = [...position.querySelectorAll('dl > div')];
@@ -390,19 +399,19 @@ for (const size of [{ width: 390, height: 700 }, { width: 390, height: 500 }, { 
     const evidence = JSON.stringify({ closed, alignment }, null, 2);
     await writeFile(info.outputPath('tiny-borrow-geometry.json'), evidence);
     await info.attach('tiny-borrow-geometry', { body: evidence, contentType: 'application/json' });
-    await expect(review.locator('[data-review-fact="Deposit"] [data-review-amount]')).toHaveText('0.0003606 ETH');
+    await expect(review.locator('[data-review-fact="Deposit"] [data-amount-unit]')).toHaveText('0.0003606 ETH');
     await expect(review.locator('[data-review-fact="Estimated fxUSD received"] [data-review-amount]')).toHaveText('≈ 0.7105 fxUSD');
     const position = review.getByRole('region', { name: 'Estimated position', exact: true });
     await expect(position.locator('dl > div').filter({ hasText: 'Total debt' })).toContainText('0.7141 fxUSD');
     await expect(position.locator('dl > div').filter({ hasText: 'Collateral' })).toContainText('0.0003606 stETH');
-    const [source, receive] = alignment.figures;
-    expect(Math.abs(source.number.bottom - receive.number.bottom), 'Deposit and net receive figures share a baseline').toBeLessThanOrEqual(1);
-    expect(Math.abs(source.number.left - alignment.flow.left), 'Deposit starts on the main content edge').toBeLessThanOrEqual(1);
-    expect(Math.abs(receive.unit.right - alignment.flow.right), 'Receive aligns to the right content edge').toBeLessThanOrEqual(1);
+    const [receive, source] = alignment.figures;
+    expect(source.leg.top, 'The deposit row follows the leading net receive figure').toBeGreaterThanOrEqual(receive.leg.bottom - 1);
+    expect(Math.abs(source.leg.right - alignment.flow.right), 'The deposit row ends on the content edge').toBeLessThanOrEqual(1);
     expect(Math.abs(alignment.position.left - alignment.flow.left)).toBeLessThanOrEqual(1);
     expect(Math.abs(alignment.position.right - alignment.flow.right)).toBeLessThanOrEqual(1);
     for (const figure of alignment.figures) {
       expect(figure.overflow, 'Amount legs never clip numbers or token units').toBeLessThanOrEqual(1);
+      expect(figure.lines, 'Amount and token unit stay on one line').toBe(1);
       for (const rect of [figure.number, figure.unit]) {
         expect(rect.left).toBeGreaterThanOrEqual(figure.leg.left - 1);
         expect(rect.right).toBeLessThanOrEqual(figure.leg.right + 1);
