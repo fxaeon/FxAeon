@@ -14,8 +14,11 @@ import {
   usdValueForUnits,
   USD_PRICE_MAX_AGE_MS,
 } from "../src/lib/prices";
+import { CHAINLINK_USD_FEEDS, FX_PRICE_SERVICE_ENDPOINT, parseFxPriceService, protocolPricesFromReads } from "../src/lib/fxProtocolPrices";
 
 const keys = Object.keys(FX_TOKENS) as FxTokenKey[];
+// The secondary paths below run as they would with no RPC: f(x)'s on-chain read unavailable.
+const withoutProtocolRead = () => createUsdPriceFetcher({ readProtocolPrices: async () => { throw new Error('No protocol read in this test'); } });
 const isCoinGeckoTokenPriceRequest = (value: string): boolean => {
   try {
     const url = new URL(value);
@@ -172,7 +175,7 @@ test("a delayed protocol price uses a fresh CoinGecko quote without replacing fr
     const url = String(input); calls.push(url);
     return Response.json(url.includes('coins.llama.fi') ? payload : { [address]: { usd: 0.998, last_updated_at: now - 3 } });
   }) as typeof fetch;
-  const fetchPrices = createUsdPriceFetcher();
+  const fetchPrices = withoutProtocolRead();
   const first = await fetchPrices(request);
   assert.equal(first.prices.fxUSD, 0.998);
   assert.equal(first.prices.ETH, 2_400);
@@ -191,12 +194,13 @@ test("publishes validated primary prices before a slow optional fallback complet
   const fallback = new Promise<void>((resolve) => { releaseFallback = resolve; });
   const request = (async input => {
     const url = String(input);
+    if (url === FX_PRICE_SERVICE_ENDPOINT) return Response.json({}, { status: 503 });
     if (url.includes('coins.llama.fi')) return Response.json(payload);
     await fallback;
     return Response.json({ [address]: { usd: 0.998, last_updated_at: now - 3 } });
   }) as typeof fetch;
   const updates: Array<{ prices: Record<string, number>; updatedAt: number | null }> = [];
-  const resultPromise = createUsdPriceFetcher()(request, undefined, (snapshot) => {
+  const resultPromise = withoutProtocolRead()(request, undefined, (snapshot) => {
     updates.push({ prices: { ...snapshot.prices }, updatedAt: snapshot.updatedAt });
   });
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -213,7 +217,7 @@ test("unavailable fallback prices stay absent instead of assuming the stablecoin
   const payload = validPayload(Math.floor(Date.now() / 1000));
   delete payload.coins[`ethereum:${FX_TOKENS.fxUSD.address.toLowerCase()}`];
   const request = (async input => String(input).includes('coins.llama.fi') ? Response.json(payload) : Response.json({})) as typeof fetch;
-  const result = await createUsdPriceFetcher()(request);
+  const result = await withoutProtocolRead()(request);
   assert.equal(result.prices.ETH, 2_400);
   assert.equal(result.prices.fxUSD, undefined);
 });
@@ -221,11 +225,11 @@ test("unavailable fallback prices stay absent instead of assuming the stablecoin
 test("fallback traffic is bounded and respects rate-limit backoff", async () => {
   let fallbackRequests = 0;
   const request = (async input => {
-    if (String(input).includes('coins.llama.fi')) return Response.json({}, { status: 503 });
+    if (!isCoinGeckoTokenPriceRequest(String(input))) return Response.json({}, { status: 503 });
     fallbackRequests += 1;
     return Response.json({}, { status: 429, headers: { 'retry-after': '300' } });
   }) as typeof fetch;
-  const fetchPrices = createUsdPriceFetcher();
+  const fetchPrices = withoutProtocolRead();
   await assert.rejects(fetchPrices(request), /no validated prices/);
   await assert.rejects(fetchPrices(request), /no validated prices/);
   assert.equal(fallbackRequests, 1);
@@ -235,7 +239,7 @@ test("fallback traffic is bounded and respects rate-limit backoff", async () => 
     if (isCoinGeckoTokenPriceRequest(String(input))) boundedRequests += 1;
     return Response.json({}, { status: 503 });
   }) as typeof fetch;
-  await assert.rejects(createUsdPriceFetcher()(failing), /no validated prices/);
+  await assert.rejects(withoutProtocolRead()(failing), /no validated prices/);
   assert.equal(boundedRequests, 1, 'a provider failure stops further fallback requests');
 });
 
@@ -245,13 +249,13 @@ test('keyless fallback requests one contract at a time, deduplicates aliases, an
   const updates: Array<Record<string, number>> = [];
   const request = (async input => {
     const url = new URL(String(input));
-    if (url.hostname === 'coins.llama.fi') return Response.json({}, { status: 503 });
+    if (!isCoinGeckoTokenPriceRequest(url.href)) return Response.json({}, { status: 503 });
     const address = url.searchParams.get('contract_addresses')!;
     assert.equal(address.split(',').length, 1, 'the unauthenticated API rejects multi-address requests');
     addresses.push(address);
     return Response.json({ [address]: { usd: 2.5, last_updated_at: now } });
   }) as typeof fetch;
-  const fetchPrices = createUsdPriceFetcher();
+  const fetchPrices = withoutProtocolRead();
   const first = await fetchPrices(request, undefined, snapshot => updates.push({ ...snapshot.prices }));
   assert.equal(first.prices.ETH, 2.5);
   assert.equal(first.prices.WETH, 2.5);
@@ -267,6 +271,102 @@ test("aborting a price refresh does not request fallback data", async () => {
   const controller = new AbortController();
   let calls = 0;
   const request = (async () => { calls += 1; controller.abort(); throw new Error('aborted'); }) as typeof fetch;
-  await assert.rejects(createUsdPriceFetcher()(request, controller.signal), { name: 'AbortError' });
+  await assert.rejects(withoutProtocolRead()(request, controller.signal), { name: 'AbortError' });
   assert.equal(calls, 1);
+});
+
+
+// f(x)'s own sources lead; DefiLlama and CoinGecko are reached only for what they leave out.
+const blockAt = Math.floor(Date.now() / 1000) - 8;
+const ok = (result: unknown) => ({ status: 'success' as const, result });
+const reads = (overrides: Partial<Record<number, ReturnType<typeof ok> | { status: 'failure' }>> = {}) => {
+  const base = [
+    ok(BigInt(blockAt)),
+    // stETH, wstETH (inverse: wstETH per USD) and WBTC pool oracles: anchor, min, max at 18 decimals.
+    ok([2_318_29n * 10n ** 16n, 2_317n * 10n ** 18n, 2_319n * 10n ** 18n]),
+    ok([345_799_862_030_572n, 345_676_985_359_197n, 345_907_335_475_634n]),
+    ok([79_966n * 10n ** 18n, 79_868n * 10n ** 18n, 80_049n * 10n ** 18n]),
+    // Chainlink ETH, USDC, USDT: roundId, answer (8 decimals), startedAt, updatedAt, answeredInRound.
+    ok([1n, 231_850_173_849n, 0n, BigInt(blockAt - 1_700), 1n]),
+    ok([1n, 99_971_556n, 0n, BigInt(blockAt - 57_000), 1n]),
+    ok([1n, 99_860_065n, 0n, BigInt(blockAt - 71_000), 1n]),
+    // fxSAVE and fxSP NAVs at 18 decimals.
+    ok(1_126_944_563_725_761_708n),
+    ok(1_010_334_197_790_295_770n),
+  ];
+  return base.map((read, index) => overrides[index] ?? read);
+};
+
+test('protocol reads price every on-chain token at the read block', () => {
+  const update = protocolPricesFromReads(reads(), blockAt * 1000 + 8_000);
+  assert.equal(update.prices.stETH, 2_318.29);
+  assert.ok(Math.abs(update.prices.wstETH! - 2_891.85) < 0.01, 'the inverse oracle gives USD per wstETH');
+  assert.equal(update.prices.WBTC, 79_966);
+  assert.equal(update.prices.ETH, 2_318.50173849);
+  assert.equal(update.prices.WETH, update.prices.ETH, 'WETH and ETH share one quote');
+  assert.equal(update.prices.USDC, 0.99971556);
+  assert.equal(update.prices.USDT, 0.99860065);
+  assert.equal(update.prices.fxSAVE, 1.126944563725761708);
+  assert.equal(update.prices.fxUSDBasePool, 1.01033419779029577);
+  for (const at of Object.values(update.updatedAts)) assert.equal(at, blockAt * 1000, 'every value is stamped with the block it was read at');
+  assert.equal(update.prices.fxUSD, undefined);
+  assert.equal(update.prices.FXN, undefined);
+});
+
+test('protocol reads drop stale feeds, unordered oracles, implausible NAVs and lagging blocks', () => {
+  const ethHeartbeat = CHAINLINK_USD_FEEDS.find(feed => feed.key === 'ETH')!.heartbeatSeconds;
+  const update = protocolPricesFromReads(reads({
+    1: ok([3n * 10n ** 18n, 4n * 10n ** 18n, 5n * 10n ** 18n]),
+    4: ok([1n, 231_850_173_849n, 0n, BigInt(blockAt - ethHeartbeat - 3_600), 1n]),
+    7: ok(20n * 10n ** 18n),
+    8: { status: 'failure' },
+  }), blockAt * 1000);
+  assert.equal(update.prices.stETH, undefined, 'an anchor outside its own bounds is not a price');
+  assert.equal(update.prices.ETH, undefined, 'a feed past its heartbeat is stale');
+  assert.equal(update.prices.WETH, undefined);
+  assert.equal(update.prices.fxSAVE, undefined, 'a share NAV far from a dollar is a broken read');
+  assert.equal(update.prices.fxUSDBasePool, undefined);
+  assert.equal(update.prices.WBTC, 79_966, 'one bad read leaves the others');
+  assert.throws(() => protocolPricesFromReads(reads(), (blockAt + 3_600) * 1000), /not recent/);
+  assert.throws(() => protocolPricesFromReads([{ status: 'failure' }]), /block unavailable/);
+});
+
+test("f(x)'s price service gives FXN and fxUSD, never a pegged stablecoin", () => {
+  const update = parseFxPriceService({ code: 200, data: { FXN: { usd: 20.97 }, fxUSD: { usd: 1.0001, isPegged: true }, USDC: { usd: 1 }, USDT: { usd: 1 }, ETH: { usd: 2_317 } } }, 1_000);
+  assert.deepEqual(update.prices, { FXN: 20.97, fxUSD: 1.0001 });
+  assert.deepEqual(update.updatedAts, { FXN: 1_000, fxUSD: 1_000 });
+  assert.throws(() => parseFxPriceService({ code: 500, data: {} }), /no data/);
+  assert.throws(() => parseFxPriceService({ code: 200, data: { fxUSD: { usd: 3 } } }), /no validated prices/);
+});
+
+test("f(x)'s sources cover every token without DefiLlama or CoinGecko", async () => {
+  const calls: string[] = [];
+  const request = (async input => {
+    calls.push(String(input));
+    return Response.json(String(input) === FX_PRICE_SERVICE_ENDPOINT ? { code: 200, data: { FXN: { usd: 20.97 }, fxUSD: { usd: 1.0001 } } } : {}, { status: String(input) === FX_PRICE_SERVICE_ENDPOINT ? 200 : 503 });
+  }) as typeof fetch;
+  const fetchPrices = createUsdPriceFetcher({ readProtocolPrices: async () => protocolPricesFromReads(reads(), blockAt * 1000) });
+  const updates: Array<Record<string, number>> = [];
+  const result = await fetchPrices(request, undefined, snapshot => updates.push({ ...snapshot.prices }));
+  for (const key of keys) assert.ok(result.prices[key]! > 0, `${key} is priced`);
+  assert.equal(result.prices.fxSAVE, 1.126944563725761708);
+  assert.equal(result.prices.fxUSD, 1.0001);
+  assert.deepEqual(calls, [FX_PRICE_SERVICE_ENDPOINT], 'no secondary provider is asked');
+  assert.equal(updates.length, 2, 'each source publishes as soon as it lands');
+});
+
+test('DefiLlama fills only what f(x) leaves out and never replaces its quotes', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const request = (async input => {
+    const url = String(input);
+    if (url === FX_PRICE_SERVICE_ENDPOINT) return Response.json({}, { status: 503 });
+    if (url.includes('coins.llama.fi')) return Response.json(validPayload(now));
+    return Response.json({}, { status: 503 });
+  }) as typeof fetch;
+  const fetchPrices = createUsdPriceFetcher({ readProtocolPrices: async () => protocolPricesFromReads(reads(), blockAt * 1000) });
+  const result = await fetchPrices(request);
+  assert.equal(result.prices.ETH, 2_318.50173849, 'the on-chain quote stays');
+  assert.equal(result.prices.fxSAVE, 1.126944563725761708);
+  assert.equal(result.prices.FXN, 1, 'a token f(x) did not price comes from DefiLlama');
+  assert.equal(result.updatedAts.FXN, (now - 12) * 1000);
 });

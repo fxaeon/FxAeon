@@ -97,7 +97,8 @@ Reviews retain full source values and caveats through direct disclosures. USD eq
 | Signing identity and consent | Current accepted wallet, fresh account/network checks, and wallet approval |
 | Supported wallet asset balances | Chain-probed canonical RPC reads |
 | Expanded token discovery | Partial display discovery, reconciled with canonical balances |
-| USD prices and charts | Validated display feeds; never transaction inputs |
+| USD prices | f(x)'s own sources first: its pool oracles, vault NAVs and Chainlink feeds read on-chain at one block, and its price service for FXN and fxUSD; DefiLlama, then CoinGecko, fill only what those leave out. Display only; never transaction inputs |
+| Charts | Validated display feeds; never transaction inputs |
 | Indexed position activity | Bounded discovery plus successful receipt/router-event verification |
 | Drafts and recovery records | Local hints that require authoritative reconciliation |
 
@@ -133,6 +134,16 @@ returns 404. The client uses the live endpoint first and tries the documented
 replacement only after failure, with the same validation. Both exact origins
 are covered by CSP and isolated browser fixtures. Recheck the migration before
 removing the old endpoint; do not weaken validation to accommodate changed data.
+
+USD prices no longer depend on DefiLlama:
+[`fxProtocolPrices`](../apps/mini-app/src/lib/fxProtocolPrices.ts) reads f(x)'s
+stETH, wstETH and WBTC oracles, the fxSAVE and fxSP NAVs and Chainlink's ETH,
+USDC and USDT feeds in one multicall, stamped with that block's time. A feed
+older than its heartbeat, an oracle answer outside its own bounds, a NAV far
+from a dollar or a lagging block leaves that token out. FXN and fxUSD come from
+f(x)'s price service, which publishes no source time and is stamped on receipt;
+its stablecoin entries are fixed at 1 and are never used. The fxSAVE charts
+above still read DefiLlama until its migration is settled.
 
 [`BorrowSensitivity`](../apps/mini-app/src/components/BorrowSensitivity.tsx)
 uses entered debt and current display collateral value. Integer arithmetic

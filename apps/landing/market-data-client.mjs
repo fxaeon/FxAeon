@@ -14,8 +14,8 @@ export function initialLandingMarketData() {
     status: 'loading',
     fxSaveTvlUsd: metric('aladdin', 'https://fx.aladdin.club/earn'),
     fxSaveApy: metric('aladdin', 'https://fx.aladdin.club/earn'),
-    ethUsd: metric('defillama', 'https://defillama.com/prices'),
-    btcUsd: metric('defillama', 'https://defillama.com/prices'),
+    ethUsd: metric('aladdin', 'https://fx.aladdin.club'),
+    btcUsd: metric('aladdin', 'https://fx.aladdin.club'),
   };
 }
 

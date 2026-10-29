@@ -39,13 +39,9 @@ function pollTimerCount(target) {
 }
 
 function feedSnapshot(now, eth = 2_400) {
-  const timestamp = Math.floor((now - 30_000) / 1000);
   return normalizeLandingMarketData({
     now,
-    pricePayload: { coins: {
-      [ETH]: { price: eth, timestamp, confidence: 0.99 },
-      [BTC]: { price: 80_000, timestamp, confidence: 0.99 },
-    } },
+    pricePayload: { code: 200, data: { ETH: { usd: eth }, WBTC: { usd: 80_000 } } },
     priceFetchedAt: now,
     fxSavePayload: { code: 200, data: { fxSave: {
       address: '0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39', apy: '6.38', tvl: '85284837.6280',

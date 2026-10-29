@@ -95,6 +95,12 @@ export async function installMarketPrices(page: Page, enabled: boolean): Promise
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ coins }) });
   });
 
+  // f(x)'s price service supplies FXN and fxUSD; the same fixed quotes as the DefiLlama mock above.
+  await page.route("https://api.aladdin.club/api/coingecko/price", async (route) => {
+    if (!enabled) return route.abort("blockedbyclient");
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 200, data: { FXN: { usd: 26 }, fxUSD: { usd: 1 } } }) });
+  });
+
   await page.route("https://api.coingecko.com/**", async (route) => {
     if (!enabled) return route.abort("blockedbyclient");
     const url = new URL(route.request().url());
@@ -194,7 +200,7 @@ export const test = base.extend<{
         // That is an asset host, not an FxAeon application backend; keep the
         // client-first assertion focused on same-origin/unknown API routes.
         const host = new URL(url).hostname;
-        const publicDataHosts = new Set(["assets.smold.app", "api.coingecko.com", "api.g.alchemy.com", "api.exchange.coinbase.com", "api.goldsky.com"]);
+        const publicDataHosts = new Set(["assets.smold.app", "api.coingecko.com", "api.g.alchemy.com", "api.exchange.coinbase.com", "api.goldsky.com", "api.aladdin.club"]);
         const explicitPublicGasRead = pathname === "/api/gas"
           && new URL(url).origin === new URL(page.url()).origin
           && request.method() === "GET";
