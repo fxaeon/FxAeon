@@ -1,16 +1,17 @@
 'use client';
 
 import type { ReactNode, Ref } from 'react';
-import { ArrowUpRight, Check, ChevronDown } from 'lucide-react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import type { TransactionExecutionResult, TransactionStepResult } from '@/lib/fx';
 import type { ReceiptPresentation } from '@/lib/receiptPresentation';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
-import { TransactionIdentity } from './TransactionIdentity';
 import type { transactionCardIdentity } from './transactionCardIdentity';
 import { compactTransactionOutcomeModel } from './compactTransactionReceipt';
 import { ReviewFactValue } from './ReviewFactValue';
 import { InlineAmount } from './AmountUsd';
-import { TransactionAmountFlow } from './TransactionAmountFlow';
+import { TransactionHero } from './TransactionHero';
+import { ReviewTermRow } from './ReviewTermRow';
+import { plainAmountLabel } from './transactionAmountPresentation';
 import { MissingValue } from '@/components/MissingValue';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import { CompactTransactionFooter, hasCompactConfirmedTransaction } from './CompactTransactionFooter';
@@ -85,7 +86,6 @@ export function TransactionResultView({
   const safePresentation = result.status === 'confirmed' && !confirmedAction
     ? executionResultPresentation({ ...result, status: result.steps.some(step => step.status === 'confirmed') ? 'partial' : 'failed' }, result.operation === 'buildBridgeTx')
     : presentation;
-  const ResultIcon = safePresentation.icon;
   const bridge = result.operation === 'buildBridgeTx';
   const provenSuccess = safePresentation.tone === 'success' && confirmedAction;
   const conciseSuccess = provenSuccess && !bridgeTracker && !bridge;
@@ -132,25 +132,20 @@ export function TransactionResultView({
     <dl>{positionReadback.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd><ReviewFactValue fact={fact} /></dd></div>)}</dl>
   </section>;
   const recoveryWarning = compactResultWarning(safePresentation);
+  const receiptLegs = outcome?.rows.map(row => ({ label: row.direction === 'sent' ? 'Sent' : 'Received', value: `${row.amount} ${row.symbol}` })) ?? [];
   return (
     <ReviewViewport phase="result">
       <div data-review-scroll className={styles.reviewScrollBody} role="region" aria-label="Transaction result" tabIndex={0}>
         <div className={`${styles.result} ${conciseSuccess ? styles.resultSuccess : ''}`}>
           {conciseSuccess && outcome && <>
-            <div className={styles.resultHeading}>
-              <span className={styles.resultHeadingIcon} aria-hidden="true"><Check size={23} /></span>
-              <div className={styles.resultHeadingCopy}>
-                <h3 ref={headingRef} data-review-focus tabIndex={-1} aria-label={simulated ? `Simulated result: ${outcomeTitle}` : undefined}>{outcomeTitle}</h3>
-                <p>{subtitle}</p>
-              </div>
-            </div>
-            <div className={receiptStyles.panel}>
-            {outcome.rows.length > 0 && <TransactionAmountFlow
-              facts={outcome.rows.map(row => ({ label: row.direction === 'sent' ? 'Sent' : 'Received', value: `${row.amount} ${row.symbol}` }))}
+            {/* Only observed amounts are named as receipt amounts; a receipt without readable transfers claims none. */}
+            <TransactionHero tone="success" title={outcomeTitle} headingRef={headingRef} headingLabel={simulated ? `Simulated result: ${outcomeTitle}` : undefined}
+              legs={receiptLegs} lead={Math.max(0, receiptLegs.findIndex(leg => leg.label === 'Received'))}
               labels={Object.fromEntries(outcome.rows.map(row => [row.direction === 'sent' ? 'Sent' : 'Received', row.label]))}
-              chainId={result.chainId} receipt simulated={simulated} showNetwork={false} embedded
-              ariaLabel={simulated ? 'Simulated token movements' : 'Confirmed transaction amounts'}
-            />}
+              tokens={receiptLegs.length ? undefined : reviewIdentity?.symbol ? [{ symbol: reviewIdentity.symbol }] : []} caption={subtitle}
+              ariaLabel={receiptLegs.length ? simulated ? 'Simulated token movements' : 'Confirmed transaction amounts' : undefined}
+              provenance={receiptLegs.length ? simulated ? 'simulation' : 'receipt' : undefined} />
+            <div className={receiptStyles.panel}>
             {queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>Claim status</dt><dd>Check live status</dd></dl>}
             {!outcome.rows.length && !queuedWithdrawal && <dl className={styles.resultPositionStatus}><dt>{noTransferAdjustment ? 'Token transfers' : 'Token amounts'}</dt><dd>{noTransferAdjustment ? 'None' : <MissingValue width="md" status="unavailable" announce={false} label="Token amounts unavailable" />}</dd></dl>}
             {hasAdditionalMovements && <dl className={styles.resultPositionStatus}><dt>Additional movements</dt><dd>{additionalMovementDetails.length > 0 ? 'See receipt details' : 'Details unavailable · view receipt'}</dd></dl>}
@@ -162,26 +157,24 @@ export function TransactionResultView({
             </div>
           </>}
           {bridgeTracker?.(provenSuccess ? destinationTxHash => <CompactTransactionFooter result={result} receipts={receipts} headingRef={headingRef} destinationReceipt={{ chainId: result.chainId === 1 ? 8453 : 1, hash: destinationTxHash }} /> : undefined)}
-          {!bridgeTracker && !conciseSuccess && <section className={styles.resultRecoveryStatus} aria-label="Transaction status">
-            <div className={styles.resultStatus} data-tone={safePresentation.tone}>
-              <span className={styles.resultMark} data-tone={safePresentation.tone} aria-hidden="true"><ResultIcon className="h-6 w-6" /></span>
-              <div><h3 ref={headingRef} data-review-focus tabIndex={-1}>{safePresentation.title}</h3>
-                {recoveryWarning && <p>{recoveryWarning}</p>}
-              </div>
-            </div>
-            {lastSubmitted && <div className={styles.resultStatusLinks}><span>{simulated ? 'Simulation submitted' : lastSubmitted.transaction.kind === 'approval' ? 'Approval submitted' : 'Transaction submitted'}</span>{recoveryExplorer
+          {!bridgeTracker && !conciseSuccess && <section className={styles.resultRecovery} aria-label="Transaction status">
+            <TransactionHero tone={safePresentation.tone === 'danger' ? 'danger' : safePresentation.tone === 'success' ? 'success' : 'warning'}
+              title={safePresentation.title} headingRef={headingRef} caption={reviewIdentity?.name && recoveryWarning ? <><span>{reviewIdentity.name}</span> · <span>{recoveryWarning}</span></> : reviewIdentity?.name ?? recoveryWarning} legs={[]} tokens={reviewIdentity?.symbol ? [{ symbol: reviewIdentity.symbol }] : []} />
+            {lastSubmitted && <p className={styles.resultStatusLinks}><span>{simulated ? 'Simulation submitted' : lastSubmitted.transaction.kind === 'approval' ? 'Approval submitted' : 'Transaction submitted'}</span>{recoveryExplorer
               ? <a href={recoveryExplorer} target="_blank" rel="noopener noreferrer">View on explorer <ArrowUpRight size={13} aria-hidden="true" /></a>
-              : <span>{simulated ? 'No on-chain link' : 'Explorer unavailable'}</span>}</div>}
+              : <span>{simulated ? 'No on-chain link' : 'Explorer unavailable'}</span>}</p>}
           </section>}
-          {!bridgeTracker && !bridge && !conciseSuccess && <>
+          {!bridgeTracker && !bridge && !conciseSuccess && <div className={styles.recoveryRows}>
             {exactMovements.length > 0 && <section className={styles.resultStats} aria-label={simulated ? 'Earlier simulated steps' : 'Already confirmed movements'} data-amount-provenance={simulated ? 'simulation' : 'receipt'}>
               <p className={styles.resultStatNote}>{simulated ? 'Earlier simulated steps' : 'Already confirmed · earlier steps only'}</p>
               <dl>{exactMovements.map((movement, index) => <div className={styles.resultStatRow} key={`${movement.direction}-${movement.symbol}-${index}`}><dt>{movement.direction === 'sent' ? 'Already sent' : 'Already received'}</dt><dd><ResultAmount amount={movement.amount} symbol={movement.symbol} /></dd></div>)}</dl>
             </section>}
-            {reviewIdentity && <TransactionIdentity {...reviewIdentity} />}
-
-          </>}
-
+            {/* The action is named in the caption above; each amount here is labelled by its role, so a borrow's collateral never reads as the borrow. */}
+            {reviewIdentity && (reviewIdentity.amount || reviewIdentity.value) && <section aria-label="Transaction summary" data-amount-provenance="review">
+              {reviewIdentity.amount ? <ReviewTermRow fact={reviewIdentity.amount} displayLabel={reviewIdentity.amountLabel ?? plainAmountLabel(reviewIdentity.amount.label)} />
+                : <div className={styles.recoveryIdentity}><span>{reviewIdentity.amountLabel ?? reviewIdentity.name}</span><strong>{reviewIdentity.value}</strong></div>}
+            </section>}
+          </div>}
           {!bridgeTracker && !conciseSuccess && transactionLinks && <section className={styles.receiptLinks} aria-label="Transaction receipts">{transactionLinks}</section>}
           {!bridgeTracker && conciseSuccess && additionalMovementDetails.length > 0 && <details className={styles.resultDetails}>
             <summary>Receipt details <ChevronDown aria-hidden="true" className="h-4 w-4 disclosure-chevron" /></summary>
@@ -190,7 +183,7 @@ export function TransactionResultView({
         </div>
       </div>
       <div data-review-actions className={`${flowStyles.reviewInlineActions} ${styles.actions}`}>
-        <Button variant={safePresentation.tone === 'danger' ? 'ghost' : 'primary'} className={flowStyles.primaryAction} onClick={onNext}>{nextLabel}</Button>
+        <Button variant="primary" className={flowStyles.primaryAction} onClick={onNext}>{nextLabel}</Button>
       </div>
     </ReviewViewport>
   );

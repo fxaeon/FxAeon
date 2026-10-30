@@ -106,8 +106,8 @@ test('confirmed result groups amounts and receipt rows without repeating success
   const html = await renderResult({ result: result('confirmed', { receipt: true }) });
   assert.match(html, /data-review-fact="Received"/);
   assert.doesNotMatch(html, /Show exact amount: 2 fxUSD/);
-  assert.match(html, /test-resultHeading/);
-  assert.match(html, /test-amountFlow/);
+  assert.match(html, /data-hero-tone="success"/);
+  assert.match(html, /aria-label="Confirmed transaction amounts"/);
   assert.match(html, /Closed ETH Long/);
   assert.match(html, /data-amount-provenance="receipt"/);
   assert.match(html, /aria-label="Confirmed transaction receipt"/);
@@ -202,7 +202,7 @@ test('mixed recognized and unknown transfers do not hide the technical remainder
     receipts: [{ ...receipts[0], movements: [...receipts[0].movements, 'Token movement available in technical details'], technicalMovements: ['0x3333: 123 base units'] }],
   });
   assert.match(html, /data-amount-provenance="receipt"/);
-  assert.match(html, />2 <span class="test-flowUnit">fxUSD<\/span>/);
+  assert.match(html, />2 <span class="test-unit">fxUSD<\/span>/);
   assert.doesNotMatch(html, /Show exact amount|Exact receive amount/);
   assert.equal(receipts[0]?.exactMovements?.find(movement => movement.symbol === 'fxUSD')?.amount, '2');
   assert.match(html, /Additional movements/);
@@ -233,7 +233,7 @@ test('queue result reports the confirmed request without inventing claim readine
     receipts: [{ ...receipts[0], movements: ['sent 200 fxSAVE'], exactMovements: [{ direction: 'sent', amount: '200', symbol: 'fxSAVE' }] }],
   });
   assert.match(html, /Withdrawal queued/);
-  assert.match(html, />Redeemed</);
+  assert.match(html, />You redeemed</);
   assert.match(html, /Check live status/);
   assert.match(html, /Payout<\/dt><dd>After cooldown/);
   assert.doesNotMatch(html, /Ready to claim|200 fxSP|Amount queued/);
@@ -248,7 +248,7 @@ test('shortened actual amounts stay static while receipt models retain exact val
     result: result('confirmed', { receipt: true }),
     receipts: [{ ...receipts[0], exactMovements }],
   });
-  assert.match(html, /≈ 1\.235 <span class="test-flowUnit">fxUSD<\/span>/);
+  assert.match(html, /≈<\/span> 1\.235 <span class="test-unit">fxUSD<\/span>/);
   assert.doesNotMatch(html, /Show exact amount|1\.23456789 fxUSD/);
   assert.equal(exactMovements[0].amount, '1.23456789');
 });
@@ -256,14 +256,14 @@ test('shortened actual amounts stay static while receipt models retain exact val
 test('outer confirmed status cannot create a success card without confirmed action evidence', async () => {
   const html = await renderResult({ result: result('confirmed'), receipts: [] });
   assert.match(html, /Confirmation unknown/);
-  assert.doesNotMatch(html, /test-resultHeading|Transaction confirmed|Closed ETH Long/);
+  assert.doesNotMatch(html, /data-hero-tone="success"|Transaction confirmed|Closed ETH Long/);
 });
 
 test('simulation result is explicitly labeled and has no public explorer receipt', async () => {
   const html = await renderResult({ result: result('confirmed', { receipt: true }), simulated: true });
   assert.match(html, /aria-label="Simulated transaction receipt"/);
   assert.doesNotMatch(html, /Simulation complete/, 'the outcome heading owns completion');
-  assert.match(html, />Closed ETH Long<\/h3>/);
+  assert.match(html, />Closed ETH Long<\/span><\/h3>/);
   assert.match(html, /aria-label="Simulated result: Closed ETH Long"/);
   assert.match(html, /data-amount-provenance="simulation"/);
   assert.match(html, /Simulation · Ethereum/);
@@ -289,13 +289,13 @@ test('declined, reverted and unknown outcomes retain recovery guidance above com
     });
     assert.match(html, sample.expected);
     assert.match(html, /3× BTC Short/);
-    assert.match(html, /test-transactionIdentity/);
+    assert.match(html, /aria-label="Transaction summary"/);
     assert.doesNotMatch(html, /Reviewed amounts, not final outcomes|Execution details/);
     assert.doesNotMatch(html, /<dt>Slippage/);
-    assert.ok(html.indexOf('test-resultRecoveryStatus') < html.indexOf('test-transactionIdentity'));
+    assert.ok(html.indexOf('test-resultRecovery') < html.indexOf('aria-label="Transaction summary"'));
 
     const visible = html;
-    assert.doesNotMatch(visible, /<dt>Target leverage|<dt>Position|<dt>Amount|test-amountFlow|data-amount-provenance="receipt"/);
+    assert.doesNotMatch(visible, /<dt>Target leverage|<dt>Position|<dt>Amount|Confirmed transaction amounts|data-amount-provenance="receipt"/);
     if (sample.noSubmission) assert.doesNotMatch(html, /View on explorer/);
     else assert.match(visible, /View on explorer/);
     if (sample.result === cases[2].result) assert.match(html, /Do not resubmit · check History/);
@@ -307,7 +307,7 @@ test('newly opened live position shows verified identity without presenting requ
     result: result('confirmed', { receipt: true }),
     newPosition: { key: 'ETH:long:42', market: 'ETH', side: 'long', positionId: 42, targetLeverage: 2 },
   });
-  assert.match(html, />ETH Long opened<\/h3>/);
+  assert.match(html, />ETH Long opened<\/span><\/h3>/);
   assert.match(html, /Position #42 · Ethereum/);
   assert.doesNotMatch(html, /2× ETH Long opened/);
 });
@@ -318,7 +318,7 @@ test('simulated opened position retains action identity with a compact explicitl
     newPosition: { key: 'ETH:long:42', market: 'ETH', side: 'long', positionId: 42, targetLeverage: 2 },
     reviewedFacts: [{ label: 'Target leverage', value: '2×' }],
   });
-  assert.match(html, />ETH Long opened<\/h3>/);
+  assert.match(html, />ETH Long opened<\/span><\/h3>/);
   assert.match(html, /aria-label="Simulated result: ETH Long opened"/);
   assert.match(html, /Simulation · Target 2× · Ethereum/);
   assert.match(html, /aria-label="Simulated transaction receipt"/);
@@ -347,7 +347,7 @@ test('partial recovery shows already confirmed wallet movements separately from 
   assert.match(html, />2 fxUSD<\/span>/);
   assert.doesNotMatch(html, /Reviewed amounts, not final outcomes/);
 
-  assert.doesNotMatch(html, /Transaction confirmed|test-resultHeading/);
+  assert.doesNotMatch(html, /Transaction confirmed|data-hero-tone="success"/);
 });
 
 
@@ -357,7 +357,7 @@ test('actual phone receipt and fresh readback decimals stay compact while raw re
  const receipt: ReceiptPresentation={...receipts[0],movements:['received 720.89147659306640625 fxUSD'],exactMovements:[{direction:'received' as const,amount:'720.89147659306640625',symbol:'fxUSD'}]};
  const html=await renderResult({result:execution,confirmedPosition:readback,receipts:[receipt]});
  const main=html;
- assert.match(main,/≈ 720\.89 <span class="test-flowUnit">fxUSD<\/span>/);
+ assert.match(main,/≈<\/span> 720\.89 <span class="test-unit">fxUSD<\/span>/);
  assert.match(main,/Position #42/);assert.match(main,/>Collateral<\/dt>/);assert.match(main,/>Debt<\/dt>/);
  assert.doesNotMatch(main,/>Updated<|Not the earlier quote/);
  assert.doesNotMatch(html,/0.358481260986328125 stETH|720.89147659306640625 fxUSD/);
@@ -370,18 +370,21 @@ test('actual phone receipt and fresh readback decimals stay compact while raw re
 
 test('pending preserves long identities and static readable tiny or large units', async () => {
  const { PendingTransactionSummary } = await import('../src/components/review/PendingTransactionSummary');
+ const { TransactionHero } = await import('../src/components/review/TransactionHero');
  const name='Collateral adjustment for exceptionally long position identity';
+ const progress=renderToStaticMarkup(React.createElement(PendingTransactionSummary,{heading:name,status:'submitted',steps:[],chainId:1,networkSwitching:false}));
+ assert.match(progress,/Submitted/);assert.match(progress,/Do not resubmit/);
  for(const value of ['0.000000000000000001 VeryLongTokenSymbol','9007199254740993123456789.123456789 VeryLongTokenSymbol']){
   const fact={label:'Deposit',value};
-  const html=renderToStaticMarkup(React.createElement(PendingTransactionSummary,{identity:{name,subtitle:'Position #123456789 · Ethereum',symbol:'ETH',review:'Review position',confirm:'Confirm',amount:undefined,amountLabel:'Deposit',value:undefined},facts:[fact],status:'submitted',steps:[],chainId:1,networkSwitching:false}));
-  assert.match(html,/Submitted/);assert.match(html,/Do not resubmit/);assert.ok(html.includes(name));assert.match(html,/VeryLongTokenSymbol/);
+  const html=renderToStaticMarkup(React.createElement(TransactionHero,{title:name,legs:[fact],caption:'Position #123456789 · Ethereum',ariaLabel:'Reviewed transaction amounts'}));
+  assert.ok(html.includes(name));assert.match(html,/VeryLongTokenSymbol/);
   if (value.startsWith('900719')) assert.doesNotMatch(html,/9007199254740993123456789\.123456789/);
-  else assert.match(html,/0\.000000000000000001 <span class="test-flowUnit">VeryLongTokenSymbol<\/span>/, 'tiny amounts remain readable when rounding would hide them');
+  else assert.match(html,/0\.000000000000000001 <span class="test-unit">VeryLongTokenSymbol<\/span>/, 'tiny amounts remain readable when rounding would hide them');
   assert.doesNotMatch(html,/<details|<summary|NaN|Infinity|lucide-chevron-down/);
   assert.equal(fact.value, value, 'the original exact financial fact is retained in the input model');
  }
- const css=readFileSync(new URL('../src/components/review/ActionReviewPresentation.module.css',import.meta.url),'utf8');
- assert.match(css,/\.pendingStatus strong \{[^}]*overflow-wrap: anywhere/);
+ const css=readFileSync(new URL('../src/components/review/TransactionHero.module.css',import.meta.url),'utf8');
+ assert.match(css,/\.title \{[^}]*overflow-wrap: anywhere/);
 });
 
 test('unresolved receipt movement without detail retains the explorer without an empty disclosure', async () => {

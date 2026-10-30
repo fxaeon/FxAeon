@@ -55,11 +55,11 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   if (scenario.missingUsd) {
     const leg = viewport.locator('[data-amount-provenance="review"] [data-review-fact]').first();
     const usd = leg.locator('[data-usd-state="unavailable"]');
-    const network = leg.locator('[data-network]');
+    const network = leg.locator('[data-hero-caption]');
     await expect(usd).toHaveText('');
     await expect(usd.getByRole('status', { name: 'USD value unavailable' })).toBeAttached();
     await expect(network).toHaveText('Ethereum');
-    expect(await network.evaluate(element => getComputedStyle(element, '::before').content)).toBe('none');
+    expect(await usd.evaluate(element => getComputedStyle(element.previousElementSibling!).display), 'no separator is left before a missing USD value').toBe('none');
   }
   const debt = viewport.getByRole('region', { name: 'Estimated position', exact: true }).locator('dl > div').filter({ hasText: 'Total debt' });
   await expect(debt).toContainText('50 fxUSD');
@@ -105,7 +105,8 @@ for (const scenario of scenarios) test(`amounts stay truthful through wallet and
   const pending = page.getByRole('region', { name: 'Transaction progress', exact: true });
   await expect(pending).toContainText('Confirm in wallet');
   await expect(page.getByRole('heading', { name: 'Borrow fxUSD', exact: true })).toBeVisible();
-  await expect(pending.getByRole('region', { name: 'Reviewed transaction amounts' })).toBeVisible();
+  // The reviewed amounts stay where they were; only the action became progress.
+  await expect(viewport.getByRole('region', { name: 'Reviewed transaction amounts' })).toBeVisible();
   await expect(viewport.locator('[data-review-actions]')).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Confirmed transaction receipt', exact: true })).toHaveCount(0);
   if (scenario.reduced) expect(await pending.locator('svg').first().evaluate(node => getComputedStyle(node).animationName)).toBe('none');

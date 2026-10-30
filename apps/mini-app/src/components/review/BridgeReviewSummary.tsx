@@ -1,49 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, Check, Copy } from 'lucide-react';
-import { ChainIcon, TokenIcon } from '@/components/TokenIcon';
-import { ValueOrSkeleton } from '@/components/MissingValue';
-import { groupDigits } from '@/lib/amount';
+import { Check, Copy } from 'lucide-react';
 import { copyText } from '@/lib/clipboard';
 import type { ReviewFact } from '@/lib/fx/reviewFormatting';
-import { readableReviewAmount, reviewFactLabel } from './reviewHierarchy';
+import { reviewFactLabel } from './reviewHierarchy';
 import styles from './BridgeReviewSummary.module.css';
-import { AmountCounterpart, AmountFigure, useLeadingUsdFigures } from './AmountUsd';
-import { tokenAmountParts } from './transactionAmountPresentation';
 import { ReviewTermRow } from './ReviewTermRow';
-
-function BridgeAmount({ fact, network, chainId, received = false }: {
-  fact: ReviewFact; network?: ReviewFact; chainId?: number; received?: boolean;
-}) {
-  const parts = tokenAmountParts(fact);
-  const figure = parts ? readableReviewAmount(parts.amount) : undefined;
-  const unit = parts?.symbol;
-  const tokenText = figure ? `${figure.shortened || fact.value.startsWith('≈') ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))}` : '';
-  return <div data-review-fact={fact.label} className={styles.amount}>
-    <span className={styles.token} aria-hidden="true">
-      {unit && <TokenIcon symbol={unit} size={34} />}
-      {(chainId === 1 || chainId === 8453) && <span><ChainIcon chainId={chainId} size={15} /></span>}
-    </span>
-    <div className={styles.amountText}>
-      <div className={styles.exactAmount} data-long={(figure?.value.length ?? 0) > 15 || undefined}>
-        <span>{parts && figure
-          ? <AmountFigure amount={parts.amount} symbol={parts.symbol}>{tokenText} <span className={styles.flowUnit}>{unit}</span></AmountFigure>
-          : <><ValueOrSkeleton value={fact.value} width="lg" label="Bridge amount unavailable" /> {unit && <span className={styles.flowUnit}>{unit}</span>}</>}</span>
-      </div>
-      <span className={styles.networkLine}><span>{received ? 'Estimated' : 'Send'}</span>{parts && <><span aria-hidden="true">·</span><AmountCounterpart amount={parts.amount} symbol={parts.symbol} token={`${tokenText} ${parts.symbol}`} /></>}{network && <><span aria-hidden="true">·</span><span>{network.value}</span></>}</span>
-    </div>
-  </div>;
-}
-
-/** A grouped amount and ticker beyond this width reads better in stacked legs. */
-function needsWideAmountLayout(fact: ReviewFact | undefined): boolean {
-  const parts = fact && tokenAmountParts(fact);
-  if (!parts) return false;
-  const figure = readableReviewAmount(parts.amount);
-  const display = `${figure.shortened || parts.approximate ? '≈ ' : ''}${groupDigits(figure.value.replace(/,/g, ''))} ${parts.symbol}`;
-  return display.length > 14;
-}
 
 function Recipient({ fact }: { fact: ReviewFact }) {
   const [copyState, setCopyState] = useState<'idle' | 'copying' | 'copied' | 'unconfirmed'>('idle');
@@ -81,27 +44,17 @@ function BridgeFact({ fact }: { fact: ReviewFact }) {
   return <ReviewTermRow fact={fact} displayLabel={label} />;
 }
 
-/** Display only the accepted facts. No alternate quote, fee or timing math. */
-export function BridgeReviewSummary({ facts, allFacts, sourceChainId, destinationChainId }: {
-  facts: readonly ReviewFact[]; allFacts: readonly ReviewFact[]; sourceChainId: number; destinationChainId?: number;
-}) {
+/** The terms beneath the transfer hero. Display only the accepted facts: no alternate quote, fee or timing math. */
+export function BridgeReviewSummary({ facts, allFacts }: { facts: readonly ReviewFact[]; allFacts: readonly ReviewFact[] }) {
   const sent = facts.find(fact => fact.label === 'Amount' || fact.label === 'Input amount');
   const received = facts.find(fact => fact.label === 'Estimated received');
   const source = allFacts.find(fact => fact.label === 'Source network');
   const destination = allFacts.find(fact => fact.label === 'Destination network');
   const amountsShowNetworks = Boolean(sent && received && source && destination);
   const priceImpact = allFacts.find(fact => fact.label === 'Price impact');
-  // USD figures, while they lead, stack the legs just as long token amounts do.
-  const usdFigures = useLeadingUsdFigures([sent, received].map(fact => (fact && tokenAmountParts(fact)) || { amount: '', symbol: '' }));
-  const wideAmounts = needsWideAmountLayout(sent) || needsWideAmountLayout(received) || usdFigures.some(text => text !== null && text.length > 9);
   const slippage = allFacts.find(fact => fact.label === 'Slippage');
   const remaining = facts.filter(fact => !(fact.label === 'Delivery estimate' && /^(?:Not provided by bridge|Unavailable|Unknown|—)?$/i.test(fact.value.trim())) && fact !== sent && fact !== received && !(amountsShowNetworks && fact.label === 'Networks'));
-  return <section className={styles.summary} aria-label="Bridge amounts and terms">
-    <div className={styles.amounts} data-wide-amounts={wideAmounts || undefined}>
-      {sent && <BridgeAmount fact={sent} network={source} chainId={sourceChainId} />}
-      {sent && received && <ArrowDown className={styles.direction} size={17} aria-hidden="true" />}
-      {received && <BridgeAmount fact={received} network={destination} chainId={destinationChainId} received />}
-    </div>
+  return <section className={styles.summary} aria-label="Bridge terms">
     <div className={styles.terms}>
       <div className={styles.consequenceGroup}>{remaining.filter(fact => ['Minimum received', 'Quoted minimum received'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}{slippage && <BridgeFact fact={slippage} />}</div>
       <div className={styles.costGroup}>{remaining.filter(fact => ['Gas fee', 'Bridge fee', 'Protocol fee', 'f(x) fee'].includes(fact.label)).map(fact => <BridgeFact key={fact.label} fact={fact} />)}</div>

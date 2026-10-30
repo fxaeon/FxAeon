@@ -160,7 +160,7 @@ test('focused transaction preview uses the real phone sheet without a second car
       expect(geometry.width).toBeLessThanOrEqual(390);
       expect(geometry.document).toBeLessThanOrEqual(geometry.viewport);
       if (stage === 'review') {
-        const heading = await sheet.locator('header h2').boundingBox();
+        const heading = await sheet.locator('[data-review-focus]').boundingBox();
         const handle = await sheet.locator('header > span[aria-hidden="true"]').boundingBox();
         expect(heading!.y, 'The title clears the drag handle on short screens').toBeGreaterThanOrEqual(handle!.y + handle!.height);
         await expect(sheet.locator('[data-review-actions]')).toBeVisible();

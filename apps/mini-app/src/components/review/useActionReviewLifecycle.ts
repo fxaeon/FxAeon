@@ -178,6 +178,8 @@ export function useActionReviewLifecycle(props: ActionReviewProps) {
     // never falls back to the page when the Review button unmounts. A failed
     // preparation returns focus to the action that tries again.
     if (stage === 'result' || stage === 'review') {
+      // A phone sheet owns its initial focus (its Close control); the review leaves it there.
+      if (stage === 'review' && headingRef.current?.closest('[data-mobile-review-sheet]')) return;
       headingRef.current?.focus({ preventScroll: true });
     } else if (stage === 'input' && previous === 'planning') {
       triggerRef.current?.focus({ preventScroll: true });

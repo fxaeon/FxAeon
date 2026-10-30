@@ -30,8 +30,8 @@ async function resultExitControl(page: import('@playwright/test').Page) {
 }
 
 async function visibleReviewHeader(page: import('@playwright/test').Page) {
-  const sheet = page.locator('[data-mobile-review-sheet]');
-  return await sheet.isVisible() ? sheet.locator(':scope > header') : page.locator('[data-review-header]');
+  // The hero carries the visible title on phone and desktop alike; the sheet keeps only its dialog name.
+  return page.locator('[data-review-viewport] [data-review-essential]');
 }
 
 async function harnessMetrics(page: import('@playwright/test').Page): Promise<Record<string, unknown>> {
@@ -267,9 +267,9 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   });
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
   const review = page.locator('.reviewInlineContent');
-  await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"] [data-amount-unit]')).toHaveText('99 USDC');
   await expect(review.locator('[data-review-fact="Estimated received"] summary')).toHaveCount(0);
-  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('Receive · est.', { exact: true })).toBeVisible();
+  await expect(review.locator('[data-review-fact="Estimated received"]').getByText('You receive · est.', { exact: true })).toBeVisible();
   const fee = review.locator('[data-review-fact="f(x) fee"]');
   await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
   await expect(fee.locator('details, summary')).toHaveCount(0);
@@ -284,7 +284,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
   expect(await metric(page, 'send')).toBe(0);
   await page.clock.fastForward(30_001);
   // Accepted amounts remain evidence of the old review, not a fresh quote.
-  await expect(review.locator('[data-review-fact="Estimated received"] [data-review-amount]')).toHaveText('99 USDC');
+  await expect(review.locator('[data-review-fact="Estimated received"] [data-amount-unit]')).toHaveText('99 USDC');
   await expect(review.getByText('Quote expired · review again', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Withdraw instantly', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review updated quote', exact: true })).toBeEnabled();
@@ -409,7 +409,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await expect(confirm).toBeVisible();
     const sheet = page.locator('[data-mobile-review-sheet]');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole('heading', { level: 2, name: 'Add to ETH Long', exact: true })).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: 'Add to ETH Long', exact: true })).toBeVisible();
     await expect(sheet.getByText('Position #42', { exact: true })).toBeVisible();
     const reviewedAmount = page.getByRole('region', { name: 'Transaction amounts', exact: true }).locator('[data-review-fact="Amount"] [data-review-amount]');
     await expect(reviewedAmount).toBeVisible();
@@ -986,7 +986,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await harnessControl(page, 'Use Base route');
     await harnessControl(page, 'Gas balance insufficient by an unknown amount');
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
-    await expect(page.getByRole('region', { name: 'Transaction summary', exact: true }).getByText('Base', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Transaction amounts', exact: true }).locator('[data-hero-caption]').getByText('Base', { exact: true })).toBeVisible();
     await expect(review.locator('[role="status"]', { hasText: 'needs more ETH' })).toHaveText('This wallet needs more ETH on Base for network fees. Receive ETH');
     await expect(action).toBeDisabled();
     expect(await metric(page, 'send')).toBe(0);
@@ -1011,7 +1011,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await resolvePreviewRequest(page, (await previewRequests(page))[0]!.id);
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole('heading', { level: 2, name: '3× ETH Long', exact: true })).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: '3× ETH Long', exact: true })).toBeVisible();
     const review = page.locator('[data-review-viewport]');
     const amount = review.locator('[data-review-fact="Amount"] [data-review-amount]').last();
     const expectFits = async () => {
@@ -1041,7 +1041,7 @@ test.describe('ActionReview isolated orchestration', () => {
     await page.getByRole('button', { name: 'Review position', exact: true }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole('heading', { level: 2, name: 'Review transaction', exact: true })).toBeVisible();
+    await expect(sheet.getByRole('heading', { name: 'Review transaction', exact: true })).toBeVisible();
     const review = page.locator('[data-review-viewport]');
     // The summary row; Quote details repeats it, collapsed.
     const recipient = review.locator('[data-review-fact="Recipient"]').first().locator(':scope > span').last();
