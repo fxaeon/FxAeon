@@ -1,4 +1,4 @@
-.section { min-width: 0; margin: 0 0 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.section { min-width: 0; margin: 0 0 20px; padding-top: 24px; }
 .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 44px; }
 .header h3 { margin: 0; color: var(--text); font-size: 14px; font-weight: 500; }
 .ranges { display: flex; gap: 2px; }
@@ -46,7 +46,7 @@
 .scenarioOverview > div:last-child { text-align: right; }
 .scenarioOverview strong { color: var(--text); font-weight: 550; font-size: 27px; }
 .scenarioOverview strong[data-negative] { color: var(--negative, #f56a83); }
-.thresholdRow { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); color: var(--mut); font-size: 12px; }
+.thresholdRow { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; color: var(--mut); font-size: 12px; }
 .thresholdRow strong { color: var(--text); font-weight: 550; }
 .distance { margin: 12px 0 0; color: var(--mut); line-height: 1.6; font-size: 12px; }
 .section > .header h3 { font-size: 19px; font-weight: 550; }

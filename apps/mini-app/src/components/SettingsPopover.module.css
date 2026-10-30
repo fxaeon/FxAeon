@@ -1,18 +1,18 @@
-.trigger { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--mut); font-size: 12px; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
+.trigger { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 0 10px; border-radius: 10px; background: var(--surface); color: var(--mut); font-size: 12px; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
 .trigger[data-chip] { padding-left: 6px; }
 .chip { padding: 4px 8px; border-radius: 999px; background: var(--mint-dim); color: var(--mint-bright); font-size: var(--fs-micro); font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .trigger:hover, .trigger[aria-expanded='true'] { background: var(--mint-dim); color: var(--mint-text, var(--mint)); border-color: color-mix(in srgb, var(--mint) 28%, transparent); }
 .trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .trigger > svg { flex-shrink: 0; }
 .backdrop { position: fixed; inset: 0; z-index: 70; background: var(--scrim); backdrop-filter: blur(3px); }
-.panel { position: fixed; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--elevation-2); animation: settings-enter var(--motion-enter) var(--motion-ease) both; }
+.panel { position: fixed; display: flex; flex-direction: column; overflow: hidden; border-radius: 20px; background: var(--surface); box-shadow: var(--elevation-2); animation: settings-enter var(--motion-enter) var(--motion-ease) both; }
 .panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 6px 20px; flex-shrink: 0; }
 .panel header strong { font-size: 20px; font-weight: 550; }
 .panel header button { display: grid; place-items: center; min-width: 44px; min-height: 44px; color: var(--mut); border-radius: 50%; }
 .panel header button:hover { background: var(--surface-2); }
 .body { overflow: auto; overscroll-behavior: contain; padding: 2px 20px 12px; min-height: 0; scrollbar-width: thin; }
 .handle { display: none; }
-.footer { flex-shrink: 0; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
+.footer { flex-shrink: 0; padding: 12px 20px 16px; }
 .footer button { display: grid; place-items: center; min-height: 48px; width: 100%; border-radius: 10px; background: var(--mint); color: var(--on-accent); font-size: 14px; font-weight: 600; }
 .footer button:hover { opacity: .9; }
 .footer button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }

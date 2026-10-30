@@ -20,7 +20,7 @@
 [data-product-ui='v2'] .amount-control { border-radius: 12px; }
 [data-product-ui='v2'] .segmented { border-color: var(--line); box-shadow: none; }
 [data-product-ui='v2'] .segmented-option { box-shadow: none; }
-[data-product-ui='v2'] .segmented[data-thumb]:not(.segmented-sides)::before { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--line-strong); }
+[data-product-ui='v2'] .segmented[data-thumb]:not(.segmented-sides)::before { background: var(--surface-3); }
 [data-product-ui='v2'] .segmented:not(.segmented-sides) .segmented-option-active { color: var(--text); font-weight: 600; }
 [data-product-ui='v2'] .app-workspace[data-route='/more'] > .utility-content { --desktop-content-width: 800px; max-width: 800px; }
 [data-product-ui='v2'] .app-workspace[data-route='/settings'] > .utility-content { --desktop-content-width: 640px; max-width: 640px; }

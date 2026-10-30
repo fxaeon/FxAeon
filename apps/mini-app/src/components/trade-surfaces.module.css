@@ -67,16 +67,14 @@
   min-height: 44px;
   max-width: 156px;
   width: auto;
-  border: 1px solid var(--hairline);
   border-radius: 999px;
   background: var(--surface-3);
   padding: 6px 12px 6px 6px;
   color: var(--text);
   font-size: var(--fs-body);
   font-weight: 600;
-  box-shadow: var(--ring-inset);
 }
-.compactTokenSelect > button:hover { border-color: var(--line-strong); background: color-mix(in srgb, var(--surface-3) 70%, var(--line-strong)); }
+.compactTokenSelect > button:hover { background: color-mix(in srgb, var(--surface-3) 70%, var(--line-strong)); }
 
 /* Asset picker: a bottom sheet on phones, a centred dialog on wider screens. */
 .tokenPickerBackdrop {

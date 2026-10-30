@@ -36,7 +36,6 @@
   justify-content: center;
   gap: 7px;
   padding: 0 10px;
-  border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
 }
@@ -104,7 +103,6 @@
 .control[data-connected] .identityTrigger {
   border-radius: 12px;
   background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .identityAvatar {

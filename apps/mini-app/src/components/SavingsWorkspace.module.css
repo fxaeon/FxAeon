@@ -69,7 +69,7 @@
 .receiveRow > div { min-width: 0; max-width: 66%; }
 .pendingTask { min-width: 0; margin-top: 18px; }
 .pendingTask > :global([role='status']) { width: 100%; }
-.readyClaim { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--mint) 25%, var(--line)); border-radius: 14px; background: var(--mint-dim); }
+.readyClaim { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 14px; background: var(--mint-dim); }
 .readyClaim > span { display: flex; min-width: 0; align-items: center; gap: 7px; color: var(--mint-text, var(--mint)); }
 .readyClaim svg { flex-shrink: 0; }
 .readyClaim strong { font-size: 13px; line-height: 1.35; font-weight: 500; }
@@ -82,7 +82,7 @@
 .riskSummary nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 4px; }
 .riskSummary a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
 .riskSummary a:hover { color: var(--text); }
-.retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--warn); background: color-mix(in srgb, var(--warn-dim) 68%, var(--surface)); }
+.retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--warn); background: color-mix(in srgb, var(--warn-dim) 68%, var(--surface)); }
 .retryButton:hover { background: var(--warn-dim); }
 .retryButton:disabled { cursor: not-allowed; opacity: .55; }
 .termsStatus { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
@@ -91,8 +91,8 @@
 .termsStatus button:disabled { color: var(--mut-2); cursor: wait; text-decoration: none; }
 .withdrawOptions :global(fieldset) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .withdrawOptions :global(legend) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; margin: -1px; white-space: nowrap; }
-.withdrawOptions :global(label) { align-items: center; gap: 6px; min-height: 52px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: transparent; box-shadow: none; }
-.withdrawOptions :global(label[data-selected='true']) { border-color: var(--mint); background: var(--mint-dim); box-shadow: none; }
+.withdrawOptions :global(label) { align-items: center; gap: 6px; min-height: 52px; padding: 9px 10px; border-radius: 12px; background: var(--surface-2); box-shadow: none; }
+.withdrawOptions :global(label[data-selected='true']) { background: var(--mint-dim); box-shadow: none; }
 .withdrawOptions :global(label strong) { font-size: 12px; font-weight: 500; line-height: 1.35; }
 .withdrawOptions :global(label small) { margin-top: 3px; font-size: 11px; line-height: 1.35; }
 .withdrawOptions :global(label > span:last-child) { width: 16px; height: 16px; flex-basis: 16px; }

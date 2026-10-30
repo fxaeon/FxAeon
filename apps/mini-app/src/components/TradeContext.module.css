@@ -1,5 +1,5 @@
 .context{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:12px;margin-top:8px}
-.surface{min-width:0;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
+.surface{min-width:0;padding:20px;border-radius:22px;background:var(--surface)}
 .heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .heading h2{font-size:17px;font-weight:600;}
 .heading a,.protection a{display:inline-flex;align-items:center;gap:4px;min-height:44px;color:var(--mint);font-size:12px;font-weight:550}
@@ -9,7 +9,7 @@
 .reading output{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;}
 .slider{width:100%;min-height:28px}
 .scale{display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin:5px 0 18px}
-.results{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:17px 0;border-top:1px solid var(--line)}
+.results{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:17px 0}
 .results>div{display:flex;flex-direction:column;min-width:0}
 .results dt{margin-bottom:7px}
 .results dt,.conditions dt{font-size:11px;color:var(--mut);line-height:1.5}
@@ -21,7 +21,7 @@
 .unavailable{color:var(--mut);font-weight:400!important}
 .context [data-tone=negative]{color:var(--danger,#f17b85)}
 .context [data-tone=positive]{color:var(--mint)}
-.protection{border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.protection{border-radius:20px;overflow:hidden;background:var(--surface)}
 .protection summary{display:flex;align-items:center;gap:9px;list-style:none;cursor:pointer;min-height:62px;padding:17px 20px;font-size:14px;font-weight:550}
 .protection summary::-webkit-details-marker{display:none}
 .protection summary:focus-visible{outline-offset:-4px;border-radius:14px}
@@ -30,7 +30,7 @@
 .protectionBody{padding:0 20px 22px}
 .flow{display:flex;align-items:center;justify-content:space-between;gap:7px;margin:24px 0}
 .flow>span{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;font-size:10px;color:var(--mut);flex:1}
-.flow i{width:45px;height:45px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--mint);font-style:normal}
+.flow i{width:45px;height:45px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;color:var(--mint);font-style:normal}
 .flow i>svg{width:21px;height:21px}
 .flow>svg{width:16px;height:16px;color:var(--mut)}
 .links{display:flex;flex-wrap:wrap;gap:18px}
