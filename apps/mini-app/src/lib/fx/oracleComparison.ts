@@ -9,7 +9,7 @@ import type { UsdPriceSnapshot } from '../prices';
 // StETHPriceOracle, WBTCPriceOracle, InverseWstETHPriceOracle and
 // InversePriceOracle. Inverting the short oracle yields USD/wstETH or USD/WBTC;
 // the ETH long oracle is already USD/stETH, not USD/ETH or USD/wstETH.
-const ORACLES = {
+export const FX_ORACLES = {
   ETH: { long: '0x0C5C61025f047cB7e3e85852dC8eAFd7b9a4Abfb', short: '0x222786833b5fd5eE21532d8b576391bAbeFdAAd1' },
   BTC: { long: '0xb3c90e64EB6f456A5F5C17Aa99b6aecA6f4a6390', short: '0x5d2c6215555B36889ef235c6d5cCDE22E9964e6a' },
 } as const;
@@ -48,14 +48,14 @@ export async function readOracleObservation(market: 'ETH' | 'BTC', side: 'long' 
     ]);
     const blockAt = Number(block.timestamp) * 1000;
     if (!Number.isSafeInteger(blockAt) || blockAt <= 0 || blockAt > readAt + 30_000 || readAt - blockAt > 120_000) throw new Error('Recent oracle block unavailable');
-    if (typeof oracle !== 'string' || !isAddress(oracle, { strict: false }) || oracle.toLowerCase() !== ORACLES[market][side].toLowerCase()) throw new Error('Oracle basis not verified');
+    if (typeof oracle !== 'string' || !isAddress(oracle, { strict: false }) || oracle.toLowerCase() !== FX_ORACLES[market][side].toLowerCase()) throw new Error('Oracle basis not verified');
     if (side === 'short') {
       const [underlying, rate] = await Promise.all([
         reader.readContract({ address: oracle as Address, abi: INVERSE_BASIS_ABI, functionName: 'oracle', blockNumber }),
         reader.readContract({ address: oracle as Address, abi: INVERSE_BASIS_ABI, functionName: 'rateProvider', blockNumber }),
       ]);
       const expectedRate = market === 'ETH' ? '0x81A777c4aB65229d1Bf64DaE4c831bDf628Ccc7f' : '0x0000000000000000000000000000000000000000';
-      if (typeof underlying !== 'string' || underlying.toLowerCase() !== ORACLES[market].long.toLowerCase() || typeof rate !== 'string' || rate.toLowerCase() !== expectedRate.toLowerCase()) throw new Error('Inverse oracle basis not verified');
+      if (typeof underlying !== 'string' || underlying.toLowerCase() !== FX_ORACLES[market].long.toLowerCase() || typeof rate !== 'string' || rate.toLowerCase() !== expectedRate.toLowerCase()) throw new Error('Inverse oracle basis not verified');
     }
     const tuple = await reader.readContract({ address: oracle as Address, abi: ORACLE_ABI, functionName: 'getPrice', blockNumber });
     return { market, side, readAt, blockAt, blockNumber, token: market === 'BTC' ? 'WBTC' : side === 'long' ? 'stETH' : 'wstETH', usd: oracleUsdPrice(tuple, side) };

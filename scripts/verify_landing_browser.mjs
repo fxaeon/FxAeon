@@ -18,12 +18,13 @@ const captures = resolve(root, 'artifacts/landing-review');
 
 function marketFixture(mode = 'ready') {
   const now = Date.now() - (mode === 'stale' ? 360_000 : mode === 'expiring' ? 299_000 : 0);
-  const metric = (value, source, sourceUrl, price = false) => ({ value, status: 'fresh', fetchedAt: now, source, sourceUrl, ...(price ? { sourceAt: now - (mode === 'expiring' ? 0 : 15_000) } : {}) });
+  // Every metric comes from f(x)'s feeds and is as current as its fetch.
+  const metric = (value, sourceUrl) => ({ value, status: 'fresh', fetchedAt: now, source: 'aladdin', sourceUrl });
   const result = { status: 'ready',
-    fxSaveTvlUsd: metric(12_345_678, 'aladdin', 'https://fx.aladdin.club/earn'),
-    fxSaveApy: metric(6.5, 'aladdin', 'https://fx.aladdin.club/earn'),
-    ethUsd: metric(2_500, 'defillama', 'https://defillama.com/prices', true),
-    btcUsd: metric(80_000, 'defillama', 'https://defillama.com/prices', true),
+    fxSaveTvlUsd: metric(12_345_678, 'https://fx.aladdin.club/earn'),
+    fxSaveApy: metric(6.5, 'https://fx.aladdin.club/earn'),
+    ethUsd: metric(2_500, 'https://fx.aladdin.club'),
+    btcUsd: metric(80_000, 'https://fx.aladdin.club'),
   };
   if (mode === 'partial') for (const key of ['fxSaveTvlUsd', 'fxSaveApy']) result[key] = { ...result[key], value: null, status: 'unavailable' };
   return result;
@@ -247,7 +248,7 @@ try {
     if (mode === 'partial') {
       await page.getByRole('tab', { name: 'Trade', exact: true }).click();
       await expect(page.locator('[data-trade-units]')).toContainText('$2,500.00 / ETH');
-      await expect(page.locator('[data-trade-checked]')).toHaveText(/Updated \d{2}:\d{2} UTC/);
+      await expect(page.locator('[data-trade-checked]')).toHaveText(/Checked \d{2}:\d{2} UTC/);
       await expect(page.locator('#outcome-trade .market-provenance a')).toBeVisible();
     }
     if (mode === 'ready') await expect(refresh).toBeHidden();
