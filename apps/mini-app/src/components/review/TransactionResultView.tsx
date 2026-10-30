@@ -11,6 +11,7 @@ import { ReviewFactValue } from './ReviewFactValue';
 import { InlineAmount } from './AmountUsd';
 import { TransactionHero } from './TransactionHero';
 import { ReviewTermRow } from './ReviewTermRow';
+import { plainAmountLabel } from './transactionAmountPresentation';
 import { MissingValue } from '@/components/MissingValue';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import { CompactTransactionFooter, hasCompactConfirmedTransaction } from './CompactTransactionFooter';
@@ -158,7 +159,7 @@ export function TransactionResultView({
           {bridgeTracker?.(provenSuccess ? destinationTxHash => <CompactTransactionFooter result={result} receipts={receipts} headingRef={headingRef} destinationReceipt={{ chainId: result.chainId === 1 ? 8453 : 1, hash: destinationTxHash }} /> : undefined)}
           {!bridgeTracker && !conciseSuccess && <section className={styles.resultRecovery} aria-label="Transaction status">
             <TransactionHero tone={safePresentation.tone === 'danger' ? 'danger' : safePresentation.tone === 'success' ? 'success' : 'warning'}
-              title={safePresentation.title} headingRef={headingRef} caption={recoveryWarning} legs={[]} tokens={reviewIdentity?.symbol ? [{ symbol: reviewIdentity.symbol }] : []} />
+              title={safePresentation.title} headingRef={headingRef} caption={reviewIdentity?.name && recoveryWarning ? <><span>{reviewIdentity.name}</span> · <span>{recoveryWarning}</span></> : reviewIdentity?.name ?? recoveryWarning} legs={[]} tokens={reviewIdentity?.symbol ? [{ symbol: reviewIdentity.symbol }] : []} />
             {lastSubmitted && <p className={styles.resultStatusLinks}><span>{simulated ? 'Simulation submitted' : lastSubmitted.transaction.kind === 'approval' ? 'Approval submitted' : 'Transaction submitted'}</span>{recoveryExplorer
               ? <a href={recoveryExplorer} target="_blank" rel="noopener noreferrer">View on explorer <ArrowUpRight size={13} aria-hidden="true" /></a>
               : <span>{simulated ? 'No on-chain link' : 'Explorer unavailable'}</span>}</p>}
@@ -168,9 +169,10 @@ export function TransactionResultView({
               <p className={styles.resultStatNote}>{simulated ? 'Earlier simulated steps' : 'Already confirmed · earlier steps only'}</p>
               <dl>{exactMovements.map((movement, index) => <div className={styles.resultStatRow} key={`${movement.direction}-${movement.symbol}-${index}`}><dt>{movement.direction === 'sent' ? 'Already sent' : 'Already received'}</dt><dd><ResultAmount amount={movement.amount} symbol={movement.symbol} /></dd></div>)}</dl>
             </section>}
-            {reviewIdentity && <section aria-label="Transaction summary" data-amount-provenance="review">
-              {reviewIdentity.amount ? <ReviewTermRow fact={reviewIdentity.amount} displayLabel={reviewIdentity.name} />
-                : <div className={styles.recoveryIdentity}><span>{reviewIdentity.name}</span>{reviewIdentity.value && <strong>{reviewIdentity.value}</strong>}</div>}
+            {/* The action is named in the caption above; each amount here is labelled by its role, so a borrow's collateral never reads as the borrow. */}
+            {reviewIdentity && (reviewIdentity.amount || reviewIdentity.value) && <section aria-label="Transaction summary" data-amount-provenance="review">
+              {reviewIdentity.amount ? <ReviewTermRow fact={reviewIdentity.amount} displayLabel={reviewIdentity.amountLabel ?? plainAmountLabel(reviewIdentity.amount.label)} />
+                : <div className={styles.recoveryIdentity}><span>{reviewIdentity.amountLabel ?? reviewIdentity.name}</span><strong>{reviewIdentity.value}</strong></div>}
             </section>}
           </div>}
           {!bridgeTracker && !conciseSuccess && transactionLinks && <section className={styles.receiptLinks} aria-label="Transaction receipts">{transactionLinks}</section>}
