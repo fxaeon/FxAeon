@@ -12,7 +12,6 @@ import {
 import { useLiveMarketQuote, useUsdPrices } from '@/components/PriceProvider';
 import { usePositionBrake } from '@/components/PositionBrakeContext';
 import { usePositionCostBasis } from '@/components/PositionCostBasisContext';
-import { costBasisFigures, estimatedPnlHelp, PositionCostBasisFacts } from '@/components/PositionCostBasisFacts';
 import { MissingValue } from '@/components/MissingValue';
 import TokenIcon from '@/components/TokenIcon';
 import { formatUsdPrice, priceKeyForSymbol } from '@/lib/prices';
@@ -26,6 +25,10 @@ import { positionName, positionSideLabel } from '@/lib/positionNaming';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
 import { openExternalLink } from '@/lib/telegram';
 import styles from './ProtocolPositionCard.module.css';
+// After the stylesheet on purpose: on the portfolio route this card is the first
+// module to reach InfoHelp, and reaching it earlier regroups the CSS chunks every
+// route shares, adding stylesheets to every page.
+import { costBasisFigures, estimatedPnlHelp, PositionCostBasisFacts } from '@/components/PositionCostBasisFacts';
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <span aria-hidden="true" className={`skeleton ${className}`} />;
