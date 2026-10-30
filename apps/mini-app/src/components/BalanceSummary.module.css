@@ -19,7 +19,6 @@
   font-size: clamp(40px, 12.4vw, 56px);
   line-height: 1.12;
   font-weight: 650;
-  letter-spacing: -.055em;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }

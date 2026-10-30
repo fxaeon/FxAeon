@@ -85,27 +85,10 @@ import { startLandingMarketData } from './market-data-client.mjs';
       setText('[data-earn-caption]', amount === null ? 'Enter an amount' : apy === null ? (waitingApy ? 'Waiting for a fresh APY' : 'Fresh APY unavailable') : 'At ' + amounts.format(apy) + '% APY, unchanged for 1 year');
       const apyCheckedAt = snapshot?.fxSaveApy?.fetchedAt;
       setText('[data-earn-checked]', apy !== null ? 'APY checked ' + clock.format(apyCheckedAt) + ' UTC' : waitingApy ? 'Loading APY…' : 'Live APY unavailable');
-      document.querySelectorAll('[data-earn-result], [data-earn-projection], [data-earn-caption], .earn-comparison').forEach(node => { node.toggleAttribute('hidden', projection === null); });
+      document.querySelectorAll('[data-earn-result], [data-earn-projection], [data-earn-caption]').forEach(node => { node.toggleAttribute('hidden', projection === null); });
       document.querySelector('[data-earn-availability]').hidden = projection !== null;
       setText('[data-earn-status]', amount === null ? 'Enter a starting value' : waitingApy ? 'Loading current APY…' : 'Live APY unavailable');
       setText('[data-earn-status-detail]', amount === null ? 'Your one-year estimate will appear here.' : waitingApy ? 'A fresh rate is needed to estimate earnings.' : 'Try live data again, or open Earn to view the vault.');
-      const comparison = document.querySelector('.earn-comparison');
-      const principalBar = document.querySelector('.principal-bar');
-      const projectionBar = document.querySelector('[data-earn-bar]');
-      projectionBar.toggleAttribute('hidden', projection === null);
-      principalBar.toggleAttribute('hidden', amount === null);
-      if (projection !== null) {
-        const principalHeight = 112 / (1 + apy / 100);
-        principalBar.setAttribute('height', String(principalHeight));
-        principalBar.setAttribute('y', String(125 - principalHeight));
-        projectionBar.setAttribute('height', '112');
-        projectionBar.setAttribute('y', '13');
-        comparison.setAttribute('aria-label', money(amount) + ' starting value and ' + money(projection) + ' after one year if the current ' + amounts.format(apy) + '% APY stays unchanged.');
-      } else {
-        principalBar.setAttribute('height', '90');
-        principalBar.setAttribute('y', '35');
-        comparison.setAttribute('aria-label', 'One-year projection unavailable without a valid amount and fresh APY.');
-      }
       setText('[data-borrow-output]', money(amount === null ? null : amount * .5));
       setText('[data-borrow-collateral]', money(amount));
       setText('[data-trade-exposure]', money(exposure));

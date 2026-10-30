@@ -14,7 +14,7 @@
 .valueLabel > span { color: var(--mut-2); font-size: 12px; }
 .valueTop button { display: grid; flex: 0 0 auto; width: 44px; height: 44px; margin: 0; place-items: center; border-radius: 50%; color: var(--mut); transition: color var(--dur-fast), background-color var(--dur-fast); }
 .valueTop button:hover:not(:disabled) { color: var(--text); background: var(--surface-2); }
-.valueCard .valueNumber { min-width: 0; min-height: 1.125em; margin: 0; color: var(--text); font-size: clamp(42px, 12.8vw, 60px); line-height: 1.12; font-weight: 600; letter-spacing: -.045em; }
+.valueCard .valueNumber { min-width: 0; min-height: 1.125em; margin: 0; color: var(--text); font-size: clamp(42px, 12.8vw, 60px); line-height: 1.12; font-weight: 600; }
 .valueTop .valueNumber { flex: 1; justify-content: flex-start; text-align: left; }
 .valueNumber :global(.missing-value) { width: 4.8em; }
 .valueNumber :global(.missing-value-bar) { height: .66em; border-radius: 6px; }
@@ -56,13 +56,13 @@
 .protocolSection, .activitySection { min-width: 0; scroll-margin-top: 24px; }
 .protocolSection { display: grid; }
 .holdingsHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.holdingsHeading h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.025em; }
+.holdingsHeading h2 { margin: 0; font-size: 21px; font-weight: 600; }
 .holdingsHeading p { margin: 3px 0 0; color: var(--mut); font-size: 12px; }
-.chainLabel { border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--mut); font-size: 11px; }
+.chainLabel { color: var(--mut); font-size: 12px; }
 .protocolGroup { min-width: 0; border: 0; border-radius: 0; background: transparent; }
 .protocolGroup > summary { display: flex; min-width: 0; min-height: 80px; align-items: center; gap: 12px; border-radius: 20px; padding: 17px 18px; cursor: pointer; list-style: none; }
 .protocolGroup > summary::-webkit-details-marker { display: none; }
-.protocolMark { display: grid; flex: 0 0 auto; width: 42px; height: 42px; place-items: center; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); color: var(--mint-text); }
+.protocolMark { display: grid; flex: 0 0 auto; width: 42px; height: 42px; place-items: center; border-radius: 14px; background: var(--surface-2); color: var(--mint-text); }
 .protocolGroup > summary > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .protocolGroup > summary strong { font-size: 16px; font-weight: 600; }
 .protocolGroup > summary small { color: var(--mut); font-size: 12px; }
@@ -70,7 +70,7 @@
 .protocolGroup[open] > summary > svg { transform: none; }
 .protocolBody { display: grid; min-width: 0; gap: 8px; border: 0; padding: 0; }
 .sectionTitle { display: flex; min-height: 28px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin-bottom: 10px; }
-.sectionTitle h2 { margin: 0; color: var(--text); font-size: 14px; font-weight: 550; letter-spacing: -.015em; }
+.sectionTitle h2 { margin: 0; color: var(--text); font-size: 14px; font-weight: 550; }
 .sectionTitle > span { color: var(--mut); font-size: 12px; font-variant-numeric: tabular-nums; }
 .summaryUnavailable { display: inline-flex; align-items: center; gap: 6px; color: var(--mut); font-size: 12px; font-weight: 400; }
 .positionsSection, .earnSection { min-width: 0; }
@@ -99,7 +99,7 @@
 .earnTop > div { min-width: 0; }
 .earnTop h3 { margin: 0; font-size: 18px; font-weight: 550; }
 .earnTop p { margin: 4px 0 0; color: var(--mut); font-size: 15px; line-height: 1.35; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.earnValue { display: flex; min-width: 0; max-width: 160px; align-items: center; justify-content: flex-end; color: var(--text); text-align: right; font-size: 19px; font-weight: 500; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.earnValue { display: flex; min-width: 0; max-width: 160px; align-items: center; justify-content: flex-end; color: var(--text); text-align: right; font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .earnTop > svg { width: 15px; height: 15px; justify-self: center; color: var(--mut); transition: transform var(--dur-fast); }
 .earnCard[open] .earnTop > svg { transform: rotate(180deg); }
 .underlying { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 12px; }
@@ -113,7 +113,7 @@
 .moreBackdrop { position: fixed; z-index: 1000; inset: 0; display: grid; align-items: end; justify-items: center; padding: 0; background: rgb(0 0 0 / 64%); }
 .moreDialog { width: min(100%, 440px); max-height: min(86dvh, 620px); overflow: auto; overscroll-behavior: contain; border: 0; border-radius: 26px 26px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--surface); box-shadow: 0 20px 56px rgb(0 0 0 / 30%); }
 .moreHeading { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.moreHeading h2 { margin: 0; font-size: 20px; font-weight: 550; letter-spacing: -.025em; }
+.moreHeading h2 { margin: 0; font-size: 20px; font-weight: 550; }
 .moreHeading button { display: grid; width: 48px; height: 48px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: var(--mut); }
 .moreHeading button:hover { background: var(--surface-2); color: var(--text); }
 .moreLinks { display: grid; gap: 8px; }

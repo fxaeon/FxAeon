@@ -32,7 +32,7 @@
   min-width: 0;
   max-width: 480px;
   margin-inline: auto;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 42%, var(--line));
+  border: 0;
   box-shadow: none;
 }
 
@@ -46,7 +46,6 @@
 .reviewInlineActions {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--line);
   padding-bottom: 4px;
 }
 
@@ -80,12 +79,12 @@
 .feeSelector { display: flex; gap: 8px; margin: 8px 0; border: 0; padding: 0; }
 .feeSelector label { flex: 1; min-width: 0; position: relative; cursor: pointer; }
 .feeSelector input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.feeSelector label > span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; gap: 2px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
+.feeSelector label > span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 44px; gap: 2px; border-radius: var(--radius-sm); background: var(--surface-2); transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .feeSelector strong { font-size: var(--fs-caption); font-weight: 650; }
 .feeSelector small { font-size: var(--fs-caption); color: var(--mut); font-variant-numeric: tabular-nums; }
 .feeSelector label:hover input:not(:checked):not(:disabled) + span { border-color: var(--mut-2); background: var(--surface-2); }
 .feeSelector label:active input:not(:disabled) + span { transform: scale(0.97); transition-duration: var(--dur-press); }
-.feeSelector input:checked + span { border-color: var(--mint); background: var(--mint-dim); box-shadow: inset 0 0 0 1px var(--mint); }
+.feeSelector input:checked + span { background: var(--mint-dim); color: var(--mint-text); }
 .feeSelector input:focus-visible + span { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .feeSelector:disabled label { cursor: default; }
 .feeSelector:disabled { opacity: .7; }
@@ -108,10 +107,10 @@
   min-width: 44px;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 46%, var(--line));
+  border: 0;
   border-radius: 999px;
   color: var(--mut);
-  background: transparent;
+  background: var(--surface-2);
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
@@ -121,7 +120,6 @@
   border-radius: var(--radius-md);
   font-size: var(--fs-body);
   font-weight: 650;
-  letter-spacing: -0.01em;
 }
 
 .reviewTrigger .primaryAction:global(.button-primary):focus-visible,

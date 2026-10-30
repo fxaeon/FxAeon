@@ -60,7 +60,7 @@ function referenceQr(value, level, boostLevel) {
 }
 
 test('brand metadata, product artwork, and the official protocol mark stay in sync', async () => {
-  for (const asset of ['assets/fxaeon-mark.svg', 'assets/social-preview.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
+  for (const asset of ['assets/fxaeon-mark.svg', 'assets/social-preview.png', 'assets/inter-latin.woff2', 'assets/Inter-LICENSE.txt', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) {
     await access(resolve(root, asset));
   }
   assert.match(html, /<html lang="en" data-theme="dark">/);
@@ -138,7 +138,7 @@ test('calculator figures start blank where live data is required, use concise la
   assert.match(outcomes, /<span class="amount-currency">USD<\/span>/);
   assert.match(outcomes, /<div class="amount-presets" role="group" aria-label="Starting amount">/);
   for (const amount of ['100', '1000', '10000']) assert.match(outcomes, new RegExp(`data-dollar-preset="${amount}"`));
-  assert.match(html, /Loan-to-value<\/span><strong>50%<\/strong>/);
+  assert.match(outcomes, /<dt>Scenario loan-to-value<\/dt><dd>50%<\/dd>/);
   assert.match(html, /<label for="example-leverage">Leverage<\/label>/);
   assert.match(html, /class="visual-label" data-earn-result hidden>After 1 year<\/span>/);
   assert.match(html, /<dt>Earnings<\/dt>/);
@@ -256,12 +256,13 @@ test('built output includes safe Telegram routes, the exact QR, font licenses, c
   assert.ok(builtHtml.includes(`href="${escapeAttribute(launcher)}"`));
   for (const route of ['trade', 'earn', 'borrow', 'move']) assert.ok(builtHtml.includes(`href="https://fxaeon.com/${route}"`), `${route} web route`);
   assert.equal(await readFile(resolve(root, 'dist/assets/telegram-qr.svg'), 'utf8'), qrSvg(launcher));
-  for (const file of ['script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(root, 'dist', file));
+  for (const file of ['script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/tokens/eth.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(root, 'dist', file));
   assert.deepEqual(JSON.parse(await readFile(resolve(root, 'dist/_routes.json'), 'utf8')), { version: 1, include: ['/api/market-data'], exclude: [] });
   await assert.rejects(access(resolve(root, 'dist/functions')));
   await assert.rejects(access(resolve(root, 'dist/hero-field.js')), 'The retired field renderer is not shipped');
   for (const license of ['Inter-LICENSE.txt', 'Manrope-LICENSE.txt']) assert.deepEqual(await readFile(resolve(root, 'assets', license)), await readFile(resolve(root, 'dist/assets', license)));
   await assert.rejects(access(resolve(root, 'dist/assets/tokens/usdc.png')));
+  await assert.rejects(access(resolve(root, 'dist/assets/tokens/wbtc.png')), 'the product cards no longer draw a WBTC chip');
   const robots = await readFile(resolve(root, 'dist/robots.txt'), 'utf8');
   const sitemap = await readFile(resolve(root, 'dist/sitemap.xml'), 'utf8');
   assert.match(robots, /Sitemap: https:\/\/fxaeon\.xyz\/sitemap\.xml/);
@@ -325,7 +326,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
     execFileSync(process.execPath, ['build.mjs'], { cwd: tempLanding, stdio: 'pipe', env: { ...process.env, NEXT_PUBLIC_TELEGRAM_APP_URL: launcher } });
     await assert.rejects(access(resolve(tempRoot, 'node_modules')));
     await assert.rejects(access(resolve(tempLanding, 'node_modules')));
-    for (const file of ['script.js', 'sculpture.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/telegram-qr.svg', 'assets/tokens/eth.png', 'assets/tokens/wbtc.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(tempLanding, 'dist', file));
+    for (const file of ['script.js', 'sculpture.js', 'styles.css', 'assets/manrope-variable.ttf', 'assets/Manrope-LICENSE.txt', 'assets/Inter-LICENSE.txt', 'assets/telegram-qr.svg', 'assets/tokens/eth.png', 'assets/tokens/fxusd.svg', 'assets/tokens/fxsave.svg']) await access(resolve(tempLanding, 'dist', file));
     await assert.rejects(access(resolve(tempLanding, 'dist/hero-field.js')));
     await assert.rejects(access(resolve(tempLanding, 'dist/assets/tokens/usdc.png')));
     await assert.rejects(access(resolve(tempLanding, 'dist/aurora.js')));

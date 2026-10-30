@@ -68,7 +68,7 @@
 .label > span { display: block; overflow: hidden; margin-top: 3px; font-size: var(--fs-caption); color: var(--mut); white-space: nowrap; text-overflow: ellipsis; }
 .outcome { display: flex; min-width: 0; max-width: 46%; flex-shrink: 0; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
 .amount, .secondary { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
-.amount { font-size: var(--fs-body); font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.amount { font-size: var(--fs-body); font-weight: 600; color: var(--text); }
 .amount[data-direction='in'] { color: var(--success); }
 .secondary { font-size: var(--fs-caption); color: var(--mut); }
 .secondary[data-tone='warn'] { color: var(--warn); font-weight: 600; }
@@ -121,7 +121,7 @@
 .sheet { width: min(480px, 100%); min-width: 0; max-height: calc(100dvh - 40px); display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--bg-raised); box-shadow: var(--elevation-2); animation: scale-in var(--dur-slow) var(--ease-out) both; }
 .sheet header { display: flex; flex-shrink: 0; align-items: flex-start; gap: 12px; padding: 20px; }
 .sheet header > div { flex: 1; min-width: 0; padding-top: 1px; }
-.sheet h2 { font-size: 20px; font-weight: 650; line-height: 1.25; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.sheet h2 { font-size: 20px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
 .sheet header p { margin-top: 6px; font-size: var(--fs-small); line-height: 1.45; color: var(--mut); overflow-wrap: anywhere; }
 .sheet header button { display: grid; flex-shrink: 0; place-items: center; min-width: 44px; min-height: 44px; margin: -8px -8px 0 0; border-radius: 50%; color: var(--mut); transition: background-color var(--dur-fast) ease; }
 .sheet header button:hover { background: var(--surface-2); }
@@ -134,10 +134,10 @@
 .flow { display: flex; min-height: 54px; align-items: center; gap: 14px; }
 .flow + .flow { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--hairline); }
 .flowMark { flex-shrink: 0; line-height: 0; }
-.flowUnit { font-size: .65em; font-weight: 550; letter-spacing: -.01em; color: var(--mut); }
+.flowUnit { font-size: .65em; font-weight: 550; color: var(--mut); }
 .unverified { color: var(--warn); font-size: var(--fs-caption); font-weight: 600; }
 .flowAmount { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 5px; }
-.flowAmount strong { font-size: clamp(22px, 6vw, 28px); font-weight: 600; letter-spacing: -.035em; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.flowAmount strong { font-size: clamp(22px, 6vw, 28px); font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .flowAmount strong[data-direction='in'] { color: var(--success); }
 .flowMeta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; font-size: var(--fs-small); line-height: 1.4; }
 .flowMeta small { font-size: inherit; color: var(--mut); font-variant-numeric: tabular-nums; }
