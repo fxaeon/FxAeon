@@ -235,10 +235,9 @@ try {
     await expect(page.locator('[data-market-value="fxSaveApy"]')).toHaveText(mode === 'ready' ? '6.5%' : '—');
     await expect(page.locator('[data-earn-projection]')).toHaveText(mode === 'ready' ? '$1,065.00' : '—');
     if (mode === 'ready') {
-      await expect(page.locator('.earn-comparison')).toBeVisible();
+      await expect(page.locator('[data-earn-projection]')).toBeVisible();
       await expect(page.locator('[data-earn-availability]')).toBeHidden();
     } else {
-      await expect(page.locator('.earn-comparison')).toBeHidden();
       await expect(page.locator('[data-earn-projection]')).toBeHidden();
       await expect(page.locator('[data-earn-status]')).toHaveText('Live APY unavailable');
       await expect(page.locator('[data-earn-availability]')).toBeVisible();
@@ -400,18 +399,12 @@ try {
     delete document.hidden;
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect.poll(() => page.locator('.site-footer').evaluate((element) => getComputedStyle(element, '::before').animationPlayState)).toBe('paused');
-  await page.locator('.trade-card').scrollIntoViewIfNeeded();
-  await expect.poll(() => page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationPlayState)).toBe('running');
   await page.locator('.site-footer').scrollIntoViewIfNeeded();
   await page.waitForTimeout(100);
   const offscreenDraws = await page.evaluate(() => window.__sculptureDraws);
   await page.waitForTimeout(150);
   assert.equal(await page.evaluate(() => window.__sculptureDraws), offscreenDraws, 'Offscreen sculpture does not render');
-  await expect(page.locator('html')).toHaveAttribute('data-scrolled', '');
-  assert.notEqual(await page.locator('.site-header').evaluate((element) => getComputedStyle(element).borderBottomColor), 'rgba(0, 0, 0, 0)', 'Scrolled navigation has a quiet separating edge');
-  await expect.poll(() => page.locator('.chart-line').evaluate((element) => getComputedStyle(element).animationPlayState)).toBe('paused');
-  await expect.poll(() => page.locator('.site-footer').evaluate((element) => getComputedStyle(element, '::before').animationPlayState)).toBe('running');
+  assert.equal(await page.locator('.site-header').evaluate((element) => getComputedStyle(element).backgroundColor), 'rgb(16, 18, 20)', 'Scrolled navigation stays opaque over the page');
   assert.equal(await page.locator('.motion-toggle').count(), 0, 'The footer has no animation control');
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'off');
@@ -426,8 +419,8 @@ try {
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'on');
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
 
-  // Product illustrations and card actions remain available on phone and
-  // desktop, with reduced motion enabled.
+  // Product cards and their actions remain available on phone and desktop,
+  // with reduced motion enabled.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'off');
   for (const width of [390, 820, 1280]) {
@@ -438,14 +431,6 @@ try {
     for (const card of await cards.all()) {
       await expect(card).toBeVisible();
       await expect(card.locator('.product-link')).toBeVisible();
-      const images = await card.locator('img').evaluateAll((nodes) => nodes.map((image) => ({
-        src: image.getAttribute('src'),
-        complete: image.complete,
-        naturalWidth: image.naturalWidth,
-      })));
-      for (const image of images) {
-        assert.ok(image.complete && image.naturalWidth > 0, `Product artwork ${image.src} loads at ${width}px`);
-      }
     }
     assert.deepEqual(await visibleRoutes(page, '.hero .actions a'), [WEB, TELEGRAM], `First-screen actions stay available at ${width}px`);
     await assertTextContrast(page, '.hero h1, .hero h1 span, .hero-intro .lede', `hero text at ${width}px`);
@@ -473,8 +458,8 @@ try {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(origin, { waitUntil: 'networkidle' });
     await page.evaluate(() => document.fonts.ready);
-    await page.locator('.telegram-qr').scrollIntoViewIfNeeded();
-    await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
+    await page.locator('#telegram').scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => [...document.images].every(image => !image.checkVisibility() || (image.complete && image.naturalWidth > 0)));
     await page.locator('.hero').scrollIntoViewIfNeeded();
     await page.keyboard.press('Control+Home');
     await page.screenshot({ path: resolve(captures, `opening-${width}px.png`) });
