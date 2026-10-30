@@ -41,11 +41,8 @@ export const CHAINLINK_USD_FEEDS = [
 const FEED_GRACE_SECONDS = 600;
 const PROTOCOL_BLOCK_MAX_AGE_SECONDS = 300;
 
-/** USD per share, as the vaults value their own shares. */
-const NAV_PRICES = [
-  { key: 'fxSAVE', address: FX_TOKENS.fxSAVE.address },
-  { key: 'fxUSDBasePool', address: FX_TOKENS.fxUSDBasePool.address },
-] as const;
+/** USD per share, as the vaults value their own shares. Addresses resolve at read time. */
+const NAV_PRICES = ['fxSAVE', 'fxUSDBasePool'] as const;
 
 type Read = { status: 'success'; result: unknown } | { status: 'failure'; error?: unknown };
 
@@ -75,7 +72,7 @@ export function protocolPricesFromReads(reads: readonly Read[], now = Date.now()
     if (age < 0 || age > heartbeatSeconds + FEED_GRACE_SECONDS) return;
     accept(key, Number(formatUnits(answer, 8)));
   });
-  NAV_PRICES.forEach(({ key }, index) => {
+  NAV_PRICES.forEach((key, index) => {
     const read = navReads[index];
     if (read?.status !== 'success' || typeof read.result !== 'bigint') return;
     const usd = Number(formatUnits(read.result, 18));
@@ -99,7 +96,7 @@ export async function readFxProtocolPrices(client?: FxPublicClient): Promise<Usd
       { address: MULTICALL3, abi: MULTICALL3_ABI, functionName: 'getCurrentBlockTimestamp' },
       ...ORACLE_PRICES.map(({ address }) => ({ address: address as Address, abi: ORACLE_ABI, functionName: 'getPrice' })),
       ...CHAINLINK_USD_FEEDS.map(({ address }) => ({ address: address as Address, abi: FEED_ABI, functionName: 'latestRoundData' })),
-      ...NAV_PRICES.map(({ address }) => ({ address, abi: NAV_ABI, functionName: 'nav' })),
+      ...NAV_PRICES.map(key => ({ address: FX_TOKENS[key].address, abi: NAV_ABI, functionName: 'nav' })),
     ];
     const reads = await reader.multicall({ allowFailure: true, contracts });
     return protocolPricesFromReads(reads as readonly Read[]);
