@@ -170,6 +170,7 @@ test.describe('the ticket’s outcome preview', () => {
     const previewPrice = fact(page, 'Execution price');
     const preview = {
       executionPrice: await figure(page, 'Execution price'),
+      rebalancePrice: await figure(page, 'Rebalance price'),
       liquidationPrice: await figure(page, 'Liquidation price'),
       fee: await figure(page, 'f(x) fee'),
     };
@@ -177,7 +178,13 @@ test.describe('the ticket’s outcome preview', () => {
     expect(preview.executionPrice).toMatch(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
     await expect(fact(page, 'Estimated collateral')).toHaveCount(0);
     await expect(fact(page, 'Estimated debt')).toHaveCount(0);
+    // The rebalance price (f(x)'s liquidation brake) leads, above the liquidation price a long would reach later.
+    expect(await outcome(page).locator('[data-outcome-fact]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-outcome-fact'))))
+      .toEqual(['Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee']);
+    expect(preview.rebalancePrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     expect(preview.liquidationPrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    const usd = (text: string) => Number(text.replace(/[^\d.]/g, ''));
+    expect(usd(preview.rebalancePrice)).toBeGreaterThan(usd(preview.liquidationPrice));
     expect(preview.fee).toBe('');
     await expect(fact(page, 'f(x) fee').getByRole('status', { name: 'f(x) fee unavailable' })).toBeAttached();
     const plansBeforeReview = await planCount(page);
@@ -223,7 +230,7 @@ test.describe('the ticket’s outcome preview', () => {
     expect(await page.evaluate(() => {
       const group = document.querySelector('[data-trade-outcome]');
       return { state: group?.getAttribute('data-trade-outcome'), text: group?.textContent ?? '' };
-    })).toEqual({ state: 'pending', text: 'Execution priceLiquidation pricef(x) fee' });
+    })).toEqual({ state: 'pending', text: 'Execution priceRebalance priceLiquidation pricef(x) fee' });
     // The placeholder keeps the rows where they were.
     const pending = (await outcome(page).boundingBox())!;
     expect(Math.abs(pending.y - box.y)).toBeLessThanOrEqual(1);
@@ -563,7 +570,8 @@ test('disconnected Trade shows isolated execution, liquidation and fee facts, th
   const amount = page.getByRole('textbox',{name:'Amount in ETH'});
   await amount.fill('0.1');
   await expect(outcome(page)).toHaveAttribute('data-trade-outcome','ready');
-  for (const label of ['Execution price','Liquidation price','f(x) fee']) await expect(fact(page,label)).not.toContainText('Unavailable');
+  for (const label of ['Execution price','Rebalance price','Liquidation price','f(x) fee']) await expect(fact(page,label)).not.toContainText('Unavailable');
+  await expect(displayedFact(page,'Rebalance price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
   await expect(page.getByRole('button',{name:'Connect wallet',exact:true}).last()).toBeVisible();
   await expect(page.getByText(/balance unavailable|no ETH available|insufficient balance/i)).toHaveCount(0);
   expect(await page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event=>event.name==='planIncreasePosition').every(event=>event.walletAddress==='0x0000000000000000000000000000000000000001'))).toBe(true);

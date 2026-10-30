@@ -397,7 +397,9 @@ while realtime updates run, and on focus) makes one multicall of every
 position's `getPositionDebtRatio(id)` and each pool oracle's `getPrice()`, so
 ratios and prices come from the same block. Each pool's `getRebalanceRatios()`,
 `getLiquidateRatios()` and `priceOracle()` are read from the pool and cached
-for 60 seconds. No threshold, oracle address or documented LTV is hardcoded.
+for 60 seconds, with wstETH's `stEthPerToken()` for the wstETH short pool; a
+failed rate read only leaves that pool's own threshold price (below) unknown.
+No threshold, oracle address or documented LTV is hardcoded.
 Facts at contracts commit `5e198e93657db008a57129e7eea21a996618f17f`:
 
 - `getPositionDebtRatio` returns rawDebts / (anchor price × rawColls) with 1e18
@@ -442,7 +444,13 @@ A position without debt shows no brake. Reaching R, on chain or by the live
 estimate, shows "At the rebalance point"; reaching L, "At the liquidation
 point". A failed first read shows no line or marker; a later failed refresh
 keeps the last read for at most two minutes. Without a fresh live quote the
-line keeps the distance measured at the read and names no price.
+line keeps the distance measured at the read and names no price, and the
+estimated rebalance and liquidation prices show the pool's own price from the
+position's on-chain amounts instead of a dash: D / (C × R) for a long and
+C × R / D for a short, per stETH (an ETH short's wstETH debt converted at the
+wstETH rate) or per WBTC, rounded toward today's price. That is the oracle
+minimum price at which the pool acts, the official app's figure, without the
+market quote's basis.
 
 Every figure is an estimate (≈). The oracle (Chainlink and on-chain spot
 sources, the stETH/ETH and WBTC/BTC pegs, the wstETH rate) and the Coinbase
@@ -451,3 +459,52 @@ from the position's own (ticks are 0.15% apart); and funding accrues between
 pool updates. Neither the pinned SDK nor inspected contracts exposes a
 per-position rebalancing opt-out. Extending read-only review calculations is
 separate from introducing new transaction primitives.
+
+## Position cost basis
+
+A position's entry price and estimated PnL follow the official f(x) app
+(fx.aladdin.club bundles of 29 October 2026). This is app-owned read-only code
+(`apps/mini-app/src/lib/positionCostBasis.ts` and
+`loadIndexedPositionHistory` in `apps/mini-app/src/lib/protocolPositionHistory.ts`),
+not a sixteenth SDK method, and it never enters planning or signing.
+
+- Orders come from the four public Goldsky indexes the official app reads:
+  `fx-v2-wsteth/3.0.0`, `fx-v2-wbtc/3.0.0`, `fx-v2-wsteth-short-backup/v2.0.0`
+  (a later deployment of the SDK's wstETH short index, with the same records)
+  and `fx-v2-wbtc-short/v2.0.0`. A position's first read takes every order,
+  1,000 per page by id, every page pinned to the first page's index block, up
+  to 40 pages; later reads add only orders after that block. An index with
+  indexing errors, a malformed record or a longer history is refused.
+- Units: `deltaColls` (long) and `deltaDebts` (short) are in the token's own
+  decimals (wstETH 18, WBTC 8); `positionColls`/`positionDebts` are pool
+  accounting (1e18), an ETH long's collateral in stETH and an ETH short's debt
+  in wstETH; `execPrice` is fxUSD per wstETH or WBTC, 0 without a swap, when
+  the pool oracle's price (inverted for a short) times `priceRate` stands in.
+- Orders apply by block and then from the last log index, as the official app
+  sorts them: the index writes a same-transaction collateral snapshot at a
+  lower log index holding the operation's result.
+- A long's entry is the cost of its collateral per stETH or WBTC: each Open,
+  Add, Deposit, DepositMint or IncreaseCollateral adds deltaColls × the token
+  price; reductions, rebalances, liquidations and withdrawals keep the entry; a
+  collateral index change (funding) prices the collateral it took at that
+  event, raising the entry. A short's entry is weighted by its debt in stETH
+  or WBTC (positionDebts × priceRate). A close starts over; an unknown order
+  type gives no entry.
+- One deliberate difference: the official app moves a long's cost by the fxUSD
+  of a Repay or Mint, which reads a debt payment as price gain (on a borrowing
+  position it can put the entry far above any price paid). FxAeon keeps the
+  entry through them. On 29 October 2026, 20 live positions across the four
+  pools matched the official arithmetic to 1e-15 apart from that rule.
+- PnL is (P − entry) × side × size, where size is a long's collateral or a
+  short's debt in stETH or WBTC, and as a percent applies the index's target
+  leverage: (P − entry) × side × targetLeverage / entry. P is the SDK's
+  `averagePrice`, the mean of its FxRoute buy and sell quotes per stETH or
+  WBTC, read through `readCanonicalPositionContext` (the fallback reader's
+  reproduction of `Pool.getPoolInfo`) every 30 seconds while a figure is shown.
+  It is not the Coinbase market quote, whose stETH/ETH gap would be multiplied
+  by leverage.
+- A figure is shown only while the index's record of the position matches its
+  on-chain collateral and debt within 1e10; otherwise it waits (reads repeat
+  after 6 seconds, then each minute) and says unavailable after four.
+- The figure is an estimate. It excludes exit costs (the closing fee, slippage
+  and network fees) and, like the official app, the fees paid to open.

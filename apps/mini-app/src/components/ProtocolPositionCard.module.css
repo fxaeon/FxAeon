@@ -90,7 +90,7 @@
 /* In a narrow column the value's label gives its line to leverage and ID;
    screen readers still hear it. */
 .row { container-type: inline-size; }
-.overviewContent { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, .8fr) 18px; align-items: center; gap: 20px; }
+.overviewContent { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, .8fr) 18px; align-items: center; gap: 20px; }
 .overviewIdentity { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .overviewIdentity > :first-child { flex-shrink: 0; }
 .overviewIdentity > span { min-width: 0; }
@@ -99,6 +99,9 @@
 .overviewMeta { display: block; margin-top: 5px; color: var(--mut); font-size: 12px; font-variant-numeric: tabular-nums; }
 .overviewValue { color: var(--text); font-size: 21px; font-weight: 500; letter-spacing: -.025em; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .approximation { color: var(--mut); font-size: .7em; }
+/* A metric like the thresholds; in a narrow row, one line under the value (below). */
+.overviewPnl { color: var(--text); text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+.overviewPnlFigure { overflow-wrap: anywhere; }
 .overviewThreshold { color: var(--text); text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
 .overviewMetricLabel { display: block; margin-bottom: 7px; color: var(--mut); font-size: 12px; }
 .overviewArrow { color: var(--mut); }
@@ -108,6 +111,9 @@
 @container (max-width: 640px) {
   .overviewContent { grid-template-columns: minmax(0, 1fr) auto 14px; gap: 12px; }
   .overviewThreshold { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Its own line across the row, so it never narrows the identity beside the value. */
+  .overviewPnl { display: flex; grid-row: 2; grid-column: 1 / -1; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 0 5px; margin-top: -5px; color: var(--mut); font-size: 12px; line-height: 1.4; }
+  .overviewPnl > .overviewMetricLabel { margin: 0; }
   .overviewName { font-size: 16px; }
   .overviewValue { font-size: 20px; }
   .overviewIdentity { gap: 10px; }

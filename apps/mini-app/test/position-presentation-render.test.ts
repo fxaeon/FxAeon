@@ -167,3 +167,86 @@ test('negative subcent net value keeps its sign, while exact compact quantities 
   assert.match(amount, /aria-hidden="true">≈ 0\.12345678 fxUSD/);
   assert.match(amount, /class="sr-only">Exact amount: 0\.123456789 fxUSD/);
 });
+
+const { PositionCostBasisContext } = require('../src/components/PositionCostBasisContext') as typeof import('../src/components/PositionCostBasisContext');
+type CostBasisStore = import('../src/components/PositionCostBasisContext').PositionCostBasisStore;
+const E18 = 10n ** 18n;
+/** An index record matching `p` with an entry of 2,000 per stETH, priced at a 2,200 mid. */
+function costBasis(p: UiPosition, overrides: Partial<CostBasisStore['entries'] extends ReadonlyMap<string, infer Entry> ? Entry : never> = {}): CostBasisStore {
+  const now = Date.now();
+  return {
+    entries: new Map([[`${p.market}:${p.side}:${p.info.positionId}`, {
+      record: { history: { market: p.market, side: p.side, positionId: p.info.positionId, block: 1n, colls: p.info.rawColls, debts: p.info.rawDebts, targetLeverage: '3', isClosed: false, orders: [] }, entryWad: 2_000n * E18 },
+      pending: false, failures: 0, behind: 0, readAt: now, ...overrides,
+    }]]),
+    prices: { ETH: { price: { priceWad: 2_200n * E18, rateWad: E18, readAt: now }, pending: false, failures: 0, readAt: now } },
+    register: () => () => undefined,
+  };
+}
+const withCostBasis = (store: CostBasisStore, component: React.ReactElement) => render(React.createElement(PositionCostBasisContext.Provider, { value: store }, component));
+/** Swap the mocked brake hook for one render. */
+function withBrake<T>(status: unknown, run: () => T): T {
+  const mock = require.cache[brakePath]!.exports;
+  const previous = mock.usePositionBrake;
+  mock.usePositionBrake = () => status;
+  try { return run(); } finally { mock.usePositionBrake = previous; }
+}
+
+test('a Positions row carries its estimated PnL as its own labelled line under the value', () => {
+  freshPrices();
+  const p = position('ETH', 'long', 2n * E18, 1_000n * E18, 2);
+  const row = withCostBasis(costBasis(p), React.createElement(ProtocolPositionCard, { position: p, overview: true, onSelect: () => undefined }));
+  // 2 stETH from 2,000 to 2,200: +$400, +10% × 3 target leverage. The value stays the value.
+  assert.match(row, /<span class="test-overviewPnl" data-position-cost-basis="pnl" title="An estimate, not an amount you would receive[^"]*excludes exit costs[^"]*"><span class="test-overviewMetricLabel">Est\. PnL<\/span> <span class="test-overviewPnlFigure">≈\u00a0\+\$400\.00 \(\+30\.00%\)<\/span><\/span>/);
+  assert.match(visibleText(row), /≈ \$3,800\.00 Est\. PnL/);
+  // While the index is read the line holds its place; a failed read leaves it blank, never zero.
+  assert.match(withCostBasis({ ...costBasis(p), entries: new Map() }, React.createElement(ProtocolPositionCard, { position: p, overview: true })), /data-position-cost-basis="pnl"[^>]*><span class="test-overviewMetricLabel">Est\. PnL<\/span> <span class="test-overviewPnlFigure"><span role="status" aria-label="Loading estimated PnL"/);
+  const failed = withCostBasis(costBasis(p, { record: null, failures: 1 }), React.createElement(ProtocolPositionCard, { position: p, overview: true }));
+  assert.match(failed, /aria-label="Estimated PnL unavailable"/);
+  assert.doesNotMatch(failed, /\$400|\$0\.00 \(/);
+  // Without the provider (outside wallet routes) the line says so too.
+  assert.match(render(React.createElement(ProtocolPositionCard, { position: p, overview: true })), /aria-label="Estimated PnL unavailable"/);
+});
+
+test('without a live quote a Positions row names the pool’s own threshold prices', () => {
+  freshPrices();
+  const p = position('ETH', 'long', 2n * E18, 1_000n * E18, 2);
+  const reading = { side: 'long', debtRatio: 66n * E18 / 100n, rebalanceRatio: 88n * E18 / 100n, liquidateRatio: 95n * E18 / 100n, priceAtRead: null, poolPrices: { rebalance: 569, liquidate: 527 } };
+  const row = withBrake({ status: 'ready', reading, readAt: Date.now() }, () => render(React.createElement(ProtocolPositionCard, { position: p, overview: true })));
+  assert.match(row, /data-position-price="rebalance">≈\u00a0\$569 \/ stETH</);
+  assert.match(row, /data-position-price="liquidation">≈\u00a0\$527 \/ stETH</);
+});
+
+test('an open Portfolio row lists the entry price and estimated PnL with the risk estimates', () => {
+  freshPrices();
+  const p = position('ETH', 'long', 2n * E18, 1_000n * E18, 2);
+  const html = withCostBasis(costBasis(p), React.createElement(PortfolioPositionRows, { positions: [p], failedGroups: [] }));
+  const cell = (kind: string) => visibleText(html.match(new RegExp(`<dd data-position-cost-basis="${kind}">([\\s\\S]*?)</dd>`))![1]).trim();
+  assert.equal(cell('entry'), '≈ $2,000.00 / stETH');
+  assert.equal(cell('pnl'), '≈ +$400.00 (+30.00%) at ≈ $2,200.00 / stETH');
+  // Both sit after the risk estimates, each with its assumptions behind an info control.
+  assert.ok(html.indexOf('data-position-price="liquidation"') < html.indexOf('data-position-cost-basis="entry"'));
+  assert.match(html, /aria-label="About Entry price"/);
+  assert.match(html, /aria-label="About Est\. PnL"/);
+  // A row kept from a failed refresh shows neither figure.
+  const stale = withCostBasis(costBasis(p), React.createElement(PortfolioPositionRows, { positions: [p], failedGroups: [{ market: 'ETH', side: 'long', reason: new Error('offline') }] }));
+  assert.match(stale, /aria-label="Entry price unavailable"/);
+  assert.match(stale, /aria-label="Estimated PnL unavailable"/);
+  assert.doesNotMatch(stale, /\$2,000\.00|\$400\.00/);
+});
+
+test('a Borrow card shows where rebalancing starts, as its Positions row does', () => {
+  freshPrices();
+  const p = position('ETH', 'long', 2n * E18, 1_000n * E18, 2);
+  const card = (status: unknown, stale = false) => withBrake(status, () => render(React.createElement(BorrowPositionCard, { position: p, stale, onOpen: () => undefined })));
+  const reading = { side: 'long', debtRatio: 66n * E18 / 100n, rebalanceRatio: 88n * E18 / 100n, liquidateRatio: 95n * E18 / 100n, priceAtRead: null, poolPrices: { rebalance: 569, liquidate: 527 } };
+  assert.match(card({ status: 'ready', reading, readAt: Date.now() }), /<span>Est\. rebalance<\/span><strong data-position-price="rebalance">≈\u00a0\$569 \/ stETH<\/strong>/);
+  // With the market quote at the read it is on that basis: 2,400 × 0.66 / 0.88 = 1,800.
+  assert.match(card({ status: 'ready', reading: { ...reading, priceAtRead: 2_400 }, readAt: Date.now() }), /data-position-price="rebalance">≈\u00a0\$1,800</);
+  assert.match(card({ status: 'ready', reading: { ...reading, debtRatio: 9n * E18 / 10n }, readAt: Date.now() }), /data-position-price="rebalance"><span class="test-reached">Reached<\/span>/);
+  assert.match(card({ status: 'none' }), /data-position-price="rebalance">No debt</);
+  assert.match(card({ status: 'loading' }), /data-position-price="rebalance"><span role="status" aria-label="Loading rebalance price" class="missing-value missing-value-sm"/);
+  assert.match(card({ status: 'unavailable' }), /aria-label="Estimated rebalance price unavailable" class="missing-value missing-value-sm missing-value-unavailable/);
+  // A card awaiting an update never shows a figure from the old read.
+  assert.match(card({ status: 'ready', reading, readAt: Date.now() }, true), /aria-label="Estimated rebalance price unavailable" class="missing-value missing-value-sm missing-value-unavailable/);
+});

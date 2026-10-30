@@ -8,6 +8,7 @@ import { assertPublicClientChain, getEthereumClient } from './fx/clients';
 import { positionPoolAddress } from './fx/policy';
 import { withReadDeadline } from './fx/readFacade';
 import type { FxPublicClient } from './fx/types';
+import type { IndexedOrder } from './positionCostBasis';
 import { decodePositionRouterEvent, positionRouterEventMatchesRecipient } from './positionRouterEvents';
 
 const HASH_PATTERN = /^0x[0-9a-f]{64}$/i;
@@ -314,5 +315,170 @@ export async function loadProtocolPositionHistory(params: {
     incomplete: indexResults.some((result) => result.status === 'rejected') || receiptReadFailed,
     cursor,
     hasMore: cursor.some((item) => item.positions >= 0),
+  };
+}
+
+/**
+ * The indexes the official f(x) app reads one position's orders from. The
+ * wstETH short's is a later deployment of the SDK's index with the same
+ * records and a `realOwner` field; the other three are the SDK's own.
+ */
+const COST_BASIS_INDEXES: Record<`${Market}:${Side}`, string> = {
+  'ETH:long': 'https://api.goldsky.com/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/fx-v2-wsteth/3.0.0/gn',
+  'BTC:long': 'https://api.goldsky.com/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/fx-v2-wbtc/3.0.0/gn',
+  'ETH:short': 'https://api.goldsky.com/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/fx-v2-wsteth-short-backup/v2.0.0/gn',
+  'BTC:short': 'https://api.goldsky.com/api/public/project_cmgz5g9sl0065xhp2aqd9c6sv/subgraphs/fx-v2-wbtc-short/v2.0.0/gn',
+};
+/** The index's largest page; a position with more orders is read in several. */
+export const INDEXED_ORDER_PAGE_SIZE = 1_000;
+/** Funding snapshots make long-lived longs the largest: about 1,600 orders in October 2026. */
+const MAX_INDEXED_ORDER_PAGES = 40;
+const INDEXED_ORDER_FIELDS = 'id type logIndex blockNumber deltaColls deltaDebts positionColls positionDebts oldPositionColls execPrice price priceRate protocolFees tickMovement { typeLogIndex }';
+
+export interface IndexedPositionHistory {
+  market: Market;
+  side: Side;
+  positionId: number;
+  /** The index block every record here was read at. */
+  block: bigint;
+  /** The index's record of the position at that block, in pool units (1e18). */
+  colls: bigint;
+  debts: bigint;
+  /** The target leverage of the position's last change, a decimal such as "3.18". */
+  targetLeverage: string | null;
+  isClosed: boolean;
+  orders: IndexedOrder[];
+}
+
+function signedDecimalBigInt(value: unknown): bigint | null {
+  if (typeof value !== 'string' || !/^-?(0|[1-9][0-9]{0,77})$/.test(value)) return null;
+  try { return BigInt(value); } catch { return null; }
+}
+
+function indexedUint(value: unknown, label: string): bigint {
+  const parsed = decimalBigInt(value);
+  if (parsed === null) throw new TypeError(`indexed ${label} was malformed`);
+  return parsed;
+}
+
+/** A signed order amount; the index leaves it null where an order moves none. */
+function indexedAmount(value: unknown, label: string): bigint {
+  if (value === null || value === undefined) return 0n;
+  const parsed = signedDecimalBigInt(value);
+  if (parsed === null) throw new TypeError(`indexed ${label} was malformed`);
+  return parsed;
+}
+
+function parseIndexedOrder(value: unknown, positionId: string): IndexedOrder {
+  const order = asRecord(value);
+  const id = typeof order?.id === 'string' ? order.id : '';
+  if (!order || !id.startsWith(`${positionId}_`) || id.length > 200) throw new TypeError('indexed order does not belong to this position');
+  if (typeof order.type !== 'string' || !/^[A-Za-z]{1,40}$/.test(order.type)) throw new TypeError('indexed order type was malformed');
+  // A tick movement sorts by its own event's log index, as the official app sorts it.
+  const tickLogIndex = order.type === 'TickMovement' ? asRecord(order.tickMovement)?.typeLogIndex : undefined;
+  const logIndex = Number(indexedUint(tickLogIndex ?? order.logIndex, 'log index'));
+  if (!Number.isSafeInteger(logIndex)) throw new TypeError('indexed log index was malformed');
+  return {
+    id,
+    type: order.type,
+    blockNumber: indexedUint(order.blockNumber, 'block number'),
+    logIndex,
+    deltaColls: indexedAmount(order.deltaColls, 'collateral change'),
+    deltaDebts: indexedAmount(order.deltaDebts, 'debt change'),
+    positionColls: indexedUint(order.positionColls, 'collateral'),
+    positionDebts: indexedUint(order.positionDebts, 'debt'),
+    oldPositionColls: order.oldPositionColls === null || order.oldPositionColls === undefined ? null : indexedUint(order.oldPositionColls, 'previous collateral'),
+    execPrice: indexedUint(order.execPrice, 'execution price'),
+    price: indexedUint(order.price, 'oracle price'),
+    priceRate: indexedUint(order.priceRate, 'price rate'),
+    protocolFees: order.protocolFees === null || order.protocolFees === undefined ? null : indexedAmount(order.protocolFees, 'protocol fee'),
+  };
+}
+
+/**
+ * Read one position's complete order record from its pool's index, every page
+ * pinned to the block of the first, so orders indexed meanwhile cannot slip
+ * between pages. With `previous` (an earlier read of the same position) only
+ * orders after its block are fetched and added to it.
+ */
+export async function loadIndexedPositionHistory(params: {
+  market: Market;
+  side: Side;
+  positionId: number;
+  fetcher?: typeof fetch;
+  signal?: AbortSignal;
+  previous?: IndexedPositionHistory | null;
+}): Promise<IndexedPositionHistory> {
+  const { market, side, positionId } = params;
+  const url = COST_BASIS_INDEXES[`${market}:${side}`];
+  if (!url || !Number.isSafeInteger(positionId) || positionId <= 0) throw new TypeError('Choose a valid position to read its orders.');
+  const fetcher = params.fetcher ?? fetch;
+  const id = String(positionId);
+  const previous = params.previous && params.previous.market === market && params.previous.side === side
+    && params.previous.positionId === positionId ? params.previous : null;
+  const request = async (query: string): Promise<Record<string, unknown>> => {
+    const signals = [AbortSignal.timeout(12_000), ...(params.signal ? [params.signal] : [])];
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    for (const signal of signals) {
+      if (signal.aborted) abort();
+      else signal.addEventListener('abort', abort, { once: true });
+    }
+    try {
+      const response = await fetcher(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Protocol index returned HTTP ${response.status}.`);
+      const body = asRecord(await response.json());
+      const data = asRecord(body?.data);
+      if ((Array.isArray(body?.errors) && body.errors.length > 0) || !data) throw new Error('Protocol index query failed.');
+      return data;
+    } finally {
+      for (const signal of signals) signal.removeEventListener('abort', abort);
+    }
+  };
+  const where = (cursor: string) => `{ positionId: "${id}", id_gt: "${cursor}"${previous ? `, blockNumber_gt: "${previous.block}"` : ''} }`;
+  const first = await request(`query PositionCostBasis { _meta { block { number } hasIndexingErrors } position(id: "${id}") { colls debts targetLeverage isClosed } orders(first: ${INDEXED_ORDER_PAGE_SIZE}, orderBy: id, orderDirection: asc, where: ${where('')}) { ${INDEXED_ORDER_FIELDS} } }`);
+  const meta = asRecord(first._meta);
+  const blockNumber = asRecord(meta?.block)?.number;
+  if (meta?.hasIndexingErrors !== false || typeof blockNumber !== 'number' || !Number.isSafeInteger(blockNumber) || blockNumber <= 0) {
+    throw new Error('The protocol index is not current.');
+  }
+  const block = BigInt(blockNumber);
+  if (previous && block < previous.block) throw new Error('The protocol index moved back.');
+  const position = asRecord(first.position);
+  if (!position) throw new Error('The protocol index has no record of this position.');
+  const targetLeverage = position.targetLeverage ?? null;
+  if ((targetLeverage !== null && (typeof targetLeverage !== 'string' || targetLeverage.length > 80)) || typeof position.isClosed !== 'boolean') {
+    throw new TypeError('The protocol index returned an unexpected position.');
+  }
+
+  const orders = new Map((previous?.orders ?? []).map((order) => [order.id, order]));
+  let page: unknown = first.orders;
+  for (let pageIndex = 0; ; pageIndex += 1) {
+    if (!Array.isArray(page) || page.length > INDEXED_ORDER_PAGE_SIZE) throw new Error('The protocol index returned an unexpected response.');
+    for (const value of page) {
+      const order = parseIndexedOrder(value, id);
+      if (order.blockNumber > block) throw new Error('The protocol index returned an order past its block.');
+      orders.set(order.id, order);
+    }
+    if (page.length < INDEXED_ORDER_PAGE_SIZE) break;
+    if (pageIndex === MAX_INDEXED_ORDER_PAGES - 1) throw new Error('This position has more orders than FxAeon reads.');
+    const cursor = String(asRecord(page[page.length - 1])?.id);
+    page = (await request(`query PositionCostBasisPage { orders(first: ${INDEXED_ORDER_PAGE_SIZE}, block: { number: ${blockNumber} }, orderBy: id, orderDirection: asc, where: ${where(cursor)}) { ${INDEXED_ORDER_FIELDS} } }`)).orders;
+  }
+  return {
+    market,
+    side,
+    positionId,
+    block,
+    colls: indexedUint(position.colls, 'position collateral'),
+    debts: indexedUint(position.debts, 'position debt'),
+    targetLeverage: targetLeverage as string | null,
+    isClosed: position.isClosed,
+    orders: [...orders.values()],
   };
 }

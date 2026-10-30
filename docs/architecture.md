@@ -185,6 +185,8 @@ Naming and units are shared across rows, reviews, and History. ETH long pool col
 
 Activity discovery uses the same four market indexes as the SDK, associates orders by position entity ID, then verifies successful Ethereum receipts and router events. Index ownership association is incomplete historical attribution: transferred-out positions may disappear from a previous owner's activity, and the older ETH-short index lacks a real-owner field. Local recovery records and indexed activity remain separate sources.
 
+Entry prices and estimated PnL read an already verified position's complete order record from the indexes the official f(x) app uses (`PositionCostBasisProvider`), block-pinned and then incrementally, plus each shown market's SDK mid price through the canonical reader. A figure needs the index's record to match the position's on-chain collateral and debt within 1e10. Reads run only while a figure is on screen and reset with the wallet; see [position cost basis](sdk-scope.md#position-cost-basis).
+
 ## Static builds and read-only functions
 
 | Artifact | Build/output | Runtime support |

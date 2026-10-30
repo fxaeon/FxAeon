@@ -15,8 +15,11 @@ let lab: PositionBrakeLab;
 
 test.beforeAll(async () => { lab = await buildPositionBrakeLab(); });
 
-type BrakeConfig = { theme?: 'official' | 'dark' | 'light'; scenarios?: string[]; variant?: 'article' | 'link' | 'button'; quotes?: { ETH?: number; BTC?: number }; loading?: boolean; skeleton?: boolean; details?: string };
-type HarnessWindow = Window & { __brakeHarness: { calls: Array<Array<{ functionName: string }>>; refresh(): void; setQuote(market: 'ETH' | 'BTC', price: number): void; setRatio(key: string, ratio: string): void; release(): void; setCardsShown(shown: boolean): void } };
+type BrakeConfig = { theme?: 'official' | 'dark' | 'light'; scenarios?: string[]; variant?: 'article' | 'link' | 'button'; quotes?: { ETH?: number; BTC?: number }; loading?: boolean; skeleton?: boolean; details?: string; costBasis?: boolean };
+type HarnessWindow = Window & { __brakeHarness: {
+  calls: Array<Array<{ functionName: string }>>; refresh(): void; setQuote(market: 'ETH' | 'BTC', price: number): void; setRatio(key: string, ratio: string): void; release(): void; setCardsShown(shown: boolean): void;
+  historyCalls: Array<{ key: string; incremental: boolean }>; priceCalls: string[]; moveChain(key: string, collateral: string): void; setIndex(key: string, state: 'chain' | 'fail'): void;
+} };
 
 async function open(page: Page, config: BrakeConfig) {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`
@@ -134,7 +137,8 @@ test('reads follow the position refresh: thresholds once, then one multicall per
   await open(page, { quotes: QUOTES, scenarios: ['long', 'short', 'ethShort'] });
   await shown(card(page, 'ethShort')).toBe('Rebalances if ETH rises ≈ 47% (≈ $3,596)');
   expect(await multicalls(page)).toEqual([
-    ['getRebalanceRatios', 'getLiquidateRatios', 'priceOracle', 'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle', 'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle'],
+    // The wstETH short's pool parameters bring wstETH's rate, which prices its debt per stETH.
+    ['getRebalanceRatios', 'getLiquidateRatios', 'priceOracle', 'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle', 'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle', 'stEthPerToken'],
     ['getPositionDebtRatio', 'getPositionDebtRatio', 'getPositionDebtRatio', 'getPrice', 'getPrice', 'getPrice'],
   ]);
 
@@ -160,6 +164,9 @@ test('a failed refresh keeps the last read until it ages out, then the line goes
   const long = card(page, 'long');
   // Without a live quote the line keeps the chain read's distance and names no price.
   await shown(long).toBe('Rebalances if ETH falls ≈ 35%');
+  // The thresholds name the pool's own price instead: D / (C × R) per stETH.
+  await expect(long.locator('[data-position-price="rebalance"]')).toHaveText('≈ $1,575 / stETH');
+  await expect(long.locator('[data-position-price="liquidation"]')).toHaveText('≈ $1,459 / stETH');
   await page.evaluate(() => {
     const harness = (window as unknown as HarnessWindow).__brakeHarness;
     harness.setRatio('long', 'fail');
@@ -170,6 +177,65 @@ test('a failed refresh keeps the last read until it ages out, then the line goes
   await page.clock.fastForward(121_000);
   await expect(long.locator('[data-position-brake], [data-brake-marker]')).toHaveCount(0);
   await expect(long.locator('[data-position-split]')).toHaveCount(1);
+});
+
+test('without live quotes every pool names its own threshold prices per stETH or WBTC', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 1400 });
+  await open(page, { scenarios: ['long', 'short', 'ethShort', 'failed'] });
+  // C × R / D for a short; an ETH short's wstETH debt is priced per stETH through wstETH's rate.
+  for (const [scenario, rebalance, liquidation] of [
+    ['long', '≈ $1,575 / stETH', '≈ $1,459 / stETH'],
+    ['short', '≈ $95,932 / WBTC', '≈ $101,262 / WBTC'],
+    ['ethShort', '≈ $3,601 / stETH', '≈ $3,801 / stETH'],
+  ] as const) {
+    await expect(card(page, scenario).locator('[data-position-price="rebalance"]')).toHaveText(rebalance);
+    await expect(card(page, scenario).locator('[data-position-price="liquidation"]')).toHaveText(liquidation);
+  }
+  // A failed read still names nothing.
+  await expect(card(page, 'failed').locator('[data-position-price="rebalance"]')).toContainText('Estimated rebalance price unavailable');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('the details price entry and PnL from the index, and only while the index matches the chain', async ({ page }) => {
+  await page.clock.install();
+  await page.setViewportSize({ width: 390, height: 1600 });
+  await open(page, { quotes: QUOTES, scenarios: ['long', 'short'], details: 'long', costBasis: true });
+  const details = page.locator('section[data-scenario="details"]');
+  const entry = details.locator('[data-position-cost-basis="entry"]');
+  const pnl = details.locator('[data-position-cost-basis="pnl"]');
+  // One order at 2,833.4862 fxUSD per wstETH (1.2 stETH each) is 2,361.24 per stETH; the mid is 2,311.88.
+  await expect(entry).toHaveText('≈ $2,361.24 / stETH');
+  await expect(pnl).toContainText('≈ −$452.96 (−5.73%)');
+  await expect(pnl.locator('small')).toHaveText('at ≈ $2,311.88 / stETH');
+  const reads = () => page.evaluate(() => {
+    const harness = (window as unknown as HarnessWindow).__brakeHarness;
+    return { history: harness.historyCalls.slice(), price: harness.priceCalls.slice() };
+  });
+  // Each held position is read whole once, and each market's mid price once.
+  expect(await reads()).toEqual({ history: [{ key: 'ETH:long:2033', incremental: false }, { key: 'BTC:short:109', incremental: false }], price: ['ETH', 'BTC'] });
+
+  // Funding moves the chain before the index sees it: the figures wait rather than price a stale record.
+  await page.evaluate(() => (window as unknown as HarnessWindow).__brakeHarness.moveChain('long', '-13000000000000'));
+  await expect(entry.getByRole('status', { name: 'Loading entry price', exact: true })).toBeAttached();
+  await expect(pnl.getByRole('status', { name: 'Loading estimated PnL', exact: true })).toBeAttached();
+  await expect(details.getByText('$2,361.24', { exact: false })).toHaveCount(0);
+  // It asks for what came after its last read, then reads whole while the index stays behind.
+  for (const incremental of [true, true, false, false]) {
+    const count = (await reads()).history.length;
+    await page.clock.fastForward(6_100);
+    await expect.poll(async () => (await reads()).history.length).toBe(count + 1);
+    expect((await reads()).history.at(-1)).toEqual({ key: 'ETH:long:2033', incremental });
+  }
+  // After four reads behind it says so instead of waiting on.
+  await expect(entry.getByRole('status', { name: 'Entry price unavailable', exact: true })).toBeAttached();
+  await expect(pnl.getByRole('status', { name: 'Estimated PnL unavailable', exact: true })).toBeAttached();
+
+  // Once the index catches up, the next read shows them again; the other position was never re-read.
+  await page.evaluate(() => (window as unknown as HarnessWindow).__brakeHarness.setIndex('long', 'chain'));
+  await page.clock.fastForward(60_100);
+  await expect(entry).toHaveText('≈ $2,361.24 / stETH');
+  await expect(pnl).toContainText('≈ −$452.96 (−5.73%)');
+  expect((await reads()).history.filter((read) => read.key === 'BTC:short:109')).toHaveLength(1);
 });
 
 test('the loading card reserves the line, so the skeleton, the read in flight and the loaded card match', async ({ page }) => {

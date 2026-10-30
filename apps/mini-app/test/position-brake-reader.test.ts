@@ -8,12 +8,15 @@ import {
   POSITION_BRAKE_MULTICALL_BYTES,
   POSITION_BRAKE_ORACLE_ABI,
   POSITION_BRAKE_POOL_ABI,
+  POSITION_BRAKE_WSTETH,
+  POSITION_BRAKE_WSTETH_RATE_ABI,
   createPoolBrakeParameterCache,
   readPositionBrakes,
   type PositionBrakeClient,
   type PositionBrakeTarget,
 } from '../src/app/trade/positionBrakeReader';
 import { positionPoolAddress } from '../src/lib/fx/policy';
+import { FX_TOKENS } from '../src/lib/fx/tokens';
 import { checkBasisDebtRatio } from '../src/lib/positionBrake';
 
 const E18 = 10n ** 18n;
@@ -25,6 +28,9 @@ const ORACLES: Record<string, Address> = {
   [ETH_SHORT_POOL.toLowerCase()]: '0x222786833b5fd5eE21532d8b576391bAbeFdAAd1',
   [BTC_LONG_POOL.toLowerCase()]: '0xb3c90e64EB6f456A5F5C17Aa99b6aecA6f4a6390',
 };
+
+/** stETH per wstETH, as the two ETH oracles put it at that block. */
+const STETH_PER_WSTETH = 1_245_860_000_000_000_000n;
 
 type Call = { address: Address; functionName: string; args?: readonly unknown[] };
 type Responder = (call: Call) => { status: 'success'; result: unknown } | { status: 'failure'; error: unknown };
@@ -43,6 +49,7 @@ const chain: Record<string, Responder> = {
         ? [328_340_809_079_147n, 327_844_330_473_433n, 328_341_811_206_135n]
         : [81_354_963_409_200_000_000_000n, 81_204_939_755_279_203_492_225n, 81_531_938_834_473_843_665_688n],
   }),
+  stEthPerToken: () => ({ status: 'success', result: STETH_PER_WSTETH }),
 };
 
 function fakeClient(overrides: Partial<Record<string, Responder>> = {}, options: { hang?: boolean; throwOn?: number; truncate?: number } = {}) {
@@ -108,9 +115,11 @@ test('a cold read fetches pool thresholds once, then batches every ratio with ea
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0].map((call) => call.functionName), [
     'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle',
-    'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle',
+    // The wstETH short's rate prices its debt per stETH.
+    'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle', 'stEthPerToken',
     'getRebalanceRatios', 'getLiquidateRatios', 'priceOracle',
   ]);
+  assert.equal(requests[0][6].address, POSITION_BRAKE_WSTETH);
   assert.deepEqual(requests[1].map((call) => `${call.functionName}@${call.address}`), [
     `getPositionDebtRatio@${ETH_LONG_POOL}`, `getPositionDebtRatio@${ETH_LONG_POOL}`, `getPositionDebtRatio@${ETH_SHORT_POOL}`, `getPositionDebtRatio@${BTC_LONG_POOL}`,
     // The oracle comes from each pool's own priceOracle(), never a constant.
@@ -129,6 +138,8 @@ test('a cold read fetches pool thresholds once, then batches every ratio with ea
   const shortOutcome = outcomes.get('ETH:short:174');
   assert.ok(shortOutcome?.status === 'ready');
   assert.equal(shortOutcome.sample.rebalanceRatio, 900n * E18 / 1000n, 'each pool keeps its own threshold');
+  assert.equal(shortOutcome.sample.stEthPerWstEth, STETH_PER_WSTETH);
+  assert.equal(eth.sample.stEthPerWstEth, undefined, 'an ETH long already counts stETH');
 
   // Within the cache window a refresh is one multicall: ratios and prices only.
   now += POOL_BRAKE_PARAMETER_TTL_MS - 1;
@@ -199,4 +210,22 @@ test('invalid position IDs are rejected without a read', async () => {
   assert.equal(requests.length, 0);
   assert.equal(outcomes.size, 3);
   assert.ok([...outcomes.values()].every((outcome) => outcome.status === 'failed'));
+});
+
+test('the wstETH short’s rate is wstETH’s own, and an unusable rate leaves only its pool price unknown', async () => {
+  assert.equal(POSITION_BRAKE_WSTETH, FX_TOKENS.wstETH.address);
+  assert.deepEqual(POSITION_BRAKE_WSTETH_RATE_ABI.map((item) => toFunctionSignature(item)), ['stEthPerToken()']);
+  for (const rate of [{ status: 'failure', error: new Error('reverted') }, { status: 'success', result: E18 }, { status: 'success', result: 'x' }] as const) {
+    const { client } = fakeClient({ stEthPerToken: () => rate });
+    const cache = createPoolBrakeParameterCache();
+    const outcomes = await readPositionBrakes({ client, targets: [target('ETH', 'short', 174)], cache });
+    const outcome = outcomes.get('ETH:short:174');
+    assert.ok(outcome?.status === 'ready', JSON.stringify(rate.status));
+    assert.equal(outcome.sample.stEthPerWstEth, undefined);
+    assert.equal(outcome.sample.rebalanceRatio, 900n * E18 / 1000n);
+  }
+  // Other pools never ask for it.
+  const { client, requests } = fakeClient();
+  await readPositionBrakes({ client, targets: [target('ETH', 'long', 1), target('BTC', 'long', 2)], cache: createPoolBrakeParameterCache() });
+  assert.ok(requests.flat().every((call) => call.functionName !== 'stEthPerToken'));
 });

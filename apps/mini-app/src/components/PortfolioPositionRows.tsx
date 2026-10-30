@@ -7,12 +7,13 @@ import { positionIsStale, positionKey, positionTokenDecimals, type PositionGroup
 import { useLiveMarketQuote, useUsdPrices } from '@/components/PriceProvider';
 import { usePositionBrake } from '@/components/PositionBrakeContext';
 import { MissingValue } from '@/components/MissingValue';
+import { PositionCostBasisFacts } from '@/components/PositionCostBasisFacts';
 import TokenIcon from '@/components/TokenIcon';
 import { PortfolioPositionSkeleton } from '@/components/PortfolioPositionSkeleton';
 import { PositionLeverage, PositionTokenAmount } from '@/components/PositionPresentation';
 import { freshDisplayPrices } from '@/lib/displayPrices';
 import { useInitialReadPending } from '@/lib/useInitialReadPending';
-import { formatWholeUsd, positionBrakeCopy, positionBrakeView } from '@/lib/positionBrake';
+import { brakeThresholdText, positionBrakeCopy, positionBrakeView } from '@/lib/positionBrake';
 import { positionName } from '@/lib/positionNaming';
 import { positionCollateralSymbol } from '@/lib/positionUnits';
 import { calculatePositionUsdPresentation } from '@/lib/positionValuation';
@@ -62,9 +63,8 @@ function PortfolioPositionRow({ position, stale }: { position: UiPosition; stale
     if (stale) return <MissingValue width="md" status="unavailable" label={`Estimated ${kind} price unavailable`} />;
     if (position.info.rawDebts === 0n) return 'No debt';
     if (view && (kind === 'rebalance' ? view.state !== 'clear' : view.state === 'liquidation')) return 'Reached';
-    const price = kind === 'rebalance' ? view?.rebalancePrice : view?.liquidatePrice;
-    return price !== null && price !== undefined ? `≈ ${formatWholeUsd(price)}`
-      : <MissingValue width="md" status={brake.status === 'loading' ? 'loading' : 'unavailable'} label={`Estimated ${kind} price unavailable`} />;
+    const price = view ? brakeThresholdText(view, kind, position.market) : null;
+    return price ?? <MissingValue width="md" status={brake.status === 'loading' ? 'loading' : 'unavailable'} label={`Estimated ${kind} price unavailable`} />;
   };
   const key = encodeURIComponent(positionKey(position));
   return <details className={styles.position} onToggle={(event) => setExpanded(event.currentTarget.open)} data-position-key={positionKey(position)}>
@@ -83,6 +83,8 @@ function PortfolioPositionRow({ position, stale }: { position: UiPosition; stale
         <div><dt>Debt</dt><dd><PositionTokenAmount raw={position.info.rawDebts} decimals={positionTokenDecimals(position, 'debt')} symbol={position.info.rawDebtsToken} /><small>{usd(valuation.debtUsdText, 'Debt value')}</small></dd></div>
         <div><dt>Est. rebalance</dt><dd data-position-price="rebalance">{threshold('rebalance')}</dd></div>
         <div><dt>Est. liquidation</dt><dd data-position-price="liquidation">{threshold('liquidation')}</dd></div>
+        {/* Read only while the row is open. */}
+        <PositionCostBasisFacts position={position} stale={stale} />
       </dl>
       <Link href={`/positions?position=${key}`} className={styles.manage}>Manage position <ChevronRight size={15} aria-hidden="true" /></Link>
     </div>}
