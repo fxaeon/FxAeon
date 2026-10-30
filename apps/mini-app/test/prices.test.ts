@@ -296,6 +296,9 @@ const reads = (overrides: Partial<Record<number, ReturnType<typeof ok> | { statu
   ];
   return base.map((read, index) => overrides[index] ?? read);
 };
+// The NAVs as a number: their 18 decimals are more than a double holds.
+const FXSAVE_NAV = Number('1.126944563725761708');
+const FXSP_NAV = Number('1.01033419779029577');
 
 test('protocol reads price every on-chain token at the read block', () => {
   const update = protocolPricesFromReads(reads(), blockAt * 1000 + 8_000);
@@ -306,8 +309,8 @@ test('protocol reads price every on-chain token at the read block', () => {
   assert.equal(update.prices.WETH, update.prices.ETH, 'WETH and ETH share one quote');
   assert.equal(update.prices.USDC, 0.99971556);
   assert.equal(update.prices.USDT, 0.99860065);
-  assert.equal(update.prices.fxSAVE, 1.126944563725761708);
-  assert.equal(update.prices.fxUSDBasePool, 1.01033419779029577);
+  assert.equal(update.prices.fxSAVE, FXSAVE_NAV);
+  assert.equal(update.prices.fxUSDBasePool, FXSP_NAV);
   for (const at of Object.values(update.updatedAts)) assert.equal(at, blockAt * 1000, 'every value is stamped with the block it was read at');
   assert.equal(update.prices.fxUSD, undefined);
   assert.equal(update.prices.FXN, undefined);
@@ -349,7 +352,7 @@ test("f(x)'s sources cover every token without DefiLlama or CoinGecko", async ()
   const updates: Array<Record<string, number>> = [];
   const result = await fetchPrices(request, undefined, snapshot => updates.push({ ...snapshot.prices }));
   for (const key of keys) assert.ok(result.prices[key]! > 0, `${key} is priced`);
-  assert.equal(result.prices.fxSAVE, 1.126944563725761708);
+  assert.equal(result.prices.fxSAVE, FXSAVE_NAV);
   assert.equal(result.prices.fxUSD, 1.0001);
   assert.deepEqual(calls, [FX_PRICE_SERVICE_ENDPOINT], 'no secondary provider is asked');
   assert.equal(updates.length, 2, 'each source publishes as soon as it lands');
@@ -366,7 +369,7 @@ test('DefiLlama fills only what f(x) leaves out and never replaces its quotes', 
   const fetchPrices = createUsdPriceFetcher({ readProtocolPrices: async () => protocolPricesFromReads(reads(), blockAt * 1000) });
   const result = await fetchPrices(request);
   assert.equal(result.prices.ETH, 2_318.50173849, 'the on-chain quote stays');
-  assert.equal(result.prices.fxSAVE, 1.126944563725761708);
+  assert.equal(result.prices.fxSAVE, FXSAVE_NAV);
   assert.equal(result.prices.FXN, 1, 'a token f(x) did not price comes from DefiLlama');
   assert.equal(result.updatedAts.FXN, (now - 12) * 1000);
 });
