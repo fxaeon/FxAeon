@@ -148,8 +148,9 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const store = new Store(db); const notifications = new NotificationStore(db, env, { fetch: dependencies.fetch });
       const operations = new Operations(db);
       await init(db, legacy, store, notifications, operations);
-      const dispatch = () => {
-        const work = notifications.dispatch().catch(() => {
+      const dispatch = (verificationUserId?: number) => {
+        const work = (verificationUserId === undefined ? notifications.dispatch()
+          : notifications.dispatchVerification(verificationUserId)).catch(() => {
           console.warn('notification_dispatch_failed', { reason: 'storage_or_dispatch_failure' });
         });
         if (context.waitUntil) context.waitUntil(work);
@@ -210,14 +211,14 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         exactKeys(body, ['action', 'launchData', 'email']);
         if (!await store.status(userId)) throw new AccessError('join_required', 403);
         const result = await notifications.setContact(userId, textField(body.email, 254));
-        await dispatch();
+        await dispatch(userId);
         return json({ ...result, delivery: await notifications.verificationStatus(userId) });
       }
       if (action === 'email/retry') {
         exactKeys(body, ['action', 'launchData']);
         if (!await store.status(userId)) throw new AccessError('join_required', 403);
         await notifications.retryVerification(userId);
-        await dispatch();
+        await dispatch(userId);
         return json({ status: 'verification_requested', delivery: await notifications.verificationStatus(userId) });
       }
       if (action === 'handoff/status') {

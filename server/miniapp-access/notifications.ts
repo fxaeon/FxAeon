@@ -371,6 +371,14 @@ export class NotificationStore {
   }
   /** Run from a scheduled/server task. No raw recipients, credentials or provider responses leave this API. */
   async dispatch(limit = 10): Promise<DispatchResult> {
+    return this.dispatchPending(limit);
+  }
+  /** Interactive feedback must never wait behind unrelated outbox deliveries. */
+  async dispatchVerification(userId: number): Promise<DispatchResult> {
+    identity(userId);
+    return this.dispatchPending(1, userId);
+  }
+  private async dispatchPending(limit: number, verificationUserId?: number): Promise<DispatchResult> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('notification_input_invalid');
     const now = this.now();
     await this.batch([
@@ -385,6 +393,7 @@ export class NotificationStore {
     const month = `month:${new Date(now).toISOString().slice(0, 7)}`;
     const candidates = await this.all<{ id: string; channel: 'email' | 'telegram' }>(`SELECT id,channel FROM access_mail_outbox o
       WHERE status='pending' AND next_at<=? AND attempts<3
+      AND (? IS NULL OR (o.user_id=? AND o.channel='email' AND o.kind='verification'))
       AND NOT EXISTS(SELECT 1 FROM access_mail_providers p WHERE p.channel=o.channel AND p.pause_until>?)
       AND ((channel='telegram' AND ?=1) OR (channel='email' AND ?=1
         AND coalesce((SELECT used FROM access_mail_budgets WHERE period=?),0)<?
@@ -393,7 +402,8 @@ export class NotificationStore {
         OR (kind='invitation' AND EXISTS(SELECT 1 FROM admission_users u WHERE u.user_id=o.user_id AND u.external_id IS NOT NULL
           AND ((channel='telegram' AND u.telegram_notify=1) OR (channel='email' AND EXISTS(SELECT 1 FROM access_mail_contacts c
             WHERE c.user_id=u.user_id AND c.verified=1 AND c.email=o.destination))))))
-      ORDER BY created_at,id LIMIT ?`, now, now, +this.enabled('telegram'), +this.enabled('email'), day, this.daily, month, this.monthly, limit);
+      ORDER BY created_at,id LIMIT ?`, now, verificationUserId ?? null, verificationUserId ?? null,
+    now, +this.enabled('telegram'), +this.enabled('email'), day, this.daily, month, this.monthly, limit);
     const counts: DispatchResult = { sent: 0, failed: 0, deferred: 0, uncertain: 0 };
     for (const candidate of candidates) {
       if (!this.enabled(candidate.channel)) { counts.deferred++; continue; }

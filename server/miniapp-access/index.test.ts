@@ -338,6 +338,36 @@ test('approved invitation stays durable for scheduled dispatch when waitUntil is
   assert.equal((await f.operate({ action: 'dispatch' })).body.sent, 1);
 });
 
+for (const action of ['email/request', 'email/retry']) {
+  test(`${action} dispatches only the current user's verification despite a stalled backlog`, async t => {
+    const f = await fixture(t);
+    const notifications = new NotificationStore(f.db, f.env);
+    await f.store.join(1, true); await f.store.approve([1]);
+    await notifications.enqueueInvitation(1, true);
+    for (let id = 2; id <= 11; id++) {
+      await f.store.join(id, false);
+      await notifications.setContact(id, `other${id}@example.com`);
+    }
+    f.db.sql.prepare('UPDATE access_mail_outbox SET created_at=0').run();
+    if (action === 'email/retry') {
+      await notifications.setContact(1, 'old@example.com');
+      await notifications.setContact(1, 'private@example.com');
+    }
+    let release!: (response: Response) => void;
+    const held = new Promise<Response>(resolve => { release = resolve; });
+    f.mailResponse(() => f.calls.at(-1)?.body.to.includes('private@example.com')
+      ? Response.json({ id: 'accepted' }) : held);
+    const work = f.asUser(action, 1, action === 'email/request' ? { email: 'private@example.com' } : {});
+    try {
+      const response = await withoutProviderCompletion(work);
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body.delivery, { state: 'accepted', retryAfterMs: null });
+      assert.equal(f.calls.length, 1, 'no other user, invitation, or superseded token is dispatched');
+      assert.ok(f.outbox().filter(row => row.status !== 'sent').every(row => row.attempts === 0));
+    } finally { release(Response.json({ id: 'released' })); await work; }
+  });
+}
+
 test('email request still awaits its dispatch result before reporting provider acceptance', async t => {
   const f = await fixture(t); await f.store.join(1, false);
   let release!: (response: Response) => void;
