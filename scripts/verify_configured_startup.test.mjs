@@ -2,7 +2,27 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { savedThemes, localBaseUrl, observationMs, existingBuildTarget, hydrationIssue,
-  assertDarkHydration, boundedRun, startupTimeline } from '../apps/mini-app/e2e/configured-startup-support.mjs';
+  assertDarkHydration, boundedRun, startupTimeline, passkeyStartupCases, passkeyLaunchUrl } from '../apps/mini-app/e2e/configured-startup-support.mjs';
+
+test('one delayed trade deep-link augments the matrix and can run alone without rebuilding', () => {
+  const themes = ['unset', 'official', 'dark', 'light', 'invalid'];
+  assert.equal(passkeyStartupCases(themes).length, 11);
+  assert.equal(passkeyStartupCases(themes, 'matrix').length, 10);
+  assert.deepEqual(passkeyStartupCases(themes, 'trade-deeplink'), [{ theme: 'dark', timing: 'delayed', caseName: 'trade-deeplink', startParam: 'trade', expectedPath: '/trade' }]);
+  assert.throws(() => passkeyStartupCases(themes, 'typo'));
+});
+
+test('trade entry supplies the actual Telegram start key and preserves signed launch data in the hash', () => {
+  const launch = 'user=%7B%22id%22%3A12345%7D&auth_date=123&hash=synthetic&start_param=trade';
+  const url = new URL(passkeyLaunchUrl('http://127.0.0.1:4321', launch, 'trade'));
+  assert.equal(url.pathname, '/');
+  assert.equal(url.searchParams.get('tgWebAppStartParam'), 'trade');
+  const hash = new URLSearchParams(url.hash.slice(1));
+  assert.equal(hash.get('tgWebAppData'), launch);
+  assert.equal(new URLSearchParams(hash.get('tgWebAppData')).get('start_param'), 'trade');
+  assert.equal(hash.get('tgWebAppPlatform'), 'android');
+  assert.equal(new URL(passkeyLaunchUrl(url.origin, launch)).search, '');
+});
 
 test('theme matrix covers every saved alias plus unset, invalid and denied storage', () => {
   assert.deepEqual(savedThemes(), ['unset', 'official', 'dark', 'light', 'invalid', 'blocked']);
@@ -56,6 +76,7 @@ test('the total browser budget closes the browser and cannot wait indefinitely',
 const api = 'http://127.0.0.1:4321/api/telegram-wallet';
 function timingSnapshot() {
   return { timeOrigin: 1_800_000_000_000, firstNeutralPaintMs: 920, firstWalletPaintMs: 1450, firstConnectedPaintMs: 1480,
+    connectedPaintKind: 'authenticated-route', routeEvents: [{ kind: 'pushState', atMs: 950, pathname: '/trade', hasLaunchHash: true }],
     requests: [{ action: 'status', url: api, fetchCalledMs: 1200.1 }, { action: 'transaction/status', url: api, fetchCalledMs: 1300.2 }],
     resources: [{ name: api, startTime: 1300.3, responseEnd: 1400.4 }, { name: api, startTime: 1200.2, responseEnd: 1299.9 }],
     nativePaints: [{ name: 'first-paint', startTime: 800 }, { name: 'first-contentful-paint', startTime: 900 }],
@@ -71,6 +92,8 @@ test('request trace uses native navigation-relative resources, independently of 
   assert.equal(trace.firstNeutralPaintMs, 920);
   assert.equal(trace.firstWalletPaintMs, 1450);
   assert.equal(trace.firstConnectedPaintMs, 1480);
+  assert.equal(trace.connectedPaintKind, 'authenticated-route');
+  assert.deepEqual(trace.routeEvents, snapshot.routeEvents);
   assert.equal(trace.nativeFirstContentfulPaintMs, 900);
   assert.deepEqual(trace.intentionalDelays.holds, []);
   assert.equal(trace.navigationTimeOriginEpochMs, snapshot.timeOrigin);

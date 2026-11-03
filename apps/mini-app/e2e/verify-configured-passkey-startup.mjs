@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { configuredBrowserChannel } from '../../../scripts/e2e_browser_channel.cjs';
 import { savedThemes, observationMs, openConfiguredRun, watchHydration, installFirstPaintProbe,
-  assertDarkHydration, readStartupTimeline, artifactDirectory, saveReport } from './configured-startup-support.mjs';
+  assertDarkHydration, readStartupTimeline, artifactDirectory, saveReport, passkeyStartupCases, passkeyLaunchUrl } from './configured-startup-support.mjs';
 
 function gate() {
   let release;
@@ -18,21 +18,23 @@ async function seen(promise, label) {
   try { await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} not reached in the real configured passkey branch`)), 15_000); })]); }
   finally { clearTimeout(timer); }
 }
-async function neutral(page) {
-  await page.locator('[data-wallet-startup]').waitFor({ state: 'visible' });
+async function neutral(page, expectedPath) {
+  await page.locator(expectedPath === '/' ? '[data-wallet-startup]' : '[role="status"][aria-label="Loading FxAeon"]').waitFor({ state: 'visible' });
+  await page.locator(`[data-route="${expectedPath}"]`).waitFor({ state: 'visible' });
   assert.equal(await page.locator('[data-portfolio-explore], [data-admission-state="checking"], [data-portfolio-value], [aria-label="Portfolio views"]').count(), 0);
-  assert.equal(await page.getByRole('button', { name: 'Connect wallet', exact: true }).count(), 0);
+  assert.equal(await page.locator('[data-wallet-connect-trigger]:visible').count(), 0);
 }
 
 const themes = savedThemes(process.env.FXAEON_HYDRATION_THEME).filter(theme => theme !== 'blocked');
 assert.ok(themes.length, 'Storage denial is covered by verify-configured-hydration.mjs; passkey recovery requires usable durable storage.');
 const observe = observationMs(process.env.FXAEON_HYDRATION_OBSERVE_MS);
+const cases = passkeyStartupCases(themes, process.env.FXAEON_CONFIGURED_STARTUP_CASE);
 const directory = artifactDirectory();
 const channel = configuredBrowserChannel();
 const { target, browser, budget } = await openConfiguredRun(chromium, channel);
 const results = [];
 try {
-  for (const theme of themes) for (const timing of ['fast', 'delayed']) {
+  for (const { theme, timing, caseName, startParam, expectedPath } of cases) {
     assert.ok(!budget.expired(), 'Configured startup exceeded its four-minute budget.');
     const context = await browser.newContext({ viewport: { width: 412, height: 818 }, colorScheme: 'light', serviceWorkers: 'block' });
     const page = await context.newPage();
@@ -40,7 +42,7 @@ try {
     const statusSeen = gate(), recoverySeen = gate(), statusReply = gate(), recoveryReply = gate();
     const actions = [], unexpected = [], chunkChecks = [], providerChunks = [];
     let timeline = null;
-    const launch = `user=%7B%22id%22%3A12345%7D&auth_date=${Math.floor(Date.now() / 1000)}&hash=synthetic-configured-fixture`;
+    const launch = `user=%7B%22id%22%3A12345%7D&auth_date=${Math.floor(Date.now() / 1000)}&hash=synthetic-configured-fixture${startParam ? `&start_param=${startParam}` : ''}`;
     if (timing === 'fast') { statusReply.release(); recoveryReply.release(); }
     try {
       await installFirstPaintProbe(page, theme, true);
@@ -49,7 +51,7 @@ try {
         window.Telegram = {};
         window.__releaseConfiguredBridge = () => {
           const noop = () => {};
-          window.Telegram.WebApp = { initData: launch, initDataUnsafe: { user: { id: 12345 } }, platform: 'android', version: '8.0',
+          window.Telegram.WebApp = { initData: launch, initDataUnsafe: { user: { id: 12345 }, start_param: new URLSearchParams(launch).get('start_param') || undefined }, platform: 'android', version: '8.0',
             colorScheme: 'light', themeParams: {}, isExpanded: true, viewportHeight: innerHeight, viewportStableHeight: innerHeight,
             ready: noop, expand: noop, close: noop, onEvent: noop, offEvent: noop, isVersionAtLeast: () => true,
             setHeaderColor: noop, setBackgroundColor: noop, setBottomBarColor: noop,
@@ -100,13 +102,15 @@ try {
         // Documents, CSS, fonts and every genuine emitted Next chunk pass through.
         return request.continue();
       });
-      const response = await page.goto(`${target.baseUrl}/#tgWebAppData=${encodeURIComponent(launch)}&tgWebAppPlatform=android`, { waitUntil: 'domcontentloaded' });
+      const response = await page.goto(passkeyLaunchUrl(target.baseUrl, launch, startParam), { waitUntil: 'domcontentloaded' });
       assert.ok(response?.ok(), 'Existing build document did not load.');
       await seen(statusSeen.promise, 'Server status');
+      assert.deepEqual(unexpected, [], 'Server status must carry the original signed launch data.');
+      await page.waitForURL(url => url.pathname === expectedPath);
       if (timing === 'delayed') {
         assert.equal(await page.evaluate(() => Boolean(window.Telegram?.WebApp)), false, 'Status must start before bridge availability.');
-        await neutral(page);
-        await page.screenshot({ path: resolve(directory, `${theme}-delayed-status.png`), animations: 'disabled' });
+        await neutral(page, expectedPath);
+        await page.screenshot({ path: resolve(directory, `${theme}-${caseName}-status.png`), animations: 'disabled' });
         await page.evaluate(() => {
           window.__releaseConfiguredBridge();
           window.__configuredFixtureEvents.push({ name: 'statusReplyReleaseRequested', atMs: performance.now() });
@@ -114,10 +118,11 @@ try {
         statusReply.release();
       }
       await seen(recoverySeen.promise, 'Transaction recovery');
-      if (timing === 'delayed') { await neutral(page); recoveryReply.release(); }
+      if (timing === 'delayed') { await neutral(page, expectedPath); recoveryReply.release(); }
       const profile = page.getByRole('button', { name: 'Open wallet profile', exact: true });
       await profile.waitFor({ state: 'visible' });
-      await page.locator('[data-portfolio-state^="connected-"]').waitFor({ state: 'visible' });
+      await page.locator(expectedPath === '/' ? '[data-portfolio-state^="connected-"]' : `[data-route="${expectedPath}"] .app-content`).waitFor({ state: 'visible' });
+      assert.equal(new URL(page.url()).pathname, expectedPath);
       await page.waitForTimeout(observe);
       await Promise.all(chunkChecks);
       assert.ok(providerChunks.length, 'No genuine emitted passkey module was loaded from the build.');
@@ -131,13 +136,15 @@ try {
           'A real browser request interval was not observed.');
       }
       assert.ok(timeline.firstWalletPaintMs !== null && timeline.firstConnectedPaintMs !== null, 'Verified wallet and connected frames were not observed.');
-      await page.screenshot({ path: resolve(directory, `${theme}-${timing}-connected.png`), animations: 'disabled' });
-      results.push({ savedTheme: theme, timing, ok: true, paints: probe.paints, actions, providerChunks, timeline });
-      console.log(`TRACE ${JSON.stringify({ savedTheme: theme, scenario: timing, ...timeline })}`);
-      console.log(`PASS saved=${theme}, ${timing}: emitted passkey chunks, dark first paint, verified publication`);
+      await page.screenshot({ path: resolve(directory, `${theme}-${caseName}-connected.png`), animations: 'disabled' });
+      results.push({ savedTheme: theme, timing, caseName, expectedPath, actualPath: new URL(page.url()).pathname, ok: true,
+        paints: probe.paints, badStates: probe.badStates, badPaints: probe.badPaints, actions, providerChunks, timeline });
+      console.log(`TRACE ${JSON.stringify({ savedTheme: theme, scenario: caseName, ...timeline })}`);
+      console.log(`PASS saved=${theme}, ${caseName}: emitted passkey chunks, dark first paint, verified publication at ${expectedPath}`);
     } catch (error) {
       timeline ??= await readStartupTimeline(page, timing).catch(() => null);
-      results.push({ savedTheme: theme, timing, ok: false, error: error.message, timeline });
+      await page.screenshot({ path: resolve(directory, `${theme}-${caseName}-failed.png`), animations: 'disabled', timeout: 3000 }).catch(() => {});
+      results.push({ savedTheme: theme, timing, caseName, expectedPath, ok: false, error: error.message, timeline });
       throw error; // A wrong/unconfigured build fails promptly instead of passing static HTML.
     } finally { statusReply.release(); recoveryReply.release(); await context.close(); }
   }

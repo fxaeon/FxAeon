@@ -21,6 +21,18 @@ export function observationMs(value = '1000') {
   if (!Number.isInteger(ms) || ms < 100 || ms > 5000) throw new Error('FXAEON_HYDRATION_OBSERVE_MS must be 100–5000.');
   return ms;
 }
+export function passkeyStartupCases(themes, selection = 'all') {
+  if (!['all', 'matrix', 'trade-deeplink'].includes(selection)) throw new Error('FXAEON_CONFIGURED_STARTUP_CASE must be all, matrix, or trade-deeplink.');
+  const matrix = themes.flatMap(theme => ['fast', 'delayed'].map(timing => ({ theme, timing, caseName: timing, startParam: null, expectedPath: '/' })));
+  const deepLink = { theme: themes.includes('dark') ? 'dark' : themes[0], timing: 'delayed', caseName: 'trade-deeplink', startParam: 'trade', expectedPath: '/trade' };
+  return selection === 'matrix' ? matrix : selection === 'trade-deeplink' ? [deepLink] : [...matrix, deepLink];
+}
+export function passkeyLaunchUrl(baseUrl, launch, startParam) {
+  const url = new URL('/', baseUrl);
+  if (startParam) url.searchParams.set('tgWebAppStartParam', startParam);
+  url.hash = new URLSearchParams({ tgWebAppData: launch, tgWebAppPlatform: 'android' }).toString();
+  return url.href;
+}
 
 /** Importing serve.mjs never invokes its CLI build. Missing exports fail closed. */
 export async function existingBuildTarget(env = process.env) {
@@ -54,7 +66,16 @@ export async function installFirstPaintProbe(page, savedTheme, passkey = false) 
     }
     performance.setResourceTimingBufferSize(2000);
     const probe = window.__configuredStartup = { paints: 0, badPaints: 0, badStates: 0, allowConnected: false, stop: false,
-      firstNeutralPaintMs: null, firstWalletPaintMs: null, firstConnectedPaintMs: null, requests: [] };
+      firstNeutralPaintMs: null, firstWalletPaintMs: null, firstConnectedPaintMs: null, connectedPaintKind: null, requests: [], routeEvents: [] };
+    const routeEvent = kind => probe.routeEvents.push({ kind, atMs: performance.now(), pathname: location.pathname,
+      hasLaunchHash: new URLSearchParams(location.hash.slice(1)).has('tgWebAppData') });
+    routeEvent('initial');
+    for (const method of ['pushState', 'replaceState']) {
+      const native = history[method];
+      history[method] = function() { const result = Reflect.apply(native, this, arguments); routeEvent(method); return result; };
+    }
+    addEventListener('popstate', () => routeEvent('popstate'));
+    addEventListener('hashchange', () => routeEvent('hashchange'));
     // Observe native fetch invocation without wrapping its promise or delaying
     // delivery. Response end comes from the browser's Resource Timing entries.
     const nativeFetch = window.fetch;
@@ -80,15 +101,23 @@ export async function installFirstPaintProbe(page, savedTheme, passkey = false) 
       if (!document.querySelector('.app-shell')) return;
       const root = document.documentElement;
       const style = getComputedStyle(root);
+      const portfolioPath = location.pathname === '/' || /^\/portfolio\/?$/.test(location.pathname);
       if (paint) {
         probe.paints += 1;
-        if (probe.firstNeutralPaintMs === null && visible(document.querySelector('[data-wallet-startup]'))) probe.firstNeutralPaintMs = atMs;
+        if (probe.firstNeutralPaintMs === null && visible(document.querySelector('[data-wallet-startup], [role="status"][aria-label="Loading FxAeon"]'))) probe.firstNeutralPaintMs = atMs;
         if (probe.firstWalletPaintMs === null && visible(document.querySelector('button[aria-label="Open wallet profile"]'))) probe.firstWalletPaintMs = atMs;
-        if (probe.firstConnectedPaintMs === null && visible(document.querySelector('[data-portfolio-state^="connected-"]'))) probe.firstConnectedPaintMs = atMs;
+        if (probe.firstConnectedPaintMs === null) {
+          const portfolio = visible(document.querySelector('[data-portfolio-state^="connected-"]'));
+          const verifiedRoute = !portfolioPath && visible(document.querySelector('button[aria-label="Open wallet profile"]'))
+            && [...document.querySelectorAll('[data-route]')].some(element => element.getAttribute('data-route') === location.pathname && visible(element.querySelector('.app-content')));
+          if (portfolio || verifiedRoute) { probe.firstConnectedPaintMs = atMs; probe.connectedPaintKind = portfolio ? 'portfolio-state' : 'authenticated-route'; }
+        }
         if (root.dataset.theme !== 'dark' || !style.colorScheme.includes('dark') || style.getPropertyValue('--bg').trim() !== '#080808') probe.badPaints += 1;
       }
       if (passkey && (document.querySelector('[data-portfolio-explore], [data-admission-state="checking"]')
-        || !probe.allowConnected && document.querySelector('[data-portfolio-value], [aria-label="Portfolio views"], .app-content .skeleton'))) probe.badStates += 1;
+        || [...document.querySelectorAll('[data-wallet-connect-trigger]')].some(visible)
+        || !probe.allowConnected && (document.querySelector('[data-portfolio-value], [aria-label="Portfolio views"]')
+          || portfolioPath && document.querySelector('.app-content .skeleton')))) probe.badStates += 1;
     };
     new MutationObserver(() => sample()).observe(document, { childList: true, subtree: true, attributes: true });
     // Use observation time, not the rAF frame tick (which can predate a DOM
@@ -125,7 +154,8 @@ export function startupTimeline(snapshot, scenario) {
     nativeFirstPaintMs: measured(snapshot.nativePaints.find(entry => entry.name === 'first-paint')?.startTime),
     nativeFirstContentfulPaintMs: measured(snapshot.nativePaints.find(entry => entry.name === 'first-contentful-paint')?.startTime),
     firstNeutralPaintMs: measured(snapshot.firstNeutralPaintMs), firstWalletPaintMs: measured(snapshot.firstWalletPaintMs),
-    firstConnectedPaintMs: measured(snapshot.firstConnectedPaintMs), statusRequest: status, recoveryRequest: recovery,
+    firstConnectedPaintMs: measured(snapshot.firstConnectedPaintMs), connectedPaintKind: snapshot.connectedPaintKind ?? null,
+    routeEvents: snapshot.routeEvents ?? [], statusRequest: status, recoveryRequest: recovery,
     intentionalDelays: { label: scenario === 'fast' ? 'none; immediate intercepted replies' : 'controlled bridge/status/recovery holds',
       maxRunMs: 240_000, holds: scenario === 'fast' ? [] : [
         hold('bridge', control('bridgeWithheld'), control('bridgeReleased'), 'Release after status begins and neutral UI is checked'),
@@ -143,6 +173,7 @@ export async function readStartupTimeline(page, scenario) {
         .map(entry => ({ name: entry.name, startTime: entry.startTime, responseEnd: entry.responseEnd })),
       nativePaints: performance.getEntriesByType('paint').map(entry => ({ name: entry.name, startTime: entry.startTime })),
       firstNeutralPaintMs: probe.firstNeutralPaintMs, firstWalletPaintMs: probe.firstWalletPaintMs, firstConnectedPaintMs: probe.firstConnectedPaintMs,
+      connectedPaintKind: probe.connectedPaintKind, routeEvents: probe.routeEvents,
       controls: window.__configuredFixtureEvents ?? [] };
   });
   return startupTimeline(snapshot, scenario);
