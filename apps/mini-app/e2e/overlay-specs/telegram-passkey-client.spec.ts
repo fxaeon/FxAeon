@@ -138,6 +138,34 @@ test('signed launch status starts before the bridge resolves and late mobile bri
   expect(requests.filter(r => r.action === 'status')).toHaveLength(1);
 });
 
+for (const kind of ['register', 'sign'] as const) for (const cancel of [false, true]) {
+  test(`${kind} waits for an unresolved bridge${cancel ? ' across cancellation' : ' before accepting a click'}`, async ({ page }) => {
+    const launchData = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
+    const { requests, errors } = await mount(page, `/#tgWebAppData=${encodeURIComponent(launchData)}`, {
+      ...(kind === 'register' ? { state: 'approved', hasCredential: false } : {}),
+      mobile: true, delayedBridge: true,
+    });
+    const enter = () => page.getByRole('button', { name: kind === 'register' ? 'Set up my wallet' : 'Review and send' }).click();
+    await enter();
+    const native = page.getByRole('button', { name: kind === 'register' ? 'Create passkey' : 'Approve with passkey' });
+    await expect(native).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeDisabled();
+    await native.evaluate(button => (button as HTMLButtonElement).click());
+    expect(requests.some(r => ['register/options', 'sign/options', 'handoff/create'].includes(r.action))).toBe(false);
+    expect(await readClient(page, 'ceremonies')).toEqual([]);
+    if (cancel) await page.getByRole('button', { name: kind === 'register' ? 'Back' : 'Cancel', exact: true }).click();
+    await page.evaluate(() => (window as any).client.releaseBridge());
+    if (cancel) await enter();
+    await expect(native).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
+    expect(requests.filter(r => r.action === `${kind}/options`)).toHaveLength(1);
+    expect(await readClient(page, 'ceremonies')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
 test('without launch data status waits for the bridge and does not send an empty launch', async ({ page }) => {
   const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false, delayedBridge: true });
   await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));

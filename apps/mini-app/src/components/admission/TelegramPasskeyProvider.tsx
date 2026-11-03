@@ -88,6 +88,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const [pending, setPending] = useState<PendingSign>();
   const [browserPending, setBrowserPending] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [bridgeReady, setBridgeReady] = useState(false);
   const [recovery, setRecovery] = useState<Recovery | null>(null);
   const recoveryRef = useRef<Recovery | null>(null);
   const confirmationWaiters = useRef<Array<() => void>>([]);
@@ -195,15 +196,23 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     } finally { finish(operation); }
   }, [applyStatus, assertOperation, begin, finish, recoverOperation]);
 
+  // Platform readiness belongs to this mount, not to an approval generation.
+  // Back/Cancel may invalidate an operation while the bridge is still loading.
+  useEffect(() => {
+    let disposed = false;
+    void waitForTelegramWebApp().then(() => {
+      if (disposed) return;
+      setMobile(['android', 'ios'].includes(getWebApp()?.platform ?? ''));
+      setBridgeReady(true);
+    });
+    return () => { disposed = true; };
+  }, []);
+
   useEffect(() => {
     mounted.current = true;
     const version = generation.current;
     const hasLaunch = Boolean(currentTelegramLaunchData());
     const bridge = waitForTelegramWebApp();
-    void bridge.then(() => {
-      if (!mounted.current || generation.current !== version) return;
-      setMobile(['android', 'ios'].includes(getWebApp()?.platform ?? ''));
-    });
     // The server can verify launch data before the UI bridge has loaded.
     void (hasLaunch ? Promise.resolve() : bridge).then(() => {
       if (!mounted.current || generation.current !== version) return;
@@ -270,7 +279,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
 
   const approveTransaction = async (browser: boolean) => {
     const request = signing.current;
-    if (!request || active.current) return;
+    if (!bridgeReady || !request || active.current) return;
     const operation = begin();
     try {
       assertSigning(request, operation);
@@ -315,7 +324,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   };
 
   const setupWallet = async (browser: boolean) => {
-    if (active.current) return;
+    if (!bridgeReady || active.current) return;
     const operation = begin();
     try {
       // Re-read before every attempt: registration may have bound a credential
@@ -459,8 +468,9 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       <FxLogo size={32} /><h1 id="passkey-approval-title">Approve transaction.</h1>
       <WalletApprovalDetails transaction={pending.transaction} walletId={pending.walletId} />
       {browserPending && <p role="status">Complete approval in your browser. Waiting up to five minutes.</p>}
-      <button className={styles.primary} disabled={busy} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
-      {!mobile && <button className={styles.secondary} disabled={busy} onClick={() => void approveTransaction(true)}>Continue in browser</button>}
+      {!bridgeReady && <p role="status">Checking Telegram…</p>}
+      <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
+      {!mobile && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(true)}>Continue in browser</button>}
       <button className={styles.secondary} onClick={invalidate}>{browserPending ? 'Stop waiting' : 'Cancel'}</button>
     </dialog>}
   </FxWalletContext.Provider>;
@@ -469,8 +479,9 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   if (view === 'passkey') return <main className={styles.screen}><div className={styles.panel}><FxLogo size={32} /><h1>Secure your wallet.</h1>
     <p>{status?.hasCredential ? 'Your passkey is registered. Finish setting up your wallet.' : 'Keep your passkey synced or backed up so you can use it again.'}</p>
     {error && <p role="alert">{error}</p>}{browserPending && <p role="status">Complete setup in your browser. Waiting up to five minutes.</p>}
-    <button className={styles.primary} disabled={busy} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
-    {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy} onClick={() => void setupWallet(true)}>Continue in browser</button>}
+    {!bridgeReady && <p role="status">Checking Telegram…</p>}
+    <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
+    {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
     <button className={styles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
   </div></main>;
   const common = { notificationPermission: status?.telegramNotify ? 'granted' as const : status ? 'denied' as const : 'unknown' as const,
