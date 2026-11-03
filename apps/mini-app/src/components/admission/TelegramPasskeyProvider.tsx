@@ -11,6 +11,7 @@ import type { FxChainId, FxPrivyWallet, FxSelectedWallet, FxWalletTransaction } 
 import { getWebApp, waitForTelegramWebApp } from '@/lib/telegram';
 import { requestTelegramWriteAccess, TelegramWriteAccessError } from '@/lib/telegramWriteAccess';
 import { currentTelegramLaunchData, webAppUrl } from '@/lib/telegramAdmission';
+import { setTelegramWalletDisconnected, telegramWalletDisconnected } from '@/lib/telegramWalletDisconnect';
 import {
   miniappAccess, miniappTransaction, pollHandoff, validatedHandoffUrl, isWalletResult, isSignResult, HANDOFF_TIMEOUT_MS,
   MiniappAccessError, accessErrorMessage, verifySigningChallenge, challengeCommitment, type MiniappAccessStatus, type MiniappWallet, type MiniappTransaction, type SignResult, type EmailDelivery,
@@ -168,6 +169,9 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
   }, []);
   const acceptWallet = useCallback((wallet: MiniappWallet) => {
     sessionLaunch.current = currentTelegramLaunchData();
+    // Only verified status/setup plus recovery reaches publication. An explicit
+    // reconnect clears the opt-out here, never before its server checks pass.
+    setTelegramWalletDisconnected(sessionLaunch.current, false);
     sessionRef.current = wallet; setSession(wallet); setDisconnected(false);
     setConnectionVersion(value => value + 1);
   }, []);
@@ -178,7 +182,7 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
     if (next.state === 'ready' && next.wallet) {
       acceptWallet(next.wallet); setView('ready'); if (openExisting) setOpened(true);
     } else {
-      sessionRef.current = undefined; setSession(undefined); setOpened(false);
+      sessionRef.current = undefined; setSession(undefined); setOpened(false); setDisconnected(false);
       setView(next.state === 'new' ? next.cohortFull ? 'full' : 'intro'
         : next.state === 'waiting' ? next.emailVerified ? 'verified' : next.telegramNotify ? 'waiting' : 'alerts-off'
           : 'invited');
@@ -209,11 +213,18 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
     const next = result.operation || hint ? { operation: result.operation, hint, wallet } : null;
     recoveryRef.current = next; setRecovery(next); uncertainSign.current = Boolean(next);
   }, [assertOperation]);
-  const refresh = useCallback(async (openExisting = true) => {
+  const refresh = useCallback(async (openExisting = true, reconnect = false) => {
     const operation = begin();
     try {
       const next = await miniappAccess('status', {}, { signal: operation.controller.signal, launchData: operation.launchData });
       assertOperation(operation);
+      if (next.state === 'ready' && next.wallet && !reconnect && telegramWalletDisconnected(operation.launchData)) {
+        // The server still decides access. This identity's preference only
+        // suppresses wallet restoration; public routes remain browsable.
+        statusLaunch.current = operation.launchData; statusRef.current = next; setStatus(next);
+        sessionRef.current = undefined; setSession(undefined); setDisconnected(true); setView('ready');
+        return;
+      }
       if (next.state === 'ready' && next.wallet) await recoverOperation(next.wallet, operation);
       assertOperation(operation); applyStatus(next, openExisting);
     } catch (cause) {
@@ -252,7 +263,11 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
   }, [pending, recovery, opened]);
 
   const disconnect = useCallback(async () => {
+    if (sessionRef.current && sessionLaunch.current === currentTelegramLaunchData()) {
+      setTelegramWalletDisconnected(sessionLaunch.current, true);
+    }
     invalidate(); sessionRef.current = undefined; setSession(undefined);
+    sessionLaunch.current = ''; recoveryRef.current = null; setRecovery(null);
     setDisconnected(true); setOpened(false); setError(''); setConnectionVersion(value => value + 1);
   }, [invalidate]);
   const switchChain = useCallback(async (next: FxChainId) => {
@@ -554,7 +569,7 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
   const wallet = useMemo<FxPrivyWallet>(() => ({
     ready: view !== 'checking', authenticated: Boolean(session), connectionVersion, wallets: selectedWallet ? [selectedWallet] : [], selectedWallet,
     address: session?.address, chainId: session ? chainId : undefined, isEmbedded: true, promptOpen: Boolean(pending),
-    connect: async () => { await refresh(); if (!sessionRef.current) throw new Error('Your Telegram wallet is not ready.'); },
+    connect: async () => { await refresh(true, true); if (!sessionRef.current) throw new Error('Your Telegram wallet is not ready.'); },
     disconnect, switchChain, sendTransaction,
     waitForPreviousConfirmationClose: () => recoveryRef.current ? new Promise<void>(resolve => { confirmationWaiters.current.push(resolve); }) : Promise.resolve(),
     selectWallet: address => { if (address.toLowerCase() !== sessionRef.current?.address.toLowerCase()) throw new Error('This Telegram account has one wallet.'); },
@@ -563,7 +578,7 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
   // Server admission and transaction recovery resolve before any wallet context
   // is published. Checking is an unknown account, never a disconnected guest.
   if (view === 'checking') return <ProviderLoadingState />;
-  if (session && opened && pathname !== '/login' && pathname !== '/login/') return <FxWalletContext.Provider value={wallet}>
+  if ((session && opened || disconnected) && pathname !== '/login' && pathname !== '/login/') return <FxWalletContext.Provider value={wallet}>
     <WalletRouteProviders>{children}</WalletRouteProviders>
     {recovery ? <dialog ref={dialog} className={styles.dialog} aria-labelledby="passkey-recovery-title" onCancel={event => event.preventDefault()}>
       <FxLogo size={32} /><h1 id="passkey-recovery-title">{recovery.operation?.state === 'submitted' ? 'Transaction submitted.' : 'Check your transaction.'}</h1>
@@ -585,8 +600,6 @@ function TelegramPasskeySession({ children }: { children: ReactNode }) {
       <button className={styles.secondary} onClick={invalidate}>{browserPending ? 'Stop waiting' : 'Cancel'}</button>
     </dialog>}
   </FxWalletContext.Provider>;
-  if (disconnected) return <main className={styles.screen}><div className={styles.panel}><FxLogo size={32} /><h1>Wallet disconnected.</h1>
-    {error && <p role="alert">{error}</p>}<button className={styles.primary} disabled={busy} onClick={() => void refresh().catch(() => undefined)}>Reconnect Telegram wallet</button></div></main>;
   if (view === 'passkey') return <main className={admissionStyles.screen} aria-labelledby="passkey-setup-title"><div className={admissionStyles.panel}>
     <header className={admissionStyles.header}><FxLogo size={32} /></header>
     <div className={admissionStyles.content}><div className={admissionStyles.copy}><div className={admissionStyles.message}>

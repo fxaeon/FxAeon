@@ -34,7 +34,7 @@ test.beforeAll(async () => {
     'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({replace:path=>history.replaceState({},'',path)});`,
     '@/components/PrivyClientProvider': `throw new Error('PRIVY_NATIVE_LOADED');export default ()=>null;`,
     '@/components/WalletRouteProviders': `export default ({children})=><>{children}</>;`,
-    '@/lib/wallet': `export const BrowserWalletProvider=({children})=><div data-browser-wallet>{children}</div>;`,
+    '@/lib/wallet': `export const BrowserWalletProvider=({children})=><div data-browser-wallet>{children}</div>;export {usePrivyWallet} from './src/lib/wallet/context';export {isWalletConnectCancellation} from './src/lib/wallet/connectWatch';`,
     '@/lib/fx/clients': `export const getPublicClient=()=>({request:async args=>{window.client.reads.push(args);return '0x1'}});`,
     '@/lib/telegram': `export const getWebApp=()=>window.Telegram?.WebApp;export const waitForTelegramWebApp=()=>window.fixtureBridgeWait||Promise.resolve(getWebApp());export const hasTelegramMiniAppLaunchData=()=>!!getWebApp()?.initData||!!new URLSearchParams(location.hash.slice(1)).get('tgWebAppData');export const hasTelegramNativeHostHint=()=>!!getWebApp()||!!window.fixtureDelayedBridge;export const hasTelegramWebHostHint=()=>false;export const openExternalLink=()=>false;export const haptic=()=>{};`,
     '@simplewebauthn/browser': `const run=kind=>async options=>{window.client.ceremonies.push({kind,options});if(window.client.deferAuth)return new Promise((resolve,reject)=>{window.client.resolveAuth=()=>resolve({id:'fixture-response'});window.client.rejectAuth=reject});return {id:'fixture-response'}};export const startRegistration=run('register');export const startAuthentication=run('sign');export const WebAuthnAbortService={cancelCeremony:()=>{window.client?.rejectAuth?.(new DOMException('Cancelled','AbortError'));}};`,
@@ -43,13 +43,14 @@ test.beforeAll(async () => {
     stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';
       import ClientWalletProvider from './src/components/ClientWalletProvider';
       import {FxWalletContext} from './src/lib/wallet/context';
+      import ConnectWalletButton from './src/components/ConnectWalletButton';
       import {recordPendingHash} from './src/lib/fx/journal';
       import ApprovalPage from './src/app/wallet-approval/page';import InvitePage from './src/app/invite/page';
       import './src/app/globals.css';
       window.client={ceremonies:[],reads:[],results:[],links:[],deferAuth:false};
-      window.Telegram={WebApp:{initData:'user=%7B%22id%22%3A12345%7D&hash=fixture',platform:window.fixturePlatform||'tdesktop',close:()=>{},openLink:url=>window.client.links.push(url),requestWriteAccess:cb=>cb(true)}};
+      window.Telegram={WebApp:{initData:window.fixtureLaunchData||'user=%7B%22id%22%3A12345%7D&hash=fixture',platform:window.fixturePlatform||'tdesktop',close:()=>{},openLink:url=>window.client.links.push(url),requestWriteAccess:cb=>cb(true)}};
       if(window.fixtureDelayedBridge){const telegram=window.Telegram;delete window.Telegram;window.fixtureBridgeWait=new Promise(resolve=>{window.client.timeoutBridge=()=>resolve(null);window.client.releaseBridge=()=>{window.Telegram=telegram;resolve(telegram.WebApp)}})}
-      function Content(){const wallet=React.useContext(FxWalletContext);window.client.wallet=wallet;return <div data-wallet-ready={String(wallet.ready)} data-wallet-authenticated={String(wallet.authenticated)} data-wallet-address={wallet.address??''}><h1>Portfolio</h1><button onClick={()=>wallet.sendTransaction(${JSON.stringify(transaction)}).then(r=>{window.client.results.push(r);if(window.fixtureDurableReceipt)recordPendingHash({operation:'sendAsset',walletAddress:${JSON.stringify(FROM)},chainId:1,hash:r.hash,to:${JSON.stringify(TO)},data:'0x1234',value:16n,nonce:2});}).catch(e=>window.client.results.push({error:e.message}))}>Review and send</button><button onClick={()=>wallet.disconnect()}>Disconnect</button><button onClick={()=>wallet.switchChain(8453)}>Change network</button></div>}
+      function Content(){const wallet=React.useContext(FxWalletContext);window.client.wallet=wallet;return <div data-wallet-ready={String(wallet.ready)} data-wallet-authenticated={String(wallet.authenticated)} data-wallet-address={wallet.address??''}><h1>Portfolio</h1><nav aria-label="App navigation"><a href="/trade">Trade</a></nav>{!wallet.authenticated&&<ConnectWalletButton>Connect Telegram wallet</ConnectWalletButton>}<button onClick={()=>wallet.sendTransaction(${JSON.stringify(transaction)}).then(r=>{window.client.results.push(r);if(window.fixtureDurableReceipt)recordPendingHash({operation:'sendAsset',walletAddress:${JSON.stringify(FROM)},chainId:1,hash:r.hash,to:${JSON.stringify(TO)},data:'0x1234',value:16n,nonce:2});}).catch(e=>window.client.results.push({error:e.message}))}>Review and send</button><button onClick={()=>wallet.disconnect()}>Disconnect</button><button onClick={()=>wallet.switchChain(8453)}>Change network</button></div>}
       const child=location.pathname==='/wallet-approval'?<ApprovalPage/>:location.pathname==='/invite'?<InvitePage/>:<Content/>;
       createRoot(document.getElementById('root')).render(<React.StrictMode><ClientWalletProvider>{child}</ClientWalletProvider></React.StrictMode>);`, loader: 'tsx', resolveDir: app },
     bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2022', jsx: 'automatic',
@@ -65,7 +66,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; wallet?: { id: string; address: string }; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferStatus?: Promise<void>; deferRecovery?: Promise<void>; failStatus?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
+type Fixture = { statusError?: string; launchData?: string; state?: string; wallet?: { id: string; address: string }; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferStatus?: Promise<void>; deferRecovery?: Promise<void>; failStatus?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -81,6 +82,7 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
         case 'status':
           if (fixture.deferStatus) await fixture.deferStatus;
           if (fixture.failStatus) return route.abort();
+          if (fixture.statusError) return route.fulfill({ status: 403, json: { error: fixture.statusError } });
           response = { ...status, ...fixture, ...(requests.filter(r => r.action === 'status').length > 1 ? fixture.statusAfterFirst : {}) }; break;
         case 'transaction/status':
           if (fixture.deferRecovery) await fixture.deferRecovery;
@@ -128,11 +130,11 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const prefix = fixture.registerHandoff ? Buffer.alloc(0) : Buffer.from(`FxAeon signing handoff v1\0${canonical({ ...transaction, from: transaction.from.toLowerCase() })}\0`);
   const commitment = createHash('sha256').update(prefix).update(Buffer.from(expectedChallenge, 'base64url')).digest('base64url');
   await page.goto(`https://fxaeon.test${path}${path.startsWith('/wallet-approval#') ? `&commitment=${commitment}` : ''}`);
-  await page.evaluate(({ mobile, durable, delayedBridge }) => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; (window as any).fixtureDurableReceipt = durable; (window as any).fixtureDelayedBridge = delayedBridge; }, { mobile: fixture.mobile ?? false, durable: fixture.durableReceipt ?? false, delayedBridge: fixture.delayedBridge ?? false });
+  await page.evaluate(({ mobile, durable, delayedBridge, launchData }) => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; (window as any).fixtureDurableReceipt = durable; (window as any).fixtureDelayedBridge = delayedBridge; (window as any).fixtureLaunchData = launchData; }, { mobile: fixture.mobile ?? false, durable: fixture.durableReceipt ?? false, delayedBridge: fixture.delayedBridge ?? false, launchData: fixture.launchData ?? '' });
   await page.addStyleTag({ content: `${fixtureFontCss}\n${css}` }); await page.addScriptTag({ content: script });
   const reload = async () => {
     await page.reload();
-    await page.evaluate(mobile => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; }, fixture.mobile ?? false);
+    await page.evaluate(({ mobile, launchData }) => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; (window as any).fixtureLaunchData = launchData; }, { mobile: fixture.mobile ?? false, launchData: fixture.launchData ?? '' });
     await page.addStyleTag({ content: `${fixtureFontCss}\n${css}` }); await page.addScriptTag({ content: script });
   };
   return { requests, errors, reload };
@@ -754,10 +756,152 @@ test('flag selects the passkey context, and disconnect never auto-reconnects', a
   });
   expect(descriptor).toEqual({ type: 'telegram-passkey', accounts: [FROM], rejected: true });
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet disconnected.' })).toBeVisible();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+  await expect(page.getByRole('navigation', { name: 'App navigation' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Connect Telegram wallet', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Wallet disconnected.' })).toHaveCount(0);
   const count = requests.length;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   expect(requests).toHaveLength(count);
+  expect(errors).toEqual([]);
+});
+
+test('explicit Telegram disconnect survives reload and fresh launch until verified explicit reconnect', async ({ page }) => {
+  const fixture: Fixture = {};
+  const { requests, reload, errors } = await mount(page, '/', fixture);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toBeVisible();
+  await page.evaluate(() => { (window as any).oldWallet = (window as any).client.wallet; });
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  expect(await page.evaluate(async () => {
+    try { await (window as any).oldWallet.selectedWallet.getEthereumProvider(); return false; } catch { return true; }
+  })).toBe(true);
+  fixture.launchData = 'user=%7B%22id%22%3A12345%7D&auth_date=2&hash=fresh-fixture';
+  await reload();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+  await expect(page.getByRole('navigation', { name: 'App navigation' })).toBeVisible();
+  expect(requests.map(r => r.action)).toEqual(['status', 'transaction/status', 'status']);
+  expect(await page.evaluate(() => localStorage.getItem('fxaeon:telegram-wallet-disconnected:v1:12345'))).toBe('1');
+  const access = heldResponse(), recovery = heldResponse();
+  fixture.deferStatus = access.promise; fixture.deferRecovery = recovery.promise;
+  fixture.wallet = { id: 'wallet-new', address: TO };
+  try {
+    await page.getByRole('button', { name: 'Connect Telegram wallet', exact: true }).click();
+    await expect.poll(() => requests.filter(r => r.action === 'status').length).toBe(3);
+    await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+    access.release();
+    await expect.poll(() => requests.filter(r => r.action === 'transaction/status').length).toBe(2);
+    await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+    expect(await page.evaluate(() => localStorage.getItem('fxaeon:telegram-wallet-disconnected:v1:12345'))).toBe('1');
+    recovery.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+    expect(await page.evaluate(() => localStorage.getItem('fxaeon:telegram-wallet-disconnected:v1:12345'))).toBeNull();
+    await reload();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+    expect(await readClient(page, 'ceremonies')).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally { access.release(); recovery.release(); }
+});
+
+test('explicit Telegram disconnect survives closing and reopening the miniapp on a public route', async ({ page, context }) => {
+  await mount(page);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toBeVisible();
+  await page.close();
+  const reopened = await context.newPage();
+  try {
+    const { requests, errors } = await mount(reopened, '/trade', { launchData: 'user=%7B%22id%22%3A12345%7D&auth_date=3&hash=reopened-fixture' });
+    await expect(reopened.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+    await expect(reopened.getByRole('navigation', { name: 'App navigation' })).toBeVisible();
+    await expect(reopened.getByRole('heading', { name: 'Wallet disconnected.' })).toHaveCount(0);
+    expect(requests.map(r => r.action)).toEqual(['status']);
+    await reopened.getByRole('button', { name: 'Connect Telegram wallet', exact: true }).click();
+    await expect(reopened.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+    expect(requests.map(r => r.action)).toEqual(['status', 'status', 'transaction/status']);
+    expect(errors).toEqual([]);
+  } finally { await reopened.close(); }
+});
+
+for (const failure of ['setItem', 'removeItem', 'getItem'] as const) test(`explicit Telegram disconnect honors document choice when storage ${failure} fails`, async ({ page }) => {
+  const { requests, errors } = await mount(page);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toBeVisible();
+  await page.evaluate(method => {
+    if (method === 'getItem') {
+      const native = Storage.prototype.getItem;
+      Storage.prototype.getItem = function(key: string) {
+        if (key.startsWith('fxaeon:telegram-wallet-disconnected:')) throw new DOMException('Read denied', 'SecurityError');
+        return native.call(this, key);
+      };
+      return;
+    }
+    const native = Storage.prototype[method];
+    Storage.prototype[method] = function(key: string, ...args: string[]) {
+      if (key.startsWith('fxaeon:telegram-wallet-disconnected:')) throw new DOMException('Write denied', 'QuotaExceededError');
+      return (native as (...args: string[]) => void).call(this, key, ...args);
+    };
+  }, failure);
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toBeVisible();
+  if (failure === 'removeItem') {
+    await page.getByRole('button', { name: 'Connect Telegram wallet', exact: true }).click();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+  }
+  await page.evaluate(() => {
+    (window as any).Telegram.WebApp.initData += '&auth_date=5';
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.locator(`[data-wallet-authenticated="${failure === 'removeItem'}"]`)).toHaveAttribute('data-wallet-address', failure === 'removeItem' ? FROM : '');
+  expect(requests.filter(r => r.action === 'status')).toHaveLength(failure === 'removeItem' ? 3 : 2);
+  expect(errors).toEqual([]);
+});
+
+test('explicit Telegram disconnect is scoped to identity and survives switching back', async ({ page }) => {
+  const fixture: Fixture = {};
+  const { requests, errors } = await mount(page, '/', fixture);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toBeVisible();
+  fixture.wallet = { id: 'wallet-2', address: TO };
+  await page.evaluate(() => {
+    (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A67890%7D&hash=second-fixture';
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+  fixture.wallet = wallet;
+  await page.evaluate(() => {
+    (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A12345%7D&auth_date=4&hash=return-fixture';
+    window.dispatchEvent(new Event('focus'));
+  });
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+  expect(requests.filter(r => r.action === 'status')).toHaveLength(3);
+  expect(requests.filter(r => r.action === 'transaction/status')).toHaveLength(2);
+  expect(errors).toEqual([]);
+});
+
+test('failed explicit reconnect preserves the opt-out and browsable disconnected context', async ({ page }) => {
+  const fixture: Fixture = {};
+  const { reload } = await mount(page, '/', fixture);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  fixture.failStatus = true;
+  await page.getByRole('button', { name: 'Connect Telegram wallet', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+  await expect(page.getByRole('navigation', { name: 'App navigation' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('fxaeon:telegram-wallet-disconnected:v1:12345'))).toBe('1');
+  fixture.failStatus = false;
+  await reload();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+});
+
+for (const outcome of ['waiting', 'launch_rejected', 'launch_expired']) test(`a disconnect preference cannot bypass server ${outcome}`, async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('fxaeon:telegram-wallet-disconnected:v1:12345', '1'));
+  const { requests, errors } = await mount(page, '/', outcome === 'waiting'
+    ? { state: 'waiting', wallet: undefined, hasCredential: false }
+    : { statusError: outcome });
+  await expect(page.locator('[data-admission-state]')).toBeVisible();
+  await expect(page.locator('[data-wallet-authenticated]')).toHaveCount(0);
+  expect(requests.map(r => r.action)).toEqual(['status']);
   expect(errors).toEqual([]);
 });
 
@@ -825,6 +969,26 @@ test('unknown submission blocks later resubmission', async ({ page }) => {
   await expect.poll(() => readClient(page, 'results')).toHaveLength(2);
   expect(requests.filter(r => r.action === 'sign/complete')).toHaveLength(1);
   expect(requests.filter(r => r.action === 'sign/options')).toHaveLength(1);
+});
+
+test('explicit Telegram disconnect preserves unresolved transaction recovery until reconnect', async ({ page }) => {
+  const { requests, reload } = await mount(page, '/', { failComplete: true });
+  await page.getByRole('button', { name: 'Review and send' }).click();
+  await page.getByRole('button', { name: 'Approve with passkey' }).click();
+  await expect.poll(() => readClient(page, 'results')).toHaveLength(1);
+  await page.getByRole('dialog').getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+  expect(await page.evaluate(() => localStorage.getItem('fxaeon:passkey-operation:v1:12345:wallet-1'))).toContain('sign-1');
+  const recovered = requests.filter(r => r.action === 'transaction/status').length;
+  await reload();
+  await expect(page.locator('[data-wallet-authenticated="false"]')).toHaveAttribute('data-wallet-address', '');
+  expect(requests.filter(r => r.action === 'transaction/status')).toHaveLength(recovered);
+  await page.getByRole('button', { name: 'Connect Telegram wallet', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Transaction submitted.' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toContainText(HASH);
+  expect(requests.filter(r => r.action === 'transaction/status').at(-1)).toMatchObject({ id: 'sign-1' });
+  expect(requests.filter(r => r.action === 'sign/options')).toHaveLength(1);
+  expect(requests.filter(r => r.action === 'transaction/ack')).toHaveLength(0);
 });
 
 test('a lost success response recovers the original hash after reload and requires acknowledgment', async ({ page }) => {
