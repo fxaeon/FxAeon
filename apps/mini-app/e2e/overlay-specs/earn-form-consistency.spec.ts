@@ -366,7 +366,7 @@ test('fxSAVE units wrap as a row at narrow widths and enlarged text',async ({pag
 });
 
 test('Earn summary keeps two normal columns and separates enlarged APY and balance figures', async ({ page }, info) => {
-  for (const width of [320, 390]) {
+  for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 770 });
     await mount(page, false);
     const summary = page.locator('[class*="balanceTop"]');
@@ -383,6 +383,7 @@ test('Earn summary keeps two normal columns and separates enlarged APY and balan
     });
     expect(await geometry()).toEqual({ sameRow: true, stacked: false, overlap: false, overflow: false });
     await summary.screenshot({ path: info.outputPath(`earn-summary-${width}.png`) });
+    if (width === 1280) continue;
     await summary.locator('*').evaluateAll(nodes => {
       const text = nodes.filter(element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
         .map(element => ({ element: element as HTMLElement, size: Number.parseFloat(getComputedStyle(element).fontSize) }));

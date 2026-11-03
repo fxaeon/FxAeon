@@ -4,8 +4,9 @@
 .workspace > h1 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 600; }
 .directory { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .group { min-width: 0; }
-.links { overflow: hidden; padding: 0; border: 0; border-radius: 20px; background: var(--surface); }
-.directory .links > :is(a, button) { position: relative; min-height: 64px; padding: 16px; gap: 14px; border: 0; border-radius: 0; background: transparent; }
+.group h2 { margin: 0 8px 8px; color: var(--mut); font-size: 13px; font-weight: 500; }
+.links { padding: 0; border: 0; background: transparent; }
+.directory .links > :is(a, button) { position: relative; min-height: 56px; padding: 12px 8px; gap: 14px; border: 0; border-radius: 12px; background: transparent; }
 .directory .links > :is(a, button) > svg:first-child { box-sizing: content-box; flex: 0 0 20px; width: 20px; height: 20px; padding: 0; border-radius: 0; background: transparent; color: var(--mut); }
 .directory .links > :is(a, button) strong { font-size: 15px; font-weight: 500; line-height: 1.4; }
 .directory .links > :is(a, button) > span:nth-last-child(2):not(:first-of-type) { font-size: 13px; }
@@ -16,10 +17,7 @@
 @media (max-width: 700px) {
   .workspace[data-product-layout] { gap: 24px; padding-top: 12px; }
 }
-@media (max-width: 839px) {
-  .workspace > h1[data-page-heading] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-}
 @media (max-width: 360px) {
-  .directory .links > :is(a, button) { gap: 10px; padding-inline: 14px; }
+  .directory .links > :is(a, button) { gap: 10px; padding-inline: 8px; }
   .directory .links > :is(a, button) strong { font-size: 14px; }
 }

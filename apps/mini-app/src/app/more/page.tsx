@@ -13,14 +13,16 @@ export default function MorePage() {
     <AccountWorkspace className={styles.workspace}>
       <PageHeading title="More" visible />
       <div className={styles.directory} data-utility-directory>
-        <section className={styles.group} aria-label="Account">
+        <section className={styles.group} aria-labelledby="more-account">
+          <h2 id="more-account">Account</h2>
           <div className={styles.links}>
             <ActionRow icon={Wallet} title="Wallet & account" href="/settings" />
             <ActionRow icon={History} title="History" href="/history" />
             <TransactionSettings slippage presentation="row" />
           </div>
         </section>
-        <section className={styles.group} aria-label="Resources">
+        <section className={styles.group} aria-labelledby="more-resources">
+          <h2 id="more-resources">Resources</h2>
           <div className={styles.links}>
             <ActionRow icon={BookOpen} title="FxAeon docs" href="/docs" />
             <ActionRow icon={BookOpen} title="Protocol docs" href="https://fxprotocol.gitbook.io/fx-docs" external />

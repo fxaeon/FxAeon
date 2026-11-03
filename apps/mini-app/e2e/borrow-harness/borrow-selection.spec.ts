@@ -789,7 +789,7 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
   // Default selection tests intentionally omit CSS. Only this geometry case
   // lazily compiles the genuine page/module styles over the same inert reads.
   const styled = await buildHarness(true);
-  for (const width of [390, 320]) {
+  for (const width of [390, 320, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('about:blank');
     await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>');

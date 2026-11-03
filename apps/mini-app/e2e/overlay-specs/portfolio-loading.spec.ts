@@ -87,6 +87,30 @@ for (const width of [320, 393, 480, 1280]) {
   });
 }
 
+test('connected wallet profile keeps its action rows accessible across widths', async ({ page }, info) => {
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await open(page, 'loaded');
+    const trigger = page.getByRole('button', { name: 'Open wallet profile', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    for (const name of ['Positions', 'History', 'Settings']) {
+      const row = dialog.getByRole('link', { name: new RegExp(`^${name}`) });
+      await row.scrollIntoViewIfNeeded();
+      const box = await row.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+    }
+    await page.screenshot({ path: info.outputPath(`wallet-actions-${width}.png`), animations: 'disabled' });
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
+
 test('a known returning wallet waits for verification and then shows its account', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });
   await open(page, 'restoring');
