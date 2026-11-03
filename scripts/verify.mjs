@@ -103,6 +103,7 @@ const quickChecks = await runGroup([
   { args: ['test:architecture:contract'], label: 'Architecture import contract' },
   { args: ['test:scope:contract'], label: 'Server wallet scope contract' },
   { args: ['test:miniapp-access'], label: 'Durable admission and passkey server tests' },
+  { args: ['exec', 'node', '--test', 'scripts/miniapp_access_runtime.test.mjs'], label: 'Cloudflare workerd provider transport regression' },
   { args: ['typecheck:miniapp-access'], label: 'Server package typecheck' },
   { args: ['test:miniapp-operator'], label: 'Admission operator contract' },
   { args: ['test:miniapp-readiness'], label: 'Read-only provider readiness contract' },

@@ -98,14 +98,15 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   const store = new Store(db);
   const calls: Call[] = []; const unexpected: string[] = []; const background: Promise<unknown>[] = [];
   let rpcFailure = false;
+  let mailResponse: () => Response = () => Response.json({ id: 'mock-email-id' });
   let lookup: (call: Call) => Response | Promise<Response> = () => Response.json({ transactions: [] });
   let onRPC: ((call: Call) => void) | undefined;
   const fetcher: typeof fetch = async (input, init) => {
     const call: Call = { url: String(input), method: init?.method ?? 'GET', headers: new Headers(init?.headers),
       body: init?.body ? JSON.parse(String(init.body)) : undefined };
     calls.push(call);
-    assert.equal(init?.redirect, 'error');
-    if (call.url === 'https://api.resend.com/emails') return Response.json({ id: 'mock-email-id' });
+    assert.equal(init?.redirect, 'manual');
+    if (call.url === 'https://api.resend.com/emails') return mailResponse();
     if (call.url === `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`) return Response.json({ ok: true, result: { message_id: 1 } });
     const external = /^https:\/\/api\.privy\.io\/v1\/wallets\/ext_wal_([a-zA-Z0-9_-]+)$/.exec(call.url);
     if (external) {
@@ -139,6 +140,7 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   assert.equal((await asUser('status')).status, 200);
   t.after(async () => { await Promise.all(background); assert.deepEqual(unexpected, []); });
   return { db, env, store, calls, access, operator, send, asUser, operate, background,
+    mailResponse: (response: typeof mailResponse) => { mailResponse = response; },
     failRPC: (value = true) => { rpcFailure = value; },
     lookup: (response: typeof lookup) => { lookup = response; },
     onRPC: (observer: (call: Call) => void) => { onRPC = observer; },
@@ -265,7 +267,7 @@ test('join only changes the signed identity, never self-approves, and status is 
   assert.equal((await f.asUser('join', 1, { notify: false })).body.state, 'waiting');
   assert.equal((await f.asUser('notify', 1, { allowed: true })).body.telegramNotify, true);
   assert.equal((await f.store.status(1))!.externalId, null); assert.equal(await f.store.status(99), null);
-  assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, emailVerified: false, hasCredential: false });
+  assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, emailVerified: false, emailDelivery: { state: 'not_requested', retryAfterMs: null }, hasCredential: false });
   error(await f.asUser('register/options'), 503, 'wallet_unavailable');
   assert.deepEqual(f.outbox(), []); assert.equal(f.calls.length, 0);
 });
@@ -274,7 +276,7 @@ test('status never returns names, contact address, credential material, external
   const f = await fixture(t); await ready(f);
   f.db.sql.prepare('INSERT INTO access_mail_contacts(user_id,email,verified,expires_at) VALUES(1,?,1,0)').run('private@example.com');
   const status = await f.asUser('status');
-  assert.deepEqual(status.body, { state: 'ready', cohortFull: false, telegramNotify: false, emailVerified: true, hasCredential: true,
+  assert.deepEqual(status.body, { state: 'ready', cohortFull: false, telegramNotify: false, emailVerified: true, emailDelivery: { state: 'verified', retryAfterMs: null }, hasCredential: true,
     wallet: { id: 'wallet-1', address: ADDRESS } });
   const row = (await f.store.status(1))!;
   const text = JSON.stringify(status.body);
@@ -402,7 +404,7 @@ test('email verification requires POST, never admits a waiting user and cannot c
   error(await f.asUser('email/request', 1, { email: 'private@example.com' }), 403, 'join_required');
   await f.asUser('join', 1, { notify: false });
   const sent = await f.asUser('email/request', 1, { email: 'private@example.com' });
-  assert.deepEqual(sent.body, { status: 'verification_requested' });
+  assert.deepEqual(sent.body, { status: 'verification_requested', delivery: { state: 'accepted', retryAfterMs: null } });
   const email = f.calls.find(call => call.url === 'https://api.resend.com/emails')!;
   const token = /https:\/\/fxaeon\.com\/invite#token=([a-f0-9]{64})/.exec(email.body.text)![1];
   error(await result(await f.access({ request: new Request(`${ORIGIN}/api/telegram-wallet?token=${token}`), env: f.env })), 405, 'method_not_allowed');
@@ -423,6 +425,47 @@ test('disabled email and rate limits return honest mapped errors without reveali
   for (let i = 0; i < 3; i++) assert.equal((await f.asUser('email/request', 1, { email: 'private@example.com' })).status, 200);
   error(await f.asUser('email/request', 1, { email: 'private@example.com' }), 429, 'notification_rate_limited');
   assert.equal(f.calls.length, 3);
+});
+
+test('email API exposes only delivery state and bounded retry timing; retry uses signed user identity', async t => {
+  const f = await fixture(t);
+  error(await f.asUser('email/retry'), 403, 'join_required');
+  await f.asUser('join', 1, { notify: false });
+  await f.asUser('join', 2, { notify: false });
+  f.mailResponse(() => { throw new TypeError('secret provider/recipient/token detail'); });
+  const first = await f.asUser('email/request', 1, { email: 'private@example.com' });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.status, 'verification_requested');
+  assert.equal(first.body.delivery.state, 'pending');
+  assert.ok(first.body.delivery.retryAfterMs > 0 && first.body.delivery.retryAfterMs <= 60000);
+  assert.deepEqual(Object.keys(first.body.delivery).sort(), ['retryAfterMs', 'state']);
+  const pending = await f.asUser('email/retry');
+  assert.equal(pending.body.delivery.state, 'pending');
+  assert.equal(f.calls.length, 1, 'retry must not bypass existing backoff');
+  error(await f.asUser('email/retry', 2), 503, 'notification_unavailable');
+  error(await f.asUser('email/retry', 1, { userId: 2 }), 400, 'request_invalid');
+  error(await f.asUser('email/retry', 1, { email: 'other@example.com' }), 400, 'request_invalid');
+  assert.deepEqual((await f.asUser('status', 2)).body.emailDelivery, { state: 'not_requested', retryAfterMs: null });
+  f.db.sql.prepare("UPDATE access_mail_outbox SET next_at=0 WHERE user_id=1").run();
+  f.mailResponse(() => Response.json({ id: 'accepted' }));
+  const accepted = await f.asUser('email/retry');
+  assert.deepEqual(accepted.body, { status: 'verification_requested', delivery: { state: 'accepted', retryAfterMs: null } });
+  assert.equal(f.calls.length, 2);
+  assert.deepEqual((await f.asUser('status')).body.emailDelivery, { state: 'accepted', retryAfterMs: null });
+  for (const body of [first.body, pending.body, accepted.body]) {
+    assert.ok(!JSON.stringify(body).includes('private@example.com'));
+    assert.ok(!JSON.stringify(body).includes('token'));
+  }
+});
+
+test('provider rejection returns failed delivery, and explicit retry can create a rate-limited replacement', async t => {
+  const f = await fixture(t); await f.asUser('join', 1, { notify: false });
+  f.mailResponse(() => new Response('private credentials/recipient', { status: 403 }));
+  const failed = await f.asUser('email/request', 1, { email: 'private@example.com' });
+  assert.deepEqual(failed.body, { status: 'verification_requested', delivery: { state: 'failed', retryAfterMs: 0 } });
+  f.mailResponse(() => Response.json({ id: 'accepted' }));
+  assert.equal((await f.asUser('email/retry')).body.delivery.state, 'accepted');
+  assert.equal(f.calls.length, 2);
 });
 
 test('operator dispatch reconciles durable approval after interrupted enqueue and sends only one invitation', async t => {

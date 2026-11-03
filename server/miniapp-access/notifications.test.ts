@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import { Store } from './store.ts';
-import { NotificationStore, INVITATION_TEXT, type MailDB, type MailStatement, type MailResult, type NotificationEnv } from './notifications.ts';
+import { NotificationStore, INVITATION_TEXT, type MailDB, type MailStatement, type MailResult, type NotificationEnv, type NotificationDiagnostic } from './notifications.ts';
 
 /** Execute actual SQLite transactions, not SQL-shaped mocks. Every network call is intercepted. */
 class SQLiteDB implements MailDB {
@@ -46,6 +46,7 @@ async function fixture(t: TestContext, overrides: NotificationEnv = {}, timeoutM
   await admission.init();
   let now = Date.UTC(2026, 10, 3, 10);
   const calls: Call[] = [];
+  const diagnostics: NotificationDiagnostic[] = [];
   let response: (call: Call) => Response | Promise<Response> = call => Response.json(call.url.includes('resend')
     ? { id: 'email-id' } : { ok: true, result: { message_id: 1 } });
   const fetcher = (async (input, init) => {
@@ -54,10 +55,11 @@ async function fixture(t: TestContext, overrides: NotificationEnv = {}, timeoutM
     return response(call);
   }) as typeof fetch;
   const env = { ...ENV, ...overrides };
-  const make = () => new NotificationStore(db, env, { fetch: fetcher, now: () => now, timeoutMs });
+  const make = () => new NotificationStore(db, env, { fetch: fetcher, now: () => now, timeoutMs,
+    onDiagnostic: diagnostic => { diagnostics.push(diagnostic); } });
   const store = make();
   await store.init();
-  return { db, admission, store, make, calls, env, advance: (ms: number) => { now += ms; },
+  return { db, admission, store, make, calls, diagnostics, env, advance: (ms: number) => { now += ms; },
     respond: (handler: typeof response) => { response = handler; }, now: () => now,
     rows: () => db.sql.prepare('SELECT * FROM access_mail_outbox ORDER BY created_at,id').all() as any[],
     async approve(id = 1, notify = true) { await admission.join(id, notify); await admission.approve([id]); },
@@ -71,6 +73,90 @@ function token(call: Call): string {
   assert.ok(value);
   return value;
 }
+
+test('delivery status distinguishes queued, provider acceptance and verified contact without secrets', async t => {
+  const f = await fixture(t);
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'not_requested', retryAfterMs: null });
+  await f.admission.join(1, false);
+  await f.store.setContact(1, 'person@example.com');
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'pending', retryAfterMs: 0 });
+  assert.equal(f.calls.length, 0);
+  await f.store.dispatch();
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'accepted', retryAfterMs: null });
+  assert.deepEqual(await f.store.verificationStatus(2), { state: 'not_requested', retryAfterMs: null });
+  await f.store.confirmContact(token(f.calls[0]));
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'verified', retryAfterMs: null });
+  await f.store.retryVerification(1);
+  await f.store.dispatch();
+  assert.equal(f.calls.length, 1);
+});
+
+test('transport exception stays pending; explicit retry respects backoff and reuses the idempotency key', async t => {
+  const f = await fixture(t);
+  await f.admission.join(1, false);
+  await f.store.setContact(1, 'person@example.com');
+  f.respond(() => { throw new TypeError('secret recipient@example.com re_private https://private/#token=private'); });
+  await f.store.dispatch();
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'pending', retryAfterMs: 60000 });
+  assert.deepEqual(f.diagnostics, [{ channel: 'email', kind: 'verification', attempt: 1,
+    outcome: 'pending', reason: 'transport_exception' }]);
+  await f.store.retryVerification(1);
+  await f.store.dispatch();
+  assert.equal(f.calls.length, 1);
+  f.advance(60000);
+  f.respond(() => Response.json({ id: 'accepted-id' }));
+  await f.store.retryVerification(1);
+  await f.store.dispatch();
+  assert.equal(f.calls.length, 2);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'accepted', retryAfterMs: null });
+  assert.equal(f.rows().length, 1);
+});
+
+test('explicit retry after definite rejection is rate limited and cannot switch recipients', async t => {
+  const f = await fixture(t);
+  await f.admission.join(1, false);
+  await f.store.setContact(1, 'person@example.com');
+  f.respond(() => new Response('private provider details', { status: 403 }));
+  await f.store.dispatch();
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'failed', retryAfterMs: 0 });
+  assert.deepEqual(f.diagnostics[0], { channel: 'email', kind: 'verification', attempt: 1,
+    outcome: 'failed', reason: 'provider_rejected', httpStatus: 403 });
+  await assert.rejects(f.store.retryVerification(2), /notification_unavailable/);
+  await f.store.retryVerification(1); await f.store.dispatch();
+  await f.store.retryVerification(1); await f.store.dispatch();
+  await assert.rejects(f.store.retryVerification(1), /notification_rate_limited/);
+  assert.equal(f.calls.length, 3);
+  assert.ok(f.calls.every(call => JSON.stringify(call.body.to) === '["person@example.com"]'));
+  assert.equal(new Set(f.calls.map(call => new Headers(call.init.headers).get('Idempotency-Key'))).size, 3);
+});
+
+test('expiry and exhausted ambiguous attempts are reported truthfully', async t => {
+  const f = await fixture(t);
+  await f.admission.join(1, false);
+  await f.store.setContact(1, 'person@example.com');
+  f.respond(() => { throw new Error('transport'); });
+  await f.store.dispatch(); f.advance(60000);
+  await f.store.dispatch(); f.advance(120000);
+  await f.store.dispatch();
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'uncertain', retryAfterMs: 0 });
+  f.advance(3600000);
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'expired', retryAfterMs: 0 });
+  await f.store.retryVerification(1);
+  assert.deepEqual(await f.store.verificationStatus(1), { state: 'pending', retryAfterMs: 0 });
+});
+
+test('redirects are never followed and diagnostics cannot leak redirect destinations', async t => {
+  const f = await fixture(t);
+  await f.admission.join(1, false);
+  await f.store.setContact(1, 'person@example.com');
+  f.respond(() => new Response(null, { status: 307, headers: { location: 'https://attacker.invalid/private' } }));
+  assert.equal((await f.store.dispatch()).deferred, 1);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].init.redirect, 'manual');
+  assert.deepEqual(f.diagnostics, [{ channel: 'email', kind: 'verification', attempt: 1,
+    outcome: 'pending', reason: 'redirect', httpStatus: 307 }]);
+});
 
 test('verification is generic, hashed at rest, explicit-confirmation only, single-use and durable', async t => {
   const f = await fixture(t);
@@ -165,7 +251,7 @@ test('invitations require durable approval; email additionally requires verifica
   assert.equal((await f.admission.status(1))!.state, 'approved');
 });
 
-test('Telegram uses exact professional copy, configured official button, fixed HTTPS host and redirect errors', async t => {
+test('Telegram uses exact professional copy, configured official button, fixed HTTPS host and manual redirects', async t => {
   const f = await fixture(t);
   await f.approve(); await f.store.enqueueInvitation(1, true); await f.store.dispatch();
   const call = f.calls[0];
@@ -174,7 +260,7 @@ test('Telegram uses exact professional copy, configured official button, fixed H
   assert.equal(call.body.chat_id, '1');
   assert.equal(call.body.reply_markup.inline_keyboard[0][0].url, ENV.TELEGRAM_MINIAPP_URL);
   assert.deepEqual(call.body.link_preview_options, { is_disabled: true });
-  assert.equal(call.init.redirect, 'error');
+  assert.equal(call.init.redirect, 'manual');
   assert.equal(call.init.method, 'POST');
   assert.ok(call.init.signal);
 });

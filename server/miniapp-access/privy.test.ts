@@ -52,7 +52,7 @@ test('existing wallet is fetched by reserved external ID and its single owner qu
     ['GET', `${API}/wallets/ext_wal_${reservation.externalId}`], ['GET', `${API}/key_quorums/owner-1`],
   ]);
   for (const call of fixture.calls) {
-    assert.equal(call.redirect, 'error');
+    assert.equal(call.redirect, 'manual');
     assert.equal(call.headers.get('authorization'), `Basic ${Buffer.from(`${APP}:${SECRET}`).toString('base64')}`);
     assert.equal(call.headers.get('privy-app-id'), APP);
     assert.equal(call.headers.get('privy-authorization-signature'), null);
@@ -268,6 +268,16 @@ test('transport failure during submission is never automatically retried', async
   const fixture = transport(new Error('ambiguous timeout'));
   await assert.rejects(fixture.api.submit(fixture.api.prepare(wallet, tx, REFERENCE), wallet.id, AUTH), /ambiguous timeout/);
   assert.equal(fixture.calls.length, 1);
+});
+
+test('Privy redirects are not followed with app or authorization credentials', async () => {
+  for (const status of [301, 302, 303, 307, 308]) {
+    const fixture = transport(new Response(null, { status, headers: { location: 'https://attacker.invalid' } }));
+    await assert.rejects(fixture.api.submit(fixture.api.prepare(wallet, tx, REFERENCE), wallet.id, AUTH), errorCode('wallet_unavailable'));
+    assert.equal(fixture.calls.length, 1);
+    assert.equal(fixture.calls[0].redirect, 'manual');
+    assert.equal(fixture.calls[0].url, `${API}/wallets/${wallet.id}/rpc`);
+  }
 });
 
 test('prepare requires a UUID reference and binds it to the signed idempotency header', () => {
