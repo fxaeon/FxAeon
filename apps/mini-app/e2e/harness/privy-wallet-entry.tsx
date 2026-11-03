@@ -85,7 +85,7 @@ function Harness() {
     state.notify();
   };
   return (
-    <main data-harness-ready="true" data-wallet-ready={String(wallet.ready)} data-sdk-wallets-ready={String(state.walletsReady)} data-user-id={state.userId} data-authenticated={String(wallet.authenticated)} data-modal-open={String(state.modalOpen)} data-pending-count={state.results.filter((value) => value === 'pending').length}>
+    <main data-harness-ready="true" data-wallet-ready={String(wallet.ready)} data-restoring={String(wallet.restoring)} data-sdk-wallets-ready={String(state.walletsReady)} data-user-id={state.userId} data-authenticated={String(wallet.authenticated)} data-modal-open={String(state.modalOpen)} data-pending-count={state.results.filter((value) => value === 'pending').length}>
       <p data-result={state.results.at(-1) ?? 'idle'}>{state.results.at(-1) ?? 'idle'}</p>
       <button type="button" onClick={() => void runConnect()}>Connect</button>
       <button type="button" onClick={() => void runConnect(true)}>Connect another wallet</button>

@@ -4,11 +4,14 @@ import { useLayoutEffect, type CSSProperties } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
+  ArrowUpFromLine,
+  ArrowDownToLine,
   CandlestickChart,
   ChevronDown,
   CircleDollarSign,
   Home,
   Menu,
+  MoreHorizontal,
   PiggyBank,
   RefreshCw,
   Search,
@@ -22,10 +25,9 @@ import control from './HeaderWalletControl.module.css';
 import navigation from './ShellNavigation.module.css';
 import layout from './ProductLayout.module.css';
 import portfolio from './PortfolioWorkspace.module.css';
-import { PortfolioExploreView } from './PortfolioExploreView';
-import explore from './PortfolioExplore.module.css';
-import market from './MarketMiniCard.module.css';
-import TokenIcon from './TokenIcon';
+import balance from './BalanceSummary.module.css';
+import assets from './PortfolioAssets.module.css';
+import assetRows from './AssetPresentation.module.css';
 import { MissingValue } from './MissingValue';
 import activity from './WalletActivity.module.css';
 import account from '@/app/AccountWorkspace.module.css';
@@ -35,9 +37,9 @@ import { DesktopSidebar } from './DesktopSidebar';
 
 /*
  * The first paint, before the wallet providers load. It draws the app shell
- * (top bar and dock) and, on Portfolio, public discovery with the same classes
- * as the live page. Only public market values wait in their final places. Nothing here
- * can be focused or read out; the live page replaces it in place.
+ * (top bar and dock) and a neutral Portfolio placeholder while the account is
+ * unknown. Nothing here can be focused or read out; the live page replaces
+ * it in place.
  *
  * Presentation only: wallet initialization must not be needed to paint it, so
  * it imports styles and icons, never the page or its data modules.
@@ -133,7 +135,7 @@ function ShellTopBar({ pathname }: { pathname: string }) {
           <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
-      <span data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Menu size={21} aria-hidden="true" /></span>
+      <button type="button" disabled tabIndex={-1} aria-label="More menu" data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Menu size={21} aria-hidden="true" /></button>
     </span>
   </div>;
 }
@@ -159,8 +161,44 @@ function ShellDock({ pathname }: { pathname: string }) {
 /** Unknown wallet state never implies account holdings. */
 function PortfolioSilhouette() {
   return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
-    <h1 className="sr-only">Portfolio</h1>
-    <PortfolioExploreView connect={<button type="button" tabIndex={-1} className={`button button-primary ${explore.connect}`}>Connect wallet</button>}
-      markets={<>{['ETH', 'BTC'].map(symbol => <div key={symbol} className={`${market.marketMiniCard} portfolio-market-card`} data-market-placeholder={symbol}><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><TokenIcon symbol={symbol === 'BTC' ? 'WBTC' : 'ETH'} size={28} /><strong className="text-[13px]">{symbol}</strong></span><span className="text-[11px] font-semibold text-mut"><MissingValue width="md" /></span></div><p className="mt-3 text-display text-[20px] font-semibold tabular-nums"><MissingValue width="lg" /></p><div className="market-chart-compact mt-2 h-[54px]"><div className="market-chart-skeleton h-full" /></div></div>)}</>} />
+    <PageHeading title="Portfolio" />
+    <div className={portfolio.dashboard}>
+      <div className={portfolio.primary}>
+        <section className={`${portfolio.valueCard} ${balance.hero}`}>
+          <div className={portfolio.valueTop}>
+            <p className={`${portfolio.valueNumber} ${balance.value}`} data-portfolio-value>
+              <MissingValue width="xl" status="loading" label="Loading portfolio value" />
+            </p>
+            <button type="button" disabled aria-label="Refresh portfolio balances and positions"><RefreshCw size={18} aria-hidden="true" /></button>
+          </div>
+          <section><h2 className="sr-only">Actions</h2><div className={portfolio.quickActions}>
+            {([{ label: 'Send', icon: ArrowUpFromLine }, { label: 'Receive', icon: ArrowDownToLine },
+              { label: 'Trade', icon: CandlestickChart }, { label: 'More', icon: MoreHorizontal }]).map(({ label, icon: Icon }) =>
+              <button type="button" disabled key={label} className={portfolio.quickAction}><span><Icon aria-hidden="true" /></span><strong>{label}</strong></button>)}
+          </div></section>
+        </section>
+        <div className={portfolio.sectionToolbar}>
+          <div className={portfolio.sectionNav} role="tablist" aria-label="Portfolio views">
+            {['Tokens', 'DeFi', 'Activity'].map((label, index) => <button key={label} type="button" disabled role="tab"
+              aria-selected={index === 0} aria-controls="portfolio-tab-panel">{label}</button>)}
+          </div>
+          <div className={portfolio.sectionFilter}><div className={assets.networkSelect}>
+            <button type="button" disabled className={assets.networkTrigger} aria-haspopup="menu" aria-label="Portfolio network: All networks">
+              <span>All networks</span><ChevronDown size={15} aria-hidden="true" />
+            </button>
+          </div></div>
+        </div>
+        <div className={portfolio.tabPanel}><section className={`${assets.assets} ${assets.ledgerSurface}`}>
+          <h2 id="portfolio-assets-heading" className="sr-only">Wallet assets</h2>
+          <div className={assetRows.loadingList} role="status" aria-label="Loading assets">
+            {[0, 1, 2].map(row => <div key={row} className={assetRows.loadingRow}>
+              <span className={`${assetRows.loadingIcon} skeleton`} />
+              <span className={assetRows.loadingName}><span className="skeleton" /><span className="skeleton" /></span>
+              <span className={assetRows.loadingWorth}><span className="skeleton" /><span className="skeleton" /></span>
+            </div>)}
+          </div>
+        </section></div>
+      </div>
+    </div>
   </div>;
 }

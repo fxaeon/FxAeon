@@ -162,7 +162,7 @@ modal interactions remain isolated from the page beneath them.
 
 Entering an amount exposes the same available form estimates before wallet
 connection. Trade shows execution price, rebalance price (f(x)'s liquidation
-brake), liquidation price and protocol fee;
+brake) and protocol fee; liquidation price remains in review.
 Earn deposits show estimated fxSAVE received; Borrow shows its public collateral,
 debt and LTV calculations; canonical Move shows its receive estimate and messaging
 fee. Empty or failed quotes never become fabricated amounts or zero balances.

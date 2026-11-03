@@ -119,6 +119,26 @@ const oldReact = (globalThis as any).React;
 (globalThis as any).React = React;
 after(() => { if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css']; (globalThis as any).React = oldReact; });
 
+test('instant withdrawal details distinguish the direct leg and exact swap floor for both output tokens', async () => {
+  const { InstantWithdrawalDetails } = await import('../src/components/review/InstantWithdrawalDetails');
+  const { FX_TOKENS } = await import('../src/lib/fx/tokens');
+  for (const symbol of ['fxUSD', 'USDC'] as const) {
+    const other = symbol === 'fxUSD' ? 'USDC' : 'fxUSD';
+    const route = { policy: { reviewedAction: { kind: 'fxsave-withdraw', instant: true, directBasePool: false, tokenOutAddress: FX_TOKENS[symbol].address } } } as any;
+    const facts = [
+      { label: `Minimum received (${symbol} leg)`, value: `0 ${symbol}` },
+      { label: `Minimum received (${other} leg)`, value: `0.023581234567890123 ${symbol}` },
+    ];
+    const html = renderToStaticMarkup(React.createElement(InstantWithdrawalDetails, { route, facts }));
+    assert.match(html, /<details/);
+    assert.match(html, /Withdrawal details/);
+    assert.ok(html.includes(`Swap minimum · ${other} → ${symbol}`));
+    assert.ok(html.includes(`0.023581234567890123 ${symbol}`));
+    assert.match(html, /Direct leg minimum/);
+    assert.match(html, /not a minimum for the total received/);
+  }
+});
+
 test('review value renders a compact amount without a numeric disclosure or source panel', async () => {
   const { ReviewFactValue } = await import('../src/components/review/ReviewFactValue');
   const fact = { label: 'Estimated debt', value: '721.13279179306640625 fxUSD', title: '721.13279179306640625 fxUSD; excludes gas.' };

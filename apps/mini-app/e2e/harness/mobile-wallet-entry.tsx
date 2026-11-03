@@ -79,6 +79,7 @@ function createFixture(index: number): MobileWalletFixture {
             fixture.accountReadsWaiting += 1;
             await new Promise<void>((resolve) => { pendingAccountReads.push(resolve); });
           }
+          if (new URLSearchParams(location.search).get('failAuto') === '1') throw new Error('Saved wallet unavailable.');
           return observed;
         }
         if (request.method === 'eth_chainId') {

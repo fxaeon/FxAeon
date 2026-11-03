@@ -17,6 +17,7 @@ import {
   readPendingOperation, savePendingOperation, clearPendingOperation, type PendingOperationHint, type TransactionOperation,
 } from '@/lib/miniappAccess';
 import WalletRouteProviders from '@/components/WalletRouteProviders';
+import { ProviderLoadingState } from '@/components/ProviderLoadingState';
 import FxLogo from '@/components/FxLogo';
 import { AdmissionScreen, type AdmissionAction, type AdmissionScreenState } from './AdmissionScreen';
 import { WalletApprovalDetails } from './WalletApprovalDetails';
@@ -533,14 +534,17 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, chainId, switchChain, connectionVersion]);
   const wallet = useMemo<FxPrivyWallet>(() => ({
-    ready: true, authenticated: Boolean(session), connectionVersion, wallets: selectedWallet ? [selectedWallet] : [], selectedWallet,
+    ready: view !== 'checking', authenticated: Boolean(session), connectionVersion, wallets: selectedWallet ? [selectedWallet] : [], selectedWallet,
     address: session?.address, chainId: session ? chainId : undefined, isEmbedded: true, promptOpen: Boolean(pending),
     connect: async () => { await refresh(); if (!sessionRef.current) throw new Error('Your Telegram wallet is not ready.'); },
     disconnect, switchChain, sendTransaction,
     waitForPreviousConfirmationClose: () => recoveryRef.current ? new Promise<void>(resolve => { confirmationWaiters.current.push(resolve); }) : Promise.resolve(),
     selectWallet: address => { if (address.toLowerCase() !== sessionRef.current?.address.toLowerCase()) throw new Error('This Telegram account has one wallet.'); },
-  }), [session, selectedWallet, chainId, connectionVersion, pending, refresh, disconnect, switchChain, sendTransaction]);
+  }), [view, session, selectedWallet, chainId, connectionVersion, pending, refresh, disconnect, switchChain, sendTransaction]);
 
+  // Server admission and transaction recovery resolve before any wallet context
+  // is published. Checking is an unknown account, never a disconnected guest.
+  if (view === 'checking') return <ProviderLoadingState />;
   if (session && opened && pathname !== '/login' && pathname !== '/login/') return <FxWalletContext.Provider value={wallet}>
     <WalletRouteProviders>{children}</WalletRouteProviders>
     {recovery ? <dialog ref={dialog} className={styles.dialog} aria-labelledby="passkey-recovery-title" onCancel={event => event.preventDefault()}>

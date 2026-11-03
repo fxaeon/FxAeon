@@ -519,6 +519,18 @@ test('both instant fxSAVE output legs use the destination token decimals', () =>
   ]);
 });
 
+test('instant withdrawal keeps both source-leg floors in the selected fxUSD output', () => {
+  const intent: ReviewedActionIntent = { kind: 'fxsave-withdraw', tokenOutAddress: FX_TOKENS.fxUSD.address, amount: 1n, receiver: WALLET, directBasePool: false, instant: true };
+  const facts = routeFinancialReviewFacts(route(intent, { economicLimits: [
+    { label: 'fxUSD instant output minimum output', value: '0' },
+    { label: 'USDC instant output minimum output', value: '23581234567890123' },
+  ] }));
+  assert.deepEqual(facts.filter(fact => fact.label.includes('Minimum received')).map(({ label, value }) => ({ label, value })), [
+    { label: 'Minimum received (fxUSD leg)', value: '0 fxUSD' },
+    { label: 'Minimum received (USDC leg)', value: '0.023581234567890123 fxUSD' },
+  ]);
+});
+
 test('tiny positive amounts are not rounded to zero and huge amounts retain integer precision', () => {
   const facts = routeFinancialReviewFacts(route(opening(), { colls: '1', debts: '9007199254740993123456789000000000000000' }));
   assert.deepEqual(facts[0], { label: 'Estimated collateral', value: '<0.00000001 wstETH', title: '0.000000000000000001 wstETH' });

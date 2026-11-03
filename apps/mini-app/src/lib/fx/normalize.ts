@@ -162,6 +162,7 @@ function fxSaveQuote(value: unknown): RouteDetails['fxSaveQuote'] {
     amounts[field] = raw;
   }
   return { ...amounts, inputAmount: amounts.inputAmount,
+    ...(quote.identityOutputIncluded === true ? { identityOutputIncluded: true } : {}),
     kind: quote.kind as NonNullable<RouteDetails['fxSaveQuote']>['kind'],
     tokenAddress: getAddress(quote.tokenAddress), actionTo: getAddress(quote.actionTo),
     actionData: quote.actionData as Hex, readAt: Number(quote.readAt) };

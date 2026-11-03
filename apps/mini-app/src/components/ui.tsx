@@ -283,8 +283,9 @@ function HeaderWalletControl() {
 
 function HeaderWallet() {
   const wallet = usePrivyWallet();
-  const timedOut = useWalletReadyTimeout(wallet.ready);
-  if (wallet.ready) return <WalletProfile />;
+  const ready = wallet.ready && !wallet.restoring;
+  const timedOut = useWalletReadyTimeout(ready);
+  if (ready) return <WalletProfile />;
   return (
     <span role="status" className={headerWalletControl.identityPlaceholder} data-settled={timedOut || undefined}>
       <span className={`skeleton ${headerWalletControl.placeholderName}`} aria-hidden="true" />

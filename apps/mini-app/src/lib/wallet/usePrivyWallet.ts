@@ -183,6 +183,8 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     if (!allowTelegramHost && isTelegramLaunchContext()) { setReady(true); return; }
     let mounted = true;
     let restoring = false;
+    let discovering = true;
+    let awaitingSavedProvider = false;
     let restoringProvider: Eip1193Provider | undefined;
     let restoreAgain = false;
     const restore = async () => {
@@ -204,8 +206,15 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
         }
         return;
       }
-      if (!target) return;
+      if (!target) {
+        // Saved identity is only a reason to await discovery, never authority
+        // for reads or writes. A mobile bridge may inject after the first pass.
+        awaitingSavedProvider = discovering && Boolean(preferred);
+        return;
+      }
+      awaitingSavedProvider = false;
       restoring = true;
+      setReady(false);
       restoringProvider = target;
       const controller = new AbortController();
       restoreAbortRef.current = controller;
@@ -225,8 +234,8 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
         restoring = false;
         restoringProvider = undefined;
         if (restoreAbortRef.current === controller) restoreAbortRef.current = null;
-        if (mounted) setReady(true);
         if (restoreAgain) { restoreAgain = false; void restore(); }
+        if (mounted && !restoring && !awaitingSavedProvider) setReady(true);
       }
     };
     const reconcile = () => {
@@ -245,9 +254,14 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       setProviderVersion((version) => version + 1);
       void restore();
     });
-    const initial = window.setTimeout(() => { if (mounted) setReady(true); void restore(); }, 200);
+    const initial = window.setTimeout(() => {
+      void restore();
+      // New visitors settle promptly; remembered sessions also await a late
+      // matching injection within the bounded startup discovery window.
+      if (mounted && !restoring && !awaitingSavedProvider) setReady(true);
+    }, 200);
     // Mobile wallet bridges can assign their documented namespace after the
-    // shell becomes ready, without an announcement or initialization event.
+    // first discovery pass, without an announcement or initialization event.
     // Observe startup changes for a bounded window; never repeatedly retry a
     // present but unauthorized provider, or prompt from saved preferences.
     let startupProvider = savedWalletChoice(readPreference(BROWSER_PROVIDER_KEY))?.provider;
@@ -257,7 +271,13 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       startupProvider = next;
       if (!owner.getActiveConfig() || !owner.hasCurrentIdentity()) reconcile();
     }, 200);
-    const stopStartupPoll = window.setTimeout(() => window.clearInterval(startupPoll), 5_000);
+    const stopStartupPoll = window.setTimeout(() => {
+      window.clearInterval(startupPoll);
+      discovering = false;
+      awaitingSavedProvider = false;
+      void restore();
+      if (mounted && !restoring) setReady(true);
+    }, 5_000);
     window.addEventListener('focus', reconcile);
     window.addEventListener('ethereum#initialized', reconcile);
     document.addEventListener('visibilitychange', reconcile);
@@ -310,6 +330,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     savePreference(BROWSER_PROVIDER_KEY);
     savePreference(BROWSER_ADDRESS_KEY);
     owner.manualDisconnect();
+    setReady(true);
   }, [connection, owner]);
   const selectedWallet = useMemo(() => session ? walletDescriptor(session, owner) : undefined, [session, owner]);
   const switchChain = useCallback((nextChain: FxChainId) => owner.switchChain(nextChain), [owner]);

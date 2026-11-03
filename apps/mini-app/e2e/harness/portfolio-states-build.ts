@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
  * Bundles the real Portfolio and History pages (and the provider fallback)
  * against inline mock providers, with the app's real global and module CSS.
  * Every mock reads `globalThis.__portfolioStates.stage`, set before the bundle
- * runs, so one page load shows exactly one first-load state.
+ * runs; transition controls can also resolve readiness in the same mounted page.
  */
 const appRoot = resolve(__dirname, '../..');
 const root = resolve(appRoot, '../..');
@@ -39,8 +39,8 @@ const ready = () => !['wallet', 'timeout', 'restoring'].includes(stage());
 export const isWalletConnectCancellation = () => false;
 export function useWalletReadyTimeout(isReady) { return !isReady && stage() === 'timeout'; }
 export function usePrivyWallet() {
-  const address = (ready() || stage() === 'restoring') && stage() !== 'disconnected' ? '${WALLET}' : undefined;
-  return { ready: ready(), authenticated: Boolean(address), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
+  const address = (ready() || stage() === 'restoring') && !['disconnected', 'hydrating'].includes(stage()) ? '${WALLET}' : undefined;
+  return { ready: ready(), restoring: stage() === 'hydrating', authenticated: stage() === 'hydrating' || Boolean(address), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
     selectedWallet: address ? { address } : null, connect: async () => {}, disconnect: async () => {}, switchChain: async () => {}, sendTransaction: async () => {} };
 }`,
   '@/lib/wallet/activeWalletAddress': `export const activeWalletAddress = (wallet) => wallet.ready && wallet.authenticated ? wallet.address ?? null : null;`,
@@ -116,9 +116,11 @@ export function useProtocolPositions() {
 const known = {
   assertConfiguredPublicClientChain: async () => {},
   withReadDeadline: (promise) => promise,
-  getFxReadFacade: () => ({ getFxSaveBalance: () => !settled() ? never()
-    : stage() === 'unavailable' ? Promise.reject(new Error('fxSAVE read failed'))
-      : Promise.resolve(globalThis.__portfolioFixtures.fxSave(stage())) }),
+  getFxReadFacade: () => ({ getFxSaveBalance: () => new Promise((resolve, reject) => {
+    const finish = () => stage() === 'unavailable' ? reject(new Error('fxSAVE read failed')) : resolve(globalThis.__portfolioFixtures.fxSave(stage()));
+    if (!settled()) harness().settleReads = finish;
+    else finish();
+  }) }),
 };
 module.exports = new Proxy(known, { get: (target, key) => key in target ? target[key] : key === '__esModule' ? false : () => undefined });`,
   '@/app/trade/fxUi': `import { formatUnits } from 'viem';

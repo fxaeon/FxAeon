@@ -68,24 +68,74 @@ async function portfolioLandmarks(page: Page) {
 }
 
 for (const width of [320, 393, 480, 1280]) {
-  test(`first visitors see public Explore through provider startup at ${width}px`, async ({ page }) => {
+  test(`public Explore waits for resolved disconnection at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1700 });
-    let firstPaint: number[][] | undefined;
-    for (const stage of ['provider', 'wallet', 'disconnected']) {
+    for (const stage of ['provider', 'wallet', 'hydrating', 'disconnected']) {
       await open(page, stage);
-      await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
-      await expect(page.locator('#portfolio-explore-heading')).toContainText('moves with you.');
-      await expect(page.locator('[data-product]')).toHaveCount(4);
-      await expect(page.locator('[data-portfolio-value], [aria-label="Portfolio views"], [class*="quickActions"]')).toHaveCount(0);
-      const landmarks = await page.locator('[data-product], [data-market-placeholder], .portfolio-market-card').evaluateAll(elements => elements.map(element => { const r = element.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
-      if (stage === 'provider') firstPaint = landmarks;
-      else expect(landmarks, 'public cards retain their first-paint geometry').toEqual(firstPaint);
+      if (stage === 'disconnected') {
+        await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
+        await expect(page.locator('#portfolio-explore-heading')).toContainText('moves with you.');
+        await expect(page.locator('[data-product]')).toHaveCount(4);
+        await expect(page.locator('[data-portfolio-value], [aria-label="Portfolio views"], [class*="quickActions"]')).toHaveCount(0);
+      } else {
+        await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+        await expect(page.locator('[data-portfolio-value] .missing-value-bar')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(0);
+      }
       const geometry = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth }));
       expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
       await page.unrouteAll({ behavior: 'ignoreErrors' });
     }
   });
 }
+
+test('provider and wallet hydration reach the account without a disconnected frame', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await open(page, 'handoff');
+  await page.evaluate(`window.__disconnectedFrames = []; new MutationObserver(() => {
+    if (document.querySelector('[data-portfolio-explore]')) window.__disconnectedFrames.push(window.__portfolioStates.stage);
+  }).observe(document.getElementById('root'), { childList: true, subtree: true }); window.__portfolioStates.handoff();`);
+  for (const stage of ['wallet', 'hydrating', 'restoring', 'reads', 'loaded']) {
+    await page.evaluate(`window.__portfolioStates.transition(${JSON.stringify(stage)})`);
+    await expect(page.locator('html')).toHaveAttribute('data-portfolio-stage', stage);
+    await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+    if (stage === 'loaded') await expect(page.locator('[data-portfolio-value]')).toContainText('$');
+    else await expect(page.locator('[data-portfolio-value] .missing-value-bar')).toBeVisible();
+    if (stage === 'wallet' || stage === 'hydrating' || stage === 'restoring') {
+      await expect(page.getByText('Loading wallet', { exact: true })).toBeAttached();
+    }
+  }
+  expect(await page.evaluate('window.__disconnectedFrames')).toEqual([]);
+  await page.evaluate(`window.__portfolioStates.transition('disconnected')`);
+  await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true }).first()).toBeVisible();
+});
+
+test('unresolved wallet timeout offers recovery and later resolved disconnection remains usable', async ({ page }) => {
+  await open(page, 'timeout');
+  await expect(page.getByText('Your wallet didn’t load', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
+  await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+  await page.evaluate(`window.__portfolioStates.transition('disconnected')`);
+  await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
+  await expect(page.getByText('Your wallet didn’t load', { exact: true })).toHaveCount(0);
+});
+
+test('captures deterministic phone wallet readiness for review', async ({ page }) => {
+  const directory = process.env.PORTFOLIO_READINESS_SCREENSHOTS_DIR;
+  test.skip(!directory, 'set PORTFOLIO_READINESS_SCREENSHOTS_DIR to keep screenshots');
+  mkdirSync(directory!, { recursive: true });
+  await page.setViewportSize({ width: 393, height: 852 });
+  for (const [name, stage] of [['neutral-provider', 'provider'], ['neutral-loading', 'wallet'], ['disconnected', 'disconnected'], ['connected', 'loaded']]) {
+    await open(page, stage);
+    if (stage === 'loaded') await expect(page.locator('[data-portfolio-value]')).toContainText('$');
+    else if (stage === 'disconnected') await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
+    else await expect(page.locator('[data-portfolio-value] .missing-value-bar')).toBeVisible();
+    await page.screenshot({ path: resolve(directory!, `${name}.png`), animations: 'disabled',
+      mask: [page.getByRole('button', { name: 'Open wallet profile', exact: true })], maskColor: '#242428' });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
 
 test('connected wallet profile keeps its action rows accessible across widths', async ({ page }, info) => {
   for (const width of [320, 390, 1280]) {
@@ -312,10 +362,11 @@ test('the live page takes over the first paint without fading in a second time',
   await open(page, 'handoff');
   // The fallback itself arrives with the route fade; let that finish first.
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.querySelector('.app-content > *')!).opacity)).toBe('1');
+  const firstPaint = await portfolioLandmarks(page);
   const samples = await page.evaluate(`(async () => {
     const read = () => {
       const content = document.querySelector('.app-content > *');
-      const bar = document.querySelector('#portfolio-explore-heading');
+      const bar = document.querySelector('[data-portfolio-value]');
       return { opacity: Number(getComputedStyle(content).opacity), bar: Math.round(bar.getBoundingClientRect().top) };
     };
     const out = [read()];
@@ -323,7 +374,8 @@ test('the live page takes over the first paint without fading in a second time',
     for (let frame = 0; frame < 10; frame += 1) { await new Promise((done) => requestAnimationFrame(() => done())); out.push(read()); }
     return out;
   })()`) as Array<{ opacity: number; bar: number }>;
-  await expect(page.locator('[data-portfolio-explore]')).toBeVisible();
+  await expect(page.locator('[data-portfolio-explore]')).toHaveCount(0);
+  expect(await portfolioLandmarks(page), 'provider shell retains the full neutral portfolio geometry').toEqual(firstPaint);
   for (const sample of samples) expect(sample).toEqual(samples[0]);
   expect(samples[0].opacity).toBe(1);
 });

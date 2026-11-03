@@ -171,20 +171,17 @@ test.describe('the ticket’s outcome preview', () => {
     const preview = {
       executionPrice: await figure(page, 'Execution price'),
       rebalancePrice: await figure(page, 'Rebalance price'),
-      liquidationPrice: await figure(page, 'Liquidation price'),
       fee: await figure(page, 'f(x) fee'),
     };
     // The SDK execution quote is already expressed in fxUSD per stETH.
     expect(preview.executionPrice).toMatch(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
     await expect(fact(page, 'Estimated collateral')).toHaveCount(0);
     await expect(fact(page, 'Estimated debt')).toHaveCount(0);
-    // The rebalance price (f(x)'s liquidation brake) leads, above the liquidation price a long would reach later.
+    // The ticket shows the rebalance brake; liquidation remains in review.
     expect(await outcome(page).locator('[data-outcome-fact]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-outcome-fact'))))
-      .toEqual(['Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee']);
+      .toEqual(['Execution price', 'Rebalance price', 'f(x) fee']);
     expect(preview.rebalancePrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
-    expect(preview.liquidationPrice).toMatch(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
-    const usd = (text: string) => Number(text.replace(/[^\d.]/g, ''));
-    expect(usd(preview.rebalancePrice)).toBeGreaterThan(usd(preview.liquidationPrice));
+    await expect(fact(page, 'Liquidation price')).toHaveCount(0);
     expect(preview.fee).toBe('');
     await expect(fact(page, 'f(x) fee').getByRole('status', { name: 'f(x) fee unavailable' })).toBeAttached();
     const plansBeforeReview = await planCount(page);
@@ -194,9 +191,10 @@ test.describe('the ticket’s outcome preview', () => {
     // Ticket and review show the same compact quote without inline precision panels.
     await expect(previewPrice.locator('details, summary')).toHaveCount(0);
     await expect(reviewFact(page, 'Execution price')).toHaveText(preview.executionPrice);
+    await expect(page.locator('[data-review-fact="Liquidation price"]')).toBeVisible();
     await expect(reviewFact(page, 'Execution price').locator('details, summary')).toHaveCount(0);
     const collateral = page.locator('[data-review-fact="Estimated collateral"]').first();
-    await expect(collateral).toContainText('Position size · collateral');
+    await expect(collateral).toContainText('Position size');
     const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
     await expect(collateralValue).toHaveText(/^≈ [\d,]+(?:\.\d+)? stETH$/);
     await expect(collateralValue).not.toHaveAttribute('title', /wstETH at .* per wstETH/);
@@ -222,7 +220,7 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    const liquidationAt28 = await figure(page, 'Liquidation price');
+    const rebalanceAt28 = await figure(page, 'Rebalance price');
     const box = (await outcome(page).boundingBox())!;
 
     await slider(page).fill('3.5');
@@ -230,14 +228,14 @@ test.describe('the ticket’s outcome preview', () => {
     expect(await page.evaluate(() => {
       const group = document.querySelector('[data-trade-outcome]');
       return { state: group?.getAttribute('data-trade-outcome'), text: group?.textContent ?? '' };
-    })).toEqual({ state: 'pending', text: 'Execution priceRebalance priceLiquidation pricef(x) fee' });
+    })).toEqual({ state: 'pending', text: 'Execution priceRebalance pricef(x) fee' });
     // The placeholder keeps the rows where they were.
     const pending = (await outcome(page).boundingBox())!;
     expect(Math.abs(pending.y - box.y)).toBeLessThanOrEqual(1);
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    const liquidationAt35 = await figure(page, 'Liquidation price');
+    const rebalanceAt35 = await figure(page, 'Rebalance price');
     const amount = (text: string) => Number(text.replace(/[^\d.]/g, ''));
-    expect(amount(liquidationAt35)).toBeGreaterThan(amount(liquidationAt28));
+    expect(amount(rebalanceAt35)).toBeGreaterThan(amount(rebalanceAt28));
 
     // Clearing the amount leaves nothing to estimate.
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('');
@@ -265,17 +263,17 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    const liquidationPrice = await figure(page, 'Liquidation price');
+    const rebalancePrice = await figure(page, 'Rebalance price');
     await page.getByRole('button', { name: 'Review ETH Long', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Not enough ETH', exact: true })).toBeDisabled();
     expect(await planCount(page)).toBe(1);
     await page.locator('[data-review-edit]').click();
     // Same inputs, same figures, never a placeholder flash; a fresh warm-up runs behind them.
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    await expect(displayedFact(page, 'Liquidation price')).toHaveText(liquidationPrice);
+    await expect(displayedFact(page, 'Rebalance price')).toHaveText(rebalancePrice);
     await expect.poll(() => planCount(page)).toBe(2);
     await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter((event) => event.name === 'planIncreasePosition' && event.purpose === 'ticket').every((event) => event.end !== undefined))).toBe(true);
-    await expect(displayedFact(page, 'Liquidation price')).toHaveText(liquidationPrice);
+    await expect(displayedFact(page, 'Rebalance price')).toHaveText(rebalancePrice);
   });
 
   test('an untouched ticket refreshes risk reads without replanning and hides its preview offline', async ({ page }) => {
@@ -284,7 +282,7 @@ test.describe('the ticket’s outcome preview', () => {
     await page.getByRole('textbox', { name: 'Amount in ETH' }).fill('0.0003');
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
-    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await expect(displayedFact(page, 'Rebalance price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     await expect.poll(() => page.evaluate(() => (globalThis as Harness).__longReview.events.filter(event => event.name === 'planIncreasePosition' && event.purpose === 'ticket').every(event => event.end !== undefined))).toBe(true);
     const plans = await planCount(page);
     let thresholdReads = 0;
@@ -298,9 +296,9 @@ test.describe('the ticket’s outcome preview', () => {
     });
     await page.clock.fastForward(15_001);
     await expect.poll(() => thresholdReads).toBeGreaterThan(0);
-    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await expect(displayedFact(page, 'Rebalance price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     await page.clock.fastForward(15_001);
-    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await expect(displayedFact(page, 'Rebalance price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     expect(await planCount(page)).toBe(plans);
     await page.context().setOffline(true);
     await page.clock.fastForward(30_001);
@@ -312,7 +310,7 @@ test.describe('the ticket’s outcome preview', () => {
     await expect(slider(page)).toHaveValue('2.8');
   });
 
-  test('quoted execution and liquidation prices remain readable on narrow dark tickets', async ({ page }) => {
+  test('quoted execution and rebalance prices remain readable on narrow dark tickets', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mount(page);
     await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
@@ -320,14 +318,14 @@ test.describe('the ticket’s outcome preview', () => {
     await slider(page).fill('2.8');
     await expect(outcome(page)).toHaveAttribute('data-trade-outcome', 'ready');
     await expect(displayedFact(page, 'Execution price')).toHaveText(/^≈ [\d,]+(?:\.\d+)? fxUSD \/ stETH$/);
-    await expect(displayedFact(page, 'Liquidation price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
+    await expect(displayedFact(page, 'Rebalance price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
     const artifacts = resolve(__dirname, '../../../../artifacts/home-hierarchy');
     mkdirSync(artifacts, { recursive: true });
     await page.screenshot({ path: resolve(artifacts, 'trade-prices-dark-390.png'), animations: 'disabled', fullPage: true });
     await page.setViewportSize({ width: 320, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await expect(fact(page, 'Execution price')).toBeVisible();
-    await expect(fact(page, 'Liquidation price')).toBeVisible();
+    await expect(fact(page, 'Rebalance price')).toBeVisible();
     await page.screenshot({ path: resolve(artifacts, 'trade-prices-dark-320.png'), animations: 'disabled', fullPage: true });
   });
 });
@@ -570,7 +568,7 @@ test('disconnected Trade shows isolated execution, liquidation and fee facts, th
   const amount = page.getByRole('textbox',{name:'Amount in ETH'});
   await amount.fill('0.1');
   await expect(outcome(page)).toHaveAttribute('data-trade-outcome','ready');
-  for (const label of ['Execution price','Rebalance price','Liquidation price','f(x) fee']) await expect(fact(page,label)).not.toContainText('Unavailable');
+  for (const label of ['Execution price','Rebalance price','f(x) fee']) await expect(fact(page,label)).not.toContainText('Unavailable');
   await expect(displayedFact(page,'Rebalance price')).toHaveText(/^≈ \$[\d,]+(?:\.\d+)? \/ stETH$/);
   await expect(page.getByRole('button',{name:'Connect wallet',exact:true}).last()).toBeVisible();
   await expect(page.getByText(/balance unavailable|no ETH available|insufficient balance/i)).toHaveCount(0);

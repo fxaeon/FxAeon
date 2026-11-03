@@ -17,7 +17,7 @@ const valueOrAbsent = (value?: string) => value && !/^(?:Unavailable|Not quoted|
 /**
  * What the ticket's warmed route would hold once it executes, under the
  * leverage field: the expected execution price, projected rebalance (the f(x)
- * "liquidation brake") and liquidation prices, and protocol fee. Execution
+ * "liquidation brake"), and protocol fee. Execution
  * uses the review's own quote; the thresholds use the same projected amounts
  * and fresh pool ratios. Every price is an estimate; the review still plans,
  * simulates and validates the route before anything is signed. `route` is
@@ -34,12 +34,10 @@ export function TradeOutcomePreview({ route, facts: publicFacts }: { market: 'ET
   const rows: Row[] = facts ? [
     { label: 'Execution price', value: facts.executionPrice ? valueOrAbsent(approximately(facts.executionPrice.value)) : undefined, status: 'unavailable', title: facts.executionPrice?.title },
     threshold('Rebalance price', facts.rebalancePrice),
-    threshold('Liquidation price', facts.liquidationPrice),
     { label: facts.fee?.label ?? 'f(x) fee', value: valueOrAbsent(facts.fee?.value), status: 'unavailable', title: facts.fee?.title, feeAmounts: facts.fee?.feeAmounts },
   ] : [
     { label: 'Execution price', status: 'loading' },
     { label: 'Rebalance price', status: 'loading' },
-    { label: 'Liquidation price', status: 'loading' },
     { label: 'f(x) fee', status: 'loading' },
   ];
   return (

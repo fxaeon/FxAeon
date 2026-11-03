@@ -92,12 +92,13 @@ export default function PortfolioPage() {
 function PortfolioWallet() {
   const walletState = usePrivyWallet();
   const positionState = useProtocolPositions();
-  const { ready, authenticated } = walletState;
+  const { authenticated } = walletState;
+  const ready = walletState.ready && !walletState.restoring;
   const wallet = walletState.selectedWallet;
-  const walletTimedOut = useWalletReadyTimeout(ready && walletState.ready);
+  const walletTimedOut = useWalletReadyTimeout(ready);
   const priceSnapshot = useUsdPrices();
   const displayPrices = freshDisplayPrices(priceSnapshot);
-  const walletAddress = authenticated && ready && walletState.ready ? wallet?.address : undefined;
+  const walletAddress = authenticated && ready ? wallet?.address : undefined;
   const identity = walletAddress?.toLowerCase() ?? '';
   const manualRefresh = useRefreshAction(identity);
   const walletBalances = useWalletBalances({ address: walletAddress, chainId: 1, enabled: Boolean(walletAddress) });
@@ -187,11 +188,10 @@ function PortfolioWallet() {
     void loadProtocol();
   }, [identity, loadProtocol, realtime.latestBlockNumber, realtime.status, walletAddress]);
 
-  // An initializing provider is not evidence of an account. Keep public
-  // discovery visible until an authenticated selected wallet is known.
-  // All wallet reads above still require ready and the verified address.
+  // Authentication and wallet selection can still be empty during restoration.
+  // Only a resolved provider can establish that this visitor is disconnected.
+  if (!ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: selectNetwork, selectedTab, onTabChange: selectTab });
   if (!authenticated || !wallet) return <DisconnectedPortfolio />;
-  if (!ready || !walletState.ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: selectNetwork, selectedTab, onTabChange: selectTab });
 
   const loading = walletBalances.status === 'idle' || walletBalances.status === 'loading';
   const liveLoading = liveAssets.status === 'idle' || liveAssets.status === 'loading';

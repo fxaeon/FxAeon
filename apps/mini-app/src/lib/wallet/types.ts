@@ -40,6 +40,8 @@ export type FxSelectedWallet = ConnectedWallet & {
 
 export type FxPrivyWallet = {
   ready: boolean;
+  /** Provider can open login, but an authenticated session's wallets are still hydrating. */
+  restoring?: boolean;
   authenticated: boolean;
   /** Increments after an accepted connection or deliberate wallet selection. */
   connectionVersion: number;

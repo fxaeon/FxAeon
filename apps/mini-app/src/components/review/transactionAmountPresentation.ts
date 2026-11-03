@@ -44,7 +44,6 @@ export function plainAmountLabel(label: string): string {
     'Debt added': 'Debt added', Withdraw: 'Collateral returned', 'Estimated collateral': 'Position size · estimated',
     'Estimated received': 'You receive · estimated', 'Estimated fxSAVE received': 'You receive · estimated',
     'Estimated fxUSD received': 'You receive · estimated', 'Estimated fxUSD payout': 'fxUSD payout · estimated', 'Estimated USDC payout': 'USDC payout · estimated', 'Minimum received': 'You receive · minimum',
-    'Minimum received (fxUSD leg)': 'fxUSD · minimum', 'Minimum received (USDC leg)': 'USDC · minimum',
   };
   return labels[label] ?? label;
 }

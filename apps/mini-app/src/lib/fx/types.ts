@@ -99,6 +99,8 @@ export interface RouteDetails {
     actionData: Hex;
     readAt: number;
     estimatedOutput?: string;
+    /** The instant estimate includes the direct, same-token redemption leg. */
+    identityOutputIncluded?: boolean;
     instantFeeRatio?: string;
     grossFxUSD?: string;
     grossUSDC?: string;

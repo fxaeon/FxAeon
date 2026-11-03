@@ -1634,6 +1634,7 @@ async function runProof(captureStage: string) {
       await expect(reviewedFactRow('fxSAVE')).toBeVisible();
       await expect(reviewedFactRow('Receive')).toBeVisible();
       await expect(reviewedFactRow('Mode')).toContainText('Instant');
+      await page.getByText('Withdrawal details', { exact: true }).click();
       await expect(reviewedFactRow('Minimum received (USDC leg)')).toBeVisible();
     });
     assert.equal(submitted.length, withdrawalReviewSignatureBaseline, 'instant withdrawal review must not request a signature');

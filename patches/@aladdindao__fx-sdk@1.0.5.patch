@@ -598,7 +598,7 @@ index d1b42864fdfb2717e6d6046bee21de033228ff25..f4708ea7e601033e27197484b6a4a794
 +  return { txs, fxSaveQuote: {
 +    kind: "instant-withdraw", inputAmount: amount.toString(), tokenAddress: tokenOutAddress,
 +    actionTo: contracts.Router_Diamond, actionData: data, readAt: quoteReadAt,
-+    estimatedOutput: (tokenXOut + tokenYOut).toString(), instantFeeRatio: instantRedeemFeeRatioRes.toString(),
++    estimatedOutput: (tokenOut === "fxUSD" ? fxUSDAfterFee + tokenYOut : tokenXOut + usdcAfterFee).toString(), identityOutputIncluded: true, instantFeeRatio: instantRedeemFeeRatioRes.toString(),
 +    grossFxUSD: amountYieldOut.toString(), grossUSDC: amountStableOut.toString(),
 +    netFxUSD: fxUSDAfterFee.toString(), netUSDC: usdcAfterFee.toString()
 +  } };
@@ -1335,7 +1335,7 @@ index 0c7b00528fe5ff3ca17ae8292bf407bef984dcbe..cc9cd7351740505b84956fc1f1a88eb5
 +  return { txs, fxSaveQuote: {
 +    kind: "instant-withdraw", inputAmount: amount.toString(), tokenAddress: tokenOutAddress,
 +    actionTo: contracts.Router_Diamond, actionData: data, readAt: quoteReadAt,
-+    estimatedOutput: (tokenXOut + tokenYOut).toString(), instantFeeRatio: instantRedeemFeeRatioRes.toString(),
++    estimatedOutput: (tokenOut === "fxUSD" ? fxUSDAfterFee + tokenYOut : tokenXOut + usdcAfterFee).toString(), identityOutputIncluded: true, instantFeeRatio: instantRedeemFeeRatioRes.toString(),
 +    grossFxUSD: amountYieldOut.toString(), grossUSDC: amountStableOut.toString(),
 +    netFxUSD: fxUSDAfterFee.toString(), netUSDC: usdcAfterFee.toString()
 +  } };
