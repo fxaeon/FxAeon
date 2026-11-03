@@ -75,7 +75,7 @@ for (const width of [320, 390, 1280]) {
     const bounds = (await chart.boundingBox())!;
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
-    await chart.dispatchEvent('pointerdown', { clientX: bounds.x + 9, clientY: bounds.y + 50, pointerType: 'touch' });
+    await chart.dispatchEvent('pointerdown', { clientX: bounds.x + 9, clientY: bounds.y + 50, pointerType: 'touch', pointerId: 1, button: 0, isPrimary: true });
     await chart.dispatchEvent('pointerleave', { pointerType: 'touch' });
     await expect(chart).toHaveAttribute('aria-valuenow', '0');
     await page.getByRole('button', { name: 'Share value', exact: true }).click();

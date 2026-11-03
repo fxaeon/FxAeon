@@ -14,7 +14,7 @@
 .funding .reading { align-items: center; min-height: 32px; }
 .funding .reading strong { flex: 0 0 auto; }
 .funding :global([data-info-help-trigger]) { width: 24px; min-width: 24px; height: 24px; min-height: 24px; }
-.plot { display: block; width: 100%; height: 148px; overflow: visible; color: var(--mint-text, var(--mint)); touch-action: pan-y; }
+.plot { display: block; width: 100%; height: 148px; overflow: visible; color: var(--mint-text, var(--mint)); touch-action: pan-y pinch-zoom; user-select: none; cursor: crosshair; }
 .plot:focus:not(:focus-visible) { outline: none; }
 .guide { stroke: var(--line); stroke-width: 1; }
 .trace { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -65,13 +65,20 @@
 .fundingChartHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; }
 .fundingChartHeader > span { color: var(--mut); }
 .fundingPlot { position: relative; }
-.fundingInspection { position: absolute; top: 0; left: 8px; z-index: 1; display: flex; gap: 10px; padding: 4px 7px; border-radius: 6px; background: var(--surface); color: var(--mut); font-size: 11px; pointer-events: none; }
+.fundingInspection { position: absolute; top: 0; left: 8px; z-index: 1; display: flex; flex-wrap: wrap; gap: 2px 10px; max-width: calc(100% - 16px); padding: 4px 7px; border-radius: 6px; background: var(--surface); color: var(--mut); font-size: 11px; pointer-events: none; opacity: 0; }
+.fundingInspection[data-active='true'] { opacity: 1; }
 .fundingInspection strong { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
 
-/* Animate the new observation, never tween through unobserved financial values. */
-@keyframes observation-in { from { transform: translateY(3px); opacity: .65; } to { transform: translateY(0); opacity: 1; } }
+/* Bounded visual feedback only. Readouts never count through invented values,
+   and scrubbing cannot accumulate animation lag. No enter/reveal replay. */
+.indicator, .indicator circle { pointer-events: none; }
 @media (prefers-reduced-motion: no-preference) {
-  .performanceReading strong, .fundingInspection strong { animation: observation-in 140ms ease-out; }
+  .indicator, .indicator circle { transition: transform 120ms cubic-bezier(.2, .7, .2, 1); }
+  .fundingInspection { transition: opacity 120ms ease-out; }
+}
+.indicator[data-immediate], .indicator[data-immediate] circle, .indicator[data-step] circle { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .indicator, .indicator circle, .fundingInspection { transition: none !important; }
 }
 
 /* Earn analytics: quiet controls with full touch targets and room to wrap. */
