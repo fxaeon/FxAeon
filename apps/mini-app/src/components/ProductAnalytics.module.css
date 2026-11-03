@@ -67,3 +67,9 @@
 .fundingPlot { position: relative; }
 .fundingInspection { position: absolute; top: 0; left: 8px; z-index: 1; display: flex; gap: 10px; padding: 4px 7px; border-radius: 6px; background: var(--surface); color: var(--mut); font-size: 11px; pointer-events: none; }
 .fundingInspection strong { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Animate the new observation, never tween through unobserved financial values. */
+@keyframes observation-in { from { transform: translateY(3px); opacity: .65; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) {
+  .performanceReading strong, .fundingInspection strong { animation: observation-in 140ms ease-out; }
+}

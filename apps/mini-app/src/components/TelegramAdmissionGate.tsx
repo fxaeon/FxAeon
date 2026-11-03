@@ -30,8 +30,8 @@ async function ask(intent: TelegramAdmissionIntent): Promise<TelegramAdmission> 
 
 /**
  * Renders the Privy wallet only for admitted Telegram users. Everyone else
- * gets a waitlist and the web app, and never loads Privy, so the Telegram
- * cohort stays inside Privy's free monthly-user allowance. Off unless the
+ * gets a waitlist and the web app. This controls the normal app flow, not
+ * direct provider signup; provider-side enforcement is also required. Off unless the
  * build enables it; a member remembered on this device opens immediately.
  */
 export function TelegramAdmissionGate({ children }: { children: ReactNode }) {

@@ -14,7 +14,7 @@ const zod = {
   severity: 'high', findings: [{ version: '3.25.76' }, { version: '4.6.7' }], title: 'Unbounded collection validation',
 };
 for (const [name, advisories, code] of [
-  ['verified braces backport is permitted', [known], 0],
+  ['braces advisories no longer have a blanket exception', [known], 1],
   ['verified Zod compatibility backports are permitted', [zod], 0],
   ['a Zod finding for an unverified version remains blocking', [{ ...zod, findings: [{ version: '3.22.4' }] }], 1],
   ['a different Zod advisory remains blocking', [{ ...zod, github_advisory_id: 'GHSA-other' }], 1],

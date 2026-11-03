@@ -144,7 +144,19 @@ test('capacity defaults below Privy’s free tier and rejects malformed configur
   assert.equal(admissionCapacity(''), 480);
   assert.equal(admissionCapacity(' 250 '), 250);
   assert.equal(admissionCapacity('0'), 0);
-  for (const invalid of ['-1', '1.5', 'ten', '99999999', 12]) assert.equal(admissionCapacity(invalid), null);
+  assert.equal(admissionCapacity('480'), 480);
+  for (const invalid of ['481', '499', '500', '1000000', '-1', '1.5', 'ten', '99999999', 12]) assert.equal(admissionCapacity(invalid), null);
+});
+
+test('invalid direct capacities cannot reserve seats, and closing intake preserves members', async () => {
+  const db = d1();
+  for (const capacity of [481, 500, Infinity, NaN, -1, 1.5]) {
+    await assert.rejects(admitTelegramUser(db, 1, { capacity, intent: 'enter' }), /Invalid admission capacity/);
+  }
+  assert.equal(db.batches, 0);
+  await admitTelegramUser(db, 1, { capacity: 1, intent: 'enter' });
+  assert.equal(await admitTelegramUser(db, 1, { capacity: 0, intent: 'enter' }), 'admitted');
+  assert.equal(await admitTelegramUser(db, 2, { capacity: 0, intent: 'join' }), 'waitlisted');
 });
 
 function post(body: unknown, init: { origin?: string; type?: string; search?: string } = {}) {

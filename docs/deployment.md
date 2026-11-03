@@ -95,22 +95,24 @@ Public web mode and Telegram Privy mode have different configuration and identit
 
 ### Telegram admission and waitlist
 
-Privy’s free plan covers up to 499 monthly active users, so Telegram users are admitted to the Privy wallet as a permanent first-come cohort of `TELEGRAM_ADMISSION_CAPACITY` (default 480, leaving room for team accounts). Later visitors can join a waitlist and continue on the web app with their own wallet; they never load Privy.
+The intended miniapp cohort is at most 480 people, including existing members, leaving headroom below Privy's 500-user threshold. `TELEGRAM_ADMISSION_CAPACITY` defaults to 480 and rejects larger values. Returning admitted members remain admitted even when intake is set to zero. Do not delete cohort members to recycle seats: their Privy accounts still exist.
 
-1. Create the D1 database `fxaeon-admission` and add its binding to `wrangler.toml` as `ADMISSION_DB`. The Function creates its tables on first use. The deploy token needs D1 edit access.
+This is an application entry gate, **not a provider-enforced signup cap**. Privy's native Telegram login does not support its allowlist, and browser code (including remembered admission) can be bypassed. The production gate remains off pending a verified free provider-side solution that preserves Telegram-only login and existing wallets. Do not advertise a guaranteed cap or replace Telegram with email login. Custom JWT is currently marked Scale in this app's dashboard.
+
+1. The D1 database `fxaeon-admission` was created on 3 November 2026; `wrangler.toml` binds `056c44dd-4524-4b49-ab64-80ae1e53c4b7` as `ADMISSION_DB`. The Function creates its tables on first use through its runtime binding. The existing Pages Write token deploys Pages; separate D1 permissions are needed for direct database administration, not normal runtime queries. Do not expand the CI token speculatively.
 2. Deploy. The release workflow syncs `TELEGRAM_BOT_ID`.
-3. Set the GitHub variable `NEXT_PUBLIC_TELEGRAM_ADMISSION=on` and deploy again. With it on, a failed bot-ID sync fails the release instead of refusing every new user.
+3. Before any rollout, inventory all existing Privy accounts and seed their verified Telegram identities without changing accounts or wallets. Account for other apps sharing the billing limit. Confirm provider-side signup enforcement and test returning users, parallel final-seat requests, direct provider signup and provider/storage failures. Only then, with explicit rollout approval, set `NEXT_PUBLIC_TELEGRAM_ADMISSION=on` and deploy again. With it on, a failed bot-ID sync fails the release instead of refusing every new user.
 
-Raising the capacity admits the next people to open the app. To let waitlisted people in first, in join order, run in the D1 console (adjust the limit):
+Raising intake up to 480 admits the next people to open the app. A future server-enforced rollout must synchronize reservations and provider accounts before promoting anyone. Do not run a separate unbounded insertion from the waitlist. This bounded statement documents the D1-side limit only:
 
 ```sql
 INSERT INTO telegram_admission (telegram_user_id, admitted_at)
 SELECT telegram_user_id, unixepoch() * 1000 FROM telegram_waitlist
 WHERE telegram_user_id NOT IN (SELECT telegram_user_id FROM telegram_admission)
-ORDER BY joined_at LIMIT 20;
+ORDER BY joined_at LIMIT (SELECT MAX(0, 480 - admitted) FROM telegram_admission_count WHERE id = 1);
 ```
 
-This gate bounds who loads Privy in FxAeon. Making the cap impossible to bypass needs Privy custom (JWT) authentication, which Privy grants per app, and native Telegram and email sign-up turned off afterwards.
+Five existing accounts were visible in the FxAeon production app on 3 November 2026, including two with Telegram as their linked login method. This is a point-in-time observation, not a seed list or live capacity count. Never disable those users' login method as a shortcut to enforcing the cap.
 
 ## Rollback and diagnosis
 

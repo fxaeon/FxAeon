@@ -71,12 +71,7 @@ Forms keep labels attached to their controls, errors close to the affected field
 
 ## Product analytics
 
-Earn's reported yield history sits below its headline facts on desktop and
-after its action on phones. Use an unfilled line, two quiet range controls, a
-single sample or average readout, and a direct source link. Do not smooth over
-missing data or present historical APY as earned return. Labels and markers
-retain their size at narrow widths; touch selection persists after the finger
-lifts, and keyboard controls expose the same samples.
+Earn's historical share NAV sits below its headline facts on desktop and after its action on phones. Use an unfilled line, two quiet range controls, a dated observation and a direct contract source link. Gaps stay visible. Do not derive an APY from NAV or mix it with the live APY. Touch selection persists; keyboard controls expose the same samples. Readout motion reveals the new observation without tweening invented values; reduced motion removes it.
 
 Borrow's collateral scenario appears only with usable debt, collateral value,
 and a live form guard. One slider illustrates a price change without editing

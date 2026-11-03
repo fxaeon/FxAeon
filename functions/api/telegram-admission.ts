@@ -10,7 +10,8 @@
  *
  * It holds no key material, reads no wallet, and makes no outbound request.
  * Admission only decides whether this Mini App loads Privy; it is not a
- * transaction authority.
+ * transaction authority or a Privy signup boundary: direct Privy requests can
+ * bypass a browser gate. Keep rollout off until provider-side admission is set.
  */
 
 export interface AdmissionStatement {
@@ -50,7 +51,7 @@ export type PagesFunction<Env> = (
 export const TELEGRAM_LAUNCH_PUBLIC_KEY_HEX = "e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d";
 /** Below Privy's 500 free monthly active users, with room for team accounts. */
 export const DEFAULT_ADMISSION_CAPACITY = 480;
-export const MAX_ADMISSION_CAPACITY = 1_000_000;
+export const MAX_ADMISSION_CAPACITY = 480;
 /** Launch data older than this must come from a fresh Telegram launch. */
 export const LAUNCH_DATA_MAX_AGE_SECONDS = 24 * 60 * 60;
 export const LAUNCH_DATA_FUTURE_SKEW_SECONDS = 60;
@@ -235,6 +236,9 @@ export async function admitTelegramUser(
   userId: number,
   options: { capacity: number; intent: AdmissionIntent; nowMs?: number },
 ): Promise<AdmissionStatus> {
+  if (!Number.isInteger(options.capacity) || options.capacity < 0 || options.capacity > MAX_ADMISSION_CAPACITY) {
+    throw new Error('Invalid admission capacity');
+  }
   await ensureSchema(db);
   const now = options.nowMs ?? Date.now();
   const statements = [
