@@ -67,11 +67,11 @@ async function init(db: DB, legacy: number, store: Store, notifications: Notific
   }
   await ready;
 }
-async function publicStatus(store: Store, notifications: NotificationStore, userId: number) {
+async function publicStatus(store: Store, notifications: NotificationStore, userId: number, telegramWriteAllowed: boolean) {
   const [row, capacity, contact, emailDelivery] = await Promise.all([store.status(userId), store.capacity(),
     notifications.contactStatus(userId), notifications.verificationStatus(userId)]);
   return { state: row?.state ?? 'new', cohortFull: capacity.used >= capacity.max,
-    telegramNotify: row?.telegramNotify ?? false, emailVerified: contact.verified, emailDelivery,
+    telegramNotify: row?.telegramNotify ?? false, telegramWriteAllowed, emailVerified: contact.verified, emailDelivery,
     hasCredential: Boolean(row?.credential),
     ...(row?.state === 'ready' ? { wallet: { id: row.walletId, address: row.walletAddress } } : {}) };
 }
@@ -189,7 +189,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const userId = launch.userId;
       if (action === 'status') {
         exactKeys(body, ['action', 'launchData']);
-        return json(await publicStatus(store, notifications, userId));
+        return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'join' || action === 'notify') {
         exactKeys(body, ['action', 'launchData', action === 'join' ? 'notify' : 'allowed']);
@@ -198,7 +198,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         const row = await store.join(userId, notify);
         if (row.externalId) await notifications.enqueueInvitation(userId, row.telegramNotify);
         await dispatch();
-        return json(await publicStatus(store, notifications, userId));
+        return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'email/request') {
         exactKeys(body, ['action', 'launchData', 'email']);

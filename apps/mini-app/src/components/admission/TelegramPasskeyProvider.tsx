@@ -96,6 +96,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const sessionLaunch = useRef('');
   const chainRef = useRef(chainId);
   const statusRef = useRef(status);
+  const statusLaunch = useRef('');
   const generation = useRef(0);
   const active = useRef<Operation | null>(null);
   const signing = useRef<PendingSign | null>(null);
@@ -144,6 +145,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     setConnectionVersion(value => value + 1);
   }, []);
   const applyStatus = useCallback((next: MiniappAccessStatus, openExisting = false) => {
+    statusLaunch.current = currentTelegramLaunchData();
     setEmailDelivery(next.emailDelivery);
     statusRef.current = next; setStatus(next);
     if (next.state === 'ready' && next.wallet) {
@@ -313,7 +315,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       // Re-read before every attempt: registration may have bound a credential
       // even if its completion response was lost. Never register over that key.
       const current = await miniappAccess('status', {}, { signal: operation.controller.signal, launchData: operation.launchData });
-      assertOperation(operation); statusRef.current = current; setStatus(current);
+      assertOperation(operation); statusLaunch.current = operation.launchData; statusRef.current = current; setStatus(current);
       if (current.state === 'ready' && current.wallet) { await recoverOperation(current.wallet, operation); assertOperation(operation); applyStatus(current); return; }
       if (current.state !== 'approved') { applyStatus(current); return; }
       let wallet: MiniappWallet;
@@ -404,7 +406,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       } else if (action === 'allow-notifications') {
         // Only the authenticated API may supply an existing permission grant.
         // The explicit click still persists this user's notification preference.
-        const allowed = statusRef.current?.telegramWriteAllowed === true
+        const allowed = (statusLaunch.current === operation.launchData && statusRef.current?.telegramWriteAllowed === true)
           || await requestTelegramWriteAccess(getWebApp(), { signal: operation.controller.signal });
         assertOperation(operation);
         const next = await miniappAccess('notify', { allowed }, options);

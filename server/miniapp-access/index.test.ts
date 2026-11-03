@@ -64,9 +64,9 @@ class Statement implements DBStatement {
   async all<T = Record<string, unknown>>() { return this.execute<T>(); }
   async run<T = Record<string, unknown>>() { return this.execute<T>(); }
 }
-async function launch(userId = 1, age = 0, bot = BOT): Promise<string> {
+async function launch(userId = 1, age = 0, bot = BOT, allowsWriteToPm?: boolean): Promise<string> {
   const fields = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000) - age), query_id: 'test-query',
-    user: JSON.stringify({ id: userId, first_name: 'Private first name', username: 'private_username' }) });
+    user: JSON.stringify({ id: userId, first_name: 'Private first name', username: 'private_username', allows_write_to_pm: allowsWriteToPm }) });
   const text = `${bot}:WebAppData\n${[...fields].sort(([a], [b]) => a < b ? -1 : 1).map(([key, value]) => `${key}=${value}`).join('\n')}`;
   fields.set('signature', b64(new Uint8Array(await crypto.subtle.sign('Ed25519', telegram.privateKey, utf8(text)))));
   return fields.toString();
@@ -267,8 +267,38 @@ test('join only changes the signed identity, never self-approves, and status is 
   assert.equal((await f.asUser('join', 1, { notify: false })).body.state, 'waiting');
   assert.equal((await f.asUser('notify', 1, { allowed: true })).body.telegramNotify, true);
   assert.equal((await f.store.status(1))!.externalId, null); assert.equal(await f.store.status(99), null);
-  assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, emailVerified: false, emailDelivery: { state: 'not_requested', retryAfterMs: null }, hasCredential: false });
+  assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, telegramWriteAllowed: false, emailVerified: false, emailDelivery: { state: 'not_requested', retryAfterMs: null }, hasCredential: false });
   error(await f.asUser('register/options'), 503, 'wallet_unavailable');
+  assert.deepEqual(f.outbox(), []); assert.equal(f.calls.length, 0);
+});
+
+test('verified Telegram write permission skips only the prompt, never opt-in or admission', async t => {
+  const f = await fixture(t, { MINIAPP_ACCESS_MODE: 'waitlist' });
+  const launchData = await launch(1, 0, BOT, true);
+  const initial = await f.send({ action: 'status', launchData });
+  assert.equal(initial.status, 200);
+  assert.equal(initial.body.telegramWriteAllowed, true);
+  assert.equal(initial.body.telegramNotify, false);
+  assert.equal(initial.body.state, 'new');
+  const joined = await f.send({ action: 'join', launchData, notify: false });
+  assert.equal(joined.body.telegramWriteAllowed, true);
+  assert.equal(joined.body.telegramNotify, false);
+  assert.equal(joined.body.state, 'waiting');
+  const optedIn = await f.send({ action: 'notify', launchData, allowed: true });
+  assert.equal(optedIn.body.telegramWriteAllowed, true);
+  assert.equal(optedIn.body.telegramNotify, true);
+  assert.equal(optedIn.body.state, 'waiting');
+  assert.equal(optedIn.body.hasCredential, false);
+  assert.equal(optedIn.body.wallet, undefined);
+  for (const flag of [false, undefined]) {
+    const fresh = await f.send({ action: 'status', launchData: await launch(1, 0, BOT, flag) });
+    assert.equal(fresh.body.telegramWriteAllowed, false, 'permission belongs to this signed launch, not persisted enrollment');
+  }
+  const forged = new URLSearchParams(await launch());
+  forged.set('user', JSON.stringify({ id: 1, allows_write_to_pm: true }));
+  error(await f.send({ action: 'status', launchData: forged.toString() }), 403, 'launch_rejected');
+  error(await f.send({ action: 'status', launchData, telegramWriteAllowed: true }), 400, 'request_invalid');
+  assert.equal((await f.store.status(1))!.externalId, null);
   assert.deepEqual(f.outbox(), []); assert.equal(f.calls.length, 0);
 });
 
@@ -276,7 +306,7 @@ test('status never returns names, contact address, credential material, external
   const f = await fixture(t); await ready(f);
   f.db.sql.prepare('INSERT INTO access_mail_contacts(user_id,email,verified,expires_at) VALUES(1,?,1,0)').run('private@example.com');
   const status = await f.asUser('status');
-  assert.deepEqual(status.body, { state: 'ready', cohortFull: false, telegramNotify: false, emailVerified: true, emailDelivery: { state: 'verified', retryAfterMs: null }, hasCredential: true,
+  assert.deepEqual(status.body, { state: 'ready', cohortFull: false, telegramNotify: false, telegramWriteAllowed: false, emailVerified: true, emailDelivery: { state: 'verified', retryAfterMs: null }, hasCredential: true,
     wallet: { id: 'wallet-1', address: ADDRESS } });
   const row = (await f.store.status(1))!;
   const text = JSON.stringify(status.body);

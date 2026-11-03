@@ -194,6 +194,22 @@ test('server-verified existing write permission skips the native prompt only aft
   expect(requests.some(r => r.action === 'register/options')).toBe(false);
 });
 
+test('a verified write grant from another Telegram launch cannot skip the native permission check', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false, telegramWriteAllowed: true });
+  await expect(page.getByRole('button', { name: 'Allow Telegram invites' })).toBeVisible();
+  await page.evaluate(() => {
+    (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A67890%7D&hash=another-fixture';
+    (window as any).Telegram.WebApp.requestWriteAccess = (callback: (allowed: boolean) => void) => {
+      (window as any).client.changedLaunchPrompt = true; callback(false);
+    };
+  });
+  await page.getByRole('button', { name: 'Allow Telegram invites' }).click();
+  await expect.poll(() => readClient(page, 'changedLaunchPrompt')).toBe(true);
+  await expect.poll(() => requests.filter(r => r.action === 'notify').length).toBe(1);
+  expect(requests.find(r => r.action === 'notify')).toMatchObject({ allowed: false, launchData: 'user=%7B%22id%22%3A67890%7D&hash=another-fixture' });
+  await expect(page.getByText('Your invite will arrive in this Telegram chat.')).toHaveCount(0);
+});
+
 for (const [delivery, heading] of [
   ['pending', 'Email queued.'], ['accepted', 'Check your inbox.'], ['failed', 'Email couldn’t be sent.'],
   ['uncertain', 'Email status unconfirmed.'], ['unknown', 'Confirmation requested.'],
