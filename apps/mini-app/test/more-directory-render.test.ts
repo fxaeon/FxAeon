@@ -34,14 +34,16 @@ after(() => {
 const unexpected = () => { throw new Error('Directory rendering must not navigate or request accounts'); };
 const router: AppRouterInstance = { bfcacheId: 'more-directory-test', back: unexpected, forward: unexpected, refresh: unexpected, push: unexpected, replace: unexpected, prefetch: unexpected };
 const render = () => renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: router }, React.createElement(MobileMoreMenu)));
-test('the directory renders all six real options without redundant section headings or subtitles', () => {
+test('the directory groups all six real options under concise account and resource headings', () => {
   const html = render();
   assert.deepEqual([...html.matchAll(/<strong>(.*?)<\/strong>/g)].map(match => match[1]),
     ['Wallet &amp; account', 'History', 'Transaction settings', 'FxAeon docs', 'Protocol docs', 'Feedback &amp; reports']);
-  assert.doesNotMatch(html, /<h2|<small|Account &amp; preferences|Help &amp; resources/);
+  assert.doesNotMatch(html, /<small|Account &amp; preferences|Help &amp; resources/);
   assert.match(html, /0\.5%/);
-  assert.match(html, /aria-label="Account"/);
-  assert.match(html, /aria-label="Resources"/);
+  assert.match(html, /aria-labelledby="mobile-more-account"/);
+  assert.match(html, /<h2 id="mobile-more-account">Account<\/h2>/);
+  assert.match(html, /aria-labelledby="mobile-more-resources"/);
+  assert.match(html, /<h2 id="mobile-more-resources">Resources<\/h2>/);
   assert.doesNotMatch(html, /Search|Manage Accounts|Security &amp; Privacy|Connected Apps/);
 });
 test('directory destinations, external-link disclosure and settings button semantics are retained', () => {
@@ -60,18 +62,15 @@ test('desktop and mobile directories keep the same real options and destination 
   const desktop = readFileSync(new URL('../src/app/more/page.tsx', import.meta.url), 'utf8');
   const rows = (source: string) => [...source.matchAll(/<(?:ActionRow|TransactionSettings) [^>]+\/>/g)].map(match => match[0]);
   assert.deepEqual(rows(desktop), rows(mobile));
-  assert.doesNotMatch(desktop, /<h2|description=/);
+  assert.doesNotMatch(desktop, /description=/);
+  assert.deepEqual([...desktop.matchAll(/<h2[^>]*>(.*?)<\/h2>/g)].map(match => match[1]), ['Account', 'Resources']);
 });
 test('route-owned style keeps touch targets, neutral icons and visible keyboard focus', () => {
   const css = readFileSync(new URL('../src/app/more/More.module.css', import.meta.url), 'utf8');
-  assert.match(css, /min-height: 64px/);
+  assert.match(css, /min-height: 56px/);
   assert.match(css, /:focus-visible \{ outline: 2px solid var\(--focus-ring\)/);
   assert.match(css, /svg:first-child[^}]+color: var\(--mut\)/);
   assert.match(css, /max-width: 360px/);
-  const hiddenHeading = css.match(/\.workspace > h1\[data-page-heading\] \{([^}]+)\}/);
-  assert.ok(hiddenHeading, 'the mobile page title retains a screen-reader-only rule');
-  assert.match(hiddenHeading[1], /width: 1px; height: 1px/);
-  assert.match(hiddenHeading[1], /clip: rect\(0, 0, 0, 0\)/);
-  // Screen-reader-only headings need nowrap; visible directory rows must wrap.
-  assert.doesNotMatch(css.replace(hiddenHeading[0], ''), /overflow: ellipsis|text-overflow|white-space: nowrap/);
+  assert.match(css, /\.workspace > h1 \{[^}]+font-size: 28px/);
+  assert.doesNotMatch(css, /overflow: ellipsis|text-overflow|white-space: nowrap/);
 });
