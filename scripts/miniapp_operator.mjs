@@ -122,7 +122,7 @@ export function summarizeOperator(action, response) {
   return summary;
 }
 
-function configVariables(env) {
+export function configVariables(env) {
   // The known inventory is five existing users; require an explicit reviewed count, never silently default it.
   if (typeof env.MINIAPP_LEGACY_USERS !== 'string' || !/^(?:[5-9]|[1-9]\d{1,2})$/.test(env.MINIAPP_LEGACY_USERS)
     || Number(env.MINIAPP_LEGACY_USERS) > 480) fail('MINIAPP_LEGACY_USERS must explicitly contain the reviewed inventory count (5 through 480).');
