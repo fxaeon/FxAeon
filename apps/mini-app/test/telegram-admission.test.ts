@@ -138,6 +138,33 @@ test('the schema is idempotent and set up once per database', async () => {
   assert.equal(db.batches, 3, 'one schema batch, then one batch per decision');
 });
 
+test('initializing a missing counter includes pre-existing cohort members', async () => {
+  const db = d1();
+  db.db.exec(ADMISSION_SCHEMA[0]);
+  db.db.prepare('INSERT INTO telegram_admission VALUES (1, 1), (2, 1)').run();
+  assert.equal(await admitTelegramUser(db, 3, { capacity: 2, intent: 'enter' }), 'full');
+  assert.equal(await admitTelegramUser(db, 1, { capacity: 2, intent: 'enter' }), 'admitted');
+  assert.deepEqual(rows(db, 'SELECT admitted FROM telegram_admission_count'), [{ admitted: 2 }]);
+});
+
+test('chunked and multibyte oversized requests are stopped before storage', async () => {
+  const db = d1();
+  const env = { ADMISSION_DB: db, TELEGRAM_BOT_ID: BOT_ID };
+  const handler = createTelegramAdmissionHandler();
+  let cancelled = false;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) { controller.enqueue(new TextEncoder().encode('a'.repeat(4096))); },
+    cancel() { cancelled = true; },
+  });
+  const request = new Request('https://fxaeon.com/api/telegram-admission', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: stream, duplex: 'half',
+  } as RequestInit);
+  assert.equal((await handler({ request, env })).status, 400);
+  assert.equal(cancelled, true);
+  assert.equal((await handler({ request: post({ launchData: '界'.repeat(3000) }), env })).status, 400);
+  assert.equal(db.batches, 0);
+});
+
 test('capacity defaults below Privy’s free tier and rejects malformed configuration', () => {
   assert.equal(DEFAULT_ADMISSION_CAPACITY, 480);
   assert.equal(admissionCapacity(undefined), 480);

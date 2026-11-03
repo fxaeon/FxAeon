@@ -340,6 +340,9 @@ test("f(x)'s price service gives FXN and fxUSD, never a pegged stablecoin", () =
   assert.deepEqual(update.updatedAts, { FXN: 1_000, fxUSD: 1_000 });
   assert.throws(() => parseFxPriceService({ code: 500, data: {} }), /no data/);
   assert.throws(() => parseFxPriceService({ code: 200, data: { fxUSD: { usd: 3 } } }), /no validated prices/);
+  for (const usd of [true, '1', [1], null, Infinity, NaN]) {
+    assert.throws(() => parseFxPriceService({ code: 200, data: { fxUSD: { usd } } }), /no validated prices/);
+  }
 });
 
 test("f(x)'s sources cover every token without DefiLlama or CoinGecko", async () => {

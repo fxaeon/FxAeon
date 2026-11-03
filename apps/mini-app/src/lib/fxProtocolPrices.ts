@@ -118,8 +118,8 @@ export function parseFxPriceService(payload: unknown, receivedAt = Date.now()): 
   if (!data || typeof data !== 'object') throw new Error('Price service response has no data');
   const prices: UsdPriceMap = {};
   for (const key of FX_PRICE_SERVICE_KEYS) {
-    const usd = Number((data as Record<string, { usd?: unknown }>)[key]?.usd);
-    if (!Number.isFinite(usd) || usd <= 0) continue;
+    const usd = (data as Record<string, { usd?: unknown }>)[key]?.usd;
+    if (typeof usd !== 'number' || !Number.isFinite(usd) || usd <= 0) continue;
     if (key === 'fxUSD' && (usd < 0.5 || usd > 1.5)) continue;
     prices[key] = usd;
   }
