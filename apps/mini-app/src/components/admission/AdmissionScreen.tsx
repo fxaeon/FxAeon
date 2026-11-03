@@ -23,6 +23,10 @@ type CommonProps = {
   /** The parent owns all effects, navigation, failures and state transitions. */
   onAction: (action: AdmissionAction) => void;
   busy?: boolean;
+  primaryDisabled?: boolean;
+  primaryLabel?: string;
+  statusMessage?: string;
+  setupHint?: string;
   /** A user-facing failure from the parent, never a raw backend exception. */
   error?: string;
   /** Omitted unless the parent supplies a support destination. */
@@ -120,7 +124,7 @@ const EMAIL_COPY: Partial<Record<AdmissionEmailDelivery, Copy>> = {
 
 /** Presentation only: rendering or clicking never grants access or verifies an email. */
 export function AdmissionScreen(props: AdmissionScreenProps) {
-  const { state, notificationPermission = 'unknown', busy = false, error, supportHref, onAction } = props;
+  const { state, notificationPermission = 'unknown', busy = false, error, supportHref, onAction, primaryDisabled, primaryLabel, statusMessage, setupHint } = props;
   const id = useId();
   const view = state === 'waiting' && notificationPermission === 'denied' ? 'alerts-off' : state;
   const copy = view === 'verify' ? EMAIL_COPY[props.emailDelivery ?? 'unknown'] ?? COPY.verify : COPY[view];
@@ -129,7 +133,7 @@ export function AdmissionScreen(props: AdmissionScreenProps) {
     ? notificationPermission === 'granted'
       ? 'Your invite will arrive in this Telegram chat.'
       : 'Check back here for your invitation.'
-    : copy.detail;
+    : view === 'invited' && setupHint ? setupHint : copy.detail;
   const secondary = view === 'waiting' && notificationPermission !== 'granted'
     ? { label: 'Get an email invite', action: 'add-email' as const }
     : copy.secondary;
@@ -164,12 +168,13 @@ export function AdmissionScreen(props: AdmissionScreenProps) {
           <div className={styles.actions} aria-busy={pending}>
             {detail && <p className={styles.detail}>{detail}</p>}
             {error && <p className={styles.error} role="alert">{error}</p>}
+            {statusMessage && <p className={styles.detail} role="status">{statusMessage}</p>}
             {busy && <p className={styles.detail} role="status">One moment…</p>}
             {copy.primary && (
               <button className={styles.primary} type={state === 'email' ? 'submit' : 'button'}
-                form={state === 'email' ? `${id}-email-form` : undefined} disabled={pending}
+                form={state === 'email' ? `${id}-email-form` : undefined} disabled={pending || primaryDisabled}
                 onClick={state === 'email' ? undefined : () => onAction(copy.primary!.action)}>
-                {copy.primary.label}
+                {primaryLabel ?? copy.primary.label}
               </button>
             )}
             {secondary && (

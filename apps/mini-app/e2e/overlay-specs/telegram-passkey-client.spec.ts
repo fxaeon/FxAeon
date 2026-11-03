@@ -65,7 +65,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
+type Fixture = { state?: string; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -78,7 +78,7 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
       const body = route.request().postDataJSON(); requests.push(body);
       let response: unknown;
       switch (body.action) {
-        case 'status': response = { ...status, ...fixture }; break;
+        case 'status': response = { ...status, ...fixture, ...(requests.filter(r => r.action === 'status').length > 1 ? fixture.statusAfterFirst : {}) }; break;
         case 'transaction/status': response = { operation: body.id || !operation?.acknowledged ? operation : null }; break;
         case 'transaction/ack':
           expect(body).toMatchObject({ id: operation?.id, hash: operation?.hash });
@@ -95,12 +95,13 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
           response = { challengeId: 'sign-1', options: { challenge: returnedChallenge } }; break;
         case 'handoff/create':
           if (fixture.deferHandoff) await fixture.deferHandoff;
+          if (fixture.failHandoff) return route.abort();
           response = { url: 'https://fxaeon.test/wallet-approval#token=opaque-ticket' }; break;
         case 'handoff/cancel':
           operation = { id: 'sign-1', state: 'rejected', hash: null, chainId: 1, acknowledged: true };
           response = { cancelled: true }; break;
         case 'handoff/status': response = operation?.state === 'rejected'
-          ? { state: 'error', error: 'approval_cancelled' } : { state: 'pending' }; break;
+          ? { state: 'error', error: 'approval_cancelled' } : fixture.completeHandoff ? { state: 'done', result: { wallet } } : { state: 'pending' }; break;
         case 'handoff/read': response = fixture.registerHandoff ? { kind: 'register', options: { challenge: returnedChallenge } } : { kind: 'sign', options: { challenge: returnedChallenge }, transaction: fixture.substituteHandoff ? { ...transaction, to: FROM } : transaction }; break;
         case 'sign/complete': case 'handoff/complete':
           operation = fixture.completionProof === 'empty' ? null : fixture.completionProof ? {
@@ -132,6 +133,146 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   return { requests, errors, reload };
 }
 const readClient = (page: Page, field: string) => page.evaluate(field => (window as any).client[field], field);
+test('mobile invitation prepares without a ceremony and opens the browser on one click', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true, completeHandoff: true });
+  await expect.poll(() => requests.filter(r => r.action === 'handoff/create').length).toBe(1);
+  const setup = page.getByRole('button', { name: 'Set up my wallet' });
+  await expect(setup).toBeEnabled();
+  expect(await readClient(page, 'links')).toEqual([]);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  expect(requests.some(r => ['register/complete', 'wallet/retry', 'handoff/status'].includes(r.action))).toBe(false);
+  await setup.click();
+  await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
+  await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+});
+
+for (const change of ['account', 'expiry', 'doubletap'] as const) test(`prepared invitation enforces ${change} on the fresh click`, async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
+  await expect.poll(() => requests.filter(r => r.action === 'handoff/create').length).toBe(1);
+  const button = page.getByRole('button', { name: 'Set up my wallet' });
+  await expect(button).toBeEnabled();
+  if (change === 'account') await page.evaluate(() => { (window as any).Telegram.WebApp.initData += '&changed=1'; });
+  if (change === 'expiry') await page.evaluate(() => { const expired = Date.now() + 300_001; Date.now = () => expired; });
+  await button.evaluate(element => { (element as HTMLButtonElement).click(); (element as HTMLButtonElement).click(); });
+  if (change === 'doubletap') {
+    await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
+    await page.getByRole('button', { name: 'Stop waiting' }).click();
+  } else {
+    await expect(page.getByRole('alert')).toBeVisible();
+    expect(await readClient(page, 'links')).toEqual([]);
+    expect(requests.some(r => r.action === 'handoff/status')).toBe(false);
+  }
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  expect(requests.filter(r => r.action === 'handoff/create')).toHaveLength(1);
+});
+
+test('deferring cancels preparation and never opens the late ticket', async ({ page }) => {
+  let release!: () => void;
+  const deferHandoff = new Promise<void>(resolve => { release = resolve; });
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true, deferHandoff });
+  await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
+  await expect(page.getByRole('status')).toContainText('Preparing secure setup');
+  await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Set up later' }).click();
+  release();
+  await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeEnabled();
+  expect(await readClient(page, 'links')).toEqual([]);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  expect(requests.some(r => r.action === 'handoff/status')).toBe(false);
+});
+
+test('account change while preparing rejects the late ticket', async ({ page }) => {
+  let release!: () => void;
+  const deferHandoff = new Promise<void>(resolve => { release = resolve; });
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true, deferHandoff });
+  await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
+  await page.evaluate(() => { (window as any).Telegram.WebApp.initData += '&changed=1'; });
+  release();
+  await expect(page.getByRole('alert')).toBeVisible();
+  expect(await readClient(page, 'links')).toEqual([]);
+  expect(requests.some(r => r.action === 'handoff/status')).toBe(false);
+});
+
+test('failed background preparation retries only after another explicit click', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true, failHandoff: true });
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+  expect(requests.filter(r => r.action === 'handoff/create')).toHaveLength(1);
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect.poll(() => requests.filter(r => r.action === 'handoff/create').length).toBe(2);
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeEnabled();
+  expect(requests.filter(r => r.action === 'handoff/create')).toHaveLength(2);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+});
+
+test('a credential found during preparation never provisions until the user clicks', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true,
+    statusAfterFirst: { state: 'approved', hasCredential: true } });
+  await expect.poll(() => requests.filter(r => r.action === 'status').length).toBe(2);
+  await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeEnabled();
+  expect(requests.some(r => ['register/options', 'wallet/retry'].includes(r.action))).toBe(false);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  await page.getByRole('button', { name: 'Set up my wallet' }).click();
+  await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
+  expect(requests.filter(r => r.action === 'wallet/retry')).toHaveLength(1);
+});
+
+test('desktop registration starts only on an explicit invitation click', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false });
+  const setup = page.getByRole('button', { name: 'Set up my wallet' });
+  await expect(setup).toBeEnabled();
+  expect(requests.some(r => r.action === 'register/options')).toBe(false);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  await setup.click();
+  await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
+  expect(await readClient(page, 'ceremonies')).toHaveLength(1);
+});
+
+test('invitation waits for the bridge and remains cancellable before preparation', async ({ page }) => {
+  const launch = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
+  const { requests } = await mount(page, `/#tgWebAppData=${encodeURIComponent(launch)}`, { state: 'approved', hasCredential: false, mobile: true, delayedBridge: true });
+  await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeDisabled();
+  expect(requests.some(r => r.action === 'register/options')).toBe(false);
+  await page.getByRole('button', { name: 'Set up later' }).click();
+  await page.evaluate(() => (window as any).client.releaseBridge());
+  await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeEnabled();
+  expect(requests.some(r => r.action === 'register/options')).toBe(false);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+});
+
+test('late mobile bridge after timeout prepares only on retry and still needs a fresh click', async ({ page }) => {
+  const launch = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
+  const { requests } = await mount(page, `/#tgWebAppData=${encodeURIComponent(launch)}`, { state: 'approved', hasCredential: false, mobile: true, delayedBridge: true });
+  await page.evaluate(() => (window as any).client.timeoutBridge());
+  await page.getByRole('button', { name: 'Set up my wallet' }).click();
+  await expect(page.getByRole('alert')).toContainText('Telegram isn’t ready');
+  await page.evaluate(() => (window as any).client.releaseBridge());
+  await page.getByRole('button', { name: 'Set up my wallet' }).click();
+  await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
+  const setup = page.getByRole('button', { name: 'Set up my wallet' });
+  await expect(setup).toBeEnabled();
+  expect(await readClient(page, 'links')).toEqual([]);
+  await setup.click();
+  await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+});
+
+test('slow invitation preparation retains the original expiry', async ({ page }) => {
+  let release!: () => void;
+  const deferHandoff = new Promise<void>(resolve => { release = resolve; });
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true, deferHandoff });
+  await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
+  await page.evaluate(() => { const later = Date.now() + 240_000; Date.now = () => later; });
+  release();
+  const setup = page.getByRole('button', { name: 'Set up my wallet' });
+  await expect(setup).toBeEnabled();
+  await page.evaluate(() => { const expired = Date.now() + 60_001; Date.now = () => expired; });
+  await setup.click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  expect(await readClient(page, 'links')).toEqual([]);
+  expect(requests.some(r => r.action === 'handoff/status')).toBe(false);
+});
+
 async function openPreparedBrowser(page: Page) {
   await expect(page.getByText('Ready to open your browser.', { exact: true })).toBeVisible();
   expect(await readClient(page, 'links')).toEqual([]);
@@ -141,11 +282,12 @@ async function openPreparedBrowser(page: Page) {
 test('short phone keeps passkey setup reachable and cancellation returns to the invitation', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
-  await page.getByRole('button', { name: 'Set up my wallet' }).click();
-  await expect(page.getByRole('heading', { name: 'Secure your wallet.' })).toBeVisible();
+  await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
   await expect(page.getByText('Keep your passkey synced or backed up so you can use it again.')).toBeVisible();
-  const primary = page.getByRole('button', { name: 'Continue in browser' });
-  const back = page.getByRole('button', { name: 'Back' });
+  const primary = page.getByRole('button', { name: 'Set up my wallet' });
+  const back = page.getByRole('button', { name: 'Set up later' });
+  await expect(primary).toBeEnabled();
   await page.keyboard.press('Tab');
   await expect(primary).toBeFocused();
   expect(await primary.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
@@ -158,7 +300,7 @@ test('short phone keeps passkey setup reachable and cancellation returns to the 
   }
   await back.click();
   await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
-  expect(requests.some(request => request.action === 'register/options')).toBe(false);
+  expect(requests.some(request => request.action === 'register/complete')).toBe(false);
 });
 
 test('onboarding browser and live setup fixture captures', async ({ page }) => {
@@ -176,15 +318,10 @@ test('onboarding browser and live setup fixture captures', async ({ page }) => {
       await page.screenshot({ path: resolve(directory, `${state}-${name}.png`), fullPage: true, animations: 'disabled' });
     };
     await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
-    await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeEnabled();
     await save('live-invited');
-    await page.getByRole('button', { name: 'Set up my wallet' }).click();
-    await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeVisible();
-    await save('live-passkey');
-    await page.getByRole('button', { name: 'Continue in browser' }).click();
-    await expect(page.getByText('Ready to open your browser.')).toBeVisible();
     await save('live-browser-prepared');
-    await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await page.getByRole('button', { name: 'Set up my wallet' }).click();
     await expect(page.getByText('Complete setup in your browser. Waiting up to five minutes.')).toBeVisible();
     await save('live-browser-waiting');
     await mount(page, '/invite');
@@ -235,13 +372,14 @@ test('signed launch status starts before the bridge resolves and late mobile bri
   expect(requests[0]).toEqual({ action: 'status', launchData });
   expect(await page.evaluate(() => Boolean((window as any).Telegram))).toBe(false);
   await page.evaluate(() => (window as any).client.releaseBridge());
+  await expect.poll(() => requests.filter(r => r.action === 'handoff/create').length).toBe(1);
   await page.getByRole('button', { name: 'Set up my wallet' }).click();
-  await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeVisible();
+  await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
   await expect(page.getByRole('button', { name: 'Create passkey' })).toHaveCount(0);
-  expect(requests.filter(r => r.action === 'status')).toHaveLength(1);
+  expect(requests.filter(r => r.action === 'status')).toHaveLength(2);
 });
 
-for (const kind of ['register', 'sign'] as const) for (const cancel of [false, true]) {
+for (const kind of ['sign'] as Array<'register' | 'sign'>) for (const cancel of [false, true]) {
   test(`${kind} waits for an unresolved bridge${cancel ? ' across cancellation' : ' before accepting a click'}`, async ({ page }) => {
     const launchData = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
     const { requests, errors } = await mount(page, `/#tgWebAppData=${encodeURIComponent(launchData)}`, {
@@ -270,7 +408,7 @@ for (const kind of ['register', 'sign'] as const) for (const cancel of [false, t
   });
 }
 
-for (const kind of ['register', 'sign'] as const) for (const lateMobile of [false, true]) {
+for (const kind of ['sign'] as Array<'register' | 'sign'>) for (const lateMobile of [false, true]) {
   test(`${kind} after bridge timeout ${lateMobile ? 'uses late iOS rather than stale desktop' : 'rejects missing and unknown platforms then retries'}`, async ({ page }) => {
     const launchData = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
     const { requests, errors } = await mount(page, `/#tgWebAppData=${encodeURIComponent(launchData)}`, {
@@ -462,8 +600,7 @@ test('intro and full follow cohortFull; bound credentials only call wallet/retry
   await page.unrouteAll();
   const bound = await mount(page, '/', { state: 'approved', hasCredential: true });
   await page.getByRole('button', { name: 'Set up my wallet' }).click();
-  await page.getByRole('button', { name: 'Finish wallet setup' }).click();
-  await expect(page.getByRole('heading', { name: 'You’re in.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Portfolio' })).toBeVisible();
   expect(bound.requests.map(r => r.action)).toEqual(['status', 'status', 'wallet/retry', 'transaction/status']);
   expect(await readClient(page, 'ceremonies')).toEqual([]);
 });
@@ -571,10 +708,15 @@ for (const kind of ['register', 'sign'] as const) test(`mobile ${kind} handoff p
       (window as any).client.links.push(url);
     };
   });
-  await page.getByRole('button', { name: kind === 'register' ? 'Set up my wallet' : 'Review and send' }).click();
-  expect(requests.some(r => r.action === 'handoff/create')).toBe(false);
-  await page.getByRole('button', { name: 'Continue in browser' }).click();
-  await openPreparedBrowser(page);
+  if (kind === 'register') {
+    await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
+    await page.getByRole('button', { name: 'Set up my wallet' }).click();
+  } else {
+    await page.getByRole('button', { name: 'Review and send' }).click();
+    expect(requests.some(r => r.action === 'handoff/create')).toBe(false);
+    await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await openPreparedBrowser(page);
+  }
   await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
   expect(await readClient(page, 'openLinkOptions')).toEqual({ try_instant_view: false });
   const url = new URL((await readClient(page, 'links'))[0]);
@@ -585,7 +727,7 @@ for (const kind of ['register', 'sign'] as const) test(`mobile ${kind} handoff p
   expect(requests.some(r => r.action === `${kind}/complete`)).toBe(false);
 });
 
-for (const kind of ['register', 'sign'] as const) for (const change of ['cancel', 'account', 'doubletap', 'expiry'] as const) {
+for (const kind of ['sign'] as Array<'register' | 'sign'>) for (const change of ['cancel', 'account', 'doubletap', 'expiry'] as const) {
   test(`prepared ${kind} browser ticket handles ${change} before opening`, async ({ page }) => {
     const { requests } = await mount(page, '/', { mobile: true,
       ...(kind === 'register' ? { state: 'approved', hasCredential: false } : {}) });
@@ -614,7 +756,7 @@ for (const kind of ['register', 'sign'] as const) for (const change of ['cancel'
   });
 }
 
-for (const kind of ['register', 'sign'] as const) test(`slow ${kind} preparation cannot extend the original challenge deadline`, async ({ page }) => {
+for (const kind of ['sign'] as Array<'register' | 'sign'>) test(`slow ${kind} preparation cannot extend the original challenge deadline`, async ({ page }) => {
   let release!: () => void;
   const deferHandoff = new Promise<void>(resolve => { release = resolve; });
   const { requests } = await mount(page, '/', { mobile: true, deferHandoff,

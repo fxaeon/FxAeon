@@ -47,7 +47,7 @@ export function passkeyWalletDescriptor(wallet: MiniappWallet, chainId: FxChainI
 }
 
 type Operation = { generation: number; controller: AbortController; launchData: string };
-type PreparedHandoff = { open: () => void };
+type PreparedHandoff = { open: () => boolean };
 type PendingSign = {
   transaction: MiniappTransaction; generation: number; walletId: string; chainId: FxChainId; launchData: string;
   resolve: (result: SignResult) => void; reject: (error: Error) => void;
@@ -90,6 +90,8 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const [pending, setPending] = useState<PendingSign>();
   const [browserPending, setBrowserPending] = useState(false);
   const [preparedHandoff, setPreparedHandoff] = useState<PreparedHandoff>();
+  const [preparingSetup, setPreparingSetup] = useState(false);
+  const warmAttempt = useRef<number | null>(null);
   const preparedHandoffRef = useRef<PreparedHandoff | undefined>(undefined);
   const [mobile, setMobile] = useState(false);
   const [bridgeReady, setBridgeReady] = useState(false);
@@ -113,11 +115,12 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     if (!mounted.current || operation.generation !== generation.current || operation.controller.signal.aborted
       || operation.launchData !== currentTelegramLaunchData()) throw cancelled();
   }, []);
-  const begin = useCallback((): Operation => {
+  const begin = useCallback((background = false): Operation => {
     if (active.current) throw new Error('An approval is already in progress.');
     const operation = { generation: generation.current, controller: new AbortController(), launchData: currentTelegramLaunchData() };
     active.current = operation;
-    setBusy(true); setError('');
+    if (!background) setBusy(true);
+    setError('');
     return operation;
   }, []);
   const finish = useCallback((operation: Operation) => {
@@ -142,7 +145,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       }
     }
     confirmationWaiters.current.splice(0).forEach(resolve => resolve());
-    if (mounted.current) { setPending(undefined); setBusy(false); setBrowserPending(false); setConnectionVersion(value => value + 1); }
+    if (mounted.current) { setPending(undefined); setBusy(false); setPreparingSetup(false); setBrowserPending(false); setConnectionVersion(value => value + 1); }
   }, []);
   const acceptWallet = useCallback((wallet: MiniappWallet) => {
     sessionLaunch.current = currentTelegramLaunchData();
@@ -260,7 +263,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       || request.chainId !== chainRef.current || request.launchData !== currentTelegramLaunchData()) throw cancelled();
   };
 
-  const openHandoff = async (challengeId: string, challenge: string, operation: Operation, deadline: number, request?: PendingSign) => {
+  const openHandoff = async (challengeId: string, challenge: string, operation: Operation, deadline: number, request?: PendingSign, warmSetup = false) => {
     const commitment = await challengeCommitment(challenge, request?.transaction);
     assertOperation(operation); if (request) assertSigning(request, operation);
     const result = await miniappAccess('handoff/create', { challengeId }, { signal: operation.controller.signal, launchData: operation.launchData });
@@ -285,7 +288,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       };
       const onAbort = () => settle(cancelled());
       const prepared: PreparedHandoff = { open: () => {
-        if (settled || preparedHandoffRef.current !== prepared) return;
+        if (settled || preparedHandoffRef.current !== prepared) return false;
         try {
           assertOperation(operation); if (request) assertSigning(request, operation);
           if (Date.now() >= deadline) throw new MiniappAccessError('handoff_expired');
@@ -301,12 +304,14 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
           webApp.openLink(destination.href, { try_instant_view: false });
           setBrowserPending(true);
           settle();
-        } catch (cause) { settle(cause); }
+          return true;
+        } catch (cause) { settle(cause); return false; }
       } };
       const timer = window.setTimeout(() => settle(new MiniappAccessError('handoff_expired')), Math.max(0, deadline - Date.now()));
       operation.controller.signal.addEventListener('abort', onAbort, { once: true });
       preparedHandoffRef.current = prepared;
       setPreparedHandoff(prepared);
+      if (warmSetup) setPreparingSetup(false);
     });
     assertOperation(operation); if (request) assertSigning(request, operation);
     const completed = await pollHandoff(challengeId, { signal: operation.controller.signal, launchData: operation.launchData,
@@ -378,18 +383,20 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     } finally { finish(operation); }
   };
 
-  const setupWallet = async (browser: boolean) => {
+  const setupWallet = async (browser: boolean, warm = false) => {
     if (!bridgeReady || active.current) return;
     const useBrowser = browserForPasskey(browser);
     if (useBrowser === null) return;
-    const operation = begin();
+    const operation = begin(warm);
+    if (warm) setPreparingSetup(true);
     try {
       // Re-read before every attempt: registration may have bound a credential
       // even if its completion response was lost. Never register over that key.
       const current = await miniappAccess('status', {}, { signal: operation.controller.signal, launchData: operation.launchData });
       assertOperation(operation); statusLaunch.current = operation.launchData; statusRef.current = current; setStatus(current);
-      if (current.state === 'ready' && current.wallet) { await recoverOperation(current.wallet, operation); assertOperation(operation); applyStatus(current); return; }
+      if (current.state === 'ready' && current.wallet) { await recoverOperation(current.wallet, operation); assertOperation(operation); applyStatus(current, true); if (pathname === '/login' || pathname === '/login/') router.replace('/'); return; }
       if (current.state !== 'approved') { applyStatus(current); return; }
+      if (warm && current.hasCredential) return;
       let wallet: MiniappWallet;
       if (current.hasCredential) {
         const result = await miniappAccess('wallet/retry', {}, { signal: operation.controller.signal, launchData: operation.launchData });
@@ -399,7 +406,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
         const challenge = await miniappAccess('register/options', {}, { signal: operation.controller.signal, launchData: operation.launchData });
         assertOperation(operation);
         if (useBrowser) {
-          const result = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, deadline);
+          const result = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, deadline, undefined, warm);
           if (!isWalletResult(result)) throw new MiniappAccessError('unavailable', true);
           wallet = result.wallet;
         } else {
@@ -412,11 +419,21 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       }
       assertOperation(operation);
       await recoverOperation(wallet, operation); assertOperation(operation);
-      applyStatus({ ...current, state: 'ready', hasCredential: true, wallet });
+      applyStatus({ ...current, state: 'ready', hasCredential: true, wallet }, true);
+      if (pathname === '/login' || pathname === '/login/') router.replace('/');
     } catch (cause) {
-      if (mounted.current && operation.generation === generation.current) { setView('setup-error'); setError(accessErrorMessage(cause)); }
-    } finally { finish(operation); }
+      if (mounted.current && operation.generation === generation.current) { if (!warm) setView('setup-error'); setError(accessErrorMessage(cause)); }
+    } finally { if (mounted.current && operation.generation === generation.current) setPreparingSetup(false); finish(operation); }
   };
+
+  const setupWalletRef = useRef(setupWallet);
+  setupWalletRef.current = setupWallet;
+  useEffect(() => {
+    if (view !== 'invited' || !bridgeReady || !mobile || status?.state !== 'approved' || status.hasCredential
+      || active.current || warmAttempt.current === generation.current) return;
+    warmAttempt.current = generation.current;
+    void setupWalletRef.current(true, true);
+  }, [view, bridgeReady, mobile, status?.state, status?.hasCredential, busy]);
 
   const acknowledgeTransaction = useCallback(async () => {
     const recovered = recoveryRef.current;
@@ -449,15 +466,26 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   }, [acknowledgeTransaction, busy, recovery]);
 
   const act = async (action: AdmissionAction) => {
+    if (action === 'defer-setup') { invalidate(); warmAttempt.current = generation.current; getWebApp()?.close(); return; }
+    if (action === 'setup-wallet' && preparedHandoffRef.current) {
+      if (preparedHandoffRef.current.open()) { setBusy(true); setView('passkey'); }
+      return;
+    }
     if (active.current) return;
-    if (action === 'setup-wallet' || action === 'retry-setup') { setView('passkey'); setError(''); return; }
+    if (action === 'setup-wallet' || action === 'retry-setup') {
+      const useBrowser = browserForPasskey(false);
+      if (useBrowser === null) return;
+      if (useBrowser && !statusRef.current?.hasCredential) { setView('invited'); warmAttempt.current = generation.current; void setupWallet(true, true); }
+      else void setupWallet(false);
+      return;
+    }
     if (action === 'add-email') { setView('email'); setError(''); return; }
     if (action === 'back-to-waitlist') { await refresh(false).catch(() => undefined); return; }
     if (action === 'open-app') {
       if (sessionRef.current) { setOpened(true); if (pathname === '/login' || pathname === '/login/') router.replace('/'); }
       return;
     }
-    if (action === 'done' || action === 'defer-setup') { getWebApp()?.close(); return; }
+    if (action === 'done') { getWebApp()?.close(); return; }
     if (action === 'open-web') { getWebApp()?.openLink?.(webAppUrl(window.location.pathname), { try_instant_view: false }); return; }
     if (action === 'retry-join') { await refresh().catch(() => undefined); return; }
     const operation = begin();
@@ -550,10 +578,15 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       <button className={admissionStyles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
       {!mobile && !status?.hasCredential && <button className={admissionStyles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
     </>}
-    <button className={admissionStyles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
+    <button className={admissionStyles.secondary} onClick={() => { invalidate(); warmAttempt.current = generation.current; setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
   </div></div></div></main>;
   const common = { notificationPermission: status?.telegramNotify ? 'granted' as const : status ? 'denied' as const : 'unknown' as const,
-    emailDelivery: emailDelivery?.state, busy, error, onAction: (action: AdmissionAction) => { void act(action); } };
+    emailDelivery: emailDelivery?.state, busy, error, onAction: (action: AdmissionAction) => { void act(action); },
+    ...(view === 'invited' ? {
+      primaryDisabled: !bridgeReady || preparingSetup, primaryLabel: error && mobile && !preparingSetup ? 'Try again' : undefined,
+      statusMessage: !bridgeReady ? 'Checking Telegram…' : preparingSetup ? 'Preparing secure setup…' : undefined,
+      setupHint: mobile && !status?.hasCredential ? 'Keep your passkey synced or backed up so you can use it again.' : undefined,
+    } : {}) };
   return view === 'email' ? <AdmissionScreen {...common} state="email" email={email} onEmailChange={setEmail} />
     : <AdmissionScreen {...common} state={view} />;
 }
