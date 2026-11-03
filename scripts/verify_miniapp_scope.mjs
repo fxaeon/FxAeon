@@ -6,7 +6,7 @@ export const WALLET_ROUTES = new Map([
   ['functions/api/miniapp-operator.ts', 'createOperatorHandler'],
 ]);
 export const BOT_ROUTES = new Map([['functions/api/telegram-bot.ts', 'createTelegramBotHandler']]);
-export const SERVER_MODULES = new Set(['index.ts', 'http.ts', 'store.ts', 'operations.ts', 'passkeys.ts', 'privy.ts', 'notifications.ts', 'bot.ts']);
+export const SERVER_MODULES = new Set(['index.ts', 'http.ts', 'store.ts', 'admissionPolicy.ts', 'operations.ts', 'passkeys.ts', 'privy.ts', 'notifications.ts', 'bot.ts']);
 
 /** Route files are exact two-statement adapters; no extra proxy, handler, or signing code is allowed. */
 export function walletRouteViolation(name, source) {
@@ -83,7 +83,7 @@ export function serverModuleViolations(name, source) {
   const problems = [];
   if (!SERVER_MODULES.has(name)) return ['unreviewed server module'];
   for (const specifier of moduleSpecifiers(source, name)) {
-    const local = /^\.\/([a-z]+)(?:\.ts)?$/.exec(specifier);
+    const local = /^\.\/([a-zA-Z]+)(?:\.ts)?$/.exec(specifier);
     const allowed = local ? (name === 'bot.ts' ? ['http', 'store'].includes(local[1]) : SERVER_MODULES.has(`${local[1]}.ts`))
       : (name === 'index.ts' && specifier === '../../functions/api/telegram-admission')
         || ((name === 'index.ts' || name === 'passkeys.ts') && /^@simplewebauthn\/server(?:\/helpers)?$/.test(specifier))

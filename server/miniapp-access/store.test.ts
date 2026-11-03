@@ -6,6 +6,71 @@ import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import { Worker } from 'node:worker_threads';
 import { Store, CHALLENGE_TTL_MS, type Credential, type DB, type DBStatement, type DBResult } from './store.ts';
+import { AdmissionControl } from './admissionPolicy.ts';
+
+test('automatic admission reserves exactly once and activates waiting at the permanent seat threshold', async t => {
+  const { db, store } = await fixture(t, 479);
+  const control = new AdmissionControl(db);
+  assert.deepEqual(await control.policy(), { threshold: 480, paused: false, revision: 0, active: false });
+  await Promise.all(Array.from({ length: 20 }, (_, i) => control.resolve(i + 1)));
+  assert.equal((await store.enrollments()).length, 1);
+  assert.equal((await store.status(1))?.state, 'approved');
+  const externalId = (await store.status(1))?.externalId;
+  await control.resolve(1);
+  assert.equal((await store.status(1))?.externalId, externalId);
+  assert.equal((await store.capacity()).used, 480);
+  assert.equal((await control.policy()).active, true);
+  assert.equal(await store.status(2), null, 'opening at capacity does not enroll without consent');
+  assert.equal((await store.join(2, false)).state, 'waiting');
+  await control.resolve(2);
+  assert.equal((await store.status(2))?.state, 'waiting');
+  assert.equal((await control.activity()).length, 1);
+  assert.equal((await control.activity())[0].kind, 'reservation');
+});
+
+test('runtime pause, lower threshold and revision CAS persist without evicting or recycling seats', async t => {
+  const { db, store } = await fixture(t, 5);
+  const control = new AdmissionControl(db);
+  await control.resolve(1);
+  assert.equal(await control.configure(10, true, 0), true);
+  await control.resolve(2);
+  assert.equal(await store.status(2), null);
+  await store.join(2, false);
+  await assert.rejects(store.approve([2]), /paused/);
+  assert.equal((await store.status(1))?.state, 'approved');
+  assert.equal(await control.configure(5, false, 1), true);
+  await control.resolve(2);
+  assert.equal((await store.status(2))?.state, 'waiting');
+  assert.equal(await control.configure(480, false, 1), false, 'a stale operator cannot overwrite newer policy');
+  await store.init(0);
+  assert.deepEqual(await new AdmissionControl(db).policy(), { threshold: 5, paused: false, revision: 2, active: true });
+  assert.equal(await control.configure(7, false, 2), true);
+  await control.resolve(2);
+  assert.equal((await store.status(2))?.state, 'approved');
+  assert.equal((await store.capacity()).used, 7);
+  assert.equal((await control.policy()).active, true);
+  for (const value of [0, -1, 1.5, 481, Number.NaN, Number.POSITIVE_INFINITY]) {
+    await assert.rejects(control.configure(value, false, 3), /invalid/);
+  }
+  assert.throws(() => db.sqlite.exec('UPDATE admission_policy SET threshold = 481,revision = revision + 1'), /CHECK/);
+  assert.throws(() => db.sqlite.exec('DELETE FROM admission_policy'), /permanent/);
+  assert.throws(() => db.sqlite.exec('INSERT OR REPLACE INTO admission_policy VALUES (1,480,0,4)'), /permanent/);
+  assert.throws(() => db.sqlite.exec('DELETE FROM admission_activity'), /permanent/);
+});
+
+test('policy changes and direct writes share the same runtime guard and append-only activity', async t => {
+  const { db, store } = await fixture(t, 5);
+  const control = new AdmissionControl(db);
+  const changes = await Promise.all([control.configure(6, false, 0), control.configure(7, true, 0)]);
+  assert.deepEqual(changes, [true, false]);
+  await control.resolve(1);
+  assert.throws(() => db.sqlite.prepare('INSERT INTO admission_users (user_id,joined_at,telegram_notify,external_id) VALUES (2,0,0,?)').run('extra-seat'), /seat limit/);
+  assert.equal((await store.capacity()).used, 6);
+  const events = await control.activity();
+  assert.deepEqual(events.map(event => event.kind), ['reservation', 'policy']);
+  assert.ok(events.every(event => event.threshold === 6 && event.revision === 1 && !event.paused));
+  assert.ok(events.every(event => Object.keys(event).sort().join(',') === 'at,id,kind,paused,revision,threshold'));
+});
 
 /** Real SQLite execution, including D1's all-or-nothing batch contract. */
 class SQLiteDB implements DB {
@@ -502,4 +567,71 @@ test('handoff errors are durable and expired claims cannot publish a late result
   await store.claimHandoff(freshToken, 12);
   assert.equal(await store.finishHandoff(freshToken, { status: 'done', result: {} }, fresh.expiresAt), false);
   assert.equal(await store.pollHandoff(1, fresh.id, fresh.expiresAt), null);
+});
+
+test('legacy baseline increases are recorded atomically with capacity and preserve policy CAS', async t => {
+  const { db, store } = await fixture(t, 5);
+  const control = new AdmissionControl(db);
+  await control.resolve(1);
+  assert.equal(await control.configure(7, false, 0), true);
+  await store.init(6);
+  const [event] = await control.activity();
+  assert.deepEqual(event, { id: event.id, kind: 'legacy', at: event.at, threshold: 7, paused: false,
+    revision: 1, previousLegacy: 5, legacy: 6, used: 7 });
+  assert.equal((await control.policy()).active, true);
+  assert.equal((await store.status(1))?.state, 'approved');
+  await store.init(6); await store.init(0);
+  assert.equal((await control.activity()).filter(e => e.kind === 'legacy').length, 1);
+  assert.equal(await control.configure(8, false, 1), true, 'legacy changes do not consume policy revisions');
+  assert.equal(await control.configure(9, false, 1), false);
+  const before = await control.activity();
+  await assert.rejects(store.init(480), /seat limit/);
+  assert.deepEqual(await control.activity(), before);
+  assert.equal((await store.capacity()).used, 7);
+  assert.throws(() => db.sqlite.exec('UPDATE admission_activity SET legacy=100'), /permanent/);
+  assert.throws(() => db.sqlite.exec('DELETE FROM admission_activity'), /permanent/);
+  assert.throws(() => db.sqlite.exec(`INSERT OR REPLACE INTO admission_activity (id,kind,at,threshold,paused,revision) VALUES (${event.id},'policy',0,480,0,0)`), /permanent/);
+});
+
+test('initialization over pre-policy data preserves reservations and audits a baseline increase', async t => {
+  const { db, store } = await fixture(t, 4);
+  await reserve(store, 1);
+  const existing = await store.status(1);
+  // Simulate an existing database before policy and activity tables were introduced.
+  for (const trigger of ['admission_legacy_audit', 'admission_policy_no_delete', 'admission_policy_no_replace',
+    'admission_policy_revision', 'admission_policy_update_limit', 'admission_policy_insert_limit',
+    'admission_policy_audit', 'admission_reservation_audit_0', 'admission_reservation_audit_1',
+    'admission_activity_no_delete', 'admission_activity_no_update', 'admission_activity_no_replace']) db.sqlite.exec(`DROP TRIGGER ${trigger}`);
+  db.sqlite.exec('DROP TABLE admission_activity; DROP TABLE admission_policy');
+  await store.init(5);
+  const control = new AdmissionControl(db);
+  assert.deepEqual(await store.status(1), existing);
+  assert.deepEqual(await store.capacity(), { legacy: 5, used: 6, max: 480 });
+  const events = await control.activity();
+  assert.equal(events.length, 1);
+  assert.deepEqual(events[0], { id: events[0].id, kind: 'legacy', at: events[0].at,
+    threshold: 480, paused: false, revision: 0, previousLegacy: 4, legacy: 5, used: 6 });
+  await store.init(5);
+  assert.deepEqual(await control.activity(), events);
+});
+
+test('activity ledger enforces legacy context only for legacy events', async t => {
+  const { db } = await fixture(t, 0);
+  const insert = db.sqlite.prepare('INSERT INTO admission_activity (kind,at,threshold,paused,revision,previous_legacy,legacy,used) VALUES (?,?,?,?,?,?,?,?)');
+  for (const args of [
+    ['legacy',0,480,0,0,null,1,1], ['legacy',0,480,0,0,1,1,1], ['legacy',0,480,0,0,0,1,481],
+    ['policy',0,480,0,0,0,1,1], ['reservation',0,480,0,0,0,null,null],
+  ]) assert.throws(() => insert.run(...args as SQLInputValue[]), /CHECK/);
+});
+
+test('failure to append legacy audit rolls the baseline increase back', async t => {
+  const { db, store } = await fixture(t, 5);
+  const control = new AdmissionControl(db);
+  db.sqlite.exec("CREATE TRIGGER inject_legacy_audit_failure BEFORE INSERT ON admission_activity WHEN NEW.kind = 'legacy' BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END");
+  await assert.rejects(store.init(6), /injected audit failure/);
+  assert.equal((await store.capacity()).legacy, 5);
+  assert.deepEqual(await control.activity(), []);
+  db.sqlite.exec('DROP TRIGGER inject_legacy_audit_failure');
+  await store.init(6);
+  assert.equal((await control.activity())[0].kind, 'legacy');
 });

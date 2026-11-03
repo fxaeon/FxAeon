@@ -17,6 +17,9 @@ test('only the two reviewed wallet routes may expose exact server handler adapte
 
 test('server scope rejects unaudited modules, dependencies and signing authority', () => {
   assert.deepEqual(serverModuleViolations('proxy.ts', 'export {};'), ['unreviewed server module']);
+  assert.deepEqual(serverModuleViolations('admissionPolicy.ts', "import type { DB } from './store';"), []);
+  assert.ok(serverModuleViolations('admissionPolicy.ts', "fetch('https://attacker.test')").includes('outbound request outside reviewed provider adapters'));
+  assert.ok(serverModuleViolations('admissionPolicy.ts', "import '../unreviewed';").includes('unreviewed server dependency'));
   assert.ok(serverModuleViolations('index.ts', "import '../other-server';").includes('unreviewed server dependency'));
   assert.ok(serverModuleViolations('store.ts', "import { sign } from '@privy-io/node';").includes('unreviewed server dependency'));
   assert.ok(serverModuleViolations('passkeys.ts', "crypto.subtle.sign('ECDSA', key, bytes)").includes('server signing authority'));

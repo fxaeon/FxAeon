@@ -137,7 +137,8 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   const asUser = async (action: string, id = 1, fields: Record<string, unknown> = {}) => send({ action, launchData: await launch(id), ...fields });
   const operate = async (body: unknown, authorization: string | null = `Bearer ${OPERATOR}`, init: RequestInit = {}) => result(await operator({
     request: request(body, '/api/miniapp-operator', { headers: { 'content-type': 'application/json', ...(authorization === null ? {} : { authorization }) }, ...init }), env }));
-  assert.equal((await asUser('status')).status, 200);
+  // Initialize without a launch: status now reserves eligible signed users.
+  assert.equal((await operate({ action: 'list' })).status, 200);
   t.after(async () => {
     try { await Promise.all(background); assert.deepEqual(unexpected, []); }
     finally { db.sql.close(); }
@@ -214,6 +215,62 @@ async function ready(f: Awaited<ReturnType<typeof fixture>>, id = 1) {
   assert.equal(completed.status, 200, JSON.stringify(completed.body)); assert.equal(completed.body.state, 'ready');
   return { device, options, response };
 }
+
+test('verified launches proceed directly below the limit and the next user receives the waitlist at 480', async t => {
+  const f = await fixture(t, { MINIAPP_LEGACY_USERS: '479' });
+  const first = await f.asUser('status');
+  assert.equal(first.status, 200);
+  assert.equal(first.body.state, 'approved');
+  assert.equal(first.body.hasCredential, false);
+  assert.equal(first.body.wallet, undefined);
+  assert.deepEqual(f.calls, [], 'opening reserves a place, never creates or signs with a wallet');
+  const identity = (await f.store.status(1))!.externalId;
+  assert.equal((await f.asUser('status')).body.state, 'approved');
+  assert.equal((await f.store.status(1))!.externalId, identity);
+  const next = await f.asUser('status', 2);
+  assert.equal(next.body.state, 'new'); assert.equal(next.body.cohortFull, true);
+  assert.equal(await f.store.status(2), null);
+  assert.equal((await f.asUser('join', 2, { notify: false })).body.state, 'waiting');
+  assert.equal((await f.store.capacity()).used, 480);
+  assert.equal((await f.operate({ action: 'activity' })).body.events.length, 1);
+});
+
+test('runtime admission settings require operator authorization, valid bounds and the current revision', async t => {
+  const f = await fixture(t);
+  const policy = { action: 'configure', threshold: 7, paused: true, expectedRevision: 0 };
+  error(await f.operate(policy, null), 401, 'unauthorized');
+  error(await f.asUser('configure', 1, { threshold: 7, paused: true, expectedRevision: 0 }), 403, 'approval_required');
+  const changed = await f.operate(policy);
+  assert.deepEqual(changed.body.policy, { threshold: 7, paused: true, revision: 1, active: true });
+  assert.equal((await f.asUser('status')).body.state, 'new');
+  assert.equal((await f.asUser('status')).body.cohortFull, true);
+  await f.asUser('join', 1, { notify: false });
+  error(await f.operate({ action: 'approve', userIds: [1] }), 409, 'approval_not_applied');
+  error(await f.operate({ ...policy, paused: false }), 409, 'policy_changed');
+  for (const threshold of [0, 481, 7.1, '7', null]) {
+    error(await f.operate({ ...policy, threshold, expectedRevision: 1 }), 400, 'request_invalid');
+  }
+  assert.equal((await f.operate({ ...policy, paused: false, expectedRevision: 1 })).status, 200);
+  assert.equal((await f.asUser('status')).body.state, 'approved');
+  assert.equal((await f.asUser('status', 2)).body.state, 'approved');
+  assert.equal((await f.asUser('status', 3)).body.cohortFull, true);
+  assert.equal((await f.store.capacity()).used, 7);
+  const activity = await f.operate({ action: 'activity' });
+  assert.deepEqual(activity.body.events.map((event: { kind: string }) => event.kind), ['reservation', 'reservation', 'policy', 'policy']);
+  assert.equal(JSON.stringify(activity.body).includes('userId'), false);
+  error(await f.operate({ action: 'activity' }, 'Bearer wrong'), 401, 'unauthorized');
+});
+
+test('closing new admissions preserves a ready wallet and never bypasses native-signup closure checks', async t => {
+  const f = await fixture(t);
+  await ready(f);
+  assert.equal((await f.operate({ action: 'configure', threshold: 1, paused: true, expectedRevision: 0 })).status, 200);
+  assert.equal((await f.asUser('status')).body.state, 'ready');
+  assert.equal((await f.asUser('status', 2)).body.state, 'new');
+  f.env.PRIVY_PUBLIC_SIGNUP_DISABLED = 'no';
+  error(await f.asUser('status', 3), 503, 'wallet_unavailable');
+  assert.equal(await f.store.status(3), null);
+});
 
 test('both actual Pages mounts reject every non-POST method and expose POST handlers', async t => {
   const f = await fixture(t);
@@ -546,7 +603,7 @@ test('separate handler isolates racing real SQLite connections cannot exceed 480
 });
 
 test('email verification requires POST, never admits a waiting user and cannot choose another identity', async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { MINIAPP_LEGACY_USERS: '480' });
   error(await f.asUser('email/request', 1, { email: 'private@example.com' }), 403, 'join_required');
   await f.asUser('join', 1, { notify: false });
   const sent = await f.asUser('email/request', 1, { email: 'private@example.com' });
