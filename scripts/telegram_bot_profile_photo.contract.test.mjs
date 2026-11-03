@@ -37,12 +37,14 @@ test('profile sync uploads the PNG-derived JPEG through static InputProfilePhoto
     timeoutMs: 1000,
     fetchImpl: async (input, init) => {
       calls.push({ url: new URL(input), init });
-      return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
+      return { ok: true, status: 200, json: async () => ({ ok: true,
+        result: input.endsWith('/getMe') ? { id: 123456789, is_bot: true, username: 'FxAeonBot' } : true }) };
     },
   });
 
-  assert.equal(calls.length, 1, 'only the explicit setMyProfilePhoto mutation is called');
-  const [{ url, init }] = calls;
+  assert.equal(calls.length, 2, 'read identity before the single profile mutation');
+  assert.match(calls[0].url.pathname, /\/getMe$/);
+  const { url, init } = calls[1];
   assert.equal(url.protocol, 'https:');
   assert.match(url.pathname, /\/setMyProfilePhoto$/);
   assert.equal(init.method, 'POST');
@@ -58,15 +60,21 @@ test('profile sync uploads the PNG-derived JPEG through static InputProfilePhoto
 
 test('API failures and thrown transport errors never expose the bot token or response details', async () => {
   const token = '987654321:abcdefghijklmnopqrstuvwxyz';
+  const identityResponse = { ok: true, status: 200, json: async () => ({ ok: true,
+    result: { id: 987654321, is_bot: true, username: 'FxAeonBot' } }) };
   await assert.rejects(syncTelegramBotProfilePhoto({
     token,
-    fetchImpl: async () => ({ ok: false, status: 403, json: async () => ({ ok: false, description: `rejected ${token}` }) }),
+    fetchImpl: async (input) => input.endsWith('/getMe') ? identityResponse
+      : ({ ok: false, status: 403, json: async () => ({ ok: false, description: `rejected ${token}` }) }),
   }), error => {
     assert.equal(error.message, 'Telegram Bot API setMyProfilePhoto failed with HTTP 403');
     assert.equal(error.message.includes(token), false);
     return true;
   });
-  await assert.rejects(syncTelegramBotProfilePhoto({ token, fetchImpl: async () => { throw new Error(`network ${token}`); } }), error => {
+  await assert.rejects(syncTelegramBotProfilePhoto({ token, fetchImpl: async (input) => {
+    if (input.endsWith('/getMe')) return identityResponse;
+    throw new Error(`network ${token}`);
+  } }), error => {
     assert.equal(error.message, 'Telegram Bot API setMyProfilePhoto request failed');
     assert.equal(error.message.includes(token), false);
     return true;
@@ -75,10 +83,41 @@ test('API failures and thrown transport errors never expose the bot token or res
   assert.doesNotMatch(syncScript, /console\.(?:log|error)\([^\n]*token/i);
 });
 
+test('wrong identity is rejected before any profile mutation', async () => {
+  for (const result of [
+    { id: 123456789, is_bot: true, username: 'OtherBot' },
+    { id: 987654321, is_bot: true, username: 'FxAeonBot' },
+    { id: 123456789, is_bot: false, username: 'FxAeonBot' },
+    null,
+  ]) {
+    const methods = [];
+    await assert.rejects(syncTelegramBotProfilePhoto({ token: '123456789:abcdefghijklmnopqrstuvwxyz',
+      fetchImpl: async (url) => {
+        methods.push(url.split('/').at(-1));
+        return { ok: true, status: 200, json: async () => ({ ok: true, result }) };
+      } }), /identity did not match/);
+    assert.deepEqual(methods, ['getMe']);
+  }
+});
+
+test('unresponsive and malformed API responses stop with bounded, redacted errors', async () => {
+  const token = '123456789:abcdefghijklmnopqrstuvwxyz';
+  let signal;
+  await assert.rejects(syncTelegramBotProfilePhoto({ token, timeoutMs: 20,
+    fetchImpl: async (_url, init) => { signal = init.signal; return new Promise(() => {}); },
+  }), /getMe request timed out/);
+  assert.equal(signal.aborted, true);
+  await assert.rejects(syncTelegramBotProfilePhoto({ token,
+    fetchImpl: async () => ({ ok: true, json: async () => { throw new SyntaxError(token); } }),
+  }), { message: 'Telegram Bot API getMe returned an invalid response' });
+});
+
 test('profile upload is an explicit main-only operator workflow, separate from deployment sync', () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /type: boolean[\s\S]*?default: false/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main' && inputs\.upload_profile_photo/);
+  assert.match(workflow, /github\.repository == 'fxaeon\/FxAeon'/);
+  assert.ok([...workflow.matchAll(/uses: ([^\s]+)/g)].every(([, action]) => /@[a-f0-9]{40}$/.test(action)));
   assert.match(workflow, /group: fxaeon-production[\s\S]*?cancel-in-progress: false/);
   assert.match(workflow, /run: node scripts\/sync_telegram_bot_profile_photo\.mjs[\s\S]*?TELEGRAM_BOT_TOKEN: \$\{\{ secrets\.TELEGRAM_BOT_TOKEN \}\}/);
   assert.doesNotMatch(deployWorkflow, /sync_telegram_bot_profile_photo/);

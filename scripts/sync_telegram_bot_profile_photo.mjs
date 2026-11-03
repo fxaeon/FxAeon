@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const TELEGRAM_API_ROOT = 'https://api.telegram.org';
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_PHOTO_BYTES = 10_000_000;
-// Telegram's InputProfilePhotoStatic accepts JPEG; keep Copernicus's PNG as
+// Telegram's InputProfilePhotoStatic accepts JPEG; keep the brand PNG as
 // the editable source and upload the committed 1024px JPEG derivative.
 const PROFILE_PHOTO_PATH = new URL('../docs/assets/brand/fxaeon-bot-avatar-1024.jpg', import.meta.url);
 
@@ -15,22 +15,12 @@ function requiredToken() {
   return token;
 }
 
-async function uploadPhoto(token, photo, {
+async function callBotApi(token, method, body, {
   fetchImpl = globalThis.fetch,
   timeoutMs = REQUEST_TIMEOUT_MS,
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('Telegram Bot API fetch is unavailable');
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Telegram Bot API timeout must be positive');
-  if (photo.length < 4 || photo.length > MAX_PHOTO_BYTES
-    || photo[0] !== 0xff || photo[1] !== 0xd8
-    || photo.at(-2) !== 0xff || photo.at(-1) !== 0xd9) {
-    throw new Error('Checked-in Telegram profile photo is not a valid, bounded JPEG');
-  }
-
-  const form = new FormData();
-  form.append('photo', JSON.stringify({ type: 'static', photo: 'attach://fxaeon_bot_avatar' }));
-  form.append('fxaeon_bot_avatar', new Blob([photo], { type: 'image/jpeg' }), 'fxaeon-bot-avatar-1024.jpg');
-
   const controller = new AbortController();
   let timeout;
   let response;
@@ -38,8 +28,8 @@ async function uploadPhoto(token, photo, {
   try {
     await Promise.race([
       (async () => {
-        response = await fetchImpl(`${TELEGRAM_API_ROOT}/bot${token}/setMyProfilePhoto`, {
-          method: 'POST', body: form, signal: controller.signal, redirect: 'error',
+        response = await fetchImpl(`${TELEGRAM_API_ROOT}/bot${token}/${method}`, {
+          method: 'POST', body, signal: controller.signal, redirect: 'error',
         });
         result = await response.json();
       })(),
@@ -51,17 +41,18 @@ async function uploadPhoto(token, photo, {
       }),
     ]);
   } catch (error) {
-    if (controller.signal.aborted) throw new Error('Telegram Bot API setMyProfilePhoto request timed out');
-    if (error instanceof SyntaxError) throw new Error('Telegram Bot API setMyProfilePhoto returned an invalid response');
-    throw new Error('Telegram Bot API setMyProfilePhoto request failed');
+    if (controller.signal.aborted) throw new Error(`Telegram Bot API ${method} request timed out`);
+    if (error instanceof SyntaxError) throw new Error(`Telegram Bot API ${method} returned an invalid response`);
+    throw new Error(`Telegram Bot API ${method} request failed`);
   } finally {
     clearTimeout(timeout);
     controller.abort();
   }
 
-  if (!response?.ok || result?.ok !== true || result.result !== true) {
-    throw new Error(`Telegram Bot API setMyProfilePhoto failed with HTTP ${response?.status ?? 'unknown'}`);
+  if (!response?.ok || result?.ok !== true) {
+    throw new Error(`Telegram Bot API ${method} failed with HTTP ${response?.status ?? 'unknown'}`);
   }
+  return result.result;
 }
 
 export async function syncTelegramBotProfilePhoto({
@@ -79,7 +70,23 @@ export async function syncTelegramBotProfilePhoto({
   } catch {
     throw new Error('Checked-in Telegram profile photo could not be read');
   }
-  await uploadPhoto(token, photo, { fetchImpl, timeoutMs });
+  if (photo.length < 4 || photo.length > MAX_PHOTO_BYTES
+    || photo[0] !== 0xff || photo[1] !== 0xd8
+    || photo.at(-2) !== 0xff || photo.at(-1) !== 0xd9) {
+    throw new Error('Checked-in Telegram profile photo is not a valid, bounded JPEG');
+  }
+  const options = { fetchImpl, timeoutMs };
+  const identity = await callBotApi(token, 'getMe', undefined, options);
+  if (identity?.is_bot !== true || typeof identity.username !== 'string' || identity.username.toLowerCase() !== 'fxaeonbot'
+    || !Number.isSafeInteger(identity.id) || String(identity.id) !== token.split(':')[0]) {
+    throw new Error('Telegram bot identity did not match FxAeon; profile photo was not changed');
+  }
+  const form = new FormData();
+  form.append('photo', JSON.stringify({ type: 'static', photo: 'attach://fxaeon_bot_avatar' }));
+  form.append('fxaeon_bot_avatar', new Blob([photo], { type: 'image/jpeg' }), 'fxaeon-bot-avatar-1024.jpg');
+  if (await callBotApi(token, 'setMyProfilePhoto', form, options) !== true) {
+    throw new Error('Telegram profile-photo update was not confirmed');
+  }
   return true;
 }
 
