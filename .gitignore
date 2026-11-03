@@ -6,6 +6,7 @@ node_modules/
 # Build outputs
 dist/
 /apps/mini-app/dist-fork-preview-*/
+/apps/mini-app/dist-prelaunch-*/
 build/
 .next/
 out/
@@ -97,3 +98,4 @@ __pycache__/
 **/.trade-harness-results/
 **/.last-run.json
 /apps/mini-app/e2e/state-lab/captures/*.png
+/apps/landing/review/

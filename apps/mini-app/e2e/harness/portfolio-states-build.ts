@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
  * Bundles the real Portfolio and History pages (and the provider fallback)
  * against inline mock providers, with the app's real global and module CSS.
  * Every mock reads `globalThis.__portfolioStates.stage`, set before the bundle
- * runs, so one page load shows exactly one first-load state.
+ * runs; transition controls can also resolve readiness in the same mounted page.
  */
 const appRoot = resolve(__dirname, '../..');
 const root = resolve(appRoot, '../..');
@@ -39,8 +39,8 @@ const ready = () => !['wallet', 'timeout', 'restoring'].includes(stage());
 export const isWalletConnectCancellation = () => false;
 export function useWalletReadyTimeout(isReady) { return !isReady && stage() === 'timeout'; }
 export function usePrivyWallet() {
-  const address = (ready() || stage() === 'restoring') && stage() !== 'disconnected' ? '${WALLET}' : undefined;
-  return { ready: ready(), authenticated: Boolean(address), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
+  const address = (ready() || stage() === 'restoring') && !['disconnected', 'hydrating'].includes(stage()) ? harness().address ?? '${WALLET}' : undefined;
+  return { ready: ready(), restoring: stage() === 'hydrating', authenticated: stage() === 'hydrating' || Boolean(address), address, chainId: harness().chainId ?? 1, isEmbedded: true, wallets: [], connectionVersion: 1,
     selectedWallet: address ? { address } : null, connect: async () => {}, disconnect: async () => {}, switchChain: async () => {}, sendTransaction: async () => {} };
 }`,
   '@/lib/wallet/activeWalletAddress': `export const activeWalletAddress = (wallet) => wallet.ready && wallet.authenticated ? wallet.address ?? null : null;`,
@@ -89,7 +89,7 @@ export function useWalletAssets({ address, enabled = true } = {}) {
   if (!enabled || !address) return { data: null, status: 'idle', isFetching: false, error: '', refresh: async () => undefined };
   if (!settled()) return { data: null, status: 'loading', isFetching: true, error: '', refresh: async () => undefined };
   if (stage() === 'unavailable') return { data: null, status: 'unavailable', isFetching: false, error: 'Assets unavailable.', refresh: async () => undefined };
-  return { data: fixtures().assets(stage()), status: 'ready', isFetching: false, error: '', refresh: async () => undefined };
+  return { data: { ...fixtures().assets(stage()), walletAddress: address }, status: 'ready', isFetching: false, error: '', refresh: async () => undefined };
 }
 const chain = (chainId) => ({ chainId, status: 'idle', transport: null, latestBlockNumber: null, lastEventAt: null, lastTransferAt: null, reconnectAttempt: 0, revision: 0 });
 export function useRealtimeChainState(chainId) { return chainId ? chain(chainId) : { 1: chain(1), 8453: chain(8453) }; }
@@ -116,9 +116,11 @@ export function useProtocolPositions() {
 const known = {
   assertConfiguredPublicClientChain: async () => {},
   withReadDeadline: (promise) => promise,
-  getFxReadFacade: () => ({ getFxSaveBalance: () => !settled() ? never()
-    : stage() === 'unavailable' ? Promise.reject(new Error('fxSAVE read failed'))
-      : Promise.resolve(globalThis.__portfolioFixtures.fxSave(stage())) }),
+  getFxReadFacade: () => ({ getFxSaveBalance: () => new Promise((resolve, reject) => {
+    const finish = () => stage() === 'unavailable' ? reject(new Error('fxSAVE read failed')) : resolve(globalThis.__portfolioFixtures.fxSave(stage()));
+    if (!settled()) harness().settleReads = finish;
+    else finish();
+  }) }),
 };
 module.exports = new Proxy(known, { get: (target, key) => key in target ? target[key] : key === '__esModule' ? false : () => undefined });`,
   '@/app/trade/fxUi': `import { formatUnits } from 'viem';
@@ -149,6 +151,14 @@ export function fetchMarketHistoryWithCoinbaseFallback(market, range) {
 }
 export function fetchMarketCandles() { return settled() && stage() !== 'unavailable' ? never() : stage() === 'unavailable' ? Promise.reject(new Error('candles failed')) : never(); }`,
 };
+
+// Keep the extracted read-only entrypoints on the same fixture functions as
+// legacy consumers. Real context defaults would hide the seeded profile data.
+mocks['@/lib/wallet/context'] = `export { usePrivyWallet } from '@/lib/wallet';`;
+mocks['@/components/PriceContext'] = `export { useUsdPrices } from '@/components/PriceProvider';`;
+mocks['@/components/ProtocolPositionContext'] = `export { useProtocolPositions } from '@/components/ProtocolPositionProvider';`;
+mocks['@/components/WalletDataContext'] = `export { useWalletAssets } from '@/components/WalletDataProvider';`;
+mocks['@/components/WalletDataHooks'] = `export { useWalletBalances, useFxSaveClaimable } from '@/components/WalletDataProvider';`;
 
 // Relative imports of mocked modules ("./BridgeTracker") are intercepted too.
 const relativeMocks = new Map(Object.keys(mocks).filter((id) => id.startsWith('@/')).map((id) => [resolveSource(id).replace(/\.(tsx|ts)$/, '').toLowerCase(), id]));

@@ -487,6 +487,10 @@ export async function planDepositFxSave(request: FxSaveDepositRequest): Promise<
   assertAddress(request.userAddress, "wallet address");
   assertPositiveAmount(request.amount, "fxSAVE deposit amount");
   if (request.slippage !== undefined) assertSlippage(request.slippage);
+  if (request.tokenIn !== 'fxUSDBasePool' && request.slippage !== undefined
+    && (request.slippage * 1_000_000 < 1 || Math.abs(request.slippage * 1_000_000 - Math.round(request.slippage * 1_000_000)) > 1e-5)) {
+    throw new RangeError('deposit slippage supports at most six decimal places');
+  }
   await assertConfiguredPublicClientChain(1);
   const result = await getFxSdk().depositFxSave({
     ...request,
@@ -506,8 +510,7 @@ export async function planDepositFxSave(request: FxSaveDepositRequest): Promise<
         amount: request.amount,
         receiver: assertAddress(request.userAddress, "wallet address"),
         directBasePool: request.tokenIn === "fxUSDBasePool",
-        // SDK 1.0.5 does not apply the requested deposit slippage. Keep the
-        // decoded base-pool floor; do not present an unsupported tolerance.
+        slippagePercent: request.tokenIn === 'fxUSDBasePool' ? undefined : request.slippage ?? 0.1,
       },
     },
   );

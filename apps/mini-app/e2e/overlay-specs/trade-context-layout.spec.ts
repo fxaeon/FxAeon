@@ -47,7 +47,12 @@ for (const width of [320, 390, 1280]) test(`Trade supporting facts and scenario 
   const scenario = page.getByRole('region', { name: 'What if ETH moves?' });
   const conditions = page.getByRole('region', { name: 'Protocol conditions' });
   const exposure = page.getByRole('region', { name: 'Your existing exposure' });
-  await expect(scenario).toContainText('Sensitivity is not projected PnL');
+  await expect(scenario).not.toContainText('Sensitivity is not projected PnL');
+  await expect(conditions).not.toContainText('Collateral room');
+  const sensitivityHelp = scenario.getByRole('button', { name: 'About Initial exposure sensitivity' });
+  await sensitivityHelp.click();
+  await expect(page.getByRole('dialog')).toContainText('not projected PnL');
+  await expect(page.getByRole('dialog')).toContainText('liquidation');
   await expect(conditions).toBeVisible();
   await expect(exposure).toContainText('0 open ETH positions');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

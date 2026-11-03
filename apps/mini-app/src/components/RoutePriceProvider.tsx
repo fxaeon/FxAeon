@@ -1,12 +1,35 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { useEffect, useState, useSyncExternalStore, type ComponentType } from 'react';
+import { createPriceRuntimeBridge, PriceContext, type PriceContextValue } from './PriceContext';
 
-// Keep one stable context around the app, while PriceProvider itself only
-// starts HTTP/WebSocket work after a product route or the wallet profile
-// acquires price demand through WalletDataProvider.
-const PriceProvider = dynamic(() => import('@/components/PriceProvider'));
+type Runtime = ComponentType<{ publish: (value: PriceContextValue) => void }>;
 
+/** Wallet/admission children mount before price code is available. The same
+ * context and child positions survive the runtime's asynchronous arrival. */
 export default function RoutePriceProvider({ children }: { children: React.ReactNode }) {
-  return <PriceProvider>{children}</PriceProvider>;
+  const [bridge] = useState(createPriceRuntimeBridge);
+  const [Runtime, setRuntime] = useState<Runtime | null>(null);
+  const value = useSyncExternalStore(bridge.subscribe, bridge.getSnapshot, bridge.getSnapshot);
+  useEffect(() => {
+    let mounted = true;
+    let loading = false;
+    const load = () => {
+      if (loading || !mounted) return;
+      loading = true;
+      void import('@/components/PriceProvider').then(module => {
+        if (mounted) setRuntime(() => module.PriceRuntime);
+      }).catch(() => {
+        loading = false;
+        if (mounted) bridge.fail();
+      });
+    };
+    bridge.setLoader(load);
+    load();
+    return () => { mounted = false; bridge.release(); };
+  }, [bridge]);
+  return <PriceContext.Provider value={value}>
+    {Runtime && <Runtime publish={bridge.publish} />}
+    {children}
+  </PriceContext.Provider>;
 }

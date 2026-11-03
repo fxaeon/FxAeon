@@ -1,0 +1,2 @@
+.stage { width: min(100%, 840px); min-width: 0; min-height: 240px; margin-inline: auto; padding-block: 32px; }
+.status { margin: 0; color: var(--mut); font-size: var(--fs-small); }

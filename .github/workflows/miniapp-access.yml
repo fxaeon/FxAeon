@@ -13,10 +13,24 @@ on:
           - list
           - approve
           - dispatch
+          - configure
+          - activity
           - sync-server-config
           - check-readiness
           - inspect-webhook
           - migrate-webhook
+      threshold:
+        description: 'Configure only: admission threshold, integer 1–480'
+        type: string
+        required: false
+      paused:
+        description: 'Configure only: enter true to pause or false to resume'
+        type: string
+        required: false
+      expected_revision:
+        description: 'Configure only: current policy revision from an executed status'
+        type: string
+        required: false
       reviewed_webhook_sha256:
         description: For migrate-webhook only; exact URL SHA-256 from the reviewed inspection (never enter the URL)
         type: string
@@ -73,6 +87,9 @@ jobs:
         run: node scripts/miniapp_operator.mjs --dry-run
         env:
           MINIAPP_OPERATOR_ACTION: ${{ inputs.action }}
+          MINIAPP_OPERATOR_THRESHOLD: ${{ inputs.action == 'configure' && inputs.threshold || '' }}
+          MINIAPP_OPERATOR_PAUSED: ${{ inputs.action == 'configure' && inputs.paused || '' }}
+          MINIAPP_OPERATOR_EXPECTED_REVISION: ${{ inputs.action == 'configure' && inputs.expected_revision || '' }}
           # Approval identities are private even though this repository and Actions logs are public.
           MINIAPP_OPERATOR_USER_IDS: ${{ inputs.action == 'approve' && secrets.MINIAPP_OPERATOR_USER_IDS || '[]' }}
           MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
@@ -91,6 +108,9 @@ jobs:
         run: node scripts/miniapp_operator.mjs --execute
         env:
           MINIAPP_OPERATOR_ACTION: ${{ github.event_name == 'schedule' && 'dispatch' || inputs.action }}
+          MINIAPP_OPERATOR_THRESHOLD: ${{ inputs.action == 'configure' && inputs.threshold || '' }}
+          MINIAPP_OPERATOR_PAUSED: ${{ inputs.action == 'configure' && inputs.paused || '' }}
+          MINIAPP_OPERATOR_EXPECTED_REVISION: ${{ inputs.action == 'configure' && inputs.expected_revision || '' }}
           MINIAPP_OPERATOR_USER_IDS: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'approve' && secrets.MINIAPP_OPERATOR_USER_IDS || '[]' }}
           MINIAPP_OPERATOR_TOKEN: ${{ secrets.MINIAPP_OPERATOR_TOKEN }}
       - name: Plan webhook operation without credentials

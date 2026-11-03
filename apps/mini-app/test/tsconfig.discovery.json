@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": [
+    "../src/app/routeMetadata.ts",
+    "../src/app/invite/layout.tsx",
+    "../src/app/wallet-approval/layout.tsx",
+    "../src/app/docs/guide/**/*.tsx",
+    "../src/app/docs/sdk/**/*.tsx",
+    "discovery-metadata.test.ts",
+    "discovery-render.test.ts"
+  ]
+}

@@ -167,6 +167,7 @@ export function primaryReviewFacts(route: PlannedRoute, options?: { historicalCo
       case 'fxsave-deposit':
         addTokenAmountFact(facts, 'Deposit', intent.amount, intent.tokenInAddress);
         addFact(facts, 'Recipient', compactAddress(intent.receiver));
+        if (intent.slippagePercent !== undefined) addFact(facts, 'Slippage', `${intent.slippagePercent}%`);
         break;
       case 'fxsave-withdraw':
         addTokenAmountFact(facts, 'fxSAVE', intent.amount, FX_TOKENS.fxSAVE.address);

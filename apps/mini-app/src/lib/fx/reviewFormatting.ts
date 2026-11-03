@@ -276,7 +276,7 @@ export function routeFinancialReviewFacts(route: PlannedRoute): ReviewFact[] {
     const quote = acceptedFxSaveQuote(route);
     const outputLabel = intent.kind === 'fxsave-deposit' ? 'Estimated fxSAVE received' : 'Estimated received';
     if (quote) {
-      add(quote.estimatedOutput === undefined ? { label: outputLabel, value: 'Unavailable' }
+      add(quote.estimatedOutput === undefined || (quote.kind === 'instant-withdraw' && !quote.identityOutputIncluded) ? { label: outputLabel, value: 'Unavailable' }
         : amountFact(outputLabel, quote.estimatedOutput,
           intent.kind === 'fxsave-deposit' ? tokenUnit(FX_TOKENS.fxSAVE) : unitForAddress(intent.tokenOutAddress)));
       if (quote.kind === 'instant-withdraw') {

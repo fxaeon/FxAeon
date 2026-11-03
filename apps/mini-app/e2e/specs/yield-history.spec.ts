@@ -56,9 +56,13 @@ for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await openChart(page);
+    const reading = page.locator('section[aria-label="fxSAVE performance"] div[aria-live="off"] span');
+    await expect(reading).toHaveText(/^[A-Z][a-z]{2} \d{1,2}$/);
+    await expect(page.getByText(/Latest observation|trailing 30 days/)).toHaveCount(0);
     const chart = page.getByRole('slider');
     await expect(chart).toHaveAccessibleName('Explore fxSAVE annualized return');
     await expect(chart).toHaveAttribute('aria-valuemax', '30');
+    expect((await chart.boundingBox())!.height).toBe(148);
     await expect(chart).toHaveAttribute('aria-valuetext', /8.00% annualized return/);
     await page.getByRole('button', { name: 'About Annualized return', exact: true }).click();
     await expect(page.getByText('Based on 30 days of vault value; includes valuation changes. Not the current quoted APY.', { exact: true })).toBeVisible();
@@ -79,6 +83,7 @@ for (const width of [320, 390, 1280]) {
     await chart.dispatchEvent('pointerleave', { pointerType: 'touch' });
     await expect(chart).toHaveAttribute('aria-valuenow', '0');
     await page.getByRole('button', { name: 'Share value', exact: true }).click();
+    await expect(reading).toHaveText(/^[A-Z][a-z]{2} \d{1,2} · per fxSAVE$/);
     await expect(chart).toHaveAccessibleName('Explore fxSAVE share value');
     await chart.focus(); await chart.press('Home');
     await expect(chart).toHaveAttribute('aria-valuetext', /per fxSAVE/);
@@ -98,6 +103,9 @@ for (const width of [320, 390, 1280]) {
     await page.addInitScript(() => { (window as Window & { __navFailure?: boolean }).__navFailure = true; });
     await page.reload();
     await expect(page.getByText('Yield history unavailable')).toBeVisible();
+    const unavailable = page.getByRole('status').filter({ hasText: 'Yield history unavailable' });
+    expect((await unavailable.boundingBox())!.height).toBe(44);
+    expect((await page.getByRole('button', { name: 'Retry', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await page.evaluate(() => { (window as Window & { __navFailure?: boolean }).__navFailure = false; });
     await page.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(chart).toBeVisible();

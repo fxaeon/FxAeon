@@ -1,0 +1,53 @@
+# FxAeon
+
+> FxAeon is an independent web and Telegram interface for f(x) Protocol. Trade leveraged ETH and BTC positions, earn with fxSAVE, borrow fxUSD, and move fxUSD or fxSAVE between Ethereum and Base.
+
+Trade, Earn, and Borrow operate on Ethereum. Move supports Ethereum and Base; Base is not a second positions or Earn ledger. The interface is for people using these products with a wallet. Each transaction requires review and wallet approval.
+
+The landing page and public guides contain readable product information without connecting a wallet. Interactive app screens require JavaScript. Figures and scenarios on the landing page are display information, not executable quotes. Returns, delivery times, and protocol safeguards are not guarantees. Read the fees and risks guides before acting.
+
+This optional guide links to public documentation. It does not authorize transactions, grant access, or control crawler policy; robots.txt is separate.
+
+## Start here
+
+- [FxAeon](https://fxaeon.xyz/): Product introduction and web/Telegram launch actions.
+- [Web app](https://fxaeon.com/): Interactive workspace; public product information is in the guides below.
+- [Telegram](https://t.me/FxAeonBot): Open the FxAeon bot and follow the current access flow.
+- [Documentation](https://fxaeon.com/docs): Product guides and developer documentation.
+- [Product guide](https://fxaeon.com/docs/guide): Wallets, products, transaction reviews, fees, and risks.
+- [SDK reference](https://fxaeon.com/docs/sdk): The supported f(x) SDK integration and execution boundaries.
+
+## Product guides
+
+- [Supported networks](https://fxaeon.com/docs/guide/overview): The products, assets, and networks supported by FxAeon.
+- [Your first transaction](https://fxaeon.com/docs/guide/getting-started): Choose a wallet, add funds on the right network, and follow your first reviewed action.
+- [Telegram & browser](https://fxaeon.com/docs/guide/access): Open the Mini App or connect an existing wallet in your browser.
+- [Wallets & signing](https://fxaeon.com/docs/guide/wallets): Check the selected account and understand connections, allowances, and wallet requests.
+- [Trade & leverage](https://fxaeon.com/docs/guide/trade): Open an ETH or BTC position on Ethereum and understand its quoted exposure.
+- [Manage positions](https://fxaeon.com/docs/guide/positions): Read collateral and debt, then add, reduce, change leverage, close, or borrow.
+- [Earn with fxSAVE](https://fxaeon.com/docs/guide/earn): Deposit into the vault, compare withdrawal routes, and claim a queued redemption.
+- [Borrow fxUSD](https://fxaeon.com/docs/guide/borrow): Open a collateral position and manage fxUSD debt, repayments, and withdrawals.
+- [Move between chains](https://fxaeon.com/docs/guide/move): Bridge fxUSD or fxSAVE between Ethereum and Base, then follow destination delivery.
+- [Review & confirmation](https://fxaeon.com/docs/guide/review): Read estimates, exact amounts, terms, wallet requests, and verified results.
+- [Fees & slippage](https://fxaeon.com/docs/guide/fees): Separate network costs, protocol charges, bridge fees, and execution limits.
+- [Risks & rebalancing](https://fxaeon.com/docs/guide/risks): Understand leverage, collateral thresholds, and the limits of protocol safeguards.
+- [Glossary](https://fxaeon.com/docs/guide/glossary): Definitions for the assets, position figures, and transaction terms used in FxAeon.
+- [History & recovery](https://fxaeon.com/docs/guide/history): Inspect submitted transactions, distinguish drafts, and handle partial actions.
+- [Privacy & data](https://fxaeon.com/docs/guide/privacy): Understand device storage, wallet information, public records, and external services.
+- [Troubleshooting](https://fxaeon.com/docs/guide/troubleshooting): Find the next step for connection problems, unavailable quotes, fees, or delayed delivery.
+
+## Developer reference
+
+- [Integration overview](https://fxaeon.com/docs/sdk/overview): The official SDK, FxAeon’s wrappers, and the boundary between reads and signing.
+- [Read-only quickstart](https://fxaeon.com/docs/sdk/setup): Read protocol state with explicit units and no wallet request.
+- [Position methods](https://fxaeon.com/docs/sdk/positions): Read, open, reduce, close, and adjust leveraged positions on Ethereum.
+- [Borrow methods](https://fxaeon.com/docs/sdk/borrow): Prepare collateral and debt changes through the supported SDK methods.
+- [Bridge methods](https://fxaeon.com/docs/sdk/bridge): Quote and build source-chain transfers; verify delivery separately.
+- [fxSAVE methods](https://fxaeon.com/docs/sdk/earn): Read vault state and prepare deposits, withdrawals, and queued claims.
+- [Transaction lifecycle](https://fxaeon.com/docs/sdk/execution): Follow a plan through validation, review, wallet approval, and receipt verification.
+- [Limits & local patches](https://fxaeon.com/docs/sdk/boundaries): The locked method surface, reviewed patches, and deliberately unsupported behavior.
+
+## Policies and protocol
+
+- [Privacy](https://fxaeon.com/privacy.html): Device storage, wallet information, and external services.
+- [f(x) Protocol documentation](https://fxprotocol.gitbook.io/fx-docs): Protocol economics and mechanisms, maintained by the protocol.

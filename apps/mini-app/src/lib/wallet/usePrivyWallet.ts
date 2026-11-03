@@ -11,7 +11,7 @@ import { walletIdentityRdns } from './walletIdentity';
 import { getDiscoveredEip6963Providers, recordEip6963Announcement, type Eip6963Announcement } from './eip6963';
 import { buildWalletChoices, type WalletChoice } from './walletCatalog';
 import { resolveWalletConnectionRoute, resolveWalletEnvironment } from './walletConnectionRoutes';
-import { createExternalWalletConnection, validWalletAccounts, type ExternalWalletAttemptState } from './externalWalletConnection';
+import { awaitWithAbort, createExternalWalletConnection, validWalletAccounts, type ExternalWalletAttemptState } from './externalWalletConnection';
 import { FxWalletContext } from './context';
 import { asHexQuantity } from './helpers';
 import { type FxChainId, type FxPrivyWallet, type FxSelectedWallet, type FxWalletTransaction } from './types';
@@ -101,8 +101,9 @@ function providerSnapshot() {
 
 function savedWalletChoice(rdns: string | null) {
   if (!rdns) return undefined;
-  return buildWalletChoices(providerSnapshot()).find((choice) => choice.rdns === walletIdentityRdns(rdns)
-    && choice.injected === 'available' && choice.provider);
+  // Missing and conflicting discovery are distinct; only a unique available
+  // choice carries a provider, so neither unresolved case gains authority.
+  return buildWalletChoices(providerSnapshot()).find((choice) => choice.rdns === walletIdentityRdns(rdns));
 }
 
 function browserChainConfig(chainId: FxChainId) {
@@ -183,6 +184,8 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     if (!allowTelegramHost && isTelegramLaunchContext()) { setReady(true); return; }
     let mounted = true;
     let restoring = false;
+    let discovering = true;
+    let awaitingSavedProvider = false;
     let restoringProvider: Eip1193Provider | undefined;
     let restoreAgain = false;
     const restore = async () => {
@@ -204,8 +207,16 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
         }
         return;
       }
-      if (!target) return;
+      if (!target) {
+        // Saved identity is only a reason to await a missing bridge, never
+        // authority. A known conflict is already a resolved restore failure.
+        awaitingSavedProvider = discovering && Boolean(preferred) && choice?.injected !== 'ambiguous';
+        if (!awaitingSavedProvider) setReady(true);
+        return;
+      }
+      awaitingSavedProvider = false;
       restoring = true;
+      setReady(false);
       restoringProvider = target;
       const controller = new AbortController();
       restoreAbortRef.current = controller;
@@ -218,15 +229,18 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
             && readPreference(BROWSER_DISCONNECTED_KEY) !== '1' && !owner.getActiveConfig(),
           exactProvider: () => screenshot ? configuredScreenshotProvider() : savedWalletChoice(preferred)?.provider,
         });
-        await candidate.ready;
+        // Cancellation must release our restoration flags even while native
+        // connector cleanup is pending. Its late completion remains consumed
+        // and fenced by the aborted candidate's exact-provider checks.
+        await awaitWithAbort(candidate.ready, controller.signal);
         owner.promote(candidate);
       } catch { if (candidate) owner.discard(candidate); }
       finally {
         restoring = false;
         restoringProvider = undefined;
         if (restoreAbortRef.current === controller) restoreAbortRef.current = null;
-        if (mounted) setReady(true);
         if (restoreAgain) { restoreAgain = false; void restore(); }
+        if (mounted && !restoring && !awaitingSavedProvider) setReady(true);
       }
     };
     const reconcile = () => {
@@ -245,9 +259,12 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       setProviderVersion((version) => version + 1);
       void restore();
     });
-    const initial = window.setTimeout(() => { if (mounted) setReady(true); void restore(); }, 200);
+    void restore();
+    // Discovery requests announce synchronously. Only a real restore or a
+    // remembered late injection needs a wait; new visitors resolve immediately.
+    if (mounted && !restoring && !awaitingSavedProvider) setReady(true);
     // Mobile wallet bridges can assign their documented namespace after the
-    // shell becomes ready, without an announcement or initialization event.
+    // first discovery pass, without an announcement or initialization event.
     // Observe startup changes for a bounded window; never repeatedly retry a
     // present but unauthorized provider, or prompt from saved preferences.
     let startupProvider = savedWalletChoice(readPreference(BROWSER_PROVIDER_KEY))?.provider;
@@ -257,13 +274,18 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       startupProvider = next;
       if (!owner.getActiveConfig() || !owner.hasCurrentIdentity()) reconcile();
     }, 200);
-    const stopStartupPoll = window.setTimeout(() => window.clearInterval(startupPoll), 5_000);
+    const stopStartupPoll = window.setTimeout(() => {
+      window.clearInterval(startupPoll);
+      discovering = false;
+      awaitingSavedProvider = false;
+      void restore();
+      if (mounted && !restoring) setReady(true);
+    }, 5_000);
     window.addEventListener('focus', reconcile);
     window.addEventListener('ethereum#initialized', reconcile);
     document.addEventListener('visibilitychange', reconcile);
     return () => {
       mounted = false;
-      window.clearTimeout(initial);
       window.clearInterval(startupPoll);
       window.clearTimeout(stopStartupPoll);
       stopDiscovery();
@@ -310,6 +332,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     savePreference(BROWSER_PROVIDER_KEY);
     savePreference(BROWSER_ADDRESS_KEY);
     owner.manualDisconnect();
+    setReady(true);
   }, [connection, owner]);
   const selectedWallet = useMemo(() => session ? walletDescriptor(session, owner) : undefined, [session, owner]);
   const switchChain = useCallback((nextChain: FxChainId) => owner.switchChain(nextChain), [owner]);

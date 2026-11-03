@@ -76,7 +76,7 @@ export function FxSaveHistory() {
       <div className={styles.metricControl} aria-label="Performance metric">{(['yield', 'share'] as const).map(value => <button key={value} type="button" aria-pressed={metric === value} onClick={() => setMetric(value)}>{value === 'yield' ? 'Yield' : 'Share value'}</button>)}</div>
     </header>
     <div className={styles.overview}>
-      <div className={styles.performanceReading} aria-live="off"><span>{active ? date(active.timestamp) : last ? date(last.timestamp) : 'Latest observation'}{metric === 'share' ? ' · per fxSAVE' : ' · trailing 30 days'}</span><strong>{ready ? format((active ?? last).value) : <MissingValue width="md" status={history.isPending && !history.isError ? 'loading' : 'unavailable'} announce={false} label={`${label} unavailable`} />}</strong></div>
+      <div className={styles.performanceReading} aria-live="off"><span>{active ? `${date(active.timestamp)}${metric === 'share' ? ' · per fxSAVE' : ''}` : last ? `${date(last.timestamp)}${metric === 'share' ? ' · per fxSAVE' : ''}` : null}</span><strong>{ready ? format((active ?? last).value) : <MissingValue width="md" status={history.isPending && !history.isError ? 'loading' : 'unavailable'} announce={false} label={`${label} unavailable`} />}</strong></div>
       <div className={styles.ranges} aria-label="Performance range">{([30, 90] as const).map(days => <button key={days} type="button" aria-pressed={range === days} onClick={() => setRange(days)}>{days}D</button>)}</div>
     </div>
     {ready ? <>

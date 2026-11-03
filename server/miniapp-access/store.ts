@@ -1,3 +1,5 @@
+import { ADMISSION_POLICY_SCHEMA } from './admissionPolicy';
+
 /** The subset of Cloudflare D1 used here. batch MUST be an atomic transaction. */
 export interface DBResult<T = Record<string, unknown>> {
   success: boolean;
@@ -216,6 +218,7 @@ export class Store {
     await this.batch([
       ...SCHEMA.map(sql => this.db.prepare(sql)),
       this.statement('INSERT INTO admission_settings (id,legacy_slots) SELECT 1,? WHERE NOT EXISTS(SELECT 1 FROM admission_settings)', legacySlots),
+      ...ADMISSION_POLICY_SCHEMA.map(sql => this.db.prepare(sql)),
       this.statement('UPDATE admission_settings SET legacy_slots = max(legacy_slots,?) WHERE id = 1', legacySlots),
     ]);
   }

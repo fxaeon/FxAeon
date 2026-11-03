@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { FxTokenKey } from '@/lib/fx/tokens';
 import {
   createCoinbaseTickerController,
@@ -20,18 +20,11 @@ import {
 } from '@/lib/prices';
 
 import { mergeUsdPriceUpdate, startPriceRefreshLoop } from '@/lib/priceRefresh';
+import { EMPTY_PRICE_SNAPSHOT as EMPTY_SNAPSHOT, PriceContext, useUsdPrices, type PriceContextValue } from './PriceContext';
 
-type PriceContextValue = UsdPriceSnapshot & {
-  refreshing: boolean;
-  refresh: () => Promise<void>;
-};
-const EMPTY_SNAPSHOT: UsdPriceSnapshot = { prices: {}, status: 'loading', updatedAt: null };
+export { useUsdPrices } from './PriceContext';
+
 const EMPTY_LIVE_MARKET = { quote: null, status: 'paused' as const, now: 0 };
-const PriceContext = createContext<PriceContextValue>({
-  ...EMPTY_SNAPSHOT,
-  refreshing: false,
-  refresh: async () => undefined,
-});
 
 function readCachedSnapshot(): UsdPriceSnapshot | null {
   try {
@@ -91,7 +84,7 @@ export function createPriceRefreshCoordinator(onRefreshing: (refreshing: boolean
   };
 }
 
-export default function PriceProvider({ children }: { children: React.ReactNode }) {
+function usePriceRuntimeValue(): PriceContextValue {
   const [snapshot, setSnapshot] = useState<UsdPriceSnapshot>(EMPTY_SNAPSHOT);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [foreground, setForeground] = useState(false);
@@ -198,11 +191,21 @@ export default function PriceProvider({ children }: { children: React.ReactNode 
 
   const retry = useCallback(async () => { await refresh(); }, [refresh]);
   const value = useMemo(() => ({ ...snapshot, refreshing: isRefreshing, refresh: retry }), [isRefreshing, retry, snapshot]);
-  return <PriceContext.Provider value={value}>{children}</PriceContext.Provider>;
+  return value;
 }
 
-export function useUsdPrices(): PriceContextValue {
-  return useContext(PriceContext);
+/** Renderless implementation: its demand/cache/freshness effects retain one
+ * lifetime while the route wrapper owns the stable consumer context. */
+export function PriceRuntime({ publish }: { publish: (value: PriceContextValue) => void }) {
+  const value = usePriceRuntimeValue();
+  useEffect(() => { publish(value); }, [publish, value]);
+  return null;
+}
+
+// Preserve the standalone provider API for existing consumers and fixtures.
+export default function PriceProvider({ children }: { children: React.ReactNode }) {
+  const value = usePriceRuntimeValue();
+  return <PriceContext.Provider value={value}>{children}</PriceContext.Provider>;
 }
 
 export function useUsdPrice(key: FxTokenKey | null | undefined): number | undefined {

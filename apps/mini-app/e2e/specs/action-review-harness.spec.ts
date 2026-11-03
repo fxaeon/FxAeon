@@ -210,7 +210,7 @@ test(`${estimateKind} planning and refresh delays cannot extend the accepted quo
       operation: 'withdrawFxSave', chainId: 1, walletAddress: wallet,
       transactions: [{ chainId: 1, from: wallet, to: router, data: '0x6d701088', value: 0n, kind: 'action', type: 'instantRedeem', operation: 'withdrawFxSave' }],
       policy: { walletAddress: wallet, chainId: 1, reviewedAction: { kind: 'fxsave-withdraw', tokenOutAddress: usdc, amount: 100n * 10n ** 18n, receiver: wallet, directBasePool: false, instant: true, slippagePercent: 0.5 } },
-      details: { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: (100n * 10n ** 18n).toString(), tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } },
+      details: { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: (100n * 10n ** 18n).toString(), tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', identityOutputIncluded: true, instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } },
     };
     if (estimateKind === 'Move') {
       const route = h.reviewRoute as { operation: string; details?: unknown; policy?: unknown; quote?: unknown };
@@ -261,7 +261,7 @@ test('fxSAVE review keeps accepted net proceeds and availability visible but blo
       operation: 'withdrawFxSave', chainId: 1, walletAddress: wallet,
       transactions: [{ chainId: 1, from: wallet, to: router, data: '0x6d701088', value: 0n, kind: 'action', type: 'instantRedeem', operation: 'withdrawFxSave' }],
       policy: { walletAddress: wallet, chainId: 1, reviewedAction: { kind: 'fxsave-withdraw', tokenOutAddress: usdc, amount: 100n * 10n ** 18n, receiver: wallet, directBasePool: false, instant: true, slippagePercent: 0.5 } },
-      details: { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: (100n * 10n ** 18n).toString(), tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } },
+      details: { fxSaveQuote: { kind: 'instant-withdraw', inputAmount: (100n * 10n ** 18n).toString(), tokenAddress: usdc, actionTo: router, actionData: '0x6d701088', readAt: Date.now(), estimatedOutput: '99000000', identityOutputIncluded: true, instantFeeRatio: '10000000000000000', grossFxUSD: '60000000000000000000', netFxUSD: '59400000000000000000', grossUSDC: '40000000', netUSDC: '39600000' } },
     };
     h.rerender?.();
   });

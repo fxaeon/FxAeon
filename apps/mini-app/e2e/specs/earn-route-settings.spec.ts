@@ -12,13 +12,16 @@ test.describe('Earn route-specific settings', () => {
     await expect(page.getByText('Vault holdings', { exact: true })).toHaveCount(1);
     await expect(page.getByRole('heading', { name: '$12.5M', exact: true })).toBeVisible();
     await expect(page.getByText('6.25%', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Transaction settings,/ })).toHaveCount(0);
+    await page.getByRole('button', { name: /^Transaction settings, .*slippage$/ }).click();
+    const settings = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
+    await expect(settings.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toBeVisible();
+    await expect(settings).toContainText('Reverts if price moves beyond the displayed slippage limit before confirmation.');
     await testInfo.attach('existing-vault-holdings-usd-fixture', { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
     assertNoBackendRequests(requests);
   });
 
   for (const width of [320, 393]) {
-    test(`only instant stable withdrawals offer slippage at ${width}px`, async ({ page, requests }, testInfo) => {
+    test(`stable deposits and instant stable withdrawals offer slippage at ${width}px`, async ({ page, requests }, testInfo) => {
       await page.setViewportSize({ width, height: 852 });
       await page.goto('/earn', { waitUntil: 'domcontentloaded' });
       const settings = page.getByRole('button', { name: /^Transaction settings,/ });
@@ -27,6 +30,7 @@ test.describe('Earn route-specific settings', () => {
         await settings.click();
         const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
         await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(hasSlippage ? 1 : 0);
+        await expect(dialog).toContainText('Reverts if price moves beyond the displayed slippage limit before confirmation.');
         await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toHaveCount(0);
         await expect(dialog.getByText('Confirm the network fee in your wallet before signing.')).toHaveCount(0);
         const box = await dialog.boundingBox();
@@ -39,8 +43,7 @@ test.describe('Earn route-specific settings', () => {
       };
       for (const token of ['fxUSD', 'usdc', 'fxUSDBasePool']) {
         await page.goto(`/earn?token=${token}`, { waitUntil: 'domcontentloaded' });
-        await expect(settings).toHaveCount(0);
-        await checkSettings(false);
+        await checkSettings(token !== 'fxUSDBasePool');
         // The deposit view stays compact: limits belong to the review, not to helper copy here.
         await expect(page.getByText(/slippage/i)).toHaveCount(0);
         if (token === 'fxUSDBasePool') {

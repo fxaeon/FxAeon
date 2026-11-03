@@ -456,13 +456,23 @@ test('stable fxSAVE deposit review retains enforced limits without inventing a f
     const { summary } = splitReviewFacts(facts);
     assert.equal(summary.find(fact => fact.label === 'Final fxSAVE minimum'), undefined);
     assert.equal(summary.find(fact => fact.label === 'Minimum fxSP')?.value, '79.968 fxSP');
-    assert.equal(facts.some(fact => fact.label === 'Slippage' || fact.label === 'Minimum fxSAVE received'), false);
+    assert.equal(facts.find(fact => fact.label === 'Slippage')?.value, '0.5%');
+    assert.equal(facts.some(fact => fact.label === 'Minimum fxSAVE received'), false);
   }
   const withdrawal: ReviewedActionIntent = {
     kind: 'fxsave-withdraw', tokenOutAddress: FX_TOKENS.USDC.address, amount: 1n,
     receiver: WALLET, directBasePool: false, instant: true, slippagePercent: 0.75,
   };
   assert.equal(primaryReviewFacts(route(withdrawal, {})).find(fact => fact.label === 'Slippage')?.value, '0.75%');
+});
+
+test('routed deposit review shows selected slippage alongside its fxSP floor', () => {
+  const intent: ReviewedActionIntent = { kind: 'fxsave-deposit', tokenInAddress: FX_TOKENS.USDC.address, amount: 100_000_000n, receiver: WALLET, directBasePool: false, slippagePercent: 0.291 };
+  const planned = route(intent, { economicLimits: [{ label: 'fxSAVE deposit base-pool minimum shares', value: '99709000000000000000' }] });
+  const facts = primaryReviewFacts(planned);
+  assert.equal(facts.find(fact => fact.label === 'Slippage')?.value, '0.291%');
+  assert.equal(facts.find(fact => fact.label === 'Minimum fxSP')?.value, '99.709 fxSP');
+  assert.equal(facts.some(fact => fact.label === 'Final fxSAVE minimum'), false);
 });
 
 test('identity fxSAVE deposits omit only the zero converter no-op and retain the positive share floor', () => {
@@ -516,6 +526,18 @@ test('both instant fxSAVE output legs use the destination token decimals', () =>
     { label: 'f(x) fee', value: 'Unavailable' },
     { label: 'Minimum received (fxUSD leg)', value: '1.234567 USDC' },
     { label: 'Minimum received (USDC leg)', value: '7.654321 USDC' },
+  ]);
+});
+
+test('instant withdrawal keeps both source-leg floors in the selected fxUSD output', () => {
+  const intent: ReviewedActionIntent = { kind: 'fxsave-withdraw', tokenOutAddress: FX_TOKENS.fxUSD.address, amount: 1n, receiver: WALLET, directBasePool: false, instant: true };
+  const facts = routeFinancialReviewFacts(route(intent, { economicLimits: [
+    { label: 'fxUSD instant output minimum output', value: '0' },
+    { label: 'USDC instant output minimum output', value: '23581234567890123' },
+  ] }));
+  assert.deepEqual(facts.filter(fact => fact.label.includes('Minimum received')).map(({ label, value }) => ({ label, value })), [
+    { label: 'Minimum received (fxUSD leg)', value: '0 fxUSD' },
+    { label: 'Minimum received (USDC leg)', value: '0.023581234567890123 fxUSD' },
   ]);
 });
 

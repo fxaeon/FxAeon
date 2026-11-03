@@ -1,6 +1,7 @@
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import { verifyTelegramLaunchData } from '../../functions/api/telegram-admission';
 import { Store, type DB, type Enrollment, type Challenge } from './store';
+import { AdmissionControl } from './admissionPolicy';
 import { NotificationStore, type NotificationEnv } from './notifications';
 import { Operations } from './operations';
 import { PrivyWalletApi, type PreparedTransaction } from './privy';
@@ -67,10 +68,10 @@ async function init(db: DB, legacy: number, store: Store, notifications: Notific
   }
   await ready;
 }
-async function publicStatus(store: Store, notifications: NotificationStore, userId: number, telegramWriteAllowed: boolean) {
-  const [row, capacity, contact, emailDelivery] = await Promise.all([store.status(userId), store.capacity(),
+async function publicStatus(store: Store, control: AdmissionControl, notifications: NotificationStore, userId: number, telegramWriteAllowed: boolean) {
+  const [row, policy, contact, emailDelivery] = await Promise.all([store.status(userId), control.policy(),
     notifications.contactStatus(userId), notifications.verificationStatus(userId)]);
-  return { state: row?.state ?? 'new', cohortFull: capacity.used >= capacity.max,
+  return { state: row?.state ?? 'new', cohortFull: policy.active,
     telegramNotify: row?.telegramNotify ?? false, telegramWriteAllowed, emailVerified: contact.verified, emailDelivery,
     hasCredential: Boolean(row?.credential),
     ...(row?.state === 'ready' ? { wallet: { id: row.walletId, address: row.walletAddress } } : {}) };
@@ -152,6 +153,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const launch = capabilityAction ? undefined : await verifyTelegramLaunchData(textField(body.launchData), env.TELEGRAM_BOT_ID!, { publicKey: dependencies.publicKey });
       if (launch && !launch.ok) throw new AccessError(launch.reason === 'expired' ? 'launch_expired' : 'launch_rejected', 403);
       const store = new Store(db); const notifications = new NotificationStore(db, env, { fetch: dependencies.fetch });
+      const control = new AdmissionControl(db);
       const operations = new Operations(db);
       await init(db, legacy, store, notifications, operations);
       const dispatch = (verificationUserId?: number) => {
@@ -208,7 +210,12 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const userId = launch.userId;
       if (action === 'status') {
         exactKeys(body, ['action', 'launchData']);
-        return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
+        // Never reserve while wallet provisioning is administratively disabled.
+        if (env.MINIAPP_ACCESS_MODE === 'passkey') {
+          walletApi(env, dependencies);
+          await control.resolve(userId);
+        }
+        return json(await publicStatus(store, control, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'join' || action === 'notify') {
         exactKeys(body, ['action', 'launchData', action === 'join' ? 'notify' : 'allowed']);
@@ -221,7 +228,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
           // Without waitUntil the durable outbox is picked up by scheduled dispatch.
           if (context.waitUntil) void dispatch();
         }
-        return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
+        return json(await publicStatus(store, control, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'email/request') {
         exactKeys(body, ['action', 'launchData', 'email']);
@@ -340,13 +347,23 @@ export function createOperatorHandler(dependencies: Dependencies = {}) {
     try {
       const { db, legacy, origin } = configuration(env);
       if (new URL(request.url).origin !== origin || new URL(request.url).search) throw new AccessError('request_invalid');
-      const body = await readJson(request, 8192); exactKeys(body, ['action', 'userIds']);
+      const body = await readJson(request, 8192);
+      exactKeys(body, body.action === 'configure' ? ['action', 'threshold', 'paused', 'expectedRevision'] : ['action', 'userIds']);
       const store = new Store(db); const notifications = new NotificationStore(db, env, { fetch: dependencies.fetch });
+      const control = new AdmissionControl(db);
       await init(db, legacy, store, notifications, new Operations(db));
       if (body.action === 'list') {
         const rows = await store.enrollments();
-        return json({ capacity: await store.capacity(), users: rows.map(row => ({ userId: row.userId, state: row.state, joinedAt: row.joinedAt })) });
+        return json({ ...await control.snapshot(), users: rows.map(row => ({ userId: row.userId, state: row.state, joinedAt: row.joinedAt })) });
       }
+      if (body.action === 'configure') {
+        if (typeof body.threshold !== 'number' || !Number.isInteger(body.threshold) || body.threshold < 1 || body.threshold > 480
+          || typeof body.paused !== 'boolean' || typeof body.expectedRevision !== 'number' || !Number.isSafeInteger(body.expectedRevision)
+          || body.expectedRevision < 0 || body.expectedRevision === Number.MAX_SAFE_INTEGER) throw new AccessError('request_invalid');
+        if (!await control.configure(body.threshold, body.paused, body.expectedRevision)) throw new AccessError('policy_changed', 409);
+        return json(await control.snapshot());
+      }
+      if (body.action === 'activity') return json({ events: await control.activity(), ...await control.snapshot() });
       if (body.action === 'approve') {
         // An invitation must not promise a wallet while the passkey service is disabled.
         walletApi(env, dependencies);

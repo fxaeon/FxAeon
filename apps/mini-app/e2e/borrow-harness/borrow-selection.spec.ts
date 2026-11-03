@@ -820,7 +820,9 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
       const [overviewBox, formBox, historyBox] = await Promise.all([overview.boundingBox(), form.boundingBox(), history.boundingBox()]);
       expect(Math.abs(overviewBox!.y - formBox!.y)).toBeLessThanOrEqual(2);
       expect(overviewBox!.x + overviewBox!.width).toBeLessThanOrEqual(formBox!.x);
-      expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+      expect(Math.abs(historyBox!.x - overviewBox!.x)).toBeLessThanOrEqual(2);
+      expect(historyBox!.y).toBeGreaterThanOrEqual(overviewBox!.y + overviewBox!.height - 1);
+      expect(historyBox!.y - (overviewBox!.y + overviewBox!.height)).toBeLessThanOrEqual(32);
     }
     await page.screenshot({ path: info.outputPath(`borrow-funding-status-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);

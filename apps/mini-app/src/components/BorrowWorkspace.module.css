@@ -37,8 +37,8 @@
 .card :global(.sticky-action) { position: static; }
 .card :global(.sticky-action)::before { display: none; }
 @media (min-width: 840px) {
-  .workspace { min-height: calc(var(--tg-viewport-height, 100dvh) - var(--header-height) - var(--header-gap) - var(--shell-top-padding)); justify-content: flex-start; padding-block: 36px; }
-  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: min-content 1fr; grid-template-areas: 'overview action' 'details action'; column-gap: 64px; row-gap: 0; }
+  .workspace { min-height: 100%; justify-content: flex-start; padding-block: 36px; }
+  .layout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: min-content min-content; grid-template-areas: 'overview action' 'details action'; column-gap: 64px; row-gap: 28px; align-content: start; }
 }
 
 /* The view switch uses the shared segmented control and its sliding thumb;
@@ -147,13 +147,13 @@
   .metrics { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 1200px) {
-  /* Keep the market overview and form together as the first stage; funding
-     context and the optional scenario follow the taller column. */
-  .layout:not([data-review='true']) { grid-template-areas: 'overview action' 'funding sensitivity' 'funding .' 'terms terms'; grid-template-rows: max-content max-content auto min-content; row-gap: 24px; }
-  .details { display: contents; }
+  /* Keep funding context directly below the overview, independent of the
+     action form's height. Preserve the funding and scenario side-by-side. */
+  .layout:not([data-review='true']) { grid-template-areas: 'overview action' 'details action'; grid-template-rows: max-content max-content; row-gap: 28px; }
+  .details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'funding sensitivity' 'terms terms'; grid-auto-rows: max-content; gap: 24px; }
   .details > section { margin-bottom: 0; }
-  .details > section:first-child { grid-area: funding; }
-  .details > section:nth-child(2) { grid-area: sensitivity; }
+  .details > section:first-child { grid-area: funding; padding-top: 0; }
+  .details > section:nth-child(2) { grid-area: sensitivity; padding-top: 0; }
   .details > div { grid-area: terms; width: 100%; }
 }
 

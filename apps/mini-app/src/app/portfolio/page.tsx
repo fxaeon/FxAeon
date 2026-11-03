@@ -30,7 +30,6 @@ import {
 import { useProtocolPositions } from '@/components/ProtocolPositionProvider';
 import { ConfirmedPositionCards } from '@/components/ConfirmedPositionCards';
 import RecentActivityPreview from '@/components/RecentActivityPreview';
-import { RecentActivitySkeleton } from '@/components/WalletActivity';
 import TokenIcon from '@/components/TokenIcon';
 import { AppShell } from '@/components/ui';
 import { PageHeading, StatusNotice } from '@/components/ProductUI';
@@ -51,7 +50,10 @@ import { canonicalWalletBalancesSnapshot, mergeFreshCanonicalWalletBalances, por
 import { calculatePositionUsdValuation } from '@/lib/positionValuation';
 import { fxSaveUsdValue, normalizedFxSaveAssetsWei } from '@/lib/fxSaveUnits';
 import { haptic } from '@/lib/telegram';
-import { usePrivyWallet, useWalletReadyTimeout } from '@/lib/wallet';
+import { usePrivyWallet, useWalletReadyTimeout, type FxSelectedWallet } from '@/lib/wallet';
+import { portfolioConnectionState, portfolioState } from '@/lib/portfolioState';
+import { useDelayedPending } from '@/lib/useDelayedPending';
+import { WalletStartupState } from '@/components/WalletStartupState';
 import { useOverlayDialog } from '@/lib/useOverlayDialog';
 import { claimAvailability, type ClaimableLike } from '@/lib/earnState';
 import { selectWalletTasks } from '@/lib/taskState';
@@ -91,13 +93,20 @@ export default function PortfolioPage() {
 
 function PortfolioWallet() {
   const walletState = usePrivyWallet();
+  const connection = portfolioConnectionState({ ...walletState, address: walletState.selectedWallet?.address });
+  const walletTimedOut = useWalletReadyTimeout(connection !== 'unknown');
+  if (connection === 'unknown') return <div data-portfolio-state="unknown"><WalletStartupState timedOut={walletTimedOut} /></div>;
+  if (connection === 'disconnected' || !walletState.selectedWallet) return <div data-portfolio-state="disconnected"><DisconnectedPortfolio /></div>;
+  // Retire the old account's local snapshots and pending placeholder timer in
+  // the transition render, before effects can deliver any late reads.
+  return <ConnectedPortfolioWallet key={`${walletState.selectedWallet.address.toLowerCase()}:${walletState.chainId ?? ''}`} wallet={walletState.selectedWallet} />;
+}
+
+function ConnectedPortfolioWallet({ wallet }: { wallet: FxSelectedWallet }) {
   const positionState = useProtocolPositions();
-  const { ready, authenticated } = walletState;
-  const wallet = walletState.selectedWallet;
-  const walletTimedOut = useWalletReadyTimeout(ready && walletState.ready);
   const priceSnapshot = useUsdPrices();
   const displayPrices = freshDisplayPrices(priceSnapshot);
-  const walletAddress = authenticated && ready && walletState.ready ? wallet?.address : undefined;
+  const walletAddress = wallet.address;
   const identity = walletAddress?.toLowerCase() ?? '';
   const manualRefresh = useRefreshAction(identity);
   const walletBalances = useWalletBalances({ address: walletAddress, chainId: 1, enabled: Boolean(walletAddress) });
@@ -187,12 +196,6 @@ function PortfolioWallet() {
     void loadProtocol();
   }, [identity, loadProtocol, realtime.latestBlockNumber, realtime.status, walletAddress]);
 
-  // An initializing provider is not evidence of an account. Keep public
-  // discovery visible until an authenticated selected wallet is known.
-  // All wallet reads above still require ready and the verified address.
-  if (!authenticated || !wallet) return <DisconnectedPortfolio />;
-  if (!ready || !walletState.ready) return portfolioLoadingView({ timedOut: walletTimedOut, network, onNetworkChange: selectNetwork, selectedTab, onTabChange: selectTab });
-
   const loading = walletBalances.status === 'idle' || walletBalances.status === 'loading';
   const liveLoading = liveAssets.status === 'idle' || liveAssets.status === 'loading';
   const fxSaveLoading = fxSaveSnapshot.status === 'idle' || fxSaveSnapshot.status === 'loading';
@@ -240,12 +243,29 @@ function PortfolioWallet() {
     wallet.address, valuationNow);
   verifiedPortfolioTotalRef.current = headline.verified;
   const walletTasks = selectWalletTasks({ walletAddress: wallet.address, transactions: [], claimable: protocol.claimable });
+  const hasHoldings = Boolean(liveAssets.data?.assets.some(asset => asset.balanceWei > 0n)
+    || walletBalances.data?.balances.some(balance => balance.amountWei > 0n)
+    || positionState.positions.length || positionState.pendingPositions.length
+    || fxSaveSnapshot.fxSaveShares && /[1-9]/.test(fxSaveSnapshot.fxSaveShares)
+    || claimAvailability(protocol.claimable).status === 'ready');
+  const pending = loading || liveLoading || fxSaveLoading || claimableQuery.status === 'idle' || claimableQuery.status === 'loading'
+    || positionState.status === 'idle' || positionState.status === 'loading'
+    || hasHoldings && priceSnapshot.status === 'loading';
+  const state = portfolioState({ connection: 'connected', pending, hasHoldings,
+    failed: failedReads || liveAssets.status === 'unavailable' || liveAssets.status === 'partial'
+      || positionState.status === 'unavailable' || positionState.failedGroups.length > 0 || claimableQuery.status === 'unavailable'
+      || hasHoldings && !pending && !portfolioComplete });
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => { if (state !== 'connected-loading') setRevealed(true); }, [state]);
+  const initialPending = state === 'connected-loading' && !revealed;
+  const showSkeleton = useDelayedPending(initialPending);
 
   const refreshAll = () => {
     haptic('light');
     void manualRefresh.run([priceSnapshot.refresh, liveAssets.refresh, walletBalances.refresh, claimableQuery.refresh, loadProtocol, positionState.refresh]);
   };
-  return <div id="overview" className={presentation.dashboard}>
+  if (initialPending && !showSkeleton) return <div data-portfolio-state={state}><WalletStartupState label="Loading portfolio" /></div>;
+  return <div id="overview" className={presentation.dashboard} data-portfolio-state={state} aria-busy={initialPending}>
     <div className={presentation.primary}>
       <SupportedValueCard displayTotalUsd={headline.displayTotalUsd}
         // The total waits for verified positions and first prices; until then it is loading, not unavailable.
@@ -324,45 +344,6 @@ function ProtocolHoldings({ children }: { children: React.ReactNode }) {
   return <section id="portfolio-defi" className={presentation.protocolSection} aria-label="DeFi positions and savings">
     <div className={presentation.protocolBody}>{children}</div>
   </section>;
-}
-
-/**
- * Until the wallet provider is ready the page keeps its real layout: values
- * wait as placeholders in their final places while the actions and network
- * filter remain available, so nothing moves when the wallet arrives. It is a
- * plain view, not a component, and its children sit in the same slots as the
- * ready page's, so React updates them in place: a tapped action or a chosen
- * network survives the handoff.
- */
-function portfolioLoadingView({ timedOut, network, onNetworkChange, selectedTab, onTabChange }: {
-  timedOut: boolean; network: PortfolioNetwork; onNetworkChange: (network: PortfolioNetwork) => void; selectedTab: PortfolioTab; onTabChange: (tab: PortfolioTab) => void;
-}) {
-  if (timedOut) {
-    return <div id="overview" className={presentation.dashboard}>
-      <div className={presentation.primary}>
-        <StatusNotice tone="warning" title="Your wallet didn’t load"
-          action={<button type="button" onClick={() => window.location.reload()}>Try again</button>}>
-          Check your connection and try again. Your funds are unaffected.
-        </StatusNotice>
-      </div>
-    </div>;
-  }
-  return <div id="overview" className={presentation.dashboard} aria-busy="true">
-    <div className={presentation.primary}>
-      <SupportedValueCard displayTotalUsd={null} loading refreshing={false} onSelectActivity={() => onTabChange('activity')} />
-      {/* The ready page's wallet notices take this slot. */}
-      {null}
-      <PortfolioToolbar value={selectedTab} onChange={onTabChange} network={network} onNetworkChange={onNetworkChange} />
-      <div className={presentation.tabPanel} role="tabpanel" id="portfolio-tab-panel" aria-labelledby={`portfolio-tab-${selectedTab}`} tabIndex={selectedTab === 'activity' ? 0 : -1}>
-        {selectedTab === 'tokens' && <PortfolioAssets snapshot={null} loading network={network} />}
-        {selectedTab === 'defi' && <ProtocolHoldings>
-          <PositionsSection><PortfolioPositionSkeleton /></PositionsSection>
-          <EarnPositionCard protocol={{ ...EMPTY_FX_SAVE, balances: null }} loading prices={{}} pricesLoading />
-        </ProtocolHoldings>}
-        {selectedTab === 'activity' && <div className={presentation.activitySection}><RecentActivitySkeleton /></div>}
-      </div>
-    </div>
-  </div>;
 }
 
 function DisconnectedPortfolio() {

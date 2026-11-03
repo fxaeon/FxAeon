@@ -1,9 +1,7 @@
 'use client';
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -20,9 +18,6 @@ import {
   readAllPositionsDetailed,
   readCanonicalPositionState,
   unavailablePositionResult,
-  type PositionGroupFailure,
-  type PositionGroup,
-  type PositionReadResult,
   type UiPosition,
 } from '@/app/trade/fxUi';
 import { usePrivyWallet } from '@/lib/wallet';
@@ -31,33 +26,10 @@ import { confirmedPositionHintKey, confirmedPositionStorageKey, parseStoredPosit
 import { getEthereumClient, type PlannedRoute, type TransactionExecutionResult } from '@/lib/fx';
 import { useRealtimeChainState } from '@/components/WalletDataProvider';
 import { isForegroundOnline, subscribeToForegroundResume } from '@/lib/foreground';
+import { ProtocolPositionContext, type ProtocolPositionContextValue, type ProtocolPositionRefreshResult, type ProtocolPositionSnapshot } from './ProtocolPositionContext';
 
-export type ProtocolPositionStatus = 'idle' | 'loading' | 'ready' | 'partial' | 'unavailable';
-
-export interface ProtocolPositionRefreshResult extends PositionReadResult {
-  newPositions: UiPosition[];
-  readStartedAt?: number;
-  readCompletedAt?: number;
-}
-
-interface ProtocolPositionSnapshot {
-  walletAddress: string | null;
-  positions: UiPosition[];
-  status: ProtocolPositionStatus;
-  failedGroups: PositionGroupFailure[];
-  lastVerifiedAt: number | null;
-  refreshing: boolean;
-  verifiedGroups: PositionGroup[];
-}
-
-export interface ProtocolPositionContextValue extends ProtocolPositionSnapshot {
-  refresh: (options?: { afterConfirmation?: boolean }) => Promise<ProtocolPositionRefreshResult>;
-  pendingPositions: ConfirmedPositionHint[];
-  checkingConfirmedPositions: boolean;
-  refreshConfirmedPositions: () => Promise<void>;
-  trackConfirmedPosition: (execution: TransactionExecutionResult, route: PlannedRoute) => Promise<boolean>;
-  reconcileClosedPosition: (position: Pick<UiPosition, 'market' | 'side'> & { info: Pick<UiPosition['info'], 'positionId'> }) => Promise<boolean>;
-}
+export { useProtocolPositions } from './ProtocolPositionContext';
+export type { ProtocolPositionStatus, ProtocolPositionRefreshResult, ProtocolPositionContextValue } from './ProtocolPositionContext';
 
 const EMPTY_RESULT: ProtocolPositionRefreshResult = {
   positions: [],
@@ -80,8 +52,6 @@ function emptySnapshot(walletAddress: string | null = null): ProtocolPositionSna
     verifiedGroups: [],
   };
 }
-
-const ProtocolPositionContext = createContext<ProtocolPositionContextValue | null>(null);
 
 export default function ProtocolPositionProvider({ children, enabled = true }: { children: ReactNode; enabled?: boolean }) {
   const wallet = usePrivyWallet();
@@ -407,10 +377,4 @@ function ProtocolPositionSession({ address, enabled, children }: { address: stri
   return <PositionRefreshActivityContext.Provider value={acquireRefreshPause}>
     <ProtocolPositionContext.Provider value={value}>{children}</ProtocolPositionContext.Provider>
   </PositionRefreshActivityContext.Provider>;
-}
-
-export function useProtocolPositions(): ProtocolPositionContextValue {
-  const value = useContext(ProtocolPositionContext);
-  if (!value) throw new Error('useProtocolPositions must be used inside ProtocolPositionProvider');
-  return value;
 }

@@ -20,13 +20,7 @@ import { useT } from '@/lib/i18n';
 import styles from './ProviderLoadingState.module.css';
 import control from './HeaderWalletControl.module.css';
 import navigation from './ShellNavigation.module.css';
-import layout from './ProductLayout.module.css';
-import portfolio from './PortfolioWorkspace.module.css';
-import { PortfolioExploreView } from './PortfolioExploreView';
-import explore from './PortfolioExplore.module.css';
-import market from './MarketMiniCard.module.css';
-import TokenIcon from './TokenIcon';
-import { MissingValue } from './MissingValue';
+import { WalletStartupState } from './WalletStartupState';
 import activity from './WalletActivity.module.css';
 import account from '@/app/AccountWorkspace.module.css';
 import history from '@/app/history/History.module.css';
@@ -35,9 +29,9 @@ import { DesktopSidebar } from './DesktopSidebar';
 
 /*
  * The first paint, before the wallet providers load. It draws the app shell
- * (top bar and dock) and, on Portfolio, public discovery with the same classes
- * as the live page. Only public market values wait in their final places. Nothing here
- * can be focused or read out; the live page replaces it in place.
+ * (top bar and dock) and a neutral Portfolio placeholder while the account is
+ * unknown. Nothing here can be focused or read out; the live page replaces
+ * it in place.
  *
  * Presentation only: wallet initialization must not be needed to paint it, so
  * it imports styles and icons, never the page or its data modules.
@@ -71,14 +65,14 @@ export function ProviderLoadingState() {
     fallbackOnScreen = true;
     return () => { fallbackOnScreen = false; };
   }, []);
-  return <div data-product-ui="v2" className="app-shell app-shell-tabs" role="status" aria-label="Loading FxAeon" aria-busy="true">
+  return <div data-product-ui="v2" data-portfolio-state={portfolioRoute ? 'unknown' : undefined} className="app-shell app-shell-tabs" role="status" aria-label="Loading FxAeon" aria-busy="true">
     <span className="sr-only">Loading FxAeon</span>
     <DesktopSidebar pathname={pathname} loading />
     <div className="app-workspace" data-route={pathname} aria-hidden="true" inert>
       <ShellTopBar pathname={pathname} />
       {/* Shares .app-content's geometry but not the live page's scroll or card class names, which tests and scripts look up. */}
       <div className={`app-content ${styles.content} ${UTILITY_ROUTES.includes(pathname) ? 'utility-content' : ''}`}>
-        {portfolioRoute ? <PortfolioSilhouette /> : pathname === '/history' ? <HistorySilhouette /> : <>
+        {portfolioRoute ? <WalletStartupState /> : pathname === '/history' ? <HistorySilhouette /> : <>
           <div className={`skeleton ${styles.heading}`} />
           <div className={styles.workspace}>
             <div className={styles.overview}><span className="skeleton" /><span className="skeleton" /><span className="skeleton" /></div>
@@ -133,7 +127,7 @@ function ShellTopBar({ pathname }: { pathname: string }) {
           <span className={`skeleton ${control.placeholderName}`} />
         </span>
       </span>
-      <span data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Menu size={21} aria-hidden="true" /></span>
+      <button type="button" disabled tabIndex={-1} aria-label="More menu" data-mobile-more className={navigation.mobileMore} aria-current={isActive(pathname, MORE_TAB.href, MORE_TAB.also) ? 'page' : undefined}><Menu size={21} aria-hidden="true" /></button>
     </span>
   </div>;
 }
@@ -153,14 +147,5 @@ function ShellDock({ pathname }: { pathname: string }) {
         </span>)}
       </div>
     </div>
-  </div>;
-}
-
-/** Unknown wallet state never implies account holdings. */
-function PortfolioSilhouette() {
-  return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
-    <h1 className="sr-only">Portfolio</h1>
-    <PortfolioExploreView connect={<button type="button" tabIndex={-1} className={`button button-primary ${explore.connect}`}>Connect wallet</button>}
-      markets={<>{['ETH', 'BTC'].map(symbol => <div key={symbol} className={`${market.marketMiniCard} portfolio-market-card`} data-market-placeholder={symbol}><div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2"><TokenIcon symbol={symbol === 'BTC' ? 'WBTC' : 'ETH'} size={28} /><strong className="text-[13px]">{symbol}</strong></span><span className="text-[11px] font-semibold text-mut"><MissingValue width="md" /></span></div><p className="mt-3 text-display text-[20px] font-semibold tabular-nums"><MissingValue width="lg" /></p><div className="market-chart-compact mt-2 h-[54px]"><div className="market-chart-skeleton h-full" /></div></div>)}</>} />
   </div>;
 }

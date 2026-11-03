@@ -212,7 +212,7 @@ for (const theme of ['dark']) {
     await expect(page.locator('[data-review-fact="Liquidation price"]')).toBeInViewport();
     await expect(page.locator('[data-review-fact="Rebalance price"]')).toContainText(/≈ \$[\d,.]+ \/ stETH/);
     const collateral = page.locator('[data-review-fact="Estimated collateral"]').first();
-    await expect(collateral).toContainText('Position size · collateral');
+    await expect(collateral).toContainText('Position size');
     const collateralValue = collateral.locator('[data-usd-state="unavailable"]');
     await expect(collateralValue).toBeVisible();
     await expect(collateralValue).toHaveText(/^≈ [\d,.]+ stETH$/);

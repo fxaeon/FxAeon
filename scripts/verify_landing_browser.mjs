@@ -11,7 +11,7 @@ const { chromium, expect } = require('@playwright/test');
 const browserChannel = configuredBrowserChannel();
 const port = process.env.LANDING_TEST_PORT || '4319';
 const origin = `http://127.0.0.1:${port}`;
-const TELEGRAM = 'https://t.me/FxAeonBot';
+const TELEGRAM = 'https://t.me/FxAeonBot?startapp=';
 const WEB = 'https://fxaeon.com/';
 const routes = ['trade', 'earn', 'borrow', 'move'];
 const captures = resolve(root, 'artifacts/landing-review');
@@ -127,14 +127,6 @@ try {
   const fontRequests = new Set();
   const failedResponses = [];
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
-  await context.addInitScript(() => {
-    window.__sculptureDraws = 0;
-    const draw = WebGLRenderingContext.prototype.drawArrays;
-    WebGLRenderingContext.prototype.drawArrays = function (...args) {
-      window.__sculptureDraws += 1;
-      return draw.apply(this, args);
-    };
-  });
   let feedMode = 'ready';
   await context.route('**/api/market-data', route => feedMode === 'offline'
     ? route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
@@ -149,20 +141,14 @@ try {
   page.on('response', response => { if (response.status() >= 400 && !response.url().endsWith('/api/market-data')) failedResponses.push(response.url()); });
   await page.goto(origin, { waitUntil: 'networkidle' });
   await page.evaluate(() => document.fonts.ready);
-  await expect(page.locator('.capital-art')).toHaveAttribute('data-rendered', 'true');
-  const stillDraws = await page.evaluate(() => window.__sculptureDraws);
-  await page.waitForTimeout(200);
-  assert.equal(await page.evaluate(() => window.__sculptureDraws), stillDraws, 'Reduced motion renders a complete still without a loop');
-
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
   assert.equal(await page.locator('.outcome-panel').count(), 3);
   assert.equal(await page.locator('.site-header a[href="https://fxaeon.com/"]').count(), 0, 'The header does not duplicate the hero launch action');
   const footerApp = page.locator('.footer-invite .footer-launch');
   await expect(footerApp).toHaveAttribute('href', WEB);
   const footerAppBox = await footerApp.boundingBox();
   assert.ok(footerAppBox?.width >= 44 && footerAppBox?.height >= 44, 'The footer app action remains touch-sized');
-  await expect(page.locator('.hero .lede + .hero-credit')).toHaveText('Powered by f(x) SDK');
-  assert.equal(await page.locator('.hero').getByText('Built on f(x) Protocol', { exact: true }).count(), 0);
+  await expect(page.locator('.hero .hero-credit')).toHaveText('Built on f(x) Protocol');
   const productCards = page.locator('#products .product-card');
   assert.equal(await productCards.count(), 4);
   assert.equal(await page.locator('#products details').count(), 0, 'Products retain the compact artwork cards from the live site');
@@ -186,7 +172,13 @@ try {
     ], `${route} opens the real web app on a phone`);
   }
   assert.ok(await page.locator('a[href="https://fxaeon.com/move"]').count());
-  await assertTextContrast(page, 'main h1, summary, footer .footer-invite h2', 'dark theme');
+  await assertTextContrast(page, 'main h1, summary, footer .footer-invite h2', 'light theme');
+  await assertTextContrast(page, '.hero .lede, .hero-credit, .card-copy h3, .card-copy p, .product-caption', 'hero and product text');
+  for (const heroMarkColor of await page.locator('.hero-emblem path').evaluateAll(elements => elements.map(element => getComputedStyle(element).fill))) {
+    const heroMarkRgb = parseRgb(heroMarkColor);
+    assert.ok(heroMarkRgb && 1.05 / (luminance(heroMarkRgb) + 0.05) >= 4.5, 'White body text contrasts with each moving hero mark, not only the base canvas');
+  }
+
   await checkNoOverflow(page, 390);
 
   const amount = page.getByRole('textbox', { name: 'Amount in US dollars' });
@@ -278,7 +270,7 @@ try {
   const dialog = page.locator('dialog[open]');
   assert.equal(await dialog.count(), 1);
   assert.ok(await dialog.getAttribute('aria-label'));
-  await assertTextContrast(page, 'dialog a', 'dark menu');
+  await assertTextContrast(page, 'dialog a', 'light menu');
   assert.equal(await dialog.evaluate((element) => element.open), true);
   assert.equal(await opener.getAttribute('aria-expanded'), 'true');
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).overflow), 'hidden');
@@ -329,13 +321,13 @@ try {
   await expect(page.locator('.nav-links a').first()).toBeFocused();
   await page.setViewportSize({ width: 390, height: 844 });
 
-  // Old light-theme preferences are cleared and the landing stays dark-only.
+  // Old light-theme preferences are cleared and the landing stays light-only.
   assert.equal(await page.locator('.theme-toggle').count(), 0);
-  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#101214');
+  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#f5f4ef');
   await page.evaluate(() => localStorage.setItem('fxaeon-theme', 'light'));
   await page.reload({ waitUntil: 'networkidle' });
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark', 'The landing remains dark-only after reload');
-  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#101214');
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light', 'The landing remains light-only after reload');
+  assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#f5f4ef');
   assert.equal(await page.evaluate(() => localStorage.getItem('fxaeon-theme')), null, 'Legacy theme preference is removed');
 
   // Device routing depends on CSS capability, and narrow screens remain usable.
@@ -367,6 +359,27 @@ try {
     assert.deepEqual(smallTargets, [], `Touch targets remain44px at ${width}px`);
   }
 
+  // A narrow phone must show the complete usable form in the first viewport,
+  // without clipping any interactive element inside its ancestors.
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto(origin, { waitUntil: 'networkidle' });
+  for (const selector of ['.hero h1', '.hero .actions a']) {
+    for (const element of await page.locator(selector).all()) {
+      const box = await element.boundingBox();
+      assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 320 && box.y + box.height <= 568, `${selector} fits the 320px opening viewport: ${JSON.stringify(box)}`);
+      if (selector !== '.hero h1') assert.ok(box.width >= 44 && box.height >= 44, `${selector} has a 44px target: ${JSON.stringify(box)}`);
+      assert.equal(await element.evaluate(node => {
+        const rect = node.getBoundingClientRect();
+        for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+          const style = getComputedStyle(parent), bounds = parent.getBoundingClientRect();
+          if (['hidden', 'clip'].includes(style.overflowX) && (rect.left < bounds.left || rect.right > bounds.right)) return true;
+          if (['hidden', 'clip'].includes(style.overflowY) && (rect.top < bounds.top || rect.bottom > bounds.bottom)) return true;
+        }
+        return false;
+      }), false, `${selector} is not clipped`);
+    }
+  }
+
   const reduced = await page.evaluate(() => ({
     scroll: getComputedStyle(document.documentElement).scrollBehavior,
     transition: getComputedStyle(document.querySelector('.button')).transitionDuration,
@@ -378,47 +391,23 @@ try {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.reload({ waitUntil: 'networkidle' });
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
-  const heroMotion = await page.locator('.hero h1 span').evaluate((element) => {
-    const style = getComputedStyle(element);
-    return { name: style.animationName, iterations: style.animationIterationCount, color: style.color };
-  });
-  assert.equal(heroMotion.name, 'none', 'The hero heading stays still while the sculpture moves');
-  await page.locator('.hero').scrollIntoViewIfNeeded();
-  await expect(page.locator('.capital-art')).toHaveAttribute('data-rendered', 'true');
-  const activeDraws = await page.evaluate(() => window.__sculptureDraws);
-  await expect.poll(() => page.evaluate(() => window.__sculptureDraws)).toBeGreaterThan(activeDraws);
-  const beforeMotion = await page.locator('.capital-canvas').screenshot();
-  await expect.poll(async () => Buffer.compare(await page.locator('.capital-canvas').screenshot(), beforeMotion) !== 0, { timeout: 6000, message: 'Visible motion changes the sculpture pixels during its peel cycle' }).toBe(true);
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  const hiddenDraws = await page.evaluate(() => window.__sculptureDraws);
-  await page.waitForTimeout(150);
-  assert.equal(await page.evaluate(() => window.__sculptureDraws), hiddenDraws, 'Hidden-page visibility stops sculpture rendering');
-  await page.evaluate(() => {
-    delete document.hidden;
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
-  await page.locator('.site-footer').scrollIntoViewIfNeeded();
-  await page.waitForTimeout(100);
-  const offscreenDraws = await page.evaluate(() => window.__sculptureDraws);
-  await page.waitForTimeout(150);
-  assert.equal(await page.evaluate(() => window.__sculptureDraws), offscreenDraws, 'Offscreen sculpture does not render');
-  assert.equal(await page.locator('.site-header').evaluate((element) => getComputedStyle(element).backgroundColor), 'rgb(16, 18, 20)', 'Scrolled navigation stays opaque over the page');
-  assert.equal(await page.locator('.motion-toggle').count(), 0, 'The footer has no animation control');
+  assert.equal(await page.locator('.hero-line > span').first().evaluate(element => getComputedStyle(element).animationName), 'type-arrive');
+  for (const route of routes) {
+    const card = page.locator(`.${route}-card`);
+    const link = card.locator('.product-link');
+    await link.focus();
+    await expect(link).toBeFocused();
+    assert.equal(await card.evaluate(element => getComputedStyle(element).outlineStyle), 'solid', 'Product focus outlines the full tile');
+    for (const icon of await card.locator('img').all()) assert.ok(await icon.evaluate(image => image.complete && image.naturalWidth > 0));
+  }
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForFunction(() => document.documentElement.dataset.motion === 'off');
-  const reducedDraws = await page.evaluate(() => window.__sculptureDraws);
-  await page.waitForTimeout(150);
-  assert.equal(await page.evaluate(() => window.__sculptureDraws), reducedDraws, 'Changing the motion preference stops the sculpture loop');
-  assert.equal(await page.locator('html').getAttribute('data-motion'), 'off');
-  assert.equal(await page.evaluate(() => document.getAnimations().length), 0, 'The system preference stops decorative motion');
+  assert.equal(await page.locator('.hero-line > span').first().evaluate(element => getComputedStyle(element).animationName), 'none');
+  assert.equal(await page.evaluate(() => document.getAnimations().length), 0, 'Reduced motion stops entrance animation');
+  assert.equal(await page.locator('.site-header').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(245, 244, 239)', 'Scrolled navigation stays opaque over the page');
+  assert.equal(await page.locator('.motion-toggle').count(), 0);
   await page.reload({ waitUntil: 'networkidle' });
   assert.equal(await page.locator('html').getAttribute('data-motion'), 'off', 'Reduced motion is respected after reload');
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.waitForFunction(() => document.documentElement.dataset.motion === 'on');
-  assert.equal(await page.locator('html').getAttribute('data-motion'), 'on');
 
   // Product cards and their actions remain available on phone and desktop,
   // with reduced motion enabled.
@@ -447,6 +436,9 @@ try {
   await staticPage.goto(origin, { waitUntil: 'networkidle' });
   assert.deepEqual(await visibleRoutes(staticPage, '.site-header .nav-links a'), ['#products', '#outcomes', '#telegram', 'https://fxaeon.com/docs'], 'Phone navigation remains available without JavaScript');
   await expect(staticPage.locator('.menu-toggle')).toBeHidden();
+  await expect(staticPage.locator('.calculator-controls')).toBeHidden();
+  await expect(staticPage.locator('.outcome-frame')).toBeHidden();
+  for (const route of routes) await expect(staticPage.locator(`.${route}-card .product-link`)).toHaveAttribute('href', `https://fxaeon.com/${route}`);
   assert.deepEqual(await visibleRoutes(staticPage, '.hero .actions a'), [WEB, TELEGRAM]);
   await checkNoOverflow(staticPage, 320);
   await staticPage.locator('.nav-links a[href="#products"]').click();
@@ -475,39 +467,7 @@ try {
   }
   await writeFile(resolve(captures, 'fixture-note.txt'), 'Screenshots use deterministic test data: TVL$12,345,678, APY6.5%, ETH$2,500, BTC$80,000. These are test fixtures, not current market claims.\n');
 
-  await page.goto(origin, { waitUntil: 'networkidle' });
-  await page.evaluate(() => document.querySelector('.capital-canvas').getContext('webgl').getExtension('WEBGL_lose_context').loseContext());
-  await expect(page.locator('.capital-art')).not.toHaveAttribute('data-rendered');
-  await page.setViewportSize({ width: 390, height: 900 });
-  await expect(page.locator('.capital-still')).toHaveCSS('opacity', '1');
-  await expect(page.locator('.capital-canvas')).toHaveCSS('opacity', '0');
-
-  for (const mode of ['no-webgl', 'save-data', 'no-script']) {
-    const fallbackContext = await browser.newContext({ javaScriptEnabled: mode !== 'no-script', reducedMotion: 'reduce' });
-    await fallbackContext.route('**/api/market-data', route => route.fulfill({ json: marketFixture() }));
-    if (mode === 'save-data') await fallbackContext.addInitScript(() => Object.defineProperty(navigator, 'connection', { value: { saveData: true } }));
-    if (mode === 'no-webgl') await fallbackContext.addInitScript(() => {
-      const getContext = HTMLCanvasElement.prototype.getContext;
-      HTMLCanvasElement.prototype.getContext = function (type, ...args) { return type === 'webgl' ? null : getContext.call(this, type, ...args); };
-    });
-    const fallbackPage = await fallbackContext.newPage();
-    for (const width of [390, 1280]) {
-      await fallbackPage.setViewportSize({ width, height: 900 });
-      await fallbackPage.goto(origin, { waitUntil: 'networkidle' });
-      await fallbackPage.evaluate(() => document.fonts.ready);
-      const still = fallbackPage.locator('.capital-still img');
-      await expect(fallbackPage.locator('.capital-still')).toHaveCSS('opacity', '1');
-      assert.ok(await still.evaluate(image => image.complete && image.naturalWidth > 0), `${mode} artwork loads`);
-      assert.ok((await still.getAttribute('src')).endsWith('capital-sculpture-desktop.png'));
-      assert.ok((await still.evaluate(image => image.currentSrc)).includes(width === 390 ? 'mobile.png' : 'desktop.png'), `${mode} uses the intended responsive composition`);
-      assert.deepEqual(await visibleRoutes(fallbackPage, '.hero .actions a'), [WEB, TELEGRAM]);
-      await checkNoOverflow(fallbackPage, width);
-      if (mode === 'no-script') await fallbackPage.screenshot({ path: resolve(captures, `fallback-${width}px.png`) });
-    }
-    await fallbackContext.close();
-  }
-
-console.log('Landing browser checks passed: USD scenarios, feed freshness/recovery, keyboard tabs/menu, routes,44px targets, contrast, responsive overflow, sculpture motion/pausing/fallbacks and local-only requests.');
+console.log('Landing browser checks passed: USD scenarios, feed freshness/recovery, keyboard tabs/menu, routes,44px targets, contrast, responsive overflow, product artwork and reduced-motion/no-JavaScript fallbacks and local-only requests.');
 } finally {
   await browser?.close();
   server.kill();

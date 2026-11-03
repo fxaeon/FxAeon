@@ -74,7 +74,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { if (server) await new Promise<void>((done, reject) => server.close((error) => error ? reject(error) : done())); });
 
-async function openHarness(page: Page, wallets: 'none' | 'single' | 'multiple' | 'legacy' = 'none', path = '/', extra = '', environment: 'desktop' | 'mobile' | 'unknown' | 'native' = 'desktop') {
+async function openHarness(page: Page, wallets: 'none' | 'single' | 'multiple' | 'legacy' = 'none', path = '/', extra = '', environment: 'desktop' | 'mobile' | 'unknown' | 'native' = 'desktop', waitForReady = true) {
   const requests: string[] = []; const errors: string[] = [];
   page.on('request', (request) => requests.push(request.url()));
   page.on('pageerror', (error) => errors.push(error.message));
@@ -89,7 +89,7 @@ async function openHarness(page: Page, wallets: 'none' | 'single' | 'multiple' |
     Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: device === 'unknown' ? undefined : { mobile: device === 'mobile' } });
   }, environment);
   await page.goto(`${origin}${path}?wallets=${wallets}${extra}`);
-  await expect(page.locator('[data-harness-ready="true"]')).toBeVisible();
+  await expect(page.locator(waitForReady ? '[data-harness-ready="true"]' : 'main')).toBeVisible();
   return { requests, errors };
 }
 async function showOtherWallets(page: Page) {
@@ -309,10 +309,10 @@ for (const wallet of [
       localStorage.setItem('fxaeon:wallet-provider-rdns', rdns);
       localStorage.setItem('fxaeon:browser-wallet-address', address);
     }, { rdns: wallet.rdns, address: accountA });
-    const observation = await openHarness(page, 'none', '/', '&authorized=1');
-    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+    const observation = await openHarness(page, 'none', '/', '&authorized=1', 'desktop', false);
     // Deliberately arrive after the existing 200ms initialization pass.
     await page.waitForTimeout(300);
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
     await page.evaluate((namespace) => {
       const provider = globalThis.__mobileWalletHarness.wallets[0].provider;
       Object.assign(window, { [namespace]: namespace === 'phantom' || namespace === 'trustwallet' ? { ethereum: provider } : provider });
@@ -351,6 +351,8 @@ test('focus retires a replaced passive namespace and restores only the newly val
 });
 
 test('a namespace replacement cancels a held passive restore and validates the new object without waiting for old RPC', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript((address) => {
     localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
     localStorage.setItem('fxaeon:browser-wallet-address', address);
@@ -360,8 +362,10 @@ test('a namespace replacement cancels a held passive restore and validates the n
       Object.assign(window, { okxwallet: h.wallets[0].provider });
     });
   }, accountA);
-  const observation = await openHarness(page, 'none', '/', '&authorized=1');
+  // This scenario deliberately holds restoration; mounting is not readiness.
+  await page.goto(`${origin}/?wallets=none&authorized=1`);
   await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBeGreaterThan(0);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
   await page.evaluate((address) => {
     const h = globalThis.__mobileWalletHarness;
     h.wallets[1].setAccountsSilently([address]);
@@ -369,6 +373,7 @@ test('a namespace replacement cancels a held passive restore and validates the n
     window.dispatchEvent(new Event('ethereum#initialized'));
   }, accountA);
   await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
   await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].listenerCount('accountsChanged'))).toBe(0);
   await page.evaluate(async () => {
     const wallet = globalThis.__mobileWalletHarness.wallets[0];
@@ -378,17 +383,24 @@ test('a namespace replacement cancels a held passive restore and validates the n
   await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
   await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[1].listenerCount('accountsChanged'))).toBe(1);
   expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts')).toEqual([]);
-  expect(observation.errors).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
 test('initialization after startup observation still restores silently, while manual disconnect blocks later initialization', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-04T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-04T00:01:00Z'));
   await page.addInitScript((address) => {
     localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
     localStorage.setItem('fxaeon:browser-wallet-address', address);
   }, accountA);
-  const observation = await openHarness(page, 'none', '/', '&authorized=1');
+  // Mount first, then advance discovery explicitly. Waiting for readiness
+  // here races Playwright's assertion timeout against the discovery deadline.
+  const observation = await openHarness(page, 'none', '/', '&authorized=1', 'desktop', false);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+  await page.clock.runFor(5_100);
   await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
-  await page.waitForTimeout(5_100);
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  expect((await snapshot(page)).calls.flat()).toEqual([]);
   await page.evaluate(() => {
     Object.assign(window, { okxwallet: globalThis.__mobileWalletHarness.wallets[0].provider });
     window.dispatchEvent(new Event('ethereum#initialized'));
@@ -420,6 +432,96 @@ test('selected legacy provider stays pinned after window.ethereum replacement an
   expect((await snapshot(page)).calls[1]).toEqual([]);
   expect(observation.errors).toEqual([]);
 });
+
+for (const injection of ['announcement', 'namespace'] as const) {
+  test(`saved-session discovery stays pending after 200ms until delayed ${injection} restores`, async ({ page }) => {
+    await page.clock.install();
+    await page.addInitScript((address) => {
+      localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
+      localStorage.setItem('fxaeon:browser-wallet-address', address);
+    }, accountA);
+    await page.goto(`${origin}/?wallets=none&authorized=1&holdAuto=1`);
+    await expect(page.locator('main')).toBeVisible();
+    await page.evaluate(`window.__disconnectedFrames = []; new MutationObserver(() => {
+      const main = document.querySelector('main');
+      if (main.dataset.harnessReady === 'true' && main.dataset.connected === 'false') window.__disconnectedFrames.push('disconnected');
+    }).observe(document.querySelector('main'), { attributes: true });`);
+    await page.clock.runFor(600);
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+    expect((await snapshot(page)).calls.flat()).toEqual([]);
+    await page.evaluate((injection) => {
+      const h = globalThis.__mobileWalletHarness;
+      if (injection === 'announcement') h.announceAs(0, 'OKX Wallet', 'com.okex.wallet');
+      else Object.assign(window, { okxwallet: h.wallets[0].provider });
+    }, injection);
+    await page.clock.runFor(250);
+    await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBeGreaterThan(0);
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+    await page.evaluate(() => {
+      const wallet = globalThis.__mobileWalletHarness.wallets[0];
+      wallet.holdAccounts = false; wallet.settleAccounts();
+    });
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+    await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+    expect(await page.evaluate('window.__disconnectedFrames')).toEqual([]);
+    expect((await snapshot(page)).calls.flat().filter(call => call.method === 'eth_requestAccounts' || call.method === 'eth_sendTransaction')).toEqual([]);
+  });
+}
+
+test('saved-session discovery releases disconnection at its deadline when no provider arrives', async ({ page }) => {
+  await page.clock.install();
+  await page.goto(`${origin}/?wallets=none&remembered=1&authorized=1`);
+  await expect(page.locator('main')).toBeVisible();
+  await page.clock.runFor(600);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+  await page.clock.runFor(5_000);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  await expect(page.locator('main')).toHaveAttribute('data-address', '');
+  expect((await snapshot(page)).calls.flat()).toEqual([]);
+});
+
+test('new visitors resolve promptly and explicit disconnect cancels saved-session discovery', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-04T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-04T00:01:00Z'));
+  await page.goto(`${origin}/?wallets=none`);
+  await expect(page.locator('main')).toBeVisible();
+  // No discovery/authentication timer is needed when there is no saved session.
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+  await page.goto(`${origin}/?wallets=none&remembered=1&authorized=1`);
+  await expect(page.locator('main')).toBeVisible();
+  await page.clock.runFor(350);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+  await page.getByRole('button', { name: 'Disconnect wallet', exact: true }).click();
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+  await page.evaluate(() => globalThis.__mobileWalletHarness.announce(0));
+  await page.clock.runFor(5_000);
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  expect((await snapshot(page)).calls.flat()).toEqual([]);
+});
+
+for (const result of ['restored', 'authorization revoked', 'read failed']) {
+  test(`wallet readiness waits for a held saved-session read (${result})`, async ({ page }) => {
+    const authorized = result === 'restored';
+    await page.clock.install();
+    await page.goto(`${origin}/?wallets=single&remembered=1&holdAuto=1&authorized=${authorized ? '1' : '0'}&failAuto=${result === 'read failed' ? '1' : '0'}`);
+    await expect(page.locator('main')).toBeVisible();
+    await page.clock.runFor(500);
+    await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBeGreaterThan(0);
+    // Discovery must not resolve readiness ahead of a held restoration read.
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+    await expect(page.locator('main')).toHaveAttribute('data-address', '');
+    await page.evaluate(() => {
+      const wallet = globalThis.__mobileWalletHarness.wallets[0];
+      wallet.holdAccounts = false;
+      wallet.settleAccounts();
+    });
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+    await expect(page.locator('main')).toHaveAttribute('data-connected', String(authorized));
+    await expect(page.locator('main')).toHaveAttribute('data-address', authorized ? accountA : '');
+    expect((await snapshot(page)).calls.flat().filter((call) => call.method === 'eth_requestAccounts')).toEqual([]);
+  });
+}
 
 test('an exact remembered announced wallet restores and stays pinned after provider replacement', async ({ page }) => {
   const observation = await openHarness(page, 'single', '/', '&authorized=1&remembered=1');
@@ -613,6 +715,8 @@ test('chainChanged during a held chain read rejects its stale snapshot before si
 
 for (const duplicateIdentity of [false, true]) {
   test(`a ${duplicateIdentity ? 'duplicate identity invalidates' : 'distinct wallet preserves'} an exact remembered restore`, async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-11-04T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-11-04T00:01:00Z'));
     await page.goto(`${origin}/?wallets=single&authorized=1&remembered=1&holdAuto=1`);
     await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBe(1);
     await page.evaluate((duplicate) => {
@@ -624,8 +728,24 @@ for (const duplicateIdentity of [false, true]) {
       harness.wallets[0].holdAccounts = false;
       harness.wallets[0].settleAccounts();
     }, duplicateIdentity);
-    await expect(page.locator('[data-harness-ready="true"]')).toBeVisible();
-    await expect(page.locator('main')).toHaveAttribute('data-address', duplicateIdentity ? '' : accountA);
+    // A conflict is resolved disconnection, not a missing bridge. Neither
+    // branch should need the five-second startup discovery deadline to run.
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+    for (const consumer of [page.locator('main'), page.getByTestId('second-wallet-consumer')]) {
+      await expect(consumer).toHaveAttribute('data-connected', String(!duplicateIdentity));
+      await expect(consumer).toHaveAttribute('data-address', duplicateIdentity ? '' : accountA);
+      await expect(consumer).toHaveAttribute('data-restoring', 'false');
+      await expect(consumer).toHaveAttribute('data-prompt', 'false');
+      await expect(consumer).toHaveAttribute('data-portfolio-connection', duplicateIdentity ? 'disconnected' : 'connected');
+    }
+    if (duplicateIdentity) {
+      // Release connector retry/cleanup timers after checking immediate UI.
+      // The old authorized snapshot must remain fenced after discovery ends.
+      await page.clock.runFor(5_100);
+      await expect(page.locator('main')).toHaveAttribute('data-portfolio-connection', 'disconnected');
+      await expect(page.locator('main')).toHaveAttribute('data-address', '');
+      await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].listenerCount('accountsChanged'))).toBe(0);
+    }
     expect((await snapshot(page)).calls[1]).toEqual([]);
     expect((await snapshot(page)).calls.flat().filter((call) => call.method === 'eth_requestAccounts')).toEqual([]);
   });

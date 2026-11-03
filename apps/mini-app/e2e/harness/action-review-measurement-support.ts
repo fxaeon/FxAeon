@@ -28,7 +28,7 @@ const mocks: Record<string, string> = {
     export const getPublicClient = unexpectedRead;
     export const getEthereumClient = unexpectedRead;
     export const getFxReadFacade = unexpectedRead;
-    export const FX_TOKENS = { ETH: { key: 'ETH', address: '0x0000000000000000000000000000000000000000', decimals: 18, native: true }, USDC: { key: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };
+    export { FX_TOKENS } from '@/lib/fx/tokens';
     // The real fee copy, so the review's max and its shortfall notice are checked together.
     export { formatRouteGasCost } from '@/lib/fx/gasCost';
     export const useRouteGasCost = () => H().gasCost;
@@ -223,7 +223,7 @@ export const useInvalidateWalletData = () => async () => {
   // ActionReview uses router.push for its completion links. This harness
   // mounts into an existing document rather than Next's App Router tree.
   'next/navigation': `export const useRouter = () => ({ push: () => {}, replace: () => {}, prefetch: () => {} });`,
-  '@/lib/fx/tokens': `export const FX_TOKENS = { WETH: { key: 'WETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18 }, fxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, fxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
+  '@/lib/fx/tokens': `import { FX_TOKENS as actual } from './src/lib/fx/tokens'; export const FX_TOKENS = { ...actual, legacyFxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, legacyFxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
 };
 
 export async function buildHarness(): Promise<{ script: string; css: string }> {

@@ -46,7 +46,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>Start with the wallet, asset, and network you intend to use. You can explore FxAeon before connecting; submitting an action requires a wallet and a fresh review.</p>
     <ol className={styles.steps}>
       <li><h3 id="start-open">Open FxAeon</h3><p>Launch <ExternalLink href="https://t.me/FxAeonBot">@FxAeonBot</ExternalLink> in Telegram or open the <a href="/">web app</a>. Portfolio is the starting point; a product link can open a particular screen directly.</p></li>
-      <li><h3 id="start-wallet">Choose your wallet</h3><p>In a browser, choose <strong>Connect wallet</strong> and select your existing wallet. Inside Telegram, follow the access screen. Once invited, set up a passkey for your Privy wallet. Check the selected address before adding funds. See <a href="/docs/guide/access">Browser &amp; Telegram</a> for the two connection paths.</p></li>
+      <li><h3 id="start-wallet">Choose your wallet</h3><p>In a browser, choose <strong>Connect wallet</strong> and select your existing wallet. Inside Telegram, choose <strong>Set up my wallet</strong> when a place is available, or join the waitlist. Check the selected address before adding funds. See <a href="/docs/guide/access">Browser &amp; Telegram</a> for the two connection paths.</p></li>
       <li><h3 id="start-fund">Add funds on the right network</h3><p>Open <a href="/qr">Receive</a> to inspect and copy the complete address or scan its QR code. Send an asset supported by your chosen action on the required network. Keep ETH there for transaction fees: ETH on Base cannot pay an Ethereum fee.</p></li>
       <li><h3 id="start-review">Build and review the action</h3><p>Choose a product, enter an amount, and read the action button if something is missing. Open the review and check amounts, assets, networks, fees, limits, and any recipient. The <a href="/docs/guide/review">review guide</a> explains estimates and exact values.</p></li>
       <li><h3 id="start-confirm">Confirm and follow the result</h3><p>Confirm the request shown by your wallet. An approval can come before the action, so one review may involve several wallet requests. Wait for the result and its receipt link. A submitted bridge also needs destination delivery verification.</p></li>
@@ -61,8 +61,8 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="access-telegram">Sign in through Telegram</h3>
     <ol>
       <li>Open <ExternalLink href="https://t.me/FxAeonBot">@FxAeonBot</ExternalLink> and launch its Mini App.</li>
-      <li>Join the waitlist with your Telegram account. Allow Telegram notifications or verify an optional email address to receive your invitation.</li>
-      <li>Once approved, create a synced passkey for your Privy wallet. Your phone may open its browser to complete this step. Keep access to both your Telegram account and the password manager that stores the passkey.</li>
+      <li>Choose <strong>Set up my wallet</strong> when a place is available. If access is full or paused, join the waitlist and allow Telegram invitations or verify an optional email address.</li>
+      <li>Create a synced passkey for your Privy wallet. Your phone may open its browser to complete this step. Keep access to both your Telegram account and the password manager that stores the passkey.</li>
       <li>Check the selected wallet address before adding funds. A passkey approval is required for each transaction.</li>
     </ol>
     <p>Telegram provides native Back navigation, sizing, and haptics. Signing in does not approve a token or submit an onchain action.</p>
@@ -148,7 +148,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
       <li>Confirm any token approval, then the deposit. After confirmation, inspect the receipt and refreshed fxSAVE balance.</li>
     </ol>
     <h3 id="earn-deposit-protection">Understand the deposit minimum</h3>
-    <p>For routed fxUSD and USDC deposits, the pinned SDK supplies a fixed floor checked in <strong>fxSP base-pool-share units</strong>. It is not a separately enforced final fxSAVE minimum, and changing a slippage preference does not set a custom deposit tolerance. A direct fxSP deposit has no routed minimum-output floor.</p>
+    <p>For routed fxUSD and USDC deposits, your selected slippage sets a minimum checked in <strong>fxSP base-pool-share units</strong>. It is not a separately enforced final fxSAVE minimum. A direct fxSP deposit has no routed minimum-output floor.</p>
     <p>The review keeps an estimated fxSAVE output separate from a minimum expressed in fxSP. Read the units rather than treating those figures as interchangeable. The <a href="/docs/sdk/earn#depositFxSave">deposit method reference</a> explains the integration limitation.</p>
     <h3 id="earn-withdraw">Choose a withdrawal route</h3>
     <p>Select <strong>Withdraw</strong>, enter the fxSAVE shares to redeem, and choose the receive asset or withdrawal route.</p>
@@ -246,7 +246,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>If ETH is short, the review identifies the network and the amount to add when it can establish one. <strong>Receive ETH</strong> opens the funding path. Add funds on that network and prepare a fresh review. A verified receipt supplies the actual charged network fee after execution.</p>
     <h3 id="fees-slippage">Set the applicable slippage limit</h3>
     <p>Max slippage is the adverse price movement you permit between quote and execution. A lower tolerance can cause a transaction to revert; a higher tolerance permits a less favorable execution. It is different from the protocol fee and price impact.</p>
-    <p>The gear on Trade, position actions, and applicable instant fxSAVE withdrawals offers 0.1%, 0.5%, 1%, 2%, or a custom value greater than zero and up to 2%. Routed fxSAVE deposits use the <a href="/docs/guide/earn#earn-deposit-protection">SDK’s fixed base-pool-share floor</a>; the chosen slippage preference does not create a final fxSAVE minimum. Borrow and Move retain their action-specific limits.</p>
+    <p>The gear on Trade, position actions, routed fxSAVE deposits, and applicable instant fxSAVE withdrawals offers 0.1%, 0.5%, 1%, 2%, or a custom value greater than zero and up to 2%. Routed fxSAVE deposits apply slippage to the <a href="/docs/guide/earn#earn-deposit-protection">base-pool-share minimum</a>, not a final fxSAVE minimum. Borrow and Move retain their action-specific limits.</p>
     <h3 id="fees-settings">Wallet and saved settings</h3>
     <p>Network speed applies to the built-in wallet. An external wallet controls its own gas settings, so a form with only gas settings can hide the gear for that wallet. Settings are saved on this device and update open forms. Always read the wallet prompt and the current review before confirming.</p>
     <p>See <a href="/docs/guide/review">Review &amp; confirmation</a> for exact fees, changed terms, and receipts.</p>

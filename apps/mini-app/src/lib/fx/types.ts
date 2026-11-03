@@ -99,6 +99,8 @@ export interface RouteDetails {
     actionData: Hex;
     readAt: number;
     estimatedOutput?: string;
+    /** The instant estimate includes the direct, same-token redemption leg. */
+    identityOutputIncluded?: boolean;
     instantFeeRatio?: string;
     grossFxUSD?: string;
     grossUSDC?: string;
@@ -361,7 +363,7 @@ type ReviewedActionIntentBase =
       amount: bigint;
       receiver: Address;
       directBasePool: boolean;
-      /** Not set by FxAeon: SDK 1.0.5 ignores deposit slippage, so a reviewed deposit carries only the decoded base-pool floor. */
+      /** Routed deposit tolerance on the base-pool share preview, not a final fxSAVE floor. */
       slippagePercent?: number;
     }
   | {

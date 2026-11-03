@@ -67,6 +67,7 @@ import { retainedClaimPreviewFacts } from './review/claimPreviewPresentation';
 import { plainTransactionCopy, plainWalletStatus } from './review/transactionAmountPresentation';
 import { BridgeReviewSummary } from './review/BridgeReviewSummary';
 import { ReviewRiskPrices } from './review/ReviewRiskPrices';
+import { InstantWithdrawalDetails } from './review/InstantWithdrawalDetails';
 import { ROUTE_PREFETCH_TTL_MS } from '@/lib/fx/routePrefetch';
 import { GAS_TIERS, readGasTier } from '@/lib/settings';
 import { formatGasPriceGwei } from '@/lib/fx/gasFeePolicy';
@@ -416,7 +417,8 @@ export function ActionReview(props: ActionReviewProps) {
   const amountLed = loanAction || savingsAction || (tradingAction && !leverageReview);
   // Position collateral is an accounting consequence, not a wallet receipt.
   // Its existing unit-aware row preserves the signed native floor separately.
-  const amountFacts = amountLed ? transactionAmountFacts(acceptedAmountFacts).filter(fact => !(tradingAction && fact.label === 'Estimated collateral')) : [];
+  const instantWithdrawal = intent?.kind === 'fxsave-withdraw' && intent.instant && !intent.directBasePool;
+  const amountFacts = amountLed ? transactionAmountFacts(acceptedAmountFacts).filter(fact => !(tradingAction && fact.label === 'Estimated collateral') && !(instantWithdrawal && /^Minimum received \((?:fxUSD|USDC) leg\)$/.test(fact.label))) : [];
   const amountLabels = new Set(amountFacts.map(fact => fact.label));
   const compactReview = tradeReview || leverageReview || bridgeReview || intent?.kind === 'deposit-and-mint' || intent?.kind === 'repay-and-withdraw' || intent?.kind === 'fxsave-deposit' || intent?.kind === 'fxsave-withdraw' || intent?.kind === 'fxsave-claim';
   const hierarchy = reviewHierarchy(summaryFacts, reviewFacts.details, tradeReview, newBorrowReview, bridgeReview);
@@ -425,7 +427,7 @@ export function ActionReview(props: ActionReviewProps) {
   const identity = transactionCardIdentity(route, acceptedAmountFacts, actionName);
   const actionHeading = tradingAction ? identity.name : identity.review;
   const identityLabel = identity.amount?.label;
-  const compactFacts = orderCompactReviewFacts(hierarchy.primary.filter(fact => fact.label !== identityLabel && !amountLabels.has(fact.label) && !(newBorrowReview && fact.label === 'Debt added' && positionChanges.paired.some(change => change.label === 'Debt')) && !pairedOutcomeLabels.has(fact.label.toLowerCase()) && !(tradingAction && ['Price impact', 'Funding rate'].includes(fact.label)) && !(loanAction && fact.label === 'Borrow rate') && !(intent?.kind === 'fxsave-deposit' && fact.label === 'Current APY') && !['Position', 'Target leverage', 'Execution price', 'Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout', 'Slippage'].includes(fact.label)), intent?.kind === 'deposit-and-mint');
+  const compactFacts = orderCompactReviewFacts(hierarchy.primary.filter(fact => fact.label !== identityLabel && !amountLabels.has(fact.label) && !(instantWithdrawal && /^Minimum received \((?:fxUSD|USDC) leg\)$/.test(fact.label)) && !(newBorrowReview && fact.label === 'Debt added' && positionChanges.paired.some(change => change.label === 'Debt')) && !pairedOutcomeLabels.has(fact.label.toLowerCase()) && !(tradingAction && ['Price impact', 'Funding rate'].includes(fact.label)) && !(loanAction && fact.label === 'Borrow rate') && !(intent?.kind === 'fxsave-deposit' && fact.label === 'Current APY') && !['Position', 'Target leverage', 'Execution price', 'Gas fee', 'f(x) fee', 'Protocol fee', 'Bridge fee', 'Total cost', 'Claim payout', 'Slippage'].includes(fact.label)), intent?.kind === 'deposit-and-mint');
   const collateral = tradeReview ? acceptedAmountFacts.find(fact => fact.label === 'Estimated collateral') : undefined;
   const collateralValuation = tradeReview && route ? positionOutcomeFacts(route)?.collateral : undefined;
   const slippage = facts.find(fact => fact.label === 'Slippage');
@@ -469,8 +471,8 @@ export function ActionReview(props: ActionReviewProps) {
         {leverageReview && <LeverageChangeSummary facts={[]} changes={positionChangeRows} />}
         <div className={`${styles.reviewFacts} ${presentationStyles.facts} ${stablePreparation ? presentationStyles.stableFacts : ''}`}>
           <div className={presentationStyles.consequenceGroup}>
-            {collateral && <ReviewTermRow fact={collateral} displayLabel="Position size · collateral" displayValue={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : undefined} />}
-            {compactFacts.map(fact => <ReviewRow compact key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Loan-to-value' ? 'Resulting LTV' : fact.label} value={fact.value} title={fact.title} equivalent={fact.equivalent} feeAmounts={fact.feeAmounts} quiet={stablePreparation} />)}
+            {collateral && <ReviewTermRow fact={collateral} displayLabel="Position size" displayValue={collateralValuation ? <CollateralAmount collateral={collateralValuation} /> : undefined} />}
+            {compactFacts.map(fact => <ReviewRow compact key={`${fact.label}:${fact.value}`} label={fact.label} displayLabel={fact.label === 'Loan-to-value' ? 'Resulting LTV' : reviewFactLabel(fact.label)} value={fact.value} title={fact.title} equivalent={fact.equivalent} feeAmounts={fact.feeAmounts} quiet={stablePreparation} />)}
             {intent?.kind === 'fxsave-deposit' && <ReviewRow compact label="Current APY" displayLabel="APY" value={props.savingsApy ? `${props.savingsApy.apy.toFixed(2)}%` : currentApy?.value ?? (props.savingsApyStatus === 'loading' ? '—' : 'Unavailable')} title={props.savingsApy ? `${INFO_HELP_CONTENT.fxSaveApy}${props.savingsApyStatus === 'unavailable' ? ' Last verified rate; refresh is unavailable.' : ''}` : currentApy?.title ?? 'The current APY could not be loaded from f(x). It does not change the deposit amount.'} />}
             {tradingAction && <ReviewRow compact label="Execution price" value={executionPrice?.value ?? 'Unavailable'} title={executionPrice ? executionPrice.title : 'The accepted route does not provide a verified execution price.'} />}
             {tradingAction && priceImpact && <ReviewRow compact label="Price impact" value={priceImpact.value} title={priceImpact.title} />}
@@ -491,6 +493,7 @@ export function ActionReview(props: ActionReviewProps) {
           </div>
           {(tradingAction || loanAction) && <div className={`${presentationStyles.riskGroup} ${loanAction ? presentationStyles.loanRiskGroup : ''}`}><ReviewRiskPrices route={route} />
           </div>}
+          {instantWithdrawal && route && <InstantWithdrawalDetails route={route} facts={facts} />}
         </div>
       </div>);
   return (

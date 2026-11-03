@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ topic: st
   const { topic } = await params;
   const page = productNavigation.find(({ id }) => id === topic);
   if (!page) notFound();
-  return pageMetadata(page.title + ' · FxAeon', page.description, productHref(page.id));
+  return pageMetadata(page.title + ' · FxAeon Docs', page.description, productHref(page.id));
 }
 
 export default async function TopicPage({ params }: { params: Promise<{ topic: string }> }) {

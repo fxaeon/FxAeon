@@ -36,5 +36,12 @@ export function acceptedFxSaveQuote(route: PlannedRoute, now = Date.now()) {
     } else return undefined;
   }
   if (quote.estimatedOutput !== undefined && !uint(quote.estimatedOutput)) return undefined;
+  // A total that includes the direct return cannot be smaller than that
+  // return. Keep independently validated fees, but don't present an
+  // internally inconsistent total as the user's estimated proceeds.
+  if (quote.kind === 'instant-withdraw' && quote.identityOutputIncluded && quote.estimatedOutput !== undefined) {
+    const direct = same(quote.tokenAddress, FX_TOKENS.fxUSD.address) ? quote.netFxUSD! : quote.netUSDC!;
+    if (BigInt(quote.estimatedOutput) < BigInt(direct)) return { ...quote, estimatedOutput: undefined };
+  }
   return quote;
 }

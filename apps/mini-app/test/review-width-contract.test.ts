@@ -21,3 +21,15 @@ test('Move widens only its review state while shared inline content stays bounde
   assert.match(rule, /min-width: 0/);
   assert.match(rule, /max-width: 480px/);
 });
+
+test('workspace minimum heights follow their scrollport and analytics errors keep compact control geometry', () => {
+  for (const file of ['components/SavingsWorkspace.module.css', 'components/BorrowWorkspace.module.css']) {
+    assert.match(read(file), /\.workspace \{ min-height: 100%;/);
+  }
+  assert.match(read('app/move/Move.module.css'), /\.moveWorkspace\.moveWorkspace \{[^}]*min-height: 100%;/);
+  const analytics = read('components/ProductAnalytics.module.css');
+  assert.match(analytics, /\.empty \{[^}]*min-height: 44px;/);
+  assert.match(analytics, /\.empty button \{ min-height: 44px;/);
+  assert.match(analytics, /\.loading \{ min-height: 164px;/);
+  assert.match(analytics, /\.plot \{[^}]*height: 148px;/);
+});

@@ -7,6 +7,8 @@ import { AUTH_FLAGS } from './miniapp_readiness.mjs';
 const token = 'operator-secret-that-must-never-appear';
 const contact = 'private-person@example.test';
 const env = { MINIAPP_OPERATOR_TOKEN: token };
+const policy = { threshold: 480, paused: false, revision: 0, active: false };
+const capacity = { used: 6, legacy: 5, max: 480 };
 const noNetwork = () => { throw new Error('Unexpected network request'); };
 const response = value => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
 const options = (action, userIds = [], dryRun = false) => ({ action, userIds, dryRun });
@@ -69,7 +71,7 @@ test('CLI success and failure logs exclude environment and response sentinels in
       const logs = [];
       const fake = cloudflareFixture();
       const fetchImpl = dryRun ? noNetwork : action === 'sync-server-config' ? fake.fetchImpl : async () => response({
-        users: [{ userId: 734567891, email: sentinel }], approved: [734567891],
+        capacity, policy, users: [{ userId: 734567891, email: sentinel }], approved: [734567891],
         sent: 2, failed: sentinel, mode: sentinel, secret: sentinel, toJSON: sentinel,
         notifications: { sent: 1, destination: sentinel },
       });
@@ -129,7 +131,7 @@ test('each live action uses the fixed endpoint, POST, bearer auth and exactly th
       env: { ...env, MINIAPP_OPERATOR_URL: 'https://attacker.test', MINIAPP_ORIGIN: 'https://attacker.test' },
       fetchImpl: async (url, init) => {
         calls.push({ url, init });
-        return response({ users: [{ userId: 123, state: 'approved', email: contact, credential: token }], capacity: { used: 6, legacy: 5, max: 480 } });
+        return response({ policy, users: [{ userId: 123, state: 'approved', email: contact, credential: token }], capacity: { used: 6, legacy: 5, max: 480 } });
       },
     });
     assert.equal(calls.length, 1);
@@ -149,7 +151,7 @@ test('each live action uses the fixed endpoint, POST, bearer auth and exactly th
 
 test('public logs retain only counts and validated capacity, never IDs, contacts or join timestamps', () => {
   const result = summarizeOperator('list', {
-    capacity: { used: 6, legacy: 5, max: 480, email: contact },
+    capacity: { used: 6, legacy: 5, max: 480, email: contact }, policy,
     users: [
       { userId: 123, state: 'waiting', joinedAt: 100, email: contact, walletAddress: token, externalId: token },
       { userId: 456, state: contact, joinedAt: token },
@@ -157,7 +159,7 @@ test('public logs retain only counts and validated capacity, never IDs, contacts
     ],
     sent: 2, failed: contact, error: token, dispatch: { sent: 2, deferred: 1, messages: [contact] },
   });
-  assert.deepEqual(result, { action: 'list', capacity: { used: 6, legacy: 5, max: 480 }, count: 2,
+  assert.deepEqual(result, { action: 'list', capacity: { used: 6, legacy: 5, max: 480 }, policy, count: 2,
     sent: 2, dispatch: { sent: 2, deferred: 1 } });
   assert.equal(JSON.stringify(result).includes(contact), false);
   assert.equal(JSON.stringify(result).includes(token), false);
@@ -382,7 +384,7 @@ test('approval identities never enter public workflow inputs or CLI output, incl
         log: value => logs.push(value), errorLog: value => logs.push(value),
         fetchImpl: async (_url, init) => {
           requests.push(JSON.parse(init.body));
-          return response({ users: ids.map(userId => ({ userId, email: contact, joinedAt: 1793690000000 })),
+          return response({ capacity, policy, users: ids.map(userId => ({ userId, email: contact, joinedAt: 1793690000000 })),
             approved: ids, sent: 2, error: `${token} ${contact}` });
         },
       });
@@ -441,4 +443,70 @@ test('readiness is a separate manual read-only action with scoped credentials an
   assert.match(check, /unset MINIAPP_EXPECTED_WALLETS/);
   assert.doesNotMatch(check, /sync-server-config|PRIVY_PUBLIC_SIGNUP_DISABLED|CLOUDFLARE_API_TOKEN|MINIAPP_OPERATOR_TOKEN/);
   assert.match(workflow, /inputs\.action != 'sync-server-config' && inputs\.action != 'check-readiness'/);
+});
+
+
+test('configure validates all fields strictly and only for configure', () => {
+  const args = ['--action', 'configure', '--threshold', '480', '--paused', 'false', '--expected-revision', '0'];
+  assert.deepEqual(parseOptions(args), { action: 'configure', userIds: [], dryRun: true, threshold: 480, paused: false, expectedRevision: 0 });
+  for (const bad of ['0', '481', '01', '1.0', '-1', ' 1', '']) assert.throws(() => parseOptions(args.map((x, i) => i === 3 ? bad : x)));
+  for (const bad of ['TRUE', 'yes', '']) assert.throws(() => parseOptions(args.map((x, i) => i === 5 ? bad : x)));
+  for (const bad of ['-1', '01', '1.0', '9007199254740991', '9007199254740992', '']) assert.throws(() => parseOptions(args.map((x, i) => i === 7 ? bad : x)));
+  assert.throws(() => parseOptions(args.slice(0, -2)));
+  assert.throws(() => parseOptions(['--threshold', '1']));
+  assert.throws(() => parseOptions([...args, '--paused', 'true']));
+  assert.equal(parseOptions([], { MINIAPP_OPERATOR_ACTION: 'configure', MINIAPP_OPERATOR_THRESHOLD: '1', MINIAPP_OPERATOR_PAUSED: 'true', MINIAPP_OPERATOR_EXPECTED_REVISION: '42' }).expectedRevision, 42);
+});
+
+test('runtime configuration uses exact payload, safe logs, dry-run, and handles stale revision without retries', async () => {
+  const configured = { action: 'configure', userIds: [], threshold: 4, paused: true, expectedRevision: 7, dryRun: true };
+  const plan = await runOperator(configured, { fetchImpl: noNetwork });
+  assert.deepEqual(plan.payload, { action: 'configure', threshold: 4, paused: true, expectedRevision: 7 });
+  let calls = 0;
+  const fetchImpl = async (url, init) => {
+    calls++;
+    assert.equal(url, OPERATOR_URL);
+    assert.deepEqual(JSON.parse(init.body), plan.payload);
+    return response({ capacity, policy: { threshold: 4, paused: true, revision: 8, active: true }, secret: token });
+  };
+  const result = await runOperator({ ...configured, dryRun: false }, { env, fetchImpl });
+  assert.equal(calls, 1);
+  assert.deepEqual(result.policy, { threshold: 4, paused: true, revision: 8, active: true });
+  assert.equal(JSON.stringify(publicLogRecord(result)).includes(token), false);
+  const logs = [];
+  assert.equal(await main(['--action', 'configure', '--threshold', '4', '--paused', 'true', '--expected-revision', '7', '--execute'], env, {
+    errorLog: x => logs.push(x), fetchImpl: async () => { calls++; return new Response(token, { status: 409 }); },
+  }), 1);
+  assert.equal(calls, 2);
+  assert.match(logs[0], /conflict.*status.*revision/);
+  assert.equal(logs[0].includes(token), false);
+});
+
+test('activity exposes aggregate counts only and rejects malformed policy or activity', async () => {
+  const events = [{ id: 123456789, kind: 'reservation', at: 987654321, threshold: 480, paused: false, revision: 0, userId: token },
+    { id: 123456788, kind: 'policy', at: 987654320, threshold: 480, paused: false, revision: 0, detail: contact },
+    { id: 123456787, kind: 'legacy', at: 987654319, threshold: 480, paused: false, revision: 0, previousLegacy: 5, legacy: 7, used: 8 }];
+  const result = await runOperator(options('activity'), { env, fetchImpl: async () => response({ capacity, policy, events }) });
+  assert.deepEqual(result.activity, { reservation: 1, policy: 1, legacy: 1 });
+  const log = JSON.stringify(publicLogRecord(result));
+  for (const privateValue of ['123456789', '987654321', token, contact]) assert.equal(log.includes(privateValue), false);
+  for (const body of [
+    { capacity, policy: { ...policy, active: 'true' }, events },
+    { capacity, policy: { ...policy, threshold: 481 }, events },
+    { capacity, policy, events: [...events, { ...events[0], kind: contact }] },
+    { capacity, policy, events: [{ ...events[2], used: 481 }] },
+    { capacity, policy, events: [{ ...events[2], previousLegacy: 7 }] },
+    { capacity, policy, events: Array(101).fill(events[0]) },
+    { capacity, policy, events: null },
+  ]) assert.throws(() => summarizeOperator('activity', body));
+});
+
+test('workflow exposes runtime inputs only as environment values and status revisions guide configure', () => {
+  for (const key of ['threshold', 'paused', 'expected_revision']) {
+    assert.match(workflow, new RegExp(`\\n      ${key}:`));
+  }
+  assert.match(workflow, /- configure/);
+  assert.match(workflow, /- activity/);
+  assert.equal((workflow.match(/MINIAPP_OPERATOR_EXPECTED_REVISION:/g) || []).length, 2);
+  assert.match(workflow, /current policy revision from an executed status/);
 });

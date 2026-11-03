@@ -97,7 +97,8 @@ test('Trade sensitivity follows market, direction and selected leverage without 
       assert.ok(textOf(html).includes(`${side === 'long' ? 'Long' : 'Short'} · 3× initial leverage`));
       assert.ok(textOf(html).includes(side === 'long' ? '-30.0%' : '+30.0%'));
       assert.doesNotMatch(html, /Your existing exposure/);
-      assert.match(html, /Sensitivity is not projected PnL/);
+      assert.doesNotMatch(html, /Sensitivity is not projected PnL/);
+      assert.match(html, /About Initial exposure sensitivity/);
       assert.match(html, /How protection works/);
     }
   }

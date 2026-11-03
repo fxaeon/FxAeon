@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserWalletProvider, usePrivyWallet } from '@/lib/wallet/usePrivyWallet';
 import { isWalletConnectCancellation } from '@/lib/wallet/connectWatch';
+import { portfolioConnectionState } from '@/lib/portfolioState';
 
 type Request = { method: string; params?: unknown[] };
 type Provider = {
@@ -79,6 +80,7 @@ function createFixture(index: number): MobileWalletFixture {
             fixture.accountReadsWaiting += 1;
             await new Promise<void>((resolve) => { pendingAccountReads.push(resolve); });
           }
+          if (new URLSearchParams(location.search).get('failAuto') === '1') throw new Error('Saved wallet unavailable.');
           return observed;
         }
         if (request.method === 'eth_chainId') {
@@ -145,6 +147,7 @@ function SharedConsumer() {
     }
   };
   return <output data-testid="second-wallet-consumer" data-connected={String(wallet.authenticated)}
+    data-restoring={String(Boolean(wallet.restoring))} data-portfolio-connection={portfolioConnectionState(wallet)}
     data-address={wallet.address ?? ''} data-chain={wallet.chainId ?? ''} data-prompt={String(wallet.promptOpen)} data-version={wallet.connectionVersion} />;
 }
 
@@ -164,6 +167,7 @@ function Content() {
   };
   globalThis.__mobileWalletHarness.connectAgain = () => run(() => observeConnection(wallet.connect));
   return <main data-harness-ready={String(wallet.ready)} data-connected={String(wallet.authenticated)}
+    data-restoring={String(Boolean(wallet.restoring))} data-portfolio-connection={portfolioConnectionState(wallet)}
     data-address={wallet.address ?? ''} data-chain={wallet.chainId ?? ''} data-prompt={String(wallet.promptOpen)} data-version={wallet.connectionVersion}>
     {/* Mirror ConnectWalletButton: a busy opener stays focusable so the dialog
         can capture and restore it, including on touch browsers. */}

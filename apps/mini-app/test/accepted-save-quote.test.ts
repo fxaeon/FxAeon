@@ -17,20 +17,26 @@ const BASE = FX_TOKENS.fxUSDBasePool.address;
 
 for (const bundle of ['index.js', 'index.cjs']) {
   test(`${bundle} keeps accepted fxSAVE fee/output metadata without changing calldata`, async () => {
-    const source = readFileSync(resolve('node_modules/@aladdindao/fx-sdk/dist', bundle), 'utf8');
+    const source = readFileSync(resolve(process.env.FXSAVE_TEST_SDK_DIST ?? 'node_modules/@aladdindao/fx-sdk/dist', bundle), 'utf8');
     const start = source.indexOf('async function depositFxSave(request)');
     const end = source.indexOf('// src/core/index.ts', start);
     const reads: string[] = [];
+    let redemption: [bigint, bigint] = [100n * WAD, 50_000_000n];
     const client = { chain: { id: 1 }, readContract: async ({ address, functionName, args }: { address: string; functionName: string; args: bigint[] }) => {
       reads.push(`${address}:${functionName}`);
       if (functionName === 'convertToAssets') return 2n * WAD;
       if (functionName === 'previewDeposit') return address === BASE ? 100n * WAD : args[0] / 2n;
-      if (functionName === 'previewRedeem') return address === BASE ? [100n * WAD, 50_000_000n] : args[0] * 2n;
+      if (functionName === 'previewRedeem') return address === BASE ? redemption : args[0] * 2n;
       if (functionName === 'instantRedeemFeeRatio') return WAD / 20n;
       throw new Error(`Unexpected read ${functionName}`);
     } };
     const selectors: Record<string, string> = { deposit: '0x6e553f65', redeem: '0xba087652', depositToFxSave: '0x3ea34dc0', instantRedeemFromFxSave: '0x6d701088', requestRedeem: '0xaa2f892d', convert: '0xabcdef12' };
-    const encode = ({ functionName }: { functionName: string }) => selectors[functionName];
+    let instantArgs: Array<{ minOut: bigint }> = [];
+    const encode = ({ functionName, args }: { functionName: string; args: Array<{ minOut: bigint }> }) => {
+      if (functionName === 'instantRedeemFromFxSave') instantArgs = args;
+      return selectors[functionName];
+    };
+    let identityQuote = 0n;
     const bindings = {
       contracts: { FxSave_fxSAVE: VAULT, FxUSDBasePool: BASE, Router_Diamond: ROUTER },
       tokens: { fxUSD: FX_TOKENS.fxUSD.address, usdc: FX_TOKENS.USDC.address },
@@ -38,7 +44,7 @@ for (const bundle of ['index.js', 'index.cjs']) {
       resolveTokenAddress: (token: string) => token === 'usdc' ? FX_TOKENS.USDC.address : token === 'fxUSD' ? FX_TOKENS.fxUSD.address : BASE,
       getDepositSpender: (token: string) => token === 'fxUSDBasePool' ? VAULT : ROUTER,
       isAddress: () => true, encodeFunctionData: encode, viem: { isAddress: () => true, encodeFunctionData: encode },
-      getQueryConvert: async (amount: bigint, route: { fromTokenAddress?: string }) => route.fromTokenAddress === FX_TOKENS.fxUSD.address ? amount / 10n ** 12n : amount,
+      getQueryConvert: async (amount: bigint, route: { fromTokenAddress?: string; toTokenAddress?: string }) => route.fromTokenAddress === route.toTokenAddress ? identityQuote : route.fromTokenAddress === FX_TOKENS.fxUSD.address ? amount / 10n ** 12n : amount * 10n ** 12n,
       getZapRoutes: (route: object) => ({ ...route, encoding: 0n, routes: [] }), FEE_PRECISION: WAD,
       SavingFxUSD_default: {}, FxUSDBasePool_default: {}, MultiPathConverter_default: {}, SavingFxUSDFacet_default: {},
     };
@@ -50,14 +56,30 @@ for (const bundle of ['index.js', 'index.cjs']) {
     const withdrawn = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'usdc', amount: WAD, instant: true, slippage: 1 });
     assert.equal(withdrawn.fxSaveQuote.instantFeeRatio, (WAD / 20n).toString());
     assert.equal(withdrawn.fxSaveQuote.estimatedOutput, '142500000');
+    assert.equal(withdrawn.fxSaveQuote.identityOutputIncluded, true);
     assert.equal(withdrawn.fxSaveQuote.netFxUSD, (95n * WAD).toString());
     assert.equal(withdrawn.fxSaveQuote.netUSDC, '47500000');
     assert.equal(withdrawn.fxSaveQuote.actionData, withdrawn.txs[0].data);
+    identityQuote = 123456789n;
+    const withNonzeroIdentity = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'usdc', amount: WAD, instant: true, slippage: 1 });
+    assert.equal(withNonzeroIdentity.fxSaveQuote.estimatedOutput, '142500000');
+    identityQuote = 0n;
+    const fxusd = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'fxUSD', amount: WAD, instant: true, slippage: 1 });
+    assert.equal(fxusd.fxSaveQuote.estimatedOutput, (1425n * WAD / 10n).toString());
+    identityQuote = 123n;
+    const fxusdNonzeroIdentity = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'fxUSD', amount: WAD, instant: true, slippage: 1 });
+    assert.equal(fxusdNonzeroIdentity.fxSaveQuote.estimatedOutput, fxusd.fxSaveQuote.estimatedOutput);
+    redemption = [WAD, 25_000n];
+    identityQuote = 0n;
+    const small = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'fxUSD', amount: 1076n * WAD / 1000n, instant: true, slippage: 1 });
+    assert.equal(small.fxSaveQuote.estimatedOutput, '973750000000000000');
+    assert.equal(instantArgs[0].minOut, 0n);
+    assert.equal(instantArgs[1].minOut, 23512500000000000n);
     const direct = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'fxUSDBasePool', amount: WAD });
     assert.equal(direct.fxSaveQuote.estimatedOutput, (2n * WAD).toString());
     const queued = await methods.withdrawFxSave({ userAddress: WALLET, tokenOut: 'usdc', amount: WAD });
     assert.equal(queued.fxSaveQuote, undefined);
-    assert.equal(reads.filter(read => read.endsWith(':instantRedeemFeeRatio')).length, 1);
+    assert.equal(reads.filter(read => read.endsWith(':instantRedeemFeeRatio')).length, 5);
   });
 }
 
@@ -65,7 +87,7 @@ function instantRoute(): PlannedRoute {
   const route = normalizeTxResult('withdrawFxSave', {
     txs: [{ to: ROUTER, data: '0x6d701088', type: 'instantRedeem' }],
     fxSaveQuote: { kind: 'instant-withdraw', tokenAddress: FX_TOKENS.USDC.address, actionTo: ROUTER, actionData: '0x6d701088',
-      inputAmount: WAD.toString(), readAt: Date.now(), estimatedOutput: '142500000', instantFeeRatio: (WAD / 20n).toString(),
+      inputAmount: WAD.toString(), readAt: Date.now(), estimatedOutput: '142500000', identityOutputIncluded: true, instantFeeRatio: (WAD / 20n).toString(),
       grossFxUSD: (100n * WAD).toString(), grossUSDC: '50000000', netFxUSD: (95n * WAD).toString(), netUSDC: '47500000' },
   }, WALLET);
   route.policy = { walletAddress: WALLET, chainId: 1, reviewedAction: { kind: 'fxsave-withdraw', tokenOutAddress: FX_TOKENS.USDC.address,
@@ -81,6 +103,56 @@ test('normalized accepted instant quote shows net chosen-token output and its ow
   assert.deepEqual(facts.find(f => f.label === 'f(x) fee')?.feeAmounts, [{ amount: '5', symbol: 'fxUSD' }, { amount: '2.5', symbol: 'USDC' }]);
   assert.equal(facts.find(f => f.label === 'Instant fee (fxUSD leg)')?.value, '5 fxUSD');
   assert.equal(facts.find(f => f.label === 'Instant fee (USDC leg)')?.value, '2.5 USDC');
+});
+
+test('older ambiguous instant estimates are unavailable instead of being guessed or double counted', () => {
+  const route = instantRoute();
+  delete route.details!.fxSaveQuote!.identityOutputIncluded;
+  assert.equal(routeFinancialReviewFacts(route).find(f => f.label === 'Estimated received')?.value, 'Unavailable');
+  assert.equal(routeFinancialReviewFacts(route).find(f => f.label === 'f(x) fee')?.value, '5%');
+});
+
+test('an instant estimate cannot be smaller than its direct-return leg', () => {
+  for (const symbol of ['USDC', 'fxUSD'] as const) {
+    const route = instantRoute();
+    const quote = route.details!.fxSaveQuote!;
+    const intent = route.policy!.reviewedAction!;
+    assert.equal(intent.kind, 'fxsave-withdraw');
+    if (intent.kind !== 'fxsave-withdraw') throw new Error('Expected instant withdrawal');
+    quote.tokenAddress = FX_TOKENS[symbol].address;
+    intent.tokenOutAddress = FX_TOKENS[symbol].address;
+    route.details!.economicLimits = [
+      { label: 'fxUSD instant output minimum output', value: '0' },
+      { label: 'USDC instant output minimum output', value: '17' },
+    ];
+    const direct = BigInt(symbol === 'fxUSD' ? quote.netFxUSD! : quote.netUSDC!);
+    quote.estimatedOutput = (direct - 1n).toString();
+    const facts = routeFinancialReviewFacts(route);
+    assert.equal(facts.find(f => f.label === 'Estimated received')?.value, 'Unavailable');
+    assert.equal(facts.find(f => f.label === 'f(x) fee')?.value, '5%');
+    assert.equal(facts.filter(f => f.label.startsWith('Minimum received (')).length, 2);
+    quote.estimatedOutput = direct.toString();
+    assert.equal(acceptedFxSaveQuote(route)?.estimatedOutput, direct.toString());
+  }
+});
+
+test('fxUSD output includes its pass-through leg without changing either signed converter floor', () => {
+  const route = instantRoute();
+  const quote = route.details!.fxSaveQuote!;
+  quote.tokenAddress = FX_TOKENS.fxUSD.address;
+  quote.estimatedOutput = '973700000000000000';
+  quote.grossFxUSD = '1000000000000000000';
+  quote.netFxUSD = '950000000000000000';
+  route.policy!.reviewedAction = { kind: 'fxsave-withdraw', tokenOutAddress: FX_TOKENS.fxUSD.address,
+    amount: WAD, receiver: WALLET, directBasePool: false, instant: true, slippagePercent: 1 };
+  route.details!.economicLimits = [
+    { label: 'fxUSD instant output minimum output', value: '0' },
+    { label: 'USDC instant output minimum output', value: '23580000000000000' },
+  ];
+  const facts = routeFinancialReviewFacts(route);
+  assert.equal(facts.find(f => f.label === 'Estimated received')?.value, '0.9737 fxUSD');
+  assert.equal(facts.find(f => f.label === 'Minimum received (fxUSD leg)')?.value, '0 fxUSD');
+  assert.equal(facts.find(f => f.label === 'Minimum received (USDC leg)')?.value, '0.02358 fxUSD');
 });
 
 test('deposit and direct withdrawal estimates retain their actual output share units', () => {

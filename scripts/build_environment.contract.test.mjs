@@ -43,6 +43,13 @@ test('deterministic browser verification clears every configured RPC provider', 
   for (const name of names) assert.equal(E2E_BUILD_ENV[name], '', `${name} must not inherit a real provider`);
 });
 
+test('default browser verification cannot inherit configured Telegram enrollment', () => {
+  const inherited = { NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'passkey', NEXT_PUBLIC_TELEGRAM_ADMISSION: 'on' };
+  const build = { ...inherited, ...E2E_BUILD_ENV };
+  assert.equal(build.NEXT_PUBLIC_TELEGRAM_WALLET_MODE, 'off');
+  assert.equal(build.NEXT_PUBLIC_TELEGRAM_ADMISSION, 'off');
+});
+
 test('production validation accepts normal config and empty local-only variables', () => {
   const result = validate(Object.fromEntries(localOnlyVariables.map((name) => [name, ''])));
   assert.equal(result.status, 0, result.stderr);

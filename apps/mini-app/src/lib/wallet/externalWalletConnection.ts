@@ -111,7 +111,7 @@ function allowedChain(value: unknown): 1 | 8453 | undefined {
   return chain === 1 || chain === 8453 ? chain : undefined;
 }
 
-function awaitWithAbort<T>(request: Promise<T>, signal?: AbortSignal): Promise<T> {
+export function awaitWithAbort<T>(request: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (!signal) return request;
   return new Promise<T>((resolve, reject) => {
     const cancelled = () => reject(new WalletConnectCancelledError());

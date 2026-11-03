@@ -397,6 +397,7 @@ test.describe('Privy wallet bridge current SDK event handlers', () => {
     await setState(page, { ready: true, walletsReady: false, walletInputs: [] });
     await expect(page.locator('main')).toHaveAttribute('data-wallet-ready', 'true');
     await expect(page.locator('main')).toHaveAttribute('data-sdk-wallets-ready', 'false');
+    await expect(page.locator('main')).toHaveAttribute('data-restoring', 'true');
     await expect(page.locator('[data-address]')).toHaveAttribute('data-address', '');
     await remountBridge(page);
     await setState(page, { walletsReady: false, walletInputs: [candidates[0]] });
@@ -405,6 +406,7 @@ test.describe('Privy wallet bridge current SDK event handlers', () => {
     await expect(entry.getByRole('link', { name: 'Choose wallet', exact: true })).toHaveCount(0);
     await expect(entry.getByRole('button', { name: 'Route connect wallet', exact: true })).toBeEnabled();
     await setState(page, { walletsReady: true, walletInputs: candidates });
+    await expect(page.locator('main')).toHaveAttribute('data-restoring', 'false');
     await expect(page.locator('[data-address]')).toHaveAttribute('data-address', first);
     await expect(page.locator('[data-wallet-client]')).toHaveAttribute('data-wallet-client', 'metamask');
     await expectNoSdkConnection(page);

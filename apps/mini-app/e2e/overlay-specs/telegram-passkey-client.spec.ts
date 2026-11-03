@@ -30,7 +30,7 @@ let css = '';
 test.beforeAll(async () => {
   test.setTimeout(120_000);
   const mocks: Record<string, string> = {
-    'next/dynamic': `import React from 'react';export default loader => {const C=React.lazy(loader);return props => <React.Suspense fallback={<p>Loading</p>}><C {...props}/></React.Suspense>};`,
+    'next/dynamic': `import React from 'react';export default (loader,options={}) => {const C=React.lazy(loader);const Loading=options.loading;return props => <React.Suspense fallback={Loading?<Loading/>:null}><C {...props}/></React.Suspense>};`,
     'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({replace:path=>history.replaceState({},'',path)});`,
     '@/components/PrivyClientProvider': `throw new Error('PRIVY_NATIVE_LOADED');export default ()=>null;`,
     '@/components/WalletRouteProviders': `export default ({children})=><>{children}</>;`,
@@ -49,7 +49,7 @@ test.beforeAll(async () => {
       window.client={ceremonies:[],reads:[],results:[],links:[],deferAuth:false};
       window.Telegram={WebApp:{initData:'user=%7B%22id%22%3A12345%7D&hash=fixture',platform:window.fixturePlatform||'tdesktop',close:()=>{},openLink:url=>window.client.links.push(url),requestWriteAccess:cb=>cb(true)}};
       if(window.fixtureDelayedBridge){const telegram=window.Telegram;delete window.Telegram;window.fixtureBridgeWait=new Promise(resolve=>{window.client.timeoutBridge=()=>resolve(null);window.client.releaseBridge=()=>{window.Telegram=telegram;resolve(telegram.WebApp)}})}
-      function Content(){const wallet=React.useContext(FxWalletContext);window.client.wallet=wallet;return <div><h1>Portfolio</h1><button onClick={()=>wallet.sendTransaction(${JSON.stringify(transaction)}).then(r=>{window.client.results.push(r);if(window.fixtureDurableReceipt)recordPendingHash({operation:'sendAsset',walletAddress:${JSON.stringify(FROM)},chainId:1,hash:r.hash,to:${JSON.stringify(TO)},data:'0x1234',value:16n,nonce:2});}).catch(e=>window.client.results.push({error:e.message}))}>Review and send</button><button onClick={()=>wallet.disconnect()}>Disconnect</button><button onClick={()=>wallet.switchChain(8453)}>Change network</button></div>}
+      function Content(){const wallet=React.useContext(FxWalletContext);window.client.wallet=wallet;return <div data-wallet-ready={String(wallet.ready)} data-wallet-authenticated={String(wallet.authenticated)} data-wallet-address={wallet.address??''}><h1>Portfolio</h1><button onClick={()=>wallet.sendTransaction(${JSON.stringify(transaction)}).then(r=>{window.client.results.push(r);if(window.fixtureDurableReceipt)recordPendingHash({operation:'sendAsset',walletAddress:${JSON.stringify(FROM)},chainId:1,hash:r.hash,to:${JSON.stringify(TO)},data:'0x1234',value:16n,nonce:2});}).catch(e=>window.client.results.push({error:e.message}))}>Review and send</button><button onClick={()=>wallet.disconnect()}>Disconnect</button><button onClick={()=>wallet.switchChain(8453)}>Change network</button></div>}
       const child=location.pathname==='/wallet-approval'?<ApprovalPage/>:location.pathname==='/invite'?<InvitePage/>:<Content/>;
       createRoot(document.getElementById('root')).render(<React.StrictMode><ClientWalletProvider>{child}</ClientWalletProvider></React.StrictMode>);`, loader: 'tsx', resolveDir: app },
     bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2022', jsx: 'automatic',
@@ -65,7 +65,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
+type Fixture = { state?: string; wallet?: { id: string; address: string }; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferStatus?: Promise<void>; deferRecovery?: Promise<void>; failStatus?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -78,8 +78,13 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
       const body = route.request().postDataJSON(); requests.push(body);
       let response: unknown;
       switch (body.action) {
-        case 'status': response = { ...status, ...fixture, ...(requests.filter(r => r.action === 'status').length > 1 ? fixture.statusAfterFirst : {}) }; break;
-        case 'transaction/status': response = { operation: body.id || !operation?.acknowledged ? operation : null }; break;
+        case 'status':
+          if (fixture.deferStatus) await fixture.deferStatus;
+          if (fixture.failStatus) return route.abort();
+          response = { ...status, ...fixture, ...(requests.filter(r => r.action === 'status').length > 1 ? fixture.statusAfterFirst : {}) }; break;
+        case 'transaction/status':
+          if (fixture.deferRecovery) await fixture.deferRecovery;
+          response = { operation: body.id || !operation?.acknowledged ? operation : null }; break;
         case 'transaction/ack':
           expect(body).toMatchObject({ id: operation?.id, hash: operation?.hash });
           if (fixture.loseAck && operation) { operation.acknowledged = true; return route.abort(); }
@@ -133,6 +138,172 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   return { requests, errors, reload };
 }
 const readClient = (page: Page, field: string) => page.evaluate(field => (window as any).client[field], field);
+function heldResponse() {
+  let release!: () => void;
+  const promise = new Promise<void>(resolve => { release = resolve; });
+  return { promise, release };
+}
+
+async function observeStartup(page: Page) {
+  await page.addInitScript(() => {
+    (window as any).startupFlashes = [];
+    new MutationObserver(() => {
+      const flash = document.querySelector('[data-wallet-authenticated="false"], [data-admission-state="checking"], [data-browser-wallet], [data-portfolio-explore], [data-portfolio-value], [aria-label="Portfolio views"]');
+      if (flash) (window as any).startupFlashes.push('unresolved guest or access screen');
+    }).observe(document, { childList: true, subtree: true, attributes: true });
+  });
+}
+
+async function expectNeutralStartup(page: Page) {
+  await expect(page.getByRole('status', { name: 'Loading FxAeon', exact: true })).toBeVisible();
+  await expect(page.locator('[data-wallet-authenticated], [data-admission-state="checking"], [data-portfolio-explore]')).toHaveCount(0);
+  await expect(page.locator('[data-portfolio-value], [aria-label="Portfolio views"], .app-content .skeleton')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /connect wallet/i })).toHaveCount(0);
+  await expect(page.getByText('Checking your access.', { exact: true })).toHaveCount(0);
+}
+
+test('passkey startup with immediate server responses publishes only the verified account', async ({ page }) => {
+  await observeStartup(page);
+  const { requests, errors } = await mount(page, '/', { mobile: true });
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+  await expect(page.locator('[data-wallet-ready]')).toHaveAttribute('data-wallet-ready', 'true');
+  expect(requests.map(request => request.action)).toEqual(['status', 'transaction/status']);
+  expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test('passkey startup remains neutral through delayed server status and recovery before publishing the verified account', async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await observeStartup(page);
+  const access = heldResponse();
+  const recovery = heldResponse();
+  try {
+    const { requests, errors } = await mount(page, '/', { mobile: true, deferStatus: access.promise, deferRecovery: recovery.promise });
+    await expect.poll(() => requests.map(request => request.action)).toEqual(['status']);
+    await expectNeutralStartup(page);
+    expect(requests[0].launchData).toContain('hash=fixture');
+    access.release();
+    await expect.poll(() => requests.map(request => request.action)).toEqual(['status', 'transaction/status']);
+    await expectNeutralStartup(page);
+    recovery.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+    await expect(page.locator('[data-wallet-ready]')).toHaveAttribute('data-wallet-ready', 'true');
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    expect(await readClient(page, 'ceremonies')).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally { access.release(); recovery.release(); }
+});
+
+test('passkey startup rechecks the same account after reload without publishing a guest', async ({ page }) => {
+  await observeStartup(page);
+  const fixture: Fixture = {};
+  const { requests, reload } = await mount(page, '/', fixture);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+  const access = heldResponse();
+  fixture.deferStatus = access.promise;
+  try {
+    await reload();
+    await expect.poll(() => requests.filter(request => request.action === 'status').length).toBe(2);
+    await expectNeutralStartup(page);
+    access.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    expect(requests.filter(request => request.action === 'transaction/status')).toHaveLength(2);
+  } finally { access.release(); }
+});
+
+test('passkey startup retires a changed Telegram identity before its new server check resolves', async ({ page }) => {
+  await observeStartup(page);
+  const fixture: Fixture = {};
+  const { requests, errors } = await mount(page, '/', fixture);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+  const access = heldResponse();
+  fixture.deferStatus = access.promise;
+  fixture.wallet = { id: 'wallet-2', address: TO };
+  try {
+    await page.evaluate(() => {
+      (window as any).oldWallet = (window as any).client.wallet;
+      (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A67890%7D&hash=second-fixture';
+      window.dispatchEvent(new Event('focus'));
+    });
+    await expect.poll(() => requests.filter(request => request.action === 'status').length).toBe(2);
+    await expectNeutralStartup(page);
+    expect(await page.evaluate(async () => {
+      try { await (window as any).oldWallet.selectedWallet.getEthereumProvider(); return false; }
+      catch { return true; }
+    })).toBe(true);
+    access.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+    expect(requests.filter(request => request.action === 'status')[1].launchData).toContain('hash=second-fixture');
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally { access.release(); }
+});
+
+test('passkey startup ignores old-account recovery after a Telegram identity change', async ({ page }) => {
+  await observeStartup(page);
+  const oldRecovery = heldResponse();
+  const newRecovery = heldResponse();
+  const fixture: Fixture = { deferRecovery: oldRecovery.promise };
+  try {
+    const { requests, errors } = await mount(page, '/', fixture);
+    await expect.poll(() => requests.filter(request => request.action === 'transaction/status').length).toBe(1);
+    await expectNeutralStartup(page);
+    fixture.deferRecovery = newRecovery.promise;
+    fixture.wallet = { id: 'wallet-2', address: TO };
+    await page.evaluate(() => {
+      (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A67890%7D&hash=second-fixture';
+      window.dispatchEvent(new Event('hashchange'));
+    });
+    await expect.poll(() => requests.filter(request => request.action === 'transaction/status').length).toBe(2);
+    oldRecovery.release();
+    await expectNeutralStartup(page);
+    newRecovery.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally { oldRecovery.release(); newRecovery.release(); }
+});
+
+test('passkey startup honors the server waitlist despite a remembered admission hint', async ({ page }) => {
+  await observeStartup(page);
+  await page.addInitScript(() => localStorage.setItem('fxaeon:telegram-admission:v1', JSON.stringify({ userId: 12345 })));
+  const access = heldResponse();
+  try {
+    const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false, deferStatus: access.promise });
+    await expect.poll(() => requests.map(request => request.action)).toEqual(['status']);
+    await expectNeutralStartup(page);
+    access.release();
+    await expect(page.locator('[data-admission-state="alerts-off"]')).toBeVisible();
+    await expect(page.locator('[data-wallet-authenticated]')).toHaveCount(0);
+    expect(requests.map(request => request.action)).toEqual(['status']);
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+  } finally { access.release(); }
+});
+
+for (const failure of ['unavailable', 'timeout']) {
+  test(`passkey startup ${failure} stays fail-closed and can retry the server check`, async ({ page }) => {
+    await observeStartup(page);
+    if (failure === 'timeout') await page.clock.install();
+    const access = heldResponse();
+    const fixture: Fixture = failure === 'timeout' ? { deferStatus: access.promise } : { failStatus: true };
+    try {
+      const { requests } = await mount(page, '/', fixture);
+      await expect.poll(() => requests.filter(request => request.action === 'status').length).toBe(1);
+      if (failure === 'timeout') { await expectNeutralStartup(page); await page.clock.runFor(20_100); }
+      await expect(page.locator('[data-admission-state="join-error"]')).toBeVisible();
+      await expect(page.locator('[data-wallet-authenticated]')).toHaveCount(0);
+      fixture.failStatus = false;
+      fixture.deferStatus = undefined;
+      access.release();
+      await page.getByRole('button', { name: 'Try again', exact: true }).click();
+      await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+      expect(requests.map(request => request.action)).toEqual(['status', 'status', 'transaction/status']);
+      expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    } finally { access.release(); }
+  });
+}
+
 test('mobile invitation prepares without a ceremony and opens the browser on one click', async ({ page }) => {
   const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true, completeHandoff: true });
   await expect.poll(() => requests.filter(r => r.action === 'handoff/create').length).toBe(1);
@@ -283,7 +454,7 @@ test('short phone keeps passkey setup reachable and cancellation returns to the 
   await page.setViewportSize({ width: 320, height: 568 });
   const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
   await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
-  await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to FxAeon.' })).toBeVisible();
   await expect(page.getByText('Opens your browser for passkey setup.')).toBeVisible();
   const primary = page.getByRole('button', { name: 'Set up my wallet' });
   const back = page.getByRole('button', { name: 'Set up later' });
@@ -299,7 +470,7 @@ test('short phone keeps passkey setup reachable and cancellation returns to the 
     await expect(control).toBeFocused();
   }
   await back.click();
-  await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to FxAeon.' })).toBeVisible();
   expect(requests.some(request => request.action === 'register/complete')).toBe(false);
 });
 
