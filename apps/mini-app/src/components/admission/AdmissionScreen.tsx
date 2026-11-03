@@ -12,11 +12,15 @@ export type AdmissionScreenState =
 export type AdmissionAction =
   | 'join' | 'open-web' | 'done' | 'allow-notifications' | 'add-email'
   | 'submit-email' | 'back-to-waitlist' | 'setup-wallet' | 'defer-setup'
-  | 'create-passkey' | 'back-to-invitation' | 'open-app' | 'retry-setup' | 'retry-join';
+  | 'create-passkey' | 'back-to-invitation' | 'open-app' | 'retry-setup' | 'retry-join' | 'check-email-status' | 'retry-email';
+
+export type AdmissionEmailDelivery = 'unknown' | 'not_requested' | 'pending' | 'accepted' | 'failed' | 'uncertain' | 'expired' | 'verified';
 
 type CommonProps = {
   /** Only confirmed permission may produce Telegram delivery copy. */
   notificationPermission?: 'granted' | 'denied' | 'unknown';
+  /** Queued/accepted are delivery facts, never proof of inbox arrival. */
+  emailDelivery?: AdmissionEmailDelivery;
   /** The parent owns all effects, navigation, failures and state transitions. */
   onAction: (action: AdmissionAction) => void;
   busy?: boolean;
@@ -62,9 +66,9 @@ const COPY: Record<AdmissionScreenState, Copy> = {
     secondary: { label: 'Skip for now', action: 'back-to-waitlist' },
   },
   verify: {
-    title: 'Check your\ninbox.', lead: 'Use the confirmation link to verify your email address.',
-    primary: { label: 'Back to the waitlist', action: 'back-to-waitlist' },
-    secondary: { label: 'Use a different email', action: 'add-email' },
+    title: 'Confirmation\nrequested.', lead: 'Use the confirmation link when your email arrives.',
+    primary: { label: 'Check email status', action: 'check-email-status' },
+    secondary: { label: 'Back to the waitlist', action: 'back-to-waitlist' },
   },
   verified: {
     title: 'You’re on\nthe waitlist.', lead: 'We’ll send you an invite once you’re approved.', confirmed: true,
@@ -100,12 +104,27 @@ const COPY: Record<AdmissionScreenState, Copy> = {
   checking: { title: 'Checking your access.', lead: 'One moment.' },
 };
 
+const EMAIL_COPY: Partial<Record<AdmissionEmailDelivery, Copy>> = {
+  pending: { ...COPY.verify, title: 'Email queued.', lead: 'Your confirmation email is waiting to be sent.' },
+  accepted: { title: 'Check your\ninbox.', lead: 'Use the confirmation link to verify your email address.',
+    primary: { label: 'Back to the waitlist', action: 'back-to-waitlist' }, secondary: { label: 'Use a different email', action: 'add-email' } },
+  failed: { title: 'Email couldn’t\nbe sent.', lead: 'Try again, or use a different email address.',
+    primary: { label: 'Try again', action: 'retry-email' }, secondary: { label: 'Use a different email', action: 'add-email' } },
+  uncertain: { title: 'Email status\nunconfirmed.', lead: 'We couldn’t confirm whether your email was sent.',
+    primary: { label: 'Request another email', action: 'retry-email' }, secondary: { label: 'Back to the waitlist', action: 'back-to-waitlist' } },
+  expired: { title: 'Confirmation\nlink expired.', lead: 'Request a new link to verify your email address.',
+    primary: { label: 'Request a new link', action: 'retry-email' }, secondary: { label: 'Use a different email', action: 'add-email' } },
+  not_requested: { title: 'Your invite,\nby email.', lead: 'Add an email for your invitation. This is optional.',
+    primary: { label: 'Add email', action: 'add-email' }, secondary: { label: 'Back to the waitlist', action: 'back-to-waitlist' } },
+  verified: COPY.verified,
+};
+
 /** Presentation only: rendering or clicking never grants access or verifies an email. */
 export function AdmissionScreen(props: AdmissionScreenProps) {
   const { state, notificationPermission = 'unknown', busy = false, error, supportHref, onAction } = props;
   const id = useId();
   const view = state === 'waiting' && notificationPermission === 'denied' ? 'alerts-off' : state;
-  const copy = COPY[view];
+  const copy = view === 'verify' ? EMAIL_COPY[props.emailDelivery ?? 'unknown'] ?? COPY.verify : COPY[view];
   const pending = busy || state === 'checking';
   const detail = view === 'waiting'
     ? notificationPermission === 'granted'

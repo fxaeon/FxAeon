@@ -40,7 +40,7 @@ const states: Array<[AdmissionScreenState, string, string | null]> = [
   ['waiting', 'You’re on the waitlist.', 'Done'],
   ['alerts-off', 'You’re on the waitlist.', 'Allow Telegram invites'],
   ['email', 'Your invite, by email.', 'Send confirmation link'],
-  ['verify', 'Check your inbox.', 'Back to the waitlist'],
+  ['verify', 'Confirmation requested.', 'Check email status'],
   ['verified', 'You’re on the waitlist.', 'Done'],
   ['invited', 'Your place is ready.', 'Set up my wallet'],
   ['passkey', 'Secure your wallet.', 'Create passkey'],
@@ -100,6 +100,18 @@ test('busy disables every action and email editing without claiming completion',
     assert.match(html, /role="status">One moment…/);
     const controls = html.match(/<(?:button|input)\b[^>]*>/g) ?? [];
     assert.ok(controls.every(control => control.includes('disabled=""')), state);
+  }
+});
+
+test('email request success claims acceptance only when the server reports it', async () => {
+  for (const [emailDelivery, heading] of [
+    ['unknown', 'Confirmation requested.'], ['pending', 'Email queued.'], ['accepted', 'Check your inbox.'],
+    ['failed', 'Email couldn’t be sent.'], ['uncertain', 'Email status unconfirmed.'], ['expired', 'Confirmation link expired.'],
+  ] as const) {
+    const html = (await render('verify', { emailDelivery })).replace(/\s+/g, ' ');
+    assert.ok(html.includes(`>${heading}</h1>`));
+    assert.equal(html.includes('Check your inbox.'), emailDelivery === 'accepted');
+    assert.doesNotMatch(html, /email is confirmed|email was delivered/i);
   }
 });
 

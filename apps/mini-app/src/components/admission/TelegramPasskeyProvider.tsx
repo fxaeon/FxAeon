@@ -9,10 +9,11 @@ import { JOURNAL_UPDATED_EVENT, readPendingHashJournal } from '@/lib/fx/journal'
 import { FxWalletContext } from '@/lib/wallet/context';
 import type { FxChainId, FxPrivyWallet, FxSelectedWallet, FxWalletTransaction } from '@/lib/wallet/types';
 import { getWebApp, waitForTelegramWebApp } from '@/lib/telegram';
+import { requestTelegramWriteAccess, TelegramWriteAccessError } from '@/lib/telegramWriteAccess';
 import { currentTelegramLaunchData, webAppUrl } from '@/lib/telegramAdmission';
 import {
   miniappAccess, miniappTransaction, pollHandoff, validatedHandoffUrl, isWalletResult, isSignResult,
-  MiniappAccessError, accessErrorMessage, verifySigningChallenge, challengeCommitment, type MiniappAccessStatus, type MiniappWallet, type MiniappTransaction, type SignResult,
+  MiniappAccessError, accessErrorMessage, verifySigningChallenge, challengeCommitment, type MiniappAccessStatus, type MiniappWallet, type MiniappTransaction, type SignResult, type EmailDelivery,
   readPendingOperation, savePendingOperation, clearPendingOperation, type PendingOperationHint, type TransactionOperation,
 } from '@/lib/miniappAccess';
 import WalletRouteProviders from '@/components/WalletRouteProviders';
@@ -81,6 +82,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
+  const [emailDelivery, setEmailDelivery] = useState<EmailDelivery>();
   const [opened, setOpened] = useState(false);
   const [disconnected, setDisconnected] = useState(false);
   const [pending, setPending] = useState<PendingSign>();
@@ -142,6 +144,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     setConnectionVersion(value => value + 1);
   }, []);
   const applyStatus = useCallback((next: MiniappAccessStatus, openExisting = false) => {
+    setEmailDelivery(next.emailDelivery);
     statusRef.current = next; setStatus(next);
     if (next.state === 'ready' && next.wallet) {
       acceptWallet(next.wallet); setView('ready'); if (openExisting) setOpened(true);
@@ -386,26 +389,32 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     try {
       const options = { signal: operation.controller.signal, launchData: operation.launchData };
       if (action === 'submit-email') {
-        await miniappAccess('email/request', { email: email.trim() }, options);
-        assertOperation(operation); setView('verify');
+        const result = await miniappAccess('email/request', { email: email.trim() }, options);
+        assertOperation(operation); setEmailDelivery(result.delivery); setView(result.delivery?.state === 'verified' ? 'verified' : 'verify');
+      } else if (action === 'retry-email') {
+        const result = await miniappAccess('email/retry', {}, options);
+        assertOperation(operation); setEmailDelivery(result.delivery); setView(result.delivery?.state === 'verified' ? 'verified' : 'verify');
+      } else if (action === 'check-email-status') {
+        const next = await miniappAccess('status', {}, options);
+        assertOperation(operation); applyStatus(next);
+        if (next.state === 'waiting' && !next.emailVerified) setView('verify');
       } else if (action === 'join') {
         const next = await miniappAccess('join', { notify: statusRef.current?.telegramNotify === true }, options);
         assertOperation(operation); applyStatus(next);
       } else if (action === 'allow-notifications') {
-        const request = getWebApp()?.requestWriteAccess;
-        if (!request) throw new Error('Telegram invite permission is unavailable.');
-        const allowed = await new Promise<boolean>((resolve, reject) => {
-          const abort = () => { clearTimeout(timer); reject(cancelled()); };
-          const timer = setTimeout(() => { operation.controller.signal.removeEventListener('abort', abort); reject(new Error('Permission request timed out.')); }, 30_000);
-          operation.controller.signal.addEventListener('abort', abort, { once: true });
-          request(value => { clearTimeout(timer); operation.controller.signal.removeEventListener('abort', abort); resolve(value === true); });
-        });
+        // Only the authenticated API may supply an existing permission grant.
+        // The explicit click still persists this user's notification preference.
+        const allowed = statusRef.current?.telegramWriteAllowed === true
+          || await requestTelegramWriteAccess(getWebApp(), { signal: operation.controller.signal });
         assertOperation(operation);
         const next = await miniappAccess('notify', { allowed }, options);
         assertOperation(operation); applyStatus(next);
       }
     } catch (cause) {
-      if (mounted.current && operation.generation === generation.current) { setError(accessErrorMessage(cause)); if (action === 'join') setView('join-error'); }
+      if (mounted.current && operation.generation === generation.current) {
+        setError(cause instanceof TelegramWriteAccessError ? cause.message : accessErrorMessage(cause));
+        if (action === 'join') setView('join-error');
+      }
     } finally { finish(operation); }
   };
 
@@ -457,7 +466,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     <button className={styles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
   </div></main>;
   const common = { notificationPermission: status?.telegramNotify ? 'granted' as const : status ? 'denied' as const : 'unknown' as const,
-    busy, error, onAction: (action: AdmissionAction) => { void act(action); } };
+    emailDelivery: emailDelivery?.state, busy, error, onAction: (action: AdmissionAction) => { void act(action); } };
   return view === 'email' ? <AdmissionScreen {...common} state="email" email={email} onEmailChange={setEmail} />
     : <AdmissionScreen {...common} state={view} />;
 }

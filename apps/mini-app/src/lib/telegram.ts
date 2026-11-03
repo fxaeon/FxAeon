@@ -49,8 +49,8 @@ export interface TgWebApp {
   setBottomBarColor?: (color: string) => void;
   openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   requestWriteAccess?: (callback: (allowed: boolean) => void) => void;
-  onEvent: (event: string, cb: () => void) => void;
-  offEvent: (event: string, cb: () => void) => void;
+  onEvent: (event: string, cb: (payload?: unknown) => void) => void;
+  offEvent: (event: string, cb: (payload?: unknown) => void) => void;
   BackButton: TgButton;
   HapticFeedback?: {
     impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;

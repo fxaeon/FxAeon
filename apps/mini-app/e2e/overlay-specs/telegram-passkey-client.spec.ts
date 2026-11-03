@@ -61,7 +61,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; tamper?: boolean; mobile?: boolean; failComplete?: boolean; substituteHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean };
+type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; failComplete?: boolean; substituteHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -80,7 +80,9 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
           expect(body).toMatchObject({ id: operation?.id, hash: operation?.hash });
           if (fixture.loseAck && operation) { operation.acknowledged = true; return route.abort(); }
           operation = null; response = { acknowledged: true }; break;
-        case 'join': response = { ...status, state: 'waiting', wallet: undefined }; break;
+        case 'join':
+          if (fixture.deferJoin) await fixture.deferJoin;
+          response = { ...status, state: 'waiting', wallet: undefined }; break;
         case 'notify': response = { ...status, state: 'waiting', telegramNotify: body.allowed, wallet: undefined }; break;
         case 'register/options': response = { challengeId: 'register-1', options: { challenge: 'register-challenge' } }; break;
         case 'register/complete': case 'wallet/retry': response = { state: 'ready', wallet }; break;
@@ -98,7 +100,8 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
           if (fixture.failComplete) return route.abort();
           response = { hash: HASH }; break;
         case 'email/confirm': response = { verified: true }; break;
-        case 'email/request': response = { status: 'verification_requested' }; break;
+        case 'email/request': response = { status: 'verification_requested', delivery: fixture.emailDelivery }; break;
+        case 'email/retry': response = { status: 'verification_requested', delivery: { state: 'pending', retryAfterMs: 1000 } }; break;
         default: response = { ok: true };
       }
       return route.fulfill({ json: response });
@@ -118,6 +121,98 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   return { requests, errors, reload };
 }
 const readClient = (page: Page, field: string) => page.evaluate(field => (window as any).client[field], field);
+
+test('Join posts immediately without a permission prompt and waits for the server before claiming enrollment', async ({ page }) => {
+  let joined!: () => void;
+  const deferJoin = new Promise<void>(resolve => { joined = resolve; });
+  const { requests } = await mount(page, '/', { state: 'new', hasCredential: false, deferJoin });
+  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  await expect.poll(() => requests.filter(r => r.action === 'join').length).toBe(1);
+  await expect(page.getByRole('heading', { name: 'Join early access.' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Join', exact: true })).toBeDisabled();
+  expect(requests.some(r => r.action === 'notify')).toBe(false);
+  joined();
+  await expect(page.getByRole('heading', { name: 'You’re on the waitlist.' })).toBeVisible();
+  expect(requests.filter(r => r.action === 'join')).toHaveLength(1);
+});
+
+test('Telegram permission preserves receiver and user gesture, then persists only the callback grant', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false });
+  await page.evaluate(() => {
+    const app = (window as any).Telegram.WebApp;
+    app.isVersionAtLeast = () => true;
+    app.requestWriteAccess = function (this: unknown, callback: (allowed: boolean) => void) {
+      if (this !== app) throw new Error('Lost receiver');
+      (window as any).client.permissionGesture = navigator.userActivation.isActive;
+      callback(true);
+    };
+  });
+  await page.getByRole('button', { name: 'Allow Telegram invites' }).click();
+  await expect(page.getByText('Your invite will arrive in this Telegram chat.')).toBeVisible();
+  expect(await readClient(page, 'permissionGesture')).toBe(true);
+  expect(requests.filter(r => r.action === 'notify')).toEqual([{ action: 'notify', allowed: true, launchData: 'user=%7B%22id%22%3A12345%7D&hash=fixture' }]);
+  expect(requests.some(r => r.action === 'register/options')).toBe(false);
+});
+
+test('Telegram event-only permission works and duplicate callback cannot overwrite it', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false });
+  await page.evaluate(() => {
+    const app = (window as any).Telegram.WebApp;
+    let handler: ((payload: unknown) => void) | undefined;
+    app.onEvent = (_: string, value: typeof handler) => { handler = value; };
+    app.offEvent = () => { handler = undefined; (window as any).client.permissionCleaned = true; };
+    app.requestWriteAccess = (callback: (allowed: boolean) => void) => { handler?.({ status: 'allowed' }); callback(false); };
+  });
+  await page.getByRole('button', { name: 'Allow Telegram invites' }).click();
+  await expect(page.getByText('Your invite will arrive in this Telegram chat.')).toBeVisible();
+  expect(requests.filter(r => r.action === 'notify').map(r => r.allowed)).toEqual([true]);
+  expect(await readClient(page, 'permissionCleaned')).toBe(true);
+});
+
+test('unsupported Telegram permission shows an actionable message and never claims or posts permission', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false });
+  await page.evaluate(() => {
+    (window as any).Telegram.WebApp.isVersionAtLeast = () => false;
+    (window as any).Telegram.WebApp.initDataUnsafe = { user: { allows_write_to_pm: true } };
+  });
+  await page.getByRole('button', { name: 'Allow Telegram invites' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Update Telegram to allow invites, or use email instead.');
+  await expect(page.getByText('Your invite will arrive in this Telegram chat.')).toHaveCount(0);
+  expect(requests.some(r => r.action === 'notify')).toBe(false);
+});
+
+test('server-verified existing write permission skips the native prompt only after an explicit opt-in', async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false, telegramWriteAllowed: true });
+  await page.evaluate(() => {
+    (window as any).Telegram.WebApp.requestWriteAccess = () => { throw new Error('Existing grant must not prompt again'); };
+  });
+  expect(requests.some(r => r.action === 'notify')).toBe(false);
+  await page.getByRole('button', { name: 'Allow Telegram invites' }).click();
+  await expect(page.getByText('Your invite will arrive in this Telegram chat.')).toBeVisible();
+  expect(requests.filter(r => r.action === 'notify').map(r => r.allowed)).toEqual([true]);
+  await expect(page.getByRole('heading', { name: 'You’re on the waitlist.' })).toBeVisible();
+  expect(requests.some(r => r.action === 'register/options')).toBe(false);
+});
+
+for (const [delivery, heading] of [
+  ['pending', 'Email queued.'], ['accepted', 'Check your inbox.'], ['failed', 'Email couldn’t be sent.'],
+  ['uncertain', 'Email status unconfirmed.'], ['unknown', 'Confirmation requested.'],
+] as const) test(`email ${delivery} is presented truthfully and retry is explicit`, async ({ page }) => {
+  const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false,
+    ...(delivery === 'unknown' ? {} : { emailDelivery: { state: delivery, retryAfterMs: delivery === 'pending' ? 1000 : null } }) });
+  await page.getByRole('button', { name: 'Use email instead' }).click();
+  await page.getByLabel('Email address', { exact: true }).fill('person@example.com');
+  await page.getByRole('button', { name: 'Send confirmation link' }).click();
+  await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+  expect(requests.filter(r => r.action === 'email/request')).toHaveLength(1);
+  expect(requests.filter(r => r.action === 'email/retry')).toHaveLength(0);
+  if (delivery !== 'accepted') await expect(page.getByRole('heading', { name: 'Check your inbox.' })).toHaveCount(0);
+  if (delivery === 'failed' || delivery === 'uncertain') {
+    await page.getByRole('button', { name: delivery === 'failed' ? 'Try again' : 'Request another email', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Email queued.' })).toBeVisible();
+    expect(requests.filter(r => r.action === 'email/retry')).toHaveLength(1);
+  }
+});
 
 test('flag selects the passkey context, and disconnect never auto-reconnects', async ({ page }) => {
   const { requests, errors } = await mount(page);
