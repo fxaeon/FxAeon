@@ -33,6 +33,68 @@ export interface VerificationDelivery {
   retryAfterMs: number | null;
 }
 export const INVITATION_TEXT = 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.';
+
+export type NotificationEmailV2 =
+  | { kind: 'verification'; url: string; expiresAt: number }
+  | { kind: 'invitation'; url: string };
+
+/** Text and quoted-attribute escaping; never interpolate raw values into markup. */
+export function escapeEmailHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
+}
+
+/** Immutable v2 presentation, deliberately not selected by dispatch yet.
+ * Activation requires a durable enqueue-time template version. Existing Resend
+ * keys MUST retain their original body, including on retries after deployment.
+ * expiresAt is the stored request deadline, never a fresh send-time duration.
+ */
+export function renderNotificationEmailV2(input: NotificationEmailV2): { subject: string; text: string; html: string } {
+  const verification = input.kind === 'verification';
+  if (typeof input.url !== 'string' || /[\s\x00-\x1f]/.test(input.url)) throw new Error('notification_template_invalid');
+  if (verification ? !/^https:\/\/fxaeon\.com\/invite#token=[a-f0-9]{64}$/.test(input.url)
+    : !/^https:\/\/t\.me\/[A-Za-z0-9_]{5,32}(?:\/[A-Za-z0-9_]{1,64})?(?:\?startapp(?:=[A-Za-z0-9_-]{0,128})?)?$/.test(input.url)) {
+    throw new Error('notification_template_invalid');
+  }
+  let expiry = '';
+  if (verification) {
+    if (!Number.isSafeInteger(input.expiresAt) || input.expiresAt <= 0 || input.expiresAt > 8_640_000_000_000_000) throw new Error('notification_template_invalid');
+    expiry = `This link expires on ${new Date(input.expiresAt).toISOString().slice(0, 16).replace('T', ' ')} UTC. If it has expired, request a new email in FxAeon.`;
+  }
+  const subject = verification ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready';
+  const heading = verification ? 'Confirm your email' : 'Your invitation is ready';
+  const intro = verification ? 'Confirm this email address to receive your FxAeon invitation.'
+    : 'Your access to FxAeon has been approved. Open the app in Telegram to set up your wallet and get started.';
+  const action = verification ? 'Review confirmation' : 'Open FxAeon';
+  const detail = verification ? 'Open the link, then select Confirm email. Opening the link alone does not verify your address.'
+    : 'You can return to FxAeon whenever you are ready.';
+  const safety = verification ? 'If you did not request this email, you can ignore it. Your address will not be verified.'
+    : 'Never share your recovery phrase or private keys, including with support.';
+  const support = 'Need a hand? Reply to this email or write to support@fxaeon.com.';
+  const fallback = 'If the button does not work, copy and paste this full link into your browser:';
+  const text = ['FxAeon', heading, intro, `${action}:\n${input.url}`, detail, expiry, `${fallback}\n${input.url}`, safety, support].filter(Boolean).join('\n\n');
+  const e = escapeEmailHtml;
+  const paragraph = (value: string) => `<p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#b3b3b3">${e(value)}</p>`;
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>${e(subject)}</title></head>
+<body style="margin:0;padding:0;background-color:#080808;color:#ffffff;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${e(intro)}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#080808"><tr><td align="center" style="padding:32px 12px">
+<!--[if mso]><table role="presentation" width="560"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px"><tr><td style="padding:0 24px 28px;font-size:20px;line-height:1.4;font-weight:700;color:#ffffff">FxAeon</td></tr>
+<tr><td bgcolor="#151515" style="padding:32px 24px;border-radius:16px">
+<h1 style="margin:0 0 16px;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.5px;color:#ffffff">${e(heading)}</h1>
+${paragraph(intro)}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0"><tr><td align="center" bgcolor="#2563eb" style="border-radius:26px;mso-padding-alt:16px 24px"><a href="${e(input.url)}" style="display:inline-block;padding:16px 24px;font-size:16px;line-height:20px;font-weight:700;text-decoration:none;color:#ffffff;border-radius:26px">${e(action)}</a></td></tr></table>
+${paragraph(detail)}${expiry ? paragraph(expiry) : ''}
+<p style="margin:28px 0 8px;font-size:14px;line-height:1.6;color:#b3b3b3">${e(fallback)}</p>
+<p style="margin:0;font-size:14px;line-height:1.6;word-break:break-all;overflow-wrap:anywhere"><a href="${e(input.url)}" style="color:#7da5ff;text-decoration:underline;word-break:break-all">${e(input.url)}</a></p>
+</td></tr><tr><td style="padding:24px 24px 0">
+<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#b3b3b3">${e(safety)}</p>
+<p style="margin:0;font-size:14px;line-height:1.6;color:#b3b3b3">${e(support)}</p>
+</td></tr></table><!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table></body></html>`;
+  return { subject, text, html };
+}
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const MAX_ATTEMPTS = 3;

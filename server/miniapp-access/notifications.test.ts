@@ -2,7 +2,52 @@ import assert from 'node:assert/strict';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import { Store } from './store.ts';
-import { NotificationStore, INVITATION_TEXT, type MailDB, type MailStatement, type MailResult, type NotificationEnv, type NotificationDiagnostic } from './notifications.ts';
+import { NotificationStore, INVITATION_TEXT, escapeEmailHtml, renderNotificationEmailV2, type MailDB, type MailStatement, type MailResult, type NotificationEnv, type NotificationDiagnostic } from './notifications.ts';
+
+test('v2 emails have one primary action, full fallback links and complete plain text without remote content', () => {
+  for (const input of [
+    { kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt: Date.UTC(2026, 10, 3, 11) },
+    { kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' },
+    { kind: 'invitation', url: 'https://t.me/FxAeonBot/app?startapp=welcome' },
+  ] as const) {
+    const mail = renderNotificationEmailV2(input);
+    const links = Array.from(mail.html.matchAll(/href="([^"]+)"/g), match => match[1]);
+    assert.deepEqual(links, [input.url, input.url]);
+    assert.equal((mail.html.match(/display:inline-block/g) ?? []).length, 1);
+    assert.ok(mail.text.includes(`\n${input.url}\n`));
+    assert.ok(mail.text.includes(`browser:\n${input.url}`));
+    for (const body of [mail.html, mail.text]) {
+      assert.match(body, /support@fxaeon\.com/);
+      if (input.kind === 'verification') {
+        assert.match(body, /2026-11-03 11:00 UTC/);
+        assert.match(body, /Opening the link alone does not verify/);
+        assert.match(body, /request a new email/);
+        assert.match(body, /did not request/);
+      } else {
+        assert.doesNotMatch(body, /expires|one hour|confirm your email/i);
+        assert.match(body, /approved/);
+      }
+    }
+    assert.doesNotMatch(mail.text, /<[^>]+>|&(?:amp|quot|lt|gt);/);
+    assert.doesNotMatch(mail.html, /<img|<script|<link|<iframe|@font-face|url\(|utm_|tracking|src=/i);
+    assert.match(mail.html, /name="viewport"/);
+    assert.ok(Buffer.byteLength(JSON.stringify({ from: ENV.RESEND_FROM, to: ['person@example.com'], reply_to: 'support@fxaeon.com', ...mail })) < 8192);
+  }
+});
+
+test('v2 templates escape HTML text and attributes and reject injected or off-brand destinations without leaking them', () => {
+  assert.equal(escapeEmailHtml(`<&>"'`), '&lt;&amp;&gt;&quot;&#39;');
+  for (const url of ['javascript:alert(1)', 'https://evil.invalid/', 'https://fxaeon.com.evil.invalid/invite',
+    'https://user:password@t.me/FxAeonBot/app', 'https://t.me/FxAeonBot/app" onclick="alert(1)',
+    'https://t.me/FxAeonBot/app\n', 'https://t.me/FxAeonBot/app?startapp=<script>',
+    'https://t.me/FxAeonBot/app#secret', 'https://t.me/FxAeonBot/app?startapp=x&tracker=y']) {
+    assert.throws(() => renderNotificationEmailV2({ kind: 'invitation', url }), /^Error: notification_template_invalid$/);
+  }
+  for (const expiresAt of [NaN, Infinity, 0, -1, 1.5, 8_640_000_000_000_001]) {
+    assert.throws(() => renderNotificationEmailV2({ kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt }), /^Error: notification_template_invalid$/);
+  }
+  assert.throws(() => renderNotificationEmailV2({ kind: 'verification', url: 'https://fxaeon.com/invite#token="<secret>', expiresAt: 1 }), /^Error: notification_template_invalid$/);
+});
 
 /** Execute actual SQLite transactions, not SQL-shaped mocks. Every network call is intercepted. */
 class SQLiteDB implements MailDB {
@@ -341,6 +386,31 @@ test('Resend retries identical payload and idempotency key after uncertain failu
   assert.equal(f.calls[0].init.body, f.calls[1].init.body);
   assert.equal((f.calls[0].init.headers as any)['Idempotency-Key'], (f.calls[1].init.headers as any)['Idempotency-Key']);
   assert.equal((await f.admission.status(1))!.state, 'approved');
+});
+
+test('template staging preserves the legacy Resend payload for verification and invitation retries', async t => {
+  for (const kind of ['verification', 'invitation'] as const) {
+    const f = await fixture(t);
+    if (kind === 'verification') {
+      await f.admission.join(1, false); await f.store.setContact(1, 'person@example.com');
+    } else {
+      await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    }
+    f.respond(() => new Response(null, { status: 503 }));
+    await f.store.dispatch();
+    const first = f.calls[0];
+    const expectedText = kind === 'verification'
+      ? `Confirm your email address for FxAeon invitations.\n\nhttps://fxaeon.com/invite#token=${token(first)}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`
+      : `${INVITATION_TEXT}\n\n${ENV.TELEGRAM_MINIAPP_URL}`;
+    assert.deepEqual(first.body, { from: ENV.RESEND_FROM, to: [kind === 'verification' ? 'person@example.com' : 'person1@example.com'],
+      reply_to: 'support@fxaeon.com', subject: kind === 'verification' ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready', text: expectedText });
+    f.advance(60_000);
+    f.respond(() => Response.json({ id: 'accepted' }));
+    await f.make().dispatch();
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[1].init.body, first.init.body);
+    assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), new Headers(first.init.headers).get('Idempotency-Key'));
+  }
 });
 
 test('Resend stops after three attempts and never retries past provider idempotency retention', async t => {
