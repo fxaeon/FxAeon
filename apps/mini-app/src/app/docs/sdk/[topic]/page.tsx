@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ topic: st
   const { topic } = await params;
   const article = sdkNavigation.find(({ id }) => id === `sdk-${topic}`);
   if (!article) notFound();
-  return pageMetadata(article.title + ' · FxAeon', article.description, sdkHref(article.id));
+  return pageMetadata(article.title + ' · FxAeon SDK', article.description, sdkHref(article.id));
 }
 
 export default async function SdkTopicPage({ params }: { params: Promise<{ topic: string }> }) {

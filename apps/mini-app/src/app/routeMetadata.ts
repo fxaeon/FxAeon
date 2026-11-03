@@ -5,6 +5,7 @@ export const BRAND_DESCRIPTION = 'Trade ETH and BTC, earn with fxSAVE, borrow fx
 export const SOCIAL_IMAGE_ALT = 'FxAeon. Your DeFi, in motion. Trade, earn, borrow, and move with f(x) Protocol.';
 export const SOCIAL_IMAGE_URL = 'https://fxaeon.com/social-preview.png';
 export const DEFAULT_ROBOTS = { index: false, follow: true } as const;
+export const CAPABILITY_ROBOTS = { index: false, follow: false, noarchive: true } as const;
 
 /** Emit complete social objects: Next replaces nested metadata on child routes. */
 export function pageMetadata(title: string, description: string, path: string): Metadata {
@@ -35,6 +36,8 @@ const ROUTE_METADATA = {
   qr: ['Receive', 'Receive supported assets into your connected FxAeon wallet.', '/qr'],
   settings: ['Wallet & account', 'Manage the selected wallet and Telegram session in FxAeon.', '/settings'],
   login: ['Sign in', 'Connect a wallet or sign in to use FxAeon from the web or Telegram.', '/login'],
+  invite: ['Confirm your email', 'Confirm your FxAeon notification email with your private confirmation link.', '/invite'],
+  walletApproval: ['Wallet approval', 'Review a private FxAeon wallet request.', '/wallet-approval'],
 } as const;
 
 const INDEXABLE_ROUTES = new Set<keyof typeof ROUTE_METADATA>([
@@ -45,5 +48,9 @@ export function routeMetadata(route: keyof typeof ROUTE_METADATA): Metadata {
   const [title, description, path] = ROUTE_METADATA[route];
   const metadata = pageMetadata(title + ' · FxAeon', description, path);
   metadata.robots = INDEXABLE_ROUTES.has(route) ? { index: true, follow: true } : DEFAULT_ROBOTS;
+  if (route === 'invite' || route === 'walletApproval') {
+    metadata.robots = CAPABILITY_ROBOTS;
+    metadata.referrer = 'no-referrer';
+  }
   return metadata;
 }

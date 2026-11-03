@@ -19,6 +19,7 @@ for (const file of ['index.html', 'styles.css', 'script.js', 'dollar-outcomes.js
   }
 }
 await cp(resolve(root, '_headers'), resolve(dist, '_headers'));
+await cp(resolve(root, 'llms.txt'), resolve(dist, 'llms.txt'));
 // HTML revalidates on each visit, while Pages can cache scripts and styles for
 // hours. Version the whole browser module graph so changes to an imported
 // module also refresh its entry point for returning visitors.
