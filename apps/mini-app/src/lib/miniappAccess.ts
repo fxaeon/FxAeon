@@ -9,12 +9,16 @@ export const TELEGRAM_PASSKEY_MODE = (() => {
 export const MINIAPP_ACCESS_ENDPOINT = '/api/telegram-wallet';
 export const HANDOFF_TIMEOUT_MS = 5 * 60_000;
 export type MiniappWallet = { id: string; address: `0x${string}` };
+export type EmailDelivery = { state: 'not_requested' | 'pending' | 'accepted' | 'failed' | 'uncertain' | 'expired' | 'verified'; retryAfterMs: number | null };
 export type MiniappAccessStatus = {
   state: 'new' | 'waiting' | 'approved' | 'ready';
   telegramNotify: boolean;
+  /** Optional backward-compatible hint derived by the server from verified launch data. */
+  telegramWriteAllowed?: boolean;
   emailVerified: boolean;
   cohortFull: boolean;
   hasCredential: boolean;
+  emailDelivery?: EmailDelivery;
   wallet?: MiniappWallet;
 };
 export type MiniappTransaction = { from: string; to: string; chainId: 1 | 8453; value: string; data: string } & Partial<Record<'nonce' | 'gasLimit' | 'gasPrice' | 'maxFeePerGas' | 'maxPriorityFeePerGas', string>>;
@@ -36,7 +40,8 @@ type AccessActions = {
   status: { input: Record<string, never>; output: MiniappAccessStatus };
   join: { input: { notify: boolean }; output: MiniappAccessStatus };
   notify: { input: { allowed: boolean }; output: MiniappAccessStatus };
-  'email/request': { input: { email: string }; output: { status: 'verification_requested' } };
+  'email/request': { input: { email: string }; output: { status: 'verification_requested'; delivery?: EmailDelivery } };
+  'email/retry': { input: Record<string, never>; output: { status: 'verification_requested'; delivery?: EmailDelivery } };
   'email/confirm': { input: { token: string }; output: { verified: true } };
   'register/options': { input: Record<string, never>; output: { challengeId: string; options: PublicKeyCredentialCreationOptionsJSON } };
   'register/complete': { input: { challengeId: string; response: RegistrationResponseJSON }; output: WalletResult & { state: 'ready' } };
@@ -101,8 +106,14 @@ export function isWalletResult(value: unknown): value is WalletResult { return r
 function validStatus(value: Record<string, unknown>): boolean {
   return ['new', 'waiting', 'approved', 'ready'].includes(String(value.state))
     && ['telegramNotify', 'emailVerified', 'cohortFull', 'hasCredential'].every(key => typeof value[key] === 'boolean')
+    && (value.telegramWriteAllowed === undefined || typeof value.telegramWriteAllowed === 'boolean')
+    && (value.emailDelivery === undefined || validEmailDelivery(value.emailDelivery))
     && (value.wallet === undefined || isMiniappWallet(value.wallet))
     && (value.state !== 'ready' || isMiniappWallet(value.wallet));
+}
+function validEmailDelivery(value: unknown): boolean {
+  return record(value) && ['not_requested', 'pending', 'accepted', 'failed', 'uncertain', 'expired', 'verified'].includes(String(value.state))
+    && (value.retryAfterMs === null || (typeof value.retryAfterMs === 'number' && Number.isSafeInteger(value.retryAfterMs) && value.retryAfterMs >= 0));
 }
 function validOptions(value: unknown): boolean {
   return record(value) && typeof value.challenge === 'string' && value.challenge.length > 0;
@@ -131,7 +142,7 @@ function validResponse(action: keyof AccessActions, value: unknown): boolean {
     }
     case 'handoff/status': return value.state === 'pending' || value.state === 'error'
       || (value.state === 'done' && (isWalletResult(value.result) || isSignResult(value.result)));
-    case 'email/request': return value.status === 'verification_requested';
+    case 'email/request': case 'email/retry': return value.status === 'verification_requested' && (value.delivery === undefined || validEmailDelivery(value.delivery));
     case 'email/confirm': return value.verified === true;
     case 'transaction/status': return value.operation === null || validOperation(value.operation);
     case 'transaction/ack': return value.acknowledged === true;

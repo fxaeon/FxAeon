@@ -57,7 +57,7 @@ function fixture(t: TestContext) {
   let now = NOW;
   const fetchImpl: typeof fetch = async (input, init) => {
     assert.equal(String(input), `https://api.telegram.org/bot${TOKEN}/sendMessage`);
-    assert.equal(init?.method, 'POST'); assert.equal(init?.redirect, 'error');
+    assert.equal(init?.method, 'POST'); assert.equal(init?.redirect, 'manual');
     sent.push(JSON.parse(String(init?.body))); return new Response('{"ok":true}');
   };
   const handler = createTelegramBotHandler({ fetch: fetchImpl, now: () => now });

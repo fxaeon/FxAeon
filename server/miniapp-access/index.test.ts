@@ -9,6 +9,7 @@ import { Worker } from 'node:worker_threads';
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { createAccessHandler, createOperatorHandler, type Env } from './index.ts';
 import { Store, type DB, type DBResult, type DBStatement } from './store.ts';
+import { NotificationStore } from './notifications.ts';
 import { onRequest as mountedAccess } from '../../functions/api/telegram-wallet.ts';
 import { onRequest as mountedOperator } from '../../functions/api/miniapp-operator.ts';
 
@@ -64,9 +65,9 @@ class Statement implements DBStatement {
   async all<T = Record<string, unknown>>() { return this.execute<T>(); }
   async run<T = Record<string, unknown>>() { return this.execute<T>(); }
 }
-async function launch(userId = 1, age = 0, bot = BOT): Promise<string> {
+async function launch(userId = 1, age = 0, bot = BOT, allowsWriteToPm?: boolean): Promise<string> {
   const fields = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000) - age), query_id: 'test-query',
-    user: JSON.stringify({ id: userId, first_name: 'Private first name', username: 'private_username' }) });
+    user: JSON.stringify({ id: userId, first_name: 'Private first name', username: 'private_username', allows_write_to_pm: allowsWriteToPm }) });
   const text = `${bot}:WebAppData\n${[...fields].sort(([a], [b]) => a < b ? -1 : 1).map(([key, value]) => `${key}=${value}`).join('\n')}`;
   fields.set('signature', b64(new Uint8Array(await crypto.subtle.sign('Ed25519', telegram.privateKey, utf8(text)))));
   return fields.toString();
@@ -89,7 +90,6 @@ function error(value: Result, status: number, code: string) {
 type Call = { url: string; method: string; headers: Headers; body: any };
 async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: string) {
   const db = new SQLiteDB(path);
-  t.after(() => db.sql.close());
   const env: Env = { ADMISSION_DB: db, TELEGRAM_BOT_ID: BOT, MINIAPP_ORIGIN: ORIGIN,
     MINIAPP_ACCESS_MODE: 'passkey', MINIAPP_LEGACY_USERS: '5', MINIAPP_OPERATOR_TOKEN: OPERATOR,
     PRIVY_APP_ID: 'testapp000000000000000000', PRIVY_APP_SECRET: 'synthetic-provider-secret', PRIVY_PUBLIC_SIGNUP_DISABLED: 'yes',
@@ -98,14 +98,15 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   const store = new Store(db);
   const calls: Call[] = []; const unexpected: string[] = []; const background: Promise<unknown>[] = [];
   let rpcFailure = false;
+  let mailResponse: () => Response | Promise<Response> = () => Response.json({ id: 'mock-email-id' });
   let lookup: (call: Call) => Response | Promise<Response> = () => Response.json({ transactions: [] });
   let onRPC: ((call: Call) => void) | undefined;
   const fetcher: typeof fetch = async (input, init) => {
     const call: Call = { url: String(input), method: init?.method ?? 'GET', headers: new Headers(init?.headers),
       body: init?.body ? JSON.parse(String(init.body)) : undefined };
     calls.push(call);
-    assert.equal(init?.redirect, 'error');
-    if (call.url === 'https://api.resend.com/emails') return Response.json({ id: 'mock-email-id' });
+    assert.equal(init?.redirect, 'manual');
+    if (call.url === 'https://api.resend.com/emails') return mailResponse();
     if (call.url === `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`) return Response.json({ ok: true, result: { message_id: 1 } });
     const external = /^https:\/\/api\.privy\.io\/v1\/wallets\/ext_wal_([a-zA-Z0-9_-]+)$/.exec(call.url);
     if (external) {
@@ -137,8 +138,12 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   const operate = async (body: unknown, authorization: string | null = `Bearer ${OPERATOR}`, init: RequestInit = {}) => result(await operator({
     request: request(body, '/api/miniapp-operator', { headers: { 'content-type': 'application/json', ...(authorization === null ? {} : { authorization }) }, ...init }), env }));
   assert.equal((await asUser('status')).status, 200);
-  t.after(async () => { await Promise.all(background); assert.deepEqual(unexpected, []); });
+  t.after(async () => {
+    try { await Promise.all(background); assert.deepEqual(unexpected, []); }
+    finally { db.sql.close(); }
+  });
   return { db, env, store, calls, access, operator, send, asUser, operate, background,
+    mailResponse: (response: typeof mailResponse) => { mailResponse = response; },
     failRPC: (value = true) => { rpcFailure = value; },
     lookup: (response: typeof lookup) => { lookup = response; },
     onRPC: (observer: (call: Call) => void) => { onRPC = observer; },
@@ -265,8 +270,151 @@ test('join only changes the signed identity, never self-approves, and status is 
   assert.equal((await f.asUser('join', 1, { notify: false })).body.state, 'waiting');
   assert.equal((await f.asUser('notify', 1, { allowed: true })).body.telegramNotify, true);
   assert.equal((await f.store.status(1))!.externalId, null); assert.equal(await f.store.status(99), null);
-  assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, emailVerified: false, hasCredential: false });
+  assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, telegramWriteAllowed: false, emailVerified: false, emailDelivery: { state: 'not_requested', retryAfterMs: null }, hasCredential: false });
   error(await f.asUser('register/options'), 503, 'wallet_unavailable');
+  assert.deepEqual(f.outbox(), []); assert.equal(f.calls.length, 0);
+});
+
+async function withoutProviderCompletion<T>(work: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('handler waited for unrelated provider delivery')), 2000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
+for (const action of ['join', 'notify']) {
+  test(`unapproved ${action} returns immediately without dispatching unrelated queued email`, async t => {
+    const f = await fixture(t);
+    await f.store.join(2, false);
+    await new NotificationStore(f.db, f.env).setContact(2, 'other@example.com');
+    let release!: (response: Response) => void;
+    const held = new Promise<Response>(resolve => { release = resolve; });
+    f.mailResponse(() => held);
+    const work = f.asUser(action, 1, action === 'join' ? { notify: false } : { allowed: true });
+    try {
+      const response = await withoutProviderCompletion(work);
+      assert.equal(response.status, 200);
+      assert.equal(response.body.state, 'waiting');
+      assert.equal(f.calls.length, 0);
+      assert.equal(f.background.length, 0);
+      assert.equal(f.outbox()[0].attempts, 0);
+    } finally { release(Response.json({ id: 'released' })); await work; }
+  });
+}
+
+test('approved join durably enqueues its invitation and uses waitUntil without waiting for a stalled global send', async t => {
+  const f = await fixture(t);
+  await f.store.join(1, false); await f.store.approve([1]);
+  await f.store.join(2, false);
+  await new NotificationStore(f.db, f.env).setContact(2, 'other@example.com');
+  let release!: (response: Response) => void;
+  let entered!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<Response>(resolve => { release = resolve; });
+  f.mailResponse(() => { entered(); return held; });
+  const work = f.asUser('join', 1, { notify: true });
+  try {
+    const response = await withoutProviderCompletion(work);
+    assert.equal(response.status, 200); assert.equal(response.body.state, 'approved');
+    assert.ok(f.outbox().some(row => row.id === 'invite:telegram:1'));
+    assert.equal(f.background.length, 1);
+    await withoutProviderCompletion(started);
+    let finished = false;
+    void f.background[0].then(() => { finished = true; });
+    await Promise.resolve();
+    assert.equal(finished, false, 'response arrives while waitUntil still owns the provider send');
+  } finally { release(Response.json({ id: 'released' })); await work; await Promise.all(f.background); }
+});
+
+test('approved invitation stays durable for scheduled dispatch when waitUntil is unavailable', async t => {
+  const f = await fixture(t);
+  await f.store.join(1, false); await f.store.approve([1]);
+  const response = await f.refreshedUser('join', 1, { notify: true });
+  assert.equal(response.status, 200);
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.outbox()[0].status, 'pending');
+  assert.equal((await f.operate({ action: 'dispatch' })).body.sent, 1);
+});
+
+for (const action of ['email/request', 'email/retry']) {
+  test(`${action} dispatches only the current user's verification despite a stalled backlog`, async t => {
+    const f = await fixture(t);
+    const notifications = new NotificationStore(f.db, f.env);
+    await f.store.join(1, true); await f.store.approve([1]);
+    await notifications.enqueueInvitation(1, true);
+    for (let id = 2; id <= 11; id++) {
+      await f.store.join(id, false);
+      await notifications.setContact(id, `other${id}@example.com`);
+    }
+    f.db.sql.prepare('UPDATE access_mail_outbox SET created_at=0').run();
+    if (action === 'email/retry') {
+      await notifications.setContact(1, 'old@example.com');
+      await notifications.setContact(1, 'private@example.com');
+    }
+    let release!: (response: Response) => void;
+    const held = new Promise<Response>(resolve => { release = resolve; });
+    f.mailResponse(() => f.calls.at(-1)?.body.to.includes('private@example.com')
+      ? Response.json({ id: 'accepted' }) : held);
+    const work = f.asUser(action, 1, action === 'email/request' ? { email: 'private@example.com' } : {});
+    try {
+      const response = await withoutProviderCompletion(work);
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body.delivery, { state: 'accepted', retryAfterMs: null });
+      assert.equal(f.calls.length, 1, 'no other user, invitation, or superseded token is dispatched');
+      assert.ok(f.outbox().filter(row => row.status !== 'sent').every(row => row.attempts === 0));
+    } finally { release(Response.json({ id: 'released' })); await work; }
+  });
+}
+
+test('email request still awaits its dispatch result before reporting provider acceptance', async t => {
+  const f = await fixture(t); await f.store.join(1, false);
+  let release!: (response: Response) => void;
+  let entered!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<Response>(resolve => { release = resolve; });
+  f.mailResponse(() => { entered(); return held; });
+  let responded = false;
+  const work = f.asUser('email/request', 1, { email: 'private@example.com' }).then(response => {
+    responded = true; return response;
+  });
+  try {
+    await withoutProviderCompletion(started);
+    assert.equal(responded, false);
+  } finally { release(Response.json({ id: 'accepted' })); }
+  const response = await work;
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.delivery, { state: 'accepted', retryAfterMs: null });
+});
+
+test('verified Telegram write permission skips only the prompt, never opt-in or admission', async t => {
+  const f = await fixture(t, { MINIAPP_ACCESS_MODE: 'waitlist' });
+  const launchData = await launch(1, 0, BOT, true);
+  const initial = await f.send({ action: 'status', launchData });
+  assert.equal(initial.status, 200);
+  assert.equal(initial.body.telegramWriteAllowed, true);
+  assert.equal(initial.body.telegramNotify, false);
+  assert.equal(initial.body.state, 'new');
+  const joined = await f.send({ action: 'join', launchData, notify: false });
+  assert.equal(joined.body.telegramWriteAllowed, true);
+  assert.equal(joined.body.telegramNotify, false);
+  assert.equal(joined.body.state, 'waiting');
+  const optedIn = await f.send({ action: 'notify', launchData, allowed: true });
+  assert.equal(optedIn.body.telegramWriteAllowed, true);
+  assert.equal(optedIn.body.telegramNotify, true);
+  assert.equal(optedIn.body.state, 'waiting');
+  assert.equal(optedIn.body.hasCredential, false);
+  assert.equal(optedIn.body.wallet, undefined);
+  for (const flag of [false, undefined]) {
+    const fresh = await f.send({ action: 'status', launchData: await launch(1, 0, BOT, flag) });
+    assert.equal(fresh.body.telegramWriteAllowed, false, 'permission belongs to this signed launch, not persisted enrollment');
+  }
+  const forged = new URLSearchParams(await launch());
+  forged.set('user', JSON.stringify({ id: 1, allows_write_to_pm: true }));
+  error(await f.send({ action: 'status', launchData: forged.toString() }), 403, 'launch_rejected');
+  error(await f.send({ action: 'status', launchData, telegramWriteAllowed: true }), 400, 'request_invalid');
+  assert.equal((await f.store.status(1))!.externalId, null);
   assert.deepEqual(f.outbox(), []); assert.equal(f.calls.length, 0);
 });
 
@@ -274,7 +422,7 @@ test('status never returns names, contact address, credential material, external
   const f = await fixture(t); await ready(f);
   f.db.sql.prepare('INSERT INTO access_mail_contacts(user_id,email,verified,expires_at) VALUES(1,?,1,0)').run('private@example.com');
   const status = await f.asUser('status');
-  assert.deepEqual(status.body, { state: 'ready', cohortFull: false, telegramNotify: false, emailVerified: true, hasCredential: true,
+  assert.deepEqual(status.body, { state: 'ready', cohortFull: false, telegramNotify: false, telegramWriteAllowed: false, emailVerified: true, emailDelivery: { state: 'verified', retryAfterMs: null }, hasCredential: true,
     wallet: { id: 'wallet-1', address: ADDRESS } });
   const row = (await f.store.status(1))!;
   const text = JSON.stringify(status.body);
@@ -402,7 +550,7 @@ test('email verification requires POST, never admits a waiting user and cannot c
   error(await f.asUser('email/request', 1, { email: 'private@example.com' }), 403, 'join_required');
   await f.asUser('join', 1, { notify: false });
   const sent = await f.asUser('email/request', 1, { email: 'private@example.com' });
-  assert.deepEqual(sent.body, { status: 'verification_requested' });
+  assert.deepEqual(sent.body, { status: 'verification_requested', delivery: { state: 'accepted', retryAfterMs: null } });
   const email = f.calls.find(call => call.url === 'https://api.resend.com/emails')!;
   const token = /https:\/\/fxaeon\.com\/invite#token=([a-f0-9]{64})/.exec(email.body.text)![1];
   error(await result(await f.access({ request: new Request(`${ORIGIN}/api/telegram-wallet?token=${token}`), env: f.env })), 405, 'method_not_allowed');
@@ -423,6 +571,47 @@ test('disabled email and rate limits return honest mapped errors without reveali
   for (let i = 0; i < 3; i++) assert.equal((await f.asUser('email/request', 1, { email: 'private@example.com' })).status, 200);
   error(await f.asUser('email/request', 1, { email: 'private@example.com' }), 429, 'notification_rate_limited');
   assert.equal(f.calls.length, 3);
+});
+
+test('email API exposes only delivery state and bounded retry timing; retry uses signed user identity', async t => {
+  const f = await fixture(t);
+  error(await f.asUser('email/retry'), 403, 'join_required');
+  await f.asUser('join', 1, { notify: false });
+  await f.asUser('join', 2, { notify: false });
+  f.mailResponse(() => { throw new TypeError('secret provider/recipient/token detail'); });
+  const first = await f.asUser('email/request', 1, { email: 'private@example.com' });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.status, 'verification_requested');
+  assert.equal(first.body.delivery.state, 'pending');
+  assert.ok(first.body.delivery.retryAfterMs > 0 && first.body.delivery.retryAfterMs <= 60000);
+  assert.deepEqual(Object.keys(first.body.delivery).sort(), ['retryAfterMs', 'state']);
+  const pending = await f.asUser('email/retry');
+  assert.equal(pending.body.delivery.state, 'pending');
+  assert.equal(f.calls.length, 1, 'retry must not bypass existing backoff');
+  error(await f.asUser('email/retry', 2), 503, 'notification_unavailable');
+  error(await f.asUser('email/retry', 1, { userId: 2 }), 400, 'request_invalid');
+  error(await f.asUser('email/retry', 1, { email: 'other@example.com' }), 400, 'request_invalid');
+  assert.deepEqual((await f.asUser('status', 2)).body.emailDelivery, { state: 'not_requested', retryAfterMs: null });
+  f.db.sql.prepare("UPDATE access_mail_outbox SET next_at=0 WHERE user_id=1").run();
+  f.mailResponse(() => Response.json({ id: 'accepted' }));
+  const accepted = await f.asUser('email/retry');
+  assert.deepEqual(accepted.body, { status: 'verification_requested', delivery: { state: 'accepted', retryAfterMs: null } });
+  assert.equal(f.calls.length, 2);
+  assert.deepEqual((await f.asUser('status')).body.emailDelivery, { state: 'accepted', retryAfterMs: null });
+  for (const body of [first.body, pending.body, accepted.body]) {
+    assert.ok(!JSON.stringify(body).includes('private@example.com'));
+    assert.ok(!JSON.stringify(body).includes('token'));
+  }
+});
+
+test('provider rejection returns failed delivery, and explicit retry can create a rate-limited replacement', async t => {
+  const f = await fixture(t); await f.asUser('join', 1, { notify: false });
+  f.mailResponse(() => new Response('private credentials/recipient', { status: 403 }));
+  const failed = await f.asUser('email/request', 1, { email: 'private@example.com' });
+  assert.deepEqual(failed.body, { status: 'verification_requested', delivery: { state: 'failed', retryAfterMs: 0 } });
+  f.mailResponse(() => Response.json({ id: 'accepted' }));
+  assert.equal((await f.asUser('email/retry')).body.delivery.state, 'accepted');
+  assert.equal(f.calls.length, 2);
 });
 
 test('operator dispatch reconciles durable approval after interrupted enqueue and sends only one invitation', async t => {

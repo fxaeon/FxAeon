@@ -69,7 +69,8 @@ test('CI source phase runs every source gate and no production/browser route sui
   const result = await runPhase('--ci-source');
   assert.equal(result.status, 0, result.stderr);
   for (const required of ['verify:scope', 'verify:architecture', 'build:landing', 'lint', 'test', 'run audit:all', 'test:landing:browser',
-    'test:miniapp-access', 'typecheck:miniapp-access', 'test:miniapp-operator', 'test:miniapp-readiness', 'test:scope:contract', 'test:production-env']) {
+    'test:miniapp-access', 'typecheck:miniapp-access', 'test:miniapp-operator', 'test:miniapp-readiness', 'test:scope:contract', 'test:production-env',
+    'exec node --test scripts/miniapp_access_runtime.test.mjs']) {
     assert.ok(result.commands.some((command) => command.includes(required)), `missing ${required}`);
   }
   assert.ok(!result.commands.some((command) => /^build$|test:e2e/.test(command)));
@@ -129,6 +130,10 @@ test('phase failures remain failures and stop dependent source work', async () =
   const serverFailure = await runPhase('--ci-source', 'test:miniapp-access');
   assert.equal(serverFailure.status, 1);
   assert.ok(!serverFailure.commands.includes('test:landing:browser'));
+
+  const runtimeFailure = await runPhase('--ci-source', 'exec node --test scripts/miniapp_access_runtime.test.mjs');
+  assert.equal(runtimeFailure.status, 1, 'a workerd regression must fail the required source CI gate');
+  assert.ok(!runtimeFailure.commands.includes('test:landing:browser'));
 
   const isolatedFailure = await runPhase('--ci-isolated-0', 'test:e2e:overlay');
   assert.equal(isolatedFailure.status, 1);

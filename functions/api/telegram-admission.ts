@@ -89,7 +89,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 export type LaunchVerification =
-  | { ok: true; userId: number; authDate: number }
+  | { ok: true; userId: number; authDate: number; allowsWriteToPm: boolean }
   | { ok: false; reason: "malformed" | "unsigned" | "forged" | "expired" };
 
 function hexBytes(hex: string): Uint8Array<ArrayBuffer> {
@@ -171,7 +171,9 @@ export async function verifyTelegramLaunchData(
   }
   const id = typeof user === "object" && user !== null ? (user as { id?: unknown }).id : undefined;
   if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0) return { ok: false, reason: "malformed" };
-  return { ok: true, userId: id, authDate };
+  // Read this permission only after signature, freshness and identity checks.
+  const allowsWriteToPm = (user as { allows_write_to_pm?: unknown }).allows_write_to_pm === true;
+  return { ok: true, userId: id, authDate, allowsWriteToPm };
 }
 
 /**

@@ -87,7 +87,8 @@ async function reply(token: string, chat: number, selected: Command, options: Op
     await Promise.race([
       (async () => {
         const response = await (options.fetch ?? fetch)(`https://api.telegram.org/bot${token}/sendMessage`, {
-          method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal, redirect: 'error',
+          // Workerd supports manual/follow only. Never follow a token-bearing redirect.
+          method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal, redirect: 'manual',
           body: JSON.stringify({ chat_id: chat, text: TEXT[selected], link_preview_options: { is_disabled: true },
             reply_markup: { inline_keyboard: [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]] } }),
         });

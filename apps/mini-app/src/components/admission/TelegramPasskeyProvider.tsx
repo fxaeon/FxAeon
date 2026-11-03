@@ -9,10 +9,11 @@ import { JOURNAL_UPDATED_EVENT, readPendingHashJournal } from '@/lib/fx/journal'
 import { FxWalletContext } from '@/lib/wallet/context';
 import type { FxChainId, FxPrivyWallet, FxSelectedWallet, FxWalletTransaction } from '@/lib/wallet/types';
 import { getWebApp, waitForTelegramWebApp } from '@/lib/telegram';
+import { requestTelegramWriteAccess, TelegramWriteAccessError } from '@/lib/telegramWriteAccess';
 import { currentTelegramLaunchData, webAppUrl } from '@/lib/telegramAdmission';
 import {
   miniappAccess, miniappTransaction, pollHandoff, validatedHandoffUrl, isWalletResult, isSignResult,
-  MiniappAccessError, accessErrorMessage, verifySigningChallenge, challengeCommitment, type MiniappAccessStatus, type MiniappWallet, type MiniappTransaction, type SignResult,
+  MiniappAccessError, accessErrorMessage, verifySigningChallenge, challengeCommitment, type MiniappAccessStatus, type MiniappWallet, type MiniappTransaction, type SignResult, type EmailDelivery,
   readPendingOperation, savePendingOperation, clearPendingOperation, type PendingOperationHint, type TransactionOperation,
 } from '@/lib/miniappAccess';
 import WalletRouteProviders from '@/components/WalletRouteProviders';
@@ -81,11 +82,13 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
+  const [emailDelivery, setEmailDelivery] = useState<EmailDelivery>();
   const [opened, setOpened] = useState(false);
   const [disconnected, setDisconnected] = useState(false);
   const [pending, setPending] = useState<PendingSign>();
   const [browserPending, setBrowserPending] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [bridgeReady, setBridgeReady] = useState(false);
   const [recovery, setRecovery] = useState<Recovery | null>(null);
   const recoveryRef = useRef<Recovery | null>(null);
   const confirmationWaiters = useRef<Array<() => void>>([]);
@@ -94,6 +97,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const sessionLaunch = useRef('');
   const chainRef = useRef(chainId);
   const statusRef = useRef(status);
+  const statusLaunch = useRef('');
   const generation = useRef(0);
   const active = useRef<Operation | null>(null);
   const signing = useRef<PendingSign | null>(null);
@@ -142,6 +146,8 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     setConnectionVersion(value => value + 1);
   }, []);
   const applyStatus = useCallback((next: MiniappAccessStatus, openExisting = false) => {
+    statusLaunch.current = currentTelegramLaunchData();
+    setEmailDelivery(next.emailDelivery);
     statusRef.current = next; setStatus(next);
     if (next.state === 'ready' && next.wallet) {
       acceptWallet(next.wallet); setView('ready'); if (openExisting) setOpened(true);
@@ -190,12 +196,26 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     } finally { finish(operation); }
   }, [applyStatus, assertOperation, begin, finish, recoverOperation]);
 
+  // Platform readiness belongs to this mount, not to an approval generation.
+  // Back/Cancel may invalidate an operation while the bridge is still loading.
+  useEffect(() => {
+    let disposed = false;
+    void waitForTelegramWebApp().then(() => {
+      if (disposed) return;
+      setMobile(['android', 'ios'].includes(getWebApp()?.platform ?? ''));
+      setBridgeReady(true);
+    });
+    return () => { disposed = true; };
+  }, []);
+
   useEffect(() => {
     mounted.current = true;
     const version = generation.current;
-    void waitForTelegramWebApp().then(() => {
+    const hasLaunch = Boolean(currentTelegramLaunchData());
+    const bridge = waitForTelegramWebApp();
+    // The server can verify launch data before the UI bridge has loaded.
+    void (hasLaunch ? Promise.resolve() : bridge).then(() => {
       if (!mounted.current || generation.current !== version) return;
-      setMobile(['android', 'ios'].includes(getWebApp()?.platform ?? ''));
       void refresh().catch(() => undefined);
     });
     return () => { mounted.current = false; invalidate(); };
@@ -243,13 +263,13 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     assertOperation(operation); if (request) assertSigning(request, operation);
     const destination = new URL(validatedHandoffUrl(result.url, window.location.origin));
     destination.hash = new URLSearchParams({ token: new URLSearchParams(destination.hash.slice(1)).get('token')!, commitment }).toString();
-    const openLink = getWebApp()?.openLink;
-    if (!openLink) throw new Error('Open this Mini App in Telegram to continue in a browser.');
+    const webApp = getWebApp();
+    if (!webApp?.openLink) throw new Error('Open this Mini App in Telegram to continue in a browser.');
     if (request) {
       savePendingOperation(request.walletId, request.launchData, { challengeId, phase: 'handoff' });
       request.handedOff = true;
     }
-    openLink(destination.href, { try_instant_view: false });
+    webApp.openLink(destination.href, { try_instant_view: false });
     setBrowserPending(true);
     const completed = await pollHandoff(challengeId, { signal: operation.controller.signal, launchData: operation.launchData,
       assertCurrent: () => { assertOperation(operation); if (request) assertSigning(request, operation); } });
@@ -257,9 +277,25 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     return completed;
   };
 
+  const browserForPasskey = (requested: boolean): boolean | null => {
+    // The bounded bridge wait may time out. Never infer desktop from absence,
+    // and re-read on each click so a bridge arriving later can recover.
+    const platform = getWebApp()?.platform;
+    const isMobile = platform === 'ios' || platform === 'android' || platform === 'android_x';
+    const useHandoff = isMobile || ['web', 'weba', 'webk'].includes(platform ?? '');
+    setMobile(useHandoff);
+    if (!useHandoff && !['tdesktop', 'macos', 'unigram'].includes(platform ?? '')) {
+      setError('Telegram isn’t ready. Try again, or reopen this Mini App in Telegram.');
+      return null;
+    }
+    return requested || useHandoff;
+  };
+
   const approveTransaction = async (browser: boolean) => {
     const request = signing.current;
-    if (!request || active.current) return;
+    if (!bridgeReady || !request || active.current) return;
+    const useBrowser = browserForPasskey(browser);
+    if (useBrowser === null) return;
     const operation = begin();
     try {
       assertSigning(request, operation);
@@ -269,7 +305,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       request.challengeId = challenge.challengeId;
       savePendingOperation(request.walletId, request.launchData, { challengeId: challenge.challengeId, phase: 'prepared' });
       let result: SignResult;
-      if (browser) {
+      if (useBrowser) {
         const completed = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, request);
         if (!isSignResult(completed)) throw new MiniappAccessError('unavailable', true);
         result = completed;
@@ -304,13 +340,15 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   };
 
   const setupWallet = async (browser: boolean) => {
-    if (active.current) return;
+    if (!bridgeReady || active.current) return;
+    const useBrowser = browserForPasskey(browser);
+    if (useBrowser === null) return;
     const operation = begin();
     try {
       // Re-read before every attempt: registration may have bound a credential
       // even if its completion response was lost. Never register over that key.
       const current = await miniappAccess('status', {}, { signal: operation.controller.signal, launchData: operation.launchData });
-      assertOperation(operation); statusRef.current = current; setStatus(current);
+      assertOperation(operation); statusLaunch.current = operation.launchData; statusRef.current = current; setStatus(current);
       if (current.state === 'ready' && current.wallet) { await recoverOperation(current.wallet, operation); assertOperation(operation); applyStatus(current); return; }
       if (current.state !== 'approved') { applyStatus(current); return; }
       let wallet: MiniappWallet;
@@ -320,7 +358,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       } else {
         const challenge = await miniappAccess('register/options', {}, { signal: operation.controller.signal, launchData: operation.launchData });
         assertOperation(operation);
-        if (browser) {
+        if (useBrowser) {
           const result = await openHandoff(challenge.challengeId, challenge.options.challenge, operation);
           if (!isWalletResult(result)) throw new MiniappAccessError('unavailable', true);
           wallet = result.wallet;
@@ -386,26 +424,32 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     try {
       const options = { signal: operation.controller.signal, launchData: operation.launchData };
       if (action === 'submit-email') {
-        await miniappAccess('email/request', { email: email.trim() }, options);
-        assertOperation(operation); setView('verify');
+        const result = await miniappAccess('email/request', { email: email.trim() }, options);
+        assertOperation(operation); setEmailDelivery(result.delivery); setView(result.delivery?.state === 'verified' ? 'verified' : 'verify');
+      } else if (action === 'retry-email') {
+        const result = await miniappAccess('email/retry', {}, options);
+        assertOperation(operation); setEmailDelivery(result.delivery); setView(result.delivery?.state === 'verified' ? 'verified' : 'verify');
+      } else if (action === 'check-email-status') {
+        const next = await miniappAccess('status', {}, options);
+        assertOperation(operation); applyStatus(next);
+        if (next.state === 'waiting' && !next.emailVerified) setView('verify');
       } else if (action === 'join') {
         const next = await miniappAccess('join', { notify: statusRef.current?.telegramNotify === true }, options);
         assertOperation(operation); applyStatus(next);
       } else if (action === 'allow-notifications') {
-        const request = getWebApp()?.requestWriteAccess;
-        if (!request) throw new Error('Telegram invite permission is unavailable.');
-        const allowed = await new Promise<boolean>((resolve, reject) => {
-          const abort = () => { clearTimeout(timer); reject(cancelled()); };
-          const timer = setTimeout(() => { operation.controller.signal.removeEventListener('abort', abort); reject(new Error('Permission request timed out.')); }, 30_000);
-          operation.controller.signal.addEventListener('abort', abort, { once: true });
-          request(value => { clearTimeout(timer); operation.controller.signal.removeEventListener('abort', abort); resolve(value === true); });
-        });
+        // Only the authenticated API may supply an existing permission grant.
+        // The explicit click still persists this user's notification preference.
+        const allowed = (statusLaunch.current === operation.launchData && statusRef.current?.telegramWriteAllowed === true)
+          || await requestTelegramWriteAccess(getWebApp(), { signal: operation.controller.signal });
         assertOperation(operation);
         const next = await miniappAccess('notify', { allowed }, options);
         assertOperation(operation); applyStatus(next);
       }
     } catch (cause) {
-      if (mounted.current && operation.generation === generation.current) { setError(accessErrorMessage(cause)); if (action === 'join') setView('join-error'); }
+      if (mounted.current && operation.generation === generation.current) {
+        setError(cause instanceof TelegramWriteAccessError ? cause.message : accessErrorMessage(cause));
+        if (action === 'join') setView('join-error');
+      }
     } finally { finish(operation); }
   };
 
@@ -441,9 +485,11 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     </dialog> : pending && <dialog ref={dialog} className={styles.dialog} aria-labelledby="passkey-approval-title" onCancel={event => { event.preventDefault(); invalidate(); }}>
       <FxLogo size={32} /><h1 id="passkey-approval-title">Approve transaction.</h1>
       <WalletApprovalDetails transaction={pending.transaction} walletId={pending.walletId} />
+      {error && <p role="alert">{error}</p>}
       {browserPending && <p role="status">Complete approval in your browser. Waiting up to five minutes.</p>}
-      <button className={styles.primary} disabled={busy} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
-      {!mobile && <button className={styles.secondary} disabled={busy} onClick={() => void approveTransaction(true)}>Continue in browser</button>}
+      {!bridgeReady && <p role="status">Checking Telegram…</p>}
+      <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
+      {!mobile && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(true)}>Continue in browser</button>}
       <button className={styles.secondary} onClick={invalidate}>{browserPending ? 'Stop waiting' : 'Cancel'}</button>
     </dialog>}
   </FxWalletContext.Provider>;
@@ -452,12 +498,13 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   if (view === 'passkey') return <main className={styles.screen}><div className={styles.panel}><FxLogo size={32} /><h1>Secure your wallet.</h1>
     <p>{status?.hasCredential ? 'Your passkey is registered. Finish setting up your wallet.' : 'Keep your passkey synced or backed up so you can use it again.'}</p>
     {error && <p role="alert">{error}</p>}{browserPending && <p role="status">Complete setup in your browser. Waiting up to five minutes.</p>}
-    <button className={styles.primary} disabled={busy} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
-    {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy} onClick={() => void setupWallet(true)}>Continue in browser</button>}
+    {!bridgeReady && <p role="status">Checking Telegram…</p>}
+    <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
+    {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
     <button className={styles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
   </div></main>;
   const common = { notificationPermission: status?.telegramNotify ? 'granted' as const : status ? 'denied' as const : 'unknown' as const,
-    busy, error, onAction: (action: AdmissionAction) => { void act(action); } };
+    emailDelivery: emailDelivery?.state, busy, error, onAction: (action: AdmissionAction) => { void act(action); } };
   return view === 'email' ? <AdmissionScreen {...common} state="email" email={email} onEmailChange={setEmail} />
     : <AdmissionScreen {...common} state={view} />;
 }

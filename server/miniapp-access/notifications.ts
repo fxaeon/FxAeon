@@ -20,7 +20,18 @@ export interface NotificationEnv {
   MAIL_DAILY_LIMIT?: string | number;
   MAIL_MONTHLY_LIMIT?: string | number;
 }
-export interface NotificationOptions { fetch?: typeof fetch; now?: () => number; timeoutMs?: number; }
+export interface NotificationDiagnostic {
+  channel: 'email' | 'telegram'; kind: 'verification' | 'invitation'; attempt: number;
+  outcome: Outcome['status']; reason: string; httpStatus?: number;
+}
+export interface NotificationOptions {
+  fetch?: typeof fetch; now?: () => number; timeoutMs?: number;
+  onDiagnostic?: (diagnostic: NotificationDiagnostic) => void;
+}
+export interface VerificationDelivery {
+  state: 'not_requested' | 'pending' | 'accepted' | 'failed' | 'uncertain' | 'expired' | 'verified';
+  retryAfterMs: number | null;
+}
 export const INVITATION_TEXT = 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.';
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -52,7 +63,7 @@ type Envelope = {
   destination: string; sender: string; link: string; token_hash: string | null; expires_at: number | null;
   attempts: number; first_attempt: number; claim: string;
 };
-type Outcome = { status: 'sent' | 'failed' | 'pending' | 'uncertain'; pause?: number };
+type Outcome = { status: 'sent' | 'failed' | 'pending' | 'uncertain'; pause?: number; reason?: string; httpStatus?: number };
 export interface DispatchResult { sent: number; failed: number; deferred: number; uncertain: number; }
 function identity(id: number) {
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error('notification_input_invalid');
@@ -92,9 +103,11 @@ export class NotificationStore {
   private readonly sender: string;
   private readonly daily: number;
   private readonly monthly: number;
+  private readonly diagnose: (diagnostic: NotificationDiagnostic) => void;
   constructor(private readonly db: MailDB, env: NotificationEnv = {}, options: NotificationOptions = {}) {
     this.env = { ...env };
     this.fetcher = options.fetch ?? globalThis.fetch;
+    this.diagnose = options.onDiagnostic ?? (diagnostic => console.warn('notification_delivery', diagnostic));
     this.now = options.now ?? Date.now;
     this.timeout = options.timeoutMs ?? 8000;
     if (!Number.isInteger(this.timeout) || this.timeout < 1 || this.timeout > 15_000) throw new Error('notification_config_invalid');
@@ -176,6 +189,33 @@ export class NotificationStore {
     const rows = await this.all<{ verified: number }>('SELECT verified FROM access_mail_contacts WHERE user_id=?', userId);
     return { verified: rows[0]?.verified === 1 };
   }
+  /** Authenticated user only. Provider acceptance is not proof of inbox delivery. */
+  async verificationStatus(userId: number): Promise<VerificationDelivery> {
+    identity(userId);
+    const rows = await this.all<{ verified: number; expires_at: number; status: string | null;
+      next_at: number | null; lease_until: number | null; pause_until: number | null }>(`
+      SELECT c.verified,c.expires_at,o.status,o.next_at,o.lease_until,p.pause_until
+      FROM access_mail_contacts c LEFT JOIN access_mail_outbox o
+        ON o.user_id=c.user_id AND o.token_hash=c.token_hash AND o.kind='verification'
+      LEFT JOIN access_mail_providers p ON p.channel='email' WHERE c.user_id=?`, userId);
+    const row = rows[0];
+    if (!row) return { state: 'not_requested', retryAfterMs: null };
+    if (row.verified === 1) return { state: 'verified', retryAfterMs: null };
+    const now = this.now();
+    if (row.expires_at <= now || row.status === 'cancelled') return { state: 'expired', retryAfterMs: 0 };
+    if (row.status === 'sent') return { state: 'accepted', retryAfterMs: null };
+    if (row.status === 'failed' || row.status === 'uncertain') return { state: row.status, retryAfterMs: 0 };
+    return { state: 'pending', retryAfterMs: Math.max(0, Math.min(DAY,
+      Math.max(row.status === 'sending' ? row.lease_until ?? now : row.next_at ?? now, row.pause_until ?? now) - now)) };
+  }
+  /** Explicit retry only; never reset attempts/idempotency for still-pending mail. */
+  async retryVerification(userId: number): Promise<void> {
+    const delivery = await this.verificationStatus(userId);
+    if (delivery.state === 'not_requested') throw new Error('notification_unavailable');
+    if (!['failed', 'uncertain', 'expired'].includes(delivery.state)) return;
+    const rows = await this.all<{ email: string }>('SELECT email FROM access_mail_contacts WHERE user_id=? AND verified=0', userId);
+    if (rows[0]) await this.setContact(userId, rows[0].email);
+  }
   /** Call ONLY after an explicit confirmation POST. GET /invite merely displays a confirmation UI.
    * The fragment keeps the token out of HTTP access logs and link-preview requests.
    */
@@ -240,7 +280,7 @@ export class NotificationStore {
       let text = `${INVITATION_TEXT}\n\n${row.link}`;
       if (row.kind === 'verification') {
         const token = await this.token(row.id);
-        if (await hash(token) !== row.token_hash) return { status: 'failed' };
+        if (await hash(token) !== row.token_hash) return { status: 'failed', reason: 'verification_token_invalid' };
         text = `Confirm your email address for FxAeon invitations.\n\nhttps://fxaeon.com/invite#token=${token}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`;
       }
       endpoint = 'https://api.resend.com/emails';
@@ -260,7 +300,7 @@ export class NotificationStore {
       timer = setTimeout(() => {
         controller.abort();
         if (reader) void reader.cancel().catch(() => {});
-        resolve(uncertain);
+        resolve({ ...uncertain, reason: 'timeout' });
       }, this.timeout);
     });
     const readResponse = async (response: Response): Promise<Record<string, unknown>> => {
@@ -281,11 +321,18 @@ export class NotificationStore {
       return data as Record<string, unknown>;
     };
     const request = async (): Promise<Outcome> => {
+      let httpStatus: number | undefined;
       try {
         const body = JSON.stringify(payload);
-        if (bytes(body).length > 8192) return { status: 'failed' };
-        const response = await this.fetcher(endpoint, { method: 'POST', headers, body, redirect: 'error', signal: controller.signal });
-        if (response.redirected) return uncertain;
+        if (bytes(body).length > 8192) return { status: 'failed', reason: 'payload_too_large' };
+        // Workers' native fetch rejects a class instance as its `this` receiver.
+        const fetcher = this.fetcher;
+        const response = await fetcher(endpoint, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal });
+        httpStatus = response.status;
+        if (response.redirected || (response.status >= 300 && response.status < 400)) {
+          if (response.body) void response.body.cancel().catch(() => {});
+          return { ...uncertain, reason: 'redirect', httpStatus };
+        }
         if (response.status === 429) {
           // Respect provider quota/rate limits even if their error body is malformed.
           const header = response.headers.get('retry-after') ?? '';
@@ -299,29 +346,39 @@ export class NotificationStore {
             }
           } catch { /* The HTTP status still establishes an explicit rejection. */ }
           const pause = this.now() + Math.min(DAY, Math.max(60_000, delay));
-          return { status: 'pending', pause };
+          return { status: 'pending', pause, reason: 'provider_rate_limited', httpStatus };
         }
         if (response.status >= 400 && response.status < 500) {
           if (response.body) void response.body.cancel().catch(() => {});
-          return { status: 'failed' };
+          return { status: 'failed', reason: 'provider_rejected', httpStatus };
         }
         if (!response.ok || !response.body) {
           if (response.body) void response.body.cancel().catch(() => {});
-          return uncertain;
+          return { ...uncertain, reason: 'provider_unavailable', httpStatus };
         }
         const result = await readResponse(response);
-        if (row.channel === 'email') return typeof result.id === 'string' && result.id ? { status: 'sent' } : uncertain;
+        if (row.channel === 'email') return typeof result.id === 'string' && result.id ? { status: 'sent' }
+          : { ...uncertain, reason: 'invalid_response', httpStatus };
         if (result.ok === true && result.result && typeof result.result === 'object'
           && Number.isSafeInteger((result.result as Record<string, unknown>).message_id)) return { status: 'sent' };
         return result.ok === false && typeof result.error_code === 'number' && result.error_code >= 400 && result.error_code < 500
-          ? { status: 'failed' } : uncertain;
-      } catch { return uncertain; }
+          ? { status: 'failed', reason: 'provider_rejected', httpStatus }
+          : { ...uncertain, reason: 'invalid_response', httpStatus };
+      } catch { return { ...uncertain, reason: httpStatus === undefined ? 'transport_exception' : 'invalid_response', httpStatus }; }
     };
     try { return await Promise.race([request(), deadline]); }
     finally { clearTimeout(timer); controller.abort(); if (reader) void reader.cancel().catch(() => {}); }
   }
   /** Run from a scheduled/server task. No raw recipients, credentials or provider responses leave this API. */
   async dispatch(limit = 10): Promise<DispatchResult> {
+    return this.dispatchPending(limit);
+  }
+  /** Interactive feedback must never wait behind unrelated outbox deliveries. */
+  async dispatchVerification(userId: number): Promise<DispatchResult> {
+    identity(userId);
+    return this.dispatchPending(1, userId);
+  }
+  private async dispatchPending(limit: number, verificationUserId?: number): Promise<DispatchResult> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('notification_input_invalid');
     const now = this.now();
     await this.batch([
@@ -336,6 +393,7 @@ export class NotificationStore {
     const month = `month:${new Date(now).toISOString().slice(0, 7)}`;
     const candidates = await this.all<{ id: string; channel: 'email' | 'telegram' }>(`SELECT id,channel FROM access_mail_outbox o
       WHERE status='pending' AND next_at<=? AND attempts<3
+      AND (? IS NULL OR (o.user_id=? AND o.channel='email' AND o.kind='verification'))
       AND NOT EXISTS(SELECT 1 FROM access_mail_providers p WHERE p.channel=o.channel AND p.pause_until>?)
       AND ((channel='telegram' AND ?=1) OR (channel='email' AND ?=1
         AND coalesce((SELECT used FROM access_mail_budgets WHERE period=?),0)<?
@@ -344,15 +402,21 @@ export class NotificationStore {
         OR (kind='invitation' AND EXISTS(SELECT 1 FROM admission_users u WHERE u.user_id=o.user_id AND u.external_id IS NOT NULL
           AND ((channel='telegram' AND u.telegram_notify=1) OR (channel='email' AND EXISTS(SELECT 1 FROM access_mail_contacts c
             WHERE c.user_id=u.user_id AND c.verified=1 AND c.email=o.destination))))))
-      ORDER BY created_at,id LIMIT ?`, now, now, +this.enabled('telegram'), +this.enabled('email'), day, this.daily, month, this.monthly, limit);
+      ORDER BY created_at,id LIMIT ?`, now, verificationUserId ?? null, verificationUserId ?? null,
+    now, +this.enabled('telegram'), +this.enabled('email'), day, this.daily, month, this.monthly, limit);
     const counts: DispatchResult = { sent: 0, failed: 0, deferred: 0, uncertain: 0 };
     for (const candidate of candidates) {
       if (!this.enabled(candidate.channel)) { counts.deferred++; continue; }
       const row = await this.claim(candidate.id);
       if (!row) { counts.deferred++; continue; }
       let outcome: Outcome;
-      try { outcome = await this.send(row); } catch { outcome = { status: row.channel === 'email' ? 'pending' : 'uncertain' }; }
+      try { outcome = await this.send(row); } catch { outcome = { status: row.channel === 'email' ? 'pending' : 'uncertain', reason: 'send_exception' }; }
       if (outcome.status === 'pending' && row.attempts >= MAX_ATTEMPTS) outcome.status = 'uncertain';
+      if (outcome.reason) {
+        try { this.diagnose({ channel: row.channel, kind: row.kind, attempt: row.attempts, outcome: outcome.status,
+          reason: outcome.reason, ...(outcome.httpStatus === undefined ? {} : { httpStatus: outcome.httpStatus }) }); }
+        catch { /* Diagnostics cannot alter delivery/retry state. */ }
+      }
       const next = Math.max(this.now() + 60_000 * 2 ** (row.attempts - 1), outcome.pause ?? 0);
       const updates = [this.statement(`UPDATE access_mail_outbox SET status=?,next_at=?,lease_until=NULL
         WHERE id=? AND status='sending' AND claim=?`, outcome.status, next, row.id, row.claim)];

@@ -67,10 +67,11 @@ async function init(db: DB, legacy: number, store: Store, notifications: Notific
   }
   await ready;
 }
-async function publicStatus(store: Store, notifications: NotificationStore, userId: number) {
-  const [row, capacity, contact] = await Promise.all([store.status(userId), store.capacity(), notifications.contactStatus(userId)]);
+async function publicStatus(store: Store, notifications: NotificationStore, userId: number, telegramWriteAllowed: boolean) {
+  const [row, capacity, contact, emailDelivery] = await Promise.all([store.status(userId), store.capacity(),
+    notifications.contactStatus(userId), notifications.verificationStatus(userId)]);
   return { state: row?.state ?? 'new', cohortFull: capacity.used >= capacity.max,
-    telegramNotify: row?.telegramNotify ?? false, emailVerified: contact.verified,
+    telegramNotify: row?.telegramNotify ?? false, telegramWriteAllowed, emailVerified: contact.verified, emailDelivery,
     hasCredential: Boolean(row?.credential),
     ...(row?.state === 'ready' ? { wallet: { id: row.walletId, address: row.walletAddress } } : {}) };
 }
@@ -147,8 +148,11 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const store = new Store(db); const notifications = new NotificationStore(db, env, { fetch: dependencies.fetch });
       const operations = new Operations(db);
       await init(db, legacy, store, notifications, operations);
-      const dispatch = () => {
-        const work = notifications.dispatch().catch(() => undefined);
+      const dispatch = (verificationUserId?: number) => {
+        const work = (verificationUserId === undefined ? notifications.dispatch()
+          : notifications.dispatchVerification(verificationUserId)).catch(() => {
+          console.warn('notification_dispatch_failed', { reason: 'storage_or_dispatch_failure' });
+        });
         if (context.waitUntil) context.waitUntil(work);
         return work;
       };
@@ -157,8 +161,10 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         const userId = await notifications.confirmContact(textField(body.token, 128));
         if (!userId) throw new AccessError('confirmation_expired', 400);
         const row = await store.status(userId);
-        if (row?.externalId) await notifications.enqueueInvitation(userId, row.telegramNotify);
-        await dispatch();
+        if (row?.externalId) {
+          await notifications.enqueueInvitation(userId, row.telegramNotify);
+          if (context.waitUntil) void dispatch();
+        }
         return json({ verified: true });
       }
       if (action === 'handoff/read' || action === 'handoff/complete') {
@@ -186,23 +192,34 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const userId = launch.userId;
       if (action === 'status') {
         exactKeys(body, ['action', 'launchData']);
-        return json(await publicStatus(store, notifications, userId));
+        return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'join' || action === 'notify') {
         exactKeys(body, ['action', 'launchData', action === 'join' ? 'notify' : 'allowed']);
         const notify = action === 'join' ? body.notify : body.allowed;
         if (typeof notify !== 'boolean') throw new AccessError('request_invalid');
         const row = await store.join(userId, notify);
-        if (row.externalId) await notifications.enqueueInvitation(userId, row.telegramNotify);
-        await dispatch();
-        return json(await publicStatus(store, notifications, userId));
+        if (row.externalId) {
+          await notifications.enqueueInvitation(userId, row.telegramNotify);
+          // Joining/consenting must not wait behind unrelated provider sends.
+          // Without waitUntil the durable outbox is picked up by scheduled dispatch.
+          if (context.waitUntil) void dispatch();
+        }
+        return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'email/request') {
         exactKeys(body, ['action', 'launchData', 'email']);
         if (!await store.status(userId)) throw new AccessError('join_required', 403);
         const result = await notifications.setContact(userId, textField(body.email, 254));
-        await dispatch();
-        return json(result);
+        await dispatch(userId);
+        return json({ ...result, delivery: await notifications.verificationStatus(userId) });
+      }
+      if (action === 'email/retry') {
+        exactKeys(body, ['action', 'launchData']);
+        if (!await store.status(userId)) throw new AccessError('join_required', 403);
+        await notifications.retryVerification(userId);
+        await dispatch(userId);
+        return json({ status: 'verification_requested', delivery: await notifications.verificationStatus(userId) });
       }
       if (action === 'handoff/status') {
         exactKeys(body, ['action', 'launchData', 'challengeId']);

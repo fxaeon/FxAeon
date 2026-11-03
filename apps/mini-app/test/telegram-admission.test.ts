@@ -64,7 +64,7 @@ const launchFields = (userId: number, authDate = NOW) => ({
 test('Telegram third-party launch signatures verify with only the public bot ID', async () => {
   const { publicKey, sign } = await signer();
   const launch = await sign(launchFields(42));
-  assert.deepEqual(await verifyTelegramLaunchData(launch, BOT_ID, { publicKey, nowSeconds: NOW + 60 }), { ok: true, userId: 42, authDate: NOW });
+  assert.deepEqual(await verifyTelegramLaunchData(launch, BOT_ID, { publicKey, nowSeconds: NOW + 60 }), { ok: true, userId: 42, authDate: NOW, allowsWriteToPm: true });
 
   const tampered = launch.replace('%22id%22%3A42', '%22id%22%3A43');
   assert.notEqual(tampered, launch);
@@ -72,6 +72,19 @@ test('Telegram third-party launch signatures verify with only the public bot ID'
   // Signed for another bot, or checked against Telegram's real key.
   assert.deepEqual(await verifyTelegramLaunchData(launch, '7000000000', { publicKey, nowSeconds: NOW }), { ok: false, reason: 'forged' });
   assert.deepEqual(await verifyTelegramLaunchData(launch, BOT_ID, { nowSeconds: NOW }), { ok: false, reason: 'forged' });
+});
+
+test('write permission requires a literal true in the signed user, never a forged or expired flag', async () => {
+  const { publicKey, sign } = await signer();
+  const check = (value: string) => verifyTelegramLaunchData(value, BOT_ID, { publicKey, nowSeconds: NOW });
+  for (const flag of [undefined, false, 'true', 1, true]) {
+    const signed = await sign({ ...launchFields(42), user: JSON.stringify({ id: 42, allows_write_to_pm: flag }) });
+    assert.deepEqual(await check(signed), { ok: true, userId: 42, authDate: NOW, allowsWriteToPm: flag === true });
+  }
+  const forged = new URLSearchParams(await sign({ ...launchFields(42), user: '{"id":42}' }));
+  forged.set('user', JSON.stringify({ id: 42, allows_write_to_pm: true }));
+  assert.deepEqual(await check(forged.toString()), { ok: false, reason: 'forged' });
+  assert.deepEqual(await check(await sign(launchFields(42, NOW - LAUNCH_DATA_MAX_AGE_SECONDS - 1))), { ok: false, reason: 'expired' });
 });
 
 test('stale, future, unsigned, duplicated and identity-less launches are refused', async () => {

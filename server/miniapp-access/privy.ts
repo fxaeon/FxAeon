@@ -39,8 +39,10 @@ export class PrivyWalletApi {
   }
 
   private async request(path: string, body?: ObjectValue, headers: Record<string, string> = {}): Promise<ObjectValue | null> {
-    const response = await this.send(`${API}${path}`, {
-      method: body ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(15_000),
+    // Workers' native fetch must not receive this PrivyWalletApi instance as `this`.
+    const send = this.send;
+    const response = await send(`${API}${path}`, {
+      method: body ? 'POST' : 'GET', redirect: 'manual', signal: AbortSignal.timeout(15_000),
       headers: { 'content-type': 'application/json', 'privy-app-id': this.appId,
         authorization: `Basic ${btoa(`${this.appId}:${this.secret}`)}`, ...headers },
       ...(body ? { body: JSON.stringify(body) } : {}),

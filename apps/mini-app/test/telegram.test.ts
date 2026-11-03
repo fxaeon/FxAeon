@@ -64,6 +64,27 @@ test('Telegram bridge availability fails closed after a bounded timeout', async 
   }
 });
 
+test('default bridge wait is shared across routing and admission, even after timeout', async t => {
+  const { fake, restore } = installWindow();
+  t.mock.timers.enable({ apis: ['Date', 'setInterval'] });
+  fake.setInterval = setInterval; fake.clearInterval = clearInterval;
+  const intervals = t.mock.method(fake, 'setInterval');
+  try {
+    const routing = waitForTelegramWebApp();
+    const admission = waitForTelegramWebApp();
+    assert.equal(intervals.mock.callCount(), 1);
+    t.mock.timers.tick(8_000);
+    assert.equal(await routing, null);
+    assert.equal(await admission, null);
+    assert.equal(await waitForTelegramWebApp(), null);
+    assert.equal(intervals.mock.callCount(), 1, 'a later gate must not start another eight-second wait');
+    fake.Telegram = { WebApp: bridge() };
+    assert.equal(await waitForTelegramWebApp(), fake.Telegram.WebApp, 'late bridge arrival remains usable');
+  } finally {
+    restore(); t.mock.timers.reset();
+  }
+});
+
 test('external links use Telegram openLink when the host provides it', () => {
   const linkCalls: string[] = [];
   const webApp = { ...bridge(), openLink: (url: string) => linkCalls.push(url) } as TgWebApp;
