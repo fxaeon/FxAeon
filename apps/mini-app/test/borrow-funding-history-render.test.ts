@@ -36,6 +36,8 @@ test('Borrow history labels live and historical annualized figures as costs and 
   assert.match(html, /role="slider"/);
   assert.match(html, /aria-valuetext="[^"]*per eight hours"/);
   assert.match(html, /https:\/\/fx\.aladdin\.club\/v2\/fxmint/);
+  assert.match(html, /stETH collateral/);
+  assert.doesNotMatch(html, /Gross collateral charge · stETH/);
   assert.doesNotMatch(html, /APY|Earned|Yield history/);
   client.clear();
 });

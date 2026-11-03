@@ -56,6 +56,9 @@ for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await openChart(page);
+    const reading = page.locator('section[aria-label="fxSAVE performance"] div[aria-live="off"] span');
+    await expect(reading).toHaveText(/^[A-Z][a-z]{2} \d{1,2}$/);
+    await expect(page.getByText(/Latest observation|trailing 30 days/)).toHaveCount(0);
     const chart = page.getByRole('slider');
     await expect(chart).toHaveAccessibleName('Explore fxSAVE annualized return');
     await expect(chart).toHaveAttribute('aria-valuemax', '30');
@@ -79,6 +82,7 @@ for (const width of [320, 390, 1280]) {
     await chart.dispatchEvent('pointerleave', { pointerType: 'touch' });
     await expect(chart).toHaveAttribute('aria-valuenow', '0');
     await page.getByRole('button', { name: 'Share value', exact: true }).click();
+    await expect(reading).toHaveText(/^[A-Z][a-z]{2} \d{1,2} · per fxSAVE$/);
     await expect(chart).toHaveAccessibleName('Explore fxSAVE share value');
     await chart.focus(); await chart.press('Home');
     await expect(chart).toHaveAttribute('aria-valuetext', /per fxSAVE/);
