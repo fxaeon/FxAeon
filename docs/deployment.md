@@ -97,11 +97,11 @@ Public web mode and Telegram Privy mode have different configuration and identit
 
 The intended miniapp cohort is at most 480 people, including existing members, leaving headroom below Privy's 500-user threshold. `TELEGRAM_ADMISSION_CAPACITY` defaults to 480 and rejects larger values. Returning admitted members remain admitted even when intake is set to zero. Do not delete cohort members to recycle seats: their Privy accounts still exist.
 
-This is an application entry gate, **not a provider-enforced signup cap**. Privy's native Telegram login does not support its allowlist, and browser code (including remembered admission) can be bypassed. The production gate remains off pending a verified free provider-side solution that preserves Telegram-only login and existing wallets. Do not advertise a guaranteed cap or replace Telegram with email login. Custom JWT is currently marked Scale in this app's dashboard.
+This is an application entry gate, **not a provider-enforced signup cap**. Privy's native Telegram login does not support its allowlist, and browser code (including remembered admission) can be bypassed. The production gate remains off pending a verified free provider-side solution that retains Telegram-only login. Do not advertise a guaranteed cap or replace Telegram with email login. Both custom JWT and custom OAuth are currently marked Scale in this app's dashboard.
 
 1. The D1 database `fxaeon-admission` was created on 3 November 2026; `wrangler.toml` binds `056c44dd-4524-4b49-ab64-80ae1e53c4b7` as `ADMISSION_DB`. The Function creates its tables on first use through its runtime binding. The existing Pages Write token deploys Pages; separate D1 permissions are needed for direct database administration, not normal runtime queries. Do not expand the CI token speculatively.
 2. Deploy. The release workflow syncs `TELEGRAM_BOT_ID`.
-3. Before any rollout, inventory all existing Privy accounts and seed their verified Telegram identities without changing accounts or wallets. Account for other apps sharing the billing limit. Confirm provider-side signup enforcement and test returning users, parallel final-seat requests, direct provider signup and provider/storage failures. Only then, with explicit rollout approval, set `NEXT_PUBLIC_TELEGRAM_ADMISSION=on` and deploy again. With it on, a failed bot-ID sync fails the release instead of refusing every new user.
+3. Before any rollout, inventory all Privy accounts and account for other apps sharing the billing limit. The owner confirmed that the current accounts are disposable test accounts, so no identity or wallet migration is required; do not silently count them as production admissions. Confirm provider-side signup enforcement and test returning users, parallel final-seat requests, direct provider signup and provider/storage failures. Only then, with explicit rollout approval, set `NEXT_PUBLIC_TELEGRAM_ADMISSION=on` and deploy again. With it on, a failed bot-ID sync fails the release instead of refusing every new user.
 
 Raising intake up to 480 admits the next people to open the app. A future server-enforced rollout must synchronize reservations and provider accounts before promoting anyone. Do not run a separate unbounded insertion from the waitlist. This bounded statement documents the D1-side limit only:
 
@@ -112,7 +112,7 @@ WHERE telegram_user_id NOT IN (SELECT telegram_user_id FROM telegram_admission)
 ORDER BY joined_at LIMIT (SELECT MAX(0, 480 - admitted) FROM telegram_admission_count WHERE id = 1);
 ```
 
-Five existing accounts were visible in the FxAeon production app on 3 November 2026, including two with Telegram as their linked login method. This is a point-in-time observation, not a seed list or live capacity count. Never disable those users' login method as a shortcut to enforcing the cap.
+Five test accounts were visible in the FxAeon production app on 3 November 2026, including two with Telegram as their linked login method. This is a point-in-time observation, not a seed list or live capacity count. Removing test accounts alone does not enforce a signup limit.
 
 ## Rollback and diagnosis
 

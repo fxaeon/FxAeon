@@ -24,7 +24,7 @@ export default function MorePage() {
           <div className={styles.links}>
             <ActionRow icon={BookOpen} title="FxAeon docs" href="/docs" />
             <ActionRow icon={BookOpen} title="Protocol docs" href="https://fxprotocol.gitbook.io/fx-docs" external />
-            <ActionRow icon={MessageCircleQuestionMark} title="Support on X" href="https://x.com/FxAeonxyz" external />
+            <ActionRow icon={MessageCircleQuestionMark} title="Feedback & reports" href="mailto:support@fxaeon.com" />
           </div>
         </section>
       </div>

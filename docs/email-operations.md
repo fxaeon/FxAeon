@@ -2,11 +2,13 @@
 
 Email is for successful waitlist admission and incoming user feedback/reports only. It is not an authentication method: the miniapp retains native Privy Telegram login. No marketing, newsletters, transaction notices or generic onboarding campaigns.
 
-The intended addresses are `notifications@fxaeon.com` for admission confirmations and `support@fxaeon.com` for reports and replies. `support@fxaeon.xyz` is an alias to the same support inbox. Resend's Free plan is the proposed sending/inbox provider; setup is pending account sign-in and domain verification. Do not display these addresses as operational until a delivery check succeeds.
+Use `notifications@fxaeon.com` for admission confirmations and `support@fxaeon.com` for reports and replies. The domain is verified in Resend for sending and receiving, with enforced TLS and no tracking configured. The dedicated [FxAeon Support inbox](https://resend.com/inboxes/support@fxaeon.com) received Cloudflare's destination-verification email successfully on 3 November 2026. Read and reply to reports there; no personal Gmail forwarding is needed.
+
+`support@fxaeon.xyz` is the planned alias to the same inbox. Its destination is verified, but activation is pending approval to replace the legacy registrar mail records. Do not advertise the alias until activation and delivery have been verified. Automated admission emails are not enabled: contact verification, an outbox and a server-side sender credential still need implementation before rollout.
 
 ## DNS and rollout
 
-Checked 3 November 2026: `fxaeon.com` has no MX records and has an existing Cloudflare DMARC reporting record. `fxaeon.xyz` has registrar forwarding MX records. Preserve existing forwarding until the replacement has been verified. Add only the exact SPF, DKIM and receiving records issued by the selected provider; do not invent DKIM keys, publish duplicate SPF records, or replace DMARC reporting configuration blindly.
+Configured 3 November 2026: `fxaeon.com` has Resend's `resend._domainkey` TXT record, DNS-only `rsend` and `send` Forge CNAMEs, and priority-10 MX `receive-apne1.forge.rmta.net`. Resend verifies all of these records. Existing website, Privy, verification and Cloudflare DMARC reporting records were preserved. `fxaeon.xyz` still has registrar forwarding MX/SPF records. Add only exact provider-issued records; do not invent DKIM keys, publish duplicate SPF records, or replace DMARC reporting configuration blindly.
 
 Use the Free plan without paid overages. Resend currently documents 3,000 emails per month and 100 per day, shared with inbox traffic. Reserve headroom for reports and replies; enqueue admission confirmations and stop sending when the application budget is reached. Quota or provider failure must never revoke an admission or affect wallet access. Keep sending credentials server-side, scoped to the sending domain; never place them in Next public variables or source control.
 
@@ -24,6 +26,6 @@ Proposed message:
 >
 > Need help or want to report a problem? Reply to this email. FxAeon will never ask for your recovery phrase or private key.
 
-Link only to the configured official Telegram app URL. Before enabling delivery, test one consented recipient, Reply-To routing, SPF/DKIM/DMARC alignment, duplicate retries, quota exhaustion and provider failures. No email has been sent and no mail DNS records have been changed as part of this configuration preparation.
+Link only to the configured official Telegram app URL. Before enabling automated delivery, test one consented recipient, Reply-To routing, SPF/DKIM/DMARC alignment, duplicate retries, quota exhaustion and provider failures. Inbound delivery has been checked with Cloudflare's verification message; no admission success message has been sent.
 
 Sources: [Resend pricing](https://resend.com/pricing), [domain verification](https://resend.com/docs/dashboard/domains/introduction), [Cloudflare email pricing](https://developers.cloudflare.com/email-service/platform/pricing/).
