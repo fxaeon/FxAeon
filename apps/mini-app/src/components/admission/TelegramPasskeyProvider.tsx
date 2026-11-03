@@ -261,7 +261,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   };
 
   const openHandoff = async (challengeId: string, challenge: string, operation: Operation, deadline: number, request?: PendingSign) => {
-    const commitment = await challengeCommitment(challenge);
+    const commitment = await challengeCommitment(challenge, request?.transaction);
     assertOperation(operation); if (request) assertSigning(request, operation);
     const result = await miniappAccess('handoff/create', { challengeId }, { signal: operation.controller.signal, launchData: operation.launchData });
     assertOperation(operation); if (request) assertSigning(request, operation);

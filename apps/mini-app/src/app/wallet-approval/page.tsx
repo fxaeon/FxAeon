@@ -32,7 +32,7 @@ export default function WalletApprovalPage() {
     if (!token.current || !/^[A-Za-z0-9_-]{43}$/.test(ticket.commitment)) { setError('This approval link is missing or expired. Return to Telegram.'); setBusy(false); return; }
     void miniappAccess('handoff/read', { token: token.current }, { signal: abort.signal }).then(async value => {
       if (generation.current !== version || abort.signal.aborted) return;
-      await verifyChallengeCommitment(value.options.challenge, ticket.commitment);
+      await verifyChallengeCommitment(value.options.challenge, ticket.commitment, value.kind === 'sign' ? value.transaction : undefined);
       if (generation.current !== version || abort.signal.aborted) return;
       verifiedChallenge.current = value.options.challenge;
       if (value.kind === 'sign') {
