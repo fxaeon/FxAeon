@@ -20,34 +20,37 @@ try {
     await page.goto(url, { waitUntil: 'networkidle' });
     await expect.poll(() => page.locator('.hero-line > span').first().evaluate(node => node.getAnimations().some(animation => animation.playState === 'running'))).toBe(false);
     await expect(page.locator('[data-scene-toggle]')).toHaveCount(0);
-    const motionTimings = await page.locator('.journey-scene').evaluate(node => node.getAnimations({ subtree: true }).map(animation => animation.effect.getComputedTiming()));
+    const motionTimings = await page.locator('.hero-emblem').evaluate(node => node.getAnimations({ subtree: true }).map(animation => animation.effect.getComputedTiming()));
     assert.ok(motionTimings.length > 0);
     assert.ok(motionTimings.every(timing => timing.iterations === 1 && timing.endTime <= 5000), 'Decorative motion finishes within five seconds without requiring a pause control');
-    await expect.poll(() => page.locator('.journey-scene').evaluate(node => node.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')), { timeout: 6000 }).toBe(false);
+    await expect.poll(() => page.locator('.hero-emblem').evaluate(node => node.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')), { timeout: 6000 }).toBe(false);
     await expect(page.locator('.hero-copy')).toBeVisible();
     await expect.poll(() => page.locator('.hero-copy').evaluate(node => node.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')), { timeout: 6000 }).toBe(false);
     const heroGeometry = await page.evaluate(() => {
-      // DOM rectangles include the final CSS transforms, including rotation.
       const rectangle = node => {
         const { left, top, right, bottom } = node.getBoundingClientRect();
         return { left, top, right, bottom };
       };
       return {
         copy: rectangle(document.querySelector('.hero-copy')),
-        prints: [...document.querySelectorAll('.motion-print')].map(node => ({
-          name: node.className, ...rectangle(node),
+        hero: rectangle(document.querySelector('.hero')),
+        markIsBackground: getComputedStyle(document.querySelector('.hero-emblem')).zIndex === '-1',
+        controls: [...document.querySelectorAll('.hero .button')].map(node => ({
+          radius: getComputedStyle(node).borderRadius,
         })),
       };
     });
-    assert.ok(heroGeometry.prints.length > 0, 'Hero decorations are present');
-    const inflate = box => ({ left: box.left - 8, top: box.top - 8, right: box.right + 8, bottom: box.bottom + 8 });
-    const copy = inflate(heroGeometry.copy);
-    for (const print of heroGeometry.prints) {
-      const decoration = inflate(print);
-      const intersects = decoration.left < copy.right && decoration.right > copy.left
-        && decoration.top < copy.bottom && decoration.bottom > copy.top;
-      assert.equal(intersects, false, `${width}x${height}: ${print.name} overlaps hero copy with 8px inflated bounds: ${JSON.stringify({ copy: heroGeometry.copy, print })}`);
-    }
+    assert.ok(heroGeometry.markIsBackground, 'The emblem stays behind hero content');
+    assert.ok(heroGeometry.copy.left >= heroGeometry.hero.left && heroGeometry.copy.right <= heroGeometry.hero.right,
+      `${width}px: hero copy fits within the opening`);
+    assert.ok(heroGeometry.controls.every(control => control.radius === '2px'), 'Keep the approved square action shape');
+    // The complete hero is taller than the shortest phone viewport.
+    await page.locator('.hero .actions').scrollIntoViewIfNeeded();
+    assert.ok(await page.locator('.hero .button').evaluateAll(nodes => nodes.every(node => {
+      const box = node.getBoundingClientRect();
+      return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.closest('a') === node;
+    })), 'Decorative artwork never intercepts launch actions');
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.screenshot({ path: resolve(captures, `hero-${width}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     if (width < 760) {
