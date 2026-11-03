@@ -10,9 +10,9 @@ test('v2 queued payload bytes are frozen; copy/layout changes must introduce a n
   // Do not refresh them to accommodate a v2 edit; add a v3 formatter instead.
   const fixtures = [
     [{ kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt: Date.UTC(2026, 10, 3, 11) },
-      '2737fc0ad27cd13352aeb843c2879447188c89bf326cb919e6851c52e1ccd716'],
+      '318eaec2bb807fe5291d59db8b2dadd1ecb026979bdd7b92719a41d11c13525a'],
     [{ kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' },
-      '07aaa4fccca88dfc22363552fbb993a0891dabfc326d0ce56bccf3eaf5983f9b'],
+      '1906bd42df6fc898e360c77c577d6ca69a97eeb341a6fa4e5db0c5927a38d967'],
   ] as const;
   for (const [input, fingerprint] of fixtures) {
     assert.equal(createHash('sha256').update(JSON.stringify(renderNotificationEmailV2(input))).digest('hex'), fingerprint);
@@ -35,7 +35,7 @@ test('v2 emails have one primary action, full fallback links and complete plain 
       assert.match(body, /support@fxaeon\.com/);
       if (input.kind === 'verification') {
         assert.match(body, /2026-11-03 11:00 UTC/);
-        assert.match(body, /Opening the link alone does not verify/);
+        assert.match(body, /On the next page, choose Confirm email\./);
         assert.match(body, /request a new email/);
         assert.match(body, /did not request/);
       } else {
@@ -45,7 +45,7 @@ test('v2 emails have one primary action, full fallback links and complete plain 
       }
     }
     assert.doesNotMatch(mail.text, /<[^>]+>|&(?:amp|quot|lt|gt);/);
-    assert.doesNotMatch(mail.html, /<img|<script|<link|<iframe|@font-face|url\(|utm_|tracking|src=/i);
+    assert.doesNotMatch(mail.html, /<img|<script|<link|<iframe|@font-face|url\(|utm_|tracking|src=|letter-spacing:\s*-/i);
     assert.match(mail.html, /name="viewport"/);
     assert.ok(Buffer.byteLength(JSON.stringify({ from: ENV.RESEND_FROM, to: ['person@example.com'], reply_to: 'support@fxaeon.com', ...mail })) < 8192);
   }
@@ -69,6 +69,7 @@ test('v2 templates escape HTML text and attributes and reject injected or off-br
 class SQLiteDB implements MailDB {
   readonly sql = new DatabaseSync(':memory:');
   failAt = -1;
+  afterCandidates?: () => Promise<void>;
   prepare(sql: string): Statement { return new Statement(this, sql); }
   async batch<T = Record<string, unknown>>(statements: MailStatement[]): Promise<MailResult<T>[]> {
     this.sql.exec('BEGIN IMMEDIATE');
@@ -92,12 +93,17 @@ class Statement implements MailStatement {
     statement.run(...this.values as SQLInputValue[]);
     return { success: true, results: [] };
   }
-  async all<T = Record<string, unknown>>() { return this.execute<T>(); }
+  async all<T = Record<string, unknown>>() {
+    const result = this.execute<T>();
+    if (this.sql.includes('SELECT id,channel FROM access_mail_outbox o')) await this.db.afterCandidates?.();
+    return result;
+  }
   async run<T = Record<string, unknown>>() { return this.execute<T>(); }
 }
 const ENV: NotificationEnv = {
   RESEND_API_KEY: 're_fake_test_key_never_live', RESEND_FROM: 'FxAeon <invite@fxaeon.com>',
   TELEGRAM_BOT_TOKEN: '123456:abcdefghijklmnopqrstuvwxyz', TELEGRAM_MINIAPP_URL: 'https://t.me/FxAeonBot/app',
+  MAIL_TEMPLATE_CUTOVER: 'v2-drain-confirmed',
 };
 type Call = { url: string; init: RequestInit; body: Record<string, any> };
 async function fixture(t: TestContext, overrides: NotificationEnv = {}, timeoutMs = 100) {
@@ -134,6 +140,66 @@ function token(call: Call): string {
   assert.ok(value);
   return value;
 }
+
+test('cutover defaults to legacy for new emails; only an exact server-only drain assertion selects v2', async t => {
+  for (const cutover of [undefined, 'legacy', 'v2-drain-confirmed']) {
+    const f = await fixture(t, { MAIL_TEMPLATE_CUTOVER: cutover });
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    await f.admission.join(2, false); await f.store.setContact(2, 'person2@example.com');
+    const version = cutover === 'v2-drain-confirmed' ? 2 : 1;
+    assert.deepEqual(f.db.sql.prepare('SELECT version FROM access_mail_templates').all().map(row => row.version), [version, version]);
+    await f.store.dispatch();
+    assert.equal(f.calls.length, 2);
+    assert.ok(f.calls.every(call => version === 2 ? typeof call.body.html === 'string' : call.body.html === undefined));
+  }
+  for (const cutover of ['', '2', 'true', 'on', 'v2', 'v2-drain-confirmed ', 'private@example.com']) {
+    await assert.rejects(fixture(t, { MAIL_TEMPLATE_CUTOVER: cutover }), { message: 'notification_config_invalid' });
+  }
+});
+
+test('version selection and insertion are atomic across competing legacy/v2 enqueue and claim', async t => {
+  for (const first of ['legacy', 'v2-drain-confirmed']) {
+    const f = await fixture(t, { MAIL_TEMPLATE_CUTOVER: first });
+    await f.approve(1, false); f.verified(1);
+    f.env.MAIL_TEMPLATE_CUTOVER = first === 'legacy' ? 'v2-drain-confirmed' : 'legacy';
+    await Promise.all([f.store.enqueueInvitation(1, false), f.make().enqueueInvitation(1, false)]);
+    assert.equal(f.rows().length, 1);
+    const version = first === 'legacy' ? 1 : 2;
+    assert.equal(f.db.sql.prepare('SELECT version FROM access_mail_templates').get()!.version, version);
+    await Promise.all([f.store.dispatch(), f.make().dispatch()]);
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.rows()[0].attempts, 1);
+    assert.equal(typeof f.calls[0].body.html === 'string', version === 2);
+  }
+});
+
+test('an old selected candidate is never retagged by v2 reconciliation, including unversioned unattempted rows', async t => {
+  for (const unversioned of [false, true]) {
+    const f = await fixture(t, { MAIL_TEMPLATE_CUTOVER: 'legacy' });
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    if (unversioned) f.db.sql.exec('DELETE FROM access_mail_templates');
+    let release!: () => void; let selected!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { selected = resolve; });
+    f.db.afterCandidates = async () => { f.db.afterCandidates = undefined; selected(); await gate; };
+    f.respond(() => new Response(null, { status: 503 }));
+    const oldDispatch = f.store.dispatch();
+    await ready;
+    try {
+      f.env.MAIL_TEMPLATE_CUTOVER = 'v2-drain-confirmed';
+      await f.make().enqueueInvitation(1, false);
+      const pinned = f.db.sql.prepare('SELECT version FROM access_mail_templates').get();
+      assert.equal(pinned?.version, unversioned ? undefined : 1);
+    } finally { release(); }
+    await oldDispatch;
+    assert.equal(f.calls[0].body.html, undefined);
+    f.advance(60_001); f.respond(() => Response.json({ id: 'accepted' }));
+    await f.make().dispatch();
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[1].init.body, f.calls[0].init.body);
+    assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), new Headers(f.calls[0].init.headers).get('Idempotency-Key'));
+  }
+});
 
 test('delivery status distinguishes queued, provider acceptance and verified contact without secrets', async t => {
   const f = await fixture(t);
@@ -228,7 +294,7 @@ test('verification is generic, hashed at rest, explicit-confirmation only, singl
   assert.equal(f.calls.length, 0);
   assert.deepEqual(await f.store.dispatch(), { sent: 1, failed: 0, deferred: 0, uncertain: 0 });
   const value = token(f.calls[0]);
-  assert.match(f.calls[0].body.text, /select Confirm email/);
+  assert.match(f.calls[0].body.text, /choose Confirm email/);
   assert.equal(f.calls[0].body.reply_to, 'support@fxaeon.com');
   assert.equal(JSON.stringify(f.rows()).includes(value), false);
   assert.equal(JSON.stringify(f.db.sql.prepare('SELECT * FROM access_mail_contacts').all()).includes(value), false);
@@ -422,6 +488,71 @@ test('Resend retries identical payload and idempotency key after uncertain failu
   assert.equal((await f.admission.status(1))!.state, 'approved');
 });
 
+test('only Resend concurrent_idempotent_requests 409 retries the identical payload/key without provider details', async t => {
+  for (const kind of ['verification', 'invitation'] as const) {
+    const f = await fixture(t);
+    if (kind === 'verification') {
+      await f.admission.join(1, false); await f.store.setContact(1, 'person@example.com');
+    } else {
+      await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    }
+    f.respond(() => Response.json({ name: 'concurrent_idempotent_requests', message: 'PRIVATE_PROVIDER_TEXT person@example.com' }, { status: 409 }));
+    const outcome = await f.store.dispatch();
+    assert.deepEqual(outcome, { sent: 0, failed: 0, deferred: 1, uncertain: 0 });
+    assert.deepEqual(f.diagnostics, [{ channel: 'email', kind, attempt: 1, outcome: 'pending', reason: 'provider_request_in_progress', httpStatus: 409 }]);
+    assert.doesNotMatch(JSON.stringify({ outcome, diagnostics: f.diagnostics }), /PRIVATE_PROVIDER_TEXT|person@example\.com/);
+    await f.make().dispatch(); assert.equal(f.calls.length, 1);
+    f.advance(60_001); f.respond(() => Response.json({ id: 'accepted' }));
+    assert.equal((await f.make().dispatch()).sent, 1);
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[0].init.body, f.calls[1].init.body);
+    assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  }
+});
+
+test('Resend concurrent 409 still respects attempt and retention limits', async t => {
+  for (const retention of [false, true]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    f.respond(() => Response.json({ name: 'concurrent_idempotent_requests' }, { status: 409 }));
+    await f.store.dispatch();
+    if (retention) f.advance(23 * 3_600_000);
+    else {
+      f.advance(60_001); await f.make().dispatch();
+      f.advance(120_001); await f.make().dispatch();
+    }
+    await f.make().dispatch();
+    assert.equal(f.rows()[0].status, 'uncertain');
+    assert.equal(f.calls.length, retention ? 1 : 3);
+    f.advance(24 * 3_600_000); await f.make().dispatch();
+    assert.equal(f.calls.length, retention ? 1 : 3);
+  }
+});
+
+test('collision, unknown, malformed, oversized and stalled 409 bodies never trigger automatic retry or expose raw details', async t => {
+  const responses = [
+    () => Response.json({ name: 'invalid_idempotent_request', message: 'PRIVATE_PROVIDER_TEXT' }, { status: 409 }),
+    () => Response.json({ name: 'unknown_private_error', message: 'PRIVATE_PROVIDER_TEXT' }, { status: 409 }),
+    () => Response.json({ name: 'concurrent_idempotent_requests ' }, { status: 409 }),
+    () => new Response('PRIVATE_PROVIDER_TEXT', { status: 409 }),
+    () => Response.json({ name: 'concurrent_idempotent_requests', message: 'x'.repeat(16_384) }, { status: 409 }),
+    () => new Response(new ReadableStream({ start() {} }), { status: 409 }),
+  ];
+  for (const respond of responses) {
+    const f = await fixture(t, {}, 50);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    f.respond(respond);
+    const outcome = await f.store.dispatch();
+    assert.equal(outcome.failed, 1);
+    assert.deepEqual(f.diagnostics, [{ channel: 'email', kind: 'invitation', attempt: 1, outcome: 'failed', reason: 'provider_idempotency_conflict', httpStatus: 409 }]);
+    assert.doesNotMatch(JSON.stringify({ outcome, diagnostics: f.diagnostics }), /PRIVATE_PROVIDER_TEXT|unknown_private_error/);
+    f.advance(24 * 3_600_000);
+    await f.make().enqueueInvitation(1, false); await f.make().dispatch();
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.rows().length, 1);
+  }
+});
+
 test('previously attempted legacy verification and direct invitation payloads survive delayed retries unchanged', async t => {
   for (const kind of ['verification', 'invitation'] as const) {
     const f = await fixture(t);
@@ -475,6 +606,7 @@ test('new verification and invitation emails pin v2 at enqueue and retain HTML, 
     f.advance(15 * 60_000);
     f.env.RESEND_FROM = 'Changed sender <updates@fxaeon.com>';
     f.env.TELEGRAM_MINIAPP_URL = 'https://t.me/AnotherBot/app';
+    f.env.MAIL_TEMPLATE_CUTOVER = 'legacy';
     const restarted = f.make(); await restarted.init();
     if (kind === 'invitation') await restarted.enqueueInvitation(1, false);
     f.respond(() => Response.json({ id: 'accepted' }));

@@ -12,7 +12,8 @@ identify their assets. Do not imply that an asset mark is the FxAeon brand.
 | Token and chain marks | `apps/mini-app/public/token-icons/` and `chain-icons/` | Vendored token/network identity; the landing copies use the same app files |
 | Telegram QR code | Drawn by `apps/landing/qr.mjs` during the landing build, from the configured launcher URL, as `assets/telegram-qr.svg` in `dist/` | Opens the same bot link as the Telegram buttons |
 | Supplied social banner and profile image | [`assets/social/`](assets/social/) | Social-profile artwork; keep the supplied masters unchanged |
-| Telegram bot avatar | [`assets/brand/fxaeon-bot-avatar-1024.png`](assets/brand/fxaeon-bot-avatar-1024.png) and [SVG export](assets/brand/fxaeon-bot-avatar.svg) | 1024×1024 opaque square, original app ribbon paths; padded for Telegram's circular crop |
+| Telegram bot avatar master | [`assets/brand/fxaeon-bot-avatar-1024.png`](assets/brand/fxaeon-bot-avatar-1024.png) and [SVG export](assets/brand/fxaeon-bot-avatar.svg) | 1024×1024 opaque square, original app ribbon paths; padded for Telegram's circular crop |
+| Telegram profile-photo upload | [`assets/brand/fxaeon-bot-avatar-1024.jpg`](assets/brand/fxaeon-bot-avatar-1024.jpg) | JPEG derived from the square master, used by the profile-photo workflow |
 | Shared site preview | `apps/landing/assets/social-preview.png` and `apps/mini-app/public/social-preview.png` | Identical 1200×630 Open Graph/X preview for both sites; separate from social-profile artwork |
 
 The token/chain marks come from the SmolDapp asset CDN and AladdinDAO assets.
@@ -27,11 +28,12 @@ and network colors keep their separate meanings or identities.
 
 ## Messaging
 
-Use `docs/assets/brand/fxaeon-bot-avatar-1024.png` as the Telegram profile photo.
+The Telegram profile-photo workflow uploads `docs/assets/brand/fxaeon-bot-avatar-1024.jpg`,
+derived from the square PNG master.
 The existing ribbon remains unchanged; the export adds a neutral `#080808`
 canvas and circle-safe padding. It contains no small lettering or new symbol.
 The supplied social masters remain unchanged. The dedicated GitHub profile-photo
-workflow applies the reviewed PNG; generating assets never updates a profile or sends messages.
+workflow applies the reviewed JPEG; generating assets never updates a profile or sends messages.
 
 Telegram profile copy (plain text; descriptions do not use reply formatting):
 

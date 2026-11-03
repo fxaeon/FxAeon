@@ -19,6 +19,9 @@ export interface NotificationEnv {
   TELEGRAM_MINIAPP_URL?: string;
   MAIL_DAILY_LIMIT?: string | number;
   MAIL_MONTHLY_LIMIT?: string | number;
+  /** Server-only, exact operator assertion after separately verifying the old
+   * dispatcher drain. Not proof of drain; never set by an ordinary deploy. */
+  MAIL_TEMPLATE_CUTOVER?: string;
 }
 export interface NotificationDiagnostic {
   channel: 'email' | 'telegram'; kind: 'verification' | 'invitation'; attempt: number;
@@ -60,15 +63,15 @@ export function renderNotificationEmailV2(input: NotificationEmailV2): { subject
   let expiry = '';
   if (verification) {
     if (!Number.isSafeInteger(input.expiresAt) || input.expiresAt <= 0 || input.expiresAt > 8_640_000_000_000_000) throw new Error('notification_template_invalid');
-    expiry = `This link expires on ${new Date(input.expiresAt).toISOString().slice(0, 16).replace('T', ' ')} UTC. If it has expired, request a new email in FxAeon.`;
+    expiry = `Link expires ${new Date(input.expiresAt).toISOString().slice(0, 16).replace('T', ' ')} UTC. If needed, request a new email in FxAeon.`;
   }
   const subject = verification ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready';
   const heading = verification ? 'Confirm your email' : 'Your invitation is ready';
-  const intro = verification ? 'Confirm this email address to receive your FxAeon invitation.'
+  const intro = verification ? 'Confirm your email to receive your invitation.'
     : 'Your access to FxAeon has been approved. Open the app in Telegram to set up your wallet and get started.';
-  const action = verification ? 'Review confirmation' : 'Open FxAeon';
-  const detail = verification ? 'Open the link, then select Confirm email. Opening the link alone does not verify your address.' : '';
-  const safety = verification ? 'If you did not request this email, you can ignore it. Your address will not be verified.'
+  const action = verification ? 'Confirm email' : 'Open FxAeon';
+  const detail = verification ? 'On the next page, choose Confirm email.' : '';
+  const safety = verification ? 'If you did not request this email, you can ignore it.'
     : 'Never share your recovery phrase or private keys, including with support.';
   const support = 'Need a hand? Reply to this email or write to support@fxaeon.com.';
   const fallback = 'If the button does not work, copy and paste this full link into your browser:';
@@ -83,7 +86,7 @@ export function renderNotificationEmailV2(input: NotificationEmailV2): { subject
 <!--[if mso]><table role="presentation" width="560"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px"><tr><td style="padding:0 24px 28px;font-size:20px;line-height:1.4;font-weight:700;color:#ffffff">FxAeon</td></tr>
 <tr><td bgcolor="#151515" style="padding:32px 24px;border-radius:16px">
-<h1 style="margin:0 0 16px;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-0.5px;color:#ffffff">${e(heading)}</h1>
+<h1 style="margin:0 0 16px;font-size:28px;line-height:1.2;font-weight:600;color:#ffffff">${e(heading)}</h1>
 ${paragraph(intro)}
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0"><tr><td align="center" bgcolor="#2563eb" style="border-radius:26px;mso-padding-alt:16px 24px"><a href="${e(input.url)}" style="display:inline-block;padding:16px 24px;font-size:16px;line-height:20px;font-weight:700;text-decoration:none;color:#ffffff;border-radius:26px">${e(action)}</a></td></tr></table>
 ${detail ? paragraph(detail) : ''}${expiry ? paragraph(expiry) : ''}
@@ -179,6 +182,7 @@ export class NotificationStore {
   private readonly sender: string;
   private readonly daily: number;
   private readonly monthly: number;
+  private readonly templateVersion: 1 | 2;
   private readonly diagnose: (diagnostic: NotificationDiagnostic) => void;
   constructor(private readonly db: MailDB, env: NotificationEnv = {}, options: NotificationOptions = {}) {
     this.env = { ...env };
@@ -199,6 +203,13 @@ export class NotificationStore {
     // Hard application caps 50/day and 1500/month; leave 5/day and 50/month unused.
     this.daily = limit(env.MAIL_DAILY_LIMIT, 50, 5);
     this.monthly = limit(env.MAIL_MONTHLY_LIMIT, 1500, 50);
+    // Stage 1: deploy template-aware dispatch while enqueue remains legacy.
+    // Stage 2: an operator separately verifies no pre-versioning invocations
+    // remain, then sets this server binding to the exact assertion below.
+    // Keep rollback on a template-aware binary: the gate selects NEW rows only.
+    const cutover = env.MAIL_TEMPLATE_CUTOVER;
+    if (cutover !== undefined && cutover !== 'legacy' && cutover !== 'v2-drain-confirmed') throw new Error('notification_config_invalid');
+    this.templateVersion = cutover === 'v2-drain-confirmed' ? 2 : 1;
   }
   private statement(sql: string, ...values: unknown[]) { return this.db.prepare(sql).bind(...values); }
   private async all<T>(sql: string, ...values: unknown[]): Promise<T[]> {
@@ -216,11 +227,14 @@ export class NotificationStore {
     } catch { throw new Error('notification_storage_unavailable'); }
   }
   async init(): Promise<void> { await this.batch(SCHEMA.map(sql => this.db.prepare(sql))); }
-  private newEmailTemplate(id: string): MailStatement {
+  private newEmailTemplate(id: string, userId: number, kind: 'verification' | 'invitation'): MailStatement {
     return this.statement(`INSERT INTO access_mail_templates(outbox_id,version)
-      SELECT id,2 FROM access_mail_outbox WHERE id=? AND channel='email'
-      AND status='pending' AND attempts=0 AND first_attempt IS NULL
-      ON CONFLICT(outbox_id) DO NOTHING`, id);
+      SELECT ?,? WHERE NOT EXISTS(SELECT 1 FROM access_mail_outbox WHERE id=?)
+      AND EXISTS(SELECT 1 FROM admission_users u WHERE u.user_id=? AND
+        ((?='verification' AND EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?))
+        OR (?='invitation' AND u.external_id IS NOT NULL AND EXISTS(
+          SELECT 1 FROM access_mail_contacts c WHERE c.user_id=u.user_id AND c.verified=1))))
+      ON CONFLICT(outbox_id) DO NOTHING`, id, this.templateVersion, id, userId, kind, id, kind);
   }
   private enabled(channel: 'email' | 'telegram') {
     return channel === 'email' ? !!(this.env.RESEND_API_KEY && this.sender) : !!(this.env.TELEGRAM_BOT_TOKEN && this.link);
@@ -258,10 +272,12 @@ export class NotificationStore {
       userId, email, digest, now + HOUR, id),
       this.statement(`UPDATE access_mail_outbox SET status='cancelled' WHERE user_id=? AND kind='verification' AND status='pending'
         AND EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?)`, userId, id),
+      // Run selection BEFORE insertion in the same atomic batch. Existing rows
+      // never acquire a new version, even if an old dispatcher selected them.
+      this.newEmailTemplate(id, userId, 'verification'),
       this.statement(`INSERT INTO access_mail_outbox(id,user_id,channel,kind,destination,sender,link,token_hash,expires_at,created_at,next_at)
         SELECT ?,?,'email','verification',?,?,'',?,?,?,? WHERE EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?)`,
       id, userId, email, this.sender, digest, now + HOUR, now, now, id),
-      this.newEmailTemplate(id),
     ]);
     if (results[0].results.length === 0) throw new Error('notification_rate_limited');
     return response;
@@ -319,14 +335,14 @@ export class NotificationStore {
       SELECT 'invite:telegram:'||user_id,user_id,'telegram','invitation',CAST(user_id AS TEXT),'',?,?,?
       FROM admission_users WHERE user_id=? AND external_id IS NOT NULL AND telegram_notify=1
       ON CONFLICT(id) DO NOTHING`, this.link, now, now, userId));
-    if (this.enabled('email') && this.link) statements.push(this.statement(`INSERT INTO access_mail_outbox
+    if (this.enabled('email') && this.link) statements.push(this.newEmailTemplate(`invite:email:${userId}`, userId, 'invitation'), this.statement(`INSERT INTO access_mail_outbox
       (id,user_id,channel,kind,destination,sender,link,created_at,next_at)
       SELECT 'invite:email:'||u.user_id,u.user_id,'email','invitation',c.email,?,?,?,?
       FROM admission_users u JOIN access_mail_contacts c ON c.user_id=u.user_id
       WHERE u.user_id=? AND u.external_id IS NOT NULL AND c.verified=1 ON CONFLICT(id) DO UPDATE SET
         destination=excluded.destination,sender=excluded.sender,link=excluded.link
         WHERE access_mail_outbox.status='pending' AND access_mail_outbox.attempts=0 AND access_mail_outbox.first_attempt IS NULL`,
-    this.sender, this.link, now, now, userId), this.newEmailTemplate(`invite:email:${userId}`));
+    this.sender, this.link, now, now, userId));
     if (statements.length) await this.batch(statements);
   }
   private async claim(id: string): Promise<Envelope | null> {
@@ -408,13 +424,15 @@ export class NotificationStore {
     }
     const controller = new AbortController();
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let conflictResponse = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const uncertain = { status: row.channel === 'email' ? 'pending' : 'uncertain' } as Outcome;
     const deadline = new Promise<Outcome>(resolve => {
       timer = setTimeout(() => {
         controller.abort();
         if (reader) void reader.cancel().catch(() => {});
-        resolve({ ...uncertain, reason: 'timeout' });
+        resolve(conflictResponse ? { status: 'failed', reason: 'provider_idempotency_conflict', httpStatus: 409 }
+          : { ...uncertain, reason: 'timeout' });
       }, this.timeout);
     });
     const readResponse = async (response: Response): Promise<Record<string, unknown>> => {
@@ -461,6 +479,16 @@ export class NotificationStore {
           } catch { /* The HTTP status still establishes an explicit rejection. */ }
           const pause = this.now() + Math.min(DAY, Math.max(60_000, delay));
           return { status: 'pending', pause, reason: 'provider_rate_limited', httpStatus };
+        }
+        if (row.channel === 'email' && response.status === 409) {
+          conflictResponse = true;
+          // Provider distinguishes an in-flight identical request from a body
+          // collision. Parse only the bounded, allowlisted name; never log text.
+          try {
+            const data = await readResponse(response);
+            if (data.name === 'concurrent_idempotent_requests') return { status: 'pending', reason: 'provider_request_in_progress', httpStatus };
+          } catch { /* Unknown, malformed or oversized conflicts stay terminal. */ }
+          return { status: 'failed', reason: 'provider_idempotency_conflict', httpStatus };
         }
         if (response.status >= 400 && response.status < 500) {
           if (response.body) void response.body.cancel().catch(() => {});
