@@ -65,7 +65,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferStatus?: Promise<void>; deferRecovery?: Promise<void>; failStatus?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
+type Fixture = { state?: string; wallet?: { id: string; address: string }; hasCredential?: boolean; statusAfterFirst?: { state: string; hasCredential: boolean }; completeHandoff?: boolean; failHandoff?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferStatus?: Promise<void>; deferRecovery?: Promise<void>; failStatus?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -210,6 +210,59 @@ test('passkey startup rechecks the same account after reload without publishing 
     expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
     expect(requests.filter(request => request.action === 'transaction/status')).toHaveLength(2);
   } finally { access.release(); }
+});
+
+test('passkey startup retires a changed Telegram identity before its new server check resolves', async ({ page }) => {
+  await observeStartup(page);
+  const fixture: Fixture = {};
+  const { requests, errors } = await mount(page, '/', fixture);
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+  const access = heldResponse();
+  fixture.deferStatus = access.promise;
+  fixture.wallet = { id: 'wallet-2', address: TO };
+  try {
+    await page.evaluate(() => {
+      (window as any).oldWallet = (window as any).client.wallet;
+      (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A67890%7D&hash=second-fixture';
+      window.dispatchEvent(new Event('focus'));
+    });
+    await expect.poll(() => requests.filter(request => request.action === 'status').length).toBe(2);
+    await expectNeutralStartup(page);
+    expect(await page.evaluate(async () => {
+      try { await (window as any).oldWallet.selectedWallet.getEthereumProvider(); return false; }
+      catch { return true; }
+    })).toBe(true);
+    access.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+    expect(requests.filter(request => request.action === 'status')[1].launchData).toContain('hash=second-fixture');
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally { access.release(); }
+});
+
+test('passkey startup ignores old-account recovery after a Telegram identity change', async ({ page }) => {
+  await observeStartup(page);
+  const oldRecovery = heldResponse();
+  const newRecovery = heldResponse();
+  const fixture: Fixture = { deferRecovery: oldRecovery.promise };
+  try {
+    const { requests, errors } = await mount(page, '/', fixture);
+    await expect.poll(() => requests.filter(request => request.action === 'transaction/status').length).toBe(1);
+    await expectNeutralStartup(page);
+    fixture.deferRecovery = newRecovery.promise;
+    fixture.wallet = { id: 'wallet-2', address: TO };
+    await page.evaluate(() => {
+      (window as any).Telegram.WebApp.initData = 'user=%7B%22id%22%3A67890%7D&hash=second-fixture';
+      window.dispatchEvent(new Event('hashchange'));
+    });
+    await expect.poll(() => requests.filter(request => request.action === 'transaction/status').length).toBe(2);
+    oldRecovery.release();
+    await expectNeutralStartup(page);
+    newRecovery.release();
+    await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', TO);
+    expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+    expect(errors).toEqual([]);
+  } finally { oldRecovery.release(); newRecovery.release(); }
 });
 
 test('passkey startup honors the server waitlist despite a remembered admission hint', async ({ page }) => {

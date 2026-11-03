@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { startRegistration, startAuthentication, WebAuthnAbortService } from '@simplewebauthn/browser';
 import { keccak256, type Client, type Hex } from 'viem';
@@ -74,7 +74,25 @@ function durablyReceived(request: PendingSign, hash: string): boolean {
   } catch { return false; }
 }
 
+function subscribeToLaunchChange(listener: () => void) {
+  window.addEventListener('focus', listener);
+  window.addEventListener('hashchange', listener);
+  document.addEventListener('visibilitychange', listener);
+  return () => {
+    window.removeEventListener('focus', listener);
+    window.removeEventListener('hashchange', listener);
+    document.removeEventListener('visibilitychange', listener);
+  };
+}
+
 export default function TelegramPasskeyProvider({ children }: { children: ReactNode }) {
+  const launch = useSyncExternalStore(subscribeToLaunchChange, currentTelegramLaunchData, () => '');
+  // Launch data is only an invalidation key. Each new mount must recheck the
+  // signed launch with the server and recover transactions before publishing.
+  return <TelegramPasskeySession key={launch}>{children}</TelegramPasskeySession>;
+}
+
+function TelegramPasskeySession({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [view, setView] = useState<AdmissionScreenState>('checking');
