@@ -19,9 +19,6 @@ export interface NotificationEnv {
   TELEGRAM_MINIAPP_URL?: string;
   MAIL_DAILY_LIMIT?: string | number;
   MAIL_MONTHLY_LIMIT?: string | number;
-  /** Server-only, exact operator assertion after separately verifying the old
-   * dispatcher drain. Not proof of drain; never set by an ordinary deploy. */
-  MAIL_TEMPLATE_CUTOVER?: string;
 }
 export interface NotificationDiagnostic {
   channel: 'email' | 'telegram'; kind: 'verification' | 'invitation'; attempt: number;
@@ -123,11 +120,18 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS access_mail_outbox_due ON access_mail_outbox(status,next_at)`,
   // Additive migration: absence means an old row, never implicitly v2. No body
   // snapshots here: verification bearer tokens must not be persisted in D1.
-  // First rollout must drain old dispatch invocations before versioned enqueue:
-  // pre-versioning binaries cannot interpret this metadata. Never reset keys or
-  // replay held/sent invitations to repair an ambiguous pre-#374 payload.
   `CREATE TABLE IF NOT EXISTS access_mail_templates (
     outbox_id TEXT PRIMARY KEY, version INTEGER NOT NULL CHECK(version IN (1,2)))`,
+  // Durable fence against old binaries, including invocations that resume after
+  // deployment. Their UUID-only claim cannot acquire v2, and its budget charge
+  // cannot match. Install atomically in init BEFORE any v2 enqueue. This cannot
+  // repair a v2 provider request already dispatched before fence installation.
+  `CREATE TRIGGER IF NOT EXISTS access_mail_v2_claim_fence
+    BEFORE UPDATE OF status ON access_mail_outbox
+    WHEN NEW.status='sending'
+      AND EXISTS(SELECT 1 FROM access_mail_templates WHERE outbox_id=NEW.id AND version=2)
+      AND substr(NEW.claim,1,8) IS NOT 'mail-v2:'
+    BEGIN SELECT RAISE(IGNORE); END`,
   `CREATE TABLE IF NOT EXISTS access_mail_budgets (period TEXT PRIMARY KEY, used INTEGER NOT NULL DEFAULT 0)`,
   `CREATE TABLE IF NOT EXISTS access_mail_providers (channel TEXT PRIMARY KEY, pause_until INTEGER NOT NULL DEFAULT 0)`,
 ];
@@ -182,7 +186,6 @@ export class NotificationStore {
   private readonly sender: string;
   private readonly daily: number;
   private readonly monthly: number;
-  private readonly templateVersion: 1 | 2;
   private readonly diagnose: (diagnostic: NotificationDiagnostic) => void;
   constructor(private readonly db: MailDB, env: NotificationEnv = {}, options: NotificationOptions = {}) {
     this.env = { ...env };
@@ -203,13 +206,6 @@ export class NotificationStore {
     // Hard application caps 50/day and 1500/month; leave 5/day and 50/month unused.
     this.daily = limit(env.MAIL_DAILY_LIMIT, 50, 5);
     this.monthly = limit(env.MAIL_MONTHLY_LIMIT, 1500, 50);
-    // Stage 1: deploy template-aware dispatch while enqueue remains legacy.
-    // Stage 2: an operator separately verifies no pre-versioning invocations
-    // remain, then sets this server binding to the exact assertion below.
-    // Keep rollback on a template-aware binary: the gate selects NEW rows only.
-    const cutover = env.MAIL_TEMPLATE_CUTOVER;
-    if (cutover !== undefined && cutover !== 'legacy' && cutover !== 'v2-drain-confirmed') throw new Error('notification_config_invalid');
-    this.templateVersion = cutover === 'v2-drain-confirmed' ? 2 : 1;
   }
   private statement(sql: string, ...values: unknown[]) { return this.db.prepare(sql).bind(...values); }
   private async all<T>(sql: string, ...values: unknown[]): Promise<T[]> {
@@ -234,7 +230,7 @@ export class NotificationStore {
         ((?='verification' AND EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?))
         OR (?='invitation' AND u.external_id IS NOT NULL AND EXISTS(
           SELECT 1 FROM access_mail_contacts c WHERE c.user_id=u.user_id AND c.verified=1))))
-      ON CONFLICT(outbox_id) DO NOTHING`, id, this.templateVersion, id, userId, kind, id, kind);
+      ON CONFLICT(outbox_id) DO NOTHING`, id, 2, id, userId, kind, id, kind);
   }
   private enabled(channel: 'email' | 'telegram') {
     return channel === 'email' ? !!(this.env.RESEND_API_KEY && this.sender) : !!(this.env.TELEGRAM_BOT_TOKEN && this.link);
@@ -349,7 +345,7 @@ export class NotificationStore {
     const now = this.now();
     const day = `day:${new Date(now).toISOString().slice(0, 10)}`;
     const month = `month:${new Date(now).toISOString().slice(0, 7)}`;
-    const claim = crypto.randomUUID();
+    const claim = `mail-v2:${crypto.randomUUID()}`;
     const results = await this.batch([
       // Pin the old plain-text formatter before its first possible send. An
       // already-attempted legacy row remains unversioned; its provenance is not

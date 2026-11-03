@@ -103,7 +103,6 @@ class Statement implements MailStatement {
 const ENV: NotificationEnv = {
   RESEND_API_KEY: 're_fake_test_key_never_live', RESEND_FROM: 'FxAeon <invite@fxaeon.com>',
   TELEGRAM_BOT_TOKEN: '123456:abcdefghijklmnopqrstuvwxyz', TELEGRAM_MINIAPP_URL: 'https://t.me/FxAeonBot/app',
-  MAIL_TEMPLATE_CUTOVER: 'v2-drain-confirmed',
 };
 type Call = { url: string; init: RequestInit; body: Record<string, any> };
 async function fixture(t: TestContext, overrides: NotificationEnv = {}, timeoutMs = 100) {
@@ -141,43 +140,158 @@ function token(call: Call): string {
   return value;
 }
 
-test('cutover defaults to legacy for new emails; only an exact server-only drain assertion selects v2', async t => {
-  for (const cutover of [undefined, 'legacy', 'v2-drain-confirmed']) {
-    const f = await fixture(t, { MAIL_TEMPLATE_CUTOVER: cutover });
-    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
-    await f.admission.join(2, false); await f.store.setContact(2, 'person2@example.com');
-    const version = cutover === 'v2-drain-confirmed' ? 2 : 1;
-    assert.deepEqual(f.db.sql.prepare('SELECT version FROM access_mail_templates').all().map(row => row.version), [version, version]);
-    await f.store.dispatch();
-    assert.equal(f.calls.length, 2);
-    assert.ok(f.calls.every(call => version === 2 ? typeof call.body.html === 'string' : call.body.html === undefined));
+/** Historical claim protocol, deliberately independent of the new dispatcher:
+ * UUID-only UPDATE RETURNING followed by a charge conditional on that claim.
+ * Eligibility is supplied by these fixtures; the protected lease/attempt/budget
+ * operations match the pre-versioning dispatcher and use real transactions. */
+async function legacyClaim(f: Awaited<ReturnType<typeof fixture>>, id: string, claim: string | null = crypto.randomUUID()) {
+  const now = f.now(), day = `day:${new Date(now).toISOString().slice(0, 10)}`, month = `month:${new Date(now).toISOString().slice(0, 7)}`;
+  const results = await f.db.batch([
+    f.db.prepare('INSERT INTO access_mail_budgets(period) VALUES(?),(?) ON CONFLICT(period) DO NOTHING').bind(day, month),
+    f.db.prepare(`UPDATE access_mail_outbox SET status='sending',attempts=attempts+1,
+      first_attempt=coalesce(first_attempt,?),lease_until=?,claim=?
+      WHERE id=? AND status='pending' AND next_at<=? AND attempts<3 RETURNING *`).bind(now, now + 60_000, claim, id, now),
+    f.db.prepare(`UPDATE access_mail_budgets SET used=used+1 WHERE period IN (?,?)
+      AND EXISTS(SELECT 1 FROM access_mail_outbox WHERE id=? AND claim=? AND channel='email')`).bind(day, month, id, claim),
+  ]);
+  return results[1].results;
+}
+
+test('v2 fence rejects old UUID and null claims with empty RETURNING, untouched leases/attempts and no budget charge', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  const before = f.rows()[0];
+  for (const claim of [crypto.randomUUID(), null]) {
+    assert.deepEqual(await legacyClaim(f, before.id, claim), []);
+    assert.deepEqual(f.rows()[0], before);
+    assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 0));
   }
-  for (const cutover of ['', '2', 'true', 'on', 'v2', 'v2-drain-confirmed ', 'private@example.com']) {
-    await assert.rejects(fixture(t, { MAIL_TEMPLATE_CUTOVER: cutover }), { message: 'notification_config_invalid' });
+  assert.equal(f.calls.length, 0);
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.rows()[0].attempts, 1);
+  assert.match(f.rows()[0].claim, /^mail-v2:[a-f0-9-]{36}$/);
+  assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 1));
+  assert.equal(typeof f.calls[0].body.html, 'string');
+});
+
+test('both held-candidate and pre-selection old invocations are fenced; a new dispatcher still succeeds', { timeout: 10_000 }, async t => {
+  for (const heldCandidate of [true, false]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    if (heldCandidate) await f.store.enqueueInvitation(1, false);
+    const selected = heldCandidate ? f.db.sql.prepare("SELECT id FROM access_mail_outbox WHERE status='pending'").all() : undefined;
+    const oldInvocation = (async () => {
+      await gate;
+      const candidates = selected ?? f.db.sql.prepare("SELECT id FROM access_mail_outbox WHERE status='pending'").all();
+      for (const row of candidates) assert.deepEqual(await legacyClaim(f, String(row.id)), []);
+    })();
+    if (!heldCandidate) await f.store.enqueueInvitation(1, false);
+    const before = f.rows();
+    release(); await oldInvocation;
+    assert.deepEqual(f.rows(), before);
+    assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 0));
+    assert.equal((await f.store.dispatch()).sent, 1);
+    assert.equal(f.calls.length, 1);
   }
 });
 
-test('version selection and insertion are atomic across competing legacy/v2 enqueue and claim', async t => {
-  for (const first of ['legacy', 'v2-drain-confirmed']) {
-    const f = await fixture(t, { MAIL_TEMPLATE_CUTOVER: first });
-    await f.approve(1, false); f.verified(1);
-    f.env.MAIL_TEMPLATE_CUTOVER = first === 'legacy' ? 'v2-drain-confirmed' : 'legacy';
-    await Promise.all([f.store.enqueueInvitation(1, false), f.make().enqueueInvitation(1, false)]);
-    assert.equal(f.rows().length, 1);
-    const version = first === 'legacy' ? 1 : 2;
-    assert.equal(f.db.sql.prepare('SELECT version FROM access_mail_templates').get()!.version, version);
-    await Promise.all([f.store.dispatch(), f.make().dispatch()]);
+test('competing old/new claims send once and charge once whichever dispatcher runs first', async t => {
+  for (const oldFirst of [true, false]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    const old = () => legacyClaim(f, 'invite:email:1');
+    await Promise.all(oldFirst ? [old(), f.store.dispatch()] : [f.store.dispatch(), old()]);
     assert.equal(f.calls.length, 1);
     assert.equal(f.rows()[0].attempts, 1);
-    assert.equal(typeof f.calls[0].body.html === 'string', version === 2);
+    assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 1));
   }
+});
+
+test('legacy v1 remains claimable by an old dispatcher; a delayed new retry preserves legacy bytes', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  f.db.sql.exec('UPDATE access_mail_templates SET version=1');
+  const rows = await legacyClaim(f, 'invite:email:1');
+  assert.equal(rows.length, 1);
+  const originalBody = JSON.stringify({ from: ENV.RESEND_FROM, to: ['person1@example.com'], reply_to: 'support@fxaeon.com',
+    subject: 'Your FxAeon invitation is ready', text: 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.\n\nhttps://t.me/FxAeonBot/app' });
+  assert.equal((await f.make().dispatch()).sent, 0, 'an in-flight legacy lease cannot be stolen');
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='pending',lease_until=NULL WHERE id=? AND claim=?").run('invite:email:1', rows[0].claim as string);
+  f.advance(120_000);
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.calls[0].init.body, originalBody);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), 'access-mail/invite:email:1');
+  assert.equal(f.calls[0].body.html, undefined);
+});
+
+test('old lease recovery is allowed but its v2 reclaim is blocked; a new retry retains the body/key', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  f.respond(() => { f.db.failAt = 0; return Response.json({ id: 'accepted' }); });
+  await assert.rejects(f.store.dispatch(), { message: 'notification_storage_unavailable' });
+  assert.equal(f.rows()[0].status, 'sending');
+  f.advance(60_001);
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='pending' WHERE status='sending' AND lease_until<=?").run(f.now());
+  assert.equal(f.rows()[0].status, 'pending');
+  const before = f.rows()[0];
+  assert.deepEqual(await legacyClaim(f, 'invite:email:1'), []);
+  assert.deepEqual(f.rows()[0], before);
+  assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 1));
+  f.respond(() => Response.json({ id: 'accepted' }));
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.calls[0].init.body, f.calls[1].init.body);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 2));
+});
+
+test('fence installation failure rolls back mail initialization and prevents a sendable v2 enqueue', async t => {
+  const db = new SQLiteDB(); t.after(() => db.sql.close());
+  const admission = new Store(db); await admission.init(); await admission.join(1, false);
+  let sends = 0;
+  const store = new NotificationStore(db, ENV, { fetch: async () => { sends++; throw Error('unexpected network'); } });
+  db.failAt = 7; // The trigger statement, after the additive template table.
+  await assert.rejects(store.init(), { message: 'notification_storage_unavailable' });
+  assert.equal(db.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE name LIKE 'access_mail_%'").get()!.n, 0);
+  await assert.rejects(store.setContact(1, 'person@example.com'), { message: 'notification_storage_unavailable' });
+  assert.equal(sends, 0);
+  await store.init();
+  assert.equal(db.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE type='trigger' AND name='access_mail_v2_claim_fence'").get()!.n, 1);
+});
+
+test('new emails default to v2 after idempotent installation of the durable claim fence', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  await f.admission.join(2, false); await f.store.setContact(2, 'person2@example.com');
+  assert.deepEqual(f.db.sql.prepare('SELECT version FROM access_mail_templates').all().map(row => row.version), [2, 2]);
+  const before = f.rows();
+  await f.make().init(); await f.make().init();
+  assert.deepEqual(f.rows(), before);
+  assert.equal(f.db.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE type='trigger' AND name='access_mail_v2_claim_fence'").get()!.n, 1);
+  await f.store.dispatch();
+  assert.equal(f.calls.length, 2);
+  assert.ok(f.calls.every(call => typeof call.body.html === 'string'));
+});
+
+test('version selection and insertion are atomic across concurrent enqueue and claim', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1);
+  await Promise.all([f.store.enqueueInvitation(1, false), f.make().enqueueInvitation(1, false)]);
+  assert.equal(f.rows().length, 1);
+  assert.equal(f.db.sql.prepare('SELECT version FROM access_mail_templates').get()!.version, 2);
+  await Promise.all([f.store.dispatch(), f.make().dispatch()]);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.rows()[0].attempts, 1);
+  assert.equal(typeof f.calls[0].body.html, 'string');
 });
 
 test('an old selected candidate is never retagged by v2 reconciliation, including unversioned unattempted rows', async t => {
   for (const unversioned of [false, true]) {
-    const f = await fixture(t, { MAIL_TEMPLATE_CUTOVER: 'legacy' });
+    const f = await fixture(t);
     await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
     if (unversioned) f.db.sql.exec('DELETE FROM access_mail_templates');
+    else f.db.sql.exec('UPDATE access_mail_templates SET version=1');
     let release!: () => void; let selected!: () => void;
     const gate = new Promise<void>(resolve => { release = resolve; });
     const ready = new Promise<void>(resolve => { selected = resolve; });
@@ -186,7 +300,6 @@ test('an old selected candidate is never retagged by v2 reconciliation, includin
     const oldDispatch = f.store.dispatch();
     await ready;
     try {
-      f.env.MAIL_TEMPLATE_CUTOVER = 'v2-drain-confirmed';
       await f.make().enqueueInvitation(1, false);
       const pinned = f.db.sql.prepare('SELECT version FROM access_mail_templates').get();
       assert.equal(pinned?.version, unversioned ? undefined : 1);
@@ -606,7 +719,6 @@ test('new verification and invitation emails pin v2 at enqueue and retain HTML, 
     f.advance(15 * 60_000);
     f.env.RESEND_FROM = 'Changed sender <updates@fxaeon.com>';
     f.env.TELEGRAM_MINIAPP_URL = 'https://t.me/AnotherBot/app';
-    f.env.MAIL_TEMPLATE_CUTOVER = 'legacy';
     const restarted = f.make(); await restarted.init();
     if (kind === 'invitation') await restarted.enqueueInvitation(1, false);
     f.respond(() => Response.json({ id: 'accepted' }));
@@ -725,7 +837,8 @@ test('permanent provider rejection records failure, returns no provider detail a
 test('crash recovery retries email within its retention window, holds Telegram and exhausts attempt caps', async t => {
   const f = await fixture(t);
   await f.approve(); f.verified(1); await f.store.enqueueInvitation(1, true);
-  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sending', attempts=1, first_attempt=?,lease_until=?").run(f.now(), f.now() + 60_000);
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sending', attempts=1, first_attempt=?,lease_until=?,claim=?")
+    .run(f.now(), f.now() + 60_000, `mail-v2:${crypto.randomUUID()}`);
   await f.make().dispatch(); assert.equal(f.calls.length, 0);
   f.advance(60_000); await f.make().dispatch();
   assert.equal(f.calls.length, 1); assert.match(f.calls[0].url, /resend/);
