@@ -60,7 +60,7 @@
   cursor: pointer;
   transition: transform 180ms ease, background-color 180ms ease;
 }
-.primary { background: #dce7ff; color: #14213b; }
+.primary { background: #2563eb; color: #fff; }
 .secondary { background: transparent; color: var(--admission-muted); }
 .tertiary { min-height: 44px; font-size: 13px; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 .primary svg, .secondary svg { flex: none; }
@@ -76,7 +76,7 @@
 .footer a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px; color: var(--admission-muted); font-size: 12px; line-height: 1.5; text-decoration: none; }
 
 @media (hover: hover) {
-  .primary:hover:not(:disabled) { background: #f1f5ff; }
+  .primary:hover:not(:disabled) { background: #1d4ed8; }
   .secondary:hover:not(:disabled) { background: var(--admission-surface); }
   .footer a:hover { text-decoration: underline; }
 }
