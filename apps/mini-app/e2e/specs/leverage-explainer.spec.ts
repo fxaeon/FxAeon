@@ -26,7 +26,13 @@ for (const width of [320, 390, 1280]) {
     await scenario.scrollIntoViewIfNeeded();
     await expect(scenario).toContainText('+60.0%');
     await expect(scenario).toContainText('Short · 2× initial leverage');
-    await expect(scenario).toContainText('not projected PnL');
+    await scenario.getByRole('button', { name: 'About Initial exposure sensitivity', exact: true }).click();
+    const sensitivityHelp = page.getByRole('dialog', { name: 'Initial exposure sensitivity', exact: true });
+    await expect(sensitivityHelp).toBeVisible();
+    await expect(sensitivityHelp).toContainText('not projected PnL');
+    await expect(sensitivityHelp).toContainText('fees, leverage changes, rebalancing and liquidation');
+    await expect(sensitivityHelp).toContainText('actual results depend on the price path');
+    await page.keyboard.press('Escape');
     await expect(conditions).toContainText('Gross funding charge');
     await expect(conditions.getByRole('status', { name: 'Short pool gross funding charge', exact: true })).toBeAttached();
     await expect(conditions.getByRole('status', { name: 'Long pool gross funding charge', exact: true })).toHaveCount(0);
