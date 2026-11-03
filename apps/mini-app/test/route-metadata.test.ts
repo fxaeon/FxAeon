@@ -69,7 +69,7 @@ test('mini-app sitemap contains only public docs and policy pages', () => {
     'https://fxaeon.com/docs', 'https://fxaeon.com/docs/guide', 'https://fxaeon.com/docs/sdk',
     ...productNavigation.map(({ id }) => `https://fxaeon.com${productHref(id)}`),
     ...sdkNavigation.map(({ id }) => `https://fxaeon.com${sdkHref(id)}`),
-    'https://fxaeon.com/privacy.html',
+    'https://fxaeon.com/privacy',
   ];
   assert.deepEqual(actual, expected);
   assert.equal(new Set(actual).size, actual.length);

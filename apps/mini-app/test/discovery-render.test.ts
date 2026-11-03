@@ -51,7 +51,7 @@ test('all 24 public topics render useful text, one H1, semantic sections, and va
     }
   }
   assert.equal(pages.size, 24);
-  const known = new Set(['/', '/docs', '/docs/guide', '/docs/sdk', '/trade', '/earn', '/borrow', '/move', '/qr', '/history', '/positions', '/send', '/more', '/settings', '/login', '/privacy.html', ...pages.keys()]);
+  const known = new Set(['/', '/docs', '/docs/guide', '/docs/sdk', '/trade', '/earn', '/borrow', '/move', '/qr', '/history', '/positions', '/send', '/more', '/settings', '/login', '/privacy', ...pages.keys()]);
   let checked = 0;
   for (const [path, html] of pages) {
     for (const [, href] of html.matchAll(/href="([^"<>]+)"/g)) {

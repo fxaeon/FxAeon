@@ -146,9 +146,9 @@ test.describe('documentation experience', () => {
     await page.goto('/docs#privacy');
     const link = page.getByRole('link', { name: 'How FxAeon handles your data', exact: true });
     await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute('href', '/privacy.html');
+    await expect(link).toHaveAttribute('href', '/privacy');
     await link.click();
-    await expect(page).toHaveURL(/\/privacy\.html$/);
+    await expect(page).toHaveURL(/\/privacy$/);
     await expect(page.locator('body')).toContainText('browser storage');
     await expect(page.locator('body')).toContainText('public blockchains are publicly visible');
   });

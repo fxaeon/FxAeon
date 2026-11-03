@@ -21,7 +21,7 @@ export function discoveryArtifacts() {
   const sdkLinks = sdkNavigation.map(({ id, title, description }) =>
     `- [${title}](${appOrigin}${sdkHref(id)}): ${description}`);
   urls.push(...productNavigation.map(({ id }) => `${appOrigin}${productHref(id)}`),
-    ...sdkNavigation.map(({ id }) => `${appOrigin}${sdkHref(id)}`), `${appOrigin}/privacy.html`);
+    ...sdkNavigation.map(({ id }) => `${appOrigin}${sdkHref(id)}`), `${appOrigin}/privacy`);
   const llms = `# FxAeon
 
 > FxAeon is an independent web and Telegram interface for f(x) Protocol. Trade leveraged ETH and BTC positions, earn with fxSAVE, borrow fxUSD, and move fxUSD or fxSAVE between Ethereum and Base.
@@ -51,7 +51,7 @@ ${sdkLinks.join('\n')}
 
 ## Policies and protocol
 
-- [Privacy](${appOrigin}/privacy.html): Device storage, wallet information, and external services.
+- [Privacy](${appOrigin}/privacy): Device storage, wallet information, and external services.
 - [f(x) Protocol documentation](https://fxprotocol.gitbook.io/fx-docs): Protocol economics and mechanisms, maintained by the protocol.
 `;
   return new Map([

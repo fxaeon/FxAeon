@@ -135,7 +135,8 @@ test('public privacy policy has its own complete social card and one H1', async 
   assert.equal(meta('twitter:title'), meta('og:title'));
   assert.equal(meta('og:description'), meta('description'));
   assert.equal(meta('twitter:description'), meta('description'));
-  assert.equal(meta('og:url'), 'https://fxaeon.com/privacy.html');
+  assert.match(html, /<link rel="canonical" href="https:\/\/fxaeon\.com\/privacy">/);
+  assert.equal(meta('og:url'), 'https://fxaeon.com/privacy');
   assert.equal(meta('twitter:card'), 'summary_large_image');
   assert.equal(meta('og:image'), SOCIAL_IMAGE_URL);
   assert.equal(meta('twitter:image'), SOCIAL_IMAGE_URL);
@@ -156,7 +157,7 @@ test('sitemap follows generated public docs routes and excludes action/capabilit
     'https://fxaeon.com/docs', 'https://fxaeon.com/docs/guide', 'https://fxaeon.com/docs/sdk',
     ...productNavigation.map(({ id }) => `https://fxaeon.com${productHref(id)}`),
     ...sdkNavigation.map(({ id }) => `https://fxaeon.com${sdkHref(id)}`),
-    'https://fxaeon.com/privacy.html',
+    'https://fxaeon.com/privacy',
   ];
   assert.deepEqual(actual, expected);
   assert.equal(new Set(actual).size, actual.length);
