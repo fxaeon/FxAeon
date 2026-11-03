@@ -1,10 +1,12 @@
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 const app = resolve(__dirname, '../..');
+const fixtureFont = readFileSync(resolve(app, 'src/app/fonts/inter-latin.woff2')).toString('base64');
+const fixtureFontCss = `@font-face{font-family:FixtureInter;src:url(data:font/woff2;base64,${fixtureFont}) format('woff2');font-style:normal;font-weight:100 900;font-display:block}html{--font-sans:FixtureInter}`;
 const esbuild = createRequire(createRequire(resolve(app, 'package.json')).resolve('tsx/package.json'))('esbuild') as {
   build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ path: string; text: string }> }>;
 };
@@ -116,11 +118,11 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const commitment = createHash('sha256').update(Buffer.from(expectedChallenge, 'base64url')).digest('base64url');
   await page.goto(`https://fxaeon.test${path}${path.startsWith('/wallet-approval#') ? `&commitment=${commitment}` : ''}`);
   await page.evaluate(({ mobile, durable, delayedBridge }) => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; (window as any).fixtureDurableReceipt = durable; (window as any).fixtureDelayedBridge = delayedBridge; }, { mobile: fixture.mobile ?? false, durable: fixture.durableReceipt ?? false, delayedBridge: fixture.delayedBridge ?? false });
-  await page.addStyleTag({ content: css }); await page.addScriptTag({ content: script });
+  await page.addStyleTag({ content: `${fixtureFontCss}\n${css}` }); await page.addScriptTag({ content: script });
   const reload = async () => {
     await page.reload();
     await page.evaluate(mobile => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; }, fixture.mobile ?? false);
-    await page.addStyleTag({ content: css }); await page.addScriptTag({ content: script });
+    await page.addStyleTag({ content: `${fixtureFontCss}\n${css}` }); await page.addScriptTag({ content: script });
   };
   return { requests, errors, reload };
 }
@@ -162,7 +164,12 @@ test('onboarding browser and live setup fixture captures', async ({ page }) => {
   for (const [name, width, height] of [['320', 320, 568], ['390', 390, 844], ['desktop', 1440, 900]] as const) {
     if (process.env.ONBOARDING_CAPTURE_SIZE && name !== process.env.ONBOARDING_CAPTURE_SIZE) continue;
     await page.setViewportSize({ width, height });
-    const save = (state: string) => page.screenshot({ path: resolve(directory, `${state}-${name}.png`), fullPage: true, animations: 'disabled' });
+    const save = async (state: string) => {
+      await page.evaluate(() => document.fonts.ready);
+      expect(await page.locator('h1').evaluate(element => getComputedStyle(element).fontFamily)).toContain('FixtureInter');
+      expect(await page.evaluate(() => document.fonts.check('600 38px FixtureInter'))).toBe(true);
+      await page.screenshot({ path: resolve(directory, `${state}-${name}.png`), fullPage: true, animations: 'disabled' });
+    };
     await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
     await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeVisible();
     await save('live-invited');
@@ -189,6 +196,8 @@ test('onboarding browser and live setup fixture captures', async ({ page }) => {
     await save('browser-approval-expired');
     await mount(page, '/wallet-approval#token=opaque-ticket', { registerHandoff: true });
     await expect(page.getByRole('button', { name: 'Create passkey' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Return to Telegram' })).toHaveCSS('text-decoration-line', 'underline');
+    await expect(page.getByRole('button', { name: 'Cancel' })).not.toHaveCSS('text-decoration-line', 'underline');
     await save('browser-approval-register');
     await page.getByRole('button', { name: 'Create passkey' }).click();
     await expect(page.getByRole('heading', { name: 'Wallet ready.' })).toBeVisible();

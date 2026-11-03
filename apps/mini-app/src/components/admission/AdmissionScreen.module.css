@@ -62,6 +62,7 @@
 }
 .primary { background: #dce7ff; color: #14213b; }
 .secondary { background: transparent; color: var(--admission-muted); }
+.tertiary { min-height: 44px; font-size: 13px; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 .primary svg, .secondary svg { flex: none; }
 .primary:disabled, .secondary:disabled { cursor: wait; opacity: .65; }
 .primary:active:not(:disabled), .secondary:active:not(:disabled) { transform: scale(.98); }

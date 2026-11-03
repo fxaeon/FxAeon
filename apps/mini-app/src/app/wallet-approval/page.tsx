@@ -104,6 +104,6 @@ export default function WalletApprovalPage() {
     {error && <p role="alert">{error}</p>}
     {request && !done && !closed && !submitted.current && <button className={admission.primary} disabled={busy} onClick={() => void approve()}>Create passkey</button>}
     {!done && !closed && request && <button className={admission.secondary} onClick={cancel}>Cancel</button>}
-    <a className={done || closed || (!busy && !request) ? admission.primary : admission.secondary} href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
+    <a className={done || closed || (!busy && !request) ? admission.primary : `${admission.secondary} ${admission.tertiary}`} href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
   </div></div></div></main>;
 }
