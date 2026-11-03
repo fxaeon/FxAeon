@@ -45,6 +45,7 @@ for (const bundle of ['ESM', 'CommonJS'] as const) {
     let preview = 100n * WAD;
     let index = 125n * WAD / 100n;
     let allowance = 0n;
+    let rpcCalls = 0;
     function read(data: Hex): Hex {
       const decoded = decodeFunctionData({ abi: ABI, data });
       switch (decoded.functionName) {
@@ -59,11 +60,18 @@ for (const bundle of ['ESM', 'CommonJS'] as const) {
     }
     const sdk = new Sdk({ chainId: 1, rpcUrl: 'https://example.invalid', rpcTransport: custom({
       request: async ({ method, params }) => {
+        rpcCalls += 1;
         if (method === 'eth_getTransactionCount') return '0x4';
         if (method === 'eth_call') return read((params as [{ data: Hex }])[0].data);
         throw new Error(`Unexpected RPC method: ${method}`);
       },
     }, { retryCount: 0 }) as unknown as FxSdkConfig['rpcTransport'] });
+    // Neither non-stable input nor a zero preview may produce action calldata.
+    await assert.rejects(sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'wstETH' as never, amount: WAD, slippage: 0.5 }), /Unsupported fxSAVE deposit token/);
+    assert.equal(rpcCalls, 0, 'unsupported inputs fail before quote or approval reads');
+    preview = 0n;
+    await assert.rejects(sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'usdc', amount: 100_000_000n, slippage: 0.5 }), /preview must be positive/);
+    await assert.rejects(sdk.depositFxSave({ userAddress: WALLET, tokenIn: 'fxUSD', amount: WAD, slippage: 0.5 }), /preview must be positive/);
     for (const tokenIn of ['usdc', 'fxUSD'] as const) {
       const amount = tokenIn === 'usdc' ? 100_000_000n : 100n * WAD;
       for (const fixture of [

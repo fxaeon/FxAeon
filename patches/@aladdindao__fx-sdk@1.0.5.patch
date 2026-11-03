@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d1b4286..12fe502 100644
+index d1b4286..7fb5684 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -15,6 +15,12 @@ var axios__default = /*#__PURE__*/_interopDefault(axios);
@@ -548,16 +548,21 @@ index d1b4286..12fe502 100644
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16310,6 +16428,8 @@ function getDepositSpender(tokenIn) {
+@@ -16310,7 +16428,13 @@ function getDepositSpender(tokenIn) {
    return contracts.FxSave_fxSAVE;
  }
  async function depositFxSave(request) {
 +  // Accepted fxSAVE review quote: estimates never change transaction terms.
 +  const quoteReadAt = Date.now();
    const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
++  // This planner only supports the three declared fxSAVE input tokens.
++  if (tokenIn !== "usdc" && tokenIn !== "fxUSD" && tokenIn !== "fxUSDBasePool") {
++    throw new Error("Unsupported fxSAVE deposit token");
++  }
    if (!viem.isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16350,7 +16470,8 @@ async function depositFxSave(request) {
+   }
+@@ -16350,7 +16474,8 @@ async function depositFxSave(request) {
        nonce: nonce++,
        chainId
      });
@@ -567,7 +572,7 @@ index d1b4286..12fe502 100644
    }
    const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
      const fxRoute = new FxRoute();
-@@ -16368,13 +16489,13 @@ async function depositFxSave(request) {
+@@ -16368,13 +16493,14 @@ async function depositFxSave(request) {
      functionName: "previewDeposit",
      args: [tokenInAddress, amount]
    });
@@ -578,6 +583,7 @@ index d1b4286..12fe502 100644
 -    args: [10n ** 18n]
 -  });
 -  const minShares = indexRes > 0n ? basePoolSharesOut * 10n ** 18n * 9996n / indexRes / 10000n : basePoolSharesOut;
++  if (basePoolSharesOut <= 0n) throw new Error("fxSAVE deposit preview must be positive");
 +  // minShares is checked by the base pool in fxSP, before the vault deposit.
 +  const scaledSlippage = slippage * 1000000;
 +  const tolerance = Math.round(scaledSlippage);
@@ -588,7 +594,7 @@ index d1b4286..12fe502 100644
    const routesAsBigint = convertInRoute.routes.map(
      (r) => typeof r === "string" ? BigInt(r) : r
    );
-@@ -16418,9 +16539,11 @@ async function depositFxSave(request) {
+@@ -16418,9 +16544,11 @@ async function depositFxSave(request) {
      nonce: nonce++,
      chainId
    });
@@ -601,7 +607,7 @@ index d1b4286..12fe502 100644
    const { userAddress, tokenOut, amount, instant = false, slippage } = request;
    if (!viem.isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16448,7 +16571,8 @@ async function withdrawFxSave(request) {
+@@ -16448,7 +16576,8 @@ async function withdrawFxSave(request) {
        nonce,
        chainId
      });
@@ -611,7 +617,7 @@ index d1b4286..12fe502 100644
    }
    if (!instant) {
      const data2 = viem.encodeFunctionData({
-@@ -16560,13 +16684,19 @@ async function withdrawFxSave(request) {
+@@ -16560,13 +16689,19 @@ async function withdrawFxSave(request) {
      nonce: instantNonce,
      chainId
    });
@@ -633,7 +639,7 @@ index d1b4286..12fe502 100644
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16660,10 +16790,10 @@ var FxSdk = class {
+@@ -16660,10 +16795,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -646,7 +652,7 @@ index d1b4286..12fe502 100644
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16731,10 +16861,10 @@ var FxSdk = class {
+@@ -16731,10 +16866,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -659,7 +665,7 @@ index d1b4286..12fe502 100644
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16783,7 +16913,7 @@ var FxSdk = class {
+@@ -16783,7 +16918,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -668,7 +674,7 @@ index d1b4286..12fe502 100644
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16843,10 +16973,10 @@ var FxSdk = class {
+@@ -16843,10 +16978,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -681,7 +687,7 @@ index d1b4286..12fe502 100644
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16906,10 +17036,10 @@ var FxSdk = class {
+@@ -16906,10 +17041,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -757,7 +763,7 @@ index 2a62888..eb20e20 100644
  export { type AdjustPositionLeverageRequest, BRIDGE_OFT_BY_TOKEN, type BridgeQuoteRequest, type BridgeQuoteResult, type BridgeTokenId, type BridgeTxPayload, type BuildBridgeTxRequest, type BuildBridgeTxResult, CHAIN_ID_BASE, CHAIN_ID_ETHEREUM, type ConvertData, DEFAULT_RPC_BY_CHAIN, type DepositAndMintRequest, EID_BASE, EID_ETHEREUM, type FxSaveClaimPreviewReceive, type FxSaveDepositRequest, type FxSaveDepositResult, type FxSaveTokenIn, type FxSaveTx, type FxSaveWithdrawRequest, type FxSaveWithdrawResult, FxSdk, type FxSdkConfig, type GetFxSaveBalanceRequest, type GetFxSaveBalanceResult, type GetFxSaveClaimableRequest, type GetFxSaveClaimableResult, type GetFxSaveRedeemStatusRequest, type GetFxSaveRedeemStatusResult, type GetRedeemTxRequest, type GetRedeemTxResult, type IncreasePositionRequest, LZ_ENDPOINT_ADDRESS, type Market, type PoolConfig, type PoolInfo, PoolName, type PositionInfo, type PositionRequest, type PositionType, type PriceOracle, type ReducePositionRequest, type RepayAndWithdrawRequest, SUPPORTED_BRIDGE_CHAIN_IDS, type SupportedBridgeChainId, type TokenSymbol, getEidByChainId, tokens };
 +import type { Transport } from 'viem';
 diff --git a/dist/index.js b/dist/index.js
-index 0c7b005..30ae9ee 100644
+index 0c7b005..2b58957 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -8,6 +8,12 @@ import axios from 'axios';
@@ -1306,16 +1312,21 @@ index 0c7b005..30ae9ee 100644
    } = request;
    assertSupportedChains(sourceChainId, destChainId);
    if (amount <= 0n) {
-@@ -16303,6 +16421,8 @@ function getDepositSpender(tokenIn) {
+@@ -16303,7 +16421,13 @@ function getDepositSpender(tokenIn) {
    return contracts.FxSave_fxSAVE;
  }
  async function depositFxSave(request) {
 +  // Accepted fxSAVE review quote: estimates never change transaction terms.
 +  const quoteReadAt = Date.now();
    const { userAddress, tokenIn, amount, slippage = 0.1 } = request;
++  // This planner only supports the three declared fxSAVE input tokens.
++  if (tokenIn !== "usdc" && tokenIn !== "fxUSD" && tokenIn !== "fxUSDBasePool") {
++    throw new Error("Unsupported fxSAVE deposit token");
++  }
    if (!isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16343,7 +16463,8 @@ async function depositFxSave(request) {
+   }
+@@ -16343,7 +16467,8 @@ async function depositFxSave(request) {
        nonce: nonce++,
        chainId
      });
@@ -1325,7 +1336,7 @@ index 0c7b005..30ae9ee 100644
    }
    const convertInRoute = tokenInAddress.toLowerCase() === tokens.fxUSD.toLowerCase() || tokenInAddress.toLowerCase() === tokens.usdc.toLowerCase() ? { encoding: 0n, routes: [] } : await (async () => {
      const fxRoute = new FxRoute();
-@@ -16361,13 +16482,13 @@ async function depositFxSave(request) {
+@@ -16361,13 +16486,14 @@ async function depositFxSave(request) {
      functionName: "previewDeposit",
      args: [tokenInAddress, amount]
    });
@@ -1336,6 +1347,7 @@ index 0c7b005..30ae9ee 100644
 -    args: [10n ** 18n]
 -  });
 -  const minShares = indexRes > 0n ? basePoolSharesOut * 10n ** 18n * 9996n / indexRes / 10000n : basePoolSharesOut;
++  if (basePoolSharesOut <= 0n) throw new Error("fxSAVE deposit preview must be positive");
 +  // minShares is checked by the base pool in fxSP, before the vault deposit.
 +  const scaledSlippage = slippage * 1000000;
 +  const tolerance = Math.round(scaledSlippage);
@@ -1346,7 +1358,7 @@ index 0c7b005..30ae9ee 100644
    const routesAsBigint = convertInRoute.routes.map(
      (r) => typeof r === "string" ? BigInt(r) : r
    );
-@@ -16411,9 +16532,11 @@ async function depositFxSave(request) {
+@@ -16411,9 +16537,11 @@ async function depositFxSave(request) {
      nonce: nonce++,
      chainId
    });
@@ -1359,7 +1371,7 @@ index 0c7b005..30ae9ee 100644
    const { userAddress, tokenOut, amount, instant = false, slippage } = request;
    if (!isAddress(userAddress)) {
      throw new Error("User address must be a valid Ethereum address");
-@@ -16441,7 +16564,8 @@ async function withdrawFxSave(request) {
+@@ -16441,7 +16569,8 @@ async function withdrawFxSave(request) {
        nonce,
        chainId
      });
@@ -1369,7 +1381,7 @@ index 0c7b005..30ae9ee 100644
    }
    if (!instant) {
      const data2 = encodeFunctionData({
-@@ -16553,13 +16677,19 @@ async function withdrawFxSave(request) {
+@@ -16553,13 +16682,19 @@ async function withdrawFxSave(request) {
      nonce: instantNonce,
      chainId
    });
@@ -1391,7 +1403,7 @@ index 0c7b005..30ae9ee 100644
    }
    /**
     * Gets all positions for a user in a given market and position type.
-@@ -16653,10 +16783,10 @@ var FxSdk = class {
+@@ -16653,10 +16788,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1404,7 +1416,7 @@ index 0c7b005..30ae9ee 100644
    }
    /**
     * Reduces a position or closes it fully.
-@@ -16724,10 +16854,10 @@ var FxSdk = class {
+@@ -16724,10 +16859,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1417,7 +1429,7 @@ index 0c7b005..30ae9ee 100644
    }
    /**
     * Adjusts the leverage of an existing position.
-@@ -16776,7 +16906,7 @@ var FxSdk = class {
+@@ -16776,7 +16911,7 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1426,7 +1438,7 @@ index 0c7b005..30ae9ee 100644
    }
    /**
     * Deposits collateral into a position and mints fxUSD. Long positions only.
-@@ -16836,10 +16966,10 @@ var FxSdk = class {
+@@ -16836,10 +16971,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
@@ -1439,7 +1451,7 @@ index 0c7b005..30ae9ee 100644
    }
    /**
     * Repays debt and withdraws collateral from a position. Long positions only.
-@@ -16899,10 +17029,10 @@ var FxSdk = class {
+@@ -16899,10 +17034,10 @@ var FxSdk = class {
        poolInfo,
        userAddress
      });
