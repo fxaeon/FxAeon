@@ -12,7 +12,7 @@ import { getWebApp, waitForTelegramWebApp } from '@/lib/telegram';
 import { requestTelegramWriteAccess, TelegramWriteAccessError } from '@/lib/telegramWriteAccess';
 import { currentTelegramLaunchData, webAppUrl } from '@/lib/telegramAdmission';
 import {
-  miniappAccess, miniappTransaction, pollHandoff, validatedHandoffUrl, isWalletResult, isSignResult,
+  miniappAccess, miniappTransaction, pollHandoff, validatedHandoffUrl, isWalletResult, isSignResult, HANDOFF_TIMEOUT_MS,
   MiniappAccessError, accessErrorMessage, verifySigningChallenge, challengeCommitment, type MiniappAccessStatus, type MiniappWallet, type MiniappTransaction, type SignResult, type EmailDelivery,
   readPendingOperation, savePendingOperation, clearPendingOperation, type PendingOperationHint, type TransactionOperation,
 } from '@/lib/miniappAccess';
@@ -46,6 +46,7 @@ export function passkeyWalletDescriptor(wallet: MiniappWallet, chainId: FxChainI
 }
 
 type Operation = { generation: number; controller: AbortController; launchData: string };
+type PreparedHandoff = { open: () => void };
 type PendingSign = {
   transaction: MiniappTransaction; generation: number; walletId: string; chainId: FxChainId; launchData: string;
   resolve: (result: SignResult) => void; reject: (error: Error) => void;
@@ -87,6 +88,8 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   const [disconnected, setDisconnected] = useState(false);
   const [pending, setPending] = useState<PendingSign>();
   const [browserPending, setBrowserPending] = useState(false);
+  const [preparedHandoff, setPreparedHandoff] = useState<PreparedHandoff>();
+  const preparedHandoffRef = useRef<PreparedHandoff | undefined>(undefined);
   const [mobile, setMobile] = useState(false);
   const [bridgeReady, setBridgeReady] = useState(false);
   const [recovery, setRecovery] = useState<Recovery | null>(null);
@@ -202,7 +205,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     let disposed = false;
     void waitForTelegramWebApp().then(() => {
       if (disposed) return;
-      setMobile(['android', 'ios'].includes(getWebApp()?.platform ?? ''));
+      setMobile(['android', 'android_x', 'ios', 'web', 'weba', 'webk'].includes(getWebApp()?.platform ?? ''));
       setBridgeReady(true);
     });
     return () => { disposed = true; };
@@ -256,21 +259,55 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       || request.chainId !== chainRef.current || request.launchData !== currentTelegramLaunchData()) throw cancelled();
   };
 
-  const openHandoff = async (challengeId: string, challenge: string, operation: Operation, request?: PendingSign) => {
+  const openHandoff = async (challengeId: string, challenge: string, operation: Operation, deadline: number, request?: PendingSign) => {
     const commitment = await challengeCommitment(challenge);
     assertOperation(operation); if (request) assertSigning(request, operation);
     const result = await miniappAccess('handoff/create', { challengeId }, { signal: operation.controller.signal, launchData: operation.launchData });
     assertOperation(operation); if (request) assertSigning(request, operation);
+    if (Date.now() >= deadline) throw new MiniappAccessError('handoff_expired');
     const destination = new URL(validatedHandoffUrl(result.url, window.location.origin));
     destination.hash = new URLSearchParams({ token: new URLSearchParams(destination.hash.slice(1)).get('token')!, commitment }).toString();
-    const webApp = getWebApp();
-    if (!webApp?.openLink) throw new Error('Open this Mini App in Telegram to continue in a browser.');
-    if (request) {
-      savePendingOperation(request.walletId, request.launchData, { challengeId, phase: 'handoff' });
-      request.handedOff = true;
-    }
-    webApp.openLink(destination.href, { try_instant_view: false });
-    setBrowserPending(true);
+    // Telegram only accepts open_link within one second of a user gesture.
+    // Network preparation must finish before a fresh explicit click opens it.
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const settle = (cause?: unknown) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        operation.controller.signal.removeEventListener('abort', onAbort);
+        if (preparedHandoffRef.current === prepared) {
+          preparedHandoffRef.current = undefined;
+          if (mounted.current) setPreparedHandoff(undefined);
+        }
+        if (cause) reject(cause); else resolve();
+      };
+      const onAbort = () => settle(cancelled());
+      const prepared: PreparedHandoff = { open: () => {
+        if (settled || preparedHandoffRef.current !== prepared) return;
+        try {
+          assertOperation(operation); if (request) assertSigning(request, operation);
+          if (Date.now() >= deadline) throw new MiniappAccessError('handoff_expired');
+          const webApp = getWebApp();
+          if (!webApp?.openLink) throw new Error('Telegram bridge unavailable.');
+          if (request) {
+            verifySigningChallenge(challenge, request.transaction, request.walletId);
+            // Persist uncertainty before the browser can submit anything.
+            savePendingOperation(request.walletId, request.launchData, { challengeId, phase: 'handoff' });
+            request.handedOff = true;
+          }
+          // No await between the fresh click and the native event.
+          webApp.openLink(destination.href, { try_instant_view: false });
+          setBrowserPending(true);
+          settle();
+        } catch (cause) { settle(cause); }
+      } };
+      const timer = window.setTimeout(() => settle(new MiniappAccessError('handoff_expired')), Math.max(0, deadline - Date.now()));
+      operation.controller.signal.addEventListener('abort', onAbort, { once: true });
+      preparedHandoffRef.current = prepared;
+      setPreparedHandoff(prepared);
+    });
+    assertOperation(operation); if (request) assertSigning(request, operation);
     const completed = await pollHandoff(challengeId, { signal: operation.controller.signal, launchData: operation.launchData,
       assertCurrent: () => { assertOperation(operation); if (request) assertSigning(request, operation); } });
     assertOperation(operation); if (request) assertSigning(request, operation);
@@ -299,6 +336,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     const operation = begin();
     try {
       assertSigning(request, operation);
+      const deadline = Date.now() + HANDOFF_TIMEOUT_MS;
       const challenge = await miniappAccess('sign/options', { transaction: request.transaction }, { signal: operation.controller.signal, launchData: operation.launchData });
       assertSigning(request, operation);
       verifySigningChallenge(challenge.options.challenge, request.transaction, request.walletId);
@@ -306,7 +344,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       savePendingOperation(request.walletId, request.launchData, { challengeId: challenge.challengeId, phase: 'prepared' });
       let result: SignResult;
       if (useBrowser) {
-        const completed = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, request);
+        const completed = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, deadline, request);
         if (!isSignResult(completed)) throw new MiniappAccessError('unavailable', true);
         result = completed;
       } else {
@@ -356,10 +394,11 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
         const result = await miniappAccess('wallet/retry', {}, { signal: operation.controller.signal, launchData: operation.launchData });
         assertOperation(operation); wallet = result.wallet;
       } else {
+        const deadline = Date.now() + HANDOFF_TIMEOUT_MS;
         const challenge = await miniappAccess('register/options', {}, { signal: operation.controller.signal, launchData: operation.launchData });
         assertOperation(operation);
         if (useBrowser) {
-          const result = await openHandoff(challenge.challengeId, challenge.options.challenge, operation);
+          const result = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, deadline);
           if (!isWalletResult(result)) throw new MiniappAccessError('unavailable', true);
           wallet = result.wallet;
         } else {
@@ -488,8 +527,10 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       {error && <p role="alert">{error}</p>}
       {browserPending && <p role="status">Complete approval in your browser. Waiting up to five minutes.</p>}
       {!bridgeReady && <p role="status">Checking Telegram…</p>}
-      <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
-      {!mobile && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(true)}>Continue in browser</button>}
+      {preparedHandoff ? <><p role="status">Ready to open your browser.</p><button className={styles.primary} onClick={preparedHandoff.open}>Continue in browser</button></> : <>
+        <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
+        {!mobile && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(true)}>Continue in browser</button>}
+      </>}
       <button className={styles.secondary} onClick={invalidate}>{browserPending ? 'Stop waiting' : 'Cancel'}</button>
     </dialog>}
   </FxWalletContext.Provider>;
@@ -499,8 +540,10 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     <p>{status?.hasCredential ? 'Your passkey is registered. Finish setting up your wallet.' : 'Keep your passkey synced or backed up so you can use it again.'}</p>
     {error && <p role="alert">{error}</p>}{browserPending && <p role="status">Complete setup in your browser. Waiting up to five minutes.</p>}
     {!bridgeReady && <p role="status">Checking Telegram…</p>}
-    <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
-    {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
+    {preparedHandoff ? <><p role="status">Ready to open your browser.</p><button className={styles.primary} onClick={preparedHandoff.open}>Continue in browser</button></> : <>
+      <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
+      {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
+    </>}
     <button className={styles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
   </div></main>;
   const common = { notificationPermission: status?.telegramNotify ? 'granted' as const : status ? 'denied' as const : 'unknown' as const,

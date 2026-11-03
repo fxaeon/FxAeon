@@ -122,6 +122,11 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   return { requests, errors, reload };
 }
 const readClient = (page: Page, field: string) => page.evaluate(field => (window as any).client[field], field);
+async function openPreparedBrowser(page: Page) {
+  await expect(page.getByText('Ready to open your browser.', { exact: true })).toBeVisible();
+  expect(await readClient(page, 'links')).toEqual([]);
+  await page.getByRole('button', { name: 'Continue in browser', exact: true }).click();
+}
 
 test('signed launch status starts before the bridge resolves and late mobile bridge preserves browser setup', async ({ page }) => {
   const launchData = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
@@ -159,6 +164,7 @@ for (const kind of ['register', 'sign'] as const) for (const cancel of [false, t
     await expect(native).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeEnabled();
     await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await openPreparedBrowser(page);
     await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
     expect(requests.filter(r => r.action === `${kind}/options`)).toHaveLength(1);
     expect(await readClient(page, 'ceremonies')).toEqual([]);
@@ -190,6 +196,7 @@ for (const kind of ['register', 'sign'] as const) for (const lateMobile of [fals
     // The already-settled wait cannot update mobile state: the click must re-read it.
     await expect(native).toBeVisible();
     await native.click();
+    await openPreparedBrowser(page);
     await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
     expect(requests.filter(r => r.action === `${kind}/options`)).toHaveLength(1);
     expect(await readClient(page, 'ceremonies')).toEqual([]);
@@ -202,6 +209,7 @@ test('known Telegram Web uses browser handoff instead of native WebAuthn', async
   await page.getByRole('button', { name: 'Review and send' }).click();
   await page.evaluate(() => { (window as any).Telegram.WebApp.platform = 'webk'; });
   await page.getByRole('button', { name: 'Approve with passkey' }).click();
+  await openPreparedBrowser(page);
   await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
   expect(requests.filter(r => r.action === 'handoff/create')).toHaveLength(1);
   expect(await readClient(page, 'ceremonies')).toEqual([]);
@@ -444,6 +452,7 @@ test('mobile opens only the ticket, and stopping polling never starts native sig
   const { requests } = await mount(page, '/', { mobile: true });
   await page.getByRole('button', { name: 'Review and send' }).click();
   await page.getByRole('button', { name: 'Continue in browser' }).click();
+  await openPreparedBrowser(page);
   await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
   const handoffUrl = new URL((await readClient(page, 'links'))[0]);
   expect(handoffUrl.origin + handoffUrl.pathname).toBe('https://fxaeon.test/wallet-approval');
@@ -467,6 +476,7 @@ for (const kind of ['register', 'sign'] as const) test(`mobile ${kind} handoff p
   await page.getByRole('button', { name: kind === 'register' ? 'Set up my wallet' : 'Review and send' }).click();
   expect(requests.some(r => r.action === 'handoff/create')).toBe(false);
   await page.getByRole('button', { name: 'Continue in browser' }).click();
+  await openPreparedBrowser(page);
   await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
   expect(await readClient(page, 'openLinkOptions')).toEqual({ try_instant_view: false });
   const url = new URL((await readClient(page, 'links'))[0]);
@@ -475,6 +485,47 @@ for (const kind of ['register', 'sign'] as const) test(`mobile ${kind} handoff p
   expect(await readClient(page, 'ceremonies')).toEqual([]);
   await page.getByRole('button', { name: 'Stop waiting' }).click();
   expect(requests.some(r => r.action === `${kind}/complete`)).toBe(false);
+});
+
+for (const kind of ['register', 'sign'] as const) for (const change of ['cancel', 'account', 'doubletap', 'expiry'] as const) {
+  test(`prepared ${kind} browser ticket handles ${change} before opening`, async ({ page }) => {
+    const { requests } = await mount(page, '/', { mobile: true,
+      ...(kind === 'register' ? { state: 'approved', hasCredential: false } : {}) });
+    await page.getByRole('button', { name: kind === 'register' ? 'Set up my wallet' : 'Review and send' }).click();
+    await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await expect(page.getByText('Ready to open your browser.')).toBeVisible();
+    expect(await readClient(page, 'links')).toEqual([]);
+    const button = await page.getByRole('button', { name: 'Continue in browser' }).elementHandle();
+    if (change === 'cancel') await page.getByRole('button', { name: kind === 'register' ? 'Back' : 'Cancel', exact: true }).click();
+    if (change === 'account') await page.evaluate(() => { (window as any).Telegram.WebApp.initData += '&changed=1'; });
+    // Jump wall time without firing timers: the final click must enforce expiry.
+    if (change === 'expiry') await page.evaluate(() => { const expired = Date.now() + 300_001; Date.now = () => expired; });
+    await button!.evaluate(element => { (element as HTMLButtonElement).click(); (element as HTMLButtonElement).click(); });
+    if (change === 'doubletap') {
+      await expect.poll(() => readClient(page, 'links')).toHaveLength(1);
+      await expect.poll(() => requests.some(request => request.action === 'handoff/status')).toBe(true);
+      await page.getByRole('button', { name: 'Stop waiting' }).click();
+    } else {
+      await expect(page.getByText('Ready to open your browser.')).toHaveCount(0);
+      expect(await readClient(page, 'links')).toEqual([]);
+      expect(requests.some(request => request.action === 'handoff/status')).toBe(false);
+    }
+    expect(requests.filter(request => request.action === 'handoff/create')).toHaveLength(1);
+    expect(await readClient(page, 'ceremonies')).toEqual([]);
+    expect(requests.some(request => request.action === `${kind}/complete`)).toBe(false);
+  });
+}
+
+test('prepared signing ticket is invalidated by a network change', async ({ page }) => {
+  const { requests } = await mount(page, '/', { mobile: true });
+  await page.getByRole('button', { name: 'Review and send' }).click();
+  await page.getByRole('button', { name: 'Continue in browser' }).click();
+  await expect(page.getByText('Ready to open your browser.')).toBeVisible();
+  const button = await page.getByRole('button', { name: 'Continue in browser' }).elementHandle();
+  await page.evaluate(() => (window as any).client.wallet.switchChain(8453));
+  await button!.evaluate(element => (element as HTMLButtonElement).click());
+  expect(await readClient(page, 'links')).toEqual([]);
+  expect(requests.some(request => request.action === 'handoff/status')).toBe(false);
 });
 
 test('reload during prepared WebAuthn clears only after exact empty lookup and checks current pending', async ({ page }) => {
@@ -610,6 +661,7 @@ test('a pending browser handoff stops after five minutes without resubmitting', 
   const { requests } = await mount(page, '/', { mobile: true });
   await page.getByRole('button', { name: 'Review and send' }).click();
   await page.getByRole('button', { name: 'Continue in browser' }).click();
+  await openPreparedBrowser(page);
   await expect.poll(() => requests.some(r => r.action === 'handoff/status')).toBe(true);
   await page.clock.fastForward(300_001);
   await expect.poll(() => readClient(page, 'results')).toHaveLength(1);
