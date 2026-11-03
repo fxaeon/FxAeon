@@ -36,7 +36,7 @@ for (const available of [true, false]) {
       expect(Object.keys(prices!).sort()).toEqual(Object.keys(FX_TOKENS).sort());
       expect(prices).toMatchObject({ ETH: 2400, WETH: 2400, WBTC: 104000, FXN: 26, fxUSD: 1 });
     } else expect(prices).toBeNull();
-    const external = requests.all.filter(url => !url.startsWith('http://prices.test'));
+    const external = requests.all.filter(url => new URL(url).origin !== 'http://prices.test');
     expect(external.length).toBeGreaterThan(1);
     expect(external.every(url => ['api.aladdin.club', 'api.coingecko.com'].includes(new URL(url).hostname))).toBe(true);
     expect(requests.all.filter(url => /llama\.fi|defillama\.com/.test(url))).toEqual([]);

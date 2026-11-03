@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { main, OPERATOR_URL, parseOptions, runOperator, summarizeOperator } from './miniapp_operator.mjs';
+import { main, OPERATOR_URL, parseOptions, publicLogRecord, runOperator, summarizeOperator } from './miniapp_operator.mjs';
 import { AUTH_FLAGS } from './miniapp_readiness.mjs';
 
 const token = 'operator-secret-that-must-never-appear';
@@ -12,6 +12,90 @@ const response = value => new Response(JSON.stringify(value), { headers: { 'cont
 const options = (action, userIds = [], dryRun = false) => ({ action, userIds, dryRun });
 const workflow = readFileSync(new URL('../.github/workflows/miniapp-access.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
 const deployment = readFileSync(new URL('../.github/workflows/deploy-mini-app.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
+
+test('audit boundary emits only fixed labels, booleans and bounded counts, without serialization hooks', () => {
+  const sentinel = 'SECRET_SENTINEL_NEVER_LOG_THIS_VALUE';
+  const hostile = { toJSON() { throw new Error(sentinel); }, valueOf() { throw new Error(sentinel); } };
+  for (const invalid of [sentinel, '123', hostile, NaN, Infinity, -1, 1.5, 1_048_577, 1n]) {
+    const record = publicLogRecord({
+      ...hostile, action: sentinel, mode: sentinel, dryRun: sentinel, synced: sentinel,
+      count: invalid, sent: invalid, pending: invalid, legacy: invalid,
+      capacity: { used: invalid, legacy: invalid, max: sentinel }, payload: { userCount: invalid },
+      dispatch: { sent: invalid }, notifications: { failed: invalid },
+      secretNames: [sentinel], variableNames: [sentinel], error: sentinel,
+    });
+    assert.equal(record.action, 'unknown');
+    assert.equal(record.mode, 'not-applicable');
+    assert.equal(record.dryRun, false);
+    assert.equal(record.synced, false);
+    assert.equal(record.count, null);
+    assert.equal(record.sent, null);
+    assert.equal(record.pending, null);
+    assert.equal(record.legacy, null);
+    assert.equal(record.capacity.used, null);
+    assert.equal(record.approvalCount, null);
+    assert.equal(record.dispatch.sent, null);
+    assert.equal(record.notifications.failed, null);
+    assert.equal(JSON.stringify(record).includes(sentinel), false);
+  }
+  for (const action of ['status', 'list', 'approve', 'dispatch', 'sync-server-config']) {
+    assert.equal(publicLogRecord({ action }).action, action);
+  }
+  for (const mode of ['waitlist', 'passkey']) assert.equal(publicLogRecord({ mode }).mode, mode);
+  const record = publicLogRecord({ count: 12, dryRun: true, synced: true, legacy: 5,
+    capacity: { used: 480, legacy: 5 }, payload: { userCount: 480 }, notifications: { sent: 2, failed: 0 } });
+  assert.equal(record.count, 12);
+  assert.equal(record.approvalCount, 480);
+  assert.equal(record.capacity.used, 480);
+  assert.equal(record.legacy, 5);
+  assert.equal(record.dryRun, true);
+  assert.equal(record.synced, true);
+  assert.deepEqual(record.notifications, { sent: 2, failed: 0, deferred: null, uncertain: null });
+  assert.equal(publicLogRecord({ legacy: 481, payload: { userCount: 481 } }).approvalCount, null);
+  assert.equal(publicLogRecord({ legacy: 481 }).legacy, null);
+});
+
+test('CLI success and failure logs exclude environment and response sentinels in every action and config mode', async () => {
+  const sentinel = 'SECRET_SENTINEL_NEVER_LOG_THIS_VALUE';
+  for (const action of ['status', 'list', 'approve', 'dispatch', 'sync-server-config']) {
+    for (const dryRun of [true, false]) {
+      const configured = { ...configEnv(), MINIAPP_OPERATOR_ACTION: action,
+        MINIAPP_OPERATOR_USER_IDS: action === 'approve' ? '[734567891]' : '[]',
+        MINIAPP_OPERATOR_DRY_RUN: String(dryRun) };
+      for (const name of ['CLOUDFLARE_API_TOKEN', 'PRIVY_APP_SECRET', 'RESEND_API_KEY', 'MINIAPP_OPERATOR_TOKEN', 'PRIVY_APP_ID']) {
+        configured[name] = sentinel;
+      }
+      configured.TELEGRAM_BOT_TOKEN = `123456789:${sentinel}`;
+      const logs = [];
+      const fake = cloudflareFixture();
+      const fetchImpl = dryRun ? noNetwork : action === 'sync-server-config' ? fake.fetchImpl : async () => response({
+        users: [{ userId: 734567891, email: sentinel }], approved: [734567891],
+        sent: 2, failed: sentinel, mode: sentinel, secret: sentinel, toJSON: sentinel,
+        notifications: { sent: 1, destination: sentinel },
+      });
+      assert.equal(await main([], configured, { fetchImpl,
+        log: value => logs.push(value), errorLog: value => logs.push(value) }), 0);
+      assert.equal(logs.length, 1);
+      assert.doesNotMatch(logs[0], /SECRET_SENTINEL|734567891|123456789|secretNames|variableNames/);
+      const record = JSON.parse(logs[0]);
+      assert.equal(record.action, action);
+      assert.equal(record.dryRun, dryRun);
+      assert.equal(record.synced, action === 'sync-server-config' && !dryRun);
+      if (action === 'sync-server-config') {
+        assert.equal(record.mode, 'waitlist');
+        assert.equal(record.legacy, 5);
+      } else if (dryRun && action === 'approve') assert.equal(record.approvalCount, 1);
+      else if (!dryRun) assert.equal(record.count, 1);
+    }
+  }
+  for (const overrides of [{ MINIAPP_OPERATOR_ACTION: sentinel }, { MINIAPP_LEGACY_USERS: sentinel },
+    { MINIAPP_ACCESS_MODE: sentinel }, { TELEGRAM_BOT_TOKEN: sentinel }]) {
+    const logs = [];
+    assert.equal(await main([], { ...configEnv(), MINIAPP_OPERATOR_ACTION: 'sync-server-config', ...overrides },
+      { fetchImpl: noNetwork, log: value => logs.push(value), errorLog: value => logs.push(value) }), 1);
+    assert.deepEqual(logs, ['Operator failed; inspect private configuration and status before retrying.']);
+  }
+});
 
 test('dry-run is the default and approvals require neither credentials nor network to plan', async () => {
   assert.deepEqual(parseOptions(), { action: 'status', userIds: [], dryRun: true });

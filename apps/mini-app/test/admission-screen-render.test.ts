@@ -67,12 +67,12 @@ test('every admission state renders one named heading, FxLogo, and the correct n
 test('waiting copy is exact and Telegram delivery is permission-dependent', async () => {
   for (const permission of ['granted', 'denied', 'unknown', undefined] as const) {
     const html = await render('waiting', { notificationPermission: permission });
-    const text = html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
-    assert.ok(text.includes('You’re on the waitlist. We’ll send you an invite once you’re approved.'));
-    assert.equal(text.includes('Your invite will arrive in this Telegram chat.'), permission === 'granted');
-    assert.equal(text.includes('Allow Telegram invites'), permission === 'denied');
-    if (permission === 'unknown' || permission === undefined) assert.ok(text.includes('Check back here for your invitation.'));
-    assert.doesNotMatch(text, /email is confirmed|wallet is ready|You can close/);
+    const markup = html.replace(/\s+/g, ' ');
+    assert.match(markup, /<h1\b[^>]*>You’re on the waitlist\.<\/h1>\s*<p\b[^>]*>We’ll send you an invite once you’re approved\.<\/p>/);
+    assert.equal(markup.includes('Your invite will arrive in this Telegram chat.'), permission === 'granted');
+    assert.equal(markup.includes('Allow Telegram invites'), permission === 'denied');
+    if (permission === 'unknown' || permission === undefined) assert.ok(markup.includes('Check back here for your invitation.'));
+    assert.doesNotMatch(markup, /email is confirmed|wallet is ready|You can close/);
   }
 });
 
@@ -104,9 +104,12 @@ test('busy disables every action and email editing without claiming completion',
 });
 
 test('parent errors are escaped and announced; support is supplied explicitly', async () => {
-  const html = await render('join-error', { error: 'Please retry <script>alert(1)</script>', supportHref: 'mailto:help@example.com' });
-  assert.match(html, /role="alert">Please retry &lt;script&gt;/);
-  assert.doesNotMatch(html, /<script>/);
-  assert.match(html, /href="mailto:help@example.com"/);
+  for (const tag of ['script', 'SCRIPT', 'ScRiPt']) {
+    const html = await render('join-error', { error: `Please retry <${tag} data-test="escape">alert(1)</${tag}>`, supportHref: 'mailto:help@example.com' });
+    assert.match(html, /role="alert">Please retry &lt;/);
+    assert.ok(html.includes(`&lt;${tag} data-test=&quot;escape&quot;&gt;alert(1)&lt;/${tag}&gt;`));
+    assert.doesNotMatch(html, /<script\b/i);
+    assert.match(html, /href="mailto:help@example.com"/);
+  }
   assert.doesNotMatch(await render('full'), /Feedback &amp; reports|mailto:/);
 });

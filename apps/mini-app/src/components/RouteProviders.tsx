@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { ProviderLoadingState } from '@/components/ProviderLoadingState';
 
 const ProductProviders = dynamic(() => import('@/components/ProductProviders'), {
+  // Export one full loading shell; nested wallet boundaries mount in the browser.
+  ssr: false,
   loading: () => <ProviderLoadingState />,
 });
 

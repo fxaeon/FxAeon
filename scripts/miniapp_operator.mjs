@@ -222,16 +222,62 @@ export async function runOperator(options, { env = {}, fetchImpl = globalThis.fe
   return { ...summarizeOperator(action, response), dryRun: false };
 }
 
-/** CLI errors are intentionally static; never echo an unknown exception or response body. */
+function auditAction(value) {
+  switch (value) {
+    case 'status': return 'status';
+    case 'list': return 'list';
+    case 'approve': return 'approve';
+    case 'dispatch': return 'dispatch';
+    case 'sync-server-config': return 'sync-server-config';
+    default: return 'unknown';
+  }
+}
+
+function auditCount(value, max = MAX_RESPONSE_BYTES) {
+  // Reject strings and objects without invoking coercion or serialization hooks.
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= max
+    ? Math.trunc(value) : null;
+}
+
+function auditDelivery(value) {
+  return {
+    sent: auditCount(value?.sent), failed: auditCount(value?.failed),
+    deferred: auditCount(value?.deferred), uncertain: auditCount(value?.uncertain),
+  };
+}
+
+/** The only success-log boundary: never serialize a result, environment, or provider object directly. */
+export function publicLogRecord(result) {
+  return {
+    action: auditAction(result?.action),
+    success: true,
+    dryRun: result?.dryRun === true,
+    synced: result?.synced === true,
+    mode: result?.mode === 'passkey' ? 'passkey' : result?.mode === 'waitlist' ? 'waitlist' : 'not-applicable',
+    count: auditCount(result?.count),
+    approvalCount: auditCount(result?.payload?.userCount, 480),
+    legacy: auditCount(result?.legacy, 480),
+    capacity: {
+      used: auditCount(result?.capacity?.used, 480),
+      legacy: auditCount(result?.capacity?.legacy, 480), max: 480,
+    },
+    ...auditDelivery(result),
+    pending: auditCount(result?.pending),
+    dispatch: auditDelivery(result?.dispatch),
+    notifications: auditDelivery(result?.notifications),
+  };
+}
+
+/** CLI errors are intentionally static; never echo any exception message or response body. */
 export async function main(argv = process.argv.slice(2), env = process.env, dependencies = {}) {
   const log = dependencies.log ?? console.log;
   const errorLog = dependencies.errorLog ?? console.error;
   try {
     const result = await runOperator(parseOptions(argv, env), { ...dependencies, env });
-    log(JSON.stringify(result));
+    log(JSON.stringify(publicLogRecord(result)));
     return 0;
-  } catch (error) {
-    errorLog(error instanceof OperatorError ? error.message : 'Operator failed without exposing response details.');
+  } catch {
+    errorLog('Operator failed; inspect private configuration and status before retrying.');
     return 1;
   }
 }
