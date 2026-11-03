@@ -126,9 +126,9 @@
 
 @media (min-width: 840px) {
   .workspace { min-height: calc(var(--tg-viewport-height, 100dvh) - var(--header-height) - var(--header-gap) - var(--shell-top-padding)); justify-content: flex-start; padding-block: 36px; }
-  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: min-content min-content 1fr; grid-template-areas: 'summary action' 'history action' 'information action'; column-gap: 64px; row-gap: 0; }
-  .vaultLayout[data-review='true'] { grid-template-columns: minmax(0, 1fr); justify-content: center; }
-  .overview { padding-bottom: 36px; }
+  .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: auto auto; grid-template-areas: 'summary action' 'history information'; column-gap: 48px; row-gap: 32px; }
+  .vaultLayout[data-review='true'] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; row-gap: 0; justify-content: center; }
+  .overview { padding-bottom: 0; }
   .workspace { --page-sections-width: 100%; }
 }
 
@@ -157,9 +157,10 @@
 }
 
 @media (min-width: 1200px) {
-  /* Keep the overview/chart and action/disclosures columns independent while
-     preserving the mobile and assistive-technology reading order. */
-  .vaultLayout:not([data-review='true']) { grid-template-areas: 'summary action' 'history action' 'history information' 'history .'; grid-template-rows: max-content min-content max-content auto; row-gap: 24px; column-gap: 40px; }
+  /* The vault summary and action form the first stage. Performance and
+     details follow after the taller of those two columns, without changing
+     the mobile or assistive-technology reading order. */
+  .vaultLayout:not([data-review='true']) { grid-template-areas: 'summary action' 'history information'; grid-template-rows: auto auto; row-gap: 40px; column-gap: 40px; }
   .vaultLayout:not([data-review='true']) .overview { padding-bottom: 0; }
   .vaultInfo > div { width: 100%; margin-top: 0; }
   .historySlot > section { margin-bottom: 0; }
