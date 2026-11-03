@@ -538,7 +538,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   if (disconnected) return <main className={styles.screen}><div className={styles.panel}><FxLogo size={32} /><h1>Wallet disconnected.</h1>
     {error && <p role="alert">{error}</p>}<button className={styles.primary} disabled={busy} onClick={() => void refresh().catch(() => undefined)}>Reconnect Telegram wallet</button></div></main>;
   if (view === 'passkey') return <main className={admissionStyles.screen} aria-labelledby="passkey-setup-title"><div className={admissionStyles.panel}>
-    <header className={admissionStyles.header}><div className={admissionStyles.brand}><FxLogo size={32} /><span aria-hidden="true">FxAeon</span></div><span className={admissionStyles.context}>Telegram</span></header>
+    <header className={admissionStyles.header}><FxLogo size={32} /></header>
     <div className={admissionStyles.content}><div className={admissionStyles.copy}><div className={admissionStyles.message}>
     <h1 id="passkey-setup-title" className={admissionStyles.title}>Secure your wallet.</h1>
     <p className={admissionStyles.lead}>{status?.hasCredential ? 'Your passkey is registered. Finish setting up your wallet.' : 'Create a passkey with your fingerprint, face, or device PIN.'}</p>

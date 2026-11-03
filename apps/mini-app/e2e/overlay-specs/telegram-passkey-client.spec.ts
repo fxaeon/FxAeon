@@ -160,8 +160,9 @@ test('onboarding browser and live setup fixture captures', async ({ page }) => {
   if (!directory) return;
   mkdirSync(directory, { recursive: true });
   for (const [name, width, height] of [['320', 320, 568], ['390', 390, 844], ['desktop', 1440, 900]] as const) {
+    if (process.env.ONBOARDING_CAPTURE_SIZE && name !== process.env.ONBOARDING_CAPTURE_SIZE) continue;
     await page.setViewportSize({ width, height });
-    const save = (state: string) => page.screenshot({ path: resolve(directory, `${state}-${name}.png`), fullPage: true });
+    const save = (state: string) => page.screenshot({ path: resolve(directory, `${state}-${name}.png`), fullPage: true, animations: 'disabled' });
     await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
     await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeVisible();
     await save('live-invited');
@@ -193,6 +194,22 @@ test('onboarding browser and live setup fixture captures', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'Wallet ready.' })).toBeVisible();
     await save('browser-approval-ready');
   }
+});
+
+test('email remains reachable as the Telegram viewport shrinks', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await mount(page, '/', { state: 'waiting', hasCredential: false });
+  await page.getByRole('button', { name: 'Use email instead' }).click();
+  const email = page.getByRole('textbox', { name: 'Email address' });
+  await email.fill('person@example.com');
+  await page.setViewportSize({ width: 320, height: 300 });
+  const submit = page.getByRole('button', { name: 'Send confirmation link' });
+  await submit.scrollIntoViewIfNeeded();
+  await expect(submit).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await email.focus();
+  await expect(email).toBeFocused();
+  await expect(email).toHaveValue('person@example.com');
 });
 
 test('signed launch status starts before the bridge resolves and late mobile bridge preserves browser setup', async ({ page }) => {

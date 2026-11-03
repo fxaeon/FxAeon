@@ -94,7 +94,7 @@ export default function WalletApprovalPage() {
   </div></main>;
 
   return <main className={admission.screen} aria-labelledby="approval-title"><div className={admission.panel}>
-    <header className={admission.header}><div className={admission.brand}><FxLogo size={32} /><span aria-hidden="true">FxAeon</span></div><span className={admission.context}>Browser</span></header>
+    <header className={admission.header}><FxLogo size={32} /></header>
     <div className={admission.content}><div className={admission.copy}><div className={admission.message}>
     <h1 id="approval-title" className={admission.title}>{done ? 'Wallet ready.' : request?.kind === 'register' ? 'Set up your passkey.' : 'Wallet approval.'}</h1>
     {!done && request?.kind === 'register' && <p className={admission.lead}>Keep your passkey synced or backed up so you can use it again.</p>}

@@ -32,7 +32,7 @@ export default function InvitePage() {
     finally { if (generation.current === version) { busyRef.current = false; setBusy(false); } }
   };
   return <main className={styles.screen} aria-labelledby="invite-title"><div className={styles.panel}>
-    <header className={styles.header}><div className={styles.brand}><FxLogo size={32} /><span aria-hidden="true">FxAeon</span></div><span className={styles.context}>Browser</span></header>
+    <header className={styles.header}><FxLogo size={32} /></header>
     <div className={styles.content}><div className={styles.copy}><div className={styles.message}>
     <h1 id="invite-title" className={styles.title}>{verified ? 'Email confirmed.' : 'Confirm your email.'}</h1>
     <p className={styles.lead}>{verified ? 'We’ll send your invite here once you’re approved.' : 'Confirm this address for your FxAeon invitation.'}</p>
