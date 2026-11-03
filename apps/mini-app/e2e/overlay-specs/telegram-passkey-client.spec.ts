@@ -120,7 +120,7 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
     if (route.request().resourceType() === 'document') return route.fulfill({ contentType: 'text/html', body: '<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>' });
     return route.abort();
   });
-  const prefix = Buffer.from(`FxAeon signing handoff v1\0${canonical({ ...transaction, from: transaction.from.toLowerCase() })}\0`);
+  const prefix = fixture.registerHandoff ? Buffer.alloc(0) : Buffer.from(`FxAeon signing handoff v1\0${canonical({ ...transaction, from: transaction.from.toLowerCase() })}\0`);
   const commitment = createHash('sha256').update(prefix).update(Buffer.from(expectedChallenge, 'base64url')).digest('base64url');
   await page.goto(`https://fxaeon.test${path}${path.startsWith('/wallet-approval#') ? `&commitment=${commitment}` : ''}`);
   await page.evaluate(({ mobile, durable, delayedBridge }) => { (window as any).fixturePlatform = mobile ? 'ios' : 'tdesktop'; (window as any).fixtureDurableReceipt = durable; (window as any).fixtureDelayedBridge = delayedBridge; }, { mobile: fixture.mobile ?? false, durable: fixture.durableReceipt ?? false, delayedBridge: fixture.delayedBridge ?? false });
