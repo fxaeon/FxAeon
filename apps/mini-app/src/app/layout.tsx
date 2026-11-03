@@ -17,8 +17,8 @@ const inter = localFont({ src: './fonts/inter-latin.woff2', weight: '100 900', s
 export const metadata: Metadata = {
   metadataBase: new URL('https://fxaeon.com'),
   ...pageMetadata(BRAND_TITLE, BRAND_DESCRIPTION, '/'),
-  // This host serves the interactive wallet app. Searchable editorial content
-  // opts in from /docs; wallet, invitation, and approval routes inherit noindex.
+  // Public product and documentation routes opt in to indexing. Account,
+  // invitation, and approval routes inherit noindex.
   robots: DEFAULT_ROBOTS,
   title: { default: BRAND_TITLE, template: '%s · FxAeon' },
   applicationName: 'FxAeon',
