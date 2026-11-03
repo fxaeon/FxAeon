@@ -13,7 +13,7 @@
 .panel[data-claim-flow='true'] > :global([data-review-surface]) { display: flex; flex-direction: column; min-height: 0; }
 .vaultIdentity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-bottom: 20px; }
 .vaultIdentity > div { min-width: 0; flex: 1 1 160px; }
-.vaultIdentity h2 { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -.035em; }
+.vaultIdentity h2 { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 36px; line-height: 1.15; font-weight: 600; }
 .vaultIdentity p { margin: 3px 0 0; color: var(--mut); font-size: 14px; line-height: 1.5; }
 .network { margin-left: auto; display: flex; flex: 0 0 auto; align-items: center; gap: 6px; color: var(--mut); font-size: 13px; }
 /* Financial figures sit directly on the canvas; only the action owns a card. */
@@ -24,12 +24,12 @@
 .balanceTop > .rate, .balanceTop > .balanceCopy { flex: 1 1 auto; width: max-content; min-width: calc((100% - 12px) / 2); max-width: 100%; }
 .balanceCopy { min-width: 0; flex: 1; }
 .balanceCopy > p { min-height: 0; margin: 0 0 2px; color: var(--mut); font-size: 14px; font-weight: 400; }
-.balanceCopy h2 { max-width: 100%; margin: 0 0 3px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; letter-spacing: -.035em; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
+.balanceCopy h2 { max-width: 100%; margin: 0 0 3px; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; font-variant-numeric: tabular-nums; font-weight: 500; overflow-wrap: anywhere; }
 .balanceCopy small { display: block; max-width: 100%; overflow-wrap: anywhere; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .rate { min-width: 0; padding: 0; border: 0; background: transparent; }
-.rate > strong { display: block; max-width: 100%; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; color: var(--text); font-weight: 500; letter-spacing: -.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rate > strong { display: block; max-width: 100%; font-size: clamp(30px, 3.5vw, 38px); line-height: 1.15; color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .rate > small { display: block; min-height: 0; margin-bottom: 2px; color: var(--mut); font-size: 14px; font-weight: 400; }
-.vaultHoldings { display: grid; gap: 0; margin: 10px 0 0; padding-top: 6px; border-top: 1px solid var(--line); font-size: var(--fs-small); }
+.vaultHoldings { display: grid; gap: 0; margin: 14px 0 0; font-size: var(--fs-small); }
 .vaultHoldings > div { display: flex; min-height: 24px; justify-content: space-between; align-items: center; gap: 8px; }
 .vaultHoldings dt { min-width: 0; color: var(--mut); }
 .vaultHoldings dd { min-width: 0; max-width: 60%; margin: 0; text-align: right; overflow-wrap: anywhere; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -69,7 +69,7 @@
 .receiveRow > div { min-width: 0; max-width: 66%; }
 .pendingTask { min-width: 0; margin-top: 18px; }
 .pendingTask > :global([role='status']) { width: 100%; }
-.readyClaim { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--mint) 25%, var(--line)); border-radius: 14px; background: var(--mint-dim); }
+.readyClaim { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 14px; background: var(--mint-dim); }
 .readyClaim > span { display: flex; min-width: 0; align-items: center; gap: 7px; color: var(--mint-text, var(--mint)); }
 .readyClaim svg { flex-shrink: 0; }
 .readyClaim strong { font-size: 13px; line-height: 1.35; font-weight: 500; }
@@ -77,12 +77,12 @@
 .readyClaim button:hover { background: color-mix(in srgb, var(--mint) 12%, transparent); }
 .readyClaim button:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
 .unavailableMetric { color: var(--mut); font-size: var(--fs-caption); font-weight: 400; }
-.riskSummary { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
+.riskSummary { margin-top: 22px; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
 .riskSummary p { margin: 0; }
 .riskSummary nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 4px; }
 .riskSummary a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
 .riskSummary a:hover { color: var(--text); }
-.retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--warn); background: color-mix(in srgb, var(--warn-dim) 68%, var(--surface)); }
+.retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border-radius: var(--radius-sm); color: var(--warn); background: color-mix(in srgb, var(--warn-dim) 68%, var(--surface)); }
 .retryButton:hover { background: var(--warn-dim); }
 .retryButton:disabled { cursor: not-allowed; opacity: .55; }
 .termsStatus { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; color: var(--mut); font-size: var(--fs-caption); line-height: 1.5; }
@@ -91,8 +91,8 @@
 .termsStatus button:disabled { color: var(--mut-2); cursor: wait; text-decoration: none; }
 .withdrawOptions :global(fieldset) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .withdrawOptions :global(legend) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); padding: 0; margin: -1px; white-space: nowrap; }
-.withdrawOptions :global(label) { align-items: center; gap: 6px; min-height: 52px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: transparent; box-shadow: none; }
-.withdrawOptions :global(label[data-selected='true']) { border-color: var(--mint); background: var(--mint-dim); box-shadow: none; }
+.withdrawOptions :global(label) { align-items: center; gap: 6px; min-height: 52px; padding: 9px 10px; border-radius: 12px; background: var(--surface-2); box-shadow: none; }
+.withdrawOptions :global(label[data-selected='true']) { background: var(--mint-dim); box-shadow: none; }
 .withdrawOptions :global(label strong) { font-size: 12px; font-weight: 500; line-height: 1.35; }
 .withdrawOptions :global(label small) { margin-top: 3px; font-size: 11px; line-height: 1.35; }
 .withdrawOptions :global(label > span:last-child) { width: 16px; height: 16px; flex-basis: 16px; }
@@ -100,12 +100,12 @@
 .workspace > details { margin-top: 8px; }
 .workspace > details p { margin-bottom: 16px; }
 .claimHeading { margin-bottom: 18px; }
-.claimHeading h2 { font-size: 20px; font-weight: 600; letter-spacing: -.025em; margin: 6px 0 0; }
+.claimHeading h2 { font-size: 20px; font-weight: 600; margin: 6px 0 0; }
 .claimState { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .claimResultHeading { display: flex; min-width: 0; align-items: flex-start; gap: 12px; padding-block: 4px 2px; }
 .claimResultIcon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; margin-top: 1px; border-radius: 50%; color: #5bd09a; background: #1a3c32; }
 .claimResultCopy { min-width: 0; }
-.claimResultCopy h3 { margin: 0; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: 21px; line-height: 1.2; font-weight: 700; letter-spacing: -.035em; }
+.claimResultCopy h3 { margin: 0; color: var(--text); font-family: var(--font-sans), sans-serif; font-size: 21px; line-height: 1.2; font-weight: 700; }
 .claimResultCopy p { margin: 6px 0 0; color: var(--mut); font-size: 12px; line-height: 1.5; }
 .claimProduct { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
 .claimRows { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 12px; border-radius: 19px; background: var(--surface-2); }
@@ -113,7 +113,7 @@
 .claimRows dt { color: var(--mut); }
 .claimRows dd { min-width: 0; margin: 0; color: var(--text); font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .claimRows dd.claimReady { color: #5bd09a; }
-.claimRows > .claimPreviewStart { padding-top: 8px; border-top: 1px solid var(--line); }
+.claimRows > .claimPreviewStart { padding-top: 12px; }
 .claimCaveat { margin: 0; padding-inline: 2px; color: var(--mut); font-size: 11px; line-height: 1.5; text-align: center; }
 .back { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; }
 

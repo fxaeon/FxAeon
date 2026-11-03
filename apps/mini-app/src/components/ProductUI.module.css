@@ -1,9 +1,9 @@
 /* Shared product primitives. Colors come exclusively from the active FxAeon
    theme; this file never introduces another palette. */
-:where(.surface) { min-width: 0; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--ring-inset); padding: 16px; }
+:where(.surface) { min-width: 0; border: 0; border-radius: var(--radius-lg); background: var(--surface); box-shadow: none; padding: 16px; }
 .heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .heading > div { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.heading h1 { margin: 0; font-family: Manrope, var(--font-sans), sans-serif; font-size: var(--fs-display); font-weight: 600; line-height: 1.12; letter-spacing: -0.045em; }
+.heading h1 { margin: 0; font-family: Manrope, var(--font-sans), sans-serif; font-size: var(--fs-display); font-weight: 600; line-height: 1.12; }
 .iconButton { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; flex: 0 0 44px; margin-left: -10px; border-radius: 50%; color: var(--mut); transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .iconButton:hover { background: var(--surface-2); color: var(--text); }
 
@@ -30,7 +30,7 @@
 .noticeAction > button:hover, .noticeAction > a:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 
 /* Disclosure: a quiet row that opens smoothly where the browser allows. */
-.disclosure { min-width: 0; border-top: 1px solid var(--line); }
+.disclosure { min-width: 0; }
 .disclosure > summary { display: flex; min-width: 0; min-height: 48px; align-items: center; gap: 10px; list-style: none; cursor: pointer; font-size: var(--fs-small); color: var(--mut); transition: color var(--dur-fast) ease; }
 .disclosure > summary:hover { color: var(--text); }
 .disclosure > summary::-webkit-details-marker { display: none; }
@@ -69,9 +69,8 @@
 
 .group { min-width: 0; }
 .group > h2 { margin: 0 4px 10px; color: var(--mut); font-size: var(--fs-small); font-weight: 600; letter-spacing: 0; }
-.rowGroup { overflow: hidden; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--ring-inset); }
+.rowGroup { overflow: hidden; border: 0; border-radius: var(--radius-lg); background: var(--surface); box-shadow: none; }
 .actionRow { display: flex; min-width: 0; min-height: 60px; width: 100%; align-items: center; gap: 14px; padding: 12px 16px; text-align: left; color: var(--text); background: transparent; border: 0; transition: background-color var(--dur-fast) ease; }
-.actionRow + .actionRow { border-top: 1px solid var(--line); }
 .actionRow:hover:not(:disabled) { background: var(--surface-2); }
 .actionRow:active:not(:disabled) { background: var(--surface-3); }
 .actionRow:disabled { cursor: not-allowed; color: var(--mut); }
@@ -133,4 +132,4 @@
 .actionRow, :global([data-utility-directory]) .actionRow { min-height: 72px; padding: 16px 20px; }
 .rowCopy strong { font-weight: 500; }
 
-.visibleTitle { font-size: 26px; font-weight: 550; letter-spacing: -.035em; line-height: 1.2; }
+.visibleTitle { font-size: 26px; font-weight: 550; line-height: 1.2; }

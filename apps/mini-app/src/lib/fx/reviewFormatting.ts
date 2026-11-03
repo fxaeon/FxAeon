@@ -5,7 +5,7 @@ import { tokenSymbol } from './tokenPresentation';
 import type { OfficialFxMethod, PlannedRoute, ReviewedActionIntent } from './types';
 import { calculateProtocolFee } from './protocolFee';
 import { parseStEthPerWstEth, stEthForWstEth } from './wstEthRate';
-import { projectedLiquidationPrice } from './liquidationQuote';
+import { projectedLiquidationPrice, projectedRebalancePrice } from './liquidationQuote';
 import { acceptedFxSaveQuote } from './fxSaveReviewQuote';
 import { borrowFundingDisplay, borrowFundingIsFresh } from './borrowFunding';
 import { tradeFundingDisplay, tradeFundingIsFresh, tradeFundingNetRatio } from './tradeFunding';
@@ -378,6 +378,8 @@ export type PositionOutcomeFacts = {
   debt: ReviewFact;
   /** SDK quote's expected swap price, in fxUSD per stETH or WBTC. */
   executionPrice?: ReviewFact;
+  /** Where the protocol starts rebalancing the new position (the f(x) "liquidation brake"). */
+  rebalancePrice?: ReviewFact;
   liquidationPrice?: ReviewFact;
   fee?: ReviewFact;
 };
@@ -397,11 +399,13 @@ export function positionOutcomeFacts(route: PlannedRoute): PositionOutcomeFacts 
   const debt = facts.find((fact) => fact.label === 'Estimated debt');
   const quote = pool ? collateralQuote(route, intent, pool) : undefined;
   if (!collateral || !debt || !quote) return null;
+  const rebalancePrice = projectedRebalancePrice(route);
   const liquidationPrice = projectedLiquidationPrice(route);
   return {
     collateral: { ...collateral, ...quote.native },
     debt,
     executionPrice: facts.find((fact) => fact.label === 'Execution price'),
+    rebalancePrice: rebalancePrice ? { label: 'Rebalance price', ...rebalancePrice } : undefined,
     liquidationPrice: liquidationPrice ? { label: 'Liquidation price', ...liquidationPrice } : undefined,
     fee: facts.find((fact) => fact.label === 'f(x) fee'),
   };

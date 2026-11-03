@@ -69,8 +69,8 @@ test('while the warm-up runs, the same rows hold their place with announced-off 
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
   const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'ETH', side: 'long', route: null }));
   assert.match(html, /^<div class="test-outcome" role="group" aria-label="Position preview" aria-busy="true" data-trade-outcome="pending">/);
-  assert.deepEqual(rows(html).map(([label]) => label), ['Execution price', 'Liquidation price', 'f(x) fee']);
-  for (const label of ['Loading execution price', 'Loading liquidation price', 'Loading f(x) fee']) {
+  assert.deepEqual(rows(html).map(([label]) => label), ['Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee']);
+  for (const label of ['Loading execution price', 'Loading rebalance price', 'Loading liquidation price', 'Loading f(x) fee']) {
     assert.ok(html.includes(`role="status" aria-live="off" aria-label="${label}"`));
   }
   // Execution price has no external USD valuation line.
@@ -89,6 +89,7 @@ test('a settled route shows compact reviewed estimates while retaining exact quo
   // The SDK execution price already divides out the wstETH rate.
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 2,500.12 fxUSD / stETH'],
+    ['Rebalance price', ''],
     ['Liquidation price', ''],
     ['f(x) fee', '0.3%'],
   ]);
@@ -110,6 +111,7 @@ test('a short previews its quoted execution price and leaves an unreadable fee v
   }));
   assert.deepEqual(rows(html), [
     ['Execution price', '≈ 65,000.25 fxUSD / WBTC'],
+    ['Rebalance price', ''],
     ['Liquidation price', ''],
     ['f(x) fee', ''],
   ]);
@@ -127,21 +129,28 @@ test('absent or invalid execution prices remain blank without deriving a price f
   }
 });
 
-test('fresh pool liquidation quotes render the native USD price for all four market and side combinations', async () => {
+test('fresh pool thresholds render the rebalance and liquidation prices for all four market and side combinations', async () => {
   const { TradeOutcomePreview } = await import('../src/components/TradeOutcomePreview');
-  for (const [market, side, expected] of [
-    ['ETH', 'long', '≈ $500.00 / stETH'], ['BTC', 'long', '≈ $625.00 / WBTC'],
-    ['ETH', 'short', '≈ $2,560.00 / stETH'], ['BTC', 'short', '≈ $3,200.00 / WBTC'],
+  // D / (C × R) for a long, C × R / (D × rate) for a short, at R = 0.75 and L = 0.8:
+  // the rebalance price leads, the way the official f(x) trade form leads with its liquidation brake.
+  for (const [market, side, expected, rebalance] of [
+    ['ETH', 'long', '≈ $500.00 / stETH', '≈ $533.34 / stETH'], ['BTC', 'long', '≈ $625.00 / WBTC', '≈ $666.67 / WBTC'],
+    ['ETH', 'short', '≈ $2,560.00 / stETH', '≈ $2,400 / stETH'], ['BTC', 'short', '≈ $3,200.00 / WBTC', '≈ $3,000 / WBTC'],
   ] as const) {
     const route = opened(market, side, {
       colls: side === 'long' ? '2000000000000000000' : '1000000000000000000000',
       debts: side === 'long' ? '1000000000000000000000' : '250000000000000000',
       stEthPerWstEth: market === 'ETH' ? '1250000000000000000' : undefined,
-      liquidationQuote: { poolAddress: positionPoolAddress(market, side), liquidateRatio: '800000000000000000', readAt: Date.now(),
+      liquidationQuote: { poolAddress: positionPoolAddress(market, side), liquidateRatio: '800000000000000000', rebalanceRatio: '750000000000000000', readAt: Date.now(),
         ...(market === 'ETH' ? { stEthPerWstEth: '1250000000000000000' } : {}) },
     });
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market, side, route }));
-    assert.deepEqual(rows(html)[1], ['Liquidation price', expected.replace('.00', '')]);
+    assert.deepEqual(rows(html).map(([label]) => label), ['Execution price', 'Rebalance price', 'Liquidation price', 'f(x) fee']);
+    assert.deepEqual(rows(html)[1], ['Rebalance price', rebalance]);
+    assert.deepEqual(rows(html)[2], ['Liquidation price', expected.replace('.00', '')]);
+    // A long rebalances before its liquidation price is reached, a short after.
+    const figure = (text: string) => Number(text.replace(/[^0-9.]/g, ''));
+    assert.ok(side === 'long' ? figure(rebalance) > figure(expected) : figure(rebalance) < figure(expected));
     assert.ok(html.includes(expected.replace('.00', '')), 'the compact USD price remains visible');
     assert.doesNotMatch(html, /Show full liquidation price value|data-review-value/);
     assert.doesNotMatch(html, /Estimated collateral|Estimated debt/);
@@ -154,8 +163,14 @@ test('expired or missing thresholds refresh, while malformed or mismatched fresh
   for (const liquidationQuote of [undefined, { ...quote, readAt: Date.now() - 30_001 }, { ...quote, liquidateRatio: '0' }, { ...quote, poolAddress: positionPoolAddress('BTC', 'short') }]) {
     const route = opened('BTC', 'long', { colls: '2000000000000000000', debts: '1000000000000000000000', liquidationQuote });
     const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'BTC', side: 'long', route }));
-    assert.deepEqual(rows(html)[1], ['Liquidation price', '']);
+    assert.deepEqual(rows(html)[1], ['Rebalance price', '']);
+    assert.deepEqual(rows(html)[2], ['Liquidation price', '']);
   }
+  // A liquidation ratio alone prices liquidation but not the brake.
+  const route = opened('BTC', 'long', { colls: '2000000000000000000', debts: '1000000000000000000000', liquidationQuote: quote });
+  const html = renderToStaticMarkup(React.createElement(TradeOutcomePreview, { market: 'BTC', side: 'long', route }));
+  assert.deepEqual(rows(html).slice(1, 3), [['Rebalance price', ''], ['Liquidation price', '≈ $625 / WBTC']]);
+  assert.match(html, /aria-label="Rebalance price unavailable"/);
 });
 
 test('a route the review could not describe shows nothing at all', async () => {

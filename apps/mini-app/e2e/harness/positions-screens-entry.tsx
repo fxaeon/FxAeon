@@ -36,12 +36,22 @@ const FIXTURES = {
 } as const;
 const keys = (config.positions ?? ['long', 'short', 'rebalance', 'ethShort']) as Array<keyof typeof FIXTURES>;
 const positions = keys.map((key) => FIXTURES[key].position);
+/** Each position's entry price and PnL at a DEX mid price, as the cost-basis provider would resolve them. */
+const ready = (entry: string, mid: string, usdCents: bigint, percentBps: bigint) => ({ status: 'ready', entryWad: units(entry), pnl: { usdCents, percentBps }, pnlStatus: 'ready', priceWad: units(mid) });
+const COST_BASIS: Record<string, unknown> = {
+  'ETH:long:2033': ready('2361.2385', '2311.88', -45_296n, -573n),
+  'BTC:short:109': ready('80120.40', '81354.96', -76_579n, -650n),
+  'ETH:long:2034': { status: 'loading' },
+  'ETH:short:174': ready('2473.3921', '2311.88', 5_229n, 725n),
+  'BTC:long:933': { status: 'unavailable' },
+};
 
 declare global {
   var __positionsScreens: {
     wallet: { ready: boolean; authenticated: boolean; address: string; chainId: number; connectionVersion: number; isEmbedded: boolean };
     shared: Record<string, unknown>;
     brakes: Record<string, unknown>;
+    costBasis: Record<string, unknown>;
     prices: Record<string, number>;
     walletRequests: number;
     rerender?: () => void;
@@ -59,6 +69,7 @@ globalThis.__positionsScreens = {
     const { position: item, brake } = FIXTURES[key];
     return [`${item.market}:${item.side}:${item.info.positionId}`, brake];
   })),
+  costBasis: COST_BASIS,
   prices: { ETH: 2_444.58, WETH: 2_444.58, stETH: 2_443.9, wstETH: 3_045.7, WBTC: 81_354.96, fxUSD: 1, USDC: 1, USDT: 1 },
   walletRequests: 0,
 };

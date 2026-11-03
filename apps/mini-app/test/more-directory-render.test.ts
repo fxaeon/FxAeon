@@ -37,7 +37,7 @@ const render = () => renderToStaticMarkup(React.createElement(AppRouterContext.P
 test('the directory renders all six real options without redundant section headings or subtitles', () => {
   const html = render();
   assert.deepEqual([...html.matchAll(/<strong>(.*?)<\/strong>/g)].map(match => match[1]),
-    ['Wallet &amp; account', 'History', 'Transaction settings', 'FxAeon docs', 'Protocol docs', 'Support on X']);
+    ['Wallet &amp; account', 'History', 'Transaction settings', 'FxAeon docs', 'Protocol docs', 'Feedback &amp; reports']);
   assert.doesNotMatch(html, /<h2|<small|Account &amp; preferences|Help &amp; resources/);
   assert.match(html, /0\.5%/);
   assert.match(html, /aria-label="Account"/);
@@ -46,12 +46,12 @@ test('the directory renders all six real options without redundant section headi
 });
 test('directory destinations, external-link disclosure and settings button semantics are retained', () => {
   const html = render();
-  for (const href of ['/settings', '/history', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']) {
+  for (const href of ['/settings', '/history', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'mailto:support@fxaeon.com']) {
     assert.ok(html.includes(`href="${href}"`), `Missing destination ${href}`);
   }
-  assert.equal((html.match(/target="_blank"/g) ?? []).length, 2);
-  assert.equal((html.match(/rel="noopener noreferrer"/g) ?? []).length, 2);
-  assert.equal((html.match(/opens in a new tab/g) ?? []).length, 2);
+  assert.equal((html.match(/target="_blank"/g) ?? []).length, 1);
+  assert.equal((html.match(/rel="noopener noreferrer"/g) ?? []).length, 1);
+  assert.equal((html.match(/opens in a new tab/g) ?? []).length, 1);
   assert.match(html, /<button[^>]*type="button"[^>]*aria-haspopup="dialog"/);
   assert.match(html, /aria-expanded="false"/);
 });

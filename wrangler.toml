@@ -4,3 +4,12 @@
 name = "fxaeon"
 compatibility_date = "2026-06-09"
 pages_build_output_dir = "apps/mini-app/dist"
+
+[[d1_databases]]
+binding = "ADMISSION_DB"
+database_name = "fxaeon-admission"
+database_id = "056c44dd-4524-4b49-ab64-80ae1e53c4b7"
+
+# Preview builds must never reserve seats in the production cohort.
+[env.preview]
+d1_databases = []

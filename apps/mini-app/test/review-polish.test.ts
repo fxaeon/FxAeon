@@ -20,10 +20,15 @@ test('review retains approval and action signing labels without technical eviden
 test('visual review titles remain available as focus targets and accessible dialog names', () => {
   const review = source('components/ActionReview.tsx');
   const sheet = source('components/MobileFlowSheet.tsx');
-  assert.match(review, /data-review-focus tabIndex=\{-1\} className="outline-none"/);
+  // The hero's heading is the focus target; it keeps focus while only its text swaps.
+  assert.match(source('components/review/TransactionHero.tsx'), /<h3 ref=\{headingRef\} data-review-focus tabIndex=\{-1\}[^>]*><span key=\{title\}>/);
+  assert.match(source('components/review/TransactionHero.module.css'), /\.title \{[^}]*outline: none/);
+  assert.match(review, /hideTitle: true \}\}/);
   assert.match(review, /stage === 'executing' \? identity.name : actionHeading/);
   assert.match(sheet, /aria-labelledby=\{titleId\}/);
-  assert.match(sheet, /id=\{titleId\} tabIndex=\{-1\} className=\{hideTitle \? 'sr-only'/);
+  // A sheet whose content carries the heading names the dialog without a second heading.
+  assert.match(sheet, /hideTitle\s*\? <span ref=\{headingRef\} id=\{titleId\} tabIndex=\{-1\} className="sr-only">\{title\}<\/span>/);
+  assert.match(sheet, /: <h2 ref=\{headingRef as RefObject<HTMLHeadingElement>\} id=\{titleId\} tabIndex=\{-1\}>\{title\}<\/h2>/);
   assert.match(source('app/send/page.tsx'), /<h2 className="sr-only">Review send<\/h2>/);
 });
 

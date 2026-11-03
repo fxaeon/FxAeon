@@ -38,7 +38,7 @@ test('first mobile menu opens without fetching another script and preserves the 
   await openMenu.click();
   const menu = page.getByRole('dialog', { name: 'More menu', exact: true });
   await expect(menu.getByRole('link', { name: /^Wallet & account/ })).toBeVisible();
-  await expect(menu.getByRole('link', { name: /^Support on X/ })).toBeVisible();
+  await expect(menu.getByRole('link', { name: /^Feedback & reports/ })).toHaveAttribute('href', 'mailto:support@fxaeon.com');
   await expect(menu.getByText('Loading menu', { exact: false })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => (window as typeof window & { __menuOpenSamples?: number[] }).__menuOpenSamples?.length ?? 0)).toBe(1);
   await menu.getByRole('button', { name: 'Close menu', exact: true }).click();

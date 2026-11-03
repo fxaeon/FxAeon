@@ -659,7 +659,6 @@ details[open] > summary .disclosure-closed-only { display: none; }
   color: var(--text);
   font-size: 20px;
   font-weight: 680;
-  letter-spacing: -0.045em;
 }
 .desktop-navigation { display: none; }
 .utility-content { max-width: 560px; }
@@ -971,7 +970,6 @@ details[open] > summary .disclosure-closed-only { display: none; }
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-size: var(--fs-body);
-  letter-spacing: -0.01em;
   text-decoration: none;
   transition: transform var(--dur-slow) var(--ease-spring), filter var(--dur-base) ease, box-shadow var(--dur-base) ease,
     border-color var(--dur-fast) ease, background-color var(--dur-base) ease, color var(--dur-base) ease, opacity var(--dur-fast) ease;
@@ -1067,13 +1065,13 @@ details[open] > summary .disclosure-closed-only { display: none; }
   position: relative;
   isolation: isolate;
   min-height: var(--tabbar-panel-height);
-  border: 1px solid var(--hairline);
+  border: 0;
   border-radius: 20px;
   /* No backdrop blur: the canvas behind the dock drifts continuously, so a
      blur would be recomputed every frame on mid-range phones. A near-opaque
      tone reads the same and keeps scrolling smooth. */
   background: color-mix(in srgb, var(--surface) 94%, transparent);
-  box-shadow: var(--elevation-1), var(--ring-inset);
+  box-shadow: var(--elevation-1);
   display: flex;
   align-items: stretch;
   justify-content: space-between;

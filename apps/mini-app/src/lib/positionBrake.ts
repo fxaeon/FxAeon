@@ -42,6 +42,11 @@ export interface BrakeReading {
   liquidateRatio: bigint;
   /** A fresh live market quote (USD) taken when the ratio was read, or null. */
   priceAtRead: number | null;
+  /**
+   * The pool's own threshold prices from the position's on-chain amounts, in
+   * whole USD per stETH or WBTC (see `poolThresholdPrice`); null when unknown.
+   */
+  poolPrices?: { rebalance: number | null; liquidate: number | null } | null;
 }
 
 export interface BrakeView {
@@ -59,6 +64,10 @@ export interface BrakeView {
    * price. Null without a read-time quote or once the threshold is reached. */
   rebalancePrice: number | null;
   liquidatePrice: number | null;
+  /** The pool's own price at each threshold, per stETH or WBTC, for when no
+   * read-time quote prices it. Null when unknown or once it is reached. */
+  rebalancePoolPrice: number | null;
+  liquidatePoolPrice: number | null;
 }
 
 export interface BrakeCopy {
@@ -161,12 +170,13 @@ export function positionBrakeView(reading: BrakeReading, priceNow: number | null
   const floor = state === 'liquidation' ? liquidate : state === 'rebalance' ? rebalance : 0;
   const fill = Math.min(1, Math.max(0, ratioNow, floor));
 
-  const towards = (threshold: number, reached: boolean) => reached ? { move: null, price: null } : {
+  const towards = (threshold: number, reached: boolean, poolPrice: number | null | undefined) => reached ? { move: null, price: null, poolPrice: null } : {
     move: floorPercent(marketMoveToThreshold(side, ratioNow, threshold)),
     price: priceAtRead === null ? null : safePrice(side, thresholdPrice(side, priceAtRead, ratio, threshold)),
+    poolPrice: isPositivePrice(poolPrice) ? poolPrice : null,
   };
-  const toRebalance = towards(rebalance, reachedRebalance);
-  const toLiquidation = towards(liquidate, reachedLiquidation);
+  const toRebalance = towards(rebalance, reachedRebalance, reading.poolPrices?.rebalance);
+  const toLiquidation = towards(liquidate, reachedLiquidation, reading.poolPrices?.liquidate);
   return {
     state,
     fill,
@@ -176,7 +186,37 @@ export function positionBrakeView(reading: BrakeReading, priceNow: number | null
     liquidateMovePercent: toLiquidation.move,
     rebalancePrice: toRebalance.price,
     liquidatePrice: toLiquidation.price,
+    rebalancePoolPrice: toRebalance.poolPrice,
+    liquidatePoolPrice: toLiquidation.poolPrice,
   };
+}
+
+/**
+ * The pool's own price at a threshold `ratio` (1e18) from a position's
+ * on-chain amounts: D / (C × R) for a long, C × R / D for a short, in whole
+ * USD per stETH or WBTC. An ETH long's collateral is already stETH; an ETH
+ * short owes wstETH, priced per stETH through `stEthPerWstEth`. The pool checks
+ * this against its oracle's minimum price, so it needs no market quote. Rounded
+ * toward today's price, like the quoted estimate: up for a long, down for a short.
+ */
+export function poolThresholdPrice(params: {
+  market: BrakeMarket;
+  side: BrakeSide;
+  rawColls: bigint;
+  rawDebts: bigint;
+  ratio: bigint;
+  /** stETH per wstETH (1e18); an ETH short has no price without it. */
+  stEthPerWstEth?: bigint | null;
+}): number | null {
+  const { market, side, rawColls, rawDebts, ratio } = params;
+  if (rawColls <= 0n || rawDebts <= 0n || ratio <= 0n) return null;
+  const rate = market === 'ETH' && side === 'short' ? params.stEthPerWstEth ?? null : DEBT_RATIO_PRECISION;
+  if (rate === null || rate <= 0n) return null;
+  // Amounts and ratios are 1e18 fixed point, so these quotients are whole dollars.
+  const numerator = side === 'long' ? rawDebts * DEBT_RATIO_PRECISION : rawColls * ratio;
+  const denominator = side === 'long' ? rawColls * ratio : rawDebts * rate;
+  const dollars = side === 'long' ? (numerator + denominator - 1n) / denominator : numerator / denominator;
+  return dollars > 0n && dollars <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(dollars) : null;
 }
 
 const wholeUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -184,6 +224,18 @@ const wholeUsd = new Intl.NumberFormat('en-US', { style: 'currency', currency: '
 /** Whole dollars, for a price already rounded in the safe direction. */
 export function formatWholeUsd(value: number): string {
   return wholeUsd.format(value);
+}
+
+/**
+ * A threshold price as a card shows it: on the live market quote's basis
+ * ("≈ $1,575"), or, without one, the pool's own price per stETH or WBTC
+ * ("≈ $1,575 / stETH"). Null when neither is known.
+ */
+export function brakeThresholdText(view: BrakeView, kind: 'rebalance' | 'liquidation', market: BrakeMarket): string | null {
+  const price = kind === 'rebalance' ? view.rebalancePrice : view.liquidatePrice;
+  if (price !== null) return `≈\u00a0${formatWholeUsd(price)}`;
+  const poolPrice = kind === 'rebalance' ? view.rebalancePoolPrice : view.liquidatePoolPrice;
+  return poolPrice === null ? null : `≈\u00a0${formatWholeUsd(poolPrice)} / ${market === 'ETH' ? 'stETH' : 'WBTC'}`;
 }
 
 // "≈" stays with its figure (a no-break space), so a narrow line never strands it.

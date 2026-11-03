@@ -97,7 +97,8 @@ Reviews retain full source values and caveats through direct disclosures. USD eq
 | Signing identity and consent | Current accepted wallet, fresh account/network checks, and wallet approval |
 | Supported wallet asset balances | Chain-probed canonical RPC reads |
 | Expanded token discovery | Partial display discovery, reconciled with canonical balances |
-| USD prices and charts | Validated display feeds; never transaction inputs |
+| USD prices | f(x)'s own sources first: its pool oracles, vault NAVs and Chainlink feeds read on-chain at one block, and its price service for FXN and fxUSD; DefiLlama, then CoinGecko, fill only what those leave out. Display only; never transaction inputs |
+| Charts | Validated display feeds; never transaction inputs |
 | Indexed position activity | Bounded discovery plus successful receipt/router-event verification |
 | Drafts and recovery records | Local hints that require authoritative reconciliation |
 
@@ -116,23 +117,26 @@ Portfolio preserves known holdings during refresh and distinguishes zero, partia
 
 ### Product analytics
 
-[`fxSaveHistory`](../apps/mini-app/src/lib/fxSaveHistory.ts) reads only the fixed
-Ethereum fxSAVE pool on DefiLlama. The chart requests data near the viewport,
-omits credentials, shares a ten-second abort deadline across at most two
-endpoints, and treats cached samples as fresh for ten minutes. Inactive samples
-are discarded after fifteen minutes; a mounted chart also expires at the
-three-day source freshness limit. Validation
-rejects malformed, future, nonfinite, insufficient, or stale series; the newest
-sample must be no older than three days. Gaps over three days break the line.
-Neither this series nor its average can supply a transaction quote.
-
-DefiLlama [announces an API migration on November 13, 2026](https://defillama.com/yields).
-As checked on October 23, the existing `yields.llama.fi` pool endpoint is live;
-the replacement `api.llama.fi` endpoint in the [free API documentation](https://api-docs.defillama.com/llms-free.txt)
-returns 404. The client uses the live endpoint first and tries the documented
-replacement only after failure, with the same validation. Both exact origins
-are covered by CSP and isolated browser fixtures. Recheck the migration before
-removing the old endpoint; do not weaken validation to accommodate changed data.
+[`fxSaveShareHistory`](../apps/mini-app/src/lib/fxSaveShareHistory.ts) reads
+fxSAVE NAV and the block timestamp together through historical Ethereum
+multicalls. Requests start near the viewport, read at most 30 or 90 blocks
+with six concurrent calls, and stop queuing on cancellation or a 20-second
+deadline. Block spacing only locates observations; every displayed date is
+read from the same block as its NAV. Missing archive states remain gaps.
+A stale head, malformed NAV or fewer than six observations is unavailable.
+Cached observations remain fresh for an hour and expire from the mounted
+chart after three days. The chart shows share NAV, never derived APY or a
+transaction quote. DefiLlama APY history has been removed; the live f(x)
+APY stays separate. Touch selection persists and keyboard inspection exposes
+the same observations. Reduced motion disables readout animation.
+USD prices no longer depend on DefiLlama:
+[`fxProtocolPrices`](../apps/mini-app/src/lib/fxProtocolPrices.ts) reads f(x)'s
+stETH, wstETH and WBTC oracles, the fxSAVE and fxSP NAVs and Chainlink's ETH,
+USDC and USDT feeds in one multicall, stamped with that block's time. A feed
+older than its heartbeat, an oracle answer outside its own bounds, a NAV far
+from a dollar or a lagging block leaves that token out. FXN and fxUSD come from
+f(x)'s price service, which publishes no source time and is stamped on receipt;
+its stablecoin entries are fixed at 1 and are never used. The fxSAVE chart also reads on-chain NAV.
 
 [`BorrowSensitivity`](../apps/mini-app/src/components/BorrowSensitivity.tsx)
 uses entered debt and current display collateral value. Integer arithmetic
@@ -184,6 +188,8 @@ collateral charge, not an earned yield or a debt-based APR.
 Naming and units are shared across rows, reviews, and History. ETH long pool collateral is expressed in stETH accounting; wstETH backing requires a live conversion where relevant. Position brake reads pool ratios, thresholds, and oracle price for display. None of these presentation helpers plans or signs.
 
 Activity discovery uses the same four market indexes as the SDK, associates orders by position entity ID, then verifies successful Ethereum receipts and router events. Index ownership association is incomplete historical attribution: transferred-out positions may disappear from a previous owner's activity, and the older ETH-short index lacks a real-owner field. Local recovery records and indexed activity remain separate sources.
+
+Entry prices and estimated PnL read an already verified position's complete order record from the indexes the official f(x) app uses (`PositionCostBasisProvider`), block-pinned and then incrementally, plus each shown market's SDK mid price through the canonical reader. A figure needs the index's record to match the position's on-chain collateral and debt within 1e10. Reads run only while a figure is on screen and reset with the wallet; see [position cost basis](sdk-scope.md#position-cost-basis).
 
 ## Static builds and read-only functions
 

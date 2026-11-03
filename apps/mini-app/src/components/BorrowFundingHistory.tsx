@@ -11,7 +11,7 @@ import { MissingValue } from './MissingValue';
 import { useChartWidth } from './useChartWidth';
 import styles from './ProductAnalytics.module.css';
 
-const date = (timestamp: number, year = false) => new Date(timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' as const } : {}), timeZone: 'UTC' });
+const date = (timestamp: number, year = false) => new Date(timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(year ? { year: 'numeric' as const } : {}) });
 const ranges: BorrowFundingHistoryRange[] = ['1M', '3M', '6M', '1Y', 'All'];
 
 /** Official pool snapshots: eight-hour collateral charges, separate from yield. */
@@ -71,7 +71,7 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
     <div className={styles.fundingChartHeader}><span className={styles.axis}>Funding rate / 8h</span><div className={styles.ranges} role="group" aria-label="Funding history period">{ranges.map(value => <button key={value} type="button" aria-pressed={range === value} onClick={() => { setSelected(null); setRange(value); }}>{value}</button>)}</div></div>
     {data && last ? <>
       <div className={styles.fundingPlot}>
-      {active && <div className={styles.fundingInspection} aria-live="off"><span>{date(active.timestamp)}</span><strong>{formatBorrowFundingEightHour(active.ratio)} / 8h</strong></div>}
+      {active && <div className={styles.fundingInspection} aria-live="off"><span>{date(active.timestamp)}</span><strong key={active.timestamp}>{formatBorrowFundingEightHour(active.ratio)} / 8h</strong></div>}
       <svg className={styles.plot} viewBox={`0 0 ${width} 148`} role="slider" tabIndex={0} aria-label="Explore historical funding charge" aria-valuemin={0} aria-valuemax={points.length - 1} aria-valuenow={activeIndex ?? points.length - 1} aria-valuetext={`${date((active ?? last).timestamp)}: ${formatBorrowFundingEightHour((active ?? last).ratio)} per eight hours`} aria-describedby={`${id}-hint`}
         onPointerDown={inspect} onPointerMove={inspect} onPointerLeave={event => { if (event.pointerType === 'mouse') setSelected(null); }} onFocus={() => setSelected(value => value?.market === market && value.index >= 0 && value.index < points.length ? value : { market, index: points.length - 1 })} onBlur={() => setSelected(null)}
         onKeyDown={event => { if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); setSelected(value => ({ market, index: event.key === 'Home' ? 0 : event.key === 'End' ? points.length - 1 : Math.max(0, Math.min(points.length - 1, (value?.market === market ? value.index : points.length - 1) + (event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? -1 : 1))) })); }}>

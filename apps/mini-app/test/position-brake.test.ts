@@ -4,11 +4,13 @@ import {
   DEBT_RATIO_PRECISION,
   FX_LIQUIDATION_DOCS_URL,
   FX_REBALANCING_DOCS_URL,
+  brakeThresholdText,
   checkBasisDebtRatio,
   formatWholeUsd,
   isUsableBrakeReading,
   liveDebtRatio,
   marketMoveToThreshold,
+  poolThresholdPrice,
   positionBrakeCopy,
   positionBrakeView,
   thresholdPrice,
@@ -92,6 +94,47 @@ test('a short position shows the rise that reaches its brake', () => {
   // 81354.96 × 0.9 / 0.7632 = 95,937.45: a short's price rounds down, toward today's.
   assert.equal(btc.rebalancePrice, 95_937);
   assert.equal(positionBrakeCopy(btc, 'BTC', 'short').line, nb('Rebalances if BTC rises ≈ 17% (≈ $95,937)'));
+});
+
+test('the pool’s own threshold price is D / (C × R) for a long and C × R / D for a short, per stETH or WBTC', () => {
+  // Positions at block 26,149,707; unrounded values from 50-digit decimal arithmetic.
+  const ethLong = { market: 'ETH', side: 'long', rawColls: ratio('9.176999662367526796'), rawDebts: ratio('12712.585067464289054913') } as const;
+  assert.equal(poolThresholdPrice({ ...ethLong, ratio: ratio('0.88') }), 1_575); // 1,574.17, rounded up toward today's price
+  assert.equal(poolThresholdPrice({ ...ethLong, ratio: ratio('0.95') }), 1_459); // 1,458.17
+  const btcLong = { market: 'BTC', side: 'long', rawColls: ratio('0.264897488525629655'), rawDebts: ratio('14479.429472333263444561') } as const;
+  assert.equal(poolThresholdPrice({ ...btcLong, ratio: ratio('0.88') }), 62_115); // 62,114.21
+  assert.equal(poolThresholdPrice({ ...btcLong, ratio: ratio('0.95') }), 57_538); // 57,537.37
+  const btcShort = { market: 'BTC', side: 'short', rawColls: ratio('66118.199903649059291307'), rawDebts: ratio('0.62029145') } as const;
+  assert.equal(poolThresholdPrice({ ...btcShort, ratio: ratio('0.9') }), 95_932); // 95,932.94, rounded down
+  assert.equal(poolThresholdPrice({ ...btcShort, ratio: ratio('0.95') }), 101_262); // 101,262.54
+  // An ETH short owes wstETH: per stETH it needs the wrapping rate.
+  const ethShort = { market: 'ETH', side: 'short', rawColls: ratio('1295.590438343481988696'), rawDebts: ratio('0.259847242455099248') } as const;
+  assert.equal(poolThresholdPrice({ ...ethShort, ratio: ratio('0.9') }), null);
+  assert.equal(poolThresholdPrice({ ...ethShort, ratio: ratio('0.9'), stEthPerWstEth: ratio('1.24586') }), 3_601); // 3,601.83
+  assert.equal(poolThresholdPrice({ ...ethShort, ratio: ratio('0.95'), stEthPerWstEth: ratio('1.24586') }), 3_801); // 3,801.93
+  for (const empty of [{ rawColls: 0n }, { rawDebts: 0n }, { ratio: 0n }]) assert.equal(poolThresholdPrice({ ...ethLong, ratio: ratio('0.88'), ...empty }), null);
+});
+
+test('without a quote at the read, a card names the pool’s price per stETH or WBTC instead of a dash', () => {
+  const reading = { ...long('0.66'), poolPrices: { rebalance: 1_575, liquidate: 1_459 } };
+  const view = positionBrakeView(reading, null)!;
+  assert.equal(view.rebalancePrice, null);
+  assert.equal(view.rebalancePoolPrice, 1_575);
+  assert.equal(view.liquidatePoolPrice, 1_459);
+  assert.equal(brakeThresholdText(view, 'rebalance', 'ETH'), nb('≈ $1,575 / stETH'));
+  assert.equal(brakeThresholdText(view, 'liquidation', 'BTC'), nb('≈ $1,459 / WBTC'));
+  // The line still keeps the read's distance and names no price.
+  assert.equal(positionBrakeCopy(view, 'ETH', 'long').line, nb('Rebalances if ETH falls ≈ 25%'));
+  // A quote taken at the read prices it on the market's basis, as before.
+  const quoted = positionBrakeView({ ...reading, priceAtRead: 2_400 }, 2_400)!;
+  assert.equal(brakeThresholdText(quoted, 'rebalance', 'ETH'), nb('≈ $1,800'));
+  // Reached thresholds, unknown or unusable pool prices name nothing.
+  const reached = positionBrakeView({ ...long('0.9'), poolPrices: { rebalance: 1_575, liquidate: 1_459 } }, null)!;
+  assert.equal(reached.rebalancePoolPrice, null);
+  assert.equal(brakeThresholdText(reached, 'rebalance', 'ETH'), null);
+  assert.equal(brakeThresholdText(reached, 'liquidation', 'ETH'), nb('≈ $1,459 / stETH'));
+  assert.equal(brakeThresholdText(positionBrakeView(long('0.66'), null)!, 'rebalance', 'ETH'), null);
+  assert.equal(positionBrakeView({ ...long('0.66'), poolPrices: { rebalance: Number.NaN, liquidate: -1 } }, null)!.rebalancePoolPrice, null);
 });
 
 test('percentages round toward safety, showing the smaller distance', () => {

@@ -33,6 +33,10 @@ const mocks: Record<string, string> = {
   const reading = globalThis.__positionsScreens.brakes[position.market + ':' + position.side + ':' + position.info.positionId];
   return reading ? { status: 'ready', reading, readAt: Date.now() } : { status: 'unavailable' };
 }`,
+  '@/components/PositionCostBasisContext': `export function usePositionCostBasis(position) {
+  if (position.info.rawColls <= 0n && position.info.rawDebts <= 0n) return { status: 'none' };
+  return globalThis.__positionsScreens.costBasis[position.market + ':' + position.side + ':' + position.info.positionId] ?? { status: 'unavailable' };
+}`,
   '@/components/PriceProvider': `import { useSyncExternalStore } from 'react';
 import { liveMarketStore } from '@/lib/liveMarketStore';
 import { isLiveQuoteFresh } from '@/lib/liveMarket';
@@ -417,7 +421,8 @@ test('phone management stays compact, contains focus and keeps its form across d
   await expect(row.locator('[data-position-price="rebalance"]')).toHaveText('≈ $1,575');
   await expect(row.locator('[data-position-price="liquidation"]')).toHaveText('≈ $1,459');
   await expect(page.locator('[data-position-key="ETH:long:2034"] [data-position-price="rebalance"]')).toHaveText('Reached');
-  await expect(row.getByText(/PnL/)).toHaveCount(0);
+  // The value stays the position's value; its estimated PnL is a separate, labelled line.
+  await expect(row.locator('[data-position-cost-basis="pnl"]')).toHaveText('Est. PnL ≈ −$452.96 (−5.73%)');
   await row.click();
   const sheet = page.getByRole('dialog', { name: 'Manage position', exact: true });
   await expect(sheet).toBeVisible();
@@ -473,6 +478,45 @@ test('phone management stays compact, contains focus and keeps its form across d
   await expect(sheet).toHaveCount(0);
   await expect(row).toBeFocused();
   await expect(page).toHaveURL(/\/positions$/);
+});
+
+test('rows carry the estimated PnL; a position’s details add its entry price, with the assumptions one tap away', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, { positions: ['long', 'short', 'rebalance', 'ethShort', 'btcLong'] });
+  const pnl = (key: string) => page.locator(`[data-position-key="${key}"] [data-position-cost-basis="pnl"]`);
+  await expect(pnl('ETH:long:2033')).toHaveText('Est. PnL ≈ −$452.96 (−5.73%)');
+  await expect(pnl('BTC:short:109')).toHaveText('Est. PnL ≈ −$765.79 (−6.50%)');
+  await expect(pnl('ETH:short:174')).toHaveText('Est. PnL ≈ +$52.29 (+7.25%)');
+  // Unread and unavailable figures hold the line without a made-up zero.
+  await expect(pnl('ETH:long:2034').getByRole('status', { name: 'Loading estimated PnL', exact: true })).toBeAttached();
+  await expect(pnl('BTC:long:933').getByRole('status', { name: 'Estimated PnL unavailable', exact: true })).toBeAttached();
+  await expect(page.getByText(/\$0\.00 \(/)).toHaveCount(0);
+  // A row is a button, so the PnL's assumptions travel in its title.
+  await expect(pnl('ETH:long:2033')).toHaveAttribute('title', /excludes exit costs/);
+
+  await page.locator('[data-position-key="ETH:long:2033"]').click();
+  const details = page.locator('[data-position-details="ETH:long:2033"]');
+  await details.locator('summary').click();
+  await expect(details.locator('[data-position-cost-basis="entry"]')).toHaveText('≈ $2,361.24 / stETH');
+  await expect(details.locator('[data-position-cost-basis="pnl"]')).toContainText('≈ −$452.96 (−5.73%)');
+  await expect(details.locator('[data-position-cost-basis="pnl"] small')).toHaveText('at ≈ $2,311.88 / stETH');
+  for (const label of ['Entry price', 'Est. PnL', 'Market price', 'Debt / collateral']) await expect(details.getByText(label, { exact: true })).toBeVisible();
+  await details.getByRole('button', { name: 'About Est. PnL', exact: true }).click();
+  const panel = page.locator('[data-info-help-panel]');
+  await expect(panel).toHaveAccessibleName('Est. PnL');
+  await expect(panel).toContainText('excludes exit costs (the closing fee, slippage and network fees)');
+  const bounds = (await panel.boundingBox())!;
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await details.getByRole('button', { name: 'About Entry price', exact: true }).click();
+  await expect(panel).toContainText('fees are not part of it');
+  await page.keyboard.press('Escape');
+  // The details list fits the narrowest phone.
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(await details.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('keyboard focus belongs to the active field or button without nested frames', async ({ page }) => {
@@ -584,6 +628,11 @@ test('screenshots: the list, a position for Add and for Close, and the wide view
       await expect(actions(page)).toBeVisible();
       await page.waitForTimeout(1_100);
       await page.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-${width}-add.png`), animations: 'disabled' });
+      const details = page.locator('[data-position-details="ETH:long:2033"]');
+      await details.locator('summary').click();
+      await expect(details.locator('[data-position-cost-basis="entry"]')).toBeVisible();
+      await details.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-${width}-details.png`), animations: 'disabled' });
+      await details.locator('summary').click();
       await actions(page).getByRole('radio', { name: 'Close', exact: true }).click();
       await expect(page.getByText('Full close', { exact: true })).toBeVisible();
       await page.screenshot({ path: resolve(screenshotDir!, `positions-${theme}-${width}-close.png`), animations: 'disabled' });

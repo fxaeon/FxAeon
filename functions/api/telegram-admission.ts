@@ -10,7 +10,8 @@
  *
  * It holds no key material, reads no wallet, and makes no outbound request.
  * Admission only decides whether this Mini App loads Privy; it is not a
- * transaction authority.
+ * transaction authority or a Privy signup boundary: direct Privy requests can
+ * bypass a browser gate. Keep rollout off until provider-side admission is set.
  */
 
 export interface AdmissionStatement {
@@ -50,7 +51,7 @@ export type PagesFunction<Env> = (
 export const TELEGRAM_LAUNCH_PUBLIC_KEY_HEX = "e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d";
 /** Below Privy's 500 free monthly active users, with room for team accounts. */
 export const DEFAULT_ADMISSION_CAPACITY = 480;
-export const MAX_ADMISSION_CAPACITY = 1_000_000;
+export const MAX_ADMISSION_CAPACITY = 480;
 /** Launch data older than this must come from a fresh Telegram launch. */
 export const LAUNCH_DATA_MAX_AGE_SECONDS = 24 * 60 * 60;
 export const LAUNCH_DATA_FUTURE_SKEW_SECONDS = 60;
@@ -186,7 +187,8 @@ export const ADMISSION_SCHEMA = [
     id INTEGER PRIMARY KEY CHECK (id = 1),
     admitted INTEGER NOT NULL CHECK (admitted >= 0)
   )`,
-  `INSERT OR IGNORE INTO telegram_admission_count (id, admitted) VALUES (1, 0)`,
+  `INSERT OR IGNORE INTO telegram_admission_count (id, admitted)
+   SELECT 1, COUNT(*) FROM telegram_admission`,
   `CREATE TRIGGER IF NOT EXISTS telegram_admission_added AFTER INSERT ON telegram_admission
   BEGIN UPDATE telegram_admission_count SET admitted = admitted + 1 WHERE id = 1; END`,
   `CREATE TRIGGER IF NOT EXISTS telegram_admission_removed AFTER DELETE ON telegram_admission
@@ -235,6 +237,12 @@ export async function admitTelegramUser(
   userId: number,
   options: { capacity: number; intent: AdmissionIntent; nowMs?: number },
 ): Promise<AdmissionStatus> {
+  if (!Number.isSafeInteger(userId) || userId <= 0 || (options.intent !== 'enter' && options.intent !== 'join')) {
+    throw new Error('Invalid admission request');
+  }
+  if (!Number.isInteger(options.capacity) || options.capacity < 0 || options.capacity > MAX_ADMISSION_CAPACITY) {
+    throw new Error('Invalid admission capacity');
+  }
   await ensureSchema(db);
   const now = options.nowMs ?? Date.now();
   const statements = [
@@ -260,8 +268,28 @@ async function readRequest(request: Request): Promise<{ launchData: string; inte
   if (!/^application\/json\b/i.test(request.headers.get("content-type") ?? "")) return null;
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) return null;
-  const text = await request.text();
-  if (text.length > MAX_REQUEST_BYTES) return null;
+  if (!request.body) return null;
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let bytes = 0;
+  let text = '';
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; void reader.cancel().catch(() => undefined); }, 3_000);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (timedOut) return null;
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_REQUEST_BYTES) {
+        void reader.cancel().catch(() => undefined);
+        return null;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+  } catch { return null; }
+  finally { clearTimeout(timer); reader.releaseLock(); }
   let body: unknown;
   try {
     body = JSON.parse(text);

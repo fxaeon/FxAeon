@@ -116,29 +116,27 @@ test('display retains price demand and matching-asset expiry redraw', () => {
   assert.match(source, /collateralUsdEstimate\(collateral, freshDisplayPrices\(quote\)\)/);
 });
 
-test('compact review amounts stay static while network, estimates and receipt presentation remain', () => {
+test('hero amounts stay static while network, estimates and receipt presentation remain', () => {
   snapshot = fresh;
-  const { TransactionAmountFlow } = require('../src/components/review/TransactionAmountFlow') as typeof import('../src/components/review/TransactionAmountFlow');
+  const { TransactionHero } = require('../src/components/review/TransactionHero') as typeof import('../src/components/review/TransactionHero');
   const facts = [
     { label: 'Deposit', value: '0.008793346701694145 ETH' },
     { label: 'Estimated fxUSD received', value: '1.204548856269749526 fxUSD' },
   ];
-  const normal = render(React.createElement(TransactionAmountFlow, { facts, chainId: 1 }));
-  const compact = render(React.createElement(TransactionAmountFlow, { facts, chainId: 1, compact: true }));
-  assert.doesNotMatch(compact, /<details|<summary|0\.008793346701694145 ETH|1\.204548856269749526 fxUSD/);
-  assert.doesNotMatch(normal, /<details|<summary|0\.008793346701694145 ETH|1\.204548856269749526 fxUSD/);
-  assert.match(compact, /data-amount-provenance="review"/);
-  assert.match(compact, /data-compact-amounts="2"/);
-  assert.match(visible(compact), /Deposit/);
-  assert.match(visible(compact), /Receive · est\./);
-  assert.match(visible(compact), /Ethereum/);
-  assert.match(compact, /data-usd-state="estimate"/);
-  assert.match(visible(compact), /≈ 0\.008793 ETH/);
-  assert.match(visible(compact), /≈ 1\.205 fxUSD/);
+  const review = render(React.createElement(TransactionHero, { title: 'Review borrow', legs: facts, lead: 1, caption: 'Ethereum', ariaLabel: 'Transaction amounts', provenance: 'review' }));
+  assert.doesNotMatch(review, /<details|<summary|0\.008793346701694145 ETH|1\.204548856269749526 fxUSD/);
+  assert.match(review, /data-amount-provenance="review"/);
+  assert.match(review, /data-review-fact="Estimated fxUSD received"/);
+  assert.match(visible(review), /You deposit/);
+  assert.match(visible(review), /You receive · est\./);
+  assert.match(visible(review), /Ethereum/);
+  assert.match(review, /data-usd-state="estimate"/);
+  assert.match(visible(review), /0\.008793/);
+  assert.match(visible(review), /≈ 1\.205 fxUSD/);
   for (const fact of facts) assert.ok(fact.value.length > 0, 'the accepted exact amount remains in its fact model');
-  const receipt = render(React.createElement(TransactionAmountFlow, { facts, chainId: 1, compact: true, receipt: true }));
+  const receipt = render(React.createElement(TransactionHero, { title: 'fxUSD borrowed', tone: 'success', legs: facts, ariaLabel: 'Confirmed transaction amounts', provenance: 'receipt' }));
   assert.match(receipt, /data-amount-provenance="receipt"/);
-  assert.doesNotMatch(receipt, /data-compact-amounts/);
+  assert.match(receipt, /data-hero-tone="success"/);
   assert.doesNotMatch(receipt, /<details|<summary/);
   assert.doesNotMatch(visible(receipt), /\bnow\b/);
   assert.doesNotMatch(receipt, /at current prices/);

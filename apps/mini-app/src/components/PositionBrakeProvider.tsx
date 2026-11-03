@@ -6,6 +6,7 @@ import { createPoolBrakeParameterCache, readPositionBrakes, type PositionBrakeCl
 import { getEthereumClient } from '@/lib/fx';
 import { isLiveQuoteFresh } from '@/lib/liveMarket';
 import { liveMarketStore } from '@/lib/liveMarketStore';
+import { poolThresholdPrice } from '@/lib/positionBrake';
 import { useProtocolPositions } from './ProtocolPositionProvider';
 import {
   POSITION_BRAKE_MAX_AGE_MS,
@@ -93,6 +94,11 @@ export default function PositionBrakeProvider({ children }: { children: ReactNod
         for (const position of targets) {
           const key = positionBrakeKey(position);
           const outcome = outcomes.get(key);
+          // The pool's own threshold prices, for when no live quote prices them.
+          const poolPrice = (ratio: bigint) => poolThresholdPrice({
+            market: position.market, side: position.side, rawColls: position.info.rawColls, rawDebts: position.info.rawDebts,
+            ratio, stEthPerWstEth: outcome?.status === 'ready' ? outcome.sample.stEthPerWstEth : undefined,
+          });
           next.set(key, outcome?.status === 'ready'
             ? {
               record: {
@@ -102,6 +108,7 @@ export default function PositionBrakeProvider({ children }: { children: ReactNod
                   rebalanceRatio: outcome.sample.rebalanceRatio,
                   liquidateRatio: outcome.sample.liquidateRatio,
                   priceAtRead: quotes[position.market],
+                  poolPrices: { rebalance: poolPrice(outcome.sample.rebalanceRatio), liquidate: poolPrice(outcome.sample.liquidateRatio) },
                 },
                 readAt,
                 rawColls: position.info.rawColls,

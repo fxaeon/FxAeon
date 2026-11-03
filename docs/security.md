@@ -45,7 +45,7 @@ Reviewed HTTPS Alchemy/Infura endpoints and chain probes protect selected read b
 
 The root optional `/api/gas` Function reads a fixed Ethereum gas oracle. The separate landing `/api/market-data` Function reads fixed public display feeds. The admission Function makes no outbound request and only verifies signatures. None accepts protocol plans, signs transactions, or acts as a general RPC proxy.
 
-Local storage, cached/indexed data and display quotes remain untrusted inputs to financial decisions. Missing/stale reads are not zero. Position valuation and rebalance-distance displays are not P&L, ROI, health or liquidation guarantees.
+Local storage, cached/indexed data and display quotes remain untrusted inputs to financial decisions. Missing/stale reads are not zero. Position valuation and rebalance-distance displays are not P&L, ROI, health or liquidation guarantees. The separate estimated PnL and entry price come from indexed order history and the SDK mid price; they are display-only, hidden while the index disagrees with the chain, and never enter execution decisions.
 
 ## Release and dependency controls
 
@@ -57,24 +57,10 @@ Production uses a separate validated configured artifact after credential-free v
 
 ## Temporary dependency backports (reviewed 24 October 2026)
 
-`braces@3.0.3` is used by Tailwind, Chokidar, and Next's ESLint tooling.
-[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
-describes stack exhaustion from deeply nested input. There is no published
-3.0.4 in npm at this review date, even though npm's audit response names that
-version. We backport only the five `lib/` changes from
-[upstream PR 72, commit d0d575e](https://github.com/micromatch/braces/commit/d0d575e55e74a4e0218e5248fafb79efc3e54ebb)
-to the exact installed version via `patches/braces@3.0.3.patch`. This is an
-unreleased upstream contribution, not an official patched release.
+The braces advisory [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) was withdrawn by GitHub on 23 October 2026 as not practically exploitable. Rechecked on 3 November 2026: the temporary braces patch and its audit exception have been removed. Any new high-severity braces finding blocks CI normally.
 
-`pnpm run audit:all` checks all four affected dependency paths, installed
-source hashes, string/AST attack inputs, the allowed boundary, and ordinary
-glob expansion before ignoring **only that advisory** in the registry audit.
-The raw `pnpm audit` command still reports it because the package version
-remains 3.0.3. Every other high/critical finding and registry failure blocks
-CI. Version changes, missing/tampered patches, or a failing regression also
-block the gate. The mitigation expires on 3 November 2026; replace it with
-the official release and remove the patch, exception, and gate helper when
-one becomes available. Hono is pinned to 4.13.11 for GHSA-hxh3-vqpv-xpqv.
+Hono is pinned to 4.13.11 for GHSA-hxh3-vqpv-xpqv. decode-uri-component is pinned to 0.5.1 for GHSA-qr28-fpjm-wq7f.
+follow-redirects is pinned to 1.16.2 for GHSA-mrwp-f3q8-3g9p.
 
 `zod@3.22.4` consumers are moved to `3.25.76` with a narrowly scoped
 backport for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).

@@ -1,5 +1,6 @@
 import { formatUnits } from 'viem';
 import { FX_TOKENS, type FxTokenKey } from '@/lib/fx/tokens';
+import { FX_PRICE_SERVICE_ENDPOINT, parseFxPriceService, readFxProtocolPrices } from '@/lib/fxProtocolPrices';
 
 export type PriceStatus = 'loading' | 'ready' | 'partial' | 'stale' | 'unavailable';
 export type UsdPriceMap = Partial<Record<FxTokenKey, number>>;
@@ -33,10 +34,11 @@ const PRICE_KEYS = Object.keys(FX_TOKENS) as FxTokenKey[];
 export const USD_PRICE_ASSET_COUNT = PRICE_KEYS.length;
 const ETH_PRICE_ADDRESS = FX_TOKENS.WETH.address;
 // Display-only provider snapshots may remain usable for up to one hour. The
-// supported FX_TOKENS set is populated primarily by DefiLlama, whose token
-// quotes can publish asynchronously (wstETH/FXN were observed at roughly
-// twenty-two minutes old during a delayed refresh). Keep each provider
-// timestamp unchanged; this window is never an execution price authority.
+// supported FX_TOKENS set is read first from f(x)'s own sources (its oracles,
+// vault NAVs and price service); DefiLlama and CoinGecko only fill gaps, and
+// their token quotes can publish asynchronously (wstETH/FXN were observed at
+// roughly twenty-two minutes old). Keep each source timestamp unchanged; this
+// window is never an execution price authority.
 export const USD_PRICE_MAX_AGE_MS = 60 * 60 * 1_000;
 const MAX_PRICE_AGE_SECONDS = USD_PRICE_MAX_AGE_MS / 1_000;
 const MIN_CONFIDENCE = 0.5;
@@ -116,8 +118,16 @@ export function parseCoinGeckoTokenPriceResponse(payload: unknown, key: FxTokenK
   return { price: coin.usd, timestamp: coin.last_updated_at };
 }
 
-/** Bounded, display-only fallback. No price is used by transaction planning. */
-export function createUsdPriceFetcher() {
+/**
+ * Bounded, display-only prices. No price is used by transaction planning.
+ * f(x)'s own sources lead: its oracles, vault NAVs and Chainlink feeds read
+ * on-chain at one block, and its price service for FXN and fxUSD. DefiLlama
+ * then CoinGecko fill only the tokens those leave out, each still validated
+ * on its own and never replacing a fresher quote.
+ */
+export function createUsdPriceFetcher({ readProtocolPrices = () => readFxProtocolPrices() }: {
+  readProtocolPrices?: () => Promise<UsdPriceUpdate>;
+} = {}) {
   const fallbackCache = new Map<string, { checkedAt: number; value: { price: number; timestamp: number } | null }>();
   let providerBackoffUntil = 0;
   return async (request: typeof fetch = fetch, signal?: AbortSignal, onProgress?: UsdPriceProgressCallback): Promise<UsdPriceUpdate> => {
@@ -129,22 +139,40 @@ export function createUsdPriceFetcher() {
       return request(url, { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store',
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
     };
-    try {
-      const response = await requestJson(USD_PRICE_ENDPOINT);
-      if (response.ok) {
-        const primary = parseUsdPriceResponse(await response.json());
-        Object.assign(prices, primary.prices);
-        Object.assign(updatedAts, primary.updatedAts);
-        oldestTimestamp = primary.updatedAt! / 1000;
-        // Publish independently validated primary quotes immediately. The
-        // optional CoinGecko request below can remain slow without hiding
-        // these useful values from the provider.
-        signal?.throwIfAborted();
-        onProgress?.({ prices: { ...prices }, updatedAt: oldestTimestamp * 1000, updatedAts: { ...updatedAts } });
+    // Adds a source's quotes for tokens not yet priced, then publishes them at once,
+    // so a slower source below never hides useful values from the provider.
+    const take = (update: UsdPriceUpdate) => {
+      let added = false;
+      for (const [key, price] of Object.entries(update.prices) as [FxTokenKey, number][]) {
+        const at = update.updatedAts[key];
+        if (prices[key] || at === undefined) continue;
+        prices[key] = price;
+        updatedAts[key] = at;
+        oldestTimestamp = Math.min(oldestTimestamp, at / 1000);
+        added = true;
       }
-    } catch {
-      // A partial or failed primary feed does not make a different token's
-      // independently validated fallback price an execution authority.
+      if (!added) return;
+      signal?.throwIfAborted();
+      onProgress?.({ prices: { ...prices }, updatedAt: oldestTimestamp * 1000, updatedAts: { ...updatedAts } });
+    };
+    const [protocol, service] = await Promise.allSettled([
+      readProtocolPrices(),
+      requestJson(FX_PRICE_SERVICE_ENDPOINT).then(async response => {
+        if (!response.ok) throw new Error('Price service unavailable');
+        return parseFxPriceService(await response.json());
+      }),
+    ]);
+    signal?.throwIfAborted();
+    if (protocol.status === 'fulfilled') take(protocol.value);
+    if (service.status === 'fulfilled') take(service.value);
+    if (PRICE_KEYS.some(key => !prices[key])) {
+      try {
+        const response = await requestJson(USD_PRICE_ENDPOINT);
+        if (response.ok) take(parseUsdPriceResponse(await response.json()));
+      } catch {
+        // A partial or failed secondary feed does not make a different token's
+        // independently validated fallback price an execution authority.
+      }
     }
     signal?.throwIfAborted();
     const missing = FALLBACK_PRIORITY.filter((key) => !prices[key]);

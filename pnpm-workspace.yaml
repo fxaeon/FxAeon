@@ -26,12 +26,12 @@ overrides:
   'brace-expansion@>=1.0.0 <1.1.21': '1.1.21'
   'brace-expansion@>=4.0.0 <5.0.12': '5.0.12'
   browserslist: '4.28.8'
-  decode-uri-component: '0.5.0'
+  decode-uri-component: '0.5.1'
   # GHSA-jggr-w7fw-pc2j: stack exhaustion on deeply nested values (pino-pretty under Privy).
   'fast-copy@>=3.0.0 <3.1.0': '3.1.0'
   'fast-uri@<3.1.5': '3.1.5'
   # GHSA-q3jh-wrc6-jgq8 and GHSA-8r9p-f939-6h3c: redirect header handling.
-  'follow-redirects@<1.16.1': '1.16.1'
+  'follow-redirects@<1.16.2': '1.16.2'
   'tsx>esbuild': '0.28.1'
   'form-data@>=4.0.0 <4.0.6': '>=4.0.6'
   hono: '4.13.11'
@@ -40,7 +40,7 @@ overrides:
   # GHSA-wq5f-xc86-pv6w: librsvg CVE-2026-96889 bundled with sharp < 0.35.5.
   'next>sharp': '0.35.5'
   'miniflare>sharp': '0.35.5'
-  postcss: '8.5.31'
+  postcss: '8.5.32'
   # 6.1.4 preserves Tailwind 3 group-*/peer-* variants; 6.1.5 adds the
   # GHSA-rj75-hqrm-r3gf linear-time parsing fix on the compatible 6.x line.
   postcss-selector-parser: '6.1.5'
@@ -60,7 +60,6 @@ overrides:
 patchedDependencies:
   '@aladdindao/fx-sdk@1.0.5': patches/@aladdindao__fx-sdk@1.0.5.patch
   '@privy-io/react-auth@3.45.0': patches/@privy-io__react-auth@3.45.0.patch
-  braces@3.0.3: patches/braces@3.0.3.patch
   query-string@7.1.3: patches/query-string@7.1.3.patch
   zod@3.25.76: patches/zod@3.25.76.patch
   zod@4.6.7: patches/zod@4.6.7.patch

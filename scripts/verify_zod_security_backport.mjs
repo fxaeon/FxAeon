@@ -42,7 +42,9 @@ function packageFromConsumer(packageRequire, version) {
   const pkg = JSON.parse(readFileSync(resolve(packageRoot, 'package.json'), 'utf8'));
   assert.equal(pkg.version, version, `Unexpected Zod consumer version at ${packageRoot}`);
   for (const [file, hash] of Object.entries(expected[version])) {
-    const source = readFileSync(resolve(packageRoot, file));
+    // pnpm applies Windows checkout patch lines with CRLF to LF upstream files.
+    // Canonicalize line endings only; every source token still has to match.
+    const source = readFileSync(resolve(packageRoot, file), 'utf8').replace(/\r\n/g, '\n');
     assert.equal(createHash('sha256').update(source).digest('hex'), hash, `Unverified zod@${version} ${file}`);
   }
   return { packageRoot, require: createRequire(entry) };

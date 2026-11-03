@@ -78,7 +78,9 @@ Portfolio, Trade, and Positions use the same names, units and rows. A row identi
 
 Phone rows open a position with its details/actions; list navigation and browser/Telegram Back return appropriately. Wide screens keep the list beside selection. A management review remains bound to its selected position.
 
-ETH long pool collateral uses stETH accounting even when backed by wstETH. Reviews preserve native quote values and conversion caveats. The rebalance marker and estimated position value are display context, not liquidation guarantees, P&L, ROI, or transaction authority. See [collateral units](sdk-scope.md#collateral-units) and [position brake](sdk-scope.md#position-brake).
+ETH long pool collateral uses stETH accounting even when backed by wstETH. Reviews preserve native quote values and conversion caveats. The rebalance marker and estimated position value are display context, not liquidation guarantees, P&L, ROI, or transaction authority. See [collateral units](sdk-scope.md#collateral-units) and [position brake](sdk-scope.md#position-brake). Without a live market quote, the estimated rebalance and liquidation prices name the pool's own price per stETH or WBTC.
+
+A position's estimated PnL is a separate figure: its own labelled column in wide Positions rows and a line under the value on phones, and, with the entry price, in the position's details and an open Portfolio row. Both come from the position's orders on the f(x) index, worked out as the official f(x) app does, and the PnL is taken at the SDK's DEX mid price. They appear only once the index's record matches the position on chain, and say unavailable rather than show a stale figure. Info controls state that the PnL excludes exit costs (closing fee, slippage, network fees) and the fees paid to open. See [position cost basis](sdk-scope.md#position-cost-basis).
 
 ## Review and approval
 
@@ -159,7 +161,8 @@ modal interactions remain isolated from the page beneath them.
 ## Estimates before connection
 
 Entering an amount exposes the same available form estimates before wallet
-connection. Trade shows execution price, liquidation price and protocol fee;
+connection. Trade shows execution price, rebalance price (f(x)'s liquidation
+brake), liquidation price and protocol fee;
 Earn deposits show estimated fxSAVE received; Borrow shows its public collateral,
 debt and LTV calculations; canonical Move shows its receive estimate and messaging
 fee. Empty or failed quotes never become fabricated amounts or zero balances.

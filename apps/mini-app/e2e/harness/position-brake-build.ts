@@ -8,6 +8,8 @@ import { buildLabGlobalCss } from './portfolio-states-build';
  * provider and reader against inline mocks: positions come from
  * `globalThis.__brakeHarness`, and its fake Ethereum client answers the pool
  * and oracle multicalls from per-test fixtures while logging every request.
+ * The real cost-basis provider reads its index records and mid prices from
+ * the same harness.
  */
 const appRoot = resolve(__dirname, '../..');
 const root = resolve(appRoot, '../..');
@@ -36,6 +38,9 @@ module.exports = new Proxy(known, { get: (target, key) => key in target ? target
   'ETH:short': '0x25707b9e6690B52C60aE6744d711cf9C1dFC1876', 'BTC:short': '0xA0cC8162c523998856D59065fAa254F87D20A5b0',
 };
 export const positionPoolAddress = (market, side) => POOLS[market + ':' + side];`,
+  // The cost-basis provider's two reads: the index's order record and the SDK mid price.
+  '@/lib/protocolPositionHistory': `export const loadIndexedPositionHistory = (params) => globalThis.__brakeHarness.loadHistory(params);`,
+  '@/app/trade/canonicalPositionReader': `export const readCanonicalPositionContext = (params) => globalThis.__brakeHarness.readPriceContext(params);`,
   '@/lib/fx/readFacade': `export const FX_READ_DEADLINE_MS = 12000;
 export function withReadDeadline(task, timeoutMs = FX_READ_DEADLINE_MS) {
   let timer;

@@ -7,6 +7,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { UiPosition } from '../src/app/trade/fxUi';
 import type { PositionBrakeEntry, PositionBrakeStore } from '../src/components/PositionBrakeContext';
+import type { PositionCostBasisEntry, PositionCostBasisStore } from '../src/components/PositionCostBasisContext';
 
 // Several legacy JSX-only leaf components are transformed for Next's browser
 // bundle and expect a global React binding under this CJS smoke-test runner.
@@ -15,19 +16,21 @@ const globalReact = globalThis as typeof globalThis & { React?: typeof React };
 const previousReact = globalReact.React;
 globalReact.React = React;
 const testRequire = createRequire(import.meta.url);
-const positionCardStylesPath = fileURLToPath(new URL('../src/components/ProtocolPositionCard.module.css', import.meta.url));
+const cardStylesPaths = new Set(['ProtocolPositionCard.module.css', 'InfoHelp.module.css']
+  .map((path) => fileURLToPath(new URL(`../src/components/${path}`, import.meta.url)).toLowerCase()));
 
 /** Render with the real card module, exposing its CSS module class names under SSR. */
 async function withCardModule<T>(run: (modules: {
   card: typeof import('../src/components/ProtocolPositionCard');
   brake: typeof import('../src/components/PositionBrakeContext');
+  costBasis: typeof import('../src/components/PositionCostBasisContext');
 }) => T | Promise<T>): Promise<T> {
   const previousCssLoader = testRequire.extensions['.css'];
   try {
     // tsx runs this focused source test through CommonJS; teach only that
-    // loader how to expose this CSS module's class names during SSR.
+    // loader how to expose the card's CSS module class names during SSR.
     testRequire.extensions['.css'] = (loadedModule, filename) => {
-      if (filename.toLowerCase() !== positionCardStylesPath.toLowerCase()) {
+      if (!cardStylesPaths.has(filename.toLowerCase())) {
         if (previousCssLoader) return previousCssLoader(loadedModule, filename);
         throw new Error(`Unexpected CSS import in position card render test: ${filename}`);
       }
@@ -39,6 +42,7 @@ async function withCardModule<T>(run: (modules: {
     return await run({
       card: await import('../src/components/ProtocolPositionCard'),
       brake: await import('../src/components/PositionBrakeContext'),
+      costBasis: await import('../src/components/PositionCostBasisContext'),
     });
   } finally {
     if (previousCssLoader) testRequire.extensions['.css'] = previousCssLoader;
@@ -124,7 +128,13 @@ test('a position row leads with identity and value; its details keep every figur
     assert.equal(factValue(details, 'Debt'), '0.5 fxUSD');
     assert.match(details, /<dt>Market price<\/dt>/);
     assert.match(details, /<dt>Debt \/ collateral<\/dt>/);
-    assert.equal((details.match(/<div class="test-fact"/g) ?? []).length, 4);
+    // Entry price and estimated PnL sit in the same list, their assumptions behind info controls.
+    assert.equal((details.match(/<div class="test-fact"/g) ?? []).length, 6);
+    assert.match(details, /Entry price<\/span><button[^>]*aria-label="About Entry price"/);
+    assert.match(details, /Est\. PnL<\/span><button[^>]*aria-label="About Est\. PnL"/);
+    // Without its index read neither figure is guessed.
+    assert.match(details, /aria-label="Entry price unavailable"/);
+    assert.match(details, /aria-label="Estimated PnL unavailable"/);
     assert.doesNotMatch(details, /test-metric|test-tile/);
 
     const zeroHtml = renderToStaticMarkup(React.createElement(ProtocolPositionDetails, {
@@ -273,5 +283,97 @@ test('the loading card reserves the brake line', async () => {
   await withCardModule(({ card: { ProtocolPositionSkeleton } }) => {
     const html = renderToStaticMarkup(React.createElement(ProtocolPositionSkeleton));
     assert.match(html, /<span class="test-brake"><span aria-hidden="true" class="skeleton test-brakeSkeleton"><\/span><\/span>/);
+  });
+});
+
+test('without a live quote the thresholds name the pool’s own price per stETH or WBTC, not a dash', async () => {
+  await withCardModule(({ card: { ProtocolPositionCard, ProtocolPositionDetails }, brake: { PositionBrakeContext } }) => {
+    const entry = readyEntry(ethLong, 66n * E18 / 100n, undefined, null);
+    entry.record!.reading.poolPrices = { rebalance: 1_575, liquidate: 1_459 };
+    const store = brakeStore({ 'ETH:long:42': entry });
+    // (The overview row is covered with ready prices in position-presentation-render.)
+    for (const component of [
+      React.createElement(ProtocolPositionCard, { position: ethLong }),
+      React.createElement(ProtocolPositionDetails, { position: ethLong }),
+    ]) {
+      const html = renderToStaticMarkup(React.createElement(PositionBrakeContext.Provider, { value: store }, component));
+      assert.match(html, /data-position-price="rebalance">≈\u00a0\$1,575 \/ stETH</);
+      assert.match(html, /data-position-price="liquidation">≈\u00a0\$1,459 \/ stETH</);
+      assert.doesNotMatch(html, /aria-hidden="true">—</);
+    }
+    // Without either price the dash stays, with its words for screen readers.
+    const unknown = renderToStaticMarkup(React.createElement(PositionBrakeContext.Provider, { value: brakeStore({ 'ETH:long:42': readyEntry(ethLong, 66n * E18 / 100n, undefined, null) }) },
+      React.createElement(ProtocolPositionCard, { position: ethLong })));
+    assert.match(unknown, /<span aria-hidden="true">—<\/span><span class="sr-only">Estimated rebalance price unavailable<\/span>/);
+  });
+});
+
+const PRICE = { priceWad: 2_600n * E18, rateWad: 12n * E18 / 10n, readAt: Date.now() };
+function costBasisStore(entries: Record<string, PositionCostBasisEntry>, prices: PositionCostBasisStore['prices'] = { ETH: { price: PRICE, pending: false, failures: 0, readAt: PRICE.readAt } }): PositionCostBasisStore {
+  return { entries: new Map(Object.entries(entries)), prices, register: () => () => undefined };
+}
+/** An index record of ethLong at its on-chain amounts, with an entry of 2,500 per stETH. */
+function costBasisEntry(position: UiPosition, overrides: Partial<PositionCostBasisEntry> = {}, colls = position.info.rawColls): PositionCostBasisEntry {
+  return {
+    record: {
+      history: { market: position.market, side: position.side, positionId: position.info.positionId, block: 1n, colls, debts: position.info.rawDebts, targetLeverage: '2', isClosed: false, orders: [] },
+      entryWad: 2_500n * E18,
+    },
+    pending: false, failures: 0, behind: 0, readAt: Date.now(), ...overrides,
+  };
+}
+const costFact = (html: string, kind: 'entry' | 'pnl') => {
+  const cell = html.match(new RegExp(`data-position-cost-basis="${kind}"[^>]*>([\\s\\S]*?)</(?:dd|span)>(?:</span>)?`));
+  assert.ok(cell, `${kind} is shown`);
+  return cell[0];
+};
+const text = (markup: string) => markup.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+test('a position shows its entry price and estimated PnL once the index matches the chain', async () => {
+  await withCardModule(({ card: { ProtocolPositionCard, ProtocolPositionDetails }, costBasis: { PositionCostBasisContext, COST_BASIS_BEHIND_LIMIT } }) => {
+    const render = (store: PositionCostBasisStore, component: React.ReactElement) => renderToStaticMarkup(React.createElement(PositionCostBasisContext.Provider, { value: store }, component));
+    const details = (store: PositionCostBasisStore) => render(store, React.createElement(ProtocolPositionDetails, { position: ethLong }));
+    const ready = costBasisStore({ 'ETH:long:42': costBasisEntry(ethLong) });
+
+    // 1 stETH bought at 2,500 and priced at the 2,600 mid: +$100, and +4% × 2 target leverage.
+    const html = details(ready);
+    assert.match(text(costFact(html, 'entry')), /≈ \$2,500\.00 \/ stETH/);
+    assert.match(text(costFact(html, 'pnl')), /≈ \+\$100\.00 \(\+8\.00%\) at ≈ \$2,600\.00 \/ stETH/);
+    // Its assumptions name what it leaves out.
+    assert.match(html, /aria-label="About Est\. PnL"/);
+    // A compact row keeps to its value and brake; the figures belong to the details.
+    assert.doesNotMatch(render(ready, React.createElement(ProtocolPositionCard, { position: ethLong })), /PnL|Entry price/);
+    // A short's figures move the other way.
+    const short: UiPosition = { ...ethLong, side: 'short', info: { ...ethLong.info, rawCollsToken: 'fxUSD', rawDebtsToken: 'wstETH' } };
+    const shortHtml = render(costBasisStore({ 'ETH:short:42': costBasisEntry(short) }), React.createElement(ProtocolPositionDetails, { position: short }));
+    // 0.5 wstETH of debt is 0.6 stETH: (2,600 − 2,500) × −0.6 = −$60.
+    assert.match(text(costFact(shortHtml, 'pnl')), /≈ −\$60\.00 \(−8\.00%\)/);
+
+    // While its first read runs, both hold their place.
+    for (const pending of [costBasisStore({}), costBasisStore({ 'ETH:long:42': { record: null, pending: true, failures: 0, behind: 0, readAt: 0 } })]) {
+      const loading = details(pending);
+      assert.match(loading, /aria-label="Loading entry price"/);
+      assert.match(loading, /aria-label="Loading estimated PnL"/);
+    }
+    // An index behind the chain never prices a figure: it waits, then says unavailable.
+    const behind = (count: number) => details(costBasisStore({ 'ETH:long:42': costBasisEntry(ethLong, { behind: count }, ethLong.info.rawColls - 10n ** 10n) }));
+    assert.match(behind(1), /aria-label="Loading entry price"/);
+    assert.match(behind(COST_BASIS_BEHIND_LIMIT), /aria-label="Entry price unavailable"/);
+    for (const count of [1, COST_BASIS_BEHIND_LIMIT]) assert.doesNotMatch(behind(count), /\$2,500|\$100\.00/);
+    // A failed read, or orders that give no entry, show nothing.
+    assert.match(details(costBasisStore({ 'ETH:long:42': { record: null, pending: false, failures: 1, behind: 0, readAt: Date.now() } })), /aria-label="Entry price unavailable"/);
+    const noEntry = costBasisEntry(ethLong);
+    noEntry.record!.entryWad = null;
+    assert.match(details(costBasisStore({ 'ETH:long:42': noEntry })), /aria-label="Estimated PnL unavailable"/);
+
+    // The entry stands without a current mid price; the PnL waits for one or says it is unavailable.
+    const noPrice = details(costBasisStore({ 'ETH:long:42': costBasisEntry(ethLong) }, {}));
+    assert.match(text(costFact(noPrice, 'entry')), /≈ \$2,500\.00 \/ stETH/);
+    assert.match(noPrice, /aria-label="Loading estimated PnL"/);
+    const old = { price: { ...PRICE, readAt: Date.now() - 121_000 }, pending: false, failures: 2, readAt: Date.now() };
+    assert.match(details(costBasisStore({ 'ETH:long:42': costBasisEntry(ethLong) }, { ETH: old })), /aria-label="Estimated PnL unavailable"/);
+    // A position without collateral or debt has neither.
+    const empty = { ...ethLong, info: { ...ethLong.info, rawColls: 0n, rawDebts: 0n } };
+    assert.doesNotMatch(render(ready, React.createElement(ProtocolPositionDetails, { position: empty })), /Entry price|Est\. PnL/);
   });
 });

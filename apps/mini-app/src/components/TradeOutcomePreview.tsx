@@ -16,24 +16,29 @@ const valueOrAbsent = (value?: string) => value && !/^(?:Unavailable|Not quoted|
 
 /**
  * What the ticket's warmed route would hold once it executes, under the
- * leverage field: the expected execution price, projected liquidation price,
- * and protocol fee. Execution uses the review's own quote; liquidation uses
- * the same projected amounts and a fresh pool threshold. Both prices are
- * estimates; the review still plans, simulates and
- * validates the route before anything is signed. `route` is null while the
- * warm-up runs: the same rows hold their place with placeholders.
+ * leverage field: the expected execution price, projected rebalance (the f(x)
+ * "liquidation brake") and liquidation prices, and protocol fee. Execution
+ * uses the review's own quote; the thresholds use the same projected amounts
+ * and fresh pool ratios. Every price is an estimate; the review still plans,
+ * simulates and validates the route before anything is signed. `route` is
+ * null while the warm-up runs: the same rows hold their place with placeholders.
  */
 export function TradeOutcomePreview({ route, facts: publicFacts }: { market: 'ETH' | 'BTC'; side: 'long' | 'short'; route: PlannedRoute | null; facts?: PositionOutcomeFacts }) {
   const risk = useRouteRiskQuote(route);
   const facts = publicFacts ?? (risk.route ? positionOutcomeFacts(risk.route) : null);
   // A route the review cannot describe either has nothing to preview.
   if (route && !facts) return null;
+  const threshold = (label: string, fact: PositionOutcomeFacts['rebalancePrice']): Row => ({
+    label, value: fact ? valueOrAbsent(approximately(fact.value)) : undefined, status: risk.loading ? 'loading' : 'unavailable', title: fact?.title,
+  });
   const rows: Row[] = facts ? [
     { label: 'Execution price', value: facts.executionPrice ? valueOrAbsent(approximately(facts.executionPrice.value)) : undefined, status: 'unavailable', title: facts.executionPrice?.title },
-    { label: 'Liquidation price', value: facts.liquidationPrice ? valueOrAbsent(approximately(facts.liquidationPrice.value)) : undefined, status: risk.loading ? 'loading' : 'unavailable', title: facts.liquidationPrice?.title },
+    threshold('Rebalance price', facts.rebalancePrice),
+    threshold('Liquidation price', facts.liquidationPrice),
     { label: facts.fee?.label ?? 'f(x) fee', value: valueOrAbsent(facts.fee?.value), status: 'unavailable', title: facts.fee?.title, feeAmounts: facts.fee?.feeAmounts },
   ] : [
     { label: 'Execution price', status: 'loading' },
+    { label: 'Rebalance price', status: 'loading' },
     { label: 'Liquidation price', status: 'loading' },
     { label: 'f(x) fee', status: 'loading' },
   ];

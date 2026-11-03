@@ -597,12 +597,12 @@ test('More lists History beside Wallet & account and marks only external links',
   const links = directory.getByRole('link');
   await expect(links).toHaveCount(5);
   const hrefs = await links.evaluateAll((rows) => rows.map((row) => (row as HTMLAnchorElement).getAttribute('href')));
-  expect(hrefs).toEqual(['/settings', '/history', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'https://x.com/FxAeonxyz']);
+  expect(hrefs).toEqual(['/settings', '/history', '/docs', 'https://fxprotocol.gitbook.io/fx-docs', 'mailto:support@fxaeon.com']);
   const historyHeight = (await directory.getByRole('link', { name: /^History/ }).boundingBox())!.height;
   const accountHeight = (await directory.getByRole('link', { name: /^Wallet & account/ }).boundingBox())!.height;
   expect(historyHeight).toBeGreaterThanOrEqual(44);
   expect(Math.abs(historyHeight - accountHeight)).toBeLessThanOrEqual(1);
-  expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(2);
+  expect(await links.evaluateAll((rows) => rows.filter((row) => row.getAttribute('target') === '_blank').length)).toBe(1);
   for (const link of await links.all()) {
     await expect(link).toHaveAccessibleName(/\S/);
   }
