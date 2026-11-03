@@ -1,5 +1,7 @@
-.context{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:12px;margin-top:8px}
+.context{display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:20px;margin-top:16px}
 .surface{min-width:0;padding:20px;border-radius:22px;background:var(--surface)}
+/* The scenario is interactive; supporting facts and exposure sit directly on the canvas. */
+.context>.surface:not(:first-child){padding:8px 4px;background:transparent;border-radius:0}
 .heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .heading h2{font-size:17px;font-weight:600;}
 .heading a,.protection a{display:inline-flex;align-items:center;gap:4px;min-height:44px;color:var(--mint);font-size:12px;font-weight:550}
