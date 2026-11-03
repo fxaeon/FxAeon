@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { probeReadiness } from './miniapp_readiness.mjs';
+import { validateWalletActivation } from './validate_production_env.mjs';
 
 export const OPERATOR_URL = 'https://fxaeon.com/api/miniapp-operator';
 const ACTIONS = new Set(['status', 'list', 'approve', 'dispatch', 'configure', 'activity', 'sync-server-config']);
@@ -169,6 +170,7 @@ export function configVariables(env) {
   const mode = env.MINIAPP_ACCESS_MODE || 'waitlist';
   if (!['waitlist', 'passkey'].includes(mode)) fail('Server setup only supports waitlist or passkey mode.');
   if (mode === 'passkey' && env.PRIVY_PUBLIC_SIGNUP_DISABLED !== 'yes') fail('Passkey setup requires explicit native public-signup closure verification.');
+  validateWalletActivation(env);
   if (env.MINIAPP_ORIGIN && env.MINIAPP_ORIGIN !== 'https://fxaeon.com') fail('Server origin must be https://fxaeon.com.');
   const miniappUrl = env.TELEGRAM_MINIAPP_URL || env.NEXT_PUBLIC_TELEGRAM_APP_URL || 'https://t.me/FxAeonBot';
   if (miniappUrl !== 'https://t.me/FxAeonBot') fail('Notification launcher must be the reviewed FxAeon Telegram URL.');

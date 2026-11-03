@@ -13,6 +13,8 @@ Configuration lives in the [root Wrangler file](../wrangler.toml), [landing Wran
 
 The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect their configuration in Actions, but the compiled values are public. Restrict browser credentials by origin, chain, and quota. A Pages runtime variable cannot rewrite a previously built bundle.
 
+Production validation and server-config sync require matching wallet modes: `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` with `MINIAPP_ACCESS_MODE=passkey`, or `off` with `waitlist`. Passkey mode also requires the reviewed native-signup closure marker. Staging and rollback must use a paired configuration; changing only one mode is rejected. Explicit legacy development builds remain supported. This validation does not migrate wallets or change their owners.
+
 | Setting | Production storage | Use |
 | --- | --- | --- |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | GitHub secret | Intended production Privy application |

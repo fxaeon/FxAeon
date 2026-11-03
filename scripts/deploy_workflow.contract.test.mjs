@@ -223,7 +223,7 @@ test('production validation keeps the local development Privy application out', 
 });
 
 test('wallet mode is off by default and requires a reviewed server activation before building', () => {
-  for (const name of ['Validate public build configuration', 'Build production deployment artifact']) {
+  for (const name of ['Validate public build configuration', 'Build production deployment artifact', 'Sync production Pages wallet server configuration']) {
     assert.match(step(name), /NEXT_PUBLIC_TELEGRAM_WALLET_MODE: \$\{\{ vars\.NEXT_PUBLIC_TELEGRAM_WALLET_MODE \|\| 'off' \}\}/);
   }
   const validation = step('Validate server wallet configuration');
