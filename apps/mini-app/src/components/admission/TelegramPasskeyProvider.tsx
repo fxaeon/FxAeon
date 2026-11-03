@@ -585,7 +585,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     ...(view === 'invited' ? {
       primaryDisabled: !bridgeReady || preparingSetup, primaryLabel: error && mobile && !preparingSetup ? 'Try again' : undefined,
       statusMessage: !bridgeReady ? 'Checking Telegram…' : preparingSetup ? 'Preparing secure setup…' : undefined,
-      setupHint: mobile && !status?.hasCredential ? 'Keep your passkey synced or backed up so you can use it again.' : undefined,
+      setupHint: mobile && !status?.hasCredential ? 'Opens your browser for passkey setup.' : undefined,
     } : {}) };
   return view === 'email' ? <AdmissionScreen {...common} state="email" email={email} onEmailChange={setEmail} />
     : <AdmissionScreen {...common} state={view} />;

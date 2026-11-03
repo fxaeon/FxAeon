@@ -12,11 +12,13 @@ import { ProviderLoadingState } from '@/components/ProviderLoadingState';
 import { TelegramAdmissionGate } from '@/components/TelegramAdmissionGate';
 import WalletRouteProviders from '@/components/WalletRouteProviders';
 
-// The SDK and its authentication/session effects are loaded only for Telegram.
-const TelegramWalletProvider = dynamic(() => import('@/components/PrivyClientProvider'), {
+// Keep native-login SDK code out of builds that cannot use that login mode.
+// These direct environment expressions are replaced by Next at build time.
+const TelegramWalletProvider = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey'
+  ? dynamic(() => import('@/components/PrivyClientProvider'), {
   ssr: false,
   loading: () => <ProviderLoadingState />,
-});
+}) : ProviderLoadingState;
 const TelegramPasskeyProvider = dynamic(() => import('@/components/admission/TelegramPasskeyProvider'), {
   ssr: false,
   loading: () => <ProviderLoadingState />,
