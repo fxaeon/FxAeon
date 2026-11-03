@@ -39,8 +39,8 @@ const ready = () => !['wallet', 'timeout', 'restoring'].includes(stage());
 export const isWalletConnectCancellation = () => false;
 export function useWalletReadyTimeout(isReady) { return !isReady && stage() === 'timeout'; }
 export function usePrivyWallet() {
-  const address = (ready() || stage() === 'restoring') && !['disconnected', 'hydrating'].includes(stage()) ? '${WALLET}' : undefined;
-  return { ready: ready(), restoring: stage() === 'hydrating', authenticated: stage() === 'hydrating' || Boolean(address), address, chainId: 1, isEmbedded: true, wallets: [], connectionVersion: 1,
+  const address = (ready() || stage() === 'restoring') && !['disconnected', 'hydrating'].includes(stage()) ? harness().address ?? '${WALLET}' : undefined;
+  return { ready: ready(), restoring: stage() === 'hydrating', authenticated: stage() === 'hydrating' || Boolean(address), address, chainId: harness().chainId ?? 1, isEmbedded: true, wallets: [], connectionVersion: 1,
     selectedWallet: address ? { address } : null, connect: async () => {}, disconnect: async () => {}, switchChain: async () => {}, sendTransaction: async () => {} };
 }`,
   '@/lib/wallet/activeWalletAddress': `export const activeWalletAddress = (wallet) => wallet.ready && wallet.authenticated ? wallet.address ?? null : null;`,
@@ -89,7 +89,7 @@ export function useWalletAssets({ address, enabled = true } = {}) {
   if (!enabled || !address) return { data: null, status: 'idle', isFetching: false, error: '', refresh: async () => undefined };
   if (!settled()) return { data: null, status: 'loading', isFetching: true, error: '', refresh: async () => undefined };
   if (stage() === 'unavailable') return { data: null, status: 'unavailable', isFetching: false, error: 'Assets unavailable.', refresh: async () => undefined };
-  return { data: fixtures().assets(stage()), status: 'ready', isFetching: false, error: '', refresh: async () => undefined };
+  return { data: { ...fixtures().assets(stage()), walletAddress: address }, status: 'ready', isFetching: false, error: '', refresh: async () => undefined };
 }
 const chain = (chainId) => ({ chainId, status: 'idle', transport: null, latestBlockNumber: null, lastEventAt: null, lastTransferAt: null, reconnectAttempt: 0, revision: 0 });
 export function useRealtimeChainState(chainId) { return chainId ? chain(chainId) : { 1: chain(1), 8453: chain(8453) }; }

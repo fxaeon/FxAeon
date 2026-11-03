@@ -254,12 +254,10 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       setProviderVersion((version) => version + 1);
       void restore();
     });
-    const initial = window.setTimeout(() => {
-      void restore();
-      // New visitors settle promptly; remembered sessions also await a late
-      // matching injection within the bounded startup discovery window.
-      if (mounted && !restoring && !awaitingSavedProvider) setReady(true);
-    }, 200);
+    void restore();
+    // Discovery requests announce synchronously. Only a real restore or a
+    // remembered late injection needs a wait; new visitors resolve immediately.
+    if (mounted && !restoring && !awaitingSavedProvider) setReady(true);
     // Mobile wallet bridges can assign their documented namespace after the
     // first discovery pass, without an announcement or initialization event.
     // Observe startup changes for a bounded window; never repeatedly retry a
@@ -283,7 +281,6 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
     document.addEventListener('visibilitychange', reconcile);
     return () => {
       mounted = false;
-      window.clearTimeout(initial);
       window.clearInterval(startupPoll);
       window.clearTimeout(stopStartupPoll);
       stopDiscovery();

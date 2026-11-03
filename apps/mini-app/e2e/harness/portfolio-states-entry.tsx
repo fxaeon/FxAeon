@@ -19,7 +19,8 @@ import { ProviderLoadingState } from '../../src/components/ProviderLoadingState'
  * - positions: settled reads with two open positions and their brake reads
  */
 export type PortfolioStage = 'provider' | 'restoring' | 'hydrating' | 'handoff' | 'wallet' | 'timeout' | 'reads' | 'loaded' | 'empty' | 'unavailable' | 'partial' | 'disconnected' | 'positions' | 'dust';
-type HarnessState = { stage: PortfolioStage; route: string; theme: 'official' | 'dark' | 'light'; handoff?: () => void; transition?: (stage: PortfolioStage) => void; settleReads?: () => void };
+type HarnessState = { stage: PortfolioStage; route: string; theme: 'official' | 'dark' | 'light'; address?: string; chainId?: number;
+  handoff?: () => void; transition?: (stage: PortfolioStage, wallet?: { address?: string; chainId?: number }) => void; settleReads?: () => void };
 
 const state = ((globalThis as { __portfolioStates?: Partial<HarnessState> }).__portfolioStates ?? {}) as HarnessState;
 state.stage ??= 'loaded';
@@ -34,8 +35,9 @@ function Harness() {
   useEffect(() => { document.documentElement.dataset.portfolioStage = state.stage; });
   useEffect(() => {
     state.handoff = () => { state.stage = 'wallet'; setHandedOff(true); };
-    state.transition = (stage) => {
+    state.transition = (stage, wallet = {}) => {
       state.stage = stage;
+      Object.assign(state, wallet);
       if (['loaded', 'empty', 'unavailable', 'partial', 'positions', 'dust'].includes(stage)) state.settleReads?.();
       setRevision((revision) => revision + 1);
     };

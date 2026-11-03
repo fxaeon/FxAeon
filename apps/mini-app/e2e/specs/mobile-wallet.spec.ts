@@ -475,10 +475,11 @@ test('saved-session discovery releases disconnection at its deadline when no pro
 });
 
 test('new visitors resolve promptly and explicit disconnect cancels saved-session discovery', async ({ page }) => {
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-11-04T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-04T00:01:00Z'));
   await page.goto(`${origin}/?wallets=none`);
   await expect(page.locator('main')).toBeVisible();
-  await page.clock.runFor(350);
+  // No discovery/authentication timer is needed when there is no saved session.
   await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
   await page.goto(`${origin}/?wallets=none&remembered=1&authorized=1`);
   await expect(page.locator('main')).toBeVisible();
@@ -500,7 +501,7 @@ for (const result of ['restored', 'authorization revoked', 'read failed']) {
     await expect(page.locator('main')).toBeVisible();
     await page.clock.runFor(500);
     await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBeGreaterThan(0);
-    // The 200ms discovery timer must not resolve readiness ahead of restoration.
+    // Discovery must not resolve readiness ahead of a held restoration read.
     await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
     await expect(page.locator('main')).toHaveAttribute('data-address', '');
     await page.evaluate(() => {

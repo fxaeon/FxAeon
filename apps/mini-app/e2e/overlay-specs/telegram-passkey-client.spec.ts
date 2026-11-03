@@ -148,7 +148,7 @@ async function observeStartup(page: Page) {
   await page.addInitScript(() => {
     (window as any).startupFlashes = [];
     new MutationObserver(() => {
-      const flash = document.querySelector('[data-wallet-authenticated="false"], [data-admission-state="checking"], [data-browser-wallet], [data-portfolio-explore]');
+      const flash = document.querySelector('[data-wallet-authenticated="false"], [data-admission-state="checking"], [data-browser-wallet], [data-portfolio-explore], [data-portfolio-value], [aria-label="Portfolio views"]');
       if (flash) (window as any).startupFlashes.push('unresolved guest or access screen');
     }).observe(document, { childList: true, subtree: true, attributes: true });
   });
@@ -157,9 +157,20 @@ async function observeStartup(page: Page) {
 async function expectNeutralStartup(page: Page) {
   await expect(page.getByRole('status', { name: 'Loading FxAeon', exact: true })).toBeVisible();
   await expect(page.locator('[data-wallet-authenticated], [data-admission-state="checking"], [data-portfolio-explore]')).toHaveCount(0);
+  await expect(page.locator('[data-portfolio-value], [aria-label="Portfolio views"], .app-content .skeleton')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /connect wallet/i })).toHaveCount(0);
   await expect(page.getByText('Checking your access.', { exact: true })).toHaveCount(0);
 }
+
+test('passkey startup with immediate server responses publishes only the verified account', async ({ page }) => {
+  await observeStartup(page);
+  const { requests, errors } = await mount(page, '/', { mobile: true });
+  await expect(page.locator('[data-wallet-authenticated="true"]')).toHaveAttribute('data-wallet-address', FROM);
+  await expect(page.locator('[data-wallet-ready]')).toHaveAttribute('data-wallet-ready', 'true');
+  expect(requests.map(request => request.action)).toEqual(['status', 'transaction/status']);
+  expect(await page.evaluate(() => (window as any).startupFlashes)).toEqual([]);
+  expect(errors).toEqual([]);
+});
 
 test('passkey startup remains neutral through delayed server status and recovery before publishing the verified account', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 852 });

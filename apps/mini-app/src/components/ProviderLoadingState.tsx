@@ -4,14 +4,11 @@ import { useLayoutEffect, type CSSProperties } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
-  ArrowUpFromLine,
-  ArrowDownToLine,
   CandlestickChart,
   ChevronDown,
   CircleDollarSign,
   Home,
   Menu,
-  MoreHorizontal,
   PiggyBank,
   RefreshCw,
   Search,
@@ -23,12 +20,7 @@ import { useT } from '@/lib/i18n';
 import styles from './ProviderLoadingState.module.css';
 import control from './HeaderWalletControl.module.css';
 import navigation from './ShellNavigation.module.css';
-import layout from './ProductLayout.module.css';
-import portfolio from './PortfolioWorkspace.module.css';
-import balance from './BalanceSummary.module.css';
-import assets from './PortfolioAssets.module.css';
-import assetRows from './AssetPresentation.module.css';
-import { MissingValue } from './MissingValue';
+import { WalletStartupState } from './WalletStartupState';
 import activity from './WalletActivity.module.css';
 import account from '@/app/AccountWorkspace.module.css';
 import history from '@/app/history/History.module.css';
@@ -73,14 +65,14 @@ export function ProviderLoadingState() {
     fallbackOnScreen = true;
     return () => { fallbackOnScreen = false; };
   }, []);
-  return <div data-product-ui="v2" className="app-shell app-shell-tabs" role="status" aria-label="Loading FxAeon" aria-busy="true">
+  return <div data-product-ui="v2" data-portfolio-state={portfolioRoute ? 'unknown' : undefined} className="app-shell app-shell-tabs" role="status" aria-label="Loading FxAeon" aria-busy="true">
     <span className="sr-only">Loading FxAeon</span>
     <DesktopSidebar pathname={pathname} loading />
     <div className="app-workspace" data-route={pathname} aria-hidden="true" inert>
       <ShellTopBar pathname={pathname} />
       {/* Shares .app-content's geometry but not the live page's scroll or card class names, which tests and scripts look up. */}
       <div className={`app-content ${styles.content} ${UTILITY_ROUTES.includes(pathname) ? 'utility-content' : ''}`}>
-        {portfolioRoute ? <PortfolioSilhouette /> : pathname === '/history' ? <HistorySilhouette /> : <>
+        {portfolioRoute ? <WalletStartupState /> : pathname === '/history' ? <HistorySilhouette /> : <>
           <div className={`skeleton ${styles.heading}`} />
           <div className={styles.workspace}>
             <div className={styles.overview}><span className="skeleton" /><span className="skeleton" /><span className="skeleton" /></div>
@@ -153,51 +145,6 @@ function ShellDock({ pathname }: { pathname: string }) {
           <span className="nav-icon"><Icon aria-hidden="true" className="h-5 w-5" strokeWidth={index === activeIndex ? 2.2 : 1.8} /></span>
           <span className="nav-label">{t(labelKey)}</span>
         </span>)}
-      </div>
-    </div>
-  </div>;
-}
-
-/** Unknown wallet state never implies account holdings. */
-function PortfolioSilhouette() {
-  return <div className={`${layout.workspace} ${layout.portfolio} ${portfolio.workspace}`}>
-    <PageHeading title="Portfolio" />
-    <div className={portfolio.dashboard}>
-      <div className={portfolio.primary}>
-        <section className={`${portfolio.valueCard} ${balance.hero}`}>
-          <div className={portfolio.valueTop}>
-            <p className={`${portfolio.valueNumber} ${balance.value}`} data-portfolio-value>
-              <MissingValue width="xl" status="loading" label="Loading portfolio value" />
-            </p>
-            <button type="button" disabled aria-label="Refresh portfolio balances and positions"><RefreshCw size={18} aria-hidden="true" /></button>
-          </div>
-          <section><h2 className="sr-only">Actions</h2><div className={portfolio.quickActions}>
-            {([{ label: 'Send', icon: ArrowUpFromLine }, { label: 'Receive', icon: ArrowDownToLine },
-              { label: 'Trade', icon: CandlestickChart }, { label: 'More', icon: MoreHorizontal }]).map(({ label, icon: Icon }) =>
-              <button type="button" disabled key={label} className={portfolio.quickAction}><span><Icon aria-hidden="true" /></span><strong>{label}</strong></button>)}
-          </div></section>
-        </section>
-        <div className={portfolio.sectionToolbar}>
-          <div className={portfolio.sectionNav} role="tablist" aria-label="Portfolio views">
-            {['Tokens', 'DeFi', 'Activity'].map((label, index) => <button key={label} type="button" disabled role="tab"
-              aria-selected={index === 0} aria-controls="portfolio-tab-panel">{label}</button>)}
-          </div>
-          <div className={portfolio.sectionFilter}><div className={assets.networkSelect}>
-            <button type="button" disabled className={assets.networkTrigger} aria-haspopup="menu" aria-label="Portfolio network: All networks">
-              <span>All networks</span><ChevronDown size={15} aria-hidden="true" />
-            </button>
-          </div></div>
-        </div>
-        <div className={portfolio.tabPanel}><section className={`${assets.assets} ${assets.ledgerSurface}`}>
-          <h2 id="portfolio-assets-heading" className="sr-only">Wallet assets</h2>
-          <div className={assetRows.loadingList} role="status" aria-label="Loading assets">
-            {[0, 1, 2].map(row => <div key={row} className={assetRows.loadingRow}>
-              <span className={`${assetRows.loadingIcon} skeleton`} />
-              <span className={assetRows.loadingName}><span className="skeleton" /><span className="skeleton" /></span>
-              <span className={assetRows.loadingWorth}><span className="skeleton" /><span className="skeleton" /></span>
-            </div>)}
-          </div>
-        </section></div>
       </div>
     </div>
   </div>;
