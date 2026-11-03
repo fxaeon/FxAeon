@@ -26,6 +26,9 @@ test.describe('independent USD price availability', () => {
 
   for (const available of [true, false]) {
     test(`a missing fxUSD price ${available ? 'does not leak a unit quote into inputs' : 'does not erase ETH and BTC'}`, async ({ page, requests }) => {
+      // With f(x)'s price service down too, DefiLlama and then CoinGecko price fxUSD.
+      await page.unroute('https://api.aladdin.club/api/coingecko/price');
+      await page.route('https://api.aladdin.club/api/coingecko/price', route => route.abort('blockedbyclient'));
       await page.unroute('https://coins.llama.fi/**');
       await page.route('https://coins.llama.fi/**', async route => {
         const ids = decodeURIComponent(new URL(route.request().url()).pathname.split('/prices/current/')[1] ?? '').split(',');

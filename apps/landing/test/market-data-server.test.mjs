@@ -8,17 +8,12 @@ import {
   createLandingMarketDataHandler,
 } from '../market-data-server.mjs';
 
-const ETH = 'ethereum:0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
-const BTC = 'ethereum:0x2260fac5e5542a773aa44fbcfedf7c193bc2c599';
 const FX_SAVE = '0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39';
 const now = 1_800_000_000_000;
 
-function upstreamPayloads(timestamp = Math.floor((now - 20_000) / 1000)) {
+function upstreamPayloads(eth = 2_400) {
   return {
-    prices: { coins: {
-      [ETH]: { price: 2_400, timestamp, confidence: 0.99 },
-      [BTC]: { price: 80_000, timestamp, confidence: 0.99 },
-    } },
+    prices: { code: 200, data: { ETH: { usd: eth }, WBTC: { usd: 80_000 } } },
     fxSave: { code: 200, data: { fxSave: { address: FX_SAVE, apy: '6.38', tvl: '85284837.6280' } } },
   };
 }
@@ -122,7 +117,7 @@ test('does not follow upstream redirects and reports only their status category'
   assert.equal(JSON.stringify(body).includes('untrusted.test'), false);
 });
 
-test('caches source reads for at most the configured interval and revalidates timestamps', async () => {
+test('caches source reads for at most the configured interval and stamps each refresh', async () => {
   const payloads = upstreamPayloads();
   let clock = now;
   let calls = 0;
@@ -146,9 +141,9 @@ test('caches source reads for at most the configured interval and revalidates ti
   assert.equal(afterCache.ethUsd.status, 'fresh');
 
   clock += 5 * 60_000;
-  const staleSource = await (await request()).json();
+  const refreshed = await (await request()).json();
   assert.equal(calls, 6);
-  assert.equal(staleSource.ethUsd.status, 'unavailable', 'old upstream timestamps are rejected after refresh');
+  assert.equal(refreshed.ethUsd.fetchedAt, clock, 'a quote without a source time is as current as its own fetch');
 });
 
 test('a stalled earlier request cannot hold up a later visitor or replace its fresh cache', async () => {

@@ -129,7 +129,7 @@ test('calculator figures start blank where live data is required, use concise la
   }
   assert.doesNotMatch(html, /data-market-value="(?:ethUsd|btcUsd)"/, 'Token prices stay internal to the calculator');
   assert.match(dollarOutcomes, /exposure \/ values\.ethUsd/);
-  assert.match(dollarOutcomes, /metric\.sourceAt/);
+  assert.match(dollarOutcomes, /metric\.fetchedAt/);
   assert.match(html, /data-earn-projection hidden>—</);
   assert.match(html, /data-borrow-output>\$500\.00</);
   assert.match(html, /data-earn-caption hidden>Waiting for a fresh APY</);
@@ -177,12 +177,12 @@ test('hero credit, market metadata, and retry affordance stay quiet until needed
   const earn = elementSource(html, /<section class="outcome-panel" id="outcome-earn"/, 'section');
   const trade = elementSource(html, /<section class="outcome-panel" id="outcome-trade"/, 'section');
   assert.match(earn, /class="market-provenance"[\s\S]*?href="https:\/\/fx\.aladdin\.club\/earn"/);
-  assert.match(trade, /class="market-provenance"[\s\S]*?href="https:\/\/defillama\.com\/prices"/);
+  assert.match(trade, /class="market-provenance"[\s\S]*?href="https:\/\/fx\.aladdin\.club"/);
   assert.match(dollarOutcomes, /refreshButton\.hidden = !unavailable && !refreshingData/);
   assert.match(dollarOutcomes, /refreshButton\.disabled = checkingData/);
   assert.match(dollarOutcomes, /node\.title = \[source/);
-  assert.match(dollarOutcomes, /\? 'Price updated ' : 'Checked '\)/);
-  assert.match(dollarOutcomes, /Price updated/);
+  assert.match(dollarOutcomes, /'Checked ' \+ timestamp/);
+  assert.doesNotMatch(dollarOutcomes, /sourceAt/, 'no source time is invented for a fetch-time quote');
   assert.doesNotMatch(dollarOutcomes, /Variable yield|variable APY/i);
 });
 

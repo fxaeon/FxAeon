@@ -193,6 +193,11 @@ async function createCaptureContext({ viewport, theme }) {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ coins }) });
   });
 
+  // f(x)'s price service: the same synthetic quotes for FXN and fxUSD.
+  await context.route('https://api.aladdin.club/api/coingecko/price', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, data: { FXN: { usd: 26 }, fxUSD: { usd: 1 } } }),
+  }));
+
   await context.route('https://api.coingecko.com/**', async (route) => {
     const url = new URL(route.request().url());
     const marketId = url.pathname.match(/\/coins\/([^/]+)\/market_chart$/)?.[1];
