@@ -276,11 +276,16 @@ export function takeTelegramStartHref(
  * This is never authentication proof; it only prevents a slow/failed bridge
  * request from leaving the Mini App in an indefinite loading state.
  */
+const defaultBridgeWaits = new WeakMap<Window, Promise<TgWebApp | null>>();
+
 export async function waitForTelegramWebApp(timeoutMs = 8_000): Promise<TgWebApp | null> {
   const available = getWebApp();
   if (available || typeof window === 'undefined' || timeoutMs <= 0) return available;
 
-  return new Promise((resolve) => {
+  // Routing and admission share one bounded wait, including its timeout.
+  // A bridge that arrives later still wins via the immediate check above.
+  if (timeoutMs === 8_000 && defaultBridgeWaits.has(window)) return defaultBridgeWaits.get(window)!;
+  const pending = new Promise<TgWebApp | null>((resolve) => {
     const startedAt = Date.now();
     const timer = window.setInterval(() => {
       const webApp = getWebApp();
@@ -290,6 +295,8 @@ export async function waitForTelegramWebApp(timeoutMs = 8_000): Promise<TgWebApp
       }
     }, 100);
   });
+  if (timeoutMs === 8_000) defaultBridgeWaits.set(window, pending);
+  return pending;
 }
 
 /**

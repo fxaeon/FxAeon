@@ -198,9 +198,15 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   useEffect(() => {
     mounted.current = true;
     const version = generation.current;
-    void waitForTelegramWebApp().then(() => {
+    const hasLaunch = Boolean(currentTelegramLaunchData());
+    const bridge = waitForTelegramWebApp();
+    void bridge.then(() => {
       if (!mounted.current || generation.current !== version) return;
       setMobile(['android', 'ios'].includes(getWebApp()?.platform ?? ''));
+    });
+    // The server can verify launch data before the UI bridge has loaded.
+    void (hasLaunch ? Promise.resolve() : bridge).then(() => {
+      if (!mounted.current || generation.current !== version) return;
       void refresh().catch(() => undefined);
     });
     return () => { mounted.current = false; invalidate(); };
@@ -248,13 +254,13 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     assertOperation(operation); if (request) assertSigning(request, operation);
     const destination = new URL(validatedHandoffUrl(result.url, window.location.origin));
     destination.hash = new URLSearchParams({ token: new URLSearchParams(destination.hash.slice(1)).get('token')!, commitment }).toString();
-    const openLink = getWebApp()?.openLink;
-    if (!openLink) throw new Error('Open this Mini App in Telegram to continue in a browser.');
+    const webApp = getWebApp();
+    if (!webApp?.openLink) throw new Error('Open this Mini App in Telegram to continue in a browser.');
     if (request) {
       savePendingOperation(request.walletId, request.launchData, { challengeId, phase: 'handoff' });
       request.handedOff = true;
     }
-    openLink(destination.href, { try_instant_view: false });
+    webApp.openLink(destination.href, { try_instant_view: false });
     setBrowserPending(true);
     const completed = await pollHandoff(challengeId, { signal: operation.controller.signal, launchData: operation.launchData,
       assertCurrent: () => { assertOperation(operation); if (request) assertSigning(request, operation); } });
