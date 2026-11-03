@@ -69,13 +69,63 @@ test('rejects every substituted authorization field, added fee, and unexpected h
 
 test('a locally retained commitment rejects a substituted signing or registration challenge', async () => {
   const original = encode(envelope());
-  const digest = await challengeCommitment(original);
-  await verifyChallengeCommitment(original, digest);
+  const digest = await challengeCommitment(original, tx);
+  await verifyChallengeCommitment(original, digest, tx);
   const changed = envelope(); changed.body.params.transaction.to = FROM;
-  await assert.rejects(verifyChallengeCommitment(encode(changed), digest));
+  await assert.rejects(verifyChallengeCommitment(encode(changed), digest, tx));
   const registration = Buffer.from('registration challenge 1').toString('base64url');
   await assert.rejects(verifyChallengeCommitment(Buffer.from('registration challenge 2').toString('base64url'), await challengeCommitment(registration)));
   await assert.rejects(verifyChallengeCommitment(original, ''));
+});
+
+test('signing handoff accepts the reviewed account without changing the Privy challenge', async () => {
+  const challenge = encode(envelope());
+  const originalBytes = Buffer.from(challenge, 'base64url');
+  const commitment = await challengeCommitment(challenge, tx);
+  const displayed = validateApprovalTransaction({ ...tx });
+  await verifyChallengeCommitment(challenge, commitment, displayed);
+  const verified = verifySigningChallenge(challenge, displayed, 'wallet-1', APP, NOW);
+  assert.equal(verified.transaction.from, FROM);
+  assert.deepEqual(Buffer.from(challenge, 'base64url'), originalBytes);
+  assert.deepEqual(JSON.parse(originalBytes.toString()), envelope());
+});
+
+test('signing handoff rejects a sender-only substitution under the unchanged signed envelope', async () => {
+  const challenge = encode(envelope());
+  const commitment = await challengeCommitment(challenge, tx);
+  const substituted = validateApprovalTransaction({ ...tx, from: TO });
+  // Privy selects the signer by wallet ID, so the browser commitment must bind its displayed sender.
+  assert.equal(verifySigningChallenge(challenge, substituted, 'wallet-1', APP, NOW).transaction.from, TO);
+  await assert.rejects(verifyChallengeCommitment(challenge, commitment, substituted), /does not match/);
+  await assert.rejects(verifyChallengeCommitment(challenge, commitment), /does not match/);
+});
+
+test('signing handoff retains the complete transaction and challenge commitment', async () => {
+  const challenge = encode(envelope());
+  const commitment = await challengeCommitment(challenge, tx);
+  const replacementEnvelope = envelope(); replacementEnvelope.body.params.transaction.to = FROM;
+  const replacementChallenge = encode(replacementEnvelope);
+  const replacementTransaction = validateApprovalTransaction({ ...tx, to: FROM });
+  verifySigningChallenge(replacementChallenge, replacementTransaction, 'wallet-1', APP, NOW);
+  await assert.rejects(verifyChallengeCommitment(replacementChallenge, commitment, replacementTransaction), /does not match/);
+  await assert.rejects(verifyChallengeCommitment(challenge, commitment, replacementTransaction), /does not match/);
+});
+
+test('signing handoff treats sender letter case as the same account and rejects malformed senders', async () => {
+  const challenge = encode(envelope());
+  const sender = `0x${'ab'.repeat(20)}`;
+  const reviewed = validateApprovalTransaction({ ...tx, from: sender });
+  const commitment = await challengeCommitment(challenge, reviewed);
+  await verifyChallengeCommitment(challenge, commitment, { ...reviewed, from: `0x${'AB'.repeat(20)}` });
+  await assert.rejects(challengeCommitment(challenge, { ...reviewed, from: '0x123' }));
+});
+
+test('registration commitments remain hashes of the original challenge bytes', async () => {
+  const challenge = Buffer.from('registration fixture').toString('base64url');
+  const expected = Buffer.from(await crypto.subtle.digest('SHA-256', Buffer.from(challenge, 'base64url'))).toString('base64url');
+  assert.equal(await challengeCommitment(challenge), expected);
+  await verifyChallengeCommitment(challenge, expected);
+  await assert.rejects(verifyChallengeCommitment(challenge, expected, tx), /does not match/);
 });
 
 test('validates the browser display transaction without dropping unexpected fields', () => {

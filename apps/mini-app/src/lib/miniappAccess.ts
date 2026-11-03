@@ -272,18 +272,31 @@ export function validatedHandoffUrl(value: string, origin: string): string {
   return url.href;
 }
 
-/** The origin document commits to the decoded WebAuthn challenge bytes. This
- * fragment never goes to the API, so a substituted handoff response cannot
- * replace both the displayed transaction and its matching authorization.
+/** The origin document commits to the original WebAuthn challenge bytes and,
+ * for signing, the full reviewed transaction including its sender. Privy's RPC
+ * envelope selects the wallet by ID and omits `from`, so challenge-only hashes
+ * cannot authenticate the sender shown by an external browser. This fragment
+ * never goes to the API and never changes the challenge signed by the passkey.
+ * Registration omits transaction and retains its challenge-only commitment.
  */
-export async function challengeCommitment(challenge: string): Promise<string> {
+export async function challengeCommitment(challenge: string, transaction?: MiniappTransaction): Promise<string> {
   if (!/^[A-Za-z0-9_-]+$/.test(challenge) || challenge.length > 32_000) throw new Error('Invalid approval challenge.');
   const bytes = Uint8Array.from(atob(challenge.replace(/-/g, '+').replace(/_/g, '/')), character => character.charCodeAt(0));
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  let payload = bytes;
+  if (transaction !== undefined) {
+    const reviewed = validateApprovalTransaction(transaction);
+    // Null delimiters cannot occur literally in canonical JSON. Keep the raw
+    // challenge bytes intact and separate this protocol from registration.
+    const prefix = new TextEncoder().encode(`FxAeon signing handoff v1\0${canonicalJSON({ ...reviewed, from: reviewed.from.toLowerCase() })}\0`);
+    payload = new Uint8Array(prefix.length + bytes.length);
+    payload.set(prefix);
+    payload.set(bytes, prefix.length);
+  }
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', payload));
   return btoa(String.fromCharCode(...digest)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-export async function verifyChallengeCommitment(challenge: string, commitment: string): Promise<void> {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(commitment) || await challengeCommitment(challenge) !== commitment) {
+export async function verifyChallengeCommitment(challenge: string, commitment: string, transaction?: MiniappTransaction): Promise<void> {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(commitment) || await challengeCommitment(challenge, transaction) !== commitment) {
     throw new Error('This browser approval does not match the request from Telegram.');
   }
 }
