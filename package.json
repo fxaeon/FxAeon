@@ -19,7 +19,7 @@
     "test:chaos": "pnpm --dir apps/mini-app test:chaos",
     "test:anvil": "node scripts/run_anvil_tests.mjs --suite protocol",
     "test:anvil:contract": "node --test scripts/run_anvil_tests.contract.test.mjs",
-    "test:telegram:contract": "node --test scripts/telegram_bot_sync.contract.test.mjs",
+    "test:telegram:contract": "node --test scripts/telegram_bot_sync.contract.test.mjs scripts/telegram_webhook_operator.test.mjs",
     "test:live-public-config:contract": "node --test scripts/verify_live_public_config.contract.test.mjs",
     "test:architecture:contract": "node --test scripts/verify_architecture.contract.test.mjs",
     "test:miniapp-access": "pnpm --dir server/miniapp-access test",
