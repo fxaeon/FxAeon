@@ -10,7 +10,8 @@ import { userSafeError } from '@/lib/errors';
 import { Button } from '@/components/ui';
 import styles from './WalletSection.module.css';
 
-const PrivyWalletControls = dynamic(() => import('./PrivyWalletSection'), { ssr: false });
+const PrivyWalletControls = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey'
+  ? dynamic(() => import('./PrivyWalletSection'), { ssr: false }) : BrowserWalletControls;
 function ActionRow({ icon: Icon, title, detail, label, onClick, loading = false, disabled = false, variant = 'ghost' }: {
   icon: LucideIcon;
   title: string;
@@ -30,6 +31,7 @@ function ActionRow({ icon: Icon, title, detail, label, onClick, loading = false,
 
 function BrowserWalletControls() {
   const wallet = usePrivyWallet();
+  const passkey = wallet.selectedWallet?.walletClientType === 'telegram-passkey';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const connect = async () => {
@@ -44,9 +46,9 @@ function BrowserWalletControls() {
 
   if (!wallet.ready) return <div className={`${styles.panel} ${styles.loading}`} role="status" aria-live="polite"><span className="sr-only">Loading wallet provider</span></div>;
   return <div className={styles.panel} data-wallet-options>
-    <ActionRow icon={Wallet} title={wallet.authenticated && wallet.selectedWallet ? 'Browser wallet connected' : 'Connect a browser wallet'}
-      detail={wallet.authenticated && wallet.selectedWallet ? undefined : 'Use a browser extension or open fxaeon.com in your wallet’s mobile browser.'}
-      label={wallet.authenticated && wallet.selectedWallet ? 'Reconnect wallet' : 'Connect wallet'}
+    <ActionRow icon={Wallet} title={passkey ? 'Telegram wallet connected' : wallet.authenticated && wallet.selectedWallet ? 'Browser wallet connected' : 'Connect a browser wallet'}
+      detail={passkey ? 'Protected by your passkey.' : wallet.authenticated && wallet.selectedWallet ? undefined : 'Use a browser extension or open fxaeon.com in your wallet’s mobile browser.'}
+      label={passkey ? 'Refresh connection' : wallet.authenticated && wallet.selectedWallet ? 'Reconnect wallet' : 'Connect wallet'}
       onClick={() => void connect()} loading={busy} variant={wallet.authenticated && wallet.selectedWallet ? 'ghost' : 'primary'} />
     {error && <p role="alert" className={styles.errorCopy}>{error}</p>}
   </div>;

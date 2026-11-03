@@ -43,7 +43,8 @@ import { usePendingActivity } from '@/lib/pendingActivity';
 import { TransactionNotices } from '@/components/TransactionNotices';
 
 const WALLET_PROFILE_DEMAND = { expandedAssets: true, chainPulse: true, positions: true } as const;
-const WalletExportAction = dynamic(() => import('@/components/WalletExportAction').then((module) => module.WalletExportAction), { ssr: false });
+const WalletExportAction = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey'
+  ? dynamic(() => import('@/components/WalletExportAction').then((module) => module.WalletExportAction), { ssr: false }) : () => null;
 const WALLET_SHEET_ASSET_LIMIT = 6;
 export default function WalletProfile() {
   const pathname = usePathname();

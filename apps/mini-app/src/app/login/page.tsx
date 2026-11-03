@@ -18,10 +18,10 @@ import styles from '@/components/UtilitySurfaces.module.css';
 // The Privy SDK is heavy. Loading the flow dynamically keeps it
 // out of this page's first-paint bundle — the chunk is only fetched once the
 // Telegram provider gate below passes.
-const PrivyFlow = dynamic(() => import('./PrivyFlow'), {
+const PrivyFlow = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey' ? dynamic(() => import('./PrivyFlow'), {
   ssr: false,
   loading: () => <FullScreenSpinner asMain />,
-});
+}) : BrowserWalletFlow;
 
 function LoginContent() {
   const providerMode = useWalletProviderMode();
