@@ -1,6 +1,8 @@
 /** Deterministic browser-test configuration, overriding local .env files. */
 export const E2E_BUILD_ENV = {
   NEXT_PUBLIC_PRIVY_APP_ID: '',
+  NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'off',
+  NEXT_PUBLIC_TELEGRAM_ADMISSION: 'off',
   NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: '',
   NEXT_PUBLIC_ALCHEMY_BASE_RPC_URL: '',
   NEXT_PUBLIC_ALCHEMY2_ETHEREUM_RPC_URL: '',

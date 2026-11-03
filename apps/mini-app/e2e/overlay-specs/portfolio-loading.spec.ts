@@ -198,8 +198,7 @@ test('captures deterministic phone wallet readiness for review', async ({ page }
     else if (stage === 'provider' || stage === 'wallet') await expect(page.locator('[data-wallet-startup]')).toBeVisible();
     else if (stage === 'reads') await expect(page.locator('[data-portfolio-value] .missing-value-bar')).toBeVisible();
     else await expect(page.locator('[data-portfolio-value]')).toBeVisible();
-    await page.screenshot({ path: resolve(directory!, `${name}.png`), animations: 'disabled',
-      mask: [page.getByRole('button', { name: 'Open wallet profile', exact: true })], maskColor: '#242428' });
+    await page.screenshot({ path: resolve(directory!, `${name}.png`), animations: 'disabled' });
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   }
 });
