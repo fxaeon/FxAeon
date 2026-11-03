@@ -18,11 +18,12 @@ for (const width of [320, 390, 1280]) {
         const action = workspace.querySelector('[data-testid="borrow-workspace-card"]')!.getBoundingClientRect();
         const terms = workspace.querySelector('[aria-label="Borrowing details"]')!.getBoundingClientRect();
         const rect = element.getBoundingClientRect();
-        const firstRowBottom = Math.max(overview.bottom, action.bottom);
-        return { belowFirstRow: rect.top >= firstRowBottom - 1 && rect.top - firstRowBottom <= 25,
-          termsBelowBoth: terms.top >= Math.max(rect.bottom, action.bottom) - 1 };
+        return { belowOverview: rect.top >= overview.bottom - 1 && rect.top - overview.bottom <= 36,
+          alignedWithOverview: Math.abs(rect.left - overview.left) <= 2,
+          besideAction: rect.right <= action.left,
+          termsBelowFunding: terms.top >= rect.bottom - 1 };
       });
-      expect(layout).toEqual({ belowFirstRow: true, termsBelowBoth: true });
+      expect(layout).toEqual({ belowOverview: true, alignedWithOverview: true, besideAction: true, termsBelowFunding: true });
     }
     await funding.screenshot({ path: info.outputPath('borrow-funding.png') });
     await page.getByText('Borrowing terms & risk', { exact: true }).click();
@@ -42,12 +43,14 @@ for (const width of [320, 390, 1280]) {
         const action = workspace.querySelector('[class*="SavingsWorkspace_panel"]')!.getBoundingClientRect();
         const information = workspace.querySelector('[aria-label="fxSAVE details"]')!.getBoundingClientRect();
         const history = element.getBoundingClientRect();
-        const firstRowBottom = Math.max(summary.bottom, action.bottom);
-        return { belowFirstRow: history.top >= firstRowBottom - 1 && history.top - firstRowBottom <= 65,
-          besideInformation: history.right <= information.left,
-          informationBelowAction: information.top >= action.bottom - 1 && information.top - action.bottom <= 65 };
+        return { belowSummary: history.top >= summary.bottom - 1 && history.top - summary.bottom <= 36,
+          alignedWithSummary: Math.abs(history.left - summary.left) <= 2,
+          besideAction: history.right <= action.left,
+          informationBelowHistory: information.top >= history.bottom - 1,
+          informationAlignedWithHistory: Math.abs(information.left - history.left) <= 2 };
       });
-      expect(layout).toEqual({ belowFirstRow: true, besideInformation: true, informationBelowAction: true });
+      expect(layout).toEqual({ belowSummary: true, alignedWithSummary: true, besideAction: true,
+        informationBelowHistory: true, informationAlignedWithHistory: true });
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
