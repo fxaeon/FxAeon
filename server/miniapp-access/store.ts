@@ -373,6 +373,23 @@ export class Store {
   }
 
   /** Read-only options lookup. Completion must use claimHandoff, not this method. */
+  async handoffReference(token: string): Promise<{ userId: number; challengeId: string } | null> {
+    const hash = await tokenHash(token);
+    if (!hash) return null;
+    const rows = checked(await this.statement('SELECT user_id,challenge_id FROM admission_handoffs WHERE token_hash=?', hash)
+      .all<{ user_id: number; challenge_id: string }>());
+    return rows[0] ? { userId: rows[0].user_id, challengeId: rows[0].challenge_id } : null;
+  }
+
+  /** Caller first persisted a rejected operation, which prevents any later dispatch. */
+  async closeRejectedHandoff(token: string): Promise<void> {
+    const hash = await tokenHash(token);
+    if (!hash) return;
+    checked(await this.statement(`UPDATE admission_handoffs SET claimed=1,status='error',result_json=?
+      WHERE token_hash=? AND status='pending'`, JSON.stringify({ error: 'approval_cancelled' }), hash).run());
+  }
+
+  /** Read-only options lookup. Completion must use claimHandoff, not this method. */
   async readHandoff(token: string, now = Date.now()): Promise<Handoff | null> {
     time(now);
     const hash = await tokenHash(token);

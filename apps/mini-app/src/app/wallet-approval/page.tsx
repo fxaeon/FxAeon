@@ -76,10 +76,26 @@ export default function WalletApprovalPage() {
       if (generation.current === version) { inFlight.current = false; setBusy(false); }
     }
   };
-  const cancel = () => {
-    generation.current += 1; controller.current?.abort(); WebAuthnAbortService.cancelCeremony();
-    token.current = ''; forgetAccessToken(); setClosed(true); setBusy(false);
-    setError(submitted.current ? 'Approval may already have completed. Return to Telegram and check your wallet activity.' : 'Approval cancelled.');
+  const cancel = async () => {
+    if (closed || !token.current) return;
+    const ticket = token.current;
+    const version = ++generation.current;
+    controller.current?.abort(); WebAuthnAbortService.cancelCeremony();
+    token.current = ''; forgetAccessToken(); setClosed(true);
+    const uncertain = 'Approval may already have completed. Return to Telegram and check your wallet activity.';
+    if (submitted.current || request?.kind !== 'sign') {
+      setBusy(false); setError(submitted.current ? uncertain : 'Approval cancelled.'); return;
+    }
+    const abort = new AbortController(); controller.current = abort;
+    setBusy(true); setError('');
+    try {
+      const result = await miniappAccess('handoff/cancel', { token: ticket }, { signal: abort.signal });
+      if (generation.current === version) setError(result.cancelled ? 'Approval cancelled.' : uncertain);
+    } catch {
+      if (generation.current === version) setError('Cancellation could not be confirmed. Return to Telegram and check the status.');
+    } finally {
+      if (generation.current === version) setBusy(false);
+    }
   };
 
   if (request?.kind === 'sign') return <main className={styles.screen}><div className={styles.panel}>
@@ -89,7 +105,7 @@ export default function WalletApprovalPage() {
     {busy && <p role="status">Waiting for approval…</p>}
     {error && <p role="alert">{error}</p>}
     {!done && !closed && !submitted.current && <button className={styles.primary} disabled={busy} onClick={() => void approve()}>Approve with passkey</button>}
-    {!done && !closed && <button className={styles.secondary} onClick={cancel}>Cancel</button>}
+    {!done && !closed && <button className={styles.secondary} onClick={() => void cancel()}>Cancel</button>}
     <a href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
   </div></main>;
 
@@ -103,7 +119,7 @@ export default function WalletApprovalPage() {
     {busy && <p role="status">{request ? 'Waiting for approval…' : 'Checking approval…'}</p>}
     {error && <p role="alert">{error}</p>}
     {request && !done && !closed && !submitted.current && <button className={admission.primary} disabled={busy} onClick={() => void approve()}>Create passkey</button>}
-    {!done && !closed && request && <button className={admission.secondary} onClick={cancel}>Cancel</button>}
+    {!done && !closed && request && <button className={admission.secondary} onClick={() => void cancel()}>Cancel</button>}
     <a className={done || closed || (!busy && !request) ? admission.primary : `${admission.secondary} ${admission.tertiary}`} href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
   </div></div></div></main>;
 }

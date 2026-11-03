@@ -52,15 +52,17 @@ type AccessActions = {
   'handoff/status': { input: { challengeId: string }; output: HandoffStatus };
   'handoff/read': { input: { token: string }; output: HandoffRead };
   'handoff/complete': { input: { token: string; response: RegistrationResponseJSON | AuthenticationResponseJSON }; output: WalletResult | SignResult };
+  'handoff/cancel': { input: { token: string }; output: { cancelled: boolean } };
   'transaction/status': { input: { id?: string }; output: { operation: TransactionOperation | null } };
   'transaction/ack': { input: { id: string; hash: string }; output: { acknowledged: true } };
 };
 
-const PUBLIC_ACTIONS = new Set<keyof AccessActions>(['email/confirm', 'handoff/read', 'handoff/complete']);
+const PUBLIC_ACTIONS = new Set<keyof AccessActions>(['email/confirm', 'handoff/read', 'handoff/complete', 'handoff/cancel']);
 const MESSAGES: Record<string, string> = {
   launch_expired: 'Reopen FxAeon from Telegram and try again.',
   launch_rejected: 'Open FxAeon from its Telegram bot.',
   approval_required: 'Your access is awaiting approval.',
+  approval_cancelled: 'Approval cancelled.',
   passkey_disabled: 'Wallet setup is not available yet.',
   challenge_expired: 'This approval expired. Return to Telegram.',
   challenge_used: 'This approval has already been used. Return to Telegram.',
@@ -134,6 +136,7 @@ function validResponse(action: keyof AccessActions, value: unknown): boolean {
     case 'sign/complete': return isSignResult(value);
     case 'handoff/create': return typeof value.url === 'string';
     case 'handoff/complete': return isWalletResult(value) || isSignResult(value);
+    case 'handoff/cancel': return typeof value.cancelled === 'boolean';
     case 'handoff/read': {
       if (!validOptions(value.options)) return false;
       if (value.kind === 'register') return true;

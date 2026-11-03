@@ -96,7 +96,11 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
         case 'handoff/create':
           if (fixture.deferHandoff) await fixture.deferHandoff;
           response = { url: 'https://fxaeon.test/wallet-approval#token=opaque-ticket' }; break;
-        case 'handoff/status': response = { state: 'pending' }; break;
+        case 'handoff/cancel':
+          operation = { id: 'sign-1', state: 'rejected', hash: null, chainId: 1, acknowledged: true };
+          response = { cancelled: true }; break;
+        case 'handoff/status': response = operation?.state === 'rejected'
+          ? { state: 'error', error: 'approval_cancelled' } : { state: 'pending' }; break;
         case 'handoff/read': response = fixture.registerHandoff ? { kind: 'register', options: { challenge: returnedChallenge } } : { kind: 'sign', options: { challenge: returnedChallenge }, transaction: fixture.substituteHandoff ? { ...transaction, to: FROM } : transaction }; break;
         case 'sign/complete': case 'handoff/complete':
           operation = fixture.completionProof === 'empty' ? null : fixture.completionProof ? {
@@ -721,6 +725,34 @@ test('browser ticket clears the fragment, displays exact fields and requires a c
   expect(requests.filter(r => r.action === 'handoff/complete')).toHaveLength(1);
   await expect(page.getByRole('link', { name: 'Return to Telegram' })).not.toHaveAttribute('href', /opaque-ticket/);
   expect(errors).toEqual([]);
+});
+
+test('browser Cancel records non-submission without requesting a passkey', async ({ page }) => {
+  const { requests } = await mount(page, '/wallet-approval#token=opaque-ticket');
+  await expect(page.getByRole('button', { name: 'Approve with passkey' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('Approval cancelled.');
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  expect(requests.filter(r => r.action === 'handoff/cancel')).toEqual([{ action: 'handoff/cancel', token: 'opaque-ticket' }]);
+  expect(requests.some(r => r.action === 'handoff/complete')).toBe(false);
+});
+
+test('cancelled browser handoff releases the exact durable hint after reload', async ({ page }) => {
+  const { reload, requests } = await mount(page, '/', { mobile: true });
+  await page.getByRole('button', { name: 'Review and send' }).click();
+  await page.getByRole('button', { name: 'Continue in browser', exact: true }).click();
+  await openPreparedBrowser(page);
+  await page.evaluate(async () => {
+    await fetch('/api/telegram-wallet', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'handoff/cancel', token: 'opaque-ticket' }) });
+  });
+  await reload();
+  await expect(page.getByRole('heading', { name: 'Portfolio', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(requests.some(r => r.action === 'transaction/status' && r.id === 'sign-1')).toBe(true);
+  expect(await page.evaluate(() => localStorage.getItem('fxaeon:passkey-operation:v1:12345:wallet-1'))).toBeNull();
+  await page.getByRole('button', { name: 'Review and send' }).click();
+  await expect(page.getByRole('heading', { name: 'Approve transaction.' })).toBeVisible();
 });
 
 test('cancelled WebAuthn never falls back and the read descriptor remains usable', async ({ page }) => {

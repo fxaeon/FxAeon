@@ -31,6 +31,12 @@ export class Operations {
         CHECK(state != 'rejected' OR acknowledged = 1))`),
       this.db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS access_operation_pending
         ON access_operations(user_id) WHERE acknowledged = 0`),
+      // Retain the issued intent even after its one-use challenge is consumed.
+      // This lets cancellation/expiry atomically compete with dispatch.
+      this.db.prepare(`CREATE TABLE IF NOT EXISTS access_signing_intents (
+        id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, wallet_id TEXT NOT NULL,
+        reference_id TEXT NOT NULL UNIQUE, caip2 TEXT NOT NULL CHECK(caip2 IN ('eip155:1','eip155:8453')),
+        expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL)`),
     ]);
     if (results.some(result => !result.success)) throw new AccessError('access_unavailable', 503);
   }
@@ -49,6 +55,30 @@ export class Operations {
 
   pending(userId: number): Promise<Operation | null> {
     return this.read('SELECT * FROM access_operations WHERE user_id = ? AND acknowledged = 0', userId);
+  }
+
+  async rememberIntent(userId: number, id: string, context: TransactionContext): Promise<void> {
+    validateTransactionContext(context);
+    if (!Number.isSafeInteger(userId) || userId <= 0 || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) {
+      throw new AccessError('request_invalid');
+    }
+    const result = await this.db.prepare(`INSERT INTO access_signing_intents
+      (id,user_id,wallet_id,reference_id,caip2,expires_at,created_at) VALUES (?,?,?,?,?,?,?)`)
+      .bind(id, userId, context.walletId, context.referenceId, context.caip2, context.expiresAt, Date.now()).run();
+    if (!result.success) throw new AccessError('access_unavailable', 503);
+  }
+
+  /** A rejected row takes the same immutable ID as claim(). Only one can win.
+   * Existing dispatching/unknown/submitted operations can never be cancelled here. */
+  async rejectUnsubmitted(userId: number, id: string, expiredOnly = false): Promise<boolean> {
+    const now = Date.now();
+    const result = await this.db.prepare(`INSERT OR IGNORE INTO access_operations
+      (id,user_id,state,wallet_id,reference_id,caip2,expires_at,acknowledged,created_at)
+      SELECT id,user_id,'rejected',wallet_id,reference_id,caip2,expires_at,1,?
+      FROM access_signing_intents WHERE id=? AND user_id=? AND (?=0 OR expires_at<=?)`)
+      .bind(now, id, userId, expiredOnly ? 1 : 0, now).run();
+    if (!result.success) throw new AccessError('access_unavailable', 503);
+    return (await this.result(userId, id))?.state === 'rejected';
   }
 
   async claim(userId: number, id: string, context: TransactionContext): Promise<void> {
