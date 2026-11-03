@@ -13,7 +13,11 @@ import { USD_PRICE_MAX_AGE_MS } from '../../src/lib/prices';
 const publicRoot = resolve(__dirname, '../../public');
 let lab: PortfolioStatesLab;
 
-test.beforeAll(async () => { lab = await buildPortfolioStatesLab(); });
+test.beforeAll(async () => {
+  // Bundling the real portfolio graph can exceed the per-interaction deadline.
+  test.setTimeout(120_000);
+  lab = await buildPortfolioStatesLab();
+});
 
 async function open(page: Page, stage: string, { route = '/portfolio', theme = 'dark', waitForFrame = true } = {}) {
   const html = `<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/lab.css"></head>`

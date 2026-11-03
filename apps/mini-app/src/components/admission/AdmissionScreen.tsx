@@ -80,7 +80,7 @@ const COPY: Record<AdmissionScreenState, Copy> = {
     secondary: { label: 'Change email', action: 'add-email' },
   },
   invited: {
-    title: 'Your place\nis ready.', lead: 'Set up your wallet to get started.',
+    title: 'Welcome to\nFxAeon.', lead: 'Set up your wallet to get started.',
     primary: { label: 'Set up my wallet', action: 'setup-wallet' },
     secondary: { label: 'Set up later', action: 'defer-setup' },
   },

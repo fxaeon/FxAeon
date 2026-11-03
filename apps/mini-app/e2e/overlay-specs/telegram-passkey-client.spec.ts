@@ -454,7 +454,7 @@ test('short phone keeps passkey setup reachable and cancellation returns to the 
   await page.setViewportSize({ width: 320, height: 568 });
   const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
   await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
-  await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to FxAeon.' })).toBeVisible();
   await expect(page.getByText('Opens your browser for passkey setup.')).toBeVisible();
   const primary = page.getByRole('button', { name: 'Set up my wallet' });
   const back = page.getByRole('button', { name: 'Set up later' });
@@ -470,7 +470,7 @@ test('short phone keeps passkey setup reachable and cancellation returns to the 
     await expect(control).toBeFocused();
   }
   await back.click();
-  await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to FxAeon.' })).toBeVisible();
   expect(requests.some(request => request.action === 'register/complete')).toBe(false);
 });
 

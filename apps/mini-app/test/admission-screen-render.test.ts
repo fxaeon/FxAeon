@@ -42,7 +42,7 @@ const states: Array<[AdmissionScreenState, string, string | null]> = [
   ['email', 'Your invite, by email.', 'Send confirmation link'],
   ['verify', 'Confirmation requested.', 'Check email status'],
   ['verified', 'You’re on the waitlist.', 'Done'],
-  ['invited', 'Your place is ready.', 'Set up my wallet'],
+  ['invited', 'Welcome to FxAeon.', 'Set up my wallet'],
   ['passkey', 'Secure your wallet.', 'Create passkey'],
   ['ready', 'You’re in.', 'Open FxAeon'],
   ['setup-error', 'Let’s try again.', 'Try setup again'],
