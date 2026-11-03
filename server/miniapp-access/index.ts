@@ -160,8 +160,10 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         const userId = await notifications.confirmContact(textField(body.token, 128));
         if (!userId) throw new AccessError('confirmation_expired', 400);
         const row = await store.status(userId);
-        if (row?.externalId) await notifications.enqueueInvitation(userId, row.telegramNotify);
-        await dispatch();
+        if (row?.externalId) {
+          await notifications.enqueueInvitation(userId, row.telegramNotify);
+          if (context.waitUntil) void dispatch();
+        }
         return json({ verified: true });
       }
       if (action === 'handoff/read' || action === 'handoff/complete') {
@@ -196,8 +198,12 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         const notify = action === 'join' ? body.notify : body.allowed;
         if (typeof notify !== 'boolean') throw new AccessError('request_invalid');
         const row = await store.join(userId, notify);
-        if (row.externalId) await notifications.enqueueInvitation(userId, row.telegramNotify);
-        await dispatch();
+        if (row.externalId) {
+          await notifications.enqueueInvitation(userId, row.telegramNotify);
+          // Joining/consenting must not wait behind unrelated provider sends.
+          // Without waitUntil the durable outbox is picked up by scheduled dispatch.
+          if (context.waitUntil) void dispatch();
+        }
         return json(await publicStatus(store, notifications, userId, launch.allowsWriteToPm));
       }
       if (action === 'email/request') {

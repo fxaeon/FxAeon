@@ -9,6 +9,7 @@ import { Worker } from 'node:worker_threads';
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { createAccessHandler, createOperatorHandler, type Env } from './index.ts';
 import { Store, type DB, type DBResult, type DBStatement } from './store.ts';
+import { NotificationStore } from './notifications.ts';
 import { onRequest as mountedAccess } from '../../functions/api/telegram-wallet.ts';
 import { onRequest as mountedOperator } from '../../functions/api/miniapp-operator.ts';
 
@@ -89,7 +90,6 @@ function error(value: Result, status: number, code: string) {
 type Call = { url: string; method: string; headers: Headers; body: any };
 async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: string) {
   const db = new SQLiteDB(path);
-  t.after(() => db.sql.close());
   const env: Env = { ADMISSION_DB: db, TELEGRAM_BOT_ID: BOT, MINIAPP_ORIGIN: ORIGIN,
     MINIAPP_ACCESS_MODE: 'passkey', MINIAPP_LEGACY_USERS: '5', MINIAPP_OPERATOR_TOKEN: OPERATOR,
     PRIVY_APP_ID: 'testapp000000000000000000', PRIVY_APP_SECRET: 'synthetic-provider-secret', PRIVY_PUBLIC_SIGNUP_DISABLED: 'yes',
@@ -98,7 +98,7 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   const store = new Store(db);
   const calls: Call[] = []; const unexpected: string[] = []; const background: Promise<unknown>[] = [];
   let rpcFailure = false;
-  let mailResponse: () => Response = () => Response.json({ id: 'mock-email-id' });
+  let mailResponse: () => Response | Promise<Response> = () => Response.json({ id: 'mock-email-id' });
   let lookup: (call: Call) => Response | Promise<Response> = () => Response.json({ transactions: [] });
   let onRPC: ((call: Call) => void) | undefined;
   const fetcher: typeof fetch = async (input, init) => {
@@ -138,7 +138,10 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
   const operate = async (body: unknown, authorization: string | null = `Bearer ${OPERATOR}`, init: RequestInit = {}) => result(await operator({
     request: request(body, '/api/miniapp-operator', { headers: { 'content-type': 'application/json', ...(authorization === null ? {} : { authorization }) }, ...init }), env }));
   assert.equal((await asUser('status')).status, 200);
-  t.after(async () => { await Promise.all(background); assert.deepEqual(unexpected, []); });
+  t.after(async () => {
+    try { await Promise.all(background); assert.deepEqual(unexpected, []); }
+    finally { db.sql.close(); }
+  });
   return { db, env, store, calls, access, operator, send, asUser, operate, background,
     mailResponse: (response: typeof mailResponse) => { mailResponse = response; },
     failRPC: (value = true) => { rpcFailure = value; },
@@ -270,6 +273,89 @@ test('join only changes the signed identity, never self-approves, and status is 
   assert.deepEqual((await f.asUser('status')).body, { state: 'waiting', cohortFull: false, telegramNotify: true, telegramWriteAllowed: false, emailVerified: false, emailDelivery: { state: 'not_requested', retryAfterMs: null }, hasCredential: false });
   error(await f.asUser('register/options'), 503, 'wallet_unavailable');
   assert.deepEqual(f.outbox(), []); assert.equal(f.calls.length, 0);
+});
+
+async function withoutProviderCompletion<T>(work: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('handler waited for unrelated provider delivery')), 2000);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
+for (const action of ['join', 'notify']) {
+  test(`unapproved ${action} returns immediately without dispatching unrelated queued email`, async t => {
+    const f = await fixture(t);
+    await f.store.join(2, false);
+    await new NotificationStore(f.db, f.env).setContact(2, 'other@example.com');
+    let release!: (response: Response) => void;
+    const held = new Promise<Response>(resolve => { release = resolve; });
+    f.mailResponse(() => held);
+    const work = f.asUser(action, 1, action === 'join' ? { notify: false } : { allowed: true });
+    try {
+      const response = await withoutProviderCompletion(work);
+      assert.equal(response.status, 200);
+      assert.equal(response.body.state, 'waiting');
+      assert.equal(f.calls.length, 0);
+      assert.equal(f.background.length, 0);
+      assert.equal(f.outbox()[0].attempts, 0);
+    } finally { release(Response.json({ id: 'released' })); await work; }
+  });
+}
+
+test('approved join durably enqueues its invitation and uses waitUntil without waiting for a stalled global send', async t => {
+  const f = await fixture(t);
+  await f.store.join(1, false); await f.store.approve([1]);
+  await f.store.join(2, false);
+  await new NotificationStore(f.db, f.env).setContact(2, 'other@example.com');
+  let release!: (response: Response) => void;
+  let entered!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<Response>(resolve => { release = resolve; });
+  f.mailResponse(() => { entered(); return held; });
+  const work = f.asUser('join', 1, { notify: true });
+  try {
+    const response = await withoutProviderCompletion(work);
+    assert.equal(response.status, 200); assert.equal(response.body.state, 'approved');
+    assert.ok(f.outbox().some(row => row.id === 'invite:telegram:1'));
+    assert.equal(f.background.length, 1);
+    await withoutProviderCompletion(started);
+    let finished = false;
+    void f.background[0].then(() => { finished = true; });
+    await Promise.resolve();
+    assert.equal(finished, false, 'response arrives while waitUntil still owns the provider send');
+  } finally { release(Response.json({ id: 'released' })); await work; await Promise.all(f.background); }
+});
+
+test('approved invitation stays durable for scheduled dispatch when waitUntil is unavailable', async t => {
+  const f = await fixture(t);
+  await f.store.join(1, false); await f.store.approve([1]);
+  const response = await f.refreshedUser('join', 1, { notify: true });
+  assert.equal(response.status, 200);
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.outbox()[0].status, 'pending');
+  assert.equal((await f.operate({ action: 'dispatch' })).body.sent, 1);
+});
+
+test('email request still awaits its dispatch result before reporting provider acceptance', async t => {
+  const f = await fixture(t); await f.store.join(1, false);
+  let release!: (response: Response) => void;
+  let entered!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  const held = new Promise<Response>(resolve => { release = resolve; });
+  f.mailResponse(() => { entered(); return held; });
+  let responded = false;
+  const work = f.asUser('email/request', 1, { email: 'private@example.com' }).then(response => {
+    responded = true; return response;
+  });
+  try {
+    await withoutProviderCompletion(started);
+    assert.equal(responded, false);
+  } finally { release(Response.json({ id: 'accepted' })); }
+  const response = await work;
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.delivery, { state: 'accepted', retryAfterMs: null });
 });
 
 test('verified Telegram write permission skips only the prompt, never opt-in or admission', async t => {
