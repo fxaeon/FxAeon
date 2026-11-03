@@ -22,8 +22,8 @@ const ROUTE_METADATA = [
   ['/activity', 'History · FxAeon', 'transactions', '/history'],
   ['/qr', 'Receive · FxAeon', 'wallet', '/qr'],
   ['/more', 'More · FxAeon', 'wallet', '/more'],
-  ...productNavigation.map(article => [productHref(article.id), article.title + ' · FxAeon', article.description, productHref(article.id)]),
-  ...sdkNavigation.map(article => [sdkHref(article.id), article.title + ' · FxAeon', article.description, sdkHref(article.id)]),
+  ...productNavigation.map(article => [productHref(article.id), article.title + ' · FxAeon Docs', article.description, productHref(article.id)]),
+  ...sdkNavigation.map(article => [sdkHref(article.id), article.title + ' · FxAeon SDK', article.description, sdkHref(article.id)]),
 ] as const;
 
 function decodeHtmlText(text: string): string {
