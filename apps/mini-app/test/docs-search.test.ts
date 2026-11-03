@@ -142,18 +142,16 @@ test('fxSAVE instant fee precision stays distinct from pool and router fees', ()
   assert.match(config, /pool\/router fee ratios at <code>1e9<\/code> precision/);
 });
 
-test('deposit docs distinguish validated input from the SDK-calculated base-pool-share floor', () => {
+test('deposit docs distinguish the selected base-pool-share floor from final fxSAVE shares', () => {
   const article = readFileSync(new URL('../src/app/docs/sdk/SdkArticle.tsx', import.meta.url), 'utf8');
   const deposit = article.slice(article.indexOf('<h3 id="depositFxSave"'), article.indexOf('<h3 id="withdrawFxSave"'));
-  assert.match(deposit, /validates the caller&apos;s <code>slippage<\/code> value but ignores the chosen tolerance/);
-  assert.match(deposit, /pinned router forwards the SDK-calculated floor to the base pool, where it is checked in base-pool-share units/);
+  assert.match(deposit, /patched planner applies the selected slippage to the base pool&apos;s fxSP share preview/);
   assert.match(deposit, /not a separately enforced final fxSAVE minimum/);
-  assert.match(deposit, /does not guarantee the caller&apos;s selected deposit tolerance/);
   assert.match(deposit, /Direct base-pool deposits have no routed minimum-output floor/);
-  assert.doesNotMatch(deposit, /Slippage applies to routed|0\.04%/);
+  assert.doesNotMatch(deposit, /ignores the chosen tolerance/);
   assert.match(deposit, /fx-sdk\/blob\/53c0b9805a169e75ad375c92c241e1292b66405f\/src\/core\/fxsave\.ts#L332-L474/);
-  assert.match(deposit, /SavingFxUSDFacet\.sol#L64-L77/);
-  assert.match(deposit, /FxUSDBasePool\.sol#L281-L299/);
+  assert.match(deposit, /SavingFxUSDFacet\.sol#L57-L67/);
+  assert.match(deposit, /FxUSDBasePool\.sol#L261-L276/);
 });
 
 test('decorative marks hidden from readers never enter the index', () => {

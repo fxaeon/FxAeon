@@ -538,10 +538,13 @@ export default function EarnPage() {
       if (readPending.balance || readWarnings.includes('balance')) return null;
       const amountWei = parseAmount(amount, token === 'usdc' ? 'USDC' : token === 'fxUSDBasePool' ? 'fxUSDBasePool' : 'fxUSD');
       if (!amountWei) return null;
+      const slippageValue = Number(slippage);
+      if (token !== 'fxUSDBasePool' && (!Number.isFinite(slippageValue) || slippageValue * 1_000_000 < 1 || slippageValue > MAX_FX_SLIPPAGE_PERCENT || Math.abs(slippageValue * 1_000_000 - Math.round(slippageValue * 1_000_000)) > 1e-5)) return null;
       return () => planDepositFxSave({
         userAddress: wallet.address!,
         tokenIn: token,
         amount: amountWei,
+        ...(token === 'fxUSDBasePool' ? {} : { slippage: slippageValue }),
       });
     }
     const sharesWei = shares.toLowerCase() === 'all'
@@ -621,7 +624,7 @@ export default function EarnPage() {
                 <Segmented value={mode} onChange={changeMode} ariaLabel="fxSAVE action" options={[
                   { value: 'deposit', label: 'Deposit' }, { value: 'withdraw', label: 'Withdraw' },
                 ]} />
-                <TransactionSettings scope="fxSAVE" slippage={mode === 'withdraw' && instant && token !== 'fxUSDBasePool'} slippagePercent={slippage} onSlippageChange={setSlippage} />
+                <TransactionSettings scope="fxSAVE" slippage={token !== 'fxUSDBasePool' && (mode === 'deposit' || mode === 'withdraw' && instant)} slippagePercent={slippage} onSlippageChange={setSlippage} />
               </div> : <div className={presentation.claimHeading}>
                 <button type="button" onClick={() => changeMode('withdraw')} className={presentation.back}><ArrowLeft size={17} aria-hidden="true" />Back to fxSAVE</button>
                 <h2>Withdrawal details</h2>

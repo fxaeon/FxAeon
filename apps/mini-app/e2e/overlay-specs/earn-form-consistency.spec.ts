@@ -93,7 +93,7 @@ async function mount(page:Page,resume=true,slippage='2',mode:'withdraw'|'deposit
   await page.evaluate(() => localStorage.setItem('fxaeon.settings.v1',JSON.stringify({slippageBps:50,gasTier:'standard'})));
   await page.addStyleTag({content:`*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;--fs-small:14px;--fs-caption:12px;--text:#111;--mut:#555;--surface:#fff;--surface-2:#eee;--line:#ccc;--success:#16803b;--radius-sm:8px;--dur-fast:0ms}button{font:inherit;border:0;padding:0;cursor:pointer;background:none}${css}`});
   await page.addScriptTag({content:script});
-  if(resume) await expect(page.getByRole('region',{name:'Earn review'})).toContainText(`Review slippage: ${mode === 'deposit' || fixture.token === 'fxUSDBasePool' || fixture.instant === false ? '' : slippage}%`);
+  if(resume) await expect(page.getByRole('region',{name:'Earn review'})).toContainText(`Review slippage: ${fixture.token === 'fxUSDBasePool' || mode === 'withdraw' && fixture.instant === false ? '' : slippage}%`);
   else if (fixture.shares === '0') await expect(page.getByText('0 fxSAVE', { exact: true })).toBeVisible();
   else await expect(page.getByText(fixture.shares !== undefined ? /^[\d,.]+ fxSAVE$/ : '600 fxSAVE',{exact:true}).first()).toBeVisible();
 }
@@ -140,15 +140,16 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();
 });
 
-test('deposits never offer or forward an unused slippage setting', async ({ page }) => {
+test('routed deposits offer and forward slippage; direct fxSP deposits do not', async ({ page }) => {
   await mount(page, false);
   for (const token of ['fxUSD', 'usdc', 'fxUSDBasePool']) {
     await page.getByLabel('Earn asset', { exact: true }).selectOption(token);
     // The SDK's deposit floor is stated in the review; the form adds no helper copy for it.
     await expect(page.getByText(/slippage|share minimum/i)).toHaveCount(0);
-    await page.getByRole('button', { name: 'Transaction settings, Standard speed', exact: true }).click();
+    await page.getByRole('button', { name: token === 'fxUSDBasePool' ? 'Transaction settings, Standard speed' : 'Transaction settings, 0.5% slippage', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
-    await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(0);
+    if (token === 'fxUSDBasePool') await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(0);
+    else await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveValue('0.5');
     await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
     await page.getByLabel('Amount', { exact: true }).fill('10');
     await page.getByRole('button', { name: 'Review deposit', exact: true }).click();
@@ -157,7 +158,8 @@ test('deposits never offer or forward an unused slippage setting', async ({ page
       return harness.__earnHarness.plans.at(-1);
     });
     expect(plan?.tokenIn).toBe(token);
-    expect(plan).not.toHaveProperty('slippage');
+    if (token === 'fxUSDBasePool') expect(plan).not.toHaveProperty('slippage');
+    else expect(plan?.slippage).toBe(0.5);
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
   }
   expect(await storedSlippage(page)).toBe(50);
@@ -165,6 +167,11 @@ test('deposits never offer or forward an unused slippage setting', async ({ page
   await expect(page.getByRole('radio', { name: /After cooldown/ })).toBeChecked();
   await page.getByRole('radio', { name: /^Instant/ }).locator('..').click();
   await openSettings(page, '0.5');
+});
+
+test('a resumed routed deposit retains its precise selected slippage', async ({ page }) => {
+  await mount(page, true, '0.291', 'deposit');
+  expect(await latestPlan(page)).toMatchObject({ tokenIn: 'fxUSD', slippage: 0.291 });
 });
 
 test('disconnected Earn shows the deposit amount and keeps it through wallet connection', async ({ page }) => {

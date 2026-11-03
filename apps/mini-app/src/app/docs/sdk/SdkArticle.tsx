@@ -336,13 +336,13 @@ export const sdkSections: { id: string; title: string; content: ReactNode }[] = 
         <dl>
           <dt>Input</dt><dd><code>userAddress</code>, <code>tokenIn</code> (<code>usdc</code>, <code>fxUSD</code>, or <code>fxUSDBasePool</code>), positive <code>amount</code> in input-token units, and optional <code>slippage</code>.</dd>
           <dt>Output</dt><dd><code>{'{ txs }'}</code>, with an exact input-token approval when needed before the deposit action.</dd>
-          <dt>Deposit slippage limitation</dt><dd>SDK 1.0.5 validates the caller&apos;s <code>slippage</code> value but ignores the chosen tolerance when generating routed USDC/fxUSD deposit calldata. The pinned router forwards the SDK-calculated floor to the base pool, where it is checked in base-pool-share units. It is not a separately enforced final fxSAVE minimum and does not guarantee the caller&apos;s selected deposit tolerance. Direct base-pool deposits have no routed minimum-output floor.</dd>
+          <dt>Deposit protection</dt><dd>For routed USDC/fxUSD deposits, the patched planner applies the selected slippage to the base pool&apos;s fxSP share preview and rounds the minimum up to a raw share unit. The router enforces that fxSP minimum before depositing those shares into fxSAVE. It is not a separately enforced final fxSAVE minimum. Direct base-pool deposits have no routed minimum-output floor.</dd>
           <dt>Review and refresh</dt><dd>Review the encoded minimum with its actual units, then sign each step in order. Reload fxSAVE balance and status after the canonical action receipt.</dd>
         </dl>
         <p>
           Implementation references: the <ExternalLink href="https://github.com/AladdinDAO/fx-sdk/blob/53c0b9805a169e75ad375c92c241e1292b66405f/src/core/fxsave.ts#L332-L474">pinned SDK deposit planner</ExternalLink>,{' '}
-          <ExternalLink href="https://github.com/AladdinDAO/fx-protocol-contracts/blob/5e198e93657db008a57129e7eea21a996618f17f/contracts/periphery/facets/SavingFxUSDFacet.sol#L64-L77">router forwarding</ExternalLink>, and{' '}
-          <ExternalLink href="https://github.com/AladdinDAO/fx-protocol-contracts/blob/5e198e93657db008a57129e7eea21a996618f17f/contracts/core/FxUSDBasePool.sol#L281-L299">base-pool minimum-share check</ExternalLink>.
+          <ExternalLink href="https://github.com/AladdinDAO/fx-protocol-contracts/blob/5e198e93657db008a57129e7eea21a996618f17f/contracts/periphery/facets/SavingFxUSDFacet.sol#L57-L67">router forwarding</ExternalLink>, and{' '}
+          <ExternalLink href="https://github.com/AladdinDAO/fx-protocol-contracts/blob/5e198e93657db008a57129e7eea21a996618f17f/contracts/core/FxUSDBasePool.sol#L261-L276">base-pool minimum-share check</ExternalLink>.
         </p>
         <h3 id="withdrawFxSave" tabIndex={-1}><a href="#withdrawFxSave" className={styles.headingLink}><code>withdrawFxSave</code><span className={styles.anchorMark} aria-hidden="true">#</span></a></h3>
         <p>Prepare a queued redemption, an instant exit, or a direct redemption to fxSP base-pool shares.</p>
