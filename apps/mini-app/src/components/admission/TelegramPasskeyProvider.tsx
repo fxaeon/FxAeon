@@ -95,7 +95,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
 function TelegramPasskeySession({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [view, setView] = useState<AdmissionScreenState>('checking');
+  const [view, setView] = useState<'checking' | AdmissionScreenState>('checking');
   const [status, setStatus] = useState<MiniappAccessStatus>();
   const [session, setSession] = useState<MiniappWallet>();
   const [chainId, setChainId] = useState<FxChainId>(1);

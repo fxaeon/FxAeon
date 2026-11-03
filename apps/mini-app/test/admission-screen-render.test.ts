@@ -34,7 +34,7 @@ async function render(state: AdmissionScreenState, overrides: Partial<AdmissionS
   return renderToStaticMarkup(React.createElement(AdmissionScreen, props));
 }
 
-const states: Array<[AdmissionScreenState, string, string | null]> = [
+const states: Array<[AdmissionScreenState, string, string]> = [
   ['intro', 'Join early access.', 'Join'],
   ['full', 'Early access is full.', 'Join the waitlist'],
   ['waiting', 'You’re on the waitlist.', 'Done'],
@@ -47,7 +47,6 @@ const states: Array<[AdmissionScreenState, string, string | null]> = [
   ['ready', 'You’re in.', 'Open FxAeon'],
   ['setup-error', 'Let’s try again.', 'Try setup again'],
   ['join-error', 'Let’s try again.', 'Try again'],
-  ['checking', 'Checking your access.', null],
 ];
 
 test('every admission state renders one named heading, FxLogo, and the correct next step', async () => {
@@ -58,8 +57,7 @@ test('every admission state renders one named heading, FxLogo, and the correct n
     assert.match(html, /<main[^>]*aria-labelledby="[^"]+-title"/);
     assert.match(html, /<svg[^>]*role="img" aria-label="FxAeon"/);
     assert.match(html, /aria-live="polite" aria-atomic="true"/);
-    if (action) assert.ok(html.includes(action), state);
-    else assert.doesNotMatch(html, /<button/);
+    assert.ok(html.includes(action), state);
     assert.doesNotMatch(html, /480|queue|\bETA\b|No marketing|second wallet|place is safe|Privy/);
   }
 });

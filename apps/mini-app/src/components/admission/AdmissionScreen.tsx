@@ -6,7 +6,7 @@ import styles from './AdmissionScreen.module.css';
 
 export type AdmissionScreenState =
   | 'intro' | 'full' | 'waiting' | 'alerts-off' | 'email' | 'verify' | 'verified'
-  | 'invited' | 'passkey' | 'ready' | 'setup-error' | 'join-error' | 'checking';
+  | 'invited' | 'passkey' | 'ready' | 'setup-error' | 'join-error';
 
 export type AdmissionAction =
   | 'join' | 'open-web' | 'done' | 'allow-notifications' | 'add-email'
@@ -104,7 +104,6 @@ const COPY: Record<AdmissionScreenState, Copy> = {
     primary: { label: 'Try again', action: 'retry-join' },
     secondary: { label: 'Use FxAeon on the web', action: 'open-web' },
   },
-  checking: { title: 'Checking your access.', lead: 'One moment.' },
 };
 
 const EMAIL_COPY: Partial<Record<AdmissionEmailDelivery, Copy>> = {
@@ -128,7 +127,6 @@ export function AdmissionScreen(props: AdmissionScreenProps) {
   const id = useId();
   const view = state === 'waiting' && notificationPermission === 'denied' ? 'alerts-off' : state;
   const copy = view === 'verify' ? EMAIL_COPY[props.emailDelivery ?? 'unknown'] ?? COPY.verify : COPY[view];
-  const pending = busy || state === 'checking';
   const detail = view === 'waiting'
     ? notificationPermission === 'granted'
       ? 'Your invite will arrive in this Telegram chat.'
@@ -155,30 +153,30 @@ export function AdmissionScreen(props: AdmissionScreenProps) {
               <form id={`${id}-email-form`} className={styles.emailForm} aria-label="Invitation email"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (!pending) onAction('submit-email');
+                  if (!busy) onAction('submit-email');
                 }}>
                 <label htmlFor={`${id}-email`}>Email address</label>
                 <input id={`${id}-email`} name="email" type="email" autoComplete="email"
                   inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} required
-                  placeholder="you@example.com" value={props.email} disabled={pending}
+                  placeholder="you@example.com" value={props.email} disabled={busy}
                   onChange={(event) => props.onEmailChange(event.currentTarget.value)} />
               </form>
             )}
           </div>
-          <div className={styles.actions} aria-busy={pending}>
+          <div className={styles.actions} aria-busy={busy}>
             {detail && <p className={styles.detail}>{detail}</p>}
             {error && <p className={styles.error} role="alert">{error}</p>}
             {statusMessage && <p className={styles.detail} role="status">{statusMessage}</p>}
             {busy && <p className={styles.detail} role="status">One moment…</p>}
             {copy.primary && (
               <button className={styles.primary} type={state === 'email' ? 'submit' : 'button'}
-                form={state === 'email' ? `${id}-email-form` : undefined} disabled={pending || primaryDisabled}
+                form={state === 'email' ? `${id}-email-form` : undefined} disabled={busy || primaryDisabled}
                 onClick={state === 'email' ? undefined : () => onAction(copy.primary!.action)}>
                 {primaryLabel ?? copy.primary.label}
               </button>
             )}
             {secondary && (
-              <button className={styles.secondary} type="button" disabled={pending}
+              <button className={styles.secondary} type="button" disabled={busy}
                 onClick={() => onAction(secondary.action)}>
                 {secondary.label}
               </button>
