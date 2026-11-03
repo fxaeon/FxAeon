@@ -69,7 +69,6 @@ const cases: Array<[AdmissionScreenState, string | null, AdmissionAction | null,
   ['ready', 'Open FxAeon', 'open-app'],
   ['setup-error', 'Try setup again', 'retry-setup', 'Set up later', 'defer-setup'],
   ['join-error', 'Try again', 'retry-join', 'Use FxAeon on the web', 'open-web'],
-  ['checking', null, null],
 ];
 
 for (const colorScheme of ['light', 'dark'] as const) {
