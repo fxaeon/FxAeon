@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { configuredBrowserChannel } from '../../../scripts/e2e_browser_channel.cjs';
 import { savedThemes, observationMs, openConfiguredRun, watchHydration, installFirstPaintProbe,
-  assertDarkHydration, artifactDirectory, saveReport } from './configured-startup-support.mjs';
+  assertDarkHydration, readStartupTimeline, artifactDirectory, saveReport } from './configured-startup-support.mjs';
 
 function gate() {
   let release;
@@ -39,11 +39,13 @@ try {
     const issues = watchHydration(page);
     const statusSeen = gate(), recoverySeen = gate(), statusReply = gate(), recoveryReply = gate();
     const actions = [], unexpected = [], chunkChecks = [], providerChunks = [];
+    let timeline = null;
     const launch = `user=%7B%22id%22%3A12345%7D&auth_date=${Math.floor(Date.now() / 1000)}&hash=synthetic-configured-fixture`;
     if (timing === 'fast') { statusReply.release(); recoveryReply.release(); }
     try {
       await installFirstPaintProbe(page, theme, true);
       await page.addInitScript(({ launch, delayed }) => {
+        window.__configuredFixtureEvents = [{ name: delayed ? 'bridgeWithheld' : 'bridgeCreated', atMs: performance.now() }];
         window.Telegram = {};
         window.__releaseConfiguredBridge = () => {
           const noop = () => {};
@@ -52,6 +54,7 @@ try {
             ready: noop, expand: noop, close: noop, onEvent: noop, offEvent: noop, isVersionAtLeast: () => true,
             setHeaderColor: noop, setBackgroundColor: noop, setBottomBarColor: noop,
             BackButton: { show: noop, hide: noop, onClick: noop, offClick: noop } };
+          window.__configuredFixtureEvents.push({ name: 'bridgeReleased', atMs: performance.now() });
         };
         window.__credentialCalls = 0;
         const reject = () => { window.__credentialCalls += 1; return Promise.reject(new Error('Credentials forbidden in this fixture')); };
@@ -84,7 +87,10 @@ try {
           }
           if (body.action === 'transaction/status') {
             recoverySeen.release(); await recoveryReply.promise;
-            await page.evaluate(() => { window.__configuredStartup.allowConnected = true; });
+            await page.evaluate(() => {
+              window.__configuredStartup.allowConnected = true;
+              window.__configuredFixtureEvents.push({ name: 'recoveryReplyReleaseRequested', atMs: performance.now() });
+            });
             return request.fulfill({ json: { operation: null } });
           }
           unexpected.push(`forbidden action: ${body.action}`);
@@ -101,7 +107,10 @@ try {
         assert.equal(await page.evaluate(() => Boolean(window.Telegram?.WebApp)), false, 'Status must start before bridge availability.');
         await neutral(page);
         await page.screenshot({ path: resolve(directory, `${theme}-delayed-status.png`), animations: 'disabled' });
-        await page.evaluate(() => window.__releaseConfiguredBridge());
+        await page.evaluate(() => {
+          window.__releaseConfiguredBridge();
+          window.__configuredFixtureEvents.push({ name: 'statusReplyReleaseRequested', atMs: performance.now() });
+        });
         statusReply.release();
       }
       await seen(recoverySeen.promise, 'Transaction recovery');
@@ -116,11 +125,19 @@ try {
       assert.deepEqual(unexpected, []);
       assert.equal(await page.evaluate(() => window.__credentialCalls), 0);
       const probe = await assertDarkHydration(page, theme, issues, true);
-      await page.screenshot({ path: resolve(directory, `${theme}-${timing}-connected.png`), animations: 'disabled', mask: [profile], maskColor: '#242428' });
-      results.push({ savedTheme: theme, timing, ok: true, paints: probe.paints, actions, providerChunks });
+      timeline = await readStartupTimeline(page, timing);
+      for (const request of [timeline.statusRequest, timeline.recoveryRequest]) {
+        assert.ok(request && request.fetchCalledMs !== null && request.requestStartMs !== null && request.requestEndMs !== null && request.durationMs !== null,
+          'A real browser request interval was not observed.');
+      }
+      assert.ok(timeline.firstWalletPaintMs !== null && timeline.firstConnectedPaintMs !== null, 'Verified wallet and connected frames were not observed.');
+      await page.screenshot({ path: resolve(directory, `${theme}-${timing}-connected.png`), animations: 'disabled' });
+      results.push({ savedTheme: theme, timing, ok: true, paints: probe.paints, actions, providerChunks, timeline });
+      console.log(`TRACE ${JSON.stringify({ savedTheme: theme, scenario: timing, ...timeline })}`);
       console.log(`PASS saved=${theme}, ${timing}: emitted passkey chunks, dark first paint, verified publication`);
     } catch (error) {
-      results.push({ savedTheme: theme, timing, ok: false, error: error.message });
+      timeline ??= await readStartupTimeline(page, timing).catch(() => null);
+      results.push({ savedTheme: theme, timing, ok: false, error: error.message, timeline });
       throw error; // A wrong/unconfigured build fails promptly instead of passing static HTML.
     } finally { statusReply.release(); recoveryReply.release(); await context.close(); }
   }

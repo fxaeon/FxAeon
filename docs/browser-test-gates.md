@@ -69,12 +69,12 @@ The [UI state lab](ui-state-lab.md) has a separate visual-baseline policy. Inten
 
 These opt-in scripts are separate from the default CI export and the isolated
 overlay harnesses. They never build, install dependencies, sign, or deploy.
-Run them only after the parent has finished the normal CI-equivalent build and
-checks. Then make a separate configured export in the disposable verification
+Run them after the normal CI-equivalent build and checks finish. Then make a
+separate configured export in a disposable verification
 checkout, using a fake public app ID (no provider credentials):
 
 ~~~powershell
-# From C:\FxAeon-prelaunch-verify, after the default build/tests are finished.
+# From the repository root, after the default export tests have finished.
 $env:NEXT_PUBLIC_PRIVY_APP_ID = 'clabcdefghijklmnopqrstuv'
 $env:NEXT_PUBLIC_TELEGRAM_WALLET_MODE = 'passkey'
 pnpm --dir apps/mini-app build
@@ -117,11 +117,24 @@ health.
 
 `FXAEON_HYDRATION_THEME=light` narrows either run to one saved preference;
 the default is `all`. `FXAEON_HYDRATION_OBSERVE_MS` selects 100–5000 ms of
-post-ready observation (default 1000). JSON results and masked synthetic phone
+post-ready observation (default 1000). JSON results and unmasked synthetic phone
 screenshots go to ignored `output/configured-startup`; set
 `FXAEON_HYDRATION_ARTIFACTS` to choose a different directory. Record the checkout
 revision and build environment with those artifacts. Run the runner guard tests
 without a build using `node --test scripts/verify_configured_startup.test.mjs`.
+
+Each configured result and its `TRACE` log includes a navigation-relative browser
+timeline. Native `fetch` invocation and Resource Timing `startTime`/`responseEnd`
+measure the status and recovery request intervals. The first visible neutral,
+authenticated wallet control, and connected-state frames are sampled with
+`requestAnimationFrame`; native first-paint and first-contentful-paint entries
+are reported separately. These frame samples describe the first visible DOM
+observed before paint, not a hardware display timestamp. Missing events remain
+`null`. The fast case adds no response hold. The delayed case labels its
+intentional bridge/status/recovery holds, their measured release commands, and
+the four-minute run bound; those holds are never substituted for request timing
+or subtracted to invent an unobserved latency. Fixtures are visibly synthetic,
+so screenshots retain the wallet control's actual pixels.
 
 ## What needs additional evidence
 

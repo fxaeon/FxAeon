@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { savedThemes, localBaseUrl, observationMs, existingBuildTarget, hydrationIssue,
-  assertDarkHydration, boundedRun } from '../apps/mini-app/e2e/configured-startup-support.mjs';
+  assertDarkHydration, boundedRun, startupTimeline } from '../apps/mini-app/e2e/configured-startup-support.mjs';
 
 test('theme matrix covers every saved alias plus unset, invalid and denied storage', () => {
   assert.deepEqual(savedThemes(), ['unset', 'official', 'dark', 'light', 'invalid', 'blocked']);
@@ -51,4 +51,48 @@ test('the total browser budget closes the browser and cannot wait indefinitely',
     assert.equal(budget.expired(), true);
     assert.equal(closed, 1);
   } finally { budget.close(); }
+});
+
+const api = 'http://127.0.0.1:4321/api/telegram-wallet';
+function timingSnapshot() {
+  return { timeOrigin: 1_800_000_000_000, firstNeutralPaintMs: 920, firstWalletPaintMs: 1450, firstConnectedPaintMs: 1480,
+    requests: [{ action: 'status', url: api, fetchCalledMs: 1200.1 }, { action: 'transaction/status', url: api, fetchCalledMs: 1300.2 }],
+    resources: [{ name: api, startTime: 1300.3, responseEnd: 1400.4 }, { name: api, startTime: 1200.2, responseEnd: 1299.9 }],
+    nativePaints: [{ name: 'first-paint', startTime: 800 }, { name: 'first-contentful-paint', startTime: 900 }],
+    controls: [{ name: 'bridgeWithheld', atMs: 5 }, { name: 'bridgeReleased', atMs: 1250 },
+      { name: 'statusReplyReleaseRequested', atMs: 1251 }, { name: 'recoveryReplyReleaseRequested', atMs: 1390 }] };
+}
+
+test('request trace uses native navigation-relative resources, independently of release controls', () => {
+  const snapshot = timingSnapshot();
+  const trace = startupTimeline(snapshot, 'fast');
+  assert.deepEqual(trace.statusRequest, { action: 'status', fetchCalledMs: 1200.1, requestStartMs: 1200.2, requestEndMs: 1299.9, durationMs: 99.7 });
+  assert.deepEqual(trace.recoveryRequest, { action: 'transaction/status', fetchCalledMs: 1300.2, requestStartMs: 1300.3, requestEndMs: 1400.4, durationMs: 100.1 });
+  assert.equal(trace.firstNeutralPaintMs, 920);
+  assert.equal(trace.firstWalletPaintMs, 1450);
+  assert.equal(trace.firstConnectedPaintMs, 1480);
+  assert.equal(trace.nativeFirstContentfulPaintMs, 900);
+  assert.deepEqual(trace.intentionalDelays.holds, []);
+  assert.equal(trace.navigationTimeOriginEpochMs, snapshot.timeOrigin);
+});
+
+test('controlled delayed holds are measured and labelled without replacing request intervals', () => {
+  const trace = startupTimeline(timingSnapshot(), 'delayed');
+  assert.match(trace.intentionalDelays.label, /controlled/);
+  assert.equal(trace.intentionalDelays.maxRunMs, 240_000);
+  assert.equal(trace.intentionalDelays.holds.find(hold => hold.name === 'status').observedHoldMs, 50.9);
+  assert.equal(trace.statusRequest.requestEndMs, 1299.9);
+  assert.equal(trace.statusRequest.durationMs, 99.7);
+});
+
+test('missing resource completion or paint remains unknown rather than borrowing another request', () => {
+  const snapshot = timingSnapshot();
+  snapshot.resources = [snapshot.resources[0]];
+  snapshot.firstNeutralPaintMs = null;
+  const trace = startupTimeline(snapshot, 'fast');
+  assert.equal(trace.statusRequest.requestStartMs, null);
+  assert.equal(trace.statusRequest.requestEndMs, null);
+  assert.equal(trace.statusRequest.durationMs, null);
+  assert.equal(trace.firstNeutralPaintMs, null);
+  assert.equal(trace.recoveryRequest.requestStartMs, 1300.3);
 });
