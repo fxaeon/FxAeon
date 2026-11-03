@@ -64,7 +64,8 @@ test('no-cache offline history is explicit, then foreground connectivity enables
   const events = { addEventListener: (name: string, callback: () => void) => listeners.set(name, callback), removeEventListener: (name: string) => listeners.delete(name) };
   const document = { ...events, visibilityState: 'visible' };
   const navigator = { onLine: false };
-  const queryClient = { cancelQueries: async () => undefined };
+  const cancellations: unknown[] = [];
+  const queryClient = { cancelQueries: async (options: unknown) => { cancellations.push(options); } };
   const module = { exports: {} as { BorrowFundingHistory: (props: unknown) => React.ReactNode } };
   const source = readFileSync(new URL('../src/components/BorrowFundingHistory.tsx', import.meta.url), 'utf8');
   runInNewContext(transformSync(source, { loader: 'tsx', format: 'cjs', jsx: 'automatic' }).code, {
@@ -84,6 +85,11 @@ test('no-cache offline history is explicit, then foreground connectivity enables
       if (name === './InfoHelp') return { MetricLabel: ({ label }: { label: string }) => React.createElement('span', null, label) };
       if (name === './MissingValue') return { MissingValue: () => null };
       if (name === './useChartWidth') return { useChartWidth: () => ({ ref: null, width: 480 }) };
+      // This harness tests no-data connectivity; chart gestures run in the browser suite.
+      if (name === './useChartInspection') return { useChartInspection: ({ points }: { points: unknown[] }) => {
+        assert.equal(points.length, 0);
+        return { index: null, dragging: false, reset: () => undefined, handlers: {} };
+      } };
       if (name.endsWith('.css')) return { __esModule: true, default: {} };
       return funding;
     },
@@ -100,11 +106,15 @@ test('no-cache offline history is explicit, then foreground connectivity enables
   assert.doesNotMatch(offline, /Loading funding history/);
   assert.equal(queryOptions.enabled, false);
   assert.equal(queryOptions.refetchInterval, false);
+  assert.equal(cancellations.length, 1);
+  assert.equal(JSON.stringify(cancellations[0]), JSON.stringify({ queryKey: ['borrow-funding-history', 'ETH'] }));
   navigator.onLine = true; listeners.get('online')!(); render();
   assert.equal(queryOptions.enabled, true);
   assert.equal(queryOptions.refetchInterval, 300_000);
+  assert.equal(cancellations.length, 1);
   document.visibilityState = 'hidden'; listeners.get('visibilitychange')!(); render();
   assert.equal(queryOptions.enabled, false);
   assert.equal(queryOptions.refetchInterval, false);
+  assert.equal(cancellations.length, 2);
   hooks.forEach(hook => (hook as { cleanup?: () => void } | null)?.cleanup?.());
 });

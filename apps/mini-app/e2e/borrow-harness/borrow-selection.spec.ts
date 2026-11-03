@@ -664,12 +664,12 @@ test('pointer-selected funding sample remains selected when the chart receives f
   const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
   const chart = history.getByRole('slider', { name: 'Explore historical funding charge' });
   await expect(chart).toBeVisible();
-  await expect(chart).toHaveAttribute('aria-valuenow', '2');
+  await expect(chart).toHaveAttribute('aria-valuenow', '1');
 
   // A pointerdown selects the first observation before the SVG receives focus.
   // Focus must preserve that sample rather than replacing it with the latest.
   await chart.click({ position: { x: 8, y: 80 } });
-  await expect(chart).toHaveAttribute('aria-valuenow', '1');
+  await expect(chart).toHaveAttribute('aria-valuenow', '0');
   await expect(chart).toHaveAttribute('aria-valuetext', /per eight hours/);
 });
 
