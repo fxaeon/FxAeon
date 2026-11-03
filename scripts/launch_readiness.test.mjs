@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { createExportManifest } from '../apps/mini-app/e2e/serve.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const publicRoot = resolve(root, 'apps/mini-app/public');
@@ -27,6 +28,11 @@ test('app sitemap URLs resolve to public app pages and omit compatibility/login 
       await access(resolve(root, 'apps/mini-app/src/app/docs/sdk/[topic]/page.tsx'));
       continue;
     }
+    // Pages serves the exported public HTML file through its clean URL.
+    if (url.pathname === '/privacy') {
+      await access(resolve(publicRoot, 'privacy.html'));
+      continue;
+    }
     await access(url.pathname.endsWith('.html')
       ? resolve(publicRoot, '.' + url.pathname)
       : resolve(root, 'apps/mini-app/src/app', '.' + url.pathname, 'page.tsx'));
@@ -36,6 +42,9 @@ test('app sitemap URLs resolve to public app pages and omit compatibility/login 
 });
 
 test('privacy disclosure remains reachable and accurately separates device and provider data', async () => {
+  const exported = await createExportManifest(publicRoot);
+  assert.equal(exported.get('/privacy')?.path, resolve(publicRoot, 'privacy.html'));
+  assert.equal(exported.get('/privacy.html')?.path, exported.get('/privacy')?.path);
   const privacy = await readFile(resolve(publicRoot, 'privacy.html'), 'utf8');
   const docs = await readFile(resolve(root, 'apps/mini-app/src/app/docs/guide/page.tsx'), 'utf8');
   const article = await readFile(resolve(root, 'apps/mini-app/src/app/docs/ProductArticle.tsx'), 'utf8');
@@ -48,7 +57,7 @@ test('privacy disclosure remains reachable and accurately separates device and p
   assert.match(navigation, /id: 'privacy'/);
   assert.match(topic, /productSections\.find\(\(\{ id \}\) => id === topic\)/);
   assert.match(topic, /topicContent\(section\.content\)/);
-  assert.match(article, /href="\/privacy\.html"/);
+  assert.match(article, /href="\/privacy"/);
   assert.match(privacy, /browser storage/);
   assert.match(privacy, /public blockchains are publicly visible/);
   assert.doesNotMatch(privacy, /never collect|fully anonymous|GDPR compliant|CCPA compliant/i);

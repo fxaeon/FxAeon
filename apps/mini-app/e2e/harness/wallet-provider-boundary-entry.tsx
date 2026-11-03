@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import WalletProviderBoundary from '@/components/WalletProviderBoundary';
+import RouteProviders from '@/components/RouteProviders';
 import LoginPage from '@/app/login/page';
 import WalletSection from '@/components/WalletSection';
 import { TransactionSettings } from '@/components/TransactionSettings';
@@ -59,7 +59,7 @@ function Harness() {
       <button onClick={() => state.navigate?.('/login')}>Open login</button>
       <button onClick={() => state.navigate?.('/settings')}>Open settings</button>
     </nav>
-    <WalletProviderBoundary><Content path={path} /></WalletProviderBoundary>
+    <RouteProviders><Content path={path} /></RouteProviders>
   </>;
 }
 

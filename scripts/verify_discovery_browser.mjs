@@ -28,6 +28,8 @@ try {
     assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), 'https://fxaeon.xyz/');
     assert.equal(await page.locator('meta[property="og:url"]').getAttribute('content'), 'https://fxaeon.xyz/');
     assert.equal(await page.locator('a[href="https://fxaeon.com/docs"]').count() > 0, true);
+    assert.equal(await page.locator('a[href="https://fxaeon.com/privacy"]').count(), 1);
+    assert.equal(await page.locator('a[href$="/privacy.html"]').count(), 0);
     const telegramLinks = await page.locator('a[href^="https://t.me/"]').evaluateAll(nodes => nodes.map(node => node.href));
     assert.ok(telegramLinks.length > 0);
     for (const href of telegramLinks) assert.equal(telegramLauncher(href), href);

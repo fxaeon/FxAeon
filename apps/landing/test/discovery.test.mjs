@@ -12,7 +12,7 @@ test('the deployable landing artifact ships readable discovery files and keeps r
   const html = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8');
   assert.equal(html.match(/<h1\b/g)?.length, 1);
   assert.match(html, /href="https:\/\/fxaeon\.com\/docs"/);
-  assert.match(html, /href="https:\/\/fxaeon\.com\/privacy\.html"/);
+  assert.match(html, /href="https:\/\/fxaeon\.com\/privacy"/);
   const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(jsonLd);
   assert.deepEqual(JSON.parse(jsonLd)['@graph'].map(node => node['@type']), ['Organization', 'WebSite']);

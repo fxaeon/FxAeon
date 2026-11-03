@@ -19,6 +19,9 @@ const entry = resolve(miniApp, 'e2e/harness/wallet-provider-boundary-entry.tsx')
 // wallet section. Replace external services and visual leaves only. In particular,
 // real dynamic import expressions survive as separate HTTP-loaded ES modules.
 const mocks: Record<string, string> = {
+  // Exercise the real early-loading route/product/wallet boundaries. Prices
+  // are independent of auth selection and have their own runtime suite.
+  '@/components/RoutePriceProvider': `export default function Price({ children }) { return children; }`,
   'next/dynamic': `
     import { createContext, lazy, Suspense } from 'react';
     export const HarnessDynamicFallback = createContext(false);

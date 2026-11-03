@@ -325,7 +325,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>Recovery records depend on this browser’s site data. Another device or cleared storage may not contain them, while submitted transactions remain onchain. Keep important transaction hashes. See <a href="/docs/guide/privacy">Privacy &amp; data</a> for local storage and <a href="/docs/guide/troubleshooting">Troubleshooting</a> for an unclear status.</p>
   </> },
   { id: 'privacy', title: 'Privacy & risks', content: <>
-    <p>Read <a href="/privacy.html">How FxAeon handles your data</a> for the privacy disclosure. This guide explains the practical difference between local records, wallet information, and public chain data.</p>
+    <p>Read <a href="/privacy">How FxAeon handles your data</a> for the privacy disclosure. This guide explains the practical difference between local records, wallet information, and public chain data.</p>
     <h3 id="privacy-device">Records on this device</h3>
     <p>FxAeon uses browser storage for transaction settings, wallet preferences, display caches, draft inputs, and recovery records. They help restore the workspace; they do not authorize a transaction. Clearing site data can remove those local records.</p>
     <h3 id="privacy-wallet">Wallets and sign-in</h3>

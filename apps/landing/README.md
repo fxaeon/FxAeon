@@ -39,8 +39,8 @@ The browser requests only same-origin resources. [functions/api/market-data.ts](
 | --- | --- |
 | fxSAVE APY and TVL | Official Aladdin `concentrator_aToken_tvl_apy` feed and verified fxSAVE contract `0x7743e50F534a7f9F1791DdE7dCD89F7783Eefc39` |
 | APY/TVL freshness | Feed has no source-update timestamp; expires five minutes after the server check |
-| ETH/BTC prices | DefiLlama address-keyed WETH/WBTC quotes, confidence at least 0.5 |
-| Price timestamps | At most five minutes old and at most two minutes in the future |
+| ETH/BTC prices | ETH and WBTC USD quotes from the f(x) price service, validated as positive numbers |
+| Price freshness | The feed has no source-update timestamp; the server fetch time must be at most five minutes old and at most two minutes in the future |
 
 Upstream reads have an eight-second deadline and a 256 KB body cap. Validated responses cache for at most 60 seconds. One source's failure does not erase another valid source. Invalid/expired figures become unavailable; they are never replaced with sample data.
 
