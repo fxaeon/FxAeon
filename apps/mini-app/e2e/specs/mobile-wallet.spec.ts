@@ -387,13 +387,20 @@ test('a namespace replacement cancels a held passive restore and validates the n
 });
 
 test('initialization after startup observation still restores silently, while manual disconnect blocks later initialization', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-04T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-04T00:01:00Z'));
   await page.addInitScript((address) => {
     localStorage.setItem('fxaeon:wallet-provider-rdns', 'com.okex.wallet');
     localStorage.setItem('fxaeon:browser-wallet-address', address);
   }, accountA);
-  const observation = await openHarness(page, 'none', '/', '&authorized=1');
+  // Mount first, then advance discovery explicitly. Waiting for readiness
+  // here races Playwright's assertion timeout against the discovery deadline.
+  const observation = await openHarness(page, 'none', '/', '&authorized=1', 'desktop', false);
+  await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'false');
+  await page.clock.runFor(5_100);
   await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
-  await page.waitForTimeout(5_100);
+  await expect(page.locator('main')).toHaveAttribute('data-connected', 'false');
+  expect((await snapshot(page)).calls.flat()).toEqual([]);
   await page.evaluate(() => {
     Object.assign(window, { okxwallet: globalThis.__mobileWalletHarness.wallets[0].provider });
     window.dispatchEvent(new Event('ethereum#initialized'));
@@ -708,6 +715,8 @@ test('chainChanged during a held chain read rejects its stale snapshot before si
 
 for (const duplicateIdentity of [false, true]) {
   test(`a ${duplicateIdentity ? 'duplicate identity invalidates' : 'distinct wallet preserves'} an exact remembered restore`, async ({ page }) => {
+    await page.clock.install({ time: new Date('2026-11-04T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-11-04T00:01:00Z'));
     await page.goto(`${origin}/?wallets=single&authorized=1&remembered=1&holdAuto=1`);
     await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].accountReadsWaiting)).toBe(1);
     await page.evaluate((duplicate) => {
@@ -719,8 +728,24 @@ for (const duplicateIdentity of [false, true]) {
       harness.wallets[0].holdAccounts = false;
       harness.wallets[0].settleAccounts();
     }, duplicateIdentity);
-    await expect(page.locator('[data-harness-ready="true"]')).toBeVisible();
-    await expect(page.locator('main')).toHaveAttribute('data-address', duplicateIdentity ? '' : accountA);
+    // A conflict is resolved disconnection, not a missing bridge. Neither
+    // branch should need the five-second startup discovery deadline to run.
+    await expect(page.locator('main')).toHaveAttribute('data-harness-ready', 'true');
+    for (const consumer of [page.locator('main'), page.getByTestId('second-wallet-consumer')]) {
+      await expect(consumer).toHaveAttribute('data-connected', String(!duplicateIdentity));
+      await expect(consumer).toHaveAttribute('data-address', duplicateIdentity ? '' : accountA);
+      await expect(consumer).toHaveAttribute('data-restoring', 'false');
+      await expect(consumer).toHaveAttribute('data-prompt', 'false');
+      await expect(consumer).toHaveAttribute('data-portfolio-connection', duplicateIdentity ? 'disconnected' : 'connected');
+    }
+    if (duplicateIdentity) {
+      // Release connector retry/cleanup timers after checking immediate UI.
+      // The old authorized snapshot must remain fenced after discovery ends.
+      await page.clock.runFor(5_100);
+      await expect(page.locator('main')).toHaveAttribute('data-portfolio-connection', 'disconnected');
+      await expect(page.locator('main')).toHaveAttribute('data-address', '');
+      await expect.poll(() => page.evaluate(() => globalThis.__mobileWalletHarness.wallets[0].listenerCount('accountsChanged'))).toBe(0);
+    }
     expect((await snapshot(page)).calls[1]).toEqual([]);
     expect((await snapshot(page)).calls.flat().filter((call) => call.method === 'eth_requestAccounts')).toEqual([]);
   });

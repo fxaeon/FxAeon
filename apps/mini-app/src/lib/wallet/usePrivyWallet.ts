@@ -11,7 +11,7 @@ import { walletIdentityRdns } from './walletIdentity';
 import { getDiscoveredEip6963Providers, recordEip6963Announcement, type Eip6963Announcement } from './eip6963';
 import { buildWalletChoices, type WalletChoice } from './walletCatalog';
 import { resolveWalletConnectionRoute, resolveWalletEnvironment } from './walletConnectionRoutes';
-import { createExternalWalletConnection, validWalletAccounts, type ExternalWalletAttemptState } from './externalWalletConnection';
+import { awaitWithAbort, createExternalWalletConnection, validWalletAccounts, type ExternalWalletAttemptState } from './externalWalletConnection';
 import { FxWalletContext } from './context';
 import { asHexQuantity } from './helpers';
 import { type FxChainId, type FxPrivyWallet, type FxSelectedWallet, type FxWalletTransaction } from './types';
@@ -101,8 +101,9 @@ function providerSnapshot() {
 
 function savedWalletChoice(rdns: string | null) {
   if (!rdns) return undefined;
-  return buildWalletChoices(providerSnapshot()).find((choice) => choice.rdns === walletIdentityRdns(rdns)
-    && choice.injected === 'available' && choice.provider);
+  // Missing and conflicting discovery are distinct; only a unique available
+  // choice carries a provider, so neither unresolved case gains authority.
+  return buildWalletChoices(providerSnapshot()).find((choice) => choice.rdns === walletIdentityRdns(rdns));
 }
 
 function browserChainConfig(chainId: FxChainId) {
@@ -207,9 +208,10 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
         return;
       }
       if (!target) {
-        // Saved identity is only a reason to await discovery, never authority
-        // for reads or writes. A mobile bridge may inject after the first pass.
-        awaitingSavedProvider = discovering && Boolean(preferred);
+        // Saved identity is only a reason to await a missing bridge, never
+        // authority. A known conflict is already a resolved restore failure.
+        awaitingSavedProvider = discovering && Boolean(preferred) && choice?.injected !== 'ambiguous';
+        if (!awaitingSavedProvider) setReady(true);
         return;
       }
       awaitingSavedProvider = false;
@@ -227,7 +229,10 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
             && readPreference(BROWSER_DISCONNECTED_KEY) !== '1' && !owner.getActiveConfig(),
           exactProvider: () => screenshot ? configuredScreenshotProvider() : savedWalletChoice(preferred)?.provider,
         });
-        await candidate.ready;
+        // Cancellation must release our restoration flags even while native
+        // connector cleanup is pending. Its late completion remains consumed
+        // and fenced by the aborted candidate's exact-provider checks.
+        await awaitWithAbort(candidate.ready, controller.signal);
         owner.promote(candidate);
       } catch { if (candidate) owner.discard(candidate); }
       finally {
