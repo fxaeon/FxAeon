@@ -22,6 +22,7 @@ concurrency:
 jobs:
   ethereum-fork:
     name: Real positions, fxSAVE, browser, and fork stress
+    if: github.repository == 'fxaeon/FxAeon' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: production
@@ -31,6 +32,8 @@ jobs:
       FX_ANVIL_MANIFEST_PATH: artifacts/anvil/protocol-proof.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
         with:
           version: 11.19.0
@@ -69,10 +72,13 @@ jobs:
           ANVIL_FORK_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}
           FX_ANVIL_MANIFEST_PATH: artifacts/anvil/browser-proof.json
       - name: Upload redacted protocol proof
-        if: always()
+        if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fxaeon-anvil-protocol-proof-${{ github.run_id }}
-          path: artifacts/anvil/
+          path: |
+            artifacts/anvil/protocol-proof.json
+            artifacts/anvil/earn-proof.json
+            artifacts/anvil/browser-proof.json
           if-no-files-found: warn
           retention-days: 14

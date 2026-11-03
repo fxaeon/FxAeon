@@ -55,6 +55,10 @@ export async function verifyApproval(response: AuthenticationResponseJSON, passk
     expectedOrigin: origin, expectedRPID: new URL(origin).hostname, requireUserVerification: true,
     credential: { id: passkey.id, publicKey: decode(passkey.publicKey), counter: passkey.counter } });
   if (!result.verified || !result.authenticationInfo.userVerified) throw new Error('passkey_rejected');
+  // BE is immutable. BS may change after enrollment and must not lock out a valid owner.
+  if (result.authenticationInfo.credentialDeviceType !== 'multiDevice') {
+    throw new Error('passkey_rejected');
+  }
   return { counter: result.authenticationInfo.newCounter,
     authorization: `webauthn:${response.response.authenticatorData}:${response.response.clientDataJSON}:${response.response.signature}` };
 }

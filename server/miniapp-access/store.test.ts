@@ -61,6 +61,22 @@ async function reserve(store: Store, userId = 1, notify = false) {
   await store.approve([userId]);
 }
 
+test('provisioning rate claims are atomic, identity-scoped, and reset only after the window', async t => {
+  const { db, store } = await fixture(t);
+  await reserve(store, 1); await reserve(store, 2);
+  assert.equal(await store.claimProvision(1, 1000), false, 'a credential is required');
+  await store.bindCredential(1, credential());
+  await store.bindCredential(2, credential('b3RoZXI'));
+  const claims = await Promise.all(Array.from({ length: 12 }, () => store.claimProvision(1, 1000)));
+  assert.equal(claims.filter(Boolean).length, 5);
+  const restarted = new Store(db);
+  assert.equal(await restarted.claimProvision(1, 999), false, 'clock rollback cannot reset a window');
+  assert.equal(await restarted.claimProvision(1, 60_999), false);
+  assert.equal(await restarted.claimProvision(2, 1000), true);
+  assert.equal(await restarted.claimProvision(1, 61_000), true);
+  assert.equal(await restarted.claimProvision(99, 61_000), false);
+});
+
 test('join is required, waiting is explicit, and wallet fields alone transition approved to ready', async t => {
   const { store } = await fixture(t);
   assert.equal(await store.status(1), null);

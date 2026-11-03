@@ -11,6 +11,7 @@ const root = resolve(import.meta.dirname, '..');
 assert.ok(Date.now() < Date.parse('2026-11-07T00:00:00Z'), 'Re-review the temporary Zod backport');
 assert.ok(!/ignoreGhsas|ignoreCves/.test(readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')), 'Do not persist global audit exceptions');
 await import('./verify_zod_security_backport.mjs');
+await import('./verify_minimatch_security.mjs');
 assert.ok(process.env.npm_execpath, 'Run this gate through pnpm run audit:all');
 // --ignore writes a persistent workspace exception in pnpm 11. Read the raw
 // report instead, so running this gate never changes normal pnpm audit behavior.

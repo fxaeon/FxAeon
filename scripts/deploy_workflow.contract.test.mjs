@@ -19,6 +19,19 @@ function step(name) {
   return workflow.slice(start, next >= 0 ? next : workflow.length);
 }
 
+test('production checkouts do not persist credentials and protected proof uploads fail closed', () => {
+  for (const source of [workflow, anvilWorkflow]) {
+    const checkout = source.slice(source.indexOf('      - uses: actions/checkout@'));
+    const next = checkout.indexOf('\n      - ', 1);
+    assert.match(checkout.slice(0, next), /persist-credentials: false/);
+  }
+  assert.match(anvilWorkflow, /if: github\.repository == 'fxaeon\/FxAeon' && github\.ref == 'refs\/heads\/main'/);
+  const upload = anvilWorkflow.slice(anvilWorkflow.indexOf('      - name: Upload redacted protocol proof'));
+  assert.match(upload, /if: success\(\)/);
+  assert.doesNotMatch(upload, /if: always\(\)|path: artifacts\/anvil\/\s/);
+  for (const file of ['protocol-proof.json', 'earn-proof.json', 'browser-proof.json']) assert.ok(upload.includes(`artifacts/anvil/${file}`));
+});
+
 test('container shell steps trust only the checked-out workspace before verification', () => {
   const trust = step('Trust the container checkout');
   assert.match(trust, /git config --global --add safe\.directory "\$GITHUB_WORKSPACE"/);
