@@ -335,14 +335,12 @@ export function clearPendingOperation(walletId: string, launchData: string, chal
 }
 
 export function telegramReturnUrl(): string {
-  try {
-    const url = new URL(process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || 'https://t.me/FxAeonBot');
-    if (url.protocol !== 'https:' || url.hostname !== 't.me' || url.username || url.password) throw new Error('Invalid Telegram URL');
-    url.hash = '';
-    // The return destination never carries ticket or invitation secrets.
-    url.search = '';
-    return url.href;
-  } catch { return 'https://t.me/FxAeonBot'; }
+  const fallback = 'https://t.me/FxAeonBot?startapp';
+  const value = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL || 'https://t.me/FxAeonBot';
+  const match = /^(https:\/\/t\.me\/[A-Za-z0-9_]{5,32})(\/[A-Za-z0-9_]{1,64})?(?:[?#][^\r\n]*)?$/.exec(value);
+  // Keep a named Mini App path; otherwise explicitly launch the Main Mini App.
+  // Never carry query payloads or capability fragments into the return link.
+  return match ? `${match[1]}${match[2] ?? '?startapp'}` : fallback;
 }
 
 export async function pollHandoff(challengeId: string, options: { signal: AbortSignal; launchData: string; assertCurrent: () => void }): Promise<WalletResult | SignResult> {

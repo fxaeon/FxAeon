@@ -79,11 +79,13 @@ function emailAddress(value: string): string {
 }
 function officialLink(value: string | undefined): string {
   if (!value) return '';
-  // Only a configured direct Mini App link. No redirects, credentials, ports or arbitrary query.
-  if (!/^https:\/\/t\.me\/[A-Za-z0-9_]{5,32}(?:\/[A-Za-z0-9_]{1,64})?(?:\?startapp(?:=[A-Za-z0-9_-]{0,128})?)?$/.test(value)) {
+  // A bare bot URL opens chat; add the Main Mini App launcher at the consumer.
+  // No redirects, credentials, ports or arbitrary query.
+  const match = /^(https:\/\/t\.me\/[A-Za-z0-9_]{5,32})(\/[A-Za-z0-9_]{1,64})?(\?startapp(?:=[A-Za-z0-9_-]{0,128})?)?$/.exec(value);
+  if (!match) {
     throw new Error('notification_config_invalid');
   }
-  return value;
+  return match[2] || match[3] ? value : `${value}?startapp`;
 }
 function limit(value: string | number | undefined, cap: number, reserve: number): number {
   const parsed = value === undefined ? cap : Number(value);
@@ -277,11 +279,17 @@ export class NotificationStore {
     let endpoint: string;
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (row.channel === 'email') {
-      let text = `${INVITATION_TEXT}\n\n${row.link}`;
+      let text: string;
       if (row.kind === 'verification') {
         const token = await this.token(row.id);
         if (await hash(token) !== row.token_hash) return { status: 'failed', reason: 'verification_token_invalid' };
         text = `Confirm your email address for FxAeon invitations.\n\nhttps://fxaeon.com/invite#token=${token}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`;
+      } else {
+        // Normalize existing pending rows too, without resetting attempts or idempotency.
+        let link: string;
+        try { link = officialLink(row.link); } catch { return { status: 'failed', reason: 'invitation_link_invalid' }; }
+        if (!link) return { status: 'failed', reason: 'invitation_link_invalid' };
+        text = `${INVITATION_TEXT}\n\n${link}`;
       }
       endpoint = 'https://api.resend.com/emails';
       headers.authorization = `Bearer ${this.env.RESEND_API_KEY}`;
@@ -290,7 +298,7 @@ export class NotificationStore {
     } else {
       endpoint = `https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
       payload = { chat_id: row.destination, text: INVITATION_TEXT, link_preview_options: { is_disabled: true },
-        reply_markup: { inline_keyboard: [[{ text: 'Open FxAeon', url: row.link }]] } };
+        reply_markup: { inline_keyboard: [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]] } };
     }
     const controller = new AbortController();
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;

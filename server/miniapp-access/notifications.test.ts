@@ -251,18 +251,59 @@ test('invitations require durable approval; email additionally requires verifica
   assert.equal((await f.admission.status(1))!.state, 'approved');
 });
 
-test('Telegram uses exact professional copy, configured official button, fixed HTTPS host and manual redirects', async t => {
+test('Telegram uses exact professional copy, fixed Mini App button, fixed HTTPS host and manual redirects', async t => {
   const f = await fixture(t);
   await f.approve(); await f.store.enqueueInvitation(1, true); await f.store.dispatch();
   const call = f.calls[0];
   assert.equal(call.url, `https://api.telegram.org/bot${ENV.TELEGRAM_BOT_TOKEN}/sendMessage`);
   assert.equal(call.body.text, INVITATION_TEXT);
   assert.equal(call.body.chat_id, '1');
-  assert.equal(call.body.reply_markup.inline_keyboard[0][0].url, ENV.TELEGRAM_MINIAPP_URL);
+  assert.deepEqual(call.body.reply_markup, { inline_keyboard: [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]] });
   assert.deepEqual(call.body.link_preview_options, { is_disabled: true });
   assert.equal(call.init.redirect, 'manual');
   assert.equal(call.init.method, 'POST');
   assert.ok(call.init.signal);
+});
+
+test('bare bot configuration produces direct email launchers and private Telegram Mini App buttons', async t => {
+  const f = await fixture(t, { TELEGRAM_MINIAPP_URL: 'https://t.me/FxAeonBot' });
+  await f.approve(); f.verified(1); await f.store.enqueueInvitation(1, true);
+  assert.ok(f.rows().every(row => row.link === 'https://t.me/FxAeonBot?startapp'));
+  assert.equal((await f.store.dispatch()).sent, 2);
+  assert.equal(f.calls.find(call => call.url.includes('resend'))!.body.text, `${INVITATION_TEXT}\n\nhttps://t.me/FxAeonBot?startapp`);
+  assert.deepEqual(f.calls.find(call => call.body.chat_id)!.body.reply_markup.inline_keyboard,
+    [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]]);
+});
+
+test('legacy pending invitation links normalize at send without replaying sent rows or resetting retries', async t => {
+  const f = await fixture(t);
+  await f.approve(1); f.verified(1); await f.store.enqueueInvitation(1, true);
+  await f.approve(2); await f.store.enqueueInvitation(2, true);
+  f.db.sql.prepare("UPDATE access_mail_outbox SET link='https://t.me/FxAeonBot'").run();
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sent',attempts=1,first_attempt=? WHERE user_id=2").run(f.now());
+  f.db.sql.prepare("UPDATE access_mail_outbox SET attempts=1,first_attempt=? WHERE user_id=1 AND channel='email'").run(f.now());
+  const before = f.rows().find(row => row.user_id === 2);
+  assert.equal((await f.store.dispatch()).sent, 2);
+  const email = f.calls.find(call => call.url.includes('resend'))!;
+  assert.equal(email.body.text, `${INVITATION_TEXT}\n\nhttps://t.me/FxAeonBot?startapp`);
+  assert.equal(new Headers(email.init.headers).get('Idempotency-Key'), 'access-mail/invite:email:1');
+  assert.equal(f.rows().find(row => row.id === 'invite:email:1').attempts, 2);
+  assert.deepEqual(f.calls.find(call => call.body.chat_id)!.body.reply_markup.inline_keyboard,
+    [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]]);
+  assert.deepEqual(f.rows().find(row => row.user_id === 2), before);
+  await f.store.enqueueInvitation(1, true); await f.store.enqueueInvitation(2, true);
+  assert.equal((await f.make().dispatch()).sent, 0);
+  assert.equal(f.calls.length, 2);
+});
+
+test('existing direct email Mini App links retain their reviewed path and start parameter', async t => {
+  for (const link of ['https://t.me/FxAeonBot?startapp', 'https://t.me/FxAeonBot?startapp=trade',
+    'https://t.me/FxAeonBot/app', 'https://t.me/FxAeonBot/app?startapp=invite']) {
+    const f = await fixture(t, { TELEGRAM_MINIAPP_URL: link });
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    await f.store.dispatch();
+    assert.equal(f.calls[0].body.text, `${INVITATION_TEXT}\n\n${link}`);
+  }
 });
 
 test('dispatch rechecks consent and verified destination; stale contacts cannot starve eligible Telegram', async t => {

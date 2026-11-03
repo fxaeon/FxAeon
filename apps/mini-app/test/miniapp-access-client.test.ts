@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { miniappTransaction, verifySigningChallenge, miniappAccess, MiniappAccessError, validatedHandoffUrl, validateApprovalTransaction, challengeCommitment, verifyChallengeCommitment } from '../src/lib/miniappAccess';
+import { miniappTransaction, verifySigningChallenge, miniappAccess, MiniappAccessError, validatedHandoffUrl, validateApprovalTransaction, challengeCommitment, verifyChallengeCommitment, telegramReturnUrl } from '../src/lib/miniappAccess';
 
 const APP = 'clabcdefghijklmnopqrstuv';
 const FROM = `0x${'1'.repeat(40)}`;
@@ -94,6 +94,32 @@ test('handoff links stay on the official same-origin approval route', () => {
 });
 
 const originalFetch = globalThis.fetch;
+
+test('Telegram return links launch the Mini App and never retain capability/query payloads', () => {
+  const original = process.env.NEXT_PUBLIC_TELEGRAM_APP_URL;
+  const main = 'https://t.me/FxAeonBot?startapp';
+  try {
+    delete process.env.NEXT_PUBLIC_TELEGRAM_APP_URL;
+    assert.equal(telegramReturnUrl(), main);
+    for (const [configured, expected] of [
+      ['https://t.me/FxAeonBot', main], ['https://t.me/FxAeonBot?startapp', main],
+      ['https://t.me/FxAeonBot?startapp=trade#token=synthetic', main],
+      ['https://t.me/FxAeonBot?token=synthetic#commitment=synthetic', main],
+      ['https://t.me/FxAeonBot/app', 'https://t.me/FxAeonBot/app'],
+      ['https://t.me/FxAeonBot/app?startapp=trade#token=synthetic', 'https://t.me/FxAeonBot/app'],
+      ['https://evil.test/FxAeonBot', main], ['https://t.me.evil.test/FxAeonBot', main],
+      ['https://user:password@t.me/FxAeonBot', main], ['https://t.me:443/FxAeonBot', main],
+      ['http://t.me/FxAeonBot', main], ['https://t.me/FxAeonBot/../OtherBot', main],
+      ['https://t.me/FxAeonBot/%2e%2e', main], ['https://t.me/', main],
+    ]) {
+      process.env.NEXT_PUBLIC_TELEGRAM_APP_URL = configured;
+      assert.equal(telegramReturnUrl(), expected, configured);
+    }
+  } finally {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_TELEGRAM_APP_URL;
+    else process.env.NEXT_PUBLIC_TELEGRAM_APP_URL = original;
+  }
+});
 afterEach(() => { globalThis.fetch = originalFetch; });
 
 test('token POSTs never include launch data and transport never follows redirects', async () => {
