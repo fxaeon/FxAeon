@@ -97,7 +97,10 @@ for (const platform of ['android', 'ios']) test(`${platform} real SDK boots with
   await expect.poll(() => requests.some(request => request.action === 'handoff/status')).toBe(true);
   expect(requests.some(request => request.action === 'register/complete')).toBe(false);
   await page.getByRole('button', { name: 'Stop waiting' }).click();
-  expect(remoteScripts.filter(url => new URL(url).hostname.endsWith('telegram.org'))).toEqual([]);
+  expect(remoteScripts.filter(url => {
+    const hostname = new URL(url).hostname;
+    return hostname === 'telegram.org' || hostname.endsWith('.telegram.org');
+  })).toEqual([]);
   expect(logs.join('\n')).not.toContain('fixture-ticket');
   expect(await page.evaluate(() => JSON.stringify({ ...sessionStorage, ...localStorage }))).not.toContain('fixture-ticket');
   expect(errors).toEqual([]);

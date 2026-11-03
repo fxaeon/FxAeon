@@ -62,7 +62,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
+type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -90,7 +90,9 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
         case 'sign/options':
           if (fixture.deferSignOptions) await fixture.deferSignOptions;
           response = { challengeId: 'sign-1', options: { challenge: returnedChallenge } }; break;
-        case 'handoff/create': response = { url: 'https://fxaeon.test/wallet-approval#token=opaque-ticket' }; break;
+        case 'handoff/create':
+          if (fixture.deferHandoff) await fixture.deferHandoff;
+          response = { url: 'https://fxaeon.test/wallet-approval#token=opaque-ticket' }; break;
         case 'handoff/status': response = { state: 'pending' }; break;
         case 'handoff/read': response = { kind: 'sign', options: { challenge: returnedChallenge }, transaction: fixture.substituteHandoff ? { ...transaction, to: FROM } : transaction }; break;
         case 'sign/complete': case 'handoff/complete':
@@ -515,6 +517,24 @@ for (const kind of ['register', 'sign'] as const) for (const change of ['cancel'
     expect(requests.some(request => request.action === `${kind}/complete`)).toBe(false);
   });
 }
+
+for (const kind of ['register', 'sign'] as const) test(`slow ${kind} preparation cannot extend the original challenge deadline`, async ({ page }) => {
+  let release!: () => void;
+  const deferHandoff = new Promise<void>(resolve => { release = resolve; });
+  const { requests } = await mount(page, '/', { mobile: true, deferHandoff,
+    ...(kind === 'register' ? { state: 'approved', hasCredential: false } : {}) });
+  await page.getByRole('button', { name: kind === 'register' ? 'Set up my wallet' : 'Review and send' }).click();
+  await page.getByRole('button', { name: 'Continue in browser' }).click();
+  await expect.poll(() => requests.some(request => request.action === 'handoff/create')).toBe(true);
+  await page.evaluate(() => { const later = Date.now() + 240_000; Date.now = () => later; });
+  release();
+  await expect(page.getByText('Ready to open your browser.')).toBeVisible();
+  await page.evaluate(() => { const expired = Date.now() + 60_001; Date.now = () => expired; });
+  await page.getByRole('button', { name: 'Continue in browser' }).click();
+  await expect(page.getByText('Ready to open your browser.')).toHaveCount(0);
+  expect(await readClient(page, 'links')).toEqual([]);
+  expect(requests.some(request => request.action === 'handoff/status')).toBe(false);
+});
 
 test('prepared signing ticket is invalidated by a network change', async ({ page }) => {
   const { requests } = await mount(page, '/', { mobile: true });
