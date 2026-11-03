@@ -5,6 +5,7 @@ import { FX_TOKENS, type FxTokenKey } from '../../src/lib/fx/tokens';
 import { positionPoolAddress } from '../../src/lib/fx/policy';
 import type { FxChainId } from '../../src/lib/fx/types';
 import { BORROW_FUNDING_HISTORY_URL } from '../../src/lib/fx/borrowFundingHistory';
+import { earnGalleryRpcResult, EARN_GALLERY_LABEL, installEarnMarketFixture, installGalleryProvenanceLabel } from './earn-market';
 
 // Explicit illustrative protocol state. Wallet balance modes do not change
 // market funding or risk parameters; unavailable mode fails these reads.
@@ -50,9 +51,11 @@ function tokenBalance(address: string | undefined, chainId: FxChainId, state: Ga
   return undefined;
 }
 
-export function galleryRpcResult(method: string, params: unknown[], chainId: FxChainId, state: GalleryBalanceState = 'funded'): unknown {
+export function galleryRpcResult(method: string, params: unknown[], chainId: FxChainId, state: GalleryBalanceState = 'funded', now = Date.now()): unknown {
   if (method === 'eth_chainId') return `0x${chainId.toString(16)}`;
   if (state === 'unavailable') throw new Error('Simulated gallery RPC unavailable');
+  const earn = earnGalleryRpcResult(method, params, chainId, now);
+  if (earn !== undefined) return earn;
   if (method === 'eth_blockNumber') return '0x1430f00';
   if (method === 'eth_getBalance') return `0x${(state === 'zero' ? 0n : 1_250_000_000_000_000_000n).toString(16)}`;
   if (method === 'eth_getLogs') return [];
@@ -90,7 +93,7 @@ export function galleryRpcResult(method: string, params: unknown[], chainId: FxC
         try {
           // Nested multicalls are not part of this read-only fixture.
           if (subcall.callData.slice(0, 10) === '0x82ad56cb') throw new Error('nested multicall');
-          return { success: true, returnData: galleryRpcResult('eth_call', [{ to: subcall.target, data: subcall.callData }], chainId, state) as `0x${string}` };
+          return { success: true, returnData: galleryRpcResult('eth_call', [{ to: subcall.target, data: subcall.callData }, params[1] ?? 'latest'], chainId, state, now) as `0x${string}` };
         } catch {
           return { success: false, returnData: '0x' as `0x${string}` };
         }
@@ -153,7 +156,7 @@ export function galleryGoldskyResult(url: string, body: unknown, state: GalleryB
   throw new Error('gallery index fixture does not define this query');
 }
 
-async function fulfillRpc(route: Route, chainId: FxChainId, state: GalleryBalanceState, reads: GalleryRead[]): Promise<void> {
+async function fulfillRpc(route: Route, chainId: FxChainId, state: GalleryBalanceState, reads: GalleryRead[], now: number): Promise<void> {
   let payload: unknown;
   try { payload = route.request().postDataJSON(); } catch { payload = null; }
   const requests = Array.isArray(payload) ? payload : [payload];
@@ -162,7 +165,7 @@ async function fulfillRpc(route: Route, chainId: FxChainId, state: GalleryBalanc
     const method = typeof item?.method === 'string' ? item.method : '';
     reads.push({ method, chainId });
     try {
-      return { jsonrpc: '2.0', id: item?.id ?? null, result: galleryRpcResult(method, item?.params ?? [], chainId, state) };
+      return { jsonrpc: '2.0', id: item?.id ?? null, result: galleryRpcResult(method, item?.params ?? [], chainId, state, now) };
     } catch (reason) {
       return { jsonrpc: '2.0', id: item?.id ?? null, error: { code: -32000, message: reason instanceof Error ? reason.message : String(reason) } };
     }
@@ -171,8 +174,11 @@ async function fulfillRpc(route: Route, chainId: FxChainId, state: GalleryBalanc
 }
 
 /** Deterministic, read-only gallery values; position groups are ready-empty from the explicit index fixture. */
-export async function installRefinementGalleryFixtures(page: Page, state: GalleryBalanceState = 'funded'): Promise<{ reads: GalleryRead[] }> {
+export async function installRefinementGalleryFixtures(page: Page, state: GalleryBalanceState = 'funded', options: { now?: number } = {}) {
   const reads: GalleryRead[] = [];
+  const now = options.now ?? Date.now();
+  await installGalleryProvenanceLabel(page);
+  await installEarnMarketFixture(page, state !== 'unavailable');
   await page.routeWebSocket(/^wss:\/\/(eth|base)-mainnet\.g\.alchemy\.com\/v2\//, (socket) => {
     socket.onMessage((message) => {
       const request = JSON.parse(String(message)) as { id: number; method: string };
@@ -183,17 +189,19 @@ export async function installRefinementGalleryFixtures(page: Page, state: Galler
       }));
     });
   });
-  await page.route('https://eth-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 1, state, reads));
-  await page.route('https://base-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 8453, state, reads));
-  await page.route('https://mainnet.infura.io/v3/**', (route) => fulfillRpc(route, 1, state, reads));
-  await page.route('https://base-mainnet.infura.io/v3/**', (route) => fulfillRpc(route, 8453, state, reads));
+  await page.route('https://eth-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 1, state, reads, now));
+  await page.route('https://base-mainnet.g.alchemy.com/v2/**', (route) => fulfillRpc(route, 8453, state, reads, now));
+  await page.route('https://mainnet.infura.io/v3/**', (route) => fulfillRpc(route, 1, state, reads, now));
+  await page.route('https://base-mainnet.infura.io/v3/**', (route) => fulfillRpc(route, 8453, state, reads, now));
   await page.route('https://api.goldsky.com/api/public/**', async route => {
     try {
-      const body = galleryGoldskyResult(route.request().url(), route.request().postDataJSON(), state);
+      const body = galleryGoldskyResult(route.request().url(), route.request().postDataJSON(), state, now);
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     } catch (error) {
       await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ errors: [{ message: error instanceof Error ? error.message : 'Gallery index unavailable' }] }) });
     }
   });
-  return { reads };
+  // A visible label accompanies captures; retain this provenance in manifests.
+  // These synthetic observations use the real loaders, not live protocol data.
+  return { reads, provenance: { synthetic: true as const, label: EARN_GALLERY_LABEL, observedAt: now } };
 }
