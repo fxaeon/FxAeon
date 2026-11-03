@@ -33,10 +33,8 @@ import type { FxTokenKey } from '@/lib/fx/tokens';
 import { loadActivityReceipt } from '@/lib/activityReceipt';
 import { readableReviewAmount } from './review/reviewHierarchy';
 import { useTransactionEvidence } from './review/TransactionEvidenceContext';
-import styles from './WalletActivity.module.css';
 import { ActivityRowsSkeleton } from './WalletActivitySkeleton';
-
-export { RecentActivitySkeleton } from './WalletActivitySkeleton';
+import styles from './WalletActivity.module.css';
 import filterStyles from './FilterSelect.module.css';
 
 const GLYPHS: Record<ActivityGlyph, LucideIcon> = {
