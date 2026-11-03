@@ -112,6 +112,30 @@ test('older ambiguous instant estimates are unavailable instead of being guessed
   assert.equal(routeFinancialReviewFacts(route).find(f => f.label === 'f(x) fee')?.value, '5%');
 });
 
+test('an instant estimate cannot be smaller than its direct-return leg', () => {
+  for (const symbol of ['USDC', 'fxUSD'] as const) {
+    const route = instantRoute();
+    const quote = route.details!.fxSaveQuote!;
+    const intent = route.policy!.reviewedAction!;
+    assert.equal(intent.kind, 'fxsave-withdraw');
+    if (intent.kind !== 'fxsave-withdraw') throw new Error('Expected instant withdrawal');
+    quote.tokenAddress = FX_TOKENS[symbol].address;
+    intent.tokenOutAddress = FX_TOKENS[symbol].address;
+    route.details!.economicLimits = [
+      { label: 'fxUSD instant output minimum output', value: '0' },
+      { label: 'USDC instant output minimum output', value: '17' },
+    ];
+    const direct = BigInt(symbol === 'fxUSD' ? quote.netFxUSD! : quote.netUSDC!);
+    quote.estimatedOutput = (direct - 1n).toString();
+    const facts = routeFinancialReviewFacts(route);
+    assert.equal(facts.find(f => f.label === 'Estimated received')?.value, 'Unavailable');
+    assert.equal(facts.find(f => f.label === 'f(x) fee')?.value, '5%');
+    assert.equal(facts.filter(f => f.label.startsWith('Minimum received (')).length, 2);
+    quote.estimatedOutput = direct.toString();
+    assert.equal(acceptedFxSaveQuote(route)?.estimatedOutput, direct.toString());
+  }
+});
+
 test('fxUSD output includes its pass-through leg without changing either signed converter floor', () => {
   const route = instantRoute();
   const quote = route.details!.fxSaveQuote!;
