@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta
@@ -45,13 +45,12 @@
       name="twitter:image"
       content="https://fxaeon.xyz/assets/social-preview.png"
     />
-    <meta name="theme-color" content="#101214" />
+    <meta name="theme-color" content="#f5f4ef" />
     <title>FxAeon · Your DeFi, in motion.</title>
     <script type="application/ld+json">
       {"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://fxaeon.xyz/#organization","name":"FxAeon","url":"https://fxaeon.xyz/","logo":"https://fxaeon.xyz/assets/fxaeon-mark.svg"},{"@type":"WebSite","@id":"https://fxaeon.xyz/#website","name":"FxAeon","url":"https://fxaeon.xyz/","publisher":{"@id":"https://fxaeon.xyz/#organization"}}]}
     </script>
     <script src="script.js"></script>
-    <script src="sculpture.js" defer></script>
     <script type="module" src="dollar-outcomes.js"></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/inter-latin.woff2" as="font" type="font/woff2" crossorigin="" />
@@ -131,96 +130,54 @@
       </nav>
       <div class="menu-actions">
         <a class="button primary" href="https://fxaeon.com/">Open web app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
-        <a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
+        <a class="button subtle" href="https://t.me/FxAeonBot?startapp=" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>
       </div>
     </dialog>
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="capital-art" aria-hidden="true">
-          <picture class="capital-still">
-            <source media="(max-width: 760px)" srcset="assets/capital-sculpture-mobile.png" />
-            <img src="assets/capital-sculpture-desktop.png" width="1500" height="660" alt="" />
-          </picture>
-          <canvas class="capital-canvas"></canvas>
-        </div>
+        <svg class="hero-emblem" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <path class="emblem-first" d="M8 26.5C8 15.7 16.6 7 27.3 7H48c3.6 0 5.6 4.1 3.4 7L40.7 28.2A16 16 0 0 1 27.9 34H15.5A7.5 7.5 0 0 1 8 26.5Z" />
+          <path class="emblem-second" d="M56 37.5C56 48.3 47.4 57 36.7 57H16c-3.6 0-5.6-4.1-3.4-7l10.7-14.2A16 16 0 0 1 36.1 30h12.4a7.5 7.5 0 0 1 7.5 7.5Z" />
+        </svg>
         <div class="hero-copy">
-          <h1 id="hero-title">Put your crypto <br /><span>to work.</span></h1>
+          <h1 id="hero-title"><span class="hero-line"><span>Make your</span></span><span class="hero-line"><span>money move.</span></span></h1>
           <div class="hero-intro">
-            <p class="lede">Trade ETH and BTC. Earn with fxSAVE. Borrow stablecoins against your crypto.</p>
-            <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Powered by f(x) SDK</p>
-            <div class="actions"><a class="button primary" href="https://fxaeon.com/">Open web app <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a class="button subtle" href="https://t.me/FxAeonBot" target="_blank" rel="noopener noreferrer">Open in Telegram <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
+            <p class="lede">Trade, earn, borrow and move.<br />Your crypto has places to go.</p>
+            <div class="actions"><a class="button primary" href="https://fxaeon.com/">Open app <span aria-hidden="true">↗</span></a><a class="button subtle" href="https://t.me/FxAeonBot?startapp=" target="_blank" rel="noopener noreferrer">Open in Telegram <span aria-hidden="true">↗</span></a></div>
+            <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Built on f(x) Protocol</p>
           </div>
         </div>
       </section>
 
-      <section
-        class="products section"
-        id="products"
-        aria-labelledby="products-title"
-      >
-        <div class="section-head">
-          <h2 id="products-title">Four ways to use FxAeon.</h2>
-          <p>Built on f(x) Protocol. Available on Ethereum and Base.</p>
-        </div>
-        <div class="product-grid">
+      <section class="products section" id="products" aria-labelledby="products-title">
+        <div class="section-head"><h2 id="products-title">Find your<br />next move.</h2><p>Four possibilities.<br />One place to make them happen.</p></div>
+        <div class="product-grid" role="region" aria-label="Explore Trade, Earn, Borrow and Move" tabindex="0">
           <article class="product-card trade-card">
-            <div class="card-copy">
-              <h3>Trade ETH and BTC</h3>
-              <p>
-                Go long or short with the leverage you choose.
-              </p>
-              <a
-                class="product-link"
-                href="https://fxaeon.com/trade"
-                aria-label="Open Trade"
-                ><svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
-              >
-            </div>
+            <div class="card-copy"><h3>Trade.</h3><p>Take a view on ETH and BTC.<br />Go long. Go short.</p><a class="product-link" href="https://fxaeon.com/trade" aria-label="Open Trade"><span aria-hidden="true">↗</span></a></div>
+            <div class="product-art" aria-hidden="true"><img src="assets/tokens/eth.svg" alt="" width="320" height="320" /></div>
+            <span class="product-caption">ETH &amp; BTC</span>
           </article>
           <article class="product-card earn-card">
-            <div class="card-copy">
-              <h3>Save with fxSAVE</h3>
-              <p>
-                Deposit fxUSD or USDC and let rewards compound.
-              </p>
-              <a
-                class="product-link"
-                href="https://fxaeon.com/earn"
-                aria-label="Open Earn"
-                ><svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
-              >
-            </div>
+            <div class="card-copy"><h3>Earn.</h3><p>Put your stablecoins to work.<br />Save with fxSAVE.</p><a class="product-link" href="https://fxaeon.com/earn" aria-label="Open Earn"><span aria-hidden="true">↗</span></a></div>
+            <div class="product-art" aria-hidden="true"><img src="assets/tokens/fxsave.svg" alt="" width="320" height="320" /></div>
+            <span class="product-caption">fxSAVE</span>
           </article>
           <article class="product-card borrow-card">
-            <div class="card-copy">
-              <h3>Borrow fxUSD</h3>
-              <p>
-                Borrow against ETH or BTC collateral.
-              </p>
-              <a
-                class="product-link"
-                href="https://fxaeon.com/borrow"
-                aria-label="Open Borrow"
-                ><svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
-              >
-            </div>
+            <div class="card-copy"><h3>Borrow.</h3><p>Keep your crypto.<br />Access fxUSD against it.</p><a class="product-link" href="https://fxaeon.com/borrow" aria-label="Open Borrow"><span aria-hidden="true">↗</span></a></div>
+            <div class="product-art" aria-hidden="true"><img src="assets/tokens/fxusd.svg" alt="" width="320" height="320" /></div>
+            <span class="product-caption">fxUSD</span>
           </article>
           <article class="product-card move-card">
-            <div class="card-copy">
-              <h3>Move between chains</h3>
-              <p>Bridge fxUSD and fxSAVE between Ethereum and Base.</p>
-              <a
-                class="product-link"
-                href="https://fxaeon.com/move"
-                aria-label="Open Move"
-                ><svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5 12h14m-6-6 6 6-6 6"></path></svg></a
-              >
-            </div>
+            <div class="card-copy"><h3>Move.</h3><p>Ethereum to Base.<br />Take your assets with you.</p><a class="product-link" href="https://fxaeon.com/move" aria-label="Open Move"><span aria-hidden="true">↗</span></a></div>
+            <div class="product-art" aria-hidden="true"><img src="assets/chains/base.svg" alt="" width="320" height="320" /></div>
+            <span class="product-caption">Ethereum ↔ Base</span>
           </article>
+        </div>
+        <div class="product-navigation" role="group" aria-label="Choose a product">
+          <button type="button" data-product="0" aria-pressed="true">Trade</button>
+          <button type="button" data-product="1" aria-pressed="false">Earn</button>
+          <button type="button" data-product="2" aria-pressed="false">Borrow</button>
+          <button type="button" data-product="3" aria-pressed="false">Move</button>
         </div>
       </section>
 
@@ -249,7 +206,7 @@
             <div class="outcome-action"><a class="button primary outcome-cta" href="https://fxaeon.com/borrow">Open Borrow <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
           </section>
           <section class="outcome-panel" id="outcome-trade" role="tabpanel" aria-labelledby="tab-trade" tabindex="0" hidden>
-            <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/eth.png" width="24" height="24" alt="" />Trade · ETH long</p><h3>Choose your exposure.</h3><div class="leverage-control"><div><label for="example-leverage">Leverage</label><output id="leverage-value" for="example-leverage">2×</output></div><input id="example-leverage" type="range" min="1.1" max="5" step="0.1" value="2" /><div class="range-labels" aria-hidden="true"><span>1.1×</span><span>5×</span></div></div></div>
+            <div class="outcome-copy"><p class="product-eyebrow"><img src="assets/tokens/eth.svg" width="24" height="24" alt="" />Trade · ETH long</p><h3>Choose your exposure.</h3><div class="leverage-control"><div><label for="example-leverage">Leverage</label><output id="leverage-value" for="example-leverage">2×</output></div><input id="example-leverage" type="range" min="1.1" max="5" step="0.1" value="2" /><div class="range-labels" aria-hidden="true"><span>1.1×</span><span>5×</span></div></div></div>
             <div class="outcome-visual trade-visual"><span class="visual-label">ETH long · starting exposure</span><output class="outcome-figure" data-trade-exposure>$2,000.00</output><span class="visual-caption" data-trade-units>USD exposure · ETH price loading</span><div class="market-provenance"><span>ETH price: <a href="https://fx.aladdin.club" target="_blank" rel="noopener noreferrer">Aladdin</a></span><span data-trade-checked>Loading price…</span></div><span class="scenario-label">±10% price move · gross effect before protocol and network costs</span><div class="trade-scenarios"><div><span>ETH rises 10%</span><strong data-trade-up>+$200.00</strong><small data-trade-up-percent>+20% of starting value</small></div><div><span>ETH falls 10%</span><strong data-trade-down>−$200.00</strong><small data-trade-down-percent>−20% of starting value</small></div></div></div>
             <div class="outcome-action"><a class="button primary outcome-cta" href="https://fxaeon.com/trade?market=ETH">Open ETH Trade <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a></div>
           </section>
@@ -284,12 +241,12 @@
                 >
               </h3>
               <span
-                >Start with your Telegram account or connect an existing wallet.</span
+                >Join with Telegram. Approve with your passkey.</span
               >
             </div>
             <a
               class="button primary"
-              href="https://t.me/FxAeonBot"
+              href="https://t.me/FxAeonBot?startapp="
               target="_blank"
               rel="noreferrer"
               >Open in Telegram
@@ -326,7 +283,7 @@
             height="44"
             alt=""
           />
-          <h2><span>Your next move.</span><br />Starts here.</h2>
+          <h2>Keep moving.</h2>
           <p>
             Trade, save, borrow, and bridge.<br />Bring it all together with
             FxAeon.
@@ -369,7 +326,7 @@
           </nav>
           <nav aria-label="Connect">
             <h3>Connect</h3>
-            <a href="https://t.me/FxAeonBot" target="_blank" rel="noreferrer"
+            <a href="https://t.me/FxAeonBot?startapp=" target="_blank" rel="noreferrer"
               >Telegram</a
             ><a href="https://x.com/FxAeonxyz" target="_blank" rel="noreferrer"
               >X / Twitter</a

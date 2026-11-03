@@ -39,6 +39,18 @@ import { startLandingMarketData } from './market-data-client.mjs';
     let expiryTimer;
     const refreshButton = document.querySelector('[data-market-refresh]');
     const tabs = Array.from(document.querySelectorAll('[data-outcome-tab]'));
+    const tabList = document.querySelector('.outcome-tabs');
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    let frameAnimation = null;
+    let panelAnimation = null;
+    const cancelMotion = () => {
+      frameAnimation?.cancel();
+      panelAnimation?.cancel();
+      frameAnimation = null;
+      panelAnimation = null;
+    };
+    reducedMotion?.addEventListener?.('change', event => { if (event.matches) cancelMotion(); });
+    if (tabList) tabList.dataset.active = selected;
     const presets = Array.from(document.querySelectorAll('[data-dollar-preset]'));
     const setText = (selector, value) => document.querySelectorAll(selector).forEach(node => { if (node.textContent !== value) node.textContent = value; });
     const render = () => {
@@ -111,15 +123,39 @@ import { startLandingMarketData } from './market-data-client.mjs';
     };
     const selectTab = (name, focus = false) => {
       if (!tabs.some(tab => tab.dataset.outcomeTab === name)) return;
+      const previous = selected;
+      const changed = previous !== name;
+      const animate = changed && !reducedMotion?.matches && typeof calculator.animate === 'function';
+      // Capture the current animated height before interrupting a previous switch.
+      const fromHeight = animate ? getComputedStyle(calculator).height : null;
+      cancelMotion();
       selected = name;
+      if (tabList) tabList.dataset.active = selected;
+      let activePanel = null;
       tabs.forEach(tab => {
         const active = tab.dataset.outcomeTab === selected;
         tab.setAttribute('aria-selected', String(active));
         tab.tabIndex = active ? 0 : -1;
         const panel = document.getElementById(tab.getAttribute('aria-controls'));
-        if (panel) panel.hidden = !active;
+        if (panel) {
+          panel.hidden = !active;
+          if (active) activePanel = panel;
+        }
         if (active && focus) tab.focus();
       });
+      if (animate) {
+        const toHeight = getComputedStyle(calculator).height;
+        frameAnimation = calculator.animate([{ height: fromHeight }, { height: toHeight }], { duration: 260, easing: 'ease-out' });
+        frameAnimation.onfinish = () => { frameAnimation = null; };
+        if (activePanel && typeof activePanel.animate === 'function') {
+          const direction = tabs.findIndex(tab => tab.dataset.outcomeTab === name) > tabs.findIndex(tab => tab.dataset.outcomeTab === previous) ? 1 : -1;
+          panelAnimation = activePanel.animate(
+            [{ opacity: 0, transform: `translateX(${direction * 12}px)` }, { opacity: 1, transform: 'translateX(0)' }],
+            { duration: 180, easing: 'ease-out' }
+          );
+          panelAnimation.onfinish = () => { panelAnimation = null; };
+        }
+      }
     };
     tabs.forEach((tab, index) => {
       tab.addEventListener('click', () => selectTab(tab.dataset.outcomeTab));

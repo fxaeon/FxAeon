@@ -8,6 +8,7 @@ export function telegramLauncher(value = 'https://t.me/FxAeonBot') {
     || (url.searchParams.has('startapp') && !/^[A-Za-z0-9_-]{0,512}$/.test(url.searchParams.get('startapp')))) {
     throw new Error('Telegram launcher must be an HTTPS t.me bot or mini-app URL with an optional startapp payload');
   }
+  if (!url.searchParams.has('startapp')) url.searchParams.set('startapp', '');
   return url.href;
 }
 

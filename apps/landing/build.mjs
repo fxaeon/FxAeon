@@ -9,12 +9,12 @@ const telegramUrl = telegramLauncher(process.env.NEXT_PUBLIC_TELEGRAM_APP_URL ||
 const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const file of ['index.html', 'styles.css', 'script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', '404.html', 'robots.txt', 'sitemap.xml', 'document.css']) {
+for (const file of ['index.html', 'styles.css', 'script.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', '404.html', 'robots.txt', 'sitemap.xml', 'document.css']) {
   await cp(resolve(root, file), resolve(dist, file));
   if (file === 'index.html') {
     // The source links the default bot; section links add the screen to open.
     const html = await readFile(resolve(dist, file), 'utf8');
-    await writeFile(resolve(dist, file), html.replace(/https:\/\/t\.me\/FxAeonBot(?:\?startapp=([a-z][a-z0-9-]*))?/g,
+    await writeFile(resolve(dist, file), html.replace(/https:\/\/t\.me\/FxAeonBot(?:\?startapp=([a-z][a-z0-9-]*)?)?/g,
       (_, startParam) => escapeAttribute(startParam ? telegramStartLink(telegramUrl, startParam) : telegramUrl)));
   }
 }
@@ -22,7 +22,7 @@ await cp(resolve(root, '_headers'), resolve(dist, '_headers'));
 // HTML revalidates on each visit, while Pages can cache scripts and styles for
 // hours. Version the whole browser module graph so changes to an imported
 // module also refresh its entry point for returning visitors.
-const browserFiles = ['styles.css', 'document.css', 'script.js', 'sculpture.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs'];
+const browserFiles = ['styles.css', 'document.css', 'script.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs'];
 const digest = createHash('sha256');
 for (const file of browserFiles) {
   digest.update(file).update('\0').update(await readFile(resolve(dist, file))).update('\0');
