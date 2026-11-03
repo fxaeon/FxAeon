@@ -22,6 +22,11 @@ export const BOT_COMMANDS = [
   { command: 'help', description: 'Read the guides' },
   { command: 'support', description: 'Send feedback or report a problem' },
 ];
+export const BOT_PROFILE = Object.freeze({
+  name: 'FxAeon',
+  shortDescription: 'Trade, earn, borrow and move assets. Your onchain workspace, in Telegram.',
+  description: 'Your onchain workspace, in Telegram.\n\nTrade ETH and BTC positions, earn with fxSAVE, borrow fxUSD, and move assets between Ethereum and Base.\n\nOpen FxAeon to check your access or join the waitlist.\nGuides: https://fxaeon.com/docs\nSupport: support@fxaeon.com',
+});
 export function telegramWebhookSecret(token) {
   return createHash('sha256').update('fxaeon:telegram-webhook:v1\0').update(token).digest('hex');
 }
@@ -164,11 +169,7 @@ export async function syncTelegramBot({
   const validatedMenuUrl = validatedWebAppUrl(webAppUrl);
   if (reviewedWebhookSha256 !== undefined && (typeof reviewedWebhookSha256 !== 'string'
     || !/^[a-f0-9]{64}$/.test(reviewedWebhookSha256))) throw new Error('A reviewed webhook URL SHA-256 is required');
-  const metadata = {
-    name: 'FxAeon',
-    shortDescription: 'Positions, fxSAVE, and fxUSD on Ethereum.',
-    description: 'Open long or short positions, earn with fxSAVE, and borrow fxUSD on Ethereum. Move assets between Ethereum and Base. Built with f(x) SDK. Review every transaction and sign with your own wallet. FxAeon never receives your private keys. Open: https://fxaeon.com/ Docs: https://fxaeon.com/docs',
-  };
+  const metadata = BOT_PROFILE;
   const requestOptions = { fetchImpl, timeoutMs };
   const request = (method, payload) => callBotApi(token, method, payload, requestOptions);
   const ensure = async (writeMethod, writePayload, readMethod, expected, {

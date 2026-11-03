@@ -1,8 +1,23 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import { Store } from './store.ts';
 import { NotificationStore, INVITATION_TEXT, escapeEmailHtml, renderNotificationEmailV2, type MailDB, type MailStatement, type MailResult, type NotificationEnv, type NotificationDiagnostic } from './notifications.ts';
+
+test('v2 queued payload bytes are frozen; copy/layout changes must introduce a new template version', () => {
+  // These fingerprints protect real Resend retries across future deployments.
+  // Do not refresh them to accommodate a v2 edit; add a v3 formatter instead.
+  const fixtures = [
+    [{ kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt: Date.UTC(2026, 10, 3, 11) },
+      '2737fc0ad27cd13352aeb843c2879447188c89bf326cb919e6851c52e1ccd716'],
+    [{ kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' },
+      '07aaa4fccca88dfc22363552fbb993a0891dabfc326d0ce56bccf3eaf5983f9b'],
+  ] as const;
+  for (const [input, fingerprint] of fixtures) {
+    assert.equal(createHash('sha256').update(JSON.stringify(renderNotificationEmailV2(input))).digest('hex'), fingerprint);
+  }
+});
 
 test('v2 emails have one primary action, full fallback links and complete plain text without remote content', () => {
   for (const input of [
@@ -15,7 +30,7 @@ test('v2 emails have one primary action, full fallback links and complete plain 
     assert.deepEqual(links, [input.url, input.url]);
     assert.equal((mail.html.match(/display:inline-block/g) ?? []).length, 1);
     assert.ok(mail.text.includes(`\n${input.url}\n`));
-    assert.ok(mail.text.includes(`browser:\n${input.url}`));
+    assert.equal(mail.text.split(input.url).length - 1, 1, 'plain text has one action URL');
     for (const body of [mail.html, mail.text]) {
       assert.match(body, /support@fxaeon\.com/);
       if (input.kind === 'verification') {
@@ -25,6 +40,7 @@ test('v2 emails have one primary action, full fallback links and complete plain 
         assert.match(body, /did not request/);
       } else {
         assert.doesNotMatch(body, /expires|one hour|confirm your email/i);
+        assert.doesNotMatch(body, /whenever you are ready/);
         assert.match(body, /approved/);
       }
     }
@@ -315,30 +331,32 @@ test('bare bot configuration produces direct email launchers and private Telegra
   await f.approve(); f.verified(1); await f.store.enqueueInvitation(1, true);
   assert.ok(f.rows().every(row => row.link === 'https://t.me/FxAeonBot?startapp'));
   assert.equal((await f.store.dispatch()).sent, 2);
-  assert.equal(f.calls.find(call => call.url.includes('resend'))!.body.text, `${INVITATION_TEXT}\n\nhttps://t.me/FxAeonBot?startapp`);
+  const email = f.calls.find(call => call.url.includes('resend'))!;
+  assert.deepEqual(email.body, { from: ENV.RESEND_FROM, to: ['person1@example.com'], reply_to: 'support@fxaeon.com',
+    ...renderNotificationEmailV2({ kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' }) });
   assert.deepEqual(f.calls.find(call => call.body.chat_id)!.body.reply_markup.inline_keyboard,
     [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]]);
 });
 
-test('legacy pending invitation links normalize at send without replaying sent rows or resetting retries', async t => {
+test('ambiguous attempted bare-bot legacy invitations are held without a provider call or replay of sent rows', async t => {
   const f = await fixture(t);
   await f.approve(1); f.verified(1); await f.store.enqueueInvitation(1, true);
   await f.approve(2); await f.store.enqueueInvitation(2, true);
   f.db.sql.prepare("UPDATE access_mail_outbox SET link='https://t.me/FxAeonBot'").run();
   f.db.sql.prepare("UPDATE access_mail_outbox SET status='sent',attempts=1,first_attempt=? WHERE user_id=2").run(f.now());
   f.db.sql.prepare("UPDATE access_mail_outbox SET attempts=1,first_attempt=? WHERE user_id=1 AND channel='email'").run(f.now());
+  f.db.sql.exec('DELETE FROM access_mail_templates');
   const before = f.rows().find(row => row.user_id === 2);
-  assert.equal((await f.store.dispatch()).sent, 2);
-  const email = f.calls.find(call => call.url.includes('resend'))!;
-  assert.equal(email.body.text, `${INVITATION_TEXT}\n\nhttps://t.me/FxAeonBot?startapp`);
-  assert.equal(new Headers(email.init.headers).get('Idempotency-Key'), 'access-mail/invite:email:1');
+  assert.deepEqual(await f.store.dispatch(), { sent: 1, failed: 0, uncertain: 1, deferred: 0 });
+  assert.equal(f.calls.some(call => call.url.includes('resend')), false);
+  assert.deepEqual(f.diagnostics, [{ channel: 'email', kind: 'invitation', attempt: 2, outcome: 'uncertain', reason: 'legacy_invitation_payload_unknown' }]);
   assert.equal(f.rows().find(row => row.id === 'invite:email:1').attempts, 2);
   assert.deepEqual(f.calls.find(call => call.body.chat_id)!.body.reply_markup.inline_keyboard,
     [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]]);
   assert.deepEqual(f.rows().find(row => row.user_id === 2), before);
   await f.store.enqueueInvitation(1, true); await f.store.enqueueInvitation(2, true);
   assert.equal((await f.make().dispatch()).sent, 0);
-  assert.equal(f.calls.length, 2);
+  assert.equal(f.calls.length, 1);
 });
 
 test('existing direct email Mini App links retain their reviewed path and start parameter', async t => {
@@ -347,8 +365,24 @@ test('existing direct email Mini App links retain their reviewed path and start 
     const f = await fixture(t, { TELEGRAM_MINIAPP_URL: link });
     await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
     await f.store.dispatch();
-    assert.equal(f.calls[0].body.text, `${INVITATION_TEXT}\n\n${link}`);
+    assert.deepEqual(f.calls[0].body, { from: ENV.RESEND_FROM, to: ['person1@example.com'], reply_to: 'support@fxaeon.com',
+      ...renderNotificationEmailV2({ kind: 'invitation', url: link }) });
   }
+});
+
+test('lease recovery cannot replay an ambiguous legacy bare-bot invitation', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  f.db.sql.exec('DELETE FROM access_mail_templates');
+  f.db.sql.prepare(`UPDATE access_mail_outbox SET status='sending',attempts=1,first_attempt=?,lease_until=?,link='https://t.me/FxAeonBot'`)
+    .run(f.now(), f.now() + 60_000);
+  f.advance(120_000);
+  assert.equal((await f.make().dispatch()).uncertain, 1);
+  assert.equal(f.rows()[0].id, 'invite:email:1');
+  assert.equal(f.rows()[0].status, 'uncertain');
+  await f.make().enqueueInvitation(1, false); await f.make().dispatch();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.rows().length, 1);
 });
 
 test('dispatch rechecks consent and verified destination; stale contacts cannot starve eligible Telegram', async t => {
@@ -388,7 +422,7 @@ test('Resend retries identical payload and idempotency key after uncertain failu
   assert.equal((await f.admission.status(1))!.state, 'approved');
 });
 
-test('template staging preserves the legacy Resend payload for verification and invitation retries', async t => {
+test('previously attempted legacy verification and direct invitation payloads survive delayed retries unchanged', async t => {
   for (const kind of ['verification', 'invitation'] as const) {
     const f = await fixture(t);
     if (kind === 'verification') {
@@ -396,21 +430,109 @@ test('template staging preserves the legacy Resend payload for verification and 
     } else {
       await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
     }
+    f.db.sql.exec('DELETE FROM access_mail_templates');
+    f.db.sql.prepare('UPDATE access_mail_outbox SET attempts=1,first_attempt=?').run(f.now());
+    f.advance(5 * 60_000);
     f.respond(() => new Response(null, { status: 503 }));
     await f.store.dispatch();
     const first = f.calls[0];
     const expectedText = kind === 'verification'
       ? `Confirm your email address for FxAeon invitations.\n\nhttps://fxaeon.com/invite#token=${token(first)}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`
-      : `${INVITATION_TEXT}\n\n${ENV.TELEGRAM_MINIAPP_URL}`;
+      : `Your FxAeon invitation is ready. Open the miniapp to set up your wallet.\n\n${ENV.TELEGRAM_MINIAPP_URL}`;
     assert.deepEqual(first.body, { from: ENV.RESEND_FROM, to: [kind === 'verification' ? 'person@example.com' : 'person1@example.com'],
       reply_to: 'support@fxaeon.com', subject: kind === 'verification' ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready', text: expectedText });
-    f.advance(60_000);
+    f.advance(15 * 60_000);
+    f.env.RESEND_FROM = 'New sender <updates@fxaeon.com>';
     f.respond(() => Response.json({ id: 'accepted' }));
     await f.make().dispatch();
     assert.equal(f.calls.length, 2);
     assert.equal(f.calls[1].init.body, first.init.body);
     assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), new Headers(first.init.headers).get('Idempotency-Key'));
   }
+});
+
+test('new verification and invitation emails pin v2 at enqueue and retain HTML, text, inputs and keys across delayed retries', async t => {
+  for (const kind of ['verification', 'invitation'] as const) {
+    const f = await fixture(t, { TELEGRAM_MINIAPP_URL: 'https://t.me/FxAeonBot' });
+    const requested = f.now();
+    if (kind === 'verification') {
+      await f.admission.join(1, false); await f.store.setContact(1, 'person@example.com');
+    } else {
+      await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    }
+    const queued = f.rows()[0];
+    assert.deepEqual(f.db.sql.prepare('SELECT * FROM access_mail_templates').all().map(row => ({ ...row })), [{ outbox_id: queued.id, version: 2 }]);
+    assert.equal(f.calls.length, 0);
+    f.advance(5 * 60_000);
+    f.respond(() => { throw Error('ambiguous private provider error'); });
+    assert.equal((await f.store.dispatch()).deferred, 1);
+    const first = f.calls[0];
+    const url = kind === 'verification' ? `https://fxaeon.com/invite#token=${token(first)}` : 'https://t.me/FxAeonBot?startapp';
+    const expected = renderNotificationEmailV2(kind === 'verification'
+      ? { kind, url, expiresAt: requested + 3_600_000 } : { kind, url });
+    assert.deepEqual(first.body, { from: ENV.RESEND_FROM, to: [kind === 'verification' ? 'person@example.com' : 'person1@example.com'],
+      reply_to: 'support@fxaeon.com', ...expected });
+    f.advance(15 * 60_000);
+    f.env.RESEND_FROM = 'Changed sender <updates@fxaeon.com>';
+    f.env.TELEGRAM_MINIAPP_URL = 'https://t.me/AnotherBot/app';
+    const restarted = f.make(); await restarted.init();
+    if (kind === 'invitation') await restarted.enqueueInvitation(1, false);
+    f.respond(() => Response.json({ id: 'accepted' }));
+    assert.equal((await restarted.dispatch()).sent, 1);
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[1].init.body, first.init.body);
+    assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), `access-mail/${queued.id}`);
+    assert.equal(new Headers(first.init.headers).get('Idempotency-Key'), `access-mail/${queued.id}`);
+    assert.equal(f.rows()[0].attempts, 2);
+    if (kind === 'invitation') await restarted.enqueueInvitation(1, false);
+    else {
+      await restarted.retryVerification(1);
+      assert.equal(JSON.stringify(f.rows()).includes(token(first)), false);
+    }
+    assert.equal((await f.make().dispatch()).sent, 0);
+    assert.equal(f.calls.length, 2, 'successful messages are never replayed');
+  }
+});
+
+test('additive migration preserves old rows; an unattempted bare invitation pins legacy normalization before send and retries it unchanged', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  await f.approve(2, false); f.verified(2); await f.store.enqueueInvitation(2, false);
+  f.db.sql.exec("UPDATE access_mail_outbox SET link='https://t.me/FxAeonBot'");
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sent',attempts=1,first_attempt=? WHERE user_id=2").run(f.now());
+  f.db.sql.exec('DROP TABLE access_mail_templates');
+  const before = f.rows();
+  const restarted = f.make(); await restarted.init(); await f.make().init();
+  assert.deepEqual(f.rows(), before, 'migration neither rewrites old outbox rows nor requeues sent ones');
+  f.respond(() => new Response(null, { status: 503 }));
+  assert.equal((await restarted.dispatch()).deferred, 1);
+  assert.equal(f.calls[0].body.text, 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.\n\nhttps://t.me/FxAeonBot?startapp');
+  assert.equal(f.calls[0].body.html, undefined);
+  assert.deepEqual(f.db.sql.prepare('SELECT * FROM access_mail_templates').all().map(row => ({ ...row })), [{ outbox_id: 'invite:email:1', version: 1 }]);
+  f.advance(4 * 3_600_000);
+  f.respond(() => Response.json({ id: 'accepted' }));
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.calls[0].init.body, f.calls[1].init.body);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  assert.deepEqual(f.rows().find(row => row.user_id === 2), before.find(row => row.user_id === 2));
+  await f.make().enqueueInvitation(2, false); await f.make().dispatch();
+  assert.equal(f.calls.length, 2);
+});
+
+test('enqueue and template selection commit atomically and a missing formatter write never leaves a sendable new row', async t => {
+  const f = await fixture(t);
+  await f.admission.join(1, false);
+  f.db.failAt = 4;
+  await assert.rejects(f.store.setContact(1, 'person@example.com'), { message: 'notification_storage_unavailable' });
+  assert.equal(f.rows().length, 0);
+  assert.equal(f.db.sql.prepare('SELECT count(*) n FROM access_mail_templates').get()!.n, 0);
+  await f.approve(1, false); f.verified(1);
+  f.db.failAt = 1;
+  await assert.rejects(f.store.enqueueInvitation(1, false), { message: 'notification_storage_unavailable' });
+  assert.equal(f.rows().length, 0);
+  assert.equal(f.db.sql.prepare('SELECT count(*) n FROM access_mail_templates').get()!.n, 0);
+  assert.equal((await f.store.dispatch()).sent, 0);
+  assert.equal(f.calls.length, 0);
 });
 
 test('Resend stops after three attempts and never retries past provider idempotency retention', async t => {

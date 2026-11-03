@@ -25,16 +25,15 @@ small accent text uses `#7da5ff` on dark surfaces. These accessible variants
 are defined in the existing semantic tokens. Success, warning, danger, token,
 and network colors keep their separate meanings or identities.
 
-## Messaging and profile handoff
+## Messaging
 
 Use `docs/assets/brand/fxaeon-bot-avatar-1024.png` as the Telegram profile photo.
 The existing ribbon remains unchanged; the export adds a neutral `#080808`
 canvas and circle-safe padding. It contains no small lettering or new symbol.
-The supplied social masters remain unchanged. This asset is for manual profile
-review and application; the renderer never updates a profile or sends messages.
+The supplied social masters remain unchanged. The dedicated GitHub profile-photo
+workflow applies the reviewed PNG; generating assets never updates a profile or sends messages.
 
-Recommended Telegram dashboard copy (plain text; dashboard descriptions do not
-use reply formatting):
+Telegram profile copy (plain text; descriptions do not use reply formatting):
 
 - **Name:** FxAeon
 - **About / short description:** Trade, earn, borrow and move assets. Your onchain workspace, in Telegram.
@@ -50,23 +49,18 @@ use reply formatting):
   Support: support@fxaeon.com
   ```
 
-The deployment metadata in `scripts/sync_telegram_bot.mjs` must be aligned by
-the profile owner before a later sync, otherwise it will restore its existing
-description. No sync or dashboard change is part of this export.
+`BOT_PROFILE` in `scripts/sync_telegram_bot.mjs` contains this exact copy, and
+contract tests keep it aligned with this guide. Deploy syncs preserve the reviewed
+profile wording.
 
 Command replies live in `server/miniapp-access/bot.ts`. Only their first line
 is bold, via Telegram entities; paragraphs separate the next action from help.
 Every reply keeps the direct `web_app` button at `https://fxaeon.com/`.
 
 `renderNotificationEmailV2` in `server/miniapp-access/notifications.ts` provides
-the HTML and plain-text verification/invitation designs. It intentionally is
-not selected by dispatch yet. Activation requires a persisted enqueue-time
-template version, owned by the queue/security work. Retain the legacy payload
-for every previously enqueued row and every retry under its existing Resend
-idempotency key. Never reset keys or infer template versions from attempt count:
-a first attempt can become ambiguous across a deployment. Freeze v2 subject,
-body, fallback URL, expiry and headers for retries once activated. Verification
-copy uses the stored expiry in UTC; invitation copy claims no expiry.
+the HTML and plain-text verification/invitation designs. HTML has one primary
+button and a readable fallback URL; plain text has one action URL. Verification
+copy shows the expiry in UTC. Replies go to `support@fxaeon.com`.
 
 Regenerate with the workspace's Node 22, pnpm 11.19 dependencies and Playwright:
 
@@ -82,7 +76,7 @@ These are browser mockups, not proof of a native Telegram or inbox rendering.
 The renderer blocks network requests and uses no real recipient or valid token.
 Keep these email previews private and out of commits. The template contains no
 tracking pixels, remote images, remote fonts or link rewriting. Provider-side
-tracking settings must also remain off when activated.
+tracking settings must also remain off.
 
 ### Email sender avatars
 
@@ -94,9 +88,7 @@ and a compliant hosted SVG Tiny PS logo. Its VMC checkmark is separate from
 logo display. The supplied general-purpose SVG/PNG is not certified BIMI artwork.
 [Apple Mail](https://support.apple.com/en-us/108340) also requires both sender
 and email-provider support. Eligibility and appearance depend on the receiving
-provider; no avatar display is guaranteed by this change. The parent can review
-the verified sending domain and provider requirements separately before making
-any DNS, certificate or dashboard changes.
+provider; no avatar display is guaranteed by a PNG upload or email template.
 
 ## Site social preview
 
