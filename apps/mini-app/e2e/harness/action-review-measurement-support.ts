@@ -226,7 +226,7 @@ export const useInvalidateWalletData = () => async () => {
   '@/lib/fx/tokens': `import { FX_TOKENS as actual } from './src/lib/fx/tokens'; export const FX_TOKENS = { ...actual, legacyFxUSD: { key: 'fxUSD', address: '0x00000000000000000000000000000000000000c1', decimals: 18 }, legacyFxSAVE: { key: 'fxSAVE', address: '0x00000000000000000000000000000000000000c2', decimals: 18 } };`,
 };
 
-export async function buildHarness(): Promise<{ script: string; css: string }> {
+export async function buildHarness(bridgeDelivery = false): Promise<{ script: string; css: string }> {
   type EsbuildPluginBuild = {
     onResolve: (options: { filter: RegExp }, callback: (args: { path: string; resolveDir?: string }) => unknown) => void;
     onLoad: (options: { filter: RegExp; namespace?: string }, callback: (args: { path: string; resolveDir: string }) => unknown) => void;
@@ -238,7 +238,8 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
       name: 'action-review-harness-mocks',
       setup(build: EsbuildPluginBuild) {
         build.onResolve({ filter: /^@\// }, (args: { path: string }) => {
-          if (mocks[args.path]) return { path: args.path, namespace: 'mock' };
+          if (bridgeDelivery && args.path === '@/lib/fx/clients') return { path: args.path, namespace: 'bridge-clients' };
+          if (mocks[args.path] && !(bridgeDelivery && args.path === '@/components/BridgeTracker')) return { path: args.path, namespace: 'mock' };
           const candidate = resolve(src, args.path.slice(2));
           for (const file of [candidate, `${candidate}.tsx`, `${candidate}.ts`, resolve(candidate, 'index.ts'), resolve(candidate, 'index.tsx')]) {
             if (existsSync(file) && statSync(file).isFile()) return { path: file };
@@ -247,6 +248,18 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
         });
         build.onResolve({ filter: /^next\/link$/ }, () => ({ path: 'next/link', namespace: 'mock' }));
         build.onResolve({ filter: /^next\/navigation$/ }, () => ({ path: 'next/navigation', namespace: 'mock' }));
+        build.onLoad({ filter: /.*/, namespace: 'bridge-clients' }, () => ({ loader: 'js', contents: `
+          export const assertPublicClientChain = async (client, expected) => { if (client.chain.id !== expected) throw new Error('wrong fixture chain'); };
+          export const getPublicClient = id => {
+            const h = globalThis.__actionReviewHarness.bridgeRpc;
+            if (id !== 1 && id !== 8453) throw new Error('unexpected fixture chain');
+            return { chain: { id },
+              getTransactionReceipt: async ({hash}) => { if (id !== 1 || hash !== h.hash) throw new Error('unexpected source receipt'); h.sourceReads++; return {transactionHash: hash, blockNumber: 50n, status: 'success', logs: [h.sent]}; },
+              getBlockNumber: async () => { if (id !== 8453) throw new Error('unexpected destination chain'); return h.delivered ? 101n : 100n; },
+              getLogs: async query => { if (id !== 8453) throw new Error('unexpected destination logs'); h.queries.push({from: Number(query.fromBlock), to: Number(query.toBlock), address:query.address, guid:query.args.guid, recipient:query.args.toAddress}); const log = h.delivered ? h.match : h.mismatch; const block = h.delivered ? 101n : 100n; return query.fromBlock <= block && query.toBlock >= block ? [{ ...log, blockNumber: block }] : []; } };
+          };
+          export const getEthereumClient = () => getPublicClient(1);
+        ` }));
         build.onLoad({ filter: /.*/, namespace: 'mock' }, (args: { path: string }) => ({ contents: mocks[args.path], loader: 'tsx', resolveDir: resolve(root, 'apps/mini-app') }));
       },
     }],
@@ -266,13 +279,15 @@ export async function buildHarness(): Promise<{ script: string; css: string }> {
   };
 }
 
-let cachedBundle: { script: string; css: string } | undefined;
+const cachedBundles = new Map<boolean, { script: string; css: string }>();
 
-export async function openHarness(page: Page, options: { initialPreviewMode?: 'auto' | 'deferred'; previewDelayMs?: number; refreshDelayMs?: number; presentationMode?: boolean } = {}): Promise<number> {
+export async function openHarness(page: Page, options: { initialPreviewMode?: 'auto' | 'deferred'; previewDelayMs?: number; refreshDelayMs?: number; presentationMode?: boolean; bridgeDelivery?: boolean } = {}): Promise<number> {
   const errors: string[] = [];
   const collectError = (error: Error) => errors.push(error.message);
   page.on('pageerror', collectError);
-  if (!cachedBundle) cachedBundle = await buildHarness();
+  const bridgeDelivery = options.bridgeDelivery === true;
+  let cachedBundle = cachedBundles.get(bridgeDelivery);
+  if (!cachedBundle) { cachedBundle = await buildHarness(bridgeDelivery); cachedBundles.set(bridgeDelivery, cachedBundle); }
   const startedAt = performance.now();
   const initialOptions = { mode: options.initialPreviewMode, previewDelayMs: options.previewDelayMs ?? 0, refreshDelayMs: options.refreshDelayMs ?? 0, presentationMode: options.presentationMode ?? false };
   if (options.presentationMode) {
