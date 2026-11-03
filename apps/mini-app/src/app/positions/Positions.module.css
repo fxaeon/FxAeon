@@ -5,7 +5,7 @@
 .overview { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 24px; margin: 0; padding: 8px 0 28px; border-bottom: 1px solid var(--line); }
 .overview > div { min-width: 0; }
 .overview dt { margin-bottom: 10px; color: var(--mut); font-size: 14px; }
-.overview dd { margin: 0; color: var(--text); font-size: 26px; font-weight: 500; line-height: 1.2; letter-spacing: -.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.overview dd { margin: 0; color: var(--text); font-size: 26px; font-weight: 500; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .overview > div:first-child dd { font-size: clamp(32px, 3vw, 42px); }
 .estimate { color: var(--mut); font-size: .65em; }
 .listHeader.listHeader { min-height: 44px; margin-bottom: 12px; }
@@ -32,7 +32,7 @@
 .blankState :global(.empty-state) { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 16px; width: 100%; margin-inline: auto; padding: 28px; border: 0; background: transparent; box-shadow: none; text-align: left; }
 .blankState :global(.empty-icon) { width: 48px; height: 48px; margin: 0; border-radius: 14px; background: #24262c; }
 .blankState :global(.empty-icon svg) { width: 25px; height: 25px; color: var(--mut); }
-.blankState :global(.empty-state) > p:first-of-type { margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600; letter-spacing: -.025em; }
+.blankState :global(.empty-state) > p:first-of-type { margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600; }
 .blankState :global(.empty-state) > p:not(:first-of-type) { margin-top: 8px; }
 .blankState :global(.empty-state) > div:last-child { min-width: 180px; margin: 0; }
 .blankState :global(.button-primary) { width: 100%; min-height: 48px; border-radius: 12px; padding-inline: 20px; }

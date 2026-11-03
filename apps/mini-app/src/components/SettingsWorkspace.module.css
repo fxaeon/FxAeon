@@ -1,6 +1,6 @@
 .workspace { width: min(100%, 640px); margin-inline: auto; }
 .settingsWorkspace { gap: 24px; padding-block: 28px 12px; }
-.settingsWorkspace > header h1 { font-size: 30px; line-height: 1.2; letter-spacing: -.035em; }
+.settingsWorkspace > header h1 { font-size: 30px; line-height: 1.2; }
 .section { min-width: 0; }
 .walletManagement { margin-top: 16px; }
 .walletManagement :global(details) { border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }

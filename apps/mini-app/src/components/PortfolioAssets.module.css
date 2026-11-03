@@ -2,7 +2,7 @@
 .assets { min-width: 0; scroll-margin-top: 24px; }
 .ledgerSurface { box-shadow: none; }
 .sectionHeading { display: flex; min-height: 44px; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 2px; }
-.sectionHeading h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.025em; scroll-margin-top: 24px; }
+.sectionHeading h2 { margin: 0; font-size: 21px; font-weight: 600; scroll-margin-top: 24px; }
 .networkSelect { position: relative; display: inline-flex; min-width: 0; max-width: 100%; align-items: center; color: var(--mut); }
 .networkTrigger { display: inline-flex; min-width: 0; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 12px; padding: 8px 12px; background: var(--portfolio-row, var(--surface)); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; }
 .networkTrigger > svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--mut); }
@@ -30,11 +30,11 @@
 .assetRow:hover { background: var(--portfolio-row-hover, var(--surface-2)); }
 .assetRow:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
 .assetIdentity { display: grid; min-width: 0; gap: 4px; }
-.assetIdentity > strong { color: var(--text); font-size: 18px; font-weight: 550; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.assetIdentity > strong { color: var(--text); font-size: 18px; font-weight: 550; overflow-wrap: anywhere; }
 .assetIdentity > span { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 2px 7px; color: var(--mut); font-size: 15px; line-height: 1.35; }
 .assetIdentity > span > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .assetNetwork { color: var(--mut); font-size: 12px; }
-.assetValue { min-width: 0; max-width: 160px; color: var(--text); text-align: right; font-size: 19px; font-weight: 500; letter-spacing: -.025em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.assetValue { min-width: 0; max-width: 160px; color: var(--text); text-align: right; font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .rowArrow { color: var(--mut-2); }
 .showAll { display: flex; min-height: 44px; width: 100%; align-items: center; justify-content: center; margin-top: 4px; border-top: 1px solid var(--line); color: var(--mint-text); font-size: 13px; font-weight: 500; }
 .showAll:focus-visible, .empty :is(a, button):focus-visible, .status button:focus-visible, .lowValueGroup > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 8px; }

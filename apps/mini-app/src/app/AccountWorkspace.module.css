@@ -8,7 +8,7 @@
   color: var(--text);
 }
 
-.walletTrigger, .walletConnect { border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.walletTrigger, .walletConnect { background: var(--surface); color: var(--text); }
 .walletTrigger, .walletConnect { min-height: 44px; border-radius: 14px; padding: 0 13px; }
 .walletConnect { display: inline-flex; align-items: center; gap: 8px; color: var(--mint-text); font-size: 12px; font-weight: 650; }
 

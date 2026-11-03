@@ -7,7 +7,7 @@
 .name strong { color: var(--text); font-size: var(--fs-body); font-weight: 600; overflow-wrap: anywhere; }
 .name small { color: var(--mut); font-size: var(--fs-caption); }
 .worth { display: flex; min-width: 0; max-width: 58%; flex-direction: column; gap: 4px; text-align: right; font-variant-numeric: tabular-nums; }
-.worth > strong { color: var(--text); font-size: var(--fs-body); font-weight: 600; letter-spacing: -0.01em; }
+.worth > strong { color: var(--text); font-size: var(--fs-body); font-weight: 600; }
 .worth .quantity { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .quantity { min-width: 0; color: var(--mut); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .unavailable { color: var(--mut); font-size: 11px; font-weight: 400; }

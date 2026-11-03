@@ -1,15 +1,15 @@
 .moveWorkspace.moveWorkspace { width: min(100%, 460px); max-width: 460px; margin: 0 auto; min-height: calc(var(--tg-viewport-height, 100dvh) - 128px); justify-content: center; gap: 16px; padding-block: 24px; }
 .moveWorkspace.moveWorkspace[data-review='true'] { width: min(100%, 480px); max-width: 480px; }
 .centerStage { min-width: 0; }
-.moveCard.moveCard { width: 100%; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); box-shadow: none; }
+.moveCard.moveCard { width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .cardHead { display: flex; align-items: center; justify-content: space-between; min-height: 44px; margin: -4px 2px 8px; }
-.cardHead > span { font-size: 20px; font-weight: 600; letter-spacing: -.025em; }
+.cardHead > span { font-size: 20px; font-weight: 600; }
 .moveCard.moveCard .moveFormFields { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 /* Send and receive read as the same amount surfaces as Earn and Borrow. */
 .sourcePanel, .destinationPanel { min-width: 0; padding: 14px; border: 0; border-radius: 22px; background: var(--surface-2); }
 .destinationPanel { display: flex; flex-direction: column; gap: 2px; }
 .receiveLine { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; }
-.receiveAmount { min-width: 0; overflow-wrap: anywhere; font-size: clamp(28px, 8.5vw, 38px); font-weight: 500; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.receiveAmount { min-width: 0; overflow-wrap: anywhere; font-size: clamp(28px, 8.5vw, 38px); font-weight: 500; font-variant-numeric: tabular-nums; }
 .receiveAmount[data-empty] { color: var(--mut-2); }
 .receiveValue { flex: 1; min-width: 0; container-type: inline-size; }
 .receiveValue .receiveAmount { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: clamp(14px, calc(100cqi / (var(--receive-length, 4) * .62 + .4)), 38px); white-space: nowrap; overflow-wrap: normal; line-height: 1.2; }
@@ -17,7 +17,7 @@
 .receiveCaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; min-height: 1.52em; margin: 0; color: var(--mut); font-size: 12px; line-height: 1.4; }
 .receiveCaption > span { display: inline; }
 .receiveCaptionPlaceholder { display: inline-block !important; width: 8rem; height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--mut) 18%, transparent); }
-.quoteSummary { padding: 0 2px 4px; border-bottom: 1px solid var(--line); }
+.quoteSummary { padding: 0 2px 4px; }
 .quoteHeading { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 12px; font-weight: 600; }
 .quoteHeading button { color: var(--mint-text, var(--mint)); min-height: 44px; font-size: 12px; }
 .quoteHeading button:disabled { color: var(--mut); }
@@ -33,11 +33,11 @@
 .quoteValuePlaceholder { display: flex; min-height: 1.45em; align-items: center; justify-content: flex-end; }
 .feeUsdPlaceholder { display: block; width: 4.25em; height: 1.45em; margin: 0 0 0 auto; border-radius: 999px; background: color-mix(in srgb, var(--mut) 18%, transparent); }
 .gasNote { margin: 0; color: var(--mut); font-size: 12px; line-height: 1.5; padding: 0 2px; }
-.gasNote[data-shortfall] { padding: 10px; border: 1px solid var(--warn); border-radius: 10px; color: var(--warn); background: var(--warn-dim); }
+.gasNote[data-shortfall] { color: var(--warn); }
 .recipientIdentity { display: flex; align-items: center; min-width: 0; gap: 7px; font-size: 12px; flex-wrap: wrap; }
 .recipientIdentity > svg { color: var(--mut); }
 .recipientAddress { color: var(--mut); font-size: 11px; }
-.expertSettings { padding-top: 6px; border-top: 1px solid var(--line); }
+.expertSettings { padding-top: 6px; }
 .expertToggle { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 12px; }
 .expertToggle input { margin-left: auto; width: 18px; height: 18px; accent-color: var(--mint); }
 .expertSettings > div { margin-top: 12px; }
@@ -63,7 +63,7 @@
 .routeSwap[data-direction='reverse'] svg { transform: rotate(270deg); }
 .routeSwap:hover { color: var(--text); }
 /* The received asset sits in the same pill as the asset picker above it. */
-.receiveAsset { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 6px 12px 6px 6px; border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface); }
+.receiveAsset { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 44px; padding: 6px 12px 6px 6px; border: 0; border-radius: 999px; background: var(--surface); }
 .receiveAsset strong { font-size: var(--fs-body); font-weight: 600; }
 .recipientSection { min-width: 0; padding: 0 2px; }
 .recipientHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -73,7 +73,7 @@
 .recipientWallet { display: flex; min-height: 32px; align-items: center; gap: 8px; }
 .recipientMark { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto; color: var(--mut); }
 .recipientLabel, .recipientAddress { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.expertDisclosure { min-width: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.expertDisclosure { min-width: 0; border: 0; border-radius: 0; background: transparent; }
 .expertSummary { min-height: 44px; border: 0; background: transparent; color: var(--mut); }
 .expertSummary:hover { color: var(--text); }
 .expertRisk { min-width: 0; }
@@ -82,11 +82,9 @@
 .moveCard :global(.button-primary) { min-height: 52px; border-radius: 26px; }
 @media (max-width: 640px) {
   .moveWorkspace.moveWorkspace { margin-top: 0; min-height: calc(var(--tg-viewport-height, 100dvh) - 144px); padding-block: 8px; }
-  .moveCard.moveCard { padding: 14px; }
   .sourcePanel, .destinationPanel { padding: 14px; }
 }
 @media (max-width: 359px) {
-  .moveCard.moveCard { padding: 12px; }
   .sourcePanel, .destinationPanel { padding: 12px; }
   .sourcePanel :global(.amount-control) button[aria-haspopup='dialog'] { column-gap: 6px; padding-right: 8px; }
   .sourcePanel :global(.amount-control) button[aria-haspopup='dialog'] > span { column-gap: 8px; }
