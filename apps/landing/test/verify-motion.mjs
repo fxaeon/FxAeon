@@ -10,7 +10,7 @@ const captures = resolve(import.meta.dirname, '../review/motion');
 await mkdir(captures, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 try {
-  for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1440, 900]]) {
+  for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [820, 1180], [1024, 768], [1440, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, hasTouch: true,
       reducedMotion: 'no-preference', ...(width === 390 ? { recordVideo: { dir: captures, size: { width, height } } } : {}) });
     const page = await context.newPage();
@@ -24,6 +24,30 @@ try {
     assert.ok(motionTimings.length > 0);
     assert.ok(motionTimings.every(timing => timing.iterations === 1 && timing.endTime <= 5000), 'Decorative motion finishes within five seconds without requiring a pause control');
     await expect.poll(() => page.locator('.journey-scene').evaluate(node => node.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')), { timeout: 6000 }).toBe(false);
+    await expect(page.locator('.hero-copy')).toBeVisible();
+    await expect.poll(() => page.locator('.hero-copy').evaluate(node => node.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')), { timeout: 6000 }).toBe(false);
+    const heroGeometry = await page.evaluate(() => {
+      // DOM rectangles include the final CSS transforms, including rotation.
+      const rectangle = node => {
+        const { left, top, right, bottom } = node.getBoundingClientRect();
+        return { left, top, right, bottom };
+      };
+      return {
+        copy: rectangle(document.querySelector('.hero-copy')),
+        prints: [...document.querySelectorAll('.motion-print')].map(node => ({
+          name: node.className, ...rectangle(node),
+        })),
+      };
+    });
+    assert.ok(heroGeometry.prints.length > 0, 'Hero decorations are present');
+    const inflate = box => ({ left: box.left - 8, top: box.top - 8, right: box.right + 8, bottom: box.bottom + 8 });
+    const copy = inflate(heroGeometry.copy);
+    for (const print of heroGeometry.prints) {
+      const decoration = inflate(print);
+      const intersects = decoration.left < copy.right && decoration.right > copy.left
+        && decoration.top < copy.bottom && decoration.bottom > copy.top;
+      assert.equal(intersects, false, `${width}x${height}: ${print.name} overlaps hero copy with 8px inflated bounds: ${JSON.stringify({ copy: heroGeometry.copy, print })}`);
+    }
     await page.screenshot({ path: resolve(captures, `hero-${width}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     if (width < 760) {
@@ -83,6 +107,13 @@ try {
     await page.locator('#dollar-amount').fill('2000');
     await expect(page.locator('[data-borrow-output]')).toHaveText(/1,000/);
     await page.screenshot({ path: resolve(captures, `calculator-${width}.png`) });
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    });
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
+    await expect.poll(() => page.evaluate(() => document.getAnimations().some(animation => animation.playState === 'running'))).toBe(false);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.screenshot({ path: resolve(captures, `full-${width}.png`), fullPage: true });
     assert.deepEqual(errors, []);
     const video = page.video();
