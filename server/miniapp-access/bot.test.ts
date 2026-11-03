@@ -82,8 +82,8 @@ test('all three commands produce concise, fixed private replies and an open-app 
     assert.deepEqual(payload.reply_markup, { inline_keyboard: [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]] });
   }
   assert.deepEqual(f.sent.map(payload => payload.text), [
-    'Welcome to FxAeon\n\nTrade, earn, borrow and move assets.\nOpen the app to join the waitlist or continue.\n\nNeed a hand? /help',
-    'Getting started\n\nOpen the app to check your access or continue.\nRead the guide: https://fxaeon.com/docs\n\nQuestions or feedback? /support',
+    'Welcome to FxAeon\n\nTrade, earn, borrow and move assets.\nOpen the app to get started.\n\nNeed a hand? /help',
+    'Getting started\n\nOpen the app or read the guide.\nhttps://fxaeon.com/docs\n\nQuestions or feedback? /support',
     'FxAeon support\n\nEmail support@fxaeon.com with what happened and any error shown.\n\nNever share recovery phrases, private keys or verification links.',
   ]);
   assert.deepEqual(f.db.sql.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name), ['telegram_bot_updates']);

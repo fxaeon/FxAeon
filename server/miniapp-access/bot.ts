@@ -8,8 +8,8 @@ export interface BotEnv { ADMISSION_DB?: DB; TELEGRAM_BOT_TOKEN?: string; }
 interface Options { fetch?: typeof fetch; now?: () => number; sendTimeoutMs?: number; }
 type Command = 'start' | 'help' | 'support';
 export const TELEGRAM_REPLIES: Readonly<Record<Command, string>> = {
-  start: 'Welcome to FxAeon\n\nTrade, earn, borrow and move assets.\nOpen the app to join the waitlist or continue.\n\nNeed a hand? /help',
-  help: 'Getting started\n\nOpen the app to check your access or continue.\nRead the guide: https://fxaeon.com/docs\n\nQuestions or feedback? /support',
+  start: 'Welcome to FxAeon\n\nTrade, earn, borrow and move assets.\nOpen the app to get started.\n\nNeed a hand? /help',
+  help: 'Getting started\n\nOpen the app or read the guide.\nhttps://fxaeon.com/docs\n\nQuestions or feedback? /support',
   support: 'FxAeon support\n\nEmail support@fxaeon.com with what happened and any error shown.\n\nNever share recovery phrases, private keys or verification links.',
 };
 
