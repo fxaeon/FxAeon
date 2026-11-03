@@ -211,6 +211,10 @@ test('connected wallet profile keeps its action rows accessible across widths', 
     await trigger.click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
+    // The profile's extracted context/query entrypoints must read the same
+    // seeded balances and prices as the page, rather than real empty defaults.
+    await expect(dialog.locator('section[aria-labelledby="wallet-value-heading"] strong')).toHaveText('$9,900.00');
+    await expect(dialog.getByRole('heading', { level: 2 })).toHaveText('0x930f…98b9');
     for (const name of ['Positions', 'History', 'Settings']) {
       const row = dialog.getByRole('link', { name: new RegExp(`^${name}`) });
       await row.scrollIntoViewIfNeeded();

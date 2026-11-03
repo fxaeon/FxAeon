@@ -152,6 +152,14 @@ export function fetchMarketHistoryWithCoinbaseFallback(market, range) {
 export function fetchMarketCandles() { return settled() && stage() !== 'unavailable' ? never() : stage() === 'unavailable' ? Promise.reject(new Error('candles failed')) : never(); }`,
 };
 
+// Keep the extracted read-only entrypoints on the same fixture functions as
+// legacy consumers. Real context defaults would hide the seeded profile data.
+mocks['@/lib/wallet/context'] = `export { usePrivyWallet } from '@/lib/wallet';`;
+mocks['@/components/PriceContext'] = `export { useUsdPrices } from '@/components/PriceProvider';`;
+mocks['@/components/ProtocolPositionContext'] = `export { useProtocolPositions } from '@/components/ProtocolPositionProvider';`;
+mocks['@/components/WalletDataContext'] = `export { useWalletAssets } from '@/components/WalletDataProvider';`;
+mocks['@/components/WalletDataHooks'] = `export { useWalletBalances, useFxSaveClaimable } from '@/components/WalletDataProvider';`;
+
 // Relative imports of mocked modules ("./BridgeTracker") are intercepted too.
 const relativeMocks = new Map(Object.keys(mocks).filter((id) => id.startsWith('@/')).map((id) => [resolveSource(id).replace(/\.(tsx|ts)$/, '').toLowerCase(), id]));
 
