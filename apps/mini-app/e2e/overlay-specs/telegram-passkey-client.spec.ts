@@ -284,7 +284,7 @@ test('short phone keeps passkey setup reachable and cancellation returns to the 
   const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
   await expect.poll(() => requests.some(r => r.action === 'handoff/create')).toBe(true);
   await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
-  await expect(page.getByText('Keep your passkey synced or backed up so you can use it again.')).toBeVisible();
+  await expect(page.getByText('Opens your browser for passkey setup.')).toBeVisible();
   const primary = page.getByRole('button', { name: 'Set up my wallet' });
   const back = page.getByRole('button', { name: 'Set up later' });
   await expect(primary).toBeEnabled();
