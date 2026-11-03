@@ -18,18 +18,12 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/market-data', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
     await page.goto(url, { waitUntil: 'networkidle' });
-    const scene = page.locator('.journey-scene');
-    const sceneToggle = page.locator('[data-scene-toggle]');
-    await expect(scene).toHaveAttribute('data-state', 'running');
     await expect.poll(() => page.locator('.hero-line > span').first().evaluate(node => node.getAnimations().some(animation => animation.playState === 'running'))).toBe(false);
-    await sceneToggle.click();
-    await expect(sceneToggle).toHaveText('Play animation');
-    assert.equal(await page.locator('.print-glyph').evaluate(node => getComputedStyle(node).animationPlayState), 'paused');
-    await page.locator('#products-title').scrollIntoViewIfNeeded();
-    await page.locator('#hero-title').scrollIntoViewIfNeeded();
-    await expect(scene).toHaveAttribute('data-state', 'paused');
-    await sceneToggle.click();
-    await expect(scene).toHaveAttribute('data-state', 'running');
+    await expect(page.locator('[data-scene-toggle]')).toHaveCount(0);
+    const motionTimings = await page.locator('.journey-scene').evaluate(node => node.getAnimations({ subtree: true }).map(animation => animation.effect.getComputedTiming()));
+    assert.ok(motionTimings.length > 0);
+    assert.ok(motionTimings.every(timing => timing.iterations === 1 && timing.endTime <= 5000), 'Decorative motion finishes within five seconds without requiring a pause control');
+    await expect.poll(() => page.locator('.journey-scene').evaluate(node => node.getAnimations({ subtree: true }).some(animation => animation.playState === 'running')), { timeout: 6000 }).toBe(false);
     await page.screenshot({ path: resolve(captures, `hero-${width}.png`) });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     if (width < 760) {
@@ -84,8 +78,6 @@ try {
     await expect.poll(() => page.locator('.outcome-frame').evaluate(node => node.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)).toBe(0);
     await page.locator('#tab-borrow').click();
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(sceneToggle).toBeHidden();
-    await expect(scene).toHaveAttribute('data-state', 'paused');
     await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(0);
     await expect(page.locator('[data-reveal="waiting"]')).toHaveCount(0);
     await page.locator('#dollar-amount').fill('2000');

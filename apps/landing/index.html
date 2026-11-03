@@ -52,7 +52,6 @@
     </script>
     <script src="script.js"></script>
     <script type="module" src="dollar-outcomes.js"></script>
-    <script type="module" src="scene-motion.js"></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/inter-latin.woff2" as="font" type="font/woff2" crossorigin="" />
     <link
@@ -136,11 +135,11 @@
     </dialog>
     <main id="main">
       <section class="hero" aria-labelledby="hero-title">
-        <div class="journey-scene" data-state="paused" aria-hidden="true">
+        <div class="journey-scene" aria-hidden="true">
           <div class="journey-world">
-            <div class="motion-print print-blue"><svg viewBox="0 0 240 300" focusable="false"><defs><pattern id="blue-grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#6586fa" stroke-width=".5"/></pattern></defs><path fill="#2b58ef" d="M0 0h240v300H0z"/><path fill="url(#blue-grid)" d="M0 0h240v300H0z"/><g class="print-glyph" fill="#edf0ff"><path d="M25 112c0-37 29-67 66-67h108c13 0 20 14 12 24l-37 49c-11 14-27 22-44 22H51c-15 0-26-12-26-28Z"/><path d="M215 188c0 37-29 67-66 67H41c-13 0-20-14-12-24l37-49c11-14 27-22 44-22h79c15 0 26 12 26 28Z"/></g><path fill="#c0d2ff" d="m205 0 35 35V0Z"/></svg></div>
-            <div class="motion-print print-lime"><svg viewBox="0 0 240 300" focusable="false"><path fill="#d5f375" d="M0 0h240v300H0z"/><g class="print-tunnel" fill="none" stroke="#17251f" stroke-width="11"><rect x="20" y="50" width="200" height="200" rx="100"/><rect x="42" y="72" width="156" height="156" rx="78"/><rect x="64" y="94" width="112" height="112" rx="56"/><rect x="86" y="116" width="68" height="68" rx="34"/></g><circle cx="120" cy="150" r="12" fill="#17251f"/></svg></div>
-            <div class="motion-print print-coral"><svg viewBox="0 0 240 300" focusable="false"><defs><pattern id="coral-stripe" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V12" stroke="#ed644d" stroke-width="6"/></pattern></defs><path fill="#ff9879" d="M0 0h240v300H0z"/><path fill="url(#coral-stripe)" d="M0 0h240v300H0z"/><g class="print-arrow" fill="#241d21"><path d="M52 207 149 110H73V70h144v144h-40v-76L80 235Z"/></g></svg></div>
+            <div class="motion-print print-blue"><svg viewBox="0 0 240 300" focusable="false"><path fill="#2563eb" d="M0 0h240v300H0z"/><g class="print-glyph" fill="#edf0ff"><path d="M25 112c0-37 29-67 66-67h108c13 0 20 14 12 24l-37 49c-11 14-27 22-44 22H51c-15 0-26-12-26-28Z"/><path d="M215 188c0 37-29 67-66 67H41c-13 0-20-14-12-24l37-49c11-14 27-22 44-22h79c15 0 26 12 26 28Z"/></g><path fill="#c0d2ff" d="m205 0 35 35V0Z"/></svg></div>
+            <div class="motion-print print-orbit"><svg viewBox="0 0 240 300" focusable="false"><path fill="#c9dbff" d="M0 0h240v300H0z"/><g class="print-tunnel" fill="none" stroke="#2563eb" stroke-width="11"><rect x="20" y="50" width="200" height="200" rx="100"/><rect x="42" y="72" width="156" height="156" rx="78"/><rect x="64" y="94" width="112" height="112" rx="56"/><rect x="86" y="116" width="68" height="68" rx="34"/></g><circle cx="120" cy="150" r="12" fill="#2563eb"/></svg></div>
+            <div class="motion-print print-direction"><svg viewBox="0 0 240 300" focusable="false"><defs><pattern id="direction-stripe" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0V12" stroke="#3977f2" stroke-width="6"/></pattern></defs><path fill="#2973ff" d="M0 0h240v300H0z"/><path fill="url(#direction-stripe)" d="M0 0h240v300H0z"/><g class="print-arrow" fill="#f4f4f4"><path d="M52 207 149 110H73V70h144v144h-40v-76L80 235Z"/></g></svg></div>
             <div class="motion-print print-type"><span>MAKE<br/>YOUR<br/><b>MOVE.</b></span><i></i></div>
           </div>
         </div>
@@ -152,7 +151,6 @@
             <p class="hero-credit"><img src="assets/fx-protocol.svg" width="18" height="18" alt="" />Built on f(x) Protocol</p>
           </div>
         </div>
-        <button class="scene-toggle" type="button" data-scene-toggle hidden>Pause animation</button>
       </section>
 
       <section class="products section" id="products" aria-labelledby="products-title">

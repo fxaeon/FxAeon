@@ -235,7 +235,7 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.doesNotMatch(html, /\son[a-z]+=/i);
   for (const [, attributes, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
     const source = attributes.match(/\bsrc="([^"]+)"/)?.[1];
-    if (source) assert.ok(['script.js', 'scene-motion.js', 'dollar-outcomes.js'].includes(source));
+    if (source) assert.ok(['script.js', 'dollar-outcomes.js'].includes(source));
     else {
       assert.match(attributes, /type="application\/ld\+json"/);
       assert.equal(JSON.parse(body)['@context'], 'https://schema.org');
@@ -354,7 +354,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
 
     const assetVersion = (markup) => {
       const urls = [...markup.matchAll(/(?:src|href)="([^"\s]+\.(?:css|js|mjs)(?:\?[^"\s]+)?)"/g)].map(([, url]) => url);
-      assert.equal(urls.length, 4);
+      assert.equal(urls.length, 3);
       for (const url of urls) assert.match(url, /\?v=[a-f0-9]{16}$/);
       const versions = new Set(urls.map(url => new URL(url, 'https://fxaeon.xyz').searchParams.get('v')));
       assert.equal(versions.size, 1);

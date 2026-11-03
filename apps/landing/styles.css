@@ -40,30 +40,29 @@ a svg,button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; 
 .button:active, .icon-button:active, .footer-launch:active { transform: scale(.96); }
 .button > svg, .button > span, .text-link > svg { transition: transform .3s var(--settle); }
 @media (hover: hover) and (pointer: fine) { .button:hover > svg, .button:hover > span, .text-link:hover > svg { transform: translateX(4px); } }
-.button.primary { background: var(--text); color: white; }
+.button.primary { background: #2563eb; color: white; border-radius: 999px; }
 .button.subtle { background: transparent; }
 .text-link { display: inline-flex; align-items: center; min-height: 44px; gap: 10px; }
-.hero { position: relative; isolation: isolate; overflow: hidden; display: grid; place-items: center; min-height: 790px; margin: 88px 16px 0; padding: 155px 24px; border-radius: 12px; background: #141615; color: #f5f4ef; }
+.hero { position: relative; isolation: isolate; overflow: hidden; display: grid; place-items: center; min-height: 790px; margin: 88px 16px 0; padding: 155px 24px; border-radius: 12px; background: #080808; color: #f5f4ef; }
 .hero-copy { position: relative; z-index: 2; text-align: center; }
 .journey-scene { position: absolute; inset: 0; pointer-events: none; }
 .journey-world { position: absolute; inset: 0; }
 .motion-print { position: absolute; width: 220px; aspect-ratio: 4 / 5; overflow: hidden; box-shadow: 0 16px 32px #0004; will-change: transform; }
 .motion-print svg { display: block; width: 100%; height: 100%; }
 .print-blue { left: 3%; top: 4%; transform: rotate(-14deg); }
-.print-lime { right: 3%; bottom: 3%; transform: rotate(12deg); }
-.print-coral { right: 8%; top: -18%; transform: rotate(-18deg); }
+.print-orbit { right: 3%; bottom: 3%; transform: rotate(12deg); }
+.print-direction { right: 8%; top: -18%; transform: rotate(-18deg); }
 .print-type { left: 9%; bottom: -20%; transform: rotate(12deg); background: #f5f4ef; color: #171917; }
 .print-type span { display: block; padding: 20px 14px; font: 700 48px/.95 Manrope,sans-serif; }
 .print-type b { color: #2459e8; font-weight: inherit; }
 .print-type i { display: block; height: 9px; background: #2459e8; margin: 6px 16px; transform: rotate(-8deg); }
 .print-glyph,.print-tunnel,.print-arrow { transform-box: fill-box; transform-origin: center; }
-.scene-toggle { position: absolute; z-index: 3; bottom: 16px; right: 24px; padding: 10px 12px; min-height: 44px; background: #141615; color: #f5f4ef; border-radius: 4px; font-size: 11px; }
 .hero-line { display: block; overflow: clip; padding-block: .04em; margin-block: -.04em; }
 .hero-line > span { display: block; }
 .hero h1 { font-size: clamp(70px, 7.5vw, 108px); font-weight: 500; line-height: 1; }
 .hero .lede { margin-top: 28px; font-size: 17px; line-height: 1.5; }
 .hero .actions { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 26px; }
-.hero .button.primary { background: #d5f375; color: #17251f; border-radius: 999px; }
+.hero .button.primary { background: #2563eb; color: white; border-radius: 999px; }
 .hero-credit { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 24px; font-size: 11px; }
 .hero-credit img { width: 18px; height: 18px; }
 .products { max-width: 1440px; padding: 100px 48px 40px; }
@@ -73,8 +72,8 @@ a svg,button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; 
 .product-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px 32px; align-items: start; }
 .product-card { position: relative; isolation: isolate; min-height: 510px; overflow: hidden; }
 .trade-card { background: #dfe6f6; }
-.earn-card { background: #d7ef8d; margin-top: 100px; }
-.borrow-card { background: #ece2d8; margin-top: -100px; }
+.earn-card { background: #e2e9f8; margin-top: 100px; }
+.borrow-card { background: #eeece7; margin-top: -100px; }
 .move-card { background: #c9d7fa; color: var(--text); }
 .card-copy { position: relative; z-index: 2; padding: 32px; }
 .card-copy h3 { font-size: clamp(48px, 6vw, 88px); }
@@ -128,15 +127,13 @@ a svg,button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; 
 @media (prefers-reduced-motion: no-preference) {
   .hero-line > span { animation: type-arrive .85s var(--settle) both; }
   .hero-line:nth-child(2) > span { animation-delay: .08s; }
-  :root[data-js] .motion-print { animation: print-drift 9s ease-in-out infinite; }
-  :root[data-js] .print-lime { animation-delay: -4s; }
-  :root[data-js] .print-coral { animation-delay: -6s; }
-  :root[data-js] .print-type { animation-delay: -2s; }
-  :root[data-js] .print-glyph { animation: glyph-slide 6s var(--settle) infinite; }
-  :root[data-js] .print-tunnel { animation: tunnel-turn 8s var(--settle) infinite; }
-  :root[data-js] .print-arrow { animation: arrow-step 5s var(--settle) infinite; }
-  :root[data-js] .journey-scene * { animation-play-state: paused; }
-  :root[data-js] .journey-scene[data-state='running'] * { animation-play-state: running; }
+  :root[data-js] .motion-print { animation: print-drift 4.4s ease-in-out both; }
+  :root[data-js] .print-orbit { animation-delay: -.6s; }
+  :root[data-js] .print-direction { animation-delay: -.9s; }
+  :root[data-js] .print-type { animation-delay: -.3s; }
+  :root[data-js] .print-glyph { animation: glyph-slide 3.6s var(--settle) both; }
+  :root[data-js] .print-tunnel { animation: tunnel-turn 3.8s var(--settle) both; }
+  :root[data-js] .print-arrow { animation: arrow-step 3.4s var(--settle) both; }
   [data-reveal="waiting"] { opacity: 0; transform: translateY(20px); }
   [data-reveal="entered"] { animation: enter .65s var(--settle) both; }
   [data-reveal]:focus-within { opacity: 1; transform: none; animation: none; }
@@ -233,11 +230,10 @@ h2 { font-size: clamp(30px, 3.7vw, 44px); }
   .hero-credit { margin-top: 24px; }
   .motion-print { width: 142px; }
   .print-blue { left: -5%; top: -2%; transform: rotate(-14deg); }
-  .print-coral { right: -3%; top: -9%; transform: rotate(15deg); }
-  .print-lime { right: -6%; bottom: -5%; transform: rotate(14deg); }
+  .print-direction { right: -3%; top: -9%; transform: rotate(15deg); }
+  .print-orbit { right: -6%; bottom: -5%; transform: rotate(14deg); }
   .print-type { left: -4%; bottom: -12%; transform: rotate(-12deg); }
   .print-type span { font-size: 31px; padding: 16px 12px; }
-  .scene-toggle { bottom: 13px; right: 50%; transform: translateX(50%); font-size: 10px; }
   .products { padding: 56px 20px 24px; }
   .products .section-head { display: block; margin-bottom: 32px; }
   .products .section-head h2 { font-size: 46px; }
