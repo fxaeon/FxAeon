@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { FxTokenKey } from '@/lib/fx/tokens';
 import {
   createCoinbaseTickerController,
@@ -20,18 +20,11 @@ import {
 } from '@/lib/prices';
 
 import { mergeUsdPriceUpdate, startPriceRefreshLoop } from '@/lib/priceRefresh';
+import { EMPTY_PRICE_SNAPSHOT as EMPTY_SNAPSHOT, PriceContext, useUsdPrices } from './PriceContext';
 
-type PriceContextValue = UsdPriceSnapshot & {
-  refreshing: boolean;
-  refresh: () => Promise<void>;
-};
-const EMPTY_SNAPSHOT: UsdPriceSnapshot = { prices: {}, status: 'loading', updatedAt: null };
+export { useUsdPrices } from './PriceContext';
+
 const EMPTY_LIVE_MARKET = { quote: null, status: 'paused' as const, now: 0 };
-const PriceContext = createContext<PriceContextValue>({
-  ...EMPTY_SNAPSHOT,
-  refreshing: false,
-  refresh: async () => undefined,
-});
 
 function readCachedSnapshot(): UsdPriceSnapshot | null {
   try {
@@ -199,10 +192,6 @@ export default function PriceProvider({ children }: { children: React.ReactNode 
   const retry = useCallback(async () => { await refresh(); }, [refresh]);
   const value = useMemo(() => ({ ...snapshot, refreshing: isRefreshing, refresh: retry }), [isRefreshing, retry, snapshot]);
   return <PriceContext.Provider value={value}>{children}</PriceContext.Provider>;
-}
-
-export function useUsdPrices(): PriceContextValue {
-  return useContext(PriceContext);
 }
 
 export function useUsdPrice(key: FxTokenKey | null | undefined): number | undefined {
