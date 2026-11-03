@@ -1,5 +1,5 @@
 .sections { display: grid; width: min(100%, var(--page-sections-width, 760px)); gap: 0; margin: 24px auto 8px; }
-.section { min-width: 0; padding: 16px 2px; border-top: 1px solid var(--line); }
+.section { min-width: 0; padding: 16px 2px; }
 .sectionHead { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 12px; }
 .sectionHead h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--mut); letter-spacing: 0; }
 .sectionAction { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: var(--mint-text); font-size: 12px; font-weight: 500; }
@@ -10,7 +10,7 @@
 .stat dt { color: var(--mut); font-size: 12px; font-weight: 400; }
 .stat dd { min-width: 0; margin: 0; color: var(--text); font-size: 13px; font-weight: 500; text-align: right; line-height: 1.5; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .stat .statHint { grid-column: 2; color: var(--mut); font-size: 11px; font-weight: 400; letter-spacing: 0; line-height: 1.5; }
-.explainer { border-top: 1px solid var(--line); }
+.explainer { min-width: 0; }
 .explainer > summary { display: flex; min-height: 56px; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; list-style: none; font-size: 13px; color: var(--text); }
 .explainer > summary::-webkit-details-marker { display: none; }
 .explainer[open] > summary > svg { transform: rotate(180deg); }
