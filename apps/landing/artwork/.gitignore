@@ -1,0 +1,6 @@
+node_modules/
+vendor.min.js
+gsap.min.js
+*.mp4
+.hyperframes/
+renders/

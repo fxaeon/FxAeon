@@ -56,6 +56,10 @@ a svg,button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; 
 .hero .button.primary { background: var(--bg); color: var(--text); }
 .hero-credit { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 24px; font-size: 11px; }
 .hero-credit img { width: 18px; height: 18px; }
+.brand-film { position: relative; overflow: hidden; width: 100%; height: min(50vw, 620px); background: #2459e8; }
+.brand-film video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.brand-film button { position: absolute; right: 24px; bottom: 24px; min-height: 44px; padding: 10px 16px; border-radius: 24px; background: var(--bg); color: var(--text); font-size: 12px; }
+.brand-film button:active { transform: scale(.97); }
 .products { max-width: 1440px; padding: 100px 48px 40px; }
 .section-head { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 48px; }
 .products .section-head h2 { font-size: clamp(44px, 5vw, 72px); }
@@ -213,6 +217,8 @@ h2 { font-size: clamp(30px, 3.7vw, 44px); }
   .hero .actions { margin-top: 24px; gap: 0; }
   .hero .button { padding-inline: 16px; font-size: 12px; }
   .hero-credit { margin-top: 24px; }
+  .brand-film { aspect-ratio: 1 / 1; height: auto; }
+  .brand-film button { right: 20px; bottom: 20px; }
   .products { padding: 56px 20px 24px; }
   .products .section-head { display: block; margin-bottom: 32px; }
   .products .section-head h2 { font-size: 46px; }

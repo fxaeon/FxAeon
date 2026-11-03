@@ -51,6 +51,7 @@
       {"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://fxaeon.xyz/#organization","name":"FxAeon","url":"https://fxaeon.xyz/","logo":"https://fxaeon.xyz/assets/fxaeon-mark.svg"},{"@type":"WebSite","@id":"https://fxaeon.xyz/#website","name":"FxAeon","url":"https://fxaeon.xyz/","publisher":{"@id":"https://fxaeon.xyz/#organization"}}]}
     </script>
     <script src="script.js"></script>
+    <script src="brand-film.js" defer></script>
     <script type="module" src="dollar-outcomes.js"></script>
     <link rel="icon" href="assets/fxaeon-mark.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/inter-latin.woff2" as="font" type="font/woff2" crossorigin="" />
@@ -148,6 +149,11 @@
           </div>
         </div>
       </section>
+
+      <figure id="brand-film" class="brand-film" data-brand-film data-film-src="assets/brand-film.mp4" data-film-mobile-src="assets/brand-film-mobile.mp4" aria-label="Current, an original FxAeon motion artwork">
+        <video poster="assets/brand-film-poster.jpg" width="960" height="960" muted playsinline preload="none" aria-hidden="true"></video>
+        <button type="button" data-film-toggle hidden>Play brand film</button>
+      </figure>
 
       <section class="products section" id="products" aria-labelledby="products-title">
         <div class="section-head"><h2 id="products-title">Find your<br />next move.</h2><p>Four possibilities.<br />One place to make them happen.</p></div>

@@ -9,7 +9,7 @@ const telegramUrl = telegramLauncher(process.env.NEXT_PUBLIC_TELEGRAM_APP_URL ||
 const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const file of ['index.html', 'styles.css', 'script.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', '404.html', 'robots.txt', 'sitemap.xml', 'document.css']) {
+for (const file of ['index.html', 'styles.css', 'script.js', 'brand-film.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs', '_routes.json', '404.html', 'robots.txt', 'sitemap.xml', 'document.css']) {
   await cp(resolve(root, file), resolve(dist, file));
   if (file === 'index.html') {
     // The source links the default bot; section links add the screen to open.
@@ -22,7 +22,7 @@ await cp(resolve(root, '_headers'), resolve(dist, '_headers'));
 // HTML revalidates on each visit, while Pages can cache scripts and styles for
 // hours. Version the whole browser module graph so changes to an imported
 // module also refresh its entry point for returning visitors.
-const browserFiles = ['styles.css', 'document.css', 'script.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs'];
+const browserFiles = ['styles.css', 'document.css', 'script.js', 'brand-film.js', 'dollar-outcomes.js', 'market-data-client.mjs', 'market-data.mjs'];
 const digest = createHash('sha256');
 for (const file of browserFiles) {
   digest.update(file).update('\0').update(await readFile(resolve(dist, file))).update('\0');
@@ -48,5 +48,11 @@ for (const asset of assets) {
   await cp(resolve(root, source), resolve(dist, asset));
 }
 // The Telegram section's code for opening the bot on a phone encodes the same launcher.
+let publishedHtml = await readFile(resolve(dist, 'index.html'), 'utf8');
+for (const asset of ['assets/brand-film.mp4', 'assets/brand-film-mobile.mp4', 'assets/brand-film-poster.jpg']) {
+  const contentVersion = createHash('sha256').update(await readFile(resolve(dist, asset))).digest('hex').slice(0, 16);
+  publishedHtml = publishedHtml.replaceAll(asset, `${asset}?v=${contentVersion}`);
+}
+await writeFile(resolve(dist, 'index.html'), publishedHtml);
 await writeFile(resolve(dist, 'assets/telegram-qr.svg'), qrSvg(telegramUrl));
 console.log(`Built ${dist}`);
