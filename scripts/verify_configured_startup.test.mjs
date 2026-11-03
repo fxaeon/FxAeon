@@ -4,9 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { savedThemes, localBaseUrl, observationMs, existingBuildTarget, hydrationIssue,
   assertDarkHydration, boundedRun, startupTimeline, passkeyStartupCases, passkeyLaunchUrl } from '../apps/mini-app/e2e/configured-startup-support.mjs';
 
-test('one delayed trade deep-link augments the matrix and can run alone without rebuilding', () => {
+test('built deep-link and desktop checks augment the matrix and can run without rebuilding', () => {
   const themes = ['unset', 'official', 'dark', 'light', 'invalid'];
-  assert.equal(passkeyStartupCases(themes).length, 11);
+  assert.equal(passkeyStartupCases(themes).length, 12);
   assert.equal(passkeyStartupCases(themes, 'matrix').length, 10);
   assert.deepEqual(passkeyStartupCases(themes, 'trade-deeplink'), [{ theme: 'dark', timing: 'delayed', caseName: 'trade-deeplink', startParam: 'trade', expectedPath: '/trade' }]);
   assert.throws(() => passkeyStartupCases(themes, 'typo'));

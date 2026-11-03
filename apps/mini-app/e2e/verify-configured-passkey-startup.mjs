@@ -36,16 +36,24 @@ const results = [];
 try {
   for (const { theme, timing, caseName, startParam, expectedPath } of cases) {
     assert.ok(!budget.expired(), 'Configured startup exceeded its four-minute budget.');
-    const context = await browser.newContext({ viewport: { width: 412, height: 818 }, colorScheme: 'light', serviceWorkers: 'block' });
+    const desktop = caseName === 'desktop-prefetch';
+    const context = await browser.newContext({ viewport: desktop ? { width: 1280, height: 900 } : { width: 412, height: 818 }, colorScheme: 'light', serviceWorkers: 'block' });
     const page = await context.newPage();
     const issues = watchHydration(page);
     const statusSeen = gate(), recoverySeen = gate(), statusReply = gate(), recoveryReply = gate();
     const actions = [], unexpected = [], chunkChecks = [], providerChunks = [];
+    const prefetches = [], prefetchSeen = gate();
+    page.on('request', request => {
+      if (new URL(request.url()).origin === target.baseUrl && request.headers()['next-router-prefetch'] === '1') {
+        prefetches.push(new URL(request.url()).pathname); prefetchSeen.release();
+      }
+    });
     let timeline = null;
     const launch = `user=%7B%22id%22%3A12345%7D&auth_date=${Math.floor(Date.now() / 1000)}&hash=synthetic-configured-fixture${startParam ? `&start_param=${startParam}` : ''}`;
     if (timing === 'fast') { statusReply.release(); recoveryReply.release(); }
     try {
       await installFirstPaintProbe(page, theme, true);
+      if (desktop) await page.addInitScript(() => sessionStorage.setItem('fxaeon:sidebar-expanded', 'true'));
       await page.addInitScript(({ launch, delayed }) => {
         window.__configuredFixtureEvents = [{ name: delayed ? 'bridgeWithheld' : 'bridgeCreated', atMs: performance.now() }];
         window.Telegram = {};
@@ -110,6 +118,13 @@ try {
       if (timing === 'delayed') {
         assert.equal(await page.evaluate(() => Boolean(window.Telegram?.WebApp)), false, 'Status must start before bridge availability.');
         await neutral(page, expectedPath);
+        if (desktop) {
+          await page.locator('[data-desktop-sidebar]').waitFor({ state: 'visible' });
+          // A real observation window while the server response is held;
+          // inert navigation must not start Next's native route prefetches.
+          await page.waitForTimeout(observe);
+          assert.deepEqual(prefetches, [], 'Desktop routes prefetched before provider readiness.');
+        }
         await page.screenshot({ path: resolve(directory, `${theme}-${caseName}-status.png`), animations: 'disabled' });
         await page.evaluate(() => {
           window.__releaseConfiguredBridge();
@@ -118,7 +133,11 @@ try {
         statusReply.release();
       }
       await seen(recoverySeen.promise, 'Transaction recovery');
-      if (timing === 'delayed') { await neutral(page, expectedPath); recoveryReply.release(); }
+      if (timing === 'delayed') {
+        await neutral(page, expectedPath);
+        if (desktop) assert.deepEqual(prefetches, [], 'Desktop routes prefetched before recovery resolved.');
+        recoveryReply.release();
+      }
       const profile = page.getByRole('button', { name: 'Open wallet profile', exact: true });
       await profile.waitFor({ state: 'visible' });
       await page.locator(expectedPath === '/' ? '[data-portfolio-state^="connected-"]' : `[data-route="${expectedPath}"] .app-content`).waitFor({ state: 'visible' });
@@ -137,14 +156,23 @@ try {
       }
       assert.ok(timeline.firstWalletPaintMs !== null && timeline.firstConnectedPaintMs !== null, 'Verified wallet and connected frames were not observed.');
       await page.screenshot({ path: resolve(directory, `${theme}-${caseName}-connected.png`), animations: 'disabled' });
-      results.push({ savedTheme: theme, timing, caseName, expectedPath, actualPath: new URL(page.url()).pathname, ok: true,
+      const actualPath = new URL(page.url()).pathname;
+      if (desktop) {
+        await seen(prefetchSeen.promise, 'Resolved desktop route prefetch');
+        await page.locator('[data-desktop-sidebar] nav a[href="/earn"]').click();
+        await page.waitForURL(url => url.pathname === '/earn');
+        await page.locator('[data-route="/earn"]').waitFor({ state: 'visible' });
+      }
+      results.push({ savedTheme: theme, timing, caseName, expectedPath, actualPath, ok: true,
+        ...(desktop ? { nativePrefetchRequests: prefetches, navigatedTo: new URL(page.url()).pathname } : {}),
         paints: probe.paints, badStates: probe.badStates, badPaints: probe.badPaints, actions, providerChunks, timeline });
       console.log(`TRACE ${JSON.stringify({ savedTheme: theme, scenario: caseName, ...timeline })}`);
       console.log(`PASS saved=${theme}, ${caseName}: emitted passkey chunks, dark first paint, verified publication at ${expectedPath}`);
     } catch (error) {
       timeline ??= await readStartupTimeline(page, timing).catch(() => null);
       await page.screenshot({ path: resolve(directory, `${theme}-${caseName}-failed.png`), animations: 'disabled', timeout: 3000 }).catch(() => {});
-      results.push({ savedTheme: theme, timing, caseName, expectedPath, ok: false, error: error.message, timeline });
+      results.push({ savedTheme: theme, timing, caseName, expectedPath, ok: false, error: error.message, timeline,
+        ...(desktop ? { nativePrefetchRequests: prefetches } : {}) });
       throw error; // A wrong/unconfigured build fails promptly instead of passing static HTML.
     } finally { statusReply.release(); recoveryReply.release(); await context.close(); }
   }
