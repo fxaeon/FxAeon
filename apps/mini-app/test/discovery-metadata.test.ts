@@ -9,6 +9,15 @@ import { sdkHref, sdkNavigation } from '../src/app/docs/sdkNavigation';
 import { structuredData } from '../src/app/docs/structuredData';
 import { discoveryArtifacts, generateDiscovery } from '../../../scripts/generate_discovery.mjs';
 
+test('maintained discovery guidance excludes machine paths and implementation-session history', async () => {
+  const guidance = await readFile(new URL('../../../docs/discovery-seo-research.md', import.meta.url), 'utf8');
+  // Boolean assertions keep any future accidentally included value out of diagnostics.
+  assert.equal(/\b[A-Za-z]:[\\/]|\/(?:Users|home)\/[^/\s]+\/|file:\/\/\//.test(guidance), false, 'Guidance must not contain local machine paths');
+  assert.equal(/\bcodex\/[a-z0-9-]+|^## (?:Evidence|Changed paths|PR \d+ integration evidence)\b|\b(?:worktree|shell pnpm|test development)\b/im.test(guidance), false, 'Keep implementation-session history in local evidence');
+  assert.ok(guidance.includes('## Official guidance'));
+  assert.ok(guidance.includes('## External launch checklist'));
+});
+
 test('index policy separates public documentation from interactive and capability routes', () => {
   assert.deepEqual(DEFAULT_ROBOTS, { index: false, follow: true });
   for (const route of ['trade', 'earn', 'borrow', 'move'] as const) {
