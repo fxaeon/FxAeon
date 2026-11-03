@@ -125,7 +125,7 @@
 }
 
 @media (min-width: 840px) {
-  .workspace { min-height: calc(var(--tg-viewport-height, 100dvh) - var(--header-height) - var(--header-gap) - var(--shell-top-padding)); justify-content: flex-start; padding-block: 36px; }
+  .workspace { min-height: 100%; justify-content: flex-start; padding-block: 36px; }
   .vaultLayout { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); grid-template-rows: auto auto; grid-template-areas: 'summary action' 'history information'; column-gap: 48px; row-gap: 32px; }
   .vaultLayout[data-review='true'] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; row-gap: 0; justify-content: center; }
   .overview { padding-bottom: 0; }
@@ -157,13 +157,12 @@
 }
 
 @media (min-width: 1200px) {
-  /* The vault summary and action form the first stage. Performance and
-     details follow after the taller of those two columns, without changing
-     the mobile or assistive-technology reading order. */
-  .vaultLayout:not([data-review='true']) { grid-template-areas: 'summary action' 'history information'; grid-template-rows: auto auto; row-gap: 40px; column-gap: 40px; }
+  /* Keep the summary, performance and details together in the left column;
+     the action form occupies the right column alongside that full stack. */
+  .vaultLayout:not([data-review='true']) { grid-template-areas: 'summary action' 'history action' 'information action'; grid-template-rows: auto auto auto; row-gap: 28px; column-gap: 40px; align-content: start; }
   .vaultLayout:not([data-review='true']) .overview { padding-bottom: 0; }
   .vaultInfo > div { width: 100%; margin-top: 0; }
-  .historySlot > section { margin-bottom: 0; }
+  .historySlot > section { margin: 0; padding-top: 0; }
 }
 
 .outcome { container-type: inline-size; }

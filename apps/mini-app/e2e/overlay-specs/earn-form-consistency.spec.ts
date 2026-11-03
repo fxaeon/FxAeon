@@ -456,7 +456,13 @@ test('Earn places performance after the primary decision on phones and desktop',
     const history = page.getByRole('region', { name: 'fxSAVE performance' });
     const [summaryBox, formBox, historyBox] = await Promise.all([summary.boundingBox(), form.boundingBox(), history.boundingBox()]);
     expect(summaryBox).not.toBeNull(); expect(formBox).not.toBeNull(); expect(historyBox).not.toBeNull();
-    expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+    if (width >= 1200) {
+      expect(Math.abs(historyBox!.x - summaryBox!.x)).toBeLessThanOrEqual(2);
+      expect(historyBox!.y).toBeGreaterThanOrEqual(summaryBox!.y + summaryBox!.height - 1);
+      expect(historyBox!.y - (summaryBox!.y + summaryBox!.height)).toBeLessThanOrEqual(32);
+    } else {
+      expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+    }
     if (width >= 840) {
       expect(Math.abs(summaryBox!.y - formBox!.y)).toBeLessThanOrEqual(2);
       expect(summaryBox!.x + summaryBox!.width).toBeLessThanOrEqual(formBox!.x);

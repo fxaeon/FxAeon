@@ -25,7 +25,7 @@
 .source { margin-top: 4px; align-items: center; flex-wrap: wrap; }
 .source a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--mut); text-decoration: underline; text-underline-offset: 3px; }
 .source a:hover { color: var(--text); }
-.empty { display: flex; min-height: 164px; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); font-size: 13px; }
+.empty { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; color: var(--mut); font-size: 13px; }
 .empty button { min-height: 44px; padding-inline: 12px; color: var(--mint-text, var(--mint)); }
 .loading { min-height: 164px; background: linear-gradient(180deg, transparent, var(--surface)); border-radius: 12px; }
 .slider { margin: 0; }

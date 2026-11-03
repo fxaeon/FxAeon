@@ -107,6 +107,20 @@ for (const width of [320, 390, 1280]) test(`Move form keeps amount, quote precis
   await noOverflow(page);
 });
 
+test('Move tablet workspace does not add scroll beyond its available content viewport', async ({ page }, info) => {
+  await mount(page, 768);
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.addStyleTag({ content: '.move-fixture-shell{box-sizing:border-box;height:872px;min-height:0;overflow-y:auto;padding:0}' });
+  const metrics = await page.locator('.move-fixture-shell').evaluate(shell => {
+    const workspace = shell.querySelector('[class*="moveWorkspace"]')!;
+    return { clientHeight: shell.clientHeight, scrollHeight: shell.scrollHeight, workspaceHeight: workspace.getBoundingClientRect().height };
+  });
+  expect(metrics.clientHeight).toBe(872);
+  expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.clientHeight + 1);
+  expect(metrics.workspaceHeight).toBeLessThanOrEqual(metrics.clientHeight + 1);
+  await page.screenshot({ path: info.outputPath('tablet-scrollport.png'), fullPage: true, animations: 'disabled' });
+});
+
 test('Move keeps failed quotes and invalid recipients clear with enlarged text', async ({ page }, info) => {
   await mount(page, 320);
   await page.evaluate(() => { (globalThis as any).__moveForm.failQuote = true; document.documentElement.style.fontSize = '32px'; });

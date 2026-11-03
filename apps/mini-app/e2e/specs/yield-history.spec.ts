@@ -62,6 +62,7 @@ for (const width of [320, 390, 1280]) {
     const chart = page.getByRole('slider');
     await expect(chart).toHaveAccessibleName('Explore fxSAVE annualized return');
     await expect(chart).toHaveAttribute('aria-valuemax', '30');
+    expect((await chart.boundingBox())!.height).toBe(148);
     await expect(chart).toHaveAttribute('aria-valuetext', /8.00% annualized return/);
     await page.getByRole('button', { name: 'About Annualized return', exact: true }).click();
     await expect(page.getByText('Based on 30 days of vault value; includes valuation changes. Not the current quoted APY.', { exact: true })).toBeVisible();
@@ -102,6 +103,9 @@ for (const width of [320, 390, 1280]) {
     await page.addInitScript(() => { (window as Window & { __navFailure?: boolean }).__navFailure = true; });
     await page.reload();
     await expect(page.getByText('Yield history unavailable')).toBeVisible();
+    const unavailable = page.getByRole('status').filter({ hasText: 'Yield history unavailable' });
+    expect((await unavailable.boundingBox())!.height).toBe(44);
+    expect((await page.getByRole('button', { name: 'Retry', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await page.evaluate(() => { (window as Window & { __navFailure?: boolean }).__navFailure = false; });
     await page.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(chart).toBeVisible();
