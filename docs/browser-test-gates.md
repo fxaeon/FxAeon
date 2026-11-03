@@ -65,6 +65,64 @@ Local built-route tests rebuild unless `E2E_BUILD=0` explicitly requests an exis
 
 The [UI state lab](ui-state-lab.md) has a separate visual-baseline policy. Intentional snapshot updates require inspecting images and documenting why behavior or appearance changed; re-recording is not a remedy for an unexplained failure.
 
+## Existing configured export: hydration and passkey startup
+
+These opt-in scripts are separate from the default CI export and the isolated
+overlay harnesses. They never build, install dependencies, sign, or deploy.
+Run them only after the parent has finished the normal CI-equivalent build and
+checks. Then make a separate configured export in the disposable verification
+checkout, using a fake public app ID (no provider credentials):
+
+~~~powershell
+# From C:\FxAeon-prelaunch-verify, after the default build/tests are finished.
+$env:NEXT_PUBLIC_PRIVY_APP_ID = 'clabcdefghijklmnopqrstuv'
+$env:NEXT_PUBLIC_TELEGRAM_WALLET_MODE = 'passkey'
+pnpm --dir apps/mini-app build
+node apps/mini-app/e2e/verify-configured-hydration.mjs
+node apps/mini-app/e2e/verify-configured-passkey-startup.mjs
+~~~
+
+Do not use the default unconfigured CI artifact as evidence for the configured
+passkey branch. The second script requires actual passkey status/recovery calls
+and a genuine emitted Next chunk containing the passkey implementation. It
+does not mock `next/dynamic`, React, route providers, or application modules.
+The nonempty fake app ID in the build recipe exercises the configured
+client-only wallet boundary; the script does not attest production credentials.
+
+By default each script serves the existing `apps/mini-app/dist` on an ephemeral
+loopback port and closes it afterward. A missing export fails instead of
+building. `FXAEON_HYDRATION_DIST_DIR` selects another existing export;
+`FXAEON_HYDRATION_BASE_URL` selects an already running loopback server instead.
+Neither option accepts a deployed target. Each run has a four-minute browser
+budget and bounded per-operation timeouts.
+
+The ordinary-browser matrix checks `/`, `/trade`, and `/positions` with saved
+`official`, `dark`, `light`, unset/invalid preferences, and denied storage. Every
+paint must remain dark even when the OS prefers light; saved light is a migration
+input, never the expected palette. Hydrated connect controls and the Trade asset
+picker must work without hydration diagnostics or uncaught page errors.
+
+The configured passkey matrix checks fast replies and delayed bridge/status/
+recovery for every saved theme variant except denied storage. It proves signed
+launch status starts before the bridge is available, keeps the unknown view
+neutral through recovery, and requires a connected wallet before passing. A
+denied storage case remains in the ordinary-browser matrix: passkey transaction
+recovery legitimately requires usable durable storage. All network boundaries
+are deterministic: the Telegram host API is supplied by the fixture, its vendor
+script is intercepted, server `status`/`transaction/status` replies are synthetic,
+and RPC/other backends are unavailable. Unexpected wallet actions, native Privy
+requests, or WebAuthn credential calls fail. This proves real built chunk loading
+and hydration, not Telegram signature verification, live authentication, or RPC
+health.
+
+`FXAEON_HYDRATION_THEME=light` narrows either run to one saved preference;
+the default is `all`. `FXAEON_HYDRATION_OBSERVE_MS` selects 100–5000 ms of
+post-ready observation (default 1000). JSON results and masked synthetic phone
+screenshots go to ignored `output/configured-startup`; set
+`FXAEON_HYDRATION_ARTIFACTS` to choose a different directory. Record the checkout
+revision and build environment with those artifacts. Run the runner guard tests
+without a build using `node --test scripts/verify_configured_startup.test.mjs`.
+
 ## What needs additional evidence
 
 The short-phone receipt gate at 320 × 568 requires token movements, position
@@ -74,10 +132,11 @@ amount and ticker. Move form tests delay a quote and compare the Receive panel,
 quote summary and CTA rectangles before/after resolution (1px tolerance), while
 requiring placeholders rather than false Unavailable values during the debounce.
 
-Portfolio startup checks compare the public discovery and market-card geometry
-before provider initialization, during wallet restoration with no known account,
-and after disconnection resolves. A known authenticated wallet keeps its account
-loading state until verified reads settle. Borrow checks cover ON/OFF, unavailable
+Portfolio startup checks keep unresolved identity independent of connected
+portfolio layout. Only resolved guests see public discovery; only a verified
+connection may show a portfolio skeleton after a pending-read threshold. Fast
+reads skip skeletons, app chrome stays stable, and account changes retire old
+totals and late reads. Borrow checks cover ON/OFF, unavailable
 data, neutral labels and state-only color at narrow phone widths.
 
 Use [protected Ethereum fork tests](testing.md#protected-ethereum-fork-tests) for their supported protocol execution. Real native Telegram login/recovery, physical wallet handoff, live Base delivery, and emitted SDK chunk loading require their own appropriately scoped checks.
