@@ -1,7 +1,9 @@
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import type { FxSdk, FxSdkConfig } from '@aladdindao/fx-sdk';
+import { custom, decodeFunctionData, encodeFunctionResult, formatUnits, parseAbi, type Hex } from 'viem';
 
 const root = resolve(__dirname, '../..');
 const esbuild = createRequire(createRequire(resolve(root, 'package.json')).resolve('tsx/package.json'))('esbuild') as {
@@ -31,9 +33,9 @@ const mocks: Record<string, string> = {
   '@/components/ActionReview': `import React from 'react';import {usePrivyWallet} from '@/lib/wallet'; export const ActionReview = ({editor,planBuilder,resumeReview,onStageChange,label,blocker}) => {
     const wallet=usePrivyWallet();
     const [review,setReview] = React.useState(false); const resumed = React.useRef(false);
-    const open = async () => {if (!planBuilder || blocker) return; await planBuilder();setReview(true);onStageChange('review');};
+    const open = async () => {if (!planBuilder || blocker) return; const plan=await planBuilder();globalThis.__earnHarness.minimumFxSP=plan?.minimumFxSP;setReview(true);onStageChange('review');};
     React.useEffect(() => {if(resumeReview && planBuilder && !resumed.current){resumed.current=true;void open();}},[resumeReview,planBuilder]);
-    return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p><button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<button disabled={Boolean(wallet.address) && (!planBuilder || Boolean(blocker))} onClick={wallet.address ? open : () => globalThis.__earnHarness.connect()}>{wallet.address ? label : 'Connect wallet'}</button></>;
+    return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p>{globalThis.__earnHarness.minimumFxSP !== undefined && <p>Minimum fxSP: {globalThis.__earnHarness.minimumFxSP}</p>}<button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<button disabled={Boolean(wallet.address) && (!planBuilder || Boolean(blocker))} onClick={wallet.address ? open : () => globalThis.__earnHarness.connect()}>{wallet.address ? label : 'Connect wallet'}</button></>;
   };`,
   '@/lib/fx': `
     // Wallet asset formatting needs real address/token identities, not live balances.
@@ -48,7 +50,7 @@ const mocks: Record<string, string> = {
     },getFxSaveBalance:async () => ({balanceWei:BigInt(new URLSearchParams(location.search).get('fixtureShares') ?? 600n*10n**18n),assetsWei:62045n*10n**16n}),getFxSaveRedeemStatus:async () => ({hasPendingRedeem:false})});
     export const signatureDraftIdFromSearch = search => new URLSearchParams(search).get('fxDraft');
     export const restoreSignatureRequiredDraftFromSearch = (search,scope) => new URLSearchParams(search).has('fxDraft') && scope.actionKey === (new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'earn:deposit' : 'earn:withdraw') ? ({draft:{resumePath:'/earn'},formState:{mode:new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'deposit' : 'withdraw',token:new URLSearchParams(search).get('fixtureToken') ?? 'fxUSD',amount:'10',shares:'10',instant:new URLSearchParams(search).get('fixtureInstant') !== 'false',slippage:new URLSearchParams(search).get('fixtureSlippage') ?? '2'}}) : undefined;
-    export const planDepositFxSave = async input => {globalThis.__earnHarness.plans.push(input);return {};}; export const planWithdrawFxSave = planDepositFxSave; export const planRedeem = planDepositFxSave;`,
+    export const planDepositFxSave = async input => {globalThis.__earnHarness.plans.push(input);return globalThis.__quoteDepositFixture && input.tokenIn ? globalThis.__quoteDepositFixture({tokenIn:input.tokenIn,amount:String(input.amount),slippage:input.slippage}) : {};}; export const planWithdrawFxSave = planDepositFxSave; export const planRedeem = planDepositFxSave;`,
 };
 let script = '';
 let css = '';
@@ -212,11 +214,55 @@ test('disconnected Earn retries one failed public quote for the same amount with
   expect(state).toEqual({ quoteCalls: 2, plans: 0 });
 });
 
-test('resumed stable deposits ignore only the unsupported tolerance without rewriting the saved preference', async ({ page }) => {
+test('resumed stable deposits apply selected slippage to the reviewed fxSP minimum', async ({ page }) => {
+  const requireSdk = createRequire(resolve(root, 'package.json'));
+  const sdkDirectory = process.env.FXSAVE_TEST_SDK_DIST ?? dirname(requireSdk.resolve('@aladdindao/fx-sdk'));
+  const { FxSdk: Sdk } = requireSdk(resolve(sdkDirectory, 'index.cjs')) as { FxSdk: typeof FxSdk };
+  const abi = parseAbi([
+    'function allowance(address owner,address spender) view returns (uint256)',
+    'function queryConvert(uint256 amount,uint256 encoding,uint256[] routes) view returns (uint256)',
+    'function previewDeposit(address token,uint256 amount) view returns (uint256)',
+    'function convertToAssets(uint256 shares) view returns (uint256)',
+    'function aggregate3((address target,bool allowFailure,bytes callData)[] calls) payable returns ((bool success,bytes returnData)[] returnData)',
+    'function depositToFxSave((address tokenIn,uint256 amount,address target,bytes data,uint256 minOut,bytes signature) params,address tokenOut,uint256 minShares,address receiver)',
+  ]);
+  function read(data: Hex): Hex {
+    const decoded = decodeFunctionData({ abi, data });
+    switch (decoded.functionName) {
+      case 'aggregate3': return encodeFunctionResult({ abi, functionName: 'aggregate3', result: decoded.args[0].map(call => ({ success: true, returnData: read(call.callData) })) });
+      case 'allowance': return encodeFunctionResult({ abi, functionName: 'allowance', result: 1000n * 10n ** 18n });
+      case 'queryConvert': return encodeFunctionResult({ abi, functionName: 'queryConvert', result: 0n });
+      case 'previewDeposit': return encodeFunctionResult({ abi, functionName: 'previewDeposit', result: 10n * 10n ** 18n });
+      case 'convertToAssets': return encodeFunctionResult({ abi, functionName: 'convertToAssets', result: 10n ** 18n });
+      default: throw new Error(`Unexpected fixture read: ${decoded.functionName}`);
+    }
+  }
+  const sdk = new Sdk({ chainId: 1, rpcUrl: 'https://example.invalid', rpcTransport: custom({
+    request: async ({ method, params }) => {
+      if (method === 'eth_getTransactionCount') return '0x4';
+      if (method === 'eth_call') return read((params as [{ data: Hex }])[0].data);
+      throw new Error(`Unexpected fixture RPC: ${method}`);
+    },
+  }, { retryCount: 0 }) as unknown as FxSdkConfig['rpcTransport'] });
+  // The review shell is a fixture, but its displayed floor comes from actual
+  // installed SDK calldata, with all chain reads supplied in memory.
+  await page.exposeFunction('__quoteDepositFixture', async (input: { tokenIn: 'fxUSD'; amount: string; slippage: number }) => {
+    const plan = await sdk.depositFxSave({ userAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', tokenIn: input.tokenIn, amount: BigInt(input.amount), slippage: input.slippage });
+    const decoded = decodeFunctionData({ abi, data: plan.txs.at(-1)!.data as Hex });
+    if (decoded.functionName !== 'depositToFxSave') throw new Error('Expected routed deposit');
+    return { minimumFxSP: formatUnits(decoded.args[2], 18) };
+  });
   await mount(page, true, '2', 'deposit');
+  await expect(page.getByRole('region', { name: 'Earn review' })).toContainText('Minimum fxSP: 9.8');
+  expect(await storedSlippage(page)).toBe(50);
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Transaction settings, Standard speed', exact: true })).toBeVisible();
-  await expect(page.getByText(/slippage|share minimum/i)).toHaveCount(0);
+  const dialog = await openSettings(page, '2');
+  await dialog.getByRole('radio', { name: '0.5%', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
+  await page.getByRole('button', { name: 'Review deposit', exact: true }).click();
+  const review = page.getByRole('region', { name: 'Earn review' });
+  await expect(review).toContainText('Review slippage: 0.5%');
+  await expect(review).toContainText('Minimum fxSP: 9.95');
   expect(await storedSlippage(page)).toBe(50);
 });
 
