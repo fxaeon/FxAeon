@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 
 /**
  * Synchronize the Telegram bot's public metadata and default Mini App menu.
@@ -126,14 +127,43 @@ function menuButtonMismatchSummary(expected, actual) {
   return ` (type=${type}, text=${text}, web-app-url=${webAppUrl})`;
 }
 
+function webhookUrl(value) {
+  if (typeof value !== 'string' || value.length > 4096 || /[\s\x00-\x1f]/.test(value)) throw new Error('Invalid webhook configuration');
+  if (value === '') return null;
+  let url;
+  try { url = new URL(value); } catch { throw new Error('Invalid webhook configuration'); }
+  if (url.protocol !== 'https:' || !url.hostname || url.hash) throw new Error('Invalid webhook configuration');
+  return url;
+}
+
+export async function inspectTelegramWebhook({ token = requiredToken(), fetchImpl = globalThis.fetch, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
+  if (typeof token !== 'string' || !/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) throw new Error('Invalid bot credential');
+  const info = await callBotApi(token, 'getWebhookInfo', {}, { fetchImpl, timeoutMs });
+  const url = webhookUrl(info?.url);
+  // URL.origin removes userinfo, paths and queries. Never expose a numeric/IP endpoint.
+  const hostname = url?.hostname.replace(/^\[|\]$/g, '') ?? '';
+  const origin = !url ? 'none' : isIP(hostname) ? 'redacted-ip-origin' : url.origin;
+  return {
+    action: 'inspect-webhook', readOnly: true, configured: url !== null,
+    origin, urlSha256: createHash('sha256').update(info.url).digest('hex'),
+    matchesExpected: info.url === TELEGRAM_WEBHOOK_URL,
+    pendingUpdateCount: Number.isSafeInteger(info.pending_update_count) && info.pending_update_count >= 0
+      && info.pending_update_count <= 0xffffffff ? Math.trunc(info.pending_update_count) : null,
+    hasError: typeof info.last_error_message === 'string' && info.last_error_message.length > 0,
+  };
+}
+
 export async function syncTelegramBot({
   token = requiredToken(),
   webAppUrl = validatedWebAppUrl(),
   fetchImpl = globalThis.fetch,
   timeoutMs = REQUEST_TIMEOUT_MS,
+  reviewedWebhookSha256,
 } = {}) {
   if (typeof token !== 'string' || !/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) throw new Error('TELEGRAM_BOT_TOKEN has an invalid format');
   const validatedMenuUrl = validatedWebAppUrl(webAppUrl);
+  if (reviewedWebhookSha256 !== undefined && (typeof reviewedWebhookSha256 !== 'string'
+    || !/^[a-f0-9]{64}$/.test(reviewedWebhookSha256))) throw new Error('A reviewed webhook URL SHA-256 is required');
   const metadata = {
     name: 'FxAeon',
     shortDescription: 'Positions, fxSAVE, and fxUSD on Ethereum.',
@@ -161,9 +191,16 @@ export async function syncTelegramBot({
     throw new Error(`Telegram Bot API ${readMethod} readback mismatch${mismatchSummary(expected, actual)}`);
   };
 
-  // Preflight before ANY mutation. Never take over another service's webhook.
+  // Preflight before ANY mutation. Another endpoint requires explicit hash-reviewed migration.
   const webhook = await request('getWebhookInfo', {});
-  if (!webhook || (webhook.url !== '' && webhook.url !== TELEGRAM_WEBHOOK_URL)) {
+  if (reviewedWebhookSha256 !== undefined) {
+    webhookUrl(webhook?.url);
+    // Re-read immediately before writing; a changed endpoint requires a fresh inspection.
+    // Telegram has no atomic compare-and-set. The workflow shares the production lock.
+    if (createHash('sha256').update(webhook.url).digest('hex') !== reviewedWebhookSha256) {
+      throw new Error('Reviewed webhook URL changed; inspect again before migration');
+    }
+  } else if (!webhook || (webhook.url !== '' && webhook.url !== TELEGRAM_WEBHOOK_URL)) {
     throw new Error('Telegram webhook ownership conflict; no settings changed');
   }
   // Telegram never returns secret_token. Reinstall our own endpoint after deploy
