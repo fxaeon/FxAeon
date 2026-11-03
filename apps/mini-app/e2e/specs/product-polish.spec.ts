@@ -36,10 +36,14 @@ for (const width of [390, 1440]) {
       await page.screenshot({ path: info.outputPath(`${route.slice(1)}-${width}.png`), fullPage: true, animations: 'disabled' });
       // The app scrolls inside main; fullPage alone only captures the viewport.
       // Keep separate actual viewport frames rather than fabricating a tall page.
-      const remaining = await main.evaluate(element => element.scrollHeight - element.clientHeight);
-      if (remaining > 24) {
-        await main.evaluate(element => { element.scrollTop = element.scrollHeight; });
-        await page.screenshot({ path: info.outputPath(`${route.slice(1)}-details-${width}.png`), animations: 'disabled' });
+      const scroll = await main.evaluate(element => ({ remaining: element.scrollHeight - element.clientHeight, step: Math.max(200, element.clientHeight - 120) }));
+      if (scroll.remaining > 24) {
+        let frame = 0;
+        for (let offset = scroll.step; offset < scroll.remaining + scroll.step; offset += scroll.step) {
+          await main.evaluate((element, top) => { element.scrollTop = top; }, Math.min(offset, scroll.remaining));
+          const suffix = frame++ === 0 ? 'details' : `details-${frame}`;
+          await page.screenshot({ path: info.outputPath(`${route.slice(1)}-${suffix}-${width}.png`), animations: 'disabled' });
+        }
         await main.evaluate(element => { element.scrollTop = 0; });
       }
       if (route === '/earn') {
