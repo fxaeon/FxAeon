@@ -142,7 +142,7 @@ async function fixture(t: TestContext, overrides: Partial<Env> = {}, path?: stri
     try { await Promise.all(background); assert.deepEqual(unexpected, []); }
     finally { db.sql.close(); }
   });
-  return { db, env, store, calls, access, operator, send, asUser, operate, background,
+  return { db, env, store, calls, access, operator, send, asUser, operate, background, fetcher,
     mailResponse: (response: typeof mailResponse) => { mailResponse = response; },
     failRPC: (value = true) => { rpcFailure = value; },
     lookup: (response: typeof lookup) => { lookup = response; },
@@ -197,8 +197,8 @@ async function authenticator() {
         clientDataJSON: b64(clientData('webauthn.create', challenge, origin)), transports: ['internal'],
         attestationObject: b64(cbor(new Map<Cbor, Cbor>([['fmt', 'none'], ['authData', data], ['attStmt', new Map()]]))) } };
     },
-    async assertion(challenge: string, counter = 1): Promise<AuthenticationResponseJSON> {
-      const data = await authData(0x1d, counter); const client = clientData('webauthn.get', challenge);
+    async assertion(challenge: string, counter = 1, flags = 0x1d): Promise<AuthenticationResponseJSON> {
+      const data = await authData(flags, counter); const client = clientData('webauthn.get', challenge);
       const signature = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, keys.privateKey, concat(data, await digest(client))));
       return { id: b64(id), rawId: b64(id), type: 'public-key', clientExtensionResults: {}, response: {
         authenticatorData: b64(data), clientDataJSON: b64(client), signature: b64(der(signature)) } };
@@ -649,6 +649,31 @@ test('a cryptographically valid registration for the wrong origin is consumed an
   assert.equal((await f.store.status(1))!.credential, null); assert.equal(f.calls.length, 0);
 });
 
+test('provisioning never reports a wallet that lost the durable binding race', async t => {
+  const f = await fixture(t); await f.approve();
+  const device = await authenticator();
+  const options = await f.asUser('register/options');
+  const winner = { id: 'wallet-winner', address: TO, verified: true } as const;
+  const racing = createAccessHandler({ publicKey, fetch: async (input, init) => {
+    if (String(input).includes('/wallets/ext_wal_')) assert.equal(await f.store.saveWallet(1, winner), true);
+    return f.fetcher(input, init);
+  } });
+  error(await result(await racing({ env: f.env, request: request({ action: 'register/complete', launchData: await launch(),
+    challengeId: options.body.challengeId, response: await device.registration(options.body.options.challenge) }) })),
+  503, 'wallet_owner_mismatch');
+  assert.equal((await f.store.status(1))!.walletId, winner.id);
+  assert.equal((await f.store.status(1))!.walletAddress, winner.address.toLowerCase());
+});
+
+test('wallet retries are bounded per approved identity before provider I/O', async t => {
+  const f = await fixture(t); await ready(f);
+  // Registration already consumed one provisioning attempt.
+  for (let i = 0; i < 4; i++) assert.equal((await f.asUser('wallet/retry')).status, 200);
+  const calls = f.calls.length;
+  error(await f.asUser('wallet/retry'), 429, 'wallet_rate_limited');
+  assert.equal(f.calls.length, calls);
+});
+
 test('handoff options and completion bind to the original challenge; Telegram identities cannot redirect or poll each other', async t => {
   const f = await fixture(t); await f.approve(1); await f.approve(2);
   const device = await authenticator(); const options = await f.asUser('register/options', 1);
@@ -701,6 +726,23 @@ test('successful real passkey signing submits the exact approved transaction onc
   assert.equal(calls[0].body.reference_id, calls[0].headers.get('privy-idempotency-key'));
   assert.match(calls[0].headers.get('privy-authorization-signature')!, /^webauthn:/);
   assert.equal((await f.store.status(1))!.credential!.counter, 1);
+});
+
+test('assertions reject changed BE before provider I/O but mutable BS does not lock out the owner', async t => {
+  const f = await fixture(t); const { device } = await ready(f); f.calls.length = 0;
+  const invalid = await f.asUser('sign/options', 1, { transaction: TX });
+  error(await f.asUser('sign/complete', 1, { challengeId: invalid.body.challengeId,
+    response: await device.assertion(invalid.body.options.challenge, 1, 0x05) }), 403, 'passkey_rejected');
+  assert.equal(f.calls.length, 0);
+  assert.equal((await f.store.status(1))!.credential!.counter, 0);
+  const valid = await f.asUser('sign/options', 1, { transaction: TX });
+  const fields = { challengeId: valid.body.challengeId,
+    response: await device.assertion(valid.body.options.challenge, 1, 0x0d) };
+  assert.deepEqual((await f.asUser('sign/complete', 1, fields)).body, { hash: HASH });
+  assert.deepEqual((await f.asUser('sign/complete', 1, fields)).body, { hash: HASH });
+  assert.equal(f.calls.filter(call => call.url.endsWith('/rpc')).length, 1);
+  assert.equal((await f.store.status(1))!.credential!.counter, 1);
+  assert.equal((await f.store.status(1))!.credential!.backedUp, true, 'retains enrollment evidence, not current BS');
 });
 
 test('unknown transaction outcome is durable: replay cannot submit and fresh signing is blocked before another passkey prompt', async t => {

@@ -78,11 +78,17 @@ async function publicStatus(store: Store, notifications: NotificationStore, user
 async function provision(store: Store, userId: number, api: PrivyWalletApi) {
   const row = await store.status(userId); approved(row);
   const passkey = existingPasskey(row);
+  if (!await store.claimProvision(userId)) throw new AccessError('wallet_rate_limited', 429);
   const wallet = await api.provision({ externalId: row.externalId, ownerPublicKey: passkey.ownerPublicKey });
   if (row.walletId && (row.walletId !== wallet.id || row.walletAddress !== wallet.address.toLowerCase())) {
     throw new AccessError('wallet_owner_mismatch', 503);
   }
   if (!row.walletId) await store.saveWallet(userId, wallet);
+  // Another request may have won the first binding while provider I/O was pending.
+  const persisted = await store.status(userId);
+  if (persisted?.walletId !== wallet.id || persisted.walletAddress !== wallet.address.toLowerCase()) {
+    throw new AccessError('wallet_owner_mismatch', 503);
+  }
   return { state: 'ready', wallet: { id: wallet.id, address: wallet.address } };
 }
 

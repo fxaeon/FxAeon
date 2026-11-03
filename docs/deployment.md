@@ -97,39 +97,15 @@ Public web mode and Telegram Privy mode have different configuration and identit
 
 ### Telegram admission and waitlist
 
-The passkey flow keeps Telegram identity and Privy's wallet infrastructure. Everyone joins a waitlist first. An operator approves specific Telegram IDs; approval reserves a permanent D1 seat before sending an invitation or creating a wallet. The limit is 480 including an explicit, monotonic legacy baseline. Five production test accounts were inventoried on 3 November 2026, leaving at most 475 new approvals. Recheck inventory before activation. Other Privy apps, administrator-created wallets and signature/volume quotas are separate constraints.
+The passkey flow uses verified Telegram identity and user-owned Privy wallets. Everyone joins a waitlist first. Explicit operator approval reserves a permanent database seat before an invitation or wallet creation. The limit is 480 including the monotonic legacy baseline; repeated approval does not consume duplicate seats. Delivery failure does not revoke approval.
 
-Configure GitHub Actions server secrets `PRIVY_APP_SECRET`, `RESEND_API_KEY`, `MINIAPP_OPERATOR_TOKEN` and the existing `TELEGRAM_BOT_TOKEN`. The Privy credential needs wallet API access; it is never a wallet owner or additional signer. Restrict Resend to sending from fxaeon.com. Server secrets must not be passed to the static build.
+Provider public signup must be closed and the provider inventory reconciled before activation. A browser gate or configuration assertion alone cannot enforce this boundary. The provider application credential transports requests and is never a wallet owner or additional signer. Keep all server credentials out of static builds and generated plaintext configuration.
 
-Use the **Mini App admission operator** workflow on current main. Manual actions default to a network-free dry run. Review an explicit `MINIAPP_LEGACY_USERS` inventory before executing server configuration sync. Initial sync selects `MINIAPP_ACCESS_MODE=waitlist`. It configures the bot identity, Telegram link and `notifications@fxaeon.com` sender; replies go to `support@fxaeon.com`. Scheduled dispatch reconciles durable approvals with pending notifications every 15 minutes. Missing or throttled delivery does not revoke approval.
+Configuration sync proves saved settings, not an already deployed worker's bindings. A verified release must package the reviewed runtime configuration, deploy the intended revision, and verify authenticated runtime behavior before enrollment expands. Physical-device passkey handoff and live-provider entitlement require separate evidence; synthetic tests do not establish them.
 
-**Configuration sync is not live activation.** `sync-server-config` updates the Pages project configuration for a subsequent deployment. Its readback proves the saved configuration, not the bindings of an already deployed worker. The verified release must package the reviewed non-secret runtime variables into the Wrangler deployment configuration; do not assume project-level plaintext variables survive a source-controlled Wrangler deployment that omits them. Keep server secrets out of the static build and generated plaintext configuration. Deploy the new revision, then verify the live runtime before approving anyone.
+Rollback must preserve reservations and keep public signup closed. Never recycle seats, replace owner keys or external wallet identities, or alter the legacy baseline to bypass a capacity check. Unknown transaction outcomes must be reconciled without automatic resubmission. Losing every copy of a synced passkey or access to the Telegram account has no implemented recovery path.
 
-Activation sequence:
-
-1. Pass source, browser, server and deployment checks. Verify the exact deployed revision and fail-closed endpoints.
-2. Disable every native public Privy signup method, including Telegram; close custom authentication and global-wallet bypasses. The miniapp verifies signed Telegram identity itself. Verify provider settings and inventory directly. A configuration assertion alone is not evidence.
-3. Set `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` for the static build. Keep `NEXT_PUBLIC_TELEGRAM_ADMISSION` off. While server mode remains `waitlist`, people can join but cannot provision a wallet.
-4. Verify provider credentials and mail configuration. Only after the strict provider closure and reviewed inventory checks pass, set the reviewed release configuration to `PRIVY_PUBLIC_SIGNUP_DISABLED=yes` and `MINIAPP_ACCESS_MODE=passkey`. Deploy that verified release and check its live revision, public wallet bundle and authenticated runtime status. A successful manual configuration sync alone does not activate the existing deployment. This does not approve anyone automatically; provisioning remains unavailable until the owner explicitly approves a Telegram ID.
-5. Approve only the owner's test Telegram ID first. Confirm live userless-wallet and owner-key provisioning entitlement with that enrollment before approving anyone else. Test the actual phone's browser handoff, synced passkey, return to Telegram, reconnect and authorization. Synthetic signatures and emulated phones are not physical-device proof. Financial transactions require their own explicit approval.
-6. Admit reviewed waitlist members in bounded batches. Never recycle reservations, reset external wallet IDs, or lower the legacy baseline. Unknown transaction outcomes must be reconciled, never automatically repeated.
-
-A rollback must preserve D1 reservations and keep native signup disabled. An old UI may remain unavailable until a compatible build is restored. Losing every copy of a synced passkey or access to the Telegram account has no implemented recovery path.
-
-#### Private approval operations
-
-Inspect waiting Telegram IDs through the authenticated Cloudflare D1 console for `fxaeon-admission`, or the bearer-protected operator API. Keep IDs out of issues, PRs and public Actions inputs/logs. Store the reviewed JSON array in the GitHub Actions secret `MINIAPP_OPERATOR_USER_IDS`, then run **Mini App admission operator → approve** with dry run first, followed by execution. Clear the secret when the batch is finished. Repeating the same batch does not consume duplicate seats.
-
-The workflow reports only counts. Approvals reserve seats permanently; notification failures do not revoke them. To inspect pending rows privately:
-
-```sql
-SELECT user_id, joined_at FROM admission_users
-WHERE external_id IS NULL ORDER BY joined_at;
-```
-
-Before activation, run **check-readiness** to inventory Privy users and wallets. Set `MINIAPP_EXPECTED_WALLETS` to the reviewed wallet count, then require the strict closure check. After legitimate wallet growth, compare the provider count with D1 reservations before updating this expected count; stale counts deliberately block configuration changes. Never increase or lower `MINIAPP_LEGACY_USERS` merely to make a check pass.
-
-The D1 database is bound by `wrangler.toml`. Normal runtime queries use that binding; direct console/API administration uses the operator's Cloudflare access. The older `/api/telegram-admission` compatibility route must remain disabled (`NEXT_PUBLIC_TELEGRAM_ADMISSION` unset or off). Its browser gate cannot enforce a provider signup cap and its tables do not control this rollout.
+Account inventories, approval identities, provider configuration procedures and operational checklists belong in private operator records. Keep them out of public issues, workflow inputs, logs and artifacts. The older admission compatibility endpoint cannot enforce a provider signup cap and must not substitute for the passkey flow. See the [security model](security.md) for the public controls and their limits. Security depends on enforced authorization and database/provider constraints, not on keeping these procedures private.
 
 ## Rollback and diagnosis
 

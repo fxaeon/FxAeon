@@ -8,7 +8,7 @@ Report vulnerabilities privately through [SECURITY.md](../SECURITY.md). Do not p
 
 | Boundary | Authority and limitation |
 | --- | --- |
-| Signing | Current accepted Privy or injected wallet; no FxAeon delegated/server signer or private-key input |
+| Signing | Current accepted Privy or injected wallet; Telegram passkey requests are verified and relayed by the access service, with no FxAeon delegated signer or private-key input |
 | Protocol planning | Pinned official SDK within [the locked surface](../fx-scope.lock.json), followed by application policy checks and simulation |
 | Financial state | Canonical chain/SDK reads and verified matching transactions/receipts |
 | Supported networks | Ethereum (1) for positions/borrowing/fxSAVE; Ethereum and Base (8453) for specified Move routes |
@@ -37,9 +37,9 @@ Only configured Telegram launches with nonempty data choose the Telegram wallet.
 
 Ordinary wallet-browser links strip launch data and carry only public routes. The dedicated passkey handoff uses a short-lived, single-use random capability in the URL fragment; its hash is stored server-side. It carries no Telegram launch data. Opening another app is not a completed approval.
 
-`NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` replaces native Privy signup with server-verified Telegram identity and user-owned Privy wallets. Approval reserves a permanent D1 seat before wallet creation. Database constraints cap approved reservations plus the explicit legacy baseline at 480; seats, owner keys and wallet identities cannot be recycled. Provisioning retries reuse the same external ID. This bound requires public Privy signup to be closed and the provider inventory to be reconciled before activation. If external-wallet login remains enabled, its signup flag must be off and an enabled, empty provider allowlist must be verified through the authenticated API. It does not limit other Privy apps, administrator-created wallets, monthly signatures or transaction volume.
+Passkey mode replaces native Privy signup with server-verified Telegram identity and user-owned Privy wallets. Approval reserves a permanent seat before wallet creation. Database constraints cap approved reservations plus the explicit legacy baseline at 480; seats, owner keys and wallet identities cannot be recycled. Provisioning retries are bounded, reuse the same external ID, and must match the persisted wallet binding. This bound requires all provider public signup paths to be closed and provider inventory to be reconciled before activation. It does not limit other Privy apps, administrator-created wallets, monthly signatures or transaction volume.
 
-Passkeys must verify user presence, user verification, exact RP/origin/challenge, ES256 and backup state before enrollment. Privy receives only the corresponding public key as sole owner, with no additional signer. The application secret transports requests; it is not a wallet authorization key. A passkey authorizes the canonical request containing the exact reviewed transaction, wallet, expiry and idempotency key. The browser independently checks that request. Synced passkeys support using the same credential on another device; losing every copy or the Telegram account is not an implemented recovery path. Physical-device and live-provider verification remain release requirements.
+Passkeys must verify user presence, user verification, exact RP/origin/challenge, ES256 and backup state before enrollment. Approvals require the enrolled credential's immutable backup eligibility to match; mutable current backup state does not invalidate its ownership. Privy receives only the corresponding public key as sole owner, with no additional signer. The application secret transports requests; it is not a wallet authorization key. A passkey authorizes the canonical request containing the exact reviewed transaction, wallet, expiry and idempotency key. The browser independently checks that request. Synced passkeys support using the same credential on another device; losing every copy or the Telegram account is not an implemented recovery path. Physical-device and live-provider verification remain release requirements.
 
 The old `/api/telegram-admission` gate remains a legacy compatibility endpoint. Its browser gate cannot enforce a Privy signup cap and must not be used as a substitute for the passkey rollout.
 
@@ -71,6 +71,8 @@ The braces advisory [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj
 
 Hono is pinned to 4.13.11 for GHSA-hxh3-vqpv-xpqv. decode-uri-component is pinned to 0.5.1 for GHSA-qr28-fpjm-wq7f.
 follow-redirects is pinned to 1.16.2 for GHSA-mrwp-f3q8-3g9p.
+
+The typed ESLint tooling's minimatch 10.2.6 dependency is replaced by 11.0.1 for [GHSA-g3hv-75wg-m249](https://github.com/isaacs/minimatch/security/advisories/GHSA-g3hv-75wg-m249). The older ESLint consumers retain their separate 3.1.5 API generation. The registry's broader version range still reports that version, but it predates the affected optimization pass; the gate verifies its absence on the active consumer paths and tests the amplification pattern. This is a tooling dependency; the finding remains visible in audit output, with no advisory suppression.
 
 `zod@3.22.4` consumers are moved to `3.25.76` with a narrowly scoped
 backport for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).

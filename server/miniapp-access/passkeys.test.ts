@@ -151,6 +151,7 @@ for (const [name, overrides, error] of [
   ['registration in approval flow', { type: 'webauthn.create' }, /type/i],
   ['missing UV', { flags: 0x19 }, /verification/i],
   ['missing UP', { flags: 0x1c }, /present|presence/i],
+  ['changed backup eligibility', { flags: 0x05 }, /passkey_rejected/],
 ] as [string, Overrides, RegExp][]) {
   test(`approval rejects a correctly signed assertion with ${name}`, async () => {
     const expected = challenge();
@@ -184,6 +185,18 @@ test('counter rollback and replay after persisted counter advancement are reject
   const first = await verifyApproval(assertion, { ...registered, counter: 7 }, expected, ORIGIN);
   await assert.rejects(verifyApproval(assertion, { ...registered, counter: first.counter }, expected, ORIGIN), /counter/i);
   await assert.rejects(verifyApproval(assertion, registered, challenge(), ORIGIN), /challenge/i);
+});
+
+test('mutable backup state can change without invalidating the enrolled multi-device owner', async () => {
+  for (const counter of [0, 8]) {
+    const expected = challenge();
+    const assertion = await device.assertion(expected, { flags: 0x0d, counter });
+    const key = { ...registered, counter: counter === 0 ? 0 : 7 };
+    const approval = await verifyApproval(assertion, key, expected, ORIGIN);
+    assert.equal(approval.counter, counter);
+    assert.equal(approval.authorization, `webauthn:${assertion.response.authenticatorData}:${assertion.response.clientDataJSON}:${assertion.response.signature}`);
+    await assert.rejects(verifyApproval(assertion, key, challenge(), ORIGIN), /challenge/i);
+  }
 });
 
 test('synced zero counters work, but replay against a different challenge never does', async () => {

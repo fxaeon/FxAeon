@@ -26,6 +26,7 @@ export interface Credential {
   counter: number;
   /** DER SPKI encoded as standard base64. */
   ownerSPKI: string;
+  /** Enrollment-time backup evidence; BS can change later without changing ownership. */
   backedUp: boolean;
 }
 export interface Enrollment {
@@ -120,6 +121,10 @@ const SCHEMA = [
     user_id INTEGER NOT NULL REFERENCES admission_users(user_id), kind TEXT NOT NULL CHECK(kind IN ('register','sign')),
     window_start INTEGER NOT NULL, used INTEGER NOT NULL CHECK(used BETWEEN 1 AND 5),
     issue_id TEXT NOT NULL, PRIMARY KEY(user_id,kind)
+  )`,
+  `CREATE TABLE IF NOT EXISTS admission_wallet_rates (
+    user_id INTEGER PRIMARY KEY REFERENCES admission_users(user_id),
+    window_start INTEGER NOT NULL, used INTEGER NOT NULL CHECK(used BETWEEN 1 AND 5)
   )`,
   `CREATE TABLE IF NOT EXISTS admission_handoffs (
     token_hash TEXT PRIMARY KEY,
@@ -282,6 +287,18 @@ export class Store {
     return checked(await this.statement(`UPDATE admission_users SET wallet_id = ?, wallet_address = ?
       WHERE user_id = ? AND credential_id IS NOT NULL AND wallet_id IS NULL RETURNING user_id`,
     wallet.id, wallet.address.toLowerCase(), userId).all()).length === 1;
+  }
+
+  /** Reserve before provider I/O. Atomic across isolates and retained across service restarts. */
+  async claimProvision(userId: number, now = Date.now()): Promise<boolean> {
+    identity(userId); time(now);
+    return checked(await this.statement(`INSERT INTO admission_wallet_rates (user_id,window_start,used)
+      SELECT user_id,?,1 FROM admission_users WHERE user_id = ? AND external_id IS NOT NULL AND credential_id IS NOT NULL
+      ON CONFLICT(user_id) DO UPDATE SET
+        window_start = CASE WHEN ? >= window_start + 60000 THEN ? ELSE window_start END,
+        used = CASE WHEN ? >= window_start + 60000 THEN 1 ELSE used + 1 END
+      WHERE ? >= window_start AND (used < 5 OR ? >= window_start + 60000)
+      RETURNING user_id`, now, userId, now, now, now, now, now).all()).length === 1;
   }
 
   async updateCounter(userId: number, credentialID: string, expectedCounter: number, newCounter: number): Promise<boolean> {
