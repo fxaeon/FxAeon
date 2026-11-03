@@ -11,10 +11,12 @@ The compositions use the existing FxAeon ribbon paths from
 `apps/mini-app/src/components/FxLogo.tsx` and
 `apps/landing/assets/fxaeon-mark.svg`. The profile keeps the mark centered
 inside the circular crop; at 32px the ribbon mark remains about 23px wide.
-The banner leaves the left side clear for X's overlaid profile photo and keeps
-the mark in the central 380px of banner height. It contains no text.
+The banner uses the current landing headline, “Make your money move.”, in the
+landing's self-hosted Inter font. It sits center-left above the profile-photo
+overlap; the existing FxAeon mark anchors the right. Both remain inside the
+central 380px of banner height.
 
-The palette is the existing `#080808` canvas, `#202020` border, and `#2973FF`
+The palette is the existing `#080808` canvas, `#FFFFFF` text, and `#2973FF`
 brand blue. The logo paths are unchanged.
 
 X's Help Center recommends 400 × 400 profile photos and 1500 × 500 headers.

@@ -20,6 +20,10 @@ try {
   for (const asset of exports) {
     const page = await browser.newPage({ viewport: { width: asset.width, height: asset.height }, deviceScaleFactor: 1 });
     await page.goto(pathToFileURL(resolve(directory, asset.source)).href);
+    await page.evaluate(() => document.fonts.ready);
+    if (asset.source === 'fxaeon-x-banner.svg' && !await page.evaluate(() => document.fonts.check('600 58px Inter'))) {
+      throw new Error('The banner did not load the landing site Inter font');
+    }
     const output = resolve(directory, asset.output);
     await page.screenshot({ path: output });
     await page.close();
