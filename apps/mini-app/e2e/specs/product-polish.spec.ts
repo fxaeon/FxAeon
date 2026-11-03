@@ -14,6 +14,11 @@ for (const width of [390, 1440]) {
       await page.evaluate(() => document.fonts.ready);
       const main = page.locator('main.app-content-tabs:visible');
       await expect(main).toBeVisible();
+      if (route === '/earn' && process.env.PRODUCT_CAPTURE_HISTORY === '1') {
+        await page.getByRole('region', { name: 'fxSAVE performance', exact: true }).scrollIntoViewIfNeeded();
+        await expect(page.getByRole('slider', { name: 'Explore fxSAVE annualized return', exact: true })).toBeVisible({ timeout: 30_000 });
+        await main.evaluate(element => { element.scrollTop = 0; });
+      }
       const geometry = await main.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth, page: document.documentElement.scrollWidth, viewport: innerWidth }));
       expect(geometry.scroll, `${route} content overflows`).toBeLessThanOrEqual(geometry.width + 1);
       expect(geometry.page, `${route} page overflows`).toBeLessThanOrEqual(geometry.viewport + 1);

@@ -513,6 +513,13 @@ test('submitted transaction status and explorer link remain reachable inside the
       });
     };
     await expect.poll(fitsSheet).toBe(true);
+    // Measure scrolling after the sheet morph and entrance finish. The pending
+    // spinner intentionally keeps running and must not block this geometry check.
+    await page.evaluate(async () => {
+      await Promise.all(document.getAnimations()
+        .filter(animation => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)))
+        .map(animation => animation.finished.catch(() => undefined)));
+    });
     const beforeScroll = await progress.boundingBox();
     await reviewInformation.evaluate(node => { node.scrollTop += 80; });
     expect((await progress.boundingBox())!.y, 'Scrolling the terms leaves the status in place').toBeCloseTo(beforeScroll!.y, 0);
