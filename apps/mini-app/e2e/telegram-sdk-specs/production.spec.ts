@@ -138,7 +138,7 @@ test('blocked local SDK stays closed without desktop or native fallback', async 
   await expect(page.getByText('Checking Telegram…')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeEnabled({ timeout: 12_000 });
   await page.getByRole('button', { name: 'Continue in browser' }).click();
-  await expect(page.getByRole('alert')).toContainText('Telegram isn’t ready.');
+  await expect(page.getByRole('alert').filter({ hasText: 'Telegram isn’t ready.' })).toBeVisible();
   expect(requests.every(request => request.action === 'status')).toBe(true);
   expect(await openEvents(page)).toEqual([]);
 });
