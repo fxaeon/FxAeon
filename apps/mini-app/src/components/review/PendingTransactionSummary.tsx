@@ -1,29 +1,65 @@
 'use client';
-import { CircleAlert, LoaderCircle } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import type { PlanStatus, TransactionStepResult } from '@/lib/fx';
-import type { ReviewFact } from '@/lib/fx/reviewFormatting';
-import type { transactionCardIdentity } from './transactionCardIdentity';
+import { openExternalLink } from '@/lib/telegram';
+import { hasTransactionHash, transactionExplorerUrl, transactionStepKind, transactionStepProgress } from '@/lib/transactionProgress';
 import { compactExecutionStatus } from './compactExecution';
-import { TransactionHashLink } from './ReviewProgress';
-import { hasTransactionHash } from '@/lib/transactionProgress';
-import { TransactionAmountFlow } from './TransactionAmountFlow';
-import styles from './ActionReviewPresentation.module.css';
+import { chainName } from './ReviewProgress';
+import { useTransactionEvidence } from './TransactionEvidenceContext';
+import { TransactionStatusMark, statusMarkState, useSubmittedElapsed } from './TransactionStatusMark';
+import styles from './TransactionProgress.module.css';
 
-export function PendingTransactionSummary({ identity, facts, status, steps, chainId, networkSwitching, nextKind, requestLabel, requestNumber, requestCount, showIdentity = true }: {
-  identity: ReturnType<typeof transactionCardIdentity>; facts: readonly ReviewFact[]; status: PlanStatus;
-  steps: readonly TransactionStepResult[]; chainId: number; networkSwitching: boolean; nextKind?: string;
+/**
+ * The review's action, once pressed, becomes its progress: the button turns
+ * into a status pill in place, and only what the runner reports changes it.
+ */
+export function PendingTransactionSummary({ status, steps, chainId, networkSwitching, nextKind, heading, requestLabel, requestNumber, requestCount }: {
+  status: PlanStatus; steps: readonly TransactionStepResult[]; chainId: number; networkSwitching: boolean; nextKind?: string;
+  /** The hero's title; a request that only repeats it is not said twice. */
+  heading?: string;
   requestLabel?: string; requestNumber?: number; requestCount?: number;
-  showIdentity?: boolean;
 }) {
   const progress = compactExecutionStatus(status, steps, networkSwitching, nextKind);
   const awaitingWallet = status === 'awaiting-user' && !networkSwitching;
-  const uncertain = Boolean(progress.warning) && status !== 'submitted';
-  return <section className={styles.pendingSummary} aria-label="Transaction progress">
-    <div className={styles.pendingStatus} data-warning={uncertain || undefined} role="status" aria-live="polite">
-      <span className={styles.pendingMark} aria-hidden="true">{uncertain ? <CircleAlert size={20} /> : <LoaderCircle size={20} className={styles.pendingSpinner} />}</span>
-      <div><strong>{progress.label}</strong>{awaitingWallet && requestLabel && (showIdentity || requestLabel !== identity.name || (requestCount ?? 0) > 1) ? <p>{requestLabel}{requestCount && requestCount > 1 && requestNumber ? ` · step ${requestNumber} of ${requestCount}` : ''}</p> : showIdentity && <p>{identity.name}</p>}{progress.warning && <p className={styles.pendingWarning}>{progress.warning}</p>}</div>
+  const mark = statusMarkState(status, steps, networkSwitching);
+  const waitingHash = steps.find(step => hasTransactionHash(step) && ['submitted', 'included', 'confirming'].includes(step.status))?.hash;
+  // Real time since submission; hidden from the live region so it is never announced each second.
+  const elapsed = useSubmittedElapsed(mark === 'pending' ? waitingHash : undefined);
+  const steppedRequest = Boolean(requestCount && requestCount > 1 && requestNumber);
+  const request = awaitingWallet && requestLabel && (steppedRequest || requestLabel !== heading)
+    ? `${requestLabel}${steppedRequest ? ` · step ${requestNumber} of ${requestCount}` : ''}` : undefined;
+  const note = request ?? progress.warning;
+  return <section className={styles.progress} aria-label="Transaction progress" data-pending-state={mark}>
+    <div className={styles.status} role="status" aria-live="polite">
+      <div className={styles.pill}>
+        <TransactionStatusMark state={mark} />
+        {/* Re-keyed per label, so each real status change slides in once. */}
+        <span key={progress.label} className={styles.label}><span className={styles.labelText}>{progress.label}</span>{elapsed && <span className={styles.elapsed} aria-hidden="true">{elapsed}</span>}</span>
+      </div>
+      {note && <p key={note} className={styles.note} data-warning={!request && Boolean(progress.warning) || undefined}>{note}</p>}
     </div>
-    <TransactionAmountFlow facts={facts} chainId={chainId} ariaLabel="Reviewed transaction amounts" />
-    {steps.filter(hasTransactionHash).map(step => <TransactionHashLink key={`${step.index}-${step.hash}`} step={step} chainId={chainId} />)}
+    <ExplorerLinks steps={steps} chainId={chainId} />
   </section>;
+}
+
+/** One quiet link per submitted step; a hash proves submission, never success. */
+function ExplorerLinks({ steps, chainId }: { steps: readonly TransactionStepResult[]; chainId: number }) {
+  const simulated = useTransactionEvidence() === 'simulation';
+  const submitted = steps.filter(hasTransactionHash);
+  if (!submitted.length) return null;
+  if (simulated) return <p className={styles.links}>Simulated · no on-chain link</p>;
+  const explorer = chainId === 8453 ? 'Basescan' : 'Etherscan';
+  return <p className={styles.links}>{submitted.map(step => {
+    const url = transactionExplorerUrl(chainId, step.hash);
+    if (!url) return null;
+    const kind = transactionStepKind(step);
+    return <a key={`${step.index}-${step.hash}`} href={url} target="_blank" rel="noopener noreferrer"
+      aria-label={`${kind} ${step.index + 1}: ${transactionStepProgress(step).label}. View transaction ${step.hash} on ${chainName(chainId)} explorer (opens in a new tab)`}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (openExternalLink(url)) event.preventDefault();
+      }}>
+      {submitted.length > 1 ? `${kind === 'Approval' ? 'Approval' : 'Transaction'} on ${explorer}` : `View on ${explorer}`}<ArrowUpRight size={14} aria-hidden="true" />
+    </a>;
+  })}</p>;
 }

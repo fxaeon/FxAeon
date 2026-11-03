@@ -1,0 +1,39 @@
+/* The pressed action, as progress. The pill takes the button's place and
+ * shape, eases from its colour to the sheet's, and changes only when the
+ * runner reports a new state. A note under it says what the person should
+ * know; explorer links follow once a hash exists. */
+.progress { display: grid; gap: 12px; min-width: 0; }
+.status { display: grid; justify-items: center; gap: 10px; min-width: 0; }
+.pill { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-width: 0; min-height: 54px; padding: 8px 22px; border-radius: 27px; background: var(--surface-2); color: var(--text); font-size: 16px; font-weight: 600; line-height: 1.3; animation: pill-from-action 560ms var(--ease-out) both; }
+.label { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; animation: label-swap 340ms var(--ease-out) both; }
+.labelText { min-width: 0; overflow-wrap: anywhere; }
+.elapsed { color: var(--mut); font-weight: 500; font-variant-numeric: tabular-nums; }
+.note { max-width: 100%; margin: 0; color: var(--mut); font-size: 14px; line-height: 1.4; text-align: center; overflow-wrap: anywhere; animation: label-swap 340ms var(--ease-out) both; }
+.links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 18px; margin: -6px 0 0; color: var(--mut); font-size: 14px; line-height: 1.4; }
+.links a { display: inline-flex; align-items: center; gap: 3px; min-height: 44px; color: var(--mint-text); font-weight: 550; text-decoration: none; }
+.links a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.links a:focus-visible { border-radius: 4px; outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* What is waited on, and nothing else, moves: the wallet breathes while its
+ * prompt is open and a light passes over the words; a thin ring turns while
+ * the chain confirms; an unknown outcome holds still in the warning tone. */
+.mark { display: grid; flex: 0 0 20px; width: 20px; height: 20px; place-items: center; color: var(--text); }
+.mark svg { width: 20px; height: 20px; }
+.mark[data-status-mark='wallet'] svg, .mark[data-status-mark='network'] svg { animation: mark-breathe 1.8s ease-in-out infinite; }
+.mark:is([data-status-mark='pending'], [data-status-mark='preparing']) svg { animation: mark-turn 1s linear infinite; }
+.mark[data-status-mark='preparing'] { color: var(--mut); }
+.mark[data-status-mark='uncertain'] { color: var(--warn); }
+.progress:is([data-pending-state='wallet'], [data-pending-state='network']) .labelText {
+  background: linear-gradient(100deg, var(--text) 0 38%, var(--mut) 50%, var(--text) 62% 100%) 0 0 / 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: label-shimmer 2.6s linear infinite;
+}
+@keyframes pill-from-action { from { background-color: var(--mint); color: #fff; } }
+@keyframes label-swap { from { opacity: 0; transform: translateY(6px); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes label-shimmer { from { background-position: 100% 0; } to { background-position: -160% 0; } }
+@keyframes mark-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+@keyframes mark-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .pill, .label, .note, .mark svg, .labelText { animation: none !important; }
+  .progress .labelText { background: none; color: inherit; }
+}

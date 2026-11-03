@@ -121,67 +121,45 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       await expect(borrowRate).toHaveText('');
     }
     if (kind === 'trade' && size.width <= 390) {
-      const leg = review.locator('[data-compact-amounts] [data-review-fact]').first();
+      // The hero's leading amount keeps an honest, silent USD gap and still names its network.
+      const leg = review.locator('[data-amount-provenance="review"] [data-review-fact]').first();
       const usd = leg.locator('[data-usd-state="unavailable"]');
-      const network = leg.locator('[data-network]');
       await expect(usd).toBeAttached();
       await expect(usd).toHaveText('');
       await expect(usd.getByRole('status', { name: 'USD value unavailable' })).toBeAttached();
-      await expect(network).toHaveText('Ethereum');
-      const metadata = await network.evaluate(element => ({
-        left: element.getBoundingClientRect().left,
-        lineLeft: element.parentElement!.getBoundingClientRect().left,
-        marker: getComputedStyle(element, '::before').content,
-      }));
-      expect(metadata.marker).toBe('none');
-      expect(Math.abs(metadata.left - metadata.lineLeft)).toBeLessThanOrEqual(1);
+      await expect(leg.locator('[data-hero-caption]')).toHaveText('Ethereum');
+      const separator = await usd.evaluate(element => getComputedStyle(element.previousElementSibling!).display);
+      expect(separator, 'No separator is left in front of a missing USD value').toBe('none');
     }
     if (kind === 'move') {
-      const amounts = review.getByRole('region', { name: 'Bridge amounts and terms' });
+      // The hero leads with what is sent; the estimate follows as its row, and the route names both networks.
+      const amounts = review.getByRole('region', { name: 'Transaction amounts', exact: true });
       const sent = amounts.locator('[data-review-fact="Amount"]');
       const received = amounts.locator('[data-review-fact="Estimated received"]');
-      const sentAmount = sent.locator('[class*="amountText"] > div > span');
-      const receivedAmount = received.locator('[class*="amountText"] > div > span');
-      await expect(sentAmount).toHaveText('2,500 fxUSD');
+      await expect(sent.locator('p').first()).toHaveText('2,500 fxUSD');
       await expect(sent.locator('details')).toHaveCount(0);
-      await expect(sent.getByText('Ethereum', { exact: true })).toBeVisible();
-      await expect(receivedAmount).toHaveText('2,497.5 fxUSD');
+      await expect(amounts.getByText('Ethereum → Base', { exact: true })).toBeVisible();
+      await expect(received.locator('[data-amount-unit]')).toHaveText('2,497.5 fxUSD');
       await expect(received.locator('details')).toHaveCount(0);
-      await expect(received.getByText('Base', { exact: true })).toBeVisible();
-      for (const leg of [sent, received]) {
-        const unitGap = await leg.evaluate(element => {
-          const amount = element.querySelector('[class*="amountText"] > div > span')!;
-          const figure = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? '')) as Text | undefined;
-          const unit = amount.querySelector('[class*="flowUnit"]');
-          if (!figure || !unit) throw new Error('Bridge fixture requires a visible amount and unit');
-          const range = document.createRange();
-          range.selectNodeContents(figure);
-          range.setEnd(figure, figure.textContent!.trimEnd().length);
-          return unit.getBoundingClientRect().left - range.getBoundingClientRect().right;
-        });
-        expect(unitGap, 'Bridge amount and unit remain visibly separated on one line').toBeGreaterThanOrEqual(2);
-        const graphics = await leg.evaluate(element => {
-          const amount = element.querySelector('[class*="amountText"] > div > span')!;
-          const number = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? ''));
-          if (!number) throw new Error('Bridge fixture requires a visible numeric amount');
-          // The amount's alignment box includes empty space above its text.
-          // Measure the numeral itself so only actual text/icon overlap fails.
-          const range = document.createRange();
-          range.selectNodeContents(number);
-          const figure = range.getBoundingClientRect();
-          return [...element.querySelectorAll('img,svg')].map(node => {
-            const icon = node.getBoundingClientRect();
-            return { width: icon.width, height: icon.height, overlaps: Math.min(icon.right, figure.right) - Math.max(icon.left, figure.left) > .5
-              && Math.min(icon.bottom, figure.bottom) - Math.max(icon.top, figure.top) > .5 };
-          });
-        });
-        expect(graphics.length).toBeGreaterThan(0);
-        for (const graphic of graphics) {
-          expect(graphic.width).toBeGreaterThan(0);
-          expect(graphic.height).toBeGreaterThan(0);
-          expect(graphic.overlaps, 'Bridge token and chain graphics must not paint over the numeric amount').toBe(false);
-        }
-      }
+      await expect(review.getByRole('region', { name: 'Bridge terms', exact: true })).toBeVisible();
+      const hero = await amounts.evaluate(element => {
+        const amount = element.querySelector('[data-review-fact="Amount"] p')!;
+        const figure = [...amount.childNodes].find(node => node.nodeType === Node.TEXT_NODE && /\d/.test(node.textContent ?? '')) as Text | undefined;
+        const unit = amount.querySelector('span:last-child');
+        if (!figure || !unit) throw new Error('Bridge fixture requires a visible amount and unit');
+        const range = document.createRange();
+        range.selectNodeContents(figure);
+        range.setEnd(figure, figure.textContent!.trimEnd().length);
+        const number = range.getBoundingClientRect();
+        // Token and network marks sit above the figure and never paint over it.
+        const marks = [...element.querySelectorAll('img')].map(node => node.getBoundingClientRect())
+          .filter(icon => icon.width > 0 && icon.height > 0);
+        return { unitGap: unit.getBoundingClientRect().left - number.right,
+          overlaps: marks.some(icon => Math.min(icon.right, number.right) - Math.max(icon.left, number.left) > .5
+            && Math.min(icon.bottom, number.bottom) - Math.max(icon.top, number.top) > .5) };
+      });
+      expect(hero.unitGap, 'Bridge amount and unit remain visibly separated on one line').toBeGreaterThanOrEqual(2);
+      expect(hero.overlaps, 'Bridge token and chain graphics must not paint over the numeric amount').toBe(false);
       await expect(review.locator('[data-review-fact="Networks"]')).toHaveCount(0);
       await expect(review.locator('[data-review-fact="Minimum received"]')).toContainText('2,475 fxUSD');
       const recipient = review.locator('[data-review-fact="Recipient"]');
@@ -254,10 +232,9 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
       });
       await expect(fee.locator('[data-usd-state]')).toHaveText('≈ $0.99');
       const received = review.locator('[data-review-fact="Estimated received"]');
-      await expect(received.getByText('Receive · est.', { exact: true })).toBeVisible();
-      await expect(received.locator('[data-review-amount]')).toHaveText('99 USDC');
+      await expect(received.getByText('You receive · est.', { exact: true })).toBeVisible();
+      await expect(received.locator('[data-amount-unit]')).toHaveText('99 USDC');
       await expect(received.locator('summary')).toHaveCount(0);
-      await expect(received.locator('[data-review-amount]')).toHaveText('99 USDC');
     }
     if (kind === 'earn-queue') await expect(review.locator('[data-review-fact="Availability"]')).toContainText('claim required');
     if (kind === 'earn-deposit') await expect(review.locator('[data-review-fact="Final fxSAVE minimum"]')).toHaveCount(0);
@@ -271,7 +248,7 @@ for (const kind of ['trade', 'borrow', 'earn-instant', 'earn-queue', 'earn-depos
   });
 }
 
-test('compact amount headers wrap above figures at 320px with long roles and 200% text', async ({ page }) => {
+test('the hero keeps its figure, roles and context inside the sheet at 320px, with long roles and 200% text', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 320, height: 568 });
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>');
@@ -289,57 +266,38 @@ test('compact amount headers wrap above figures at 320px with long roles and 200
     h.rerender();
   });
   await page.getByRole('button', { name: 'Review position', exact: true }).click();
-  const flow = page.locator('[data-review-essential] [data-compact-amounts="2"]');
-  await expect(flow).toBeVisible();
+  const hero = page.locator('[data-review-essential] [data-amount-provenance="review"]');
+  await expect(hero).toBeVisible();
   await page.evaluate(async () => {
-    await document.fonts.load('600 28px Manrope');
     await document.fonts.ready;
     await Promise.all([...document.images].map(image => image.decode().catch(() => undefined)));
   });
-  async function expectFlowGeometry() {
-    const legs = await flow.locator('[data-review-fact]').evaluateAll(elements => elements.map(leg => {
-      const figureNode = leg.querySelector('[data-review-amount]')!;
-      const figure = figureNode.getBoundingClientRect();
-      const heading = leg.querySelector('[class*="heading"]')!;
-      const role = heading.children[1].getBoundingClientRect();
-      const network = heading.children[2]?.getBoundingClientRect();
-      const bounds = leg.getBoundingClientRect();
-      const usd = leg.querySelector('[data-usd-state]')!.getBoundingClientRect();
-      const graphics = [...heading.querySelectorAll('img,svg')].map(node => node.getBoundingClientRect());
-      return { figureHeight: figure.height, headingBottom: heading.getBoundingClientRect().bottom,
-        graphicsBottom: Math.max(...graphics.map(graphic => graphic.bottom)), graphicsCount: graphics.length,
-        figureTop: figure.top, figureLeft: figure.left, figureRight: figure.right, usdLeft: usd.left, usdRight: usd.right,
-        left: bounds.left, right: bounds.right, roleNetworkOverlap: Boolean(network
-          && Math.min(role.right, network.right) - Math.max(role.left, network.left) > .5
-          && Math.min(role.bottom, network.bottom) - Math.max(role.top, network.top) > .5) };
-    }));
-    expect(legs).toHaveLength(2);
-    for (const leg of legs) {
-      expect(leg.figureHeight).toBeGreaterThan(0);
-      expect(leg.headingBottom).toBeLessThanOrEqual(leg.figureTop + 1);
-      expect(leg.graphicsCount).toBeGreaterThan(0);
-      expect(leg.graphicsBottom, 'Token and chain graphics must not paint over the number').toBeLessThanOrEqual(leg.figureTop + 1);
-      expect(leg.roleNetworkOverlap).toBe(false);
-      expect(leg.figureLeft).toBeGreaterThanOrEqual(leg.left - 1);
-      expect(leg.figureRight).toBeLessThanOrEqual(leg.right + 1);
-      expect(leg.usdLeft).toBeGreaterThanOrEqual(leg.left - 1);
-      expect(leg.usdRight).toBeLessThanOrEqual(leg.right + 1);
-    }
+  async function expectHeroGeometry() {
+    const geometry = await hero.evaluate(element => {
+      const bounds = element.getBoundingClientRect();
+      const parts = [...element.querySelectorAll<HTMLElement>('h3, p, [data-review-fact]')].map(node => node.getBoundingClientRect());
+      const figure = element.querySelector('[data-review-fact] p')!.getBoundingClientRect();
+      const marks = [...element.querySelectorAll('img')].map(node => node.getBoundingClientRect()).filter(box => box.width > 0);
+      return { overflow: element.scrollWidth - element.clientWidth,
+        inside: parts.every(box => box.left >= bounds.left - 1 && box.right <= bounds.right + 1),
+        marksAboveFigure: marks.every(box => box.bottom <= figure.top + 1) };
+    });
+    expect(geometry.overflow, 'Nothing in the hero is clipped sideways').toBeLessThanOrEqual(1);
+    expect(geometry.inside, 'Title, figure, roles and rows stay within the sheet').toBe(true);
+    expect(geometry.marksAboveFigure, 'Token marks never paint over the figure').toBe(true);
   }
-  await expectFlowGeometry();
+  await expectHeroGeometry();
   // Deliberately stress only presentation copy; accepted facts and amounts
-  // remain unchanged. These labels model longer supported position roles.
-  await flow.locator('[data-review-fact] [class*="heading"]').evaluateAll(headings => {
-    ['Position size · estimated', 'Collateral returned'].forEach((text, index) => { headings[index].children[1].textContent = text; });
-  });
-  await expectFlowGeometry();
+  // remain unchanged. This label models a longer supported position role.
+  await hero.locator('[data-review-fact] p:last-child > span:first-child').first().evaluate(node => { node.textContent = 'Position size · estimated'; });
+  await expectHeroGeometry();
   await page.evaluate(() => {
     const text = [...document.querySelectorAll<HTMLElement>('body *')].filter(element => !element.closest('svg')
       && [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
       .map(element => ({ element, size: Number.parseFloat(getComputedStyle(element).fontSize) }));
     for (const { element, size } of text) element.style.setProperty('font-size', `${size * 2}px`, 'important');
   });
-  await expectFlowGeometry();
+  await expectHeroGeometry();
   expect(await metric(page, 'send')).toBe(0);
 });
 

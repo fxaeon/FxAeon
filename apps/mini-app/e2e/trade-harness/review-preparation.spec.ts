@@ -346,7 +346,7 @@ test('fresh-cache visibility refresh disables confirmation until the request set
 
 async function geometry(page: Page, seed = false) {
   return page.evaluate((seed) => {
-    const selectors = ['[data-review-viewport]', '[data-review-fact="Amount"]', '[data-mobile-review-sheet] h2, [data-review-header] h3', '[data-review-fact="Execution price"]', '[data-review-fact="Liquidation price"]', '[data-review-viewport] > :last-child button'];
+    const selectors = ['[data-review-viewport]', '[data-review-fact="Amount"]', '[data-review-viewport] [data-review-focus]', '[data-review-fact="Execution price"]', '[data-review-fact="Liquidation price"]', '[data-review-viewport] > :last-child button'];
     const nodes = selectors.map(selector => document.querySelector(selector)!);
     const global = window as unknown as { __reviewNodes?: Element[] };
     if (seed) global.__reviewNodes = nodes;

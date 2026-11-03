@@ -3,19 +3,21 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
 
-test('reference review owns a side-by-side identity outside one grouped facts card', () => {
+test('the review leads with one hero, keeps only accepted amounts while signing, and turns its action into progress', () => {
   const review = source('components/ActionReview.tsx');
-  const identity = source('components/review/TransactionIdentity.tsx');
-  assert.match(review, /stage === 'executing' \? <PendingTransactionSummary/);
+  const hero = source('components/review/TransactionHero.tsx');
+  // While signing, live terms could change underneath; only the accepted amounts stay, and the action becomes progress.
+  assert.match(review, /<div data-review-essential>\{stage === 'executing' \? <div className=\{presentationStyles.amountLedReview\}>\s*\{hero\}/);
+  assert.doesNotMatch(review, /stage === 'executing' \? <PendingTransactionSummary/);
   assert.doesNotMatch(review, /stage === 'executing' && <section[^]*?aria-label="Reviewed terms"/);
-  assert.match(review, /stage === 'executing' && bridgeReview && acceptedBridgeQuote\?\.recipient/);
-  assert.ok(review.indexOf('<TransactionIdentity {...identity}') < review.indexOf('presentationStyles.facts}'));
-  assert.match(identity, /TokenIcon symbol=\{symbol\}/);
-  assert.match(identity, /data-amount-provenance="review"/);
-  assert.match(identity, /amount \? <strong>/);
-  assert.doesNotMatch(identity, /<details|<summary|amount\.title/);
-  assert.match(identity, /AmountUsd amount=\{parts.amount\}/);
-  assert.doesNotMatch(identity, /0\.2458|589\.87|1,179\.73|0x930F/);
+  assert.match(review, /data-review-dock=\{stage\} data-review-actions=\{stage === 'review' \? '' : undefined\}/);
+  assert.match(review, /: <PendingTransactionSummary heading=\{identity.name\}/);
+  assert.ok(review.indexOf('{hero}') < review.indexOf('presentationStyles.facts}'));
+  assert.match(hero, /TokenIcon symbol=\{mark.symbol\}/);
+  assert.match(hero, /data-amount-provenance=\{provenance\}/);
+  assert.doesNotMatch(hero, /<details|<summary|leading\.title|leg\.title/);
+  assert.match(hero, /AmountCounterpart amount=\{shown.amount\}/);
+  assert.doesNotMatch(hero, /0\.2458|589\.87|1,179\.73|0x930F/);
 });
 
 test('all position and loan reviews retain risk rows without manufacturing prices', () => {
@@ -40,8 +42,8 @@ test('mobile review is content-height and keeps scrollable information separate 
   const css = source('components/review/ActionReviewPresentation.module.css');
   assert.match(sheet, /max-height: min\(86dvh, calc\(100dvh - 76px\)\)/);
   assert.match(sheet, /border-radius: 29px 29px 0 0/);
-  assert.match(css, /\.transactionIdentity \{ display: flex/);
-  assert.match(css, /\.identityAmount \{[^}]*text-align: right/);
+  assert.match(source('components/review/TransactionHero.module.css'), /\.head \{ display: grid; justify-items: center/);
+  assert.doesNotMatch(css, /\.transactionIdentity|\.identityAmount/);
   assert.match(css, /\.actions > button \{ min-height: 48px/);
   assert.match(css, /\.reviewScrollBody \{ overflow-y: auto/);
   assert.match(css, /\.reviewScrollBody \{[^}]*padding-block-end: 2px;/, 'fractional scroll ranges leave the last disclosure fully reachable');
