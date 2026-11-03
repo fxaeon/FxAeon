@@ -1,5 +1,5 @@
 .screen {
-  --admission-bg: #fafaf9;
+  --admission-bg: #f8f9fb;
   --admission-text: #17191d;
   --admission-muted: #59616d;
   --admission-surface: #eaecef;
@@ -24,7 +24,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 448px;
+  max-width: 440px;
   min-height: 100%;
   margin-inline: auto;
   padding: max(28px, env(safe-area-inset-top, 0px)) max(28px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(28px, env(safe-area-inset-left, 0px));
@@ -34,16 +34,19 @@
 .brand { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 600; }
 .brand svg { flex: none; }
 .context { color: var(--admission-muted); font-size: 13px; }
-.content { display: flex; flex: 1; flex-direction: column; justify-content: space-between; gap: 40px; padding-top: 48px; }
+.content { display: flex; flex: 1; flex-direction: column; justify-content: space-between; gap: 40px; padding-top: clamp(40px, 8vh, 72px); }
 .copy { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
-.message { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+.message { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
 .mark { color: var(--admission-accent); flex: none; }
-.title { color: var(--admission-text); font-size: 40px; font-weight: 550; line-height: 1.12; letter-spacing: 0; max-width: 9em; margin: 0; white-space: pre-line; }
+.title { color: var(--admission-text); font-size: 38px; font-weight: 600; line-height: 1.12; letter-spacing: 0; max-width: 10em; margin: 0; white-space: pre-line; }
 .lead { color: var(--admission-muted); font-size: 16px; line-height: 1.6; max-width: 320px; margin: 0; }
 .actions { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
 .detail, .error { font-size: 13px; line-height: 1.55; margin: 0 0 12px; }
 .detail { color: var(--admission-muted); }
 .error { color: var(--admission-error); }
+.actions > p[role="status"], .actions > p[role="alert"] { font-size: 14px; line-height: 1.5; margin: 0 0 8px; }
+.actions > p[role="status"] { color: var(--admission-muted); }
+.actions > p[role="alert"] { color: var(--admission-error); }
 
 .primary, .secondary {
   display: flex;
@@ -57,6 +60,7 @@
   border-radius: 28px;
   font: 500 15px/1.4 var(--font-sans, ui-sans-serif), system-ui, sans-serif;
   text-align: center;
+  text-decoration: none;
   cursor: pointer;
   transition: transform 180ms ease, background-color 180ms ease;
 }
@@ -69,7 +73,7 @@
 
 .emailForm { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .emailForm label { font-size: 14px; }
-.emailForm input { width: 100%; min-width: 0; min-height: 52px; padding: 14px 16px; border: 1px solid var(--admission-muted); border-radius: 14px; background: var(--admission-surface); color: var(--admission-text); font: inherit; font-size: 16px; line-height: 1.4; }
+.emailForm input { width: 100%; min-width: 0; min-height: 52px; padding: 14px 16px; border: 0; border-radius: 14px; background: var(--admission-surface); color: var(--admission-text); font: inherit; font-size: 16px; line-height: 1.4; }
 .emailForm input::placeholder { color: var(--admission-muted); opacity: 1; }
 .footer { display: flex; justify-content: center; padding-top: 18px; }
 .footer a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px; color: var(--admission-muted); font-size: 12px; line-height: 1.5; text-decoration: none; }
@@ -82,7 +86,7 @@
 
 @media (prefers-color-scheme: dark) {
   .screen {
-    --admission-bg: #0b0c0e;
+    --admission-bg: #0b0d10;
     --admission-text: #f3f4f6;
     --admission-muted: #a5abb5;
     --admission-surface: #1c1f24;

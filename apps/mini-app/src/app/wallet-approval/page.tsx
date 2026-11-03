@@ -6,6 +6,7 @@ import FxLogo from '@/components/FxLogo';
 import { WalletApprovalDetails } from '@/components/admission/WalletApprovalDetails';
 import { miniappAccess, consumeApprovalTicket, forgetAccessToken, verifyChallengeCommitment, telegramReturnUrl, accessErrorMessage, isSignResult, isWalletResult,
   verifySigningChallenge, validateApprovalTransaction, type HandoffRead, type MiniappTransaction } from '@/lib/miniappAccess';
+import admission from '@/components/admission/AdmissionScreen.module.css';
 import styles from './WalletApproval.module.css';
 
 export default function WalletApprovalPage() {
@@ -81,15 +82,28 @@ export default function WalletApprovalPage() {
     setError(submitted.current ? 'Approval may already have completed. Return to Telegram and check your wallet activity.' : 'Approval cancelled.');
   };
 
-  return <main className={styles.screen}><div className={styles.panel}>
+  if (request?.kind === 'sign') return <main className={styles.screen}><div className={styles.panel}>
     <FxLogo size={36} />
-    <h1>{done ? request?.kind === 'sign' ? 'Transaction submitted.' : 'Wallet ready.' : request?.kind === 'sign' ? 'Approve transaction.' : request?.kind === 'register' ? 'Set up your passkey.' : 'Wallet approval.'}</h1>
-    {!done && request?.kind === 'register' && <p>Keep your passkey synced or backed up so you can use it again.</p>}
+    <h1>{done ? 'Transaction submitted.' : 'Approve transaction.'}</h1>
     {!done && transaction && <WalletApprovalDetails transaction={transaction} walletId={walletId} />}
-    {busy && <p role="status">{request ? 'Waiting for approval…' : 'Checking approval…'}</p>}
+    {busy && <p role="status">Waiting for approval…</p>}
     {error && <p role="alert">{error}</p>}
-    {request && !done && !closed && !submitted.current && <button className={styles.primary} disabled={busy} onClick={() => void approve()}>{request.kind === 'sign' ? 'Approve with passkey' : 'Create passkey'}</button>}
-    {!done && !closed && request && <button className={styles.secondary} onClick={cancel}>Cancel</button>}
+    {!done && !closed && !submitted.current && <button className={styles.primary} disabled={busy} onClick={() => void approve()}>Approve with passkey</button>}
+    {!done && !closed && <button className={styles.secondary} onClick={cancel}>Cancel</button>}
     <a href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
   </div></main>;
+
+  return <main className={admission.screen} aria-labelledby="approval-title"><div className={admission.panel}>
+    <header className={admission.header}><div className={admission.brand}><FxLogo size={32} /><span aria-hidden="true">FxAeon</span></div><span className={admission.context}>Browser</span></header>
+    <div className={admission.content}><div className={admission.copy}><div className={admission.message}>
+    <h1 id="approval-title" className={admission.title}>{done ? 'Wallet ready.' : request?.kind === 'register' ? 'Set up your passkey.' : 'Wallet approval.'}</h1>
+    {!done && request?.kind === 'register' && <p className={admission.lead}>Keep your passkey synced or backed up so you can use it again.</p>}
+    </div>
+    </div><div className={admission.actions} aria-busy={busy}>
+    {busy && <p role="status">{request ? 'Waiting for approval…' : 'Checking approval…'}</p>}
+    {error && <p role="alert">{error}</p>}
+    {request && !done && !closed && !submitted.current && <button className={admission.primary} disabled={busy} onClick={() => void approve()}>Create passkey</button>}
+    {!done && !closed && request && <button className={admission.secondary} onClick={cancel}>Cancel</button>}
+    <a className={done || closed || (!busy && !request) ? admission.primary : admission.secondary} href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
+  </div></div></div></main>;
 }

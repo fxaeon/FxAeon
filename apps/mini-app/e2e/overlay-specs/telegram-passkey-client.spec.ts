@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
+import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 const app = resolve(__dirname, '../..');
@@ -62,7 +63,7 @@ test.beforeAll(async () => {
   css = result.outputFiles.find(file => file.path.endsWith('.css'))!.text;
 });
 
-type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
+type Fixture = { state?: string; hasCredential?: boolean; cohortFull?: boolean; telegramWriteAllowed?: boolean; tamper?: boolean; mobile?: boolean; delayedBridge?: boolean; failComplete?: boolean; substituteHandoff?: boolean; registerHandoff?: boolean; durableReceipt?: boolean; deferSignOptions?: Promise<void>; deferJoin?: Promise<void>; deferHandoff?: Promise<void>; completionProof?: 'rejected' | 'empty' | 'wrong-id'; expireComplete?: boolean; loseAck?: boolean; emailDelivery?: { state: string; retryAfterMs: number | null } };
 async function mount(page: Page, path = '/', fixture: Fixture = {}) {
   const requests: any[] = [];
   const errors: string[] = [];
@@ -94,14 +95,14 @@ async function mount(page: Page, path = '/', fixture: Fixture = {}) {
           if (fixture.deferHandoff) await fixture.deferHandoff;
           response = { url: 'https://fxaeon.test/wallet-approval#token=opaque-ticket' }; break;
         case 'handoff/status': response = { state: 'pending' }; break;
-        case 'handoff/read': response = { kind: 'sign', options: { challenge: returnedChallenge }, transaction: fixture.substituteHandoff ? { ...transaction, to: FROM } : transaction }; break;
+        case 'handoff/read': response = fixture.registerHandoff ? { kind: 'register', options: { challenge: returnedChallenge } } : { kind: 'sign', options: { challenge: returnedChallenge }, transaction: fixture.substituteHandoff ? { ...transaction, to: FROM } : transaction }; break;
         case 'sign/complete': case 'handoff/complete':
           operation = fixture.completionProof === 'empty' ? null : fixture.completionProof ? {
             id: fixture.completionProof === 'wrong-id' ? 'other-intent' : body.challengeId, state: 'rejected', hash: null, chainId: 1, acknowledged: true,
           } : { id: body.challengeId ?? 'sign-1', state: 'submitted', hash: HASH, chainId: 1, acknowledged: false };
           if (fixture.expireComplete) return route.fulfill({ status: 403, json: { error: 'approval_expired' } });
           if (fixture.failComplete) return route.abort();
-          response = { hash: HASH }; break;
+          response = fixture.registerHandoff ? { state: 'ready', wallet } : { hash: HASH }; break;
         case 'email/confirm': response = { verified: true }; break;
         case 'email/request': response = { status: 'verification_requested', delivery: fixture.emailDelivery }; break;
         case 'email/retry': response = { status: 'verification_requested', delivery: { state: 'pending', retryAfterMs: 1000 } }; break;
@@ -129,6 +130,70 @@ async function openPreparedBrowser(page: Page) {
   expect(await readClient(page, 'links')).toEqual([]);
   await page.getByRole('button', { name: 'Continue in browser', exact: true }).click();
 }
+
+test('short phone keeps passkey setup reachable and cancellation returns to the invitation', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const { requests } = await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
+  await page.getByRole('button', { name: 'Set up my wallet' }).click();
+  await expect(page.getByRole('heading', { name: 'Secure your wallet.' })).toBeVisible();
+  await expect(page.getByText('Keep your passkey synced or backed up so you can use it again.')).toBeVisible();
+  const primary = page.getByRole('button', { name: 'Continue in browser' });
+  const back = page.getByRole('button', { name: 'Back' });
+  await page.keyboard.press('Tab');
+  await expect(primary).toBeFocused();
+  expect(await primary.evaluate(element => getComputedStyle(element).outlineStyle)).not.toBe('none');
+  for (const control of [primary, back]) {
+    await control.scrollIntoViewIfNeeded();
+    const box = await control.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    await control.focus();
+    await expect(control).toBeFocused();
+  }
+  await back.click();
+  await expect(page.getByRole('heading', { name: 'Your place is ready.' })).toBeVisible();
+  expect(requests.some(request => request.action === 'register/options')).toBe(false);
+});
+
+test('onboarding browser and live setup fixture captures', async ({ page }) => {
+  test.setTimeout(180_000);
+  const directory = process.env.ONBOARDING_CAPTURE_DIR;
+  if (!directory) return;
+  mkdirSync(directory, { recursive: true });
+  for (const [name, width, height] of [['320', 320, 568], ['390', 390, 844], ['desktop', 1440, 900]] as const) {
+    await page.setViewportSize({ width, height });
+    const save = (state: string) => page.screenshot({ path: resolve(directory, `${state}-${name}.png`), fullPage: true });
+    await mount(page, '/', { state: 'approved', hasCredential: false, mobile: true });
+    await expect(page.getByRole('button', { name: 'Set up my wallet' })).toBeVisible();
+    await save('live-invited');
+    await page.getByRole('button', { name: 'Set up my wallet' }).click();
+    await expect(page.getByRole('button', { name: 'Continue in browser' })).toBeVisible();
+    await save('live-passkey');
+    await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await expect(page.getByText('Ready to open your browser.')).toBeVisible();
+    await save('live-browser-prepared');
+    await page.getByRole('button', { name: 'Continue in browser' }).click();
+    await expect(page.getByText('Complete setup in your browser. Waiting up to five minutes.')).toBeVisible();
+    await save('live-browser-waiting');
+    await mount(page, '/invite');
+    await expect(page.getByRole('alert')).toBeVisible();
+    await save('invite-expired');
+    await mount(page, '/invite#token=email-secret');
+    await expect(page.getByRole('button', { name: 'Confirm email' })).toBeVisible();
+    await save('invite-confirm');
+    await page.getByRole('button', { name: 'Confirm email' }).click();
+    await expect(page.getByRole('heading', { name: 'Email confirmed.' })).toBeVisible();
+    await save('invite-confirmed');
+    await mount(page, '/wallet-approval');
+    await expect(page.getByRole('alert')).toBeVisible();
+    await save('browser-approval-expired');
+    await mount(page, '/wallet-approval#token=opaque-ticket', { registerHandoff: true });
+    await expect(page.getByRole('button', { name: 'Create passkey' })).toBeVisible();
+    await save('browser-approval-register');
+    await page.getByRole('button', { name: 'Create passkey' }).click();
+    await expect(page.getByRole('heading', { name: 'Wallet ready.' })).toBeVisible();
+    await save('browser-approval-ready');
+  }
+});
 
 test('signed launch status starts before the bridge resolves and late mobile bridge preserves browser setup', async ({ page }) => {
   const launchData = 'user=%7B%22id%22%3A12345%7D&hash=fixture';

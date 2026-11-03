@@ -21,6 +21,7 @@ import FxLogo from '@/components/FxLogo';
 import { AdmissionScreen, type AdmissionAction, type AdmissionScreenState } from './AdmissionScreen';
 import { WalletApprovalDetails } from './WalletApprovalDetails';
 import styles from '@/app/wallet-approval/WalletApproval.module.css';
+import admissionStyles from './AdmissionScreen.module.css';
 
 const READ_METHODS = new Set(['eth_blockNumber', 'eth_call', 'eth_estimateGas', 'eth_gasPrice', 'eth_maxPriorityFeePerGas', 'eth_feeHistory', 'eth_getBalance', 'eth_getCode', 'eth_getStorageAt', 'eth_getTransactionCount', 'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'eth_getLogs']);
 
@@ -536,16 +537,21 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
   </FxWalletContext.Provider>;
   if (disconnected) return <main className={styles.screen}><div className={styles.panel}><FxLogo size={32} /><h1>Wallet disconnected.</h1>
     {error && <p role="alert">{error}</p>}<button className={styles.primary} disabled={busy} onClick={() => void refresh().catch(() => undefined)}>Reconnect Telegram wallet</button></div></main>;
-  if (view === 'passkey') return <main className={styles.screen}><div className={styles.panel}><FxLogo size={32} /><h1>Secure your wallet.</h1>
-    <p>{status?.hasCredential ? 'Your passkey is registered. Finish setting up your wallet.' : 'Keep your passkey synced or backed up so you can use it again.'}</p>
+  if (view === 'passkey') return <main className={admissionStyles.screen} aria-labelledby="passkey-setup-title"><div className={admissionStyles.panel}>
+    <header className={admissionStyles.header}><div className={admissionStyles.brand}><FxLogo size={32} /><span aria-hidden="true">FxAeon</span></div><span className={admissionStyles.context}>Telegram</span></header>
+    <div className={admissionStyles.content}><div className={admissionStyles.copy}><div className={admissionStyles.message}>
+    <h1 id="passkey-setup-title" className={admissionStyles.title}>Secure your wallet.</h1>
+    <p className={admissionStyles.lead}>{status?.hasCredential ? 'Your passkey is registered. Finish setting up your wallet.' : 'Create a passkey with your fingerprint, face, or device PIN.'}</p>
+    </div></div><div className={admissionStyles.actions} aria-busy={busy}>
+    {!status?.hasCredential && <p className={admissionStyles.detail}>Keep your passkey synced or backed up so you can use it again.</p>}
     {error && <p role="alert">{error}</p>}{browserPending && <p role="status">Complete setup in your browser. Waiting up to five minutes.</p>}
     {!bridgeReady && <p role="status">Checking Telegram…</p>}
-    {preparedHandoff ? <><p role="status">Ready to open your browser.</p><button className={styles.primary} onClick={preparedHandoff.open}>Continue in browser</button></> : <>
-      <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
-      {!mobile && !status?.hasCredential && <button className={styles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
+    {preparedHandoff ? <><p role="status">Ready to open your browser.</p><button className={admissionStyles.primary} onClick={preparedHandoff.open}>Continue in browser</button></> : <>
+      <button className={admissionStyles.primary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(mobile)}>{status?.hasCredential ? 'Finish wallet setup' : mobile ? 'Continue in browser' : 'Create passkey'}</button>
+      {!mobile && !status?.hasCredential && <button className={admissionStyles.secondary} disabled={busy || !bridgeReady} onClick={() => void setupWallet(true)}>Continue in browser</button>}
     </>}
-    <button className={styles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
-  </div></main>;
+    <button className={admissionStyles.secondary} onClick={() => { invalidate(); setView('invited'); }}>{browserPending ? 'Stop waiting' : 'Back'}</button>
+  </div></div></div></main>;
   const common = { notificationPermission: status?.telegramNotify ? 'granted' as const : status ? 'denied' as const : 'unknown' as const,
     emailDelivery: emailDelivery?.state, busy, error, onAction: (action: AdmissionAction) => { void act(action); } };
   return view === 'email' ? <AdmissionScreen {...common} state="email" email={email} onEmailChange={setEmail} />
