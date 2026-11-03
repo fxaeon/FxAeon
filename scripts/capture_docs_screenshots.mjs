@@ -173,30 +173,10 @@ async function createCaptureContext({ viewport, theme }) {
     // Deliberately synthetic, opt-in design data. Every captured frame is
     // visibly labelled and its report records this mode. Never use as proof
     // of prices, returns, oracle values, execution quotes, or protocol state.
-    await context.route('https://coins.llama.fi/**', async (route) => {
-    const encodedIds = new URL(route.request().url()).pathname.split('/prices/current/')[1] ?? '';
-    const ids = decodeURIComponent(encodedIds).split(',').filter(Boolean);
-    const timestamp = Math.floor(Date.now() / 1000);
-    const coins = Object.fromEntries(ids.map((id) => {
-      const normalised = id.toLowerCase();
-      const price = normalised.includes('2260fac5e5542a773aa44fbcfedf7c193bc2c599')
-        ? 104_240
-        : normalised.includes('c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2')
-          ? 2_485.42
-          : normalised.includes('ae7ab96520de3a18e5e111b5eaab095312d7fe84')
-            ? 2_485.42
-            : normalised.includes('7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0')
-              ? 2_944.19
-              : 1;
-      return [id, { price, timestamp, confidence: 0.99 }];
+    // f(x)'s price service: synthetic quotes for FXN and fxUSD.
+    await context.route('https://api.aladdin.club/api/coingecko/price', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, data: { FXN: { usd: 26 }, fxUSD: { usd: 1 } } }),
     }));
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ coins }) });
-  });
-
-  // f(x)'s price service: the same synthetic quotes for FXN and fxUSD.
-  await context.route('https://api.aladdin.club/api/coingecko/price', (route) => route.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, data: { FXN: { usd: 26 }, fxUSD: { usd: 1 } } }),
-  }));
 
   await context.route('https://api.coingecko.com/**', async (route) => {
     const url = new URL(route.request().url());

@@ -44,10 +44,11 @@ Amount fields preserve decimal text and token precision. A shortened number is p
 
 ## Earn history and Borrow scenarios
 
-Earn includes 30- and 90-day views of daily fxSAVE APY reported by DefiLlama.
-The displayed average is the arithmetic mean of the visible samples, not a
-realized return or earnings forecast. The live APY above the chart remains an
-independent f(x) read. Pointer, touch, and keyboard controls expose each sample;
+Earn offers 30- and 90-day views of fxSAVE share value and annualized return,
+derived from historical onchain vault NAV observations. Each annualized return
+uses a trailing 30-day interval and includes valuation changes; it is not the
+current quoted APY, a realized return, or an earnings forecast. The live APY
+above the chart remains an independent f(x) read. Pointer, touch, and keyboard controls expose each sample;
 missing days break the line. Unavailable or stale history never blocks the form.
 On phones, the deposit or withdrawal form appears before the chart. On desktop,
 performance continues directly below the overview while disclosures follow the
