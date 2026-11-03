@@ -45,7 +45,7 @@ test.beforeAll(async () => {
       import './src/app/globals.css';
       window.client={ceremonies:[],reads:[],results:[],links:[],deferAuth:false};
       window.Telegram={WebApp:{initData:'user=%7B%22id%22%3A12345%7D&hash=fixture',platform:window.fixturePlatform||'tdesktop',close:()=>{},openLink:url=>window.client.links.push(url),requestWriteAccess:cb=>cb(true)}};
-      if(window.fixtureDelayedBridge){const telegram=window.Telegram;delete window.Telegram;window.fixtureBridgeWait=new Promise(resolve=>{window.client.releaseBridge=()=>{window.Telegram=telegram;resolve(telegram.WebApp)}})}
+      if(window.fixtureDelayedBridge){const telegram=window.Telegram;delete window.Telegram;window.fixtureBridgeWait=new Promise(resolve=>{window.client.timeoutBridge=()=>resolve(null);window.client.releaseBridge=()=>{window.Telegram=telegram;resolve(telegram.WebApp)}})}
       function Content(){const wallet=React.useContext(FxWalletContext);window.client.wallet=wallet;return <div><h1>Portfolio</h1><button onClick={()=>wallet.sendTransaction(${JSON.stringify(transaction)}).then(r=>{window.client.results.push(r);if(window.fixtureDurableReceipt)recordPendingHash({operation:'sendAsset',walletAddress:${JSON.stringify(FROM)},chainId:1,hash:r.hash,to:${JSON.stringify(TO)},data:'0x1234',value:16n,nonce:2});}).catch(e=>window.client.results.push({error:e.message}))}>Review and send</button><button onClick={()=>wallet.disconnect()}>Disconnect</button><button onClick={()=>wallet.switchChain(8453)}>Change network</button></div>}
       const child=location.pathname==='/wallet-approval'?<ApprovalPage/>:location.pathname==='/invite'?<InvitePage/>:<Content/>;
       createRoot(document.getElementById('root')).render(<React.StrictMode><ClientWalletProvider>{child}</ClientWalletProvider></React.StrictMode>);`, loader: 'tsx', resolveDir: app },
@@ -165,6 +165,48 @@ for (const kind of ['register', 'sign'] as const) for (const cancel of [false, t
     expect(errors).toEqual([]);
   });
 }
+
+for (const kind of ['register', 'sign'] as const) for (const lateMobile of [false, true]) {
+  test(`${kind} after bridge timeout ${lateMobile ? 'uses late iOS rather than stale desktop' : 'rejects missing and unknown platforms then retries'}`, async ({ page }) => {
+    const launchData = 'user=%7B%22id%22%3A12345%7D&hash=fixture';
+    const { requests, errors } = await mount(page, `/#tgWebAppData=${encodeURIComponent(launchData)}`, {
+      ...(kind === 'register' ? { state: 'approved', hasCredential: false } : {}),
+      mobile: true, delayedBridge: true,
+    });
+    await page.getByRole('button', { name: kind === 'register' ? 'Set up my wallet' : 'Review and send' }).click();
+    await page.evaluate(() => (window as any).client.timeoutBridge());
+    const native = page.getByRole('button', { name: kind === 'register' ? 'Create passkey' : 'Approve with passkey' });
+    await expect(native).toBeEnabled();
+    if (!lateMobile) {
+      await native.click();
+      await expect(page.getByRole('alert')).toContainText('Telegram isn’t ready. Try again');
+      await page.evaluate(() => { (window as any).Telegram = { WebApp: { platform: 'unknown' } }; });
+      await page.getByRole('button', { name: 'Continue in browser' }).click();
+      await expect(page.getByRole('alert')).toContainText('Telegram isn’t ready. Try again');
+      expect(requests.some(r => ['register/options', 'sign/options', 'handoff/create'].includes(r.action))).toBe(false);
+      expect(await readClient(page, 'ceremonies')).toEqual([]);
+    }
+    await page.evaluate(() => (window as any).client.releaseBridge());
+    // The already-settled wait cannot update mobile state: the click must re-read it.
+    await expect(native).toBeVisible();
+    await native.click();
+    await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
+    expect(requests.filter(r => r.action === `${kind}/options`)).toHaveLength(1);
+    expect(await readClient(page, 'ceremonies')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('known Telegram Web uses browser handoff instead of native WebAuthn', async ({ page }) => {
+  const { requests, errors } = await mount(page);
+  await page.getByRole('button', { name: 'Review and send' }).click();
+  await page.evaluate(() => { (window as any).Telegram.WebApp.platform = 'webk'; });
+  await page.getByRole('button', { name: 'Approve with passkey' }).click();
+  await expect.poll(async () => (await readClient(page, 'links')).length).toBe(1);
+  expect(requests.filter(r => r.action === 'handoff/create')).toHaveLength(1);
+  expect(await readClient(page, 'ceremonies')).toEqual([]);
+  expect(errors).toEqual([]);
+});
 
 test('without launch data status waits for the bridge and does not send an empty launch', async ({ page }) => {
   const { requests } = await mount(page, '/', { state: 'waiting', hasCredential: false, delayedBridge: true });

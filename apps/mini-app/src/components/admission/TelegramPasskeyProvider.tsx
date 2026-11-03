@@ -277,9 +277,25 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     return completed;
   };
 
+  const browserForPasskey = (requested: boolean): boolean | null => {
+    // The bounded bridge wait may time out. Never infer desktop from absence,
+    // and re-read on each click so a bridge arriving later can recover.
+    const platform = getWebApp()?.platform;
+    const isMobile = platform === 'ios' || platform === 'android' || platform === 'android_x';
+    const useHandoff = isMobile || ['web', 'weba', 'webk'].includes(platform ?? '');
+    setMobile(useHandoff);
+    if (!useHandoff && !['tdesktop', 'macos', 'unigram'].includes(platform ?? '')) {
+      setError('Telegram isn’t ready. Try again, or reopen this Mini App in Telegram.');
+      return null;
+    }
+    return requested || useHandoff;
+  };
+
   const approveTransaction = async (browser: boolean) => {
     const request = signing.current;
     if (!bridgeReady || !request || active.current) return;
+    const useBrowser = browserForPasskey(browser);
+    if (useBrowser === null) return;
     const operation = begin();
     try {
       assertSigning(request, operation);
@@ -289,7 +305,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       request.challengeId = challenge.challengeId;
       savePendingOperation(request.walletId, request.launchData, { challengeId: challenge.challengeId, phase: 'prepared' });
       let result: SignResult;
-      if (browser) {
+      if (useBrowser) {
         const completed = await openHandoff(challenge.challengeId, challenge.options.challenge, operation, request);
         if (!isSignResult(completed)) throw new MiniappAccessError('unavailable', true);
         result = completed;
@@ -325,6 +341,8 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
 
   const setupWallet = async (browser: boolean) => {
     if (!bridgeReady || active.current) return;
+    const useBrowser = browserForPasskey(browser);
+    if (useBrowser === null) return;
     const operation = begin();
     try {
       // Re-read before every attempt: registration may have bound a credential
@@ -340,7 +358,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
       } else {
         const challenge = await miniappAccess('register/options', {}, { signal: operation.controller.signal, launchData: operation.launchData });
         assertOperation(operation);
-        if (browser) {
+        if (useBrowser) {
           const result = await openHandoff(challenge.challengeId, challenge.options.challenge, operation);
           if (!isWalletResult(result)) throw new MiniappAccessError('unavailable', true);
           wallet = result.wallet;
@@ -467,6 +485,7 @@ export default function TelegramPasskeyProvider({ children }: { children: ReactN
     </dialog> : pending && <dialog ref={dialog} className={styles.dialog} aria-labelledby="passkey-approval-title" onCancel={event => { event.preventDefault(); invalidate(); }}>
       <FxLogo size={32} /><h1 id="passkey-approval-title">Approve transaction.</h1>
       <WalletApprovalDetails transaction={pending.transaction} walletId={pending.walletId} />
+      {error && <p role="alert">{error}</p>}
       {browserPending && <p role="status">Complete approval in your browser. Waiting up to five minutes.</p>}
       {!bridgeReady && <p role="status">Checking Telegram…</p>}
       <button className={styles.primary} disabled={busy || !bridgeReady} onClick={() => void approveTransaction(mobile)}>{mobile ? 'Continue in browser' : 'Approve with passkey'}</button>
