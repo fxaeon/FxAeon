@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, appendFile, cp, mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { access, appendFile, cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -235,7 +235,7 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.doesNotMatch(html, /\son[a-z]+=/i);
   for (const [, attributes, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
     const source = attributes.match(/\bsrc="([^"]+)"/)?.[1];
-    if (source) assert.ok(['script.js', 'brand-film.js', 'dollar-outcomes.js'].includes(source));
+    if (source) assert.ok(['script.js', 'dollar-outcomes.js'].includes(source));
     else {
       assert.match(attributes, /type="application\/ld\+json"/);
       assert.equal(JSON.parse(body)['@context'], 'https://schema.org');
@@ -354,7 +354,7 @@ test('the standalone build needs no node_modules and ships only referenced asset
 
     const assetVersion = (markup) => {
       const urls = [...markup.matchAll(/(?:src|href)="([^"\s]+\.(?:css|js|mjs)(?:\?[^"\s]+)?)"/g)].map(([, url]) => url);
-      assert.equal(urls.length, 4);
+      assert.equal(urls.length, 3);
       for (const url of urls) assert.match(url, /\?v=[a-f0-9]{16}$/);
       const versions = new Set(urls.map(url => new URL(url, 'https://fxaeon.xyz').searchParams.get('v')));
       assert.equal(versions.size, 1);
@@ -398,16 +398,4 @@ test('product discovery uses real routes and artwork without a simulated financi
   assert.doesNotMatch(html, /data-preview|preview-amount|hero-token/);
   assert.match(html, /assets\/tokens\/eth\.svg/);
   assert.match(html, /assets\/chains\/base\.svg/);
-});
-
-test('brand film stays deferred, versioned, bounded and independent of its authoring tools', async () => {
-  const film = elementSource(html, /<figure id="brand-film"/, 'figure');
-  assert.match(film, /preload="none"/);
-  assert.doesNotMatch(film, /<source\b|<video[^>]*\ssrc=|\sautoplay\b|\sloop\b/);
-  assert.match(film, /data-film-toggle hidden/);
-  for (const [name, limit] of [['brand-film.mp4', 2_000_000], ['brand-film-mobile.mp4', 1_000_000], ['brand-film-poster.jpg', 100_000]]) {
-    assert.ok((await stat(resolve(root, 'dist/assets', name))).size < limit, `${name} stays within its download budget`);
-    assert.match(builtHtml, new RegExp(`${name.replaceAll('.', '\\.')}\\?v=[a-f0-9]{16}`));
-  }
-  for (const file of ['artwork', 'vendor.min.js', 'gsap.min.js', 'scene.js']) await assert.rejects(access(resolve(root, 'dist', file)));
 });

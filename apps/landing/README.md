@@ -62,8 +62,6 @@ The cream-and-cobalt site uses self-hosted Inter for body text and Manrope for d
 
 The full-width cobalt hero assembles the two FxAeon shapes once. Product tiles link directly to the app, using local vector token and chain artwork. On phones they form a native swipe rail, with named selection buttons and preserved vertical scrolling. The hero and product discovery contain no simulated form, balances, or quotes. Menu transitions, interruptible calculator changes, and one-time section entrances respect live reduced-motion preferences. Keyboard focus reveals content immediately. The retired sculpture renderer and its fallback images are not shipped in the landing build.
 
-The original *Current* film follows the introduction. It is a pre-rendered seven-second artwork with a smaller phone rendition. It plays once when visible, pauses offscreen or in a hidden tab, and offers explicit play/pause/replay. Reduced motion, data saving and slow 2G connections keep the poster without downloading the film until the visitor explicitly plays it. A user pause is preserved. The offline source lives in `artwork/`; no 3D renderer ships to visitors.
-
 ## Social preview
 
 Both public sites use the same checked-in 1200×630 image:
@@ -107,7 +105,6 @@ node apps/landing/serve.mjs
 # In another terminal, with the existing mini-app dependencies available:
 node apps/landing/test/verify-discovery.mjs
 node apps/landing/test/verify-motion.mjs
-node apps/landing/test/verify-brand-film.mjs
 ~~~
 
 The repository-level `test:landing:browser` verifier covers product discovery, responsive layout, keyboard navigation, contrast, and calculator and market-data behavior. The landing-local checks also cover product links, asset loading, native phone swipes, first/last snap alignment, interrupted menu and calculator transitions, live reduced motion, and the no-JavaScript fallback. Set `LANDING_URL` to the running preview URL for either local check (motion defaults to port 4355). Local viewport captures and the motion walkthrough in `review/` are excluded from version control.

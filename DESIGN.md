@@ -93,8 +93,6 @@ The implementation study used [Aave's settings menu](https://github.com/aave/int
 
 The public landing page (fxaeon.xyz) has its own editorial composition: an open cobalt introduction, warm light sections, large readable type, and the existing asset marks. It introduces the product; the financial app retains its quiet dark workspace. Offer explicit web app and Telegram actions on every device. Product sections lead to real routes, without pretend transaction controls or invented balances. Sections are separated by space, not rules or outlines. Describe only supported Trade, Earn, Borrow, Move, and protocol behavior in the Docs' reviewed wording.
 
-Original abstract motion artwork may give the landing a distinct visual identity. Current is a seven-second rendered sculpture of silver and cobalt ribbons, with a wide desktop composition and closer phone composition. It plays once when visible, pauses offscreen and in hidden tabs, and offers an explicit play/pause/replay control. Reduced motion, data saving and slow 2G keep its still without downloading video until explicit play. Never suggest that decorative motion represents financial progress, returns or security. Pre-render the art; no 3D engine runs on visitors' phones.
-
 | Element | Contract |
 | --- | --- |
 | Hero | A full-width composition establishes the brand and the two launch routes. Large type and decorative marks must remain separate from readable copy and touch targets on narrow phones. No nested demo form, fake transaction state, or decorative progress |
