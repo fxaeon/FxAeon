@@ -143,7 +143,11 @@ test('calculator figures start blank where live data is required, use concise la
   assert.match(html, /class="visual-label" data-earn-result hidden>After 1 year<\/span>/);
   assert.match(html, /<dt>Earnings<\/dt>/);
   assert.match(outcomes, /<dt>Borrowing asset<\/dt><dd>fxUSD<\/dd>/);
-  assert.match(html, /±10% price move/);
+  assert.match(html, /±10% ETH price move/);
+  assert.doesNotMatch(html, /· before protocol and network costs|±10% price move · gross effect/);
+  assert.match(outcomes, /<summary>About these estimates<\/summary>/);
+  assert.match(outcomes, /Examples exclude fees/);
+  assert.match(outcomes, /rebalancing and liquidation can change the outcome/);
   assert.match(outcomes, /Scenario loan-to-value/);
   assert.match(dollarOutcomes, /unchanged for 1 year/, 'The earn scenario discloses its constant-APY assumption');
   assert.match(dollarOutcomes, /amount \* \(1 \+ apy \/ 100\)/);
