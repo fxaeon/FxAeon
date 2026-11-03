@@ -4,6 +4,7 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { createEarnReadGuard } from '../src/lib/earnState';
+import { MAX_FX_SLIPPAGE_PERCENT } from '../src/lib/fx/validation';
 
 const source = ts.createSourceFile('earn.tsx', readFileSync(new URL('../src/app/earn/page.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.ES2020, true, ts.ScriptKind.TSX);
 function callback(name: string) {
@@ -35,7 +36,7 @@ function harness() {
   const sdk = { getFxSaveConfig: () => { calls.config++; return reads.config.promise; }, getFxSaveBalance: () => { calls.balance++; return reads.balance.promise; }, getFxSaveRedeemStatus: () => { calls.redeem++; return reads.redeem.promise; } };
   const bindings = { wallet, dataRef, readGuard: { current: guard }, setLoading: setter('loading'), setReadPending: setter('readPending'), setError: setter('error'), setData: setter('data'), setConfig: setter('config'), setReadWarnings: setter('readWarnings'), withReadDeadline: (value: unknown) => value, assertConfiguredPublicClientChain: () => chain, getFxReadFacade: () => sdk, userSafeError: () => 'Read unavailable' };
   const load = runInNewContext(callback('load'), bindings) as (force?: boolean) => Promise<void>;
-  const planner = () => (runInNewContext(callback('planBuilder'), { ...state, walletData: state.data?.walletAddress === wallet.address ? state.data : null, wallet, mode: 'deposit', amount: '1', token: 'fxUSD', parseAmount: () => 1n, planDepositFxSave: () => undefined }) as () => unknown)();
+  const planner = (slippage = '0.291') => (runInNewContext(callback('planBuilder'), { ...state, walletData: state.data?.walletAddress === wallet.address ? state.data : null, wallet, mode: 'deposit', amount: '1', token: 'fxUSD', slippage, MAX_FX_SLIPPAGE_PERCENT, parseAmount: () => 1n, planDepositFxSave: (request: unknown) => request }) as () => unknown)();
   return { reads, calls, state, guard, wallet, dataRef, load, planner, setChain: (value: Promise<unknown>) => { chain = value; } };
 }
 
@@ -53,7 +54,11 @@ test('Earn publishes config and balance before slow redemption; planners wait on
   h.reads.config.resolve({ cooldownPeriodSeconds: 100 });
   await flush();
   assert.equal(h.state.config.cooldownPeriodSeconds, 100);
-  assert.equal(typeof h.planner(), 'function');
+  const plan = h.planner();
+  assert.ok(typeof plan === 'function');
+  assert.equal((plan() as { slippage: number }).slippage, 0.291);
+  assert.equal(h.planner('0'), null, 'invalid slippage cannot authorize review');
+  assert.equal(h.planner('2.01'), null, 'slippage above the app limit cannot authorize review');
   assert.equal(h.state.readPending.redeemStatus, true);
   h.reads.redeem.reject(new Error('redemption unavailable'));
   await pending;
