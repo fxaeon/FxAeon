@@ -218,8 +218,11 @@ for (const width of [320, 390]) test(`Move shared shortcuts use selected token b
   const max = shortcuts.getByRole('button', { name: 'Use 100% of available balance', exact: true });
   await page.mouse.move(0, 0);
   await expect(max).toHaveAttribute('data-selected', 'true');
-  const colors = await shortcuts.getByRole('button').evaluateAll(buttons => buttons.map(button => getComputedStyle(button.querySelector('span')!).backgroundColor));
-  expect(colors[3]).not.toBe(colors[0]);
+  // Selection updates before the background-color transition has painted.
+  await expect.poll(async () => {
+    const colors = await shortcuts.getByRole('button').evaluateAll(buttons => buttons.map(button => getComputedStyle(button.querySelector('span')!).backgroundColor));
+    return colors[3] !== colors[0];
+  }).toBe(true);
   await max.focus();
   await expect(max).toBeFocused();
   await noOverflow(page);
