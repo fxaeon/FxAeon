@@ -19,6 +19,14 @@ test('landing shares the complete branded 1200 by 630 card', () => {
   assert.ok(html.includes('<title>' + title + '</title>'));
   assert.ok(html.includes('rel="canonical" href="https://fxaeon.xyz/"'));
   assert.ok(!html.includes('fxaeon-banner.png'));
+  const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(jsonLd, 'the landing publishes JSON-LD');
+  const graph = JSON.parse(jsonLd)['@graph'];
+  assert.deepEqual(graph.map(({ '@type': type }) => type), ['Organization', 'WebSite']);
+  assert.equal(graph[0].name, 'FxAeon');
+  assert.equal(graph[0].url, 'https://fxaeon.xyz/');
+  assert.equal(graph[0].logo, 'https://fxaeon.xyz/assets/fxaeon-mark.svg');
+  assert.equal(graph[1].publisher['@id'], 'https://fxaeon.xyz/#organization');
   const robots = readFileSync(new URL('../robots.txt', import.meta.url), 'utf8');
   assert.match(robots, /User-agent: \*\s+Allow: \//);
   assert.doesNotMatch(robots, /Disallow:/);

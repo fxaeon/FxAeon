@@ -4,6 +4,7 @@ export const BRAND_TITLE = 'FxAeon · Your DeFi, in motion.';
 export const BRAND_DESCRIPTION = 'Trade ETH and BTC, earn with fxSAVE, borrow fxUSD, and move assets between Ethereum and Base. On the web and in Telegram.';
 export const SOCIAL_IMAGE_ALT = 'FxAeon. Your DeFi, in motion. Trade, earn, borrow, and move with f(x) Protocol.';
 export const SOCIAL_IMAGE_URL = 'https://fxaeon.com/social-preview.png';
+export const DEFAULT_ROBOTS = { index: false, follow: true } as const;
 
 /** Emit complete social objects: Next replaces nested metadata on child routes. */
 export function pageMetadata(title: string, description: string, path: string): Metadata {
@@ -36,7 +37,13 @@ const ROUTE_METADATA = {
   login: ['Sign in', 'Connect a wallet or sign in to use FxAeon from the web or Telegram.', '/login'],
 } as const;
 
+const INDEXABLE_ROUTES = new Set<keyof typeof ROUTE_METADATA>([
+  'trade', 'earn', 'borrow', 'move', 'docs', 'docsGuide', 'docsSdk',
+]);
+
 export function routeMetadata(route: keyof typeof ROUTE_METADATA): Metadata {
   const [title, description, path] = ROUTE_METADATA[route];
-  return pageMetadata(title + ' · FxAeon', description, path);
+  const metadata = pageMetadata(title + ' · FxAeon', description, path);
+  metadata.robots = INDEXABLE_ROUTES.has(route) ? { index: true, follow: true } : DEFAULT_ROBOTS;
+  return metadata;
 }
