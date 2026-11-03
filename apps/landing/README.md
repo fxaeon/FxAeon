@@ -58,19 +58,9 @@ Scenarios are not account balances, executable quotes, live borrowing limits, or
 
 ## Artwork, typography, and motion
 
-The dark-only site uses self-hosted Inter for body text and Manrope for display text, with their OFL notices. The footer shares those fonts, avoiding a third family. Primary brand blue and contrast variants follow [brand guidance](../../docs/brand-assets.md). Retired artwork and unused legacy fonts are excluded from output.
+The cream-and-cobalt site uses self-hosted Inter for body text and Manrope for display text, with their OFL notices. The footer shares those fonts, avoiding a third family. Primary brand blue and contrast variants follow [brand guidance](../../docs/brand-assets.md). Retired artwork and unused legacy fonts are excluded from output.
 
-[sculpture.js](sculpture.js) tessellates and curves the original two-part FxAeon mark into softly lit cobalt/light-blue forms. It has no graphics-library dependency. Eight-second motion rests, separates through depth, and settles; fine pointers add a restrained tilt.
-
-Rendering is capped at 30 frames per second and 1.5 device pixels per CSS pixel. It pauses offscreen/in hidden documents. Reduced motion renders a still frame. Save-data, disabled JavaScript, WebGL failure, and context loss preserve responsive fallback images generated from the same geometry. Text and entry actions never depend on graphics support.
-
-Regenerate both fallbacks after changing geometry, lighting, or framing:
-
-~~~sh
-node scripts/render_landing_sculpture.mjs
-~~~
-
-Run that command from the repository root, then inspect phone and desktop results. The composition was informed by visual references, but the mark, geometry, renderer, and assets are FxAeon's own. No remote artwork, runtime library, analytics, or browser font request is introduced.
+The full-width cobalt hero assembles the two FxAeon shapes once. Product tiles link directly to the app, using local vector token and chain artwork. On phones they form a native swipe rail, with named selection buttons and preserved vertical scrolling. The hero and product discovery contain no simulated form, balances, or quotes. Menu transitions, interruptible calculator changes, and one-time section entrances respect live reduced-motion preferences. Keyboard focus reveals content immediately. The retired sculpture renderer and its fallback images are not shipped in the landing build.
 
 ## Social preview
 
@@ -107,6 +97,16 @@ pnpm test:landing
 pnpm test:landing:browser
 ~~~
 
-Static tests cover routing and launcher parity, semantic markup, build output, licenses, CSP/headers, data validation/freshness, partial failures, races, offline/resume, body/deadline bounds, and cache behavior. Browser checks cover responsive overflow, native menu keyboard interaction, data states, artwork pixel changes/pause behavior, reduced motion, graphics/data-saving/JavaScript fallbacks, and the absence of off-origin browser requests.
+Static tests cover routing and launcher parity, semantic markup, build output, licenses, CSP/headers, data validation and freshness, partial failures, races, offline and resume, and response bounds. For the redesigned hero, build and serve the landing and run the direct Playwright check:
 
-Inspect actual renders after visible changes. These tests establish their documented behavior and layout, not conversion uplift, protocol execution, or production wallet state.
+~~~sh
+node apps/landing/build.mjs
+node apps/landing/serve.mjs
+# In another terminal, with the existing mini-app dependencies available:
+node apps/landing/test/verify-discovery.mjs
+node apps/landing/test/verify-motion.mjs
+~~~
+
+The repository-level `test:landing:browser` verifier covers product discovery, responsive layout, keyboard navigation, contrast, and calculator and market-data behavior. The landing-local checks also cover product links, asset loading, native phone swipes, first/last snap alignment, interrupted menu and calculator transitions, live reduced motion, and the no-JavaScript fallback. Set `LANDING_URL` to the running preview URL for either local check (motion defaults to port 4355). Local viewport captures and the motion walkthrough in `review/` are excluded from version control.
+
+These checks establish the tested behavior and layout, not conversion uplift, protocol execution, or production wallet state.
