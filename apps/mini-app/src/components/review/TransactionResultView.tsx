@@ -11,7 +11,7 @@ import { ReviewFactValue } from './ReviewFactValue';
 import { InlineAmount } from './AmountUsd';
 import { TransactionHero } from './TransactionHero';
 import { ReviewTermRow } from './ReviewTermRow';
-import { plainAmountLabel } from './transactionAmountPresentation';
+import { plainAmountLabel, tokenAmountParts } from './transactionAmountPresentation';
 import { MissingValue } from '@/components/MissingValue';
 import { useTransactionEvidence } from './TransactionEvidenceContext';
 import { CompactTransactionFooter, hasCompactConfirmedTransaction } from './CompactTransactionFooter';
@@ -129,7 +129,13 @@ export function TransactionResultView({
   </div>;
   const readbackSection = positionReadback && <section className={conciseSuccess ? receiptStyles.position : styles.positionReadback} aria-label="Latest position read" data-position-readback="verified">
     <p role="status">{simulated ? 'Simulated position' : 'Position'} #{positionReadback.key.split(':')[2]} · updated</p>
-    <dl>{positionReadback.facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd><ReviewFactValue fact={fact} /></dd></div>)}</dl>
+    <dl>{positionReadback.facts.map(fact => {
+      const parts = tokenAmountParts(fact);
+      const token = <ReviewFactValue fact={fact} />;
+      return <div key={fact.label}><dt>{fact.label}</dt><dd>{parts
+        ? <InlineAmount beside amount={parts.amount} symbol={parts.symbol} token={token} />
+        : token}</dd></div>;
+    })}</dl>
   </section>;
   const recoveryWarning = compactResultWarning(safePresentation);
   const receiptLegs = outcome?.rows.map(row => ({ label: row.direction === 'sent' ? 'Sent' : 'Received', value: `${row.amount} ${row.symbol}` })) ?? [];
