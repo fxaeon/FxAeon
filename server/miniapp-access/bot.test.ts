@@ -76,12 +76,15 @@ test('all three commands produce concise, fixed private replies and an open-app 
   for (const payload of f.sent) {
     assert.equal(payload.chat_id, 42); assert.ok(payload.text.length < 300);
     assert.doesNotMatch(JSON.stringify(payload), /private_payload|parse_mode|callback_data/);
+    assert.deepEqual(payload.entities, [{ type: 'bold', offset: 0, length: payload.text.indexOf('\n') }]);
+    assert.equal(payload.text.slice(payload.entities[0].length, payload.entities[0].length + 2), '\n\n');
+    assert.equal(payload.link_preview_options.is_disabled, true);
     assert.deepEqual(payload.reply_markup, { inline_keyboard: [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]] });
   }
   assert.deepEqual(f.sent.map(payload => payload.text), [
-    'Welcome to FxAeon. Open the app to join the waitlist or continue.',
-    'Open FxAeon below. Guides: https://fxaeon.com/docs\nFor feedback or a problem, use /support.',
-    'Send feedback or report a problem: support@fxaeon.com\nNever share your recovery phrase or private keys.',
+    'Welcome to FxAeon\n\nTrade, earn, borrow and move assets.\nOpen the app to join the waitlist or continue.\n\nNeed a hand? /help',
+    'Getting started\n\nOpen the app to check your access or continue.\nRead the guide: https://fxaeon.com/docs\n\nQuestions or feedback? /support',
+    'FxAeon support\n\nEmail support@fxaeon.com with what happened and any error shown.\n\nNever share recovery phrases, private keys or verification links.',
   ]);
   assert.deepEqual(f.db.sql.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name), ['telegram_bot_updates']);
   assert.doesNotMatch(JSON.stringify(f.db.sql.prepare('SELECT * FROM telegram_bot_updates').all()), /private_payload|\/start|\/help|\/support/);

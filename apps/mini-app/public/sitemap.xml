@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://fxaeon.com/</loc></url>
   <url><loc>https://fxaeon.com/trade</loc></url>
   <url><loc>https://fxaeon.com/earn</loc></url>
   <url><loc>https://fxaeon.com/borrow</loc></url>
@@ -8,5 +7,29 @@
   <url><loc>https://fxaeon.com/docs</loc></url>
   <url><loc>https://fxaeon.com/docs/guide</loc></url>
   <url><loc>https://fxaeon.com/docs/sdk</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/overview</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/getting-started</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/access</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/wallets</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/trade</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/positions</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/earn</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/borrow</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/move</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/review</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/fees</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/risks</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/glossary</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/history</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/privacy</loc></url>
+  <url><loc>https://fxaeon.com/docs/guide/troubleshooting</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/overview</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/setup</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/positions</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/borrow</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/bridge</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/earn</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/execution</loc></url>
+  <url><loc>https://fxaeon.com/docs/sdk/boundaries</loc></url>
   <url><loc>https://fxaeon.com/privacy.html</loc></url>
 </urlset>

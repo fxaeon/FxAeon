@@ -9,6 +9,7 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { telegramInitScript, type TelegramShimOptions } from "./telegram";
 import { browserWalletInitScript, type BrowserWalletShimOptions } from "./wallet";
+import { installEarnMarketFixture } from './earn-market';
 
 export interface ObservedRequests {
   all: string[];
@@ -30,6 +31,7 @@ async function installTelegram(page: Page, telegram: boolean | TelegramShimOptio
 }
 
 export async function installMarketPrices(page: Page, enabled: boolean): Promise<void> {
+  await installEarnMarketFixture(page, enabled);
   if (enabled) {
     // Keep price-context E2E assertions deterministic. The production app
     // still owns the Coinbase socket; this fixture only prevents a live

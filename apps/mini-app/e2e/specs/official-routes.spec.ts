@@ -729,7 +729,10 @@ test.describe("Move and More compact surfaces", () => {
     await expect(page.getByRole("button", { name: /Transaction settings/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /^Wallet & account/ })).toBeVisible();
     await expect(page.getByRole("link", { name: /Appearance/ })).toHaveCount(0);
-    for (const redundantGroupTitle of ["Account", "Preferences", "f(x) Protocol", "Resources"]) {
+    for (const groupTitle of ["Account", "Resources"]) {
+      await expect(page.getByRole("heading", { name: groupTitle, exact: true })).toBeVisible();
+    }
+    for (const redundantGroupTitle of ["Preferences", "f(x) Protocol"]) {
       await expect(page.getByRole("heading", { name: redundantGroupTitle, exact: true })).toHaveCount(0);
     }
     await expect(page.getByRole("link", { name: /^FxAeon docs/ })).toHaveAttribute("href", "/docs");

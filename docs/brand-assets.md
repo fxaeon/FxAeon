@@ -12,6 +12,8 @@ identify their assets. Do not imply that an asset mark is the FxAeon brand.
 | Token and chain marks | `apps/mini-app/public/token-icons/` and `chain-icons/` | Vendored token/network identity; the landing copies use the same app files |
 | Telegram QR code | Drawn by `apps/landing/qr.mjs` during the landing build, from the configured launcher URL, as `assets/telegram-qr.svg` in `dist/` | Opens the same bot link as the Telegram buttons |
 | Supplied social banner and profile image | [`assets/social/`](assets/social/) | Social-profile artwork; keep the supplied masters unchanged |
+| Telegram bot avatar master | [`assets/brand/fxaeon-bot-avatar-1024.png`](assets/brand/fxaeon-bot-avatar-1024.png) and [SVG export](assets/brand/fxaeon-bot-avatar.svg) | 1024×1024 opaque square, original app ribbon paths; padded for Telegram's circular crop |
+| Telegram profile-photo upload | [`assets/brand/fxaeon-bot-avatar-1024.jpg`](assets/brand/fxaeon-bot-avatar-1024.jpg) | JPEG derived from the square master, used by the profile-photo workflow |
 | Shared site preview | `apps/landing/assets/social-preview.png` and `apps/mini-app/public/social-preview.png` | Identical 1200×630 Open Graph/X preview for both sites; separate from social-profile artwork |
 
 The token/chain marks come from the SmolDapp asset CDN and AladdinDAO assets.
@@ -23,6 +25,72 @@ Filled primary actions use the darker `#2563eb` with white text for contrast;
 small accent text uses `#7da5ff` on dark surfaces. These accessible variants
 are defined in the existing semantic tokens. Success, warning, danger, token,
 and network colors keep their separate meanings or identities.
+
+## Messaging
+
+The Telegram profile-photo workflow uploads `docs/assets/brand/fxaeon-bot-avatar-1024.jpg`,
+derived from the square PNG master.
+The existing ribbon remains unchanged; the export adds a neutral `#080808`
+canvas and circle-safe padding. It contains no small lettering or new symbol.
+The supplied social masters remain unchanged. The dedicated GitHub profile-photo
+workflow applies the reviewed JPEG; generating assets never updates a profile or sends messages.
+
+Telegram profile copy (plain text; descriptions do not use reply formatting):
+
+- **Name:** FxAeon
+- **About / short description:** Trade, earn, borrow and move assets. Your onchain workspace, in Telegram.
+- **Description:**
+
+  ```text
+  Your onchain workspace, in Telegram.
+
+  Trade ETH and BTC positions, earn with fxSAVE, borrow fxUSD, and move assets between Ethereum and Base.
+
+  Open FxAeon to check your access or join the waitlist.
+  Guides: https://fxaeon.com/docs
+  Support: support@fxaeon.com
+  ```
+
+`BOT_PROFILE` in `scripts/sync_telegram_bot.mjs` contains this exact copy, and
+contract tests keep it aligned with this guide. Deploy syncs preserve the reviewed
+profile wording.
+
+Command replies live in `server/miniapp-access/bot.ts`. Only their first line
+is bold, via Telegram entities; paragraphs separate the next action from help.
+Every reply keeps the direct `web_app` button at `https://fxaeon.com/`.
+
+`renderNotificationEmailV2` in `server/miniapp-access/notifications.ts` provides
+the HTML and plain-text verification/invitation designs. HTML has one primary
+button and a readable fallback URL; plain text has one action URL. Verification
+copy shows the expiry in UTC. Replies go to `support@fxaeon.com`.
+
+Regenerate with the workspace's Node 22, pnpm 11.19 dependencies and Playwright:
+
+~~~sh
+node scripts/render_messaging_brand.mjs
+~~~
+
+The standard Chromium renderer exports the square SVG/PNG above and writes
+synthetic review files only under `~/.codex/private/fxaeon-messaging-polish/`:
+circle crops at 32/48/128px, a crop contact sheet, Telegram reply and profile
+mockups at 390px, HTML email views at 320/390/560px, and HTML/plain-text phone comparisons.
+These are browser mockups, not proof of a native Telegram or inbox rendering.
+The renderer blocks network requests and uses no real recipient or valid token.
+Keep these email previews private and out of commits. The template contains no
+tracking pixels, remote images, remote fonts or link rewriting. Provider-side
+tracking settings must also remain off.
+
+### Email sender avatars
+
+An HTML logo or uploaded PNG does not control the inbox sender avatar. Resend
+requires a [verified sending domain](https://resend.com/docs/dashboard/domains/introduction);
+this is distinct from mailbox-provider logo display. [Gmail's official BIMI guide](https://knowledge.workspace.google.com/admin/security/set-up-bimi)
+requires DMARC enforcement (`p=quarantine` or `reject`, `pct=100`), a VMC or CMC,
+and a compliant hosted SVG Tiny PS logo. Its VMC checkmark is separate from
+logo display. The supplied general-purpose SVG/PNG is not certified BIMI artwork.
+[Apple Mail](https://support.apple.com/en-us/108340) also requires both sender
+and email-provider support. Eligibility and appearance depend on the receiving
+provider; no avatar display is guaranteed by a PNG upload or email template.
 
 ## Site social preview
 

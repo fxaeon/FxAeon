@@ -305,6 +305,31 @@ test('mobile menu keeps its More heading accessible without a visible title row 
   }
 });
 
+test('More groups and navigation stay usable at phone and desktop widths', async ({ page }, info) => {
+  await open(page, { width: 320 });
+  await setLab(page, { wallet: STATES[2][1] });
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    if (width < 840) {
+      await page.getByRole('button', { name: 'Open menu', exact: true }).click();
+    } else {
+      await setLab(page, { path: '/more' });
+    }
+    const directory = page.locator('[data-utility-directory]:visible');
+    for (const name of ['Account', 'Resources']) await expect(directory.getByRole('heading', { name, exact: true })).toBeVisible();
+    for (const row of await directory.locator('a, button').all()) {
+      const box = await row.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`more-${width}.png`), animations: 'disabled' });
+    if (width < 840) await page.getByRole('button', { name: 'Close menu', exact: true }).click();
+  }
+});
+
 test('network and wallet have separate surfaces and stay within the dark topbar', async ({ page }) => {
   await open(page);
   await setLab(page, { wallet: STATES[2][1] });

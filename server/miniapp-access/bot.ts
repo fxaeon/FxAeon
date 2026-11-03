@@ -7,10 +7,10 @@ const SECRET_DOMAIN = 'fxaeon:telegram-webhook:v1\0';
 export interface BotEnv { ADMISSION_DB?: DB; TELEGRAM_BOT_TOKEN?: string; }
 interface Options { fetch?: typeof fetch; now?: () => number; sendTimeoutMs?: number; }
 type Command = 'start' | 'help' | 'support';
-const TEXT: Record<Command, string> = {
-  start: 'Welcome to FxAeon. Open the app to join the waitlist or continue.',
-  help: 'Open FxAeon below. Guides: https://fxaeon.com/docs\nFor feedback or a problem, use /support.',
-  support: 'Send feedback or report a problem: support@fxaeon.com\nNever share your recovery phrase or private keys.',
+export const TELEGRAM_REPLIES: Readonly<Record<Command, string>> = {
+  start: 'Welcome to FxAeon\n\nTrade, earn, borrow and move assets.\nOpen the app to join the waitlist or continue.\n\nNeed a hand? /help',
+  help: 'Getting started\n\nOpen the app to check your access or continue.\nRead the guide: https://fxaeon.com/docs\n\nQuestions or feedback? /support',
+  support: 'FxAeon support\n\nEmail support@fxaeon.com with what happened and any error shown.\n\nNever share recovery phrases, private keys or verification links.',
 };
 
 /** Same domain-separated SHA-256 derivation as deployment sync; no extra secret. */
@@ -89,7 +89,9 @@ async function reply(token: string, chat: number, selected: Command, options: Op
         const response = await (options.fetch ?? fetch)(`https://api.telegram.org/bot${token}/sendMessage`, {
           // Workerd supports manual/follow only. Never follow a token-bearing redirect.
           method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal, redirect: 'manual',
-          body: JSON.stringify({ chat_id: chat, text: TEXT[selected], link_preview_options: { is_disabled: true },
+          body: JSON.stringify({ chat_id: chat, text: TELEGRAM_REPLIES[selected],
+            entities: [{ type: 'bold', offset: 0, length: TELEGRAM_REPLIES[selected].indexOf('\n') }],
+            link_preview_options: { is_disabled: true },
             reply_markup: { inline_keyboard: [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]] } }),
         });
         // Do not buffer or log Telegram response bodies, which can contain message text.

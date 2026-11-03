@@ -64,7 +64,7 @@
 .summary .actions > a { background: var(--surface-2); }
 .summary .actions > a:hover { background: var(--surface-3); }
 @media (prefers-reduced-motion: reduce) { .summary::before { animation: none; } }
-.assets { margin-top: 12px; padding: 0; border-block: 1px solid var(--line); }
+.assets { margin-top: 20px; padding: 0; border: 0; }
 .sectionHeading { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; border-radius: 10px; }
 .sectionHeading::-webkit-details-marker { display: none; }
 .sectionHeading > span { display: flex; align-items: center; gap: 8px; }
@@ -79,11 +79,11 @@
 .assetDetails { display: flex; width: 100%; min-height: 64px; align-items: center; gap: 12px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 8px; border-radius: var(--radius-md); text-align: left; transition: background-color var(--dur-fast) ease, transform var(--dur-slow) var(--ease-spring); }
 .assetDetails:hover { background: var(--surface-2); }
 .assetDetails:active { transform: scale(0.985); transition-duration: var(--dur-press); }
-.positions { margin: 12px 0 6px; padding: 0; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-2); }
+.positions { margin: 16px 0 0; padding: 0; }
 .positions > [data-position-key] { margin-bottom: 8px; }
-.links :global(a), .positions > :global(a) { padding-inline: 14px; }
-.links { margin-top: 6px; overflow: hidden; border-radius: var(--radius-md); background: var(--surface-2); }
-.links :global(a:hover) { background: var(--surface-3); }
+.links :global(a), .positions > :global(a) { padding-inline: 8px; border-radius: var(--radius-md); }
+.links { margin-top: 0; }
+.links :global(a:hover), .positions > :global(a:hover) { background: var(--surface-2); }
 .explorer { display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 7px; margin: 10px 0 4px; border-radius: 999px; color: var(--mut); font-size: var(--fs-small); font-weight: 500; transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease; }
 .explorer:hover { background: var(--surface-2); color: var(--text); }
 .disconnect { margin-top: 4px; padding-top: 4px; }

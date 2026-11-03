@@ -789,7 +789,7 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
   // Default selection tests intentionally omit CSS. Only this geometry case
   // lazily compiles the genuine page/module styles over the same inert reads.
   const styled = await buildHarness(true);
-  for (const width of [390, 320]) {
+  for (const width of [390, 320, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.goto('about:blank');
     await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>');
@@ -813,6 +813,15 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await expect(funding.locator('dt')).toContainText('Funding status: OFF');
     await expect(funding.locator('dt span[class*="fundingStatusOff"]')).toHaveCount(1);
     await expect(funding).not.toContainText('APR');
+    if (width >= 1200) {
+      const overview = page.getByRole('region', { name: 'fxUSD borrowing overview' });
+      const form = page.getByTestId('borrow-workspace-card');
+      const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
+      const [overviewBox, formBox, historyBox] = await Promise.all([overview.boundingBox(), form.boundingBox(), history.boundingBox()]);
+      expect(Math.abs(overviewBox!.y - formBox!.y)).toBeLessThanOrEqual(2);
+      expect(overviewBox!.x + overviewBox!.width).toBeLessThanOrEqual(formBox!.x);
+      expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+    }
     await page.screenshot({ path: info.outputPath(`borrow-funding-status-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
     await expectFormMetricRows(rows);

@@ -136,7 +136,11 @@ export async function buildAppShellLab(): Promise<{ script: string; css: string;
     entryPoints: [resolve(appRoot, 'e2e/harness/app-shell-entry.tsx')], outdir: resolve(appRoot, 'app-shell-lab'), entryNames: 'index',
     bundle: true, write: false, format: 'iife', platform: 'browser', target: 'es2020', jsx: 'automatic',
     loader: { '.tsx': 'tsx', '.ts': 'ts', '.module.css': 'local-css' }, absWorkingDir: repoRoot,
-    define: { 'process.env.NODE_ENV': '"production"' },
+    define: {
+      'process.env.NODE_ENV': '"production"',
+      'process.env.NEXT_PUBLIC_PRIVY_APP_ID': '""',
+      'process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE': '"off"',
+    },
     plugins: [{ name: 'app-shell-lab', setup(build: {
       onResolve(options: { filter: RegExp }, callback: (args: { path: string }) => unknown): void;
       onLoad(options: { filter: RegExp; namespace?: string }, callback: (args: { path: string }) => unknown): void;

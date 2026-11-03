@@ -16,7 +16,7 @@ const mocks: Record<string, string> = {
   '@/components/ProductUI': `export const PageHeading = ({title}) => <h1>{title}</h1>; export const ProductNav = () => <nav>Products</nav>; export const ProductSurface = ({children,...props}) => <section {...props}>{children}</section>; export const Disclosure = ({title,children}) => <section aria-label={title}>{children}</section>; export const MetricRows = ({rows}) => <dl>{rows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>; export const StatusNotice = ({title}) => <p>{title}</p>; export { ChoiceCards } from 'real:components/ProductUI';`,
   '@/components/ProductSections': `export const EarnSections = () => null;`,
   // History has its own built-route data/keyboard tests; this fixture owns settings.
-  '@/components/FxSaveHistory': `export const FxSaveHistory = () => null;`,
+  '@/components/FxSaveHistory': `export const FxSaveHistory = () => <section aria-label="fxSAVE performance">Performance fixture</section>;`,
   '@/components/TokenIcon': `export default () => <span />; export const ChainIcon = () => <span aria-hidden="true" />;`,
   '@/components/MissingValue': `export const MissingValue = () => <span>Unavailable</span>; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({status:'ready',prices:{fxUSDBasePool:1,fxUSD:1},refresh:async () => {}});`,
@@ -366,7 +366,7 @@ test('fxSAVE units wrap as a row at narrow widths and enlarged text',async ({pag
 });
 
 test('Earn summary keeps two normal columns and separates enlarged APY and balance figures', async ({ page }, info) => {
-  for (const width of [320, 390]) {
+  for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 770 });
     await mount(page, false);
     const summary = page.locator('[class*="balanceTop"]');
@@ -383,6 +383,7 @@ test('Earn summary keeps two normal columns and separates enlarged APY and balan
     });
     expect(await geometry()).toEqual({ sameRow: true, stacked: false, overlap: false, overflow: false });
     await summary.screenshot({ path: info.outputPath(`earn-summary-${width}.png`) });
+    if (width === 1280) continue;
     await summary.locator('*').evaluateAll(nodes => {
       const text = nodes.filter(element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
         .map(element => ({ element: element as HTMLElement, size: Number.parseFloat(getComputedStyle(element).fontSize) }));
@@ -391,6 +392,37 @@ test('Earn summary keeps two normal columns and separates enlarged APY and balan
     expect(await geometry()).toEqual({ sameRow: false, stacked: true, overlap: false, overflow: false });
     await summary.screenshot({ path: info.outputPath(`earn-summary-${width}-text200.png`) });
   }
+});
+
+test('Earn places performance after the primary decision on phones and desktop', async ({ page }, info) => {
+  for (const width of [320, 390, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await mount(page, false);
+    const summary = page.getByRole('region', { name: 'Your fxSAVE earnings' });
+    const form = page.locator('[data-flow-stage]').first();
+    const history = page.getByRole('region', { name: 'fxSAVE performance' });
+    const [summaryBox, formBox, historyBox] = await Promise.all([summary.boundingBox(), form.boundingBox(), history.boundingBox()]);
+    expect(summaryBox).not.toBeNull(); expect(formBox).not.toBeNull(); expect(historyBox).not.toBeNull();
+    expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+    if (width >= 840) {
+      expect(Math.abs(summaryBox!.y - formBox!.y)).toBeLessThanOrEqual(2);
+      expect(summaryBox!.x + summaryBox!.width).toBeLessThanOrEqual(formBox!.x);
+    } else {
+      expect(summaryBox!.y + summaryBox!.height).toBeLessThanOrEqual(formBox!.y + 1);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`earn-layout-${width}.png`), animations: 'disabled' });
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+  }
+});
+
+test('desktop Earn review remains one focused row', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await mount(page);
+  const layout = page.locator('[class*="vaultLayout"][data-review="true"]');
+  await expect(page.getByRole('region', { name: 'Earn review' })).toBeVisible();
+  await expect(layout).toHaveCSS('row-gap', '0px');
+  await expect(page.getByRole('region', { name: 'fxSAVE performance' })).toHaveCount(0);
 });
 
 test('changed stored slippage reaches a restored form while unrelated storage changes do not', async ({ page }) => {

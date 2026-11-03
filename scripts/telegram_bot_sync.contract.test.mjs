@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { syncTelegramBot, validatedWebAppUrl, BOT_COMMANDS, TELEGRAM_WEBHOOK_URL, telegramWebhookSecret } from './sync_telegram_bot.mjs';
+import { syncTelegramBot, validatedWebAppUrl, BOT_COMMANDS, BOT_PROFILE, TELEGRAM_WEBHOOK_URL, telegramWebhookSecret } from './sync_telegram_bot.mjs';
 
 // Existing metadata tests use an owned webhook. Dedicated tests below exercise
 // ownership refusal, installation, readback, and derivation with actual calls.
@@ -19,6 +19,20 @@ const script = readFileSync(new URL('./sync_telegram_bot.mjs', import.meta.url),
 // structure assertions independent of checkout line endings.
 const workflow = readFileSync(new URL('../.github/workflows/deploy-mini-app.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
 const provider = readFileSync(new URL('../apps/mini-app/src/components/PrivyClientProvider.tsx', import.meta.url), 'utf8');
+
+test('profile copy fits Telegram limits and matches the reviewed handoff without markup', () => {
+  assert.ok(BOT_PROFILE.name.length > 0 && BOT_PROFILE.name.length <= 64);
+  assert.ok(BOT_PROFILE.shortDescription.length > 0 && BOT_PROFILE.shortDescription.length <= 120);
+  assert.ok(BOT_PROFILE.description.length > 0 && BOT_PROFILE.description.length <= 512);
+  assert.equal(BOT_PROFILE.shortDescription, 'Trade, earn, borrow and move assets. Your onchain workspace, in Telegram.');
+  assert.match(BOT_PROFILE.description, /^Your onchain workspace, in Telegram\.\n\n/);
+  assert.match(BOT_PROFILE.description, /join the waitlist\.\nGuides: https:\/\/fxaeon\.com\/docs\nSupport: support@fxaeon\.com$/);
+  assert.doesNotMatch(BOT_PROFILE.description, /<[^>]+>|\*\*|private key|guarantee/i);
+  const guide = readFileSync(new URL('../docs/brand-assets.md', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
+  assert.ok(guide.includes(`**About / short description:** ${BOT_PROFILE.shortDescription}`));
+  const description = /\*\*Description:\*\*[\s\S]*?```text\n([\s\S]*?)\n {2}```/.exec(guide)?.[1].replace(/^ {2}/gm, '');
+  assert.equal(description, BOT_PROFILE.description);
+});
 
 test('Telegram sync is constrained to the production static origin', () => {
   assert.match(script, /https:\/\/fxaeon\.com\//);
@@ -81,19 +95,21 @@ test('Telegram sync installs only handled commands and verifies every persisted 
     'getChatMenuButton', 'setChatMenuButton', 'getChatMenuButton',
   ]);
   assert.deepEqual(calls.find(({ method }) => method === 'setMyCommands').payload, { commands: BOT_COMMANDS });
-  assert.match(calls.find(({ method }) => method === 'setMyDescription').payload.description, /long or short.*fxSAVE.*fxUSD.*Ethereum.*Base/i);
+  assert.deepEqual(calls.find(({ method }) => method === 'setMyShortDescription').payload, { short_description: BOT_PROFILE.shortDescription });
+  assert.deepEqual(calls.find(({ method }) => method === 'setMyDescription').payload, { description: BOT_PROFILE.description });
+  assert.match(BOT_PROFILE.description, /ETH and BTC.*fxSAVE.*fxUSD.*Ethereum.*Base/i);
   assert.match(calls.find(({ method }) => method === 'setMyDescription').payload.description, /https:\/\/fxaeon\.com\/(?:|docs)/);
 });
 
 test('Telegram sync makes no metadata writes when settings match (owned webhook is reapplied)', async () => {
   const calls = [];
-  const description = 'Open long or short positions, earn with fxSAVE, and borrow fxUSD on Ethereum. Move assets between Ethereum and Base. Built with f(x) SDK. Review every transaction and sign with your own wallet. FxAeon never receives your private keys. Open: https://fxaeon.com/ Docs: https://fxaeon.com/docs';
+  const description = BOT_PROFILE.description;
   const fetchImpl = async (input, init) => {
     const method = new URL(input).pathname.split('/').pop();
     calls.push(method);
     const result = {
       getMyName: { name: 'FxAeon' },
-      getMyShortDescription: { short_description: 'Positions, fxSAVE, and fxUSD on Ethereum.' },
+      getMyShortDescription: { short_description: BOT_PROFILE.shortDescription },
       getMyDescription: { description },
       getMyCommands: BOT_COMMANDS,
       getChatMenuButton: { type: 'web_app', text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } },
@@ -123,7 +139,7 @@ test('persistent menu readback mismatch is bounded and has secret-free diagnosti
       setMyName: true,
       getMyName: { name: 'FxAeon' },
       setMyShortDescription: true,
-      getMyShortDescription: { short_description: 'Positions, fxSAVE, and fxUSD on Ethereum.' },
+      getMyShortDescription: { short_description: BOT_PROFILE.shortDescription },
       setMyDescription: true,
       getMyDescription: { description },
       setMyCommands: true,

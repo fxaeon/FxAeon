@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /login
 Disallow: /api/
 
 Sitemap: https://fxaeon.com/sitemap.xml

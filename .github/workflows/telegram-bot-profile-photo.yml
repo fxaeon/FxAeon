@@ -1,0 +1,36 @@
+name: Sync Telegram bot profile photo
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_profile_photo:
+        description: Upload the checked-in FxAeon avatar to the production bot profile
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fxaeon-production
+  cancel-in-progress: false
+
+jobs:
+  sync-profile-photo:
+    if: github.repository == 'fxaeon/FxAeon' && github.ref == 'refs/heads/main' && inputs.upload_profile_photo
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Verify profile-photo upload contract
+        run: node --test scripts/telegram_bot_profile_photo.contract.test.mjs
+      - name: Set Telegram bot profile photo
+        run: node scripts/sync_telegram_bot_profile_photo.mjs
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

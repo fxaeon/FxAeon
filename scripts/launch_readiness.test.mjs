@@ -9,10 +9,24 @@ const publicRoot = resolve(root, 'apps/mini-app/public');
 test('app sitemap URLs resolve to public app pages and omit compatibility/login routes', async () => {
   const sitemap = await readFile(resolve(publicRoot, 'sitemap.xml'), 'utf8');
   const urls = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => new URL(match[1]));
+  const navigation = await readFile(resolve(root, 'apps/mini-app/src/app/docs/productNavigation.ts'), 'utf8');
+  const topics = new Set([...navigation.matchAll(/id: '([^']+)'/g)].map(match => match[1]));
+  const sdkNavigation = await readFile(resolve(root, 'apps/mini-app/src/app/docs/sdkNavigation.ts'), 'utf8');
+  const sdkTopics = new Set([...sdkNavigation.matchAll(/id: 'sdk-([^']+)'/g)].map(match => match[1]));
   assert.ok(urls.length > 0);
   for (const url of urls) {
     assert.equal(url.origin, 'https://fxaeon.com');
     assert.ok(!['/portfolio', '/login', '/activity'].includes(url.pathname));
+    if (url.pathname.startsWith('/docs/guide/')) {
+      assert.ok(topics.has(url.pathname.slice('/docs/guide/'.length)), 'Sitemap topic must be statically generated');
+      await access(resolve(root, 'apps/mini-app/src/app/docs/guide/[topic]/page.tsx'));
+      continue;
+    }
+    if (url.pathname.startsWith('/docs/sdk/')) {
+      assert.ok(sdkTopics.has(url.pathname.slice('/docs/sdk/'.length)), 'Sitemap SDK topic must be statically generated');
+      await access(resolve(root, 'apps/mini-app/src/app/docs/sdk/[topic]/page.tsx'));
+      continue;
+    }
     await access(url.pathname.endsWith('.html')
       ? resolve(publicRoot, '.' + url.pathname)
       : resolve(root, 'apps/mini-app/src/app', '.' + url.pathname, 'page.tsx'));

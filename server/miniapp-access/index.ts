@@ -148,7 +148,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       const body = await readJson(request);
       const action = textField(body.action, 40);
       // Reject unauthenticated Telegram traffic before any database setup/read.
-      const capabilityAction = ['email/confirm', 'handoff/read', 'handoff/complete'].includes(action);
+      const capabilityAction = ['email/confirm', 'handoff/read', 'handoff/complete', 'handoff/cancel'].includes(action);
       const launch = capabilityAction ? undefined : await verifyTelegramLaunchData(textField(body.launchData), env.TELEGRAM_BOT_ID!, { publicKey: dependencies.publicKey });
       if (launch && !launch.ok) throw new AccessError(launch.reason === 'expired' ? 'launch_expired' : 'launch_rejected', 403);
       const store = new Store(db); const notifications = new NotificationStore(db, env, { fetch: dependencies.fetch });
@@ -173,6 +173,15 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         }
         return json({ verified: true });
       }
+      if (action === 'handoff/cancel') {
+        exactKeys(body, ['action', 'token']);
+        const token = textField(body.token, 128);
+        const reference = await store.handoffReference(token);
+        if (!reference) throw new AccessError('approval_expired', 403);
+        const cancelled = await operations.rejectUnsubmitted(reference.userId, reference.challengeId);
+        if (cancelled) await store.closeRejectedHandoff(token);
+        return json({ cancelled });
+      }
       if (action === 'handoff/read' || action === 'handoff/complete') {
         exactKeys(body, action === 'handoff/read' ? ['action', 'token'] : ['action', 'token', 'response']);
         const token = textField(body.token, 128);
@@ -189,6 +198,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
           await store.finishHandoff(token, { status: 'done', result });
           return json(result);
         } catch (error) {
+          if (handoff.challenge.kind === 'sign') await operations.rejectUnsubmitted(handoff.userId, handoff.challenge.id);
           const failure = publicFailure(error);
           await store.finishHandoff(token, { status: 'error', result: { error: failure.code } });
           throw failure;
@@ -239,6 +249,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
       if (action === 'transaction/status') {
         exactKeys(body, ['action', 'launchData', 'id']);
         const operationId = body.id === undefined ? undefined : textField(body.id, 100);
+        if (operationId) await operations.rejectUnsubmitted(userId, operationId, true);
         let operation = operationId ? await operations.result(userId, operationId) : await operations.pending(userId);
         if (operation && (operation.state === 'dispatching' || operation.state === 'unknown')) {
           const hash = await api.reconcile(operation.context);
@@ -279,6 +290,7 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         const options = { challenge: prepared.challenge, rpId: new URL(origin).hostname,
           allowCredentials: [{ id: key.id, type: 'public-key' }], userVerification: 'required', timeout: 120_000 };
         const challenge = await store.issueChallenge(userId, 'sign', { prepared, options, transaction: body.transaction }, Date.now(), prepared.challenge);
+        await operations.rememberIntent(userId, challenge.id, api.validatePrepared(prepared, row.walletId));
         return json({ challengeId: challenge.id, options });
       }
       if (action === 'handoff/create') {
@@ -297,7 +309,12 @@ export function createAccessHandler(dependencies: Dependencies = {}) {
         }
         const challenge = await store.readChallenge(userId, id);
         if (!challenge || challenge.kind !== (action === 'register/complete' ? 'register' : 'sign')) throw new AccessError('approval_expired', 403);
-        return json(await complete(store, operations, userId, challenge, body.response, origin, api));
+        try {
+          return json(await complete(store, operations, userId, challenge, body.response, origin, api));
+        } catch (error) {
+          if (challenge.kind === 'sign') await operations.rejectUnsubmitted(userId, challenge.id);
+          throw error;
+        }
       }
       throw new AccessError('request_invalid');
     } catch (error) {

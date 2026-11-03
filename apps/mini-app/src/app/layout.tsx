@@ -8,7 +8,7 @@ import { TelegramProvider } from '@/components/TelegramProvider';
 import RouteProviders from '@/components/RouteProviders';
 import { LocaleProvider } from '@/lib/i18n';
 import { SHELL_INITIALIZER } from './shellInitializer';
-import { BRAND_DESCRIPTION, BRAND_TITLE, pageMetadata } from './routeMetadata';
+import { BRAND_DESCRIPTION, BRAND_TITLE, DEFAULT_ROBOTS, pageMetadata } from './routeMetadata';
 
 // The complete interface is English. Keep its licensed variable Inter font
 // local so every production build emits the same bytes without a font API.
@@ -17,6 +17,9 @@ const inter = localFont({ src: './fonts/inter-latin.woff2', weight: '100 900', s
 export const metadata: Metadata = {
   metadataBase: new URL('https://fxaeon.com'),
   ...pageMetadata(BRAND_TITLE, BRAND_DESCRIPTION, '/'),
+  // Public product and documentation routes opt in to indexing. Account,
+  // invitation, and approval routes inherit noindex.
+  robots: DEFAULT_ROBOTS,
   title: { default: BRAND_TITLE, template: '%s · FxAeon' },
   applicationName: 'FxAeon',
   formatDetection: { telephone: false, email: false, address: false },

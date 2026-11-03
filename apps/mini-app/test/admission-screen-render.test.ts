@@ -103,6 +103,15 @@ test('busy disables every action and email editing without claiming completion',
   }
 });
 
+test('background preparation announces its state while leaving deferral available', async () => {
+  const html = await render('invited', { primaryDisabled: true, statusMessage: 'Preparing secure setup…' });
+  assert.match(html, /role="status">Preparing secure setup…/);
+  assert.match(html, /<button[^>]*disabled=""[^>]*>Set up my wallet<\/button>/);
+  const defer = html.match(/<button[^>]*>Set up later<\/button>/)?.[0];
+  assert.ok(defer);
+  assert.doesNotMatch(defer, /disabled/);
+});
+
 test('email request success claims acceptance only when the server reports it', async () => {
   for (const [emailDelivery, heading] of [
     ['unknown', 'Confirmation requested.'], ['pending', 'Email queued.'], ['accepted', 'Check your inbox.'],

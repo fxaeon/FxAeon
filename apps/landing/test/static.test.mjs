@@ -233,7 +233,14 @@ test('markup, local assets, and built headers meet accessibility and CSP require
   assert.doesNotMatch(html, /\sstyle=/);
   assert.doesNotMatch(html, /<style\b/);
   assert.doesNotMatch(html, /\son[a-z]+=/i);
-  assert.equal(html.toLowerCase().split('<script').length - 1, 3);
+  for (const [, attributes, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
+    const source = attributes.match(/\bsrc="([^"]+)"/)?.[1];
+    if (source) assert.ok(['script.js', 'sculpture.js', 'dollar-outcomes.js'].includes(source));
+    else {
+      assert.match(attributes, /type="application\/ld\+json"/);
+      assert.equal(JSON.parse(body)['@context'], 'https://schema.org');
+    }
+  }
   assert.match(html, /<script type="module" src="dollar-outcomes\.js"><\/script>/);
   assert.match(html, /<script src="script\.js"><\/script>/);
   assert.doesNotMatch(html, /aurora\.js/);

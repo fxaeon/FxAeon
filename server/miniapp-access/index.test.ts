@@ -942,3 +942,49 @@ test('expiry before transport exposes terminal rejection only to its owner and r
   assert.equal((await f.refreshedUser('sign/options', 1, { transaction: TX })).status, 200);
   assert.equal(f.calls.filter(call => call.url.endsWith('/rpc')).length, 0);
 });
+
+test('browser cancellation persists exact non-submission evidence and blocks later completion', async t => {
+  const f = await fixture(t); const { device } = await ready(f);
+  const intent = await signedIntent(f, device);
+  const handoff = await f.asUser('handoff/create', 1, { challengeId: intent.id });
+  const token = new URLSearchParams(new URL(handoff.body.url).hash.slice(1)).get('token')!;
+  assert.deepEqual((await f.send({ action: 'handoff/cancel', token })).body, { cancelled: true });
+  assert.deepEqual((await f.send({ action: 'handoff/cancel', token })).body, { cancelled: true });
+  const status = await f.refreshedUser('transaction/status', 1, { id: intent.id });
+  assert.equal(status.body.operation.state, 'rejected');
+  assert.equal(status.body.operation.acknowledged, true);
+  error(await f.asUser('sign/complete', 1, intent.fields), 403, 'approval_expired');
+  error(await f.send({ action: 'handoff/complete', token, response: intent.fields.response }), 403, 'approval_expired');
+  assert.equal((await f.asUser('sign/options', 1, { transaction: TX })).status, 200);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/rpc')).length, 0);
+});
+
+test('cancel and expiry never clear a potentially broadcast handoff', async t => {
+  const f = await fixture(t); const { device } = await ready(f); f.failRPC();
+  const intent = await signedIntent(f, device);
+  const handoff = await f.asUser('handoff/create', 1, { challengeId: intent.id });
+  const token = new URLSearchParams(new URL(handoff.body.url).hash.slice(1)).get('token')!;
+  error(await f.send({ action: 'handoff/complete', token, response: intent.fields.response }), 503, 'transaction_unknown');
+  assert.deepEqual((await f.send({ action: 'handoff/cancel', token })).body, { cancelled: false });
+  const expiry = Number(operation(f, intent.id).expires_at);
+  t.mock.method(Date, 'now', () => expiry + 1);
+  const status = await f.refreshedUser('transaction/status', 1, { id: intent.id });
+  assert.equal(status.body.operation.state, 'unknown');
+  assert.equal(status.body.operation.acknowledged, false);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/rpc')).length, 1);
+});
+
+test('expired and pre-dispatch rejected approvals recover after challenge cleanup', async t => {
+  const f = await fixture(t); const { device } = await ready(f);
+  const rejected = await signedIntent(f, device);
+  error(await f.asUser('sign/complete', 1, { challengeId: rejected.id, response: {} }), 403, 'passkey_rejected');
+  assert.equal((await f.refreshedUser('transaction/status', 1, { id: rejected.id })).body.operation.state, 'rejected');
+  const expired = await signedIntent(f, device);
+  const row = f.db.sql.prepare('SELECT expires_at FROM access_signing_intents WHERE id=?').get(expired.id)!;
+  t.mock.method(Date, 'now', () => Number(row.expires_at) + 1);
+  f.db.sql.prepare('DELETE FROM admission_challenges WHERE id=?').run(expired.id);
+  const status = await f.refreshedUser('transaction/status', 1, { id: expired.id });
+  assert.equal(status.body.operation.state, 'rejected');
+  assert.equal(status.body.operation.acknowledged, true);
+  assert.equal(f.calls.filter(call => call.url.endsWith('/rpc')).length, 0);
+});

@@ -33,6 +33,69 @@ export interface VerificationDelivery {
   retryAfterMs: number | null;
 }
 export const INVITATION_TEXT = 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.';
+// Independent of Telegram copy: these bytes belong to already-queued mail.
+const LEGACY_INVITATION_EMAIL_TEXT = 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.';
+
+export type NotificationEmailV2 =
+  | { kind: 'verification'; url: string; expiresAt: number }
+  | { kind: 'invitation'; url: string };
+
+/** Text and quoted-attribute escaping; never interpolate raw values into markup. */
+export function escapeEmailHtml(value: string): string {
+  return value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
+}
+
+/** Immutable v2 presentation, selected durably at enqueue time.
+ * Future copy/layout changes require a new version. Existing Resend
+ * keys MUST retain their original body, including on retries after deployment.
+ * expiresAt is the stored request deadline, never a fresh send-time duration.
+ */
+export function renderNotificationEmailV2(input: NotificationEmailV2): { subject: string; text: string; html: string } {
+  const verification = input.kind === 'verification';
+  if (typeof input.url !== 'string' || /[\s\x00-\x1f]/.test(input.url)) throw new Error('notification_template_invalid');
+  if (verification ? !/^https:\/\/fxaeon\.com\/invite#token=[a-f0-9]{64}$/.test(input.url)
+    : !/^https:\/\/t\.me\/[A-Za-z0-9_]{5,32}(?:\/[A-Za-z0-9_]{1,64})?(?:\?startapp(?:=[A-Za-z0-9_-]{0,128})?)?$/.test(input.url)) {
+    throw new Error('notification_template_invalid');
+  }
+  let expiry = '';
+  if (verification) {
+    if (!Number.isSafeInteger(input.expiresAt) || input.expiresAt <= 0 || input.expiresAt > 8_640_000_000_000_000) throw new Error('notification_template_invalid');
+    expiry = `Link expires ${new Date(input.expiresAt).toISOString().slice(0, 16).replace('T', ' ')} UTC. If needed, request a new email in FxAeon.`;
+  }
+  const subject = verification ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready';
+  const heading = verification ? 'Confirm your email' : 'Your invitation is ready';
+  const intro = verification ? 'Confirm your email to receive your invitation.'
+    : 'Your access to FxAeon has been approved. Open the app in Telegram to set up your wallet and get started.';
+  const action = verification ? 'Confirm email' : 'Open FxAeon';
+  const detail = verification ? 'On the next page, choose Confirm email.' : '';
+  const safety = verification ? 'If you did not request this email, you can ignore it.'
+    : 'Never share your recovery phrase or private keys, including with support.';
+  const support = 'Need a hand? Reply to this email or write to support@fxaeon.com.';
+  const fallback = 'If the button does not work, copy and paste this full link into your browser:';
+  const text = ['FxAeon', heading, intro, `${action}:\n${input.url}`, detail, expiry, safety, support].filter(Boolean).join('\n\n');
+  const e = escapeEmailHtml;
+  const paragraph = (value: string) => `<p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#b3b3b3">${e(value)}</p>`;
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>${e(subject)}</title></head>
+<body style="margin:0;padding:0;background-color:#080808;color:#ffffff;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all">${e(intro)}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#080808"><tr><td align="center" style="padding:32px 12px">
+<!--[if mso]><table role="presentation" width="560"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px"><tr><td style="padding:0 24px 28px;font-size:20px;line-height:1.4;font-weight:700;color:#ffffff">FxAeon</td></tr>
+<tr><td bgcolor="#151515" style="padding:32px 24px;border-radius:16px">
+<h1 style="margin:0 0 16px;font-size:28px;line-height:1.2;font-weight:600;color:#ffffff">${e(heading)}</h1>
+${paragraph(intro)}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0"><tr><td align="center" bgcolor="#2563eb" style="border-radius:26px;mso-padding-alt:16px 24px"><a href="${e(input.url)}" style="display:inline-block;padding:16px 24px;font-size:16px;line-height:20px;font-weight:700;text-decoration:none;color:#ffffff;border-radius:26px">${e(action)}</a></td></tr></table>
+${detail ? paragraph(detail) : ''}${expiry ? paragraph(expiry) : ''}
+<p style="margin:28px 0 8px;font-size:14px;line-height:1.6;color:#b3b3b3">${e(fallback)}</p>
+<p style="margin:0;font-size:14px;line-height:1.6;word-break:break-all;overflow-wrap:anywhere"><a href="${e(input.url)}" style="color:#7da5ff;text-decoration:underline;word-break:break-all">${e(input.url)}</a></p>
+</td></tr><tr><td style="padding:24px 24px 0">
+<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#b3b3b3">${e(safety)}</p>
+<p style="margin:0;font-size:14px;line-height:1.6;color:#b3b3b3">${e(support)}</p>
+</td></tr></table><!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table></body></html>`;
+  return { subject, text, html };
+}
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const MAX_ATTEMPTS = 3;
@@ -55,13 +118,27 @@ const SCHEMA = [
     attempts INTEGER NOT NULL DEFAULT 0 CHECK(attempts BETWEEN 0 AND 3), created_at INTEGER NOT NULL,
     next_at INTEGER NOT NULL, first_attempt INTEGER, lease_until INTEGER, claim TEXT)`,
   `CREATE INDEX IF NOT EXISTS access_mail_outbox_due ON access_mail_outbox(status,next_at)`,
+  // Additive migration: absence means an old row, never implicitly v2. No body
+  // snapshots here: verification bearer tokens must not be persisted in D1.
+  `CREATE TABLE IF NOT EXISTS access_mail_templates (
+    outbox_id TEXT PRIMARY KEY, version INTEGER NOT NULL CHECK(version IN (1,2)))`,
+  // Durable fence against old binaries, including invocations that resume after
+  // deployment. Their UUID-only claim cannot acquire v2, and its budget charge
+  // cannot match. Install atomically in init BEFORE any v2 enqueue. This cannot
+  // repair a v2 provider request already dispatched before fence installation.
+  `CREATE TRIGGER IF NOT EXISTS access_mail_v2_claim_fence
+    BEFORE UPDATE OF status ON access_mail_outbox
+    WHEN NEW.status='sending'
+      AND EXISTS(SELECT 1 FROM access_mail_templates WHERE outbox_id=NEW.id AND version=2)
+      AND substr(NEW.claim,1,8) IS NOT 'mail-v2:'
+    BEGIN SELECT RAISE(IGNORE); END`,
   `CREATE TABLE IF NOT EXISTS access_mail_budgets (period TEXT PRIMARY KEY, used INTEGER NOT NULL DEFAULT 0)`,
   `CREATE TABLE IF NOT EXISTS access_mail_providers (channel TEXT PRIMARY KEY, pause_until INTEGER NOT NULL DEFAULT 0)`,
 ];
 type Envelope = {
   id: string; user_id: number; channel: 'email' | 'telegram'; kind: 'verification' | 'invitation';
   destination: string; sender: string; link: string; token_hash: string | null; expires_at: number | null;
-  attempts: number; first_attempt: number; claim: string;
+  attempts: number; first_attempt: number; claim: string; template_version: number;
 };
 type Outcome = { status: 'sent' | 'failed' | 'pending' | 'uncertain'; pause?: number; reason?: string; httpStatus?: number };
 export interface DispatchResult { sent: number; failed: number; deferred: number; uncertain: number; }
@@ -77,7 +154,8 @@ function emailAddress(value: string): string {
   }
   return email;
 }
-function officialLink(value: string | undefined): string {
+/** Frozen v1 URL handling. Extend officialLink, not this legacy formatter. */
+function legacyEmailInvitationLink(value: string | undefined): string {
   if (!value) return '';
   // A bare bot URL opens chat; add the Main Mini App launcher at the consumer.
   // No redirects, credentials, ports or arbitrary query.
@@ -86,6 +164,9 @@ function officialLink(value: string | undefined): string {
     throw new Error('notification_config_invalid');
   }
   return match[2] || match[3] ? value : `${value}?startapp`;
+}
+function officialLink(value: string | undefined): string {
+  return legacyEmailInvitationLink(value);
 }
 function limit(value: string | number | undefined, cap: number, reserve: number): number {
   const parsed = value === undefined ? cap : Number(value);
@@ -142,6 +223,15 @@ export class NotificationStore {
     } catch { throw new Error('notification_storage_unavailable'); }
   }
   async init(): Promise<void> { await this.batch(SCHEMA.map(sql => this.db.prepare(sql))); }
+  private newEmailTemplate(id: string, userId: number, kind: 'verification' | 'invitation'): MailStatement {
+    return this.statement(`INSERT INTO access_mail_templates(outbox_id,version)
+      SELECT ?,? WHERE NOT EXISTS(SELECT 1 FROM access_mail_outbox WHERE id=?)
+      AND EXISTS(SELECT 1 FROM admission_users u WHERE u.user_id=? AND
+        ((?='verification' AND EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?))
+        OR (?='invitation' AND u.external_id IS NOT NULL AND EXISTS(
+          SELECT 1 FROM access_mail_contacts c WHERE c.user_id=u.user_id AND c.verified=1))))
+      ON CONFLICT(outbox_id) DO NOTHING`, id, 2, id, userId, kind, id, kind);
+  }
   private enabled(channel: 'email' | 'telegram') {
     return channel === 'email' ? !!(this.env.RESEND_API_KEY && this.sender) : !!(this.env.TELEGRAM_BOT_TOKEN && this.link);
   }
@@ -178,6 +268,9 @@ export class NotificationStore {
       userId, email, digest, now + HOUR, id),
       this.statement(`UPDATE access_mail_outbox SET status='cancelled' WHERE user_id=? AND kind='verification' AND status='pending'
         AND EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?)`, userId, id),
+      // Run selection BEFORE insertion in the same atomic batch. Existing rows
+      // never acquire a new version, even if an old dispatcher selected them.
+      this.newEmailTemplate(id, userId, 'verification'),
       this.statement(`INSERT INTO access_mail_outbox(id,user_id,channel,kind,destination,sender,link,token_hash,expires_at,created_at,next_at)
         SELECT ?,?,'email','verification',?,?,'',?,?,?,? WHERE EXISTS(SELECT 1 FROM access_mail_requests WHERE id=?)`,
       id, userId, email, this.sender, digest, now + HOUR, now, now, id),
@@ -238,13 +331,13 @@ export class NotificationStore {
       SELECT 'invite:telegram:'||user_id,user_id,'telegram','invitation',CAST(user_id AS TEXT),'',?,?,?
       FROM admission_users WHERE user_id=? AND external_id IS NOT NULL AND telegram_notify=1
       ON CONFLICT(id) DO NOTHING`, this.link, now, now, userId));
-    if (this.enabled('email') && this.link) statements.push(this.statement(`INSERT INTO access_mail_outbox
+    if (this.enabled('email') && this.link) statements.push(this.newEmailTemplate(`invite:email:${userId}`, userId, 'invitation'), this.statement(`INSERT INTO access_mail_outbox
       (id,user_id,channel,kind,destination,sender,link,created_at,next_at)
       SELECT 'invite:email:'||u.user_id,u.user_id,'email','invitation',c.email,?,?,?,?
       FROM admission_users u JOIN access_mail_contacts c ON c.user_id=u.user_id
       WHERE u.user_id=? AND u.external_id IS NOT NULL AND c.verified=1 ON CONFLICT(id) DO UPDATE SET
         destination=excluded.destination,sender=excluded.sender,link=excluded.link
-        WHERE access_mail_outbox.status='pending' AND access_mail_outbox.attempts=0`,
+        WHERE access_mail_outbox.status='pending' AND access_mail_outbox.attempts=0 AND access_mail_outbox.first_attempt IS NULL`,
     this.sender, this.link, now, now, userId));
     if (statements.length) await this.batch(statements);
   }
@@ -252,8 +345,14 @@ export class NotificationStore {
     const now = this.now();
     const day = `day:${new Date(now).toISOString().slice(0, 10)}`;
     const month = `month:${new Date(now).toISOString().slice(0, 7)}`;
-    const claim = crypto.randomUUID();
+    const claim = `mail-v2:${crypto.randomUUID()}`;
     const results = await this.batch([
+      // Pin the old plain-text formatter before its first possible send. An
+      // already-attempted legacy row remains unversioned; its provenance is not
+      // guessed from an attempt count or deployment timestamp.
+      this.statement(`INSERT INTO access_mail_templates(outbox_id,version)
+        SELECT id,1 FROM access_mail_outbox WHERE id=? AND channel='email'
+        AND attempts=0 AND first_attempt IS NULL ON CONFLICT(outbox_id) DO NOTHING`, id),
       this.statement('INSERT INTO access_mail_budgets(period) VALUES(?),(?) ON CONFLICT(period) DO NOTHING', day, month),
       this.statement(`UPDATE access_mail_outbox SET status='sending',attempts=attempts+1,
         first_attempt=coalesce(first_attempt,?),lease_until=?,claim=?
@@ -267,34 +366,53 @@ export class NotificationStore {
           OR (kind='invitation' AND EXISTS(SELECT 1 FROM admission_users u WHERE u.user_id=access_mail_outbox.user_id
             AND u.external_id IS NOT NULL AND ((channel='telegram' AND u.telegram_notify=1)
             OR (channel='email' AND EXISTS(SELECT 1 FROM access_mail_contacts c WHERE c.user_id=u.user_id
-              AND c.verified=1 AND c.email=access_mail_outbox.destination)))))) RETURNING *`,
+              AND c.verified=1 AND c.email=access_mail_outbox.destination)))))) RETURNING *,
+        coalesce((SELECT version FROM access_mail_templates WHERE outbox_id=access_mail_outbox.id),0) AS template_version`,
       now, now + LEASE, claim, id, now, now - RETRY_WINDOW, now, day, this.daily, month, this.monthly, now),
       this.statement(`UPDATE access_mail_budgets SET used=used+1 WHERE period IN (?,?)
         AND EXISTS(SELECT 1 FROM access_mail_outbox WHERE id=? AND claim=? AND channel='email')`, day, month, id, claim),
     ]);
-    return results[1].results[0] as Envelope | undefined ?? null;
+    return results[2].results[0] as Envelope | undefined ?? null;
   }
   private async send(row: Envelope): Promise<Outcome> {
     let payload: object;
     let endpoint: string;
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (row.channel === 'email') {
-      let text: string;
+      let url: string;
       if (row.kind === 'verification') {
         const token = await this.token(row.id);
         if (await hash(token) !== row.token_hash) return { status: 'failed', reason: 'verification_token_invalid' };
-        text = `Confirm your email address for FxAeon invitations.\n\nhttps://fxaeon.com/invite#token=${token}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`;
+        url = `https://fxaeon.com/invite#token=${token}`;
+      } else if (row.template_version === 2) {
+        // Fresh rows persist their normalized destination at enqueue time.
+        // Rendering validates it but never consults current configuration.
+        url = row.link;
       } else {
-        // Normalize existing pending rows too, without resetting attempts or idempotency.
         let link: string;
-        try { link = officialLink(row.link); } catch { return { status: 'failed', reason: 'invitation_link_invalid' }; }
+        try { link = legacyEmailInvitationLink(row.link); } catch { return { status: 'failed', reason: 'invitation_link_invalid' }; }
         if (!link) return { status: 'failed', reason: 'invitation_link_invalid' };
-        text = `${INVITATION_TEXT}\n\n${link}`;
+        // #374 normalized at send time without persisting which body was used.
+        // A previously attempted bare URL could therefore mean either body.
+        // Hold it; never guess, change its key, or risk an automatic replay.
+        if (row.template_version === 0 && link !== row.link) return { status: 'uncertain', reason: 'legacy_invitation_payload_unknown' };
+        url = row.template_version === 0 ? row.link : link;
       }
+      let content: { subject: string; text: string; html?: string };
+      if (row.template_version === 2) {
+        content = renderNotificationEmailV2(row.kind === 'verification'
+          ? { kind: 'verification', url, expiresAt: row.expires_at! } : { kind: 'invitation', url });
+      } else if (row.template_version === 0 || row.template_version === 1) {
+        // Freeze these legacy bytes, including punctuation and field order.
+        content = { subject: row.kind === 'verification' ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready',
+          text: row.kind === 'verification'
+            ? `Confirm your email address for FxAeon invitations.\n\n${url}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`
+            : `${LEGACY_INVITATION_EMAIL_TEXT}\n\n${url}` };
+      } else return { status: 'uncertain', reason: 'email_template_unknown' };
       endpoint = 'https://api.resend.com/emails';
       headers.authorization = `Bearer ${this.env.RESEND_API_KEY}`;
       headers['Idempotency-Key'] = `access-mail/${row.id}`;
-      payload = { from: row.sender, to: [row.destination], reply_to: 'support@fxaeon.com', subject: row.kind === 'verification' ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready', text };
+      payload = { from: row.sender, to: [row.destination], reply_to: 'support@fxaeon.com', ...content };
     } else {
       endpoint = `https://api.telegram.org/bot${this.env.TELEGRAM_BOT_TOKEN}/sendMessage`;
       payload = { chat_id: row.destination, text: INVITATION_TEXT, link_preview_options: { is_disabled: true },
@@ -302,13 +420,15 @@ export class NotificationStore {
     }
     const controller = new AbortController();
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let conflictResponse = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const uncertain = { status: row.channel === 'email' ? 'pending' : 'uncertain' } as Outcome;
     const deadline = new Promise<Outcome>(resolve => {
       timer = setTimeout(() => {
         controller.abort();
         if (reader) void reader.cancel().catch(() => {});
-        resolve({ ...uncertain, reason: 'timeout' });
+        resolve(conflictResponse ? { status: 'failed', reason: 'provider_idempotency_conflict', httpStatus: 409 }
+          : { ...uncertain, reason: 'timeout' });
       }, this.timeout);
     });
     const readResponse = async (response: Response): Promise<Record<string, unknown>> => {
@@ -355,6 +475,16 @@ export class NotificationStore {
           } catch { /* The HTTP status still establishes an explicit rejection. */ }
           const pause = this.now() + Math.min(DAY, Math.max(60_000, delay));
           return { status: 'pending', pause, reason: 'provider_rate_limited', httpStatus };
+        }
+        if (row.channel === 'email' && response.status === 409) {
+          conflictResponse = true;
+          // Provider distinguishes an in-flight identical request from a body
+          // collision. Parse only the bounded, allowlisted name; never log text.
+          try {
+            const data = await readResponse(response);
+            if (data.name === 'concurrent_idempotent_requests') return { status: 'pending', reason: 'provider_request_in_progress', httpStatus };
+          } catch { /* Unknown, malformed or oversized conflicts stay terminal. */ }
+          return { status: 'failed', reason: 'provider_idempotency_conflict', httpStatus };
         }
         if (response.status >= 400 && response.status < 500) {
           if (response.body) void response.body.cancel().catch(() => {});

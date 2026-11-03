@@ -39,7 +39,7 @@
 
 .overview { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 12px 0 10px; }
 .performanceReading { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: var(--mut); font-size: 13px; }
-.performanceReading strong { color: var(--text); font-size: 28px; font-weight: 550; font-variant-numeric: tabular-nums; }
+.performanceReading strong { font-style: normal; letter-spacing: normal; color: var(--text); font-size: 28px; font-weight: 550; font-variant-numeric: tabular-nums; }
 .sensitivitySurface { padding: 17px; margin-top: 8px; border-radius: 20px; background: var(--surface); }
 .scenarioOverview { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .scenarioOverview > div { display: flex; flex-direction: column; gap: 6px; color: var(--mut); font-size: 12px; }

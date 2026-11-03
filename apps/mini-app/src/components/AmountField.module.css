@@ -33,7 +33,7 @@
 .shortcuts button > span { padding: 5px 6px; border-radius: 999px; background: var(--surface-2); transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow var(--dur-fast) ease; }
 .shortcuts button:hover:not(:disabled), .shortcuts button[data-selected='true'] { color: var(--mint-bright); }
 .shortcuts button:hover:not(:disabled) > span, .shortcuts button[data-selected='true'] > span { background: var(--mint-dim); }
-:global([data-flow-stage]) .shortcuts button > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button > span { background: var(--surface-3); }
+:global([data-flow-stage]) .shortcuts button:not(:hover):not([data-selected='true']) > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button:not(:hover):not([data-selected='true']) > span { background: var(--surface-3); }
 :global([data-flow-stage]) .shortcuts button:disabled > span, :global(.ui-card:not(.trade-ticket)) .shortcuts button:disabled > span { background: color-mix(in srgb, var(--surface-3) 60%, transparent); }
 .shortcuts button:active:not(:disabled) { transform: scale(0.94); transition-duration: var(--dur-press); }
 .shortcuts button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }

@@ -6,6 +6,7 @@ import FxLogo from '@/components/FxLogo';
 import { WalletApprovalDetails } from '@/components/admission/WalletApprovalDetails';
 import { miniappAccess, consumeApprovalTicket, forgetAccessToken, verifyChallengeCommitment, telegramReturnUrl, accessErrorMessage, isSignResult, isWalletResult,
   verifySigningChallenge, validateApprovalTransaction, type HandoffRead, type MiniappTransaction } from '@/lib/miniappAccess';
+import admission from '@/components/admission/AdmissionScreen.module.css';
 import styles from './WalletApproval.module.css';
 
 export default function WalletApprovalPage() {
@@ -31,7 +32,7 @@ export default function WalletApprovalPage() {
     if (!token.current || !/^[A-Za-z0-9_-]{43}$/.test(ticket.commitment)) { setError('This approval link is missing or expired. Return to Telegram.'); setBusy(false); return; }
     void miniappAccess('handoff/read', { token: token.current }, { signal: abort.signal }).then(async value => {
       if (generation.current !== version || abort.signal.aborted) return;
-      await verifyChallengeCommitment(value.options.challenge, ticket.commitment);
+      await verifyChallengeCommitment(value.options.challenge, ticket.commitment, value.kind === 'sign' ? value.transaction : undefined);
       if (generation.current !== version || abort.signal.aborted) return;
       verifiedChallenge.current = value.options.challenge;
       if (value.kind === 'sign') {
@@ -75,21 +76,50 @@ export default function WalletApprovalPage() {
       if (generation.current === version) { inFlight.current = false; setBusy(false); }
     }
   };
-  const cancel = () => {
-    generation.current += 1; controller.current?.abort(); WebAuthnAbortService.cancelCeremony();
-    token.current = ''; forgetAccessToken(); setClosed(true); setBusy(false);
-    setError(submitted.current ? 'Approval may already have completed. Return to Telegram and check your wallet activity.' : 'Approval cancelled.');
+  const cancel = async () => {
+    if (closed || !token.current) return;
+    const ticket = token.current;
+    const version = ++generation.current;
+    controller.current?.abort(); WebAuthnAbortService.cancelCeremony();
+    token.current = ''; forgetAccessToken(); setClosed(true);
+    const uncertain = 'Approval may already have completed. Return to Telegram and check your wallet activity.';
+    if (submitted.current || request?.kind !== 'sign') {
+      setBusy(false); setError(submitted.current ? uncertain : 'Approval cancelled.'); return;
+    }
+    const abort = new AbortController(); controller.current = abort;
+    setBusy(true); setError('');
+    try {
+      const result = await miniappAccess('handoff/cancel', { token: ticket }, { signal: abort.signal });
+      if (generation.current === version) setError(result.cancelled ? 'Approval cancelled.' : uncertain);
+    } catch {
+      if (generation.current === version) setError('Cancellation could not be confirmed. Return to Telegram and check the status.');
+    } finally {
+      if (generation.current === version) setBusy(false);
+    }
   };
 
-  return <main className={styles.screen}><div className={styles.panel}>
+  if (request?.kind === 'sign') return <main className={styles.screen}><div className={styles.panel}>
     <FxLogo size={36} />
-    <h1>{done ? request?.kind === 'sign' ? 'Transaction submitted.' : 'Wallet ready.' : request?.kind === 'sign' ? 'Approve transaction.' : request?.kind === 'register' ? 'Set up your passkey.' : 'Wallet approval.'}</h1>
-    {!done && request?.kind === 'register' && <p>Keep your passkey synced or backed up so you can use it again.</p>}
+    <h1>{done ? 'Transaction submitted.' : 'Approve transaction.'}</h1>
     {!done && transaction && <WalletApprovalDetails transaction={transaction} walletId={walletId} />}
-    {busy && <p role="status">{request ? 'Waiting for approval…' : 'Checking approval…'}</p>}
+    {busy && <p role="status">Waiting for approval…</p>}
     {error && <p role="alert">{error}</p>}
-    {request && !done && !closed && !submitted.current && <button className={styles.primary} disabled={busy} onClick={() => void approve()}>{request.kind === 'sign' ? 'Approve with passkey' : 'Create passkey'}</button>}
-    {!done && !closed && request && <button className={styles.secondary} onClick={cancel}>Cancel</button>}
+    {!done && !closed && !submitted.current && <button className={styles.primary} disabled={busy} onClick={() => void approve()}>Approve with passkey</button>}
+    {!done && !closed && <button className={styles.secondary} onClick={() => void cancel()}>Cancel</button>}
     <a href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
   </div></main>;
+
+  return <main className={admission.screen} aria-labelledby="approval-title"><div className={admission.panel}>
+    <header className={admission.header}><FxLogo size={32} /></header>
+    <div className={admission.content}><div className={admission.copy}><div className={admission.message}>
+    <h1 id="approval-title" className={admission.title}>{done ? 'Wallet ready.' : request?.kind === 'register' ? 'Set up your passkey.' : 'Wallet approval.'}</h1>
+    {!done && request?.kind === 'register' && <p className={admission.lead}>Keep your passkey synced or backed up so you can use it again.</p>}
+    </div>
+    </div><div className={admission.actions} aria-busy={busy}>
+    {busy && <p role="status">{request ? 'Waiting for approval…' : 'Checking approval…'}</p>}
+    {error && <p role="alert">{error}</p>}
+    {request && !done && !closed && !submitted.current && <button className={admission.primary} disabled={busy} onClick={() => void approve()}>Create passkey</button>}
+    {!done && !closed && request && <button className={admission.secondary} onClick={() => void cancel()}>Cancel</button>}
+    <a className={done || closed || (!busy && !request) ? admission.primary : `${admission.secondary} ${admission.tertiary}`} href={telegramReturnUrl()} referrerPolicy="no-referrer">Return to Telegram</a>
+  </div></div></div></main>;
 }

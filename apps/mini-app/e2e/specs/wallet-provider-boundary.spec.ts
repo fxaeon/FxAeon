@@ -127,7 +127,7 @@ type Build = {
   onResolve: (options: { filter: RegExp }, callback: (args: { path: string }) => unknown) => void;
   onLoad: (options: { filter: RegExp; namespace: string }, callback: (args: { path: string }) => unknown) => void;
 };
-type Variant = 'configured' | 'unconfigured' | 'passkey';
+type Variant = 'configured' | 'unconfigured' | 'passkey' | 'passkey-configured';
 type Bundle = { files: Map<string, string>; privyPaths: Set<string> };
 
 async function buildHarness(variant: Variant): Promise<Bundle> {
@@ -137,8 +137,8 @@ async function buildHarness(variant: Variant): Promise<Bundle> {
     format: 'esm', platform: 'browser', target: 'es2020', jsx: 'automatic',
     absWorkingDir: root,
     define: {
-      'process.env.NEXT_PUBLIC_PRIVY_APP_ID': JSON.stringify(variant === 'configured' ? 'fake-configured-app-id' : ''),
-      'process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE': JSON.stringify(variant === 'passkey' ? 'passkey' : 'off'),
+      'process.env.NEXT_PUBLIC_PRIVY_APP_ID': JSON.stringify(variant === 'configured' || variant === 'passkey-configured' ? 'fake-configured-app-id' : ''),
+      'process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE': JSON.stringify(variant.startsWith('passkey') ? 'passkey' : 'off'),
     },
     plugins: [{ name: 'wallet-provider-boundary-leaves', setup(build: Build) {
       build.onResolve({ filter: /.*/ }, ({ path }) => {
@@ -156,9 +156,10 @@ async function buildHarness(variant: Variant): Promise<Bundle> {
   });
   const files = new Map(result.outputFiles.map((file) => [`/${variant}/${relative(outdir, file.path).replaceAll('\\', '/')}`, file.text]));
   const privyPaths = new Set([...files].filter(([, source]) => /PRIVY_(?:PROVIDER|SDK)_MODULE/.test(source)).map(([path]) => path));
-  // Guard the harness itself: the protected dependency must be a separately
-  // fetched chunk, not an absent mock that makes the no-fetch assertion vacuous.
-  expect(privyPaths.size).toBeGreaterThan(0);
+  // Native mode retains a real separate import; builds that cannot select it
+  // must omit that dependency entirely, including passkey builds with an app ID.
+  if (variant === 'configured') expect(privyPaths.size).toBeGreaterThan(0);
+  else expect(privyPaths.size).toBe(0);
   expect(privyPaths.has(`/${variant}/wallet-provider-boundary-entry.js`)).toBe(false);
   return { files, privyPaths };
 }
@@ -173,10 +174,10 @@ const emptyState: ProviderBoundaryHarnessState = {
 };
 
 test.beforeAll(async () => {
-  bundles = { configured: await buildHarness('configured'), unconfigured: await buildHarness('unconfigured'), passkey: await buildHarness('passkey') };
+  bundles = { configured: await buildHarness('configured'), unconfigured: await buildHarness('unconfigured'), passkey: await buildHarness('passkey'), 'passkey-configured': await buildHarness('passkey-configured') };
   server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://localhost').pathname;
-    const variant: Variant = path.startsWith('/unconfigured/') ? 'unconfigured' : path.startsWith('/passkey/') ? 'passkey' : 'configured';
+    const variant: Variant = path.startsWith('/unconfigured/') ? 'unconfigured' : path.startsWith('/passkey-configured/') ? 'passkey-configured' : path.startsWith('/passkey/') ? 'passkey' : 'configured';
     response.setHeader('Cache-Control', 'no-store');
     const source = bundles[variant].files.get(path);
     if (source) {

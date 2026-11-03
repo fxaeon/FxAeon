@@ -259,3 +259,42 @@ test('local rejection cannot unlock unknown or erase a proven broadcast, even in
   assert.equal((await operations.pending(2))?.hash, HASH);
   assert.equal(await operations.rejectBeforeDispatch('missing'), false);
 });
+
+test('cancellation and dispatch compete for the same durable operation ID', async t => {
+  const { db, operations } = await fixture(t);
+  for (const cancelFirst of [true, false]) {
+    const userId = cancelFirst ? 1 : 2;
+    const id = `race-${userId}`;
+    const ctx = context();
+    await operations.rememberIntent(userId, id, ctx);
+    const cancel = () => operations.rejectUnsubmitted(userId, id);
+    const dispatch = () => operations.claim(userId, id, ctx);
+    const outcomes = await Promise.allSettled(cancelFirst ? [cancel(), dispatch()] : [dispatch(), cancel()]);
+    const restarted = new Operations(db);
+    const row = await restarted.result(userId, id);
+    assert.equal(row?.state, cancelFirst ? 'rejected' : 'dispatching');
+    assert.equal(row?.acknowledged, cancelFirst);
+    assert.equal(outcomes[1].status, cancelFirst ? 'rejected' : 'fulfilled');
+    if (!cancelFirst) {
+      await operations.unknown(id);
+      assert.equal(await operations.rejectUnsubmitted(userId, id), false);
+      assert.equal((await operations.result(userId, id))?.state, 'unknown');
+    } else {
+      assert.equal(await operations.rejectUnsubmitted(userId, id), true, 'lost cancel response can safely retry');
+      assert.equal(await operations.result(2, id), null);
+    }
+  }
+});
+
+test('only the owner’s expired issued intent can create terminal non-submission evidence', async t => {
+  const { operations } = await fixture(t);
+  const ctx = context();
+  await operations.rememberIntent(1, 'expires', ctx);
+  assert.equal(await operations.rejectUnsubmitted(1, 'expires', true), false);
+  t.mock.method(Date, 'now', () => ctx.expiresAt);
+  assert.equal(await operations.rejectUnsubmitted(2, 'expires', true), false);
+  assert.equal(await operations.rejectUnsubmitted(1, 'missing', true), false);
+  assert.equal(await operations.rejectUnsubmitted(1, 'expires', true), true);
+  assert.equal((await operations.result(1, 'expires'))?.acknowledged, true);
+  assert.equal(await operations.pending(1), null);
+});

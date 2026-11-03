@@ -1,13 +1,75 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { test, type TestContext } from 'node:test';
 import { Store } from './store.ts';
-import { NotificationStore, INVITATION_TEXT, type MailDB, type MailStatement, type MailResult, type NotificationEnv, type NotificationDiagnostic } from './notifications.ts';
+import { NotificationStore, INVITATION_TEXT, escapeEmailHtml, renderNotificationEmailV2, type MailDB, type MailStatement, type MailResult, type NotificationEnv, type NotificationDiagnostic } from './notifications.ts';
+
+test('v2 queued payload bytes are frozen; copy/layout changes must introduce a new template version', () => {
+  // These fingerprints protect real Resend retries across future deployments.
+  // Do not refresh them to accommodate a v2 edit; add a v3 formatter instead.
+  const fixtures = [
+    [{ kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt: Date.UTC(2026, 10, 3, 11) },
+      '318eaec2bb807fe5291d59db8b2dadd1ecb026979bdd7b92719a41d11c13525a'],
+    [{ kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' },
+      '1906bd42df6fc898e360c77c577d6ca69a97eeb341a6fa4e5db0c5927a38d967'],
+  ] as const;
+  for (const [input, fingerprint] of fixtures) {
+    assert.equal(createHash('sha256').update(JSON.stringify(renderNotificationEmailV2(input))).digest('hex'), fingerprint);
+  }
+});
+
+test('v2 emails have one primary action, full fallback links and complete plain text without remote content', () => {
+  for (const input of [
+    { kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt: Date.UTC(2026, 10, 3, 11) },
+    { kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' },
+    { kind: 'invitation', url: 'https://t.me/FxAeonBot/app?startapp=welcome' },
+  ] as const) {
+    const mail = renderNotificationEmailV2(input);
+    const links = Array.from(mail.html.matchAll(/href="([^"]+)"/g), match => match[1]);
+    assert.deepEqual(links, [input.url, input.url]);
+    assert.equal((mail.html.match(/display:inline-block/g) ?? []).length, 1);
+    assert.ok(mail.text.includes(`\n${input.url}\n`));
+    assert.equal(mail.text.split(input.url).length - 1, 1, 'plain text has one action URL');
+    for (const body of [mail.html, mail.text]) {
+      assert.match(body, /support@fxaeon\.com/);
+      if (input.kind === 'verification') {
+        assert.match(body, /2026-11-03 11:00 UTC/);
+        assert.match(body, /On the next page, choose Confirm email\./);
+        assert.match(body, /request a new email/);
+        assert.match(body, /did not request/);
+      } else {
+        assert.doesNotMatch(body, /expires|one hour|confirm your email/i);
+        assert.doesNotMatch(body, /whenever you are ready/);
+        assert.match(body, /approved/);
+      }
+    }
+    assert.doesNotMatch(mail.text, /<[^>]+>|&(?:amp|quot|lt|gt);/);
+    assert.doesNotMatch(mail.html, /<img|<script|<link|<iframe|@font-face|url\(|utm_|tracking|src=|letter-spacing:\s*-/i);
+    assert.match(mail.html, /name="viewport"/);
+    assert.ok(Buffer.byteLength(JSON.stringify({ from: ENV.RESEND_FROM, to: ['person@example.com'], reply_to: 'support@fxaeon.com', ...mail })) < 8192);
+  }
+});
+
+test('v2 templates escape HTML text and attributes and reject injected or off-brand destinations without leaking them', () => {
+  assert.equal(escapeEmailHtml(`<&>"'`), '&lt;&amp;&gt;&quot;&#39;');
+  for (const url of ['javascript:alert(1)', 'https://evil.invalid/', 'https://fxaeon.com.evil.invalid/invite',
+    'https://user:password@t.me/FxAeonBot/app', 'https://t.me/FxAeonBot/app" onclick="alert(1)',
+    'https://t.me/FxAeonBot/app\n', 'https://t.me/FxAeonBot/app?startapp=<script>',
+    'https://t.me/FxAeonBot/app#secret', 'https://t.me/FxAeonBot/app?startapp=x&tracker=y']) {
+    assert.throws(() => renderNotificationEmailV2({ kind: 'invitation', url }), /^Error: notification_template_invalid$/);
+  }
+  for (const expiresAt of [NaN, Infinity, 0, -1, 1.5, 8_640_000_000_000_001]) {
+    assert.throws(() => renderNotificationEmailV2({ kind: 'verification', url: `https://fxaeon.com/invite#token=${'a'.repeat(64)}`, expiresAt }), /^Error: notification_template_invalid$/);
+  }
+  assert.throws(() => renderNotificationEmailV2({ kind: 'verification', url: 'https://fxaeon.com/invite#token="<secret>', expiresAt: 1 }), /^Error: notification_template_invalid$/);
+});
 
 /** Execute actual SQLite transactions, not SQL-shaped mocks. Every network call is intercepted. */
 class SQLiteDB implements MailDB {
   readonly sql = new DatabaseSync(':memory:');
   failAt = -1;
+  afterCandidates?: () => Promise<void>;
   prepare(sql: string): Statement { return new Statement(this, sql); }
   async batch<T = Record<string, unknown>>(statements: MailStatement[]): Promise<MailResult<T>[]> {
     this.sql.exec('BEGIN IMMEDIATE');
@@ -31,7 +93,11 @@ class Statement implements MailStatement {
     statement.run(...this.values as SQLInputValue[]);
     return { success: true, results: [] };
   }
-  async all<T = Record<string, unknown>>() { return this.execute<T>(); }
+  async all<T = Record<string, unknown>>() {
+    const result = this.execute<T>();
+    if (this.sql.includes('SELECT id,channel FROM access_mail_outbox o')) await this.db.afterCandidates?.();
+    return result;
+  }
   async run<T = Record<string, unknown>>() { return this.execute<T>(); }
 }
 const ENV: NotificationEnv = {
@@ -73,6 +139,180 @@ function token(call: Call): string {
   assert.ok(value);
   return value;
 }
+
+/** Historical claim protocol, deliberately independent of the new dispatcher:
+ * UUID-only UPDATE RETURNING followed by a charge conditional on that claim.
+ * Eligibility is supplied by these fixtures; the protected lease/attempt/budget
+ * operations match the pre-versioning dispatcher and use real transactions. */
+async function legacyClaim(f: Awaited<ReturnType<typeof fixture>>, id: string, claim: string | null = crypto.randomUUID()) {
+  const now = f.now(), day = `day:${new Date(now).toISOString().slice(0, 10)}`, month = `month:${new Date(now).toISOString().slice(0, 7)}`;
+  const results = await f.db.batch([
+    f.db.prepare('INSERT INTO access_mail_budgets(period) VALUES(?),(?) ON CONFLICT(period) DO NOTHING').bind(day, month),
+    f.db.prepare(`UPDATE access_mail_outbox SET status='sending',attempts=attempts+1,
+      first_attempt=coalesce(first_attempt,?),lease_until=?,claim=?
+      WHERE id=? AND status='pending' AND next_at<=? AND attempts<3 RETURNING *`).bind(now, now + 60_000, claim, id, now),
+    f.db.prepare(`UPDATE access_mail_budgets SET used=used+1 WHERE period IN (?,?)
+      AND EXISTS(SELECT 1 FROM access_mail_outbox WHERE id=? AND claim=? AND channel='email')`).bind(day, month, id, claim),
+  ]);
+  return results[1].results;
+}
+
+test('v2 fence rejects old UUID and null claims with empty RETURNING, untouched leases/attempts and no budget charge', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  const before = f.rows()[0];
+  for (const claim of [crypto.randomUUID(), null]) {
+    assert.deepEqual(await legacyClaim(f, before.id, claim), []);
+    assert.deepEqual(f.rows()[0], before);
+    assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 0));
+  }
+  assert.equal(f.calls.length, 0);
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.rows()[0].attempts, 1);
+  assert.match(f.rows()[0].claim, /^mail-v2:[a-f0-9-]{36}$/);
+  assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 1));
+  assert.equal(typeof f.calls[0].body.html, 'string');
+});
+
+test('both held-candidate and pre-selection old invocations are fenced; a new dispatcher still succeeds', { timeout: 10_000 }, async t => {
+  for (const heldCandidate of [true, false]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1);
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    if (heldCandidate) await f.store.enqueueInvitation(1, false);
+    const selected = heldCandidate ? f.db.sql.prepare("SELECT id FROM access_mail_outbox WHERE status='pending'").all() : undefined;
+    const oldInvocation = (async () => {
+      await gate;
+      const candidates = selected ?? f.db.sql.prepare("SELECT id FROM access_mail_outbox WHERE status='pending'").all();
+      for (const row of candidates) assert.deepEqual(await legacyClaim(f, String(row.id)), []);
+    })();
+    if (!heldCandidate) await f.store.enqueueInvitation(1, false);
+    const before = f.rows();
+    release(); await oldInvocation;
+    assert.deepEqual(f.rows(), before);
+    assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 0));
+    assert.equal((await f.store.dispatch()).sent, 1);
+    assert.equal(f.calls.length, 1);
+  }
+});
+
+test('competing old/new claims send once and charge once whichever dispatcher runs first', async t => {
+  for (const oldFirst of [true, false]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    const old = () => legacyClaim(f, 'invite:email:1');
+    await Promise.all(oldFirst ? [old(), f.store.dispatch()] : [f.store.dispatch(), old()]);
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.rows()[0].attempts, 1);
+    assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 1));
+  }
+});
+
+test('legacy v1 remains claimable by an old dispatcher; a delayed new retry preserves legacy bytes', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  f.db.sql.exec('UPDATE access_mail_templates SET version=1');
+  const rows = await legacyClaim(f, 'invite:email:1');
+  assert.equal(rows.length, 1);
+  const originalBody = JSON.stringify({ from: ENV.RESEND_FROM, to: ['person1@example.com'], reply_to: 'support@fxaeon.com',
+    subject: 'Your FxAeon invitation is ready', text: 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.\n\nhttps://t.me/FxAeonBot/app' });
+  assert.equal((await f.make().dispatch()).sent, 0, 'an in-flight legacy lease cannot be stolen');
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='pending',lease_until=NULL WHERE id=? AND claim=?").run('invite:email:1', rows[0].claim as string);
+  f.advance(120_000);
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.calls[0].init.body, originalBody);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), 'access-mail/invite:email:1');
+  assert.equal(f.calls[0].body.html, undefined);
+});
+
+test('old lease recovery is allowed but its v2 reclaim is blocked; a new retry retains the body/key', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  f.respond(() => { f.db.failAt = 0; return Response.json({ id: 'accepted' }); });
+  await assert.rejects(f.store.dispatch(), { message: 'notification_storage_unavailable' });
+  assert.equal(f.rows()[0].status, 'sending');
+  f.advance(60_001);
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='pending' WHERE status='sending' AND lease_until<=?").run(f.now());
+  assert.equal(f.rows()[0].status, 'pending');
+  const before = f.rows()[0];
+  assert.deepEqual(await legacyClaim(f, 'invite:email:1'), []);
+  assert.deepEqual(f.rows()[0], before);
+  assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 1));
+  f.respond(() => Response.json({ id: 'accepted' }));
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.calls[0].init.body, f.calls[1].init.body);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  assert.ok(f.db.sql.prepare('SELECT used FROM access_mail_budgets').all().every(row => row.used === 2));
+});
+
+test('fence installation failure rolls back mail initialization and prevents a sendable v2 enqueue', async t => {
+  const db = new SQLiteDB(); t.after(() => db.sql.close());
+  const admission = new Store(db); await admission.init(); await admission.join(1, false);
+  let sends = 0;
+  const store = new NotificationStore(db, ENV, { fetch: async () => { sends++; throw Error('unexpected network'); } });
+  db.failAt = 7; // The trigger statement, after the additive template table.
+  await assert.rejects(store.init(), { message: 'notification_storage_unavailable' });
+  assert.equal(db.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE name LIKE 'access_mail_%'").get()!.n, 0);
+  await assert.rejects(store.setContact(1, 'person@example.com'), { message: 'notification_storage_unavailable' });
+  assert.equal(sends, 0);
+  await store.init();
+  assert.equal(db.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE type='trigger' AND name='access_mail_v2_claim_fence'").get()!.n, 1);
+});
+
+test('new emails default to v2 after idempotent installation of the durable claim fence', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  await f.admission.join(2, false); await f.store.setContact(2, 'person2@example.com');
+  assert.deepEqual(f.db.sql.prepare('SELECT version FROM access_mail_templates').all().map(row => row.version), [2, 2]);
+  const before = f.rows();
+  await f.make().init(); await f.make().init();
+  assert.deepEqual(f.rows(), before);
+  assert.equal(f.db.sql.prepare("SELECT count(*) n FROM sqlite_master WHERE type='trigger' AND name='access_mail_v2_claim_fence'").get()!.n, 1);
+  await f.store.dispatch();
+  assert.equal(f.calls.length, 2);
+  assert.ok(f.calls.every(call => typeof call.body.html === 'string'));
+});
+
+test('version selection and insertion are atomic across concurrent enqueue and claim', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1);
+  await Promise.all([f.store.enqueueInvitation(1, false), f.make().enqueueInvitation(1, false)]);
+  assert.equal(f.rows().length, 1);
+  assert.equal(f.db.sql.prepare('SELECT version FROM access_mail_templates').get()!.version, 2);
+  await Promise.all([f.store.dispatch(), f.make().dispatch()]);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.rows()[0].attempts, 1);
+  assert.equal(typeof f.calls[0].body.html, 'string');
+});
+
+test('an old selected candidate is never retagged by v2 reconciliation, including unversioned unattempted rows', async t => {
+  for (const unversioned of [false, true]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    if (unversioned) f.db.sql.exec('DELETE FROM access_mail_templates');
+    else f.db.sql.exec('UPDATE access_mail_templates SET version=1');
+    let release!: () => void; let selected!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const ready = new Promise<void>(resolve => { selected = resolve; });
+    f.db.afterCandidates = async () => { f.db.afterCandidates = undefined; selected(); await gate; };
+    f.respond(() => new Response(null, { status: 503 }));
+    const oldDispatch = f.store.dispatch();
+    await ready;
+    try {
+      await f.make().enqueueInvitation(1, false);
+      const pinned = f.db.sql.prepare('SELECT version FROM access_mail_templates').get();
+      assert.equal(pinned?.version, unversioned ? undefined : 1);
+    } finally { release(); }
+    await oldDispatch;
+    assert.equal(f.calls[0].body.html, undefined);
+    f.advance(60_001); f.respond(() => Response.json({ id: 'accepted' }));
+    await f.make().dispatch();
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[1].init.body, f.calls[0].init.body);
+    assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), new Headers(f.calls[0].init.headers).get('Idempotency-Key'));
+  }
+});
 
 test('delivery status distinguishes queued, provider acceptance and verified contact without secrets', async t => {
   const f = await fixture(t);
@@ -167,7 +407,7 @@ test('verification is generic, hashed at rest, explicit-confirmation only, singl
   assert.equal(f.calls.length, 0);
   assert.deepEqual(await f.store.dispatch(), { sent: 1, failed: 0, deferred: 0, uncertain: 0 });
   const value = token(f.calls[0]);
-  assert.match(f.calls[0].body.text, /select Confirm email/);
+  assert.match(f.calls[0].body.text, /choose Confirm email/);
   assert.equal(f.calls[0].body.reply_to, 'support@fxaeon.com');
   assert.equal(JSON.stringify(f.rows()).includes(value), false);
   assert.equal(JSON.stringify(f.db.sql.prepare('SELECT * FROM access_mail_contacts').all()).includes(value), false);
@@ -270,30 +510,32 @@ test('bare bot configuration produces direct email launchers and private Telegra
   await f.approve(); f.verified(1); await f.store.enqueueInvitation(1, true);
   assert.ok(f.rows().every(row => row.link === 'https://t.me/FxAeonBot?startapp'));
   assert.equal((await f.store.dispatch()).sent, 2);
-  assert.equal(f.calls.find(call => call.url.includes('resend'))!.body.text, `${INVITATION_TEXT}\n\nhttps://t.me/FxAeonBot?startapp`);
+  const email = f.calls.find(call => call.url.includes('resend'))!;
+  assert.deepEqual(email.body, { from: ENV.RESEND_FROM, to: ['person1@example.com'], reply_to: 'support@fxaeon.com',
+    ...renderNotificationEmailV2({ kind: 'invitation', url: 'https://t.me/FxAeonBot?startapp' }) });
   assert.deepEqual(f.calls.find(call => call.body.chat_id)!.body.reply_markup.inline_keyboard,
     [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]]);
 });
 
-test('legacy pending invitation links normalize at send without replaying sent rows or resetting retries', async t => {
+test('ambiguous attempted bare-bot legacy invitations are held without a provider call or replay of sent rows', async t => {
   const f = await fixture(t);
   await f.approve(1); f.verified(1); await f.store.enqueueInvitation(1, true);
   await f.approve(2); await f.store.enqueueInvitation(2, true);
   f.db.sql.prepare("UPDATE access_mail_outbox SET link='https://t.me/FxAeonBot'").run();
   f.db.sql.prepare("UPDATE access_mail_outbox SET status='sent',attempts=1,first_attempt=? WHERE user_id=2").run(f.now());
   f.db.sql.prepare("UPDATE access_mail_outbox SET attempts=1,first_attempt=? WHERE user_id=1 AND channel='email'").run(f.now());
+  f.db.sql.exec('DELETE FROM access_mail_templates');
   const before = f.rows().find(row => row.user_id === 2);
-  assert.equal((await f.store.dispatch()).sent, 2);
-  const email = f.calls.find(call => call.url.includes('resend'))!;
-  assert.equal(email.body.text, `${INVITATION_TEXT}\n\nhttps://t.me/FxAeonBot?startapp`);
-  assert.equal(new Headers(email.init.headers).get('Idempotency-Key'), 'access-mail/invite:email:1');
+  assert.deepEqual(await f.store.dispatch(), { sent: 1, failed: 0, uncertain: 1, deferred: 0 });
+  assert.equal(f.calls.some(call => call.url.includes('resend')), false);
+  assert.deepEqual(f.diagnostics, [{ channel: 'email', kind: 'invitation', attempt: 2, outcome: 'uncertain', reason: 'legacy_invitation_payload_unknown' }]);
   assert.equal(f.rows().find(row => row.id === 'invite:email:1').attempts, 2);
   assert.deepEqual(f.calls.find(call => call.body.chat_id)!.body.reply_markup.inline_keyboard,
     [[{ text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } }]]);
   assert.deepEqual(f.rows().find(row => row.user_id === 2), before);
   await f.store.enqueueInvitation(1, true); await f.store.enqueueInvitation(2, true);
   assert.equal((await f.make().dispatch()).sent, 0);
-  assert.equal(f.calls.length, 2);
+  assert.equal(f.calls.length, 1);
 });
 
 test('existing direct email Mini App links retain their reviewed path and start parameter', async t => {
@@ -302,8 +544,24 @@ test('existing direct email Mini App links retain their reviewed path and start 
     const f = await fixture(t, { TELEGRAM_MINIAPP_URL: link });
     await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
     await f.store.dispatch();
-    assert.equal(f.calls[0].body.text, `${INVITATION_TEXT}\n\n${link}`);
+    assert.deepEqual(f.calls[0].body, { from: ENV.RESEND_FROM, to: ['person1@example.com'], reply_to: 'support@fxaeon.com',
+      ...renderNotificationEmailV2({ kind: 'invitation', url: link }) });
   }
+});
+
+test('lease recovery cannot replay an ambiguous legacy bare-bot invitation', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  f.db.sql.exec('DELETE FROM access_mail_templates');
+  f.db.sql.prepare(`UPDATE access_mail_outbox SET status='sending',attempts=1,first_attempt=?,lease_until=?,link='https://t.me/FxAeonBot'`)
+    .run(f.now(), f.now() + 60_000);
+  f.advance(120_000);
+  assert.equal((await f.make().dispatch()).uncertain, 1);
+  assert.equal(f.rows()[0].id, 'invite:email:1');
+  assert.equal(f.rows()[0].status, 'uncertain');
+  await f.make().enqueueInvitation(1, false); await f.make().dispatch();
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.rows().length, 1);
 });
 
 test('dispatch rechecks consent and verified destination; stale contacts cannot starve eligible Telegram', async t => {
@@ -341,6 +599,184 @@ test('Resend retries identical payload and idempotency key after uncertain failu
   assert.equal(f.calls[0].init.body, f.calls[1].init.body);
   assert.equal((f.calls[0].init.headers as any)['Idempotency-Key'], (f.calls[1].init.headers as any)['Idempotency-Key']);
   assert.equal((await f.admission.status(1))!.state, 'approved');
+});
+
+test('only Resend concurrent_idempotent_requests 409 retries the identical payload/key without provider details', async t => {
+  for (const kind of ['verification', 'invitation'] as const) {
+    const f = await fixture(t);
+    if (kind === 'verification') {
+      await f.admission.join(1, false); await f.store.setContact(1, 'person@example.com');
+    } else {
+      await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    }
+    f.respond(() => Response.json({ name: 'concurrent_idempotent_requests', message: 'PRIVATE_PROVIDER_TEXT person@example.com' }, { status: 409 }));
+    const outcome = await f.store.dispatch();
+    assert.deepEqual(outcome, { sent: 0, failed: 0, deferred: 1, uncertain: 0 });
+    assert.deepEqual(f.diagnostics, [{ channel: 'email', kind, attempt: 1, outcome: 'pending', reason: 'provider_request_in_progress', httpStatus: 409 }]);
+    assert.doesNotMatch(JSON.stringify({ outcome, diagnostics: f.diagnostics }), /PRIVATE_PROVIDER_TEXT|person@example\.com/);
+    await f.make().dispatch(); assert.equal(f.calls.length, 1);
+    f.advance(60_001); f.respond(() => Response.json({ id: 'accepted' }));
+    assert.equal((await f.make().dispatch()).sent, 1);
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[0].init.body, f.calls[1].init.body);
+    assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  }
+});
+
+test('Resend concurrent 409 still respects attempt and retention limits', async t => {
+  for (const retention of [false, true]) {
+    const f = await fixture(t);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    f.respond(() => Response.json({ name: 'concurrent_idempotent_requests' }, { status: 409 }));
+    await f.store.dispatch();
+    if (retention) f.advance(23 * 3_600_000);
+    else {
+      f.advance(60_001); await f.make().dispatch();
+      f.advance(120_001); await f.make().dispatch();
+    }
+    await f.make().dispatch();
+    assert.equal(f.rows()[0].status, 'uncertain');
+    assert.equal(f.calls.length, retention ? 1 : 3);
+    f.advance(24 * 3_600_000); await f.make().dispatch();
+    assert.equal(f.calls.length, retention ? 1 : 3);
+  }
+});
+
+test('collision, unknown, malformed, oversized and stalled 409 bodies never trigger automatic retry or expose raw details', async t => {
+  const responses = [
+    () => Response.json({ name: 'invalid_idempotent_request', message: 'PRIVATE_PROVIDER_TEXT' }, { status: 409 }),
+    () => Response.json({ name: 'unknown_private_error', message: 'PRIVATE_PROVIDER_TEXT' }, { status: 409 }),
+    () => Response.json({ name: 'concurrent_idempotent_requests ' }, { status: 409 }),
+    () => new Response('PRIVATE_PROVIDER_TEXT', { status: 409 }),
+    () => Response.json({ name: 'concurrent_idempotent_requests', message: 'x'.repeat(16_384) }, { status: 409 }),
+    () => new Response(new ReadableStream({ start() {} }), { status: 409 }),
+  ];
+  for (const respond of responses) {
+    const f = await fixture(t, {}, 50);
+    await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    f.respond(respond);
+    const outcome = await f.store.dispatch();
+    assert.equal(outcome.failed, 1);
+    assert.deepEqual(f.diagnostics, [{ channel: 'email', kind: 'invitation', attempt: 1, outcome: 'failed', reason: 'provider_idempotency_conflict', httpStatus: 409 }]);
+    assert.doesNotMatch(JSON.stringify({ outcome, diagnostics: f.diagnostics }), /PRIVATE_PROVIDER_TEXT|unknown_private_error/);
+    f.advance(24 * 3_600_000);
+    await f.make().enqueueInvitation(1, false); await f.make().dispatch();
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.rows().length, 1);
+  }
+});
+
+test('previously attempted legacy verification and direct invitation payloads survive delayed retries unchanged', async t => {
+  for (const kind of ['verification', 'invitation'] as const) {
+    const f = await fixture(t);
+    if (kind === 'verification') {
+      await f.admission.join(1, false); await f.store.setContact(1, 'person@example.com');
+    } else {
+      await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    }
+    f.db.sql.exec('DELETE FROM access_mail_templates');
+    f.db.sql.prepare('UPDATE access_mail_outbox SET attempts=1,first_attempt=?').run(f.now());
+    f.advance(5 * 60_000);
+    f.respond(() => new Response(null, { status: 503 }));
+    await f.store.dispatch();
+    const first = f.calls[0];
+    const expectedText = kind === 'verification'
+      ? `Confirm your email address for FxAeon invitations.\n\nhttps://fxaeon.com/invite#token=${token(first)}\n\nOpen the link and select Confirm email to complete verification. This link expires in one hour. Opening it alone does not confirm your email. If you did not request this, ignore this email.`
+      : `Your FxAeon invitation is ready. Open the miniapp to set up your wallet.\n\n${ENV.TELEGRAM_MINIAPP_URL}`;
+    assert.deepEqual(first.body, { from: ENV.RESEND_FROM, to: [kind === 'verification' ? 'person@example.com' : 'person1@example.com'],
+      reply_to: 'support@fxaeon.com', subject: kind === 'verification' ? 'Confirm your FxAeon email address' : 'Your FxAeon invitation is ready', text: expectedText });
+    f.advance(15 * 60_000);
+    f.env.RESEND_FROM = 'New sender <updates@fxaeon.com>';
+    f.respond(() => Response.json({ id: 'accepted' }));
+    await f.make().dispatch();
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[1].init.body, first.init.body);
+    assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), new Headers(first.init.headers).get('Idempotency-Key'));
+  }
+});
+
+test('new verification and invitation emails pin v2 at enqueue and retain HTML, text, inputs and keys across delayed retries', async t => {
+  for (const kind of ['verification', 'invitation'] as const) {
+    const f = await fixture(t, { TELEGRAM_MINIAPP_URL: 'https://t.me/FxAeonBot' });
+    const requested = f.now();
+    if (kind === 'verification') {
+      await f.admission.join(1, false); await f.store.setContact(1, 'person@example.com');
+    } else {
+      await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+    }
+    const queued = f.rows()[0];
+    assert.deepEqual(f.db.sql.prepare('SELECT * FROM access_mail_templates').all().map(row => ({ ...row })), [{ outbox_id: queued.id, version: 2 }]);
+    assert.equal(f.calls.length, 0);
+    f.advance(5 * 60_000);
+    f.respond(() => { throw Error('ambiguous private provider error'); });
+    assert.equal((await f.store.dispatch()).deferred, 1);
+    const first = f.calls[0];
+    const url = kind === 'verification' ? `https://fxaeon.com/invite#token=${token(first)}` : 'https://t.me/FxAeonBot?startapp';
+    const expected = renderNotificationEmailV2(kind === 'verification'
+      ? { kind, url, expiresAt: requested + 3_600_000 } : { kind, url });
+    assert.deepEqual(first.body, { from: ENV.RESEND_FROM, to: [kind === 'verification' ? 'person@example.com' : 'person1@example.com'],
+      reply_to: 'support@fxaeon.com', ...expected });
+    f.advance(15 * 60_000);
+    f.env.RESEND_FROM = 'Changed sender <updates@fxaeon.com>';
+    f.env.TELEGRAM_MINIAPP_URL = 'https://t.me/AnotherBot/app';
+    const restarted = f.make(); await restarted.init();
+    if (kind === 'invitation') await restarted.enqueueInvitation(1, false);
+    f.respond(() => Response.json({ id: 'accepted' }));
+    assert.equal((await restarted.dispatch()).sent, 1);
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[1].init.body, first.init.body);
+    assert.equal(new Headers(f.calls[1].init.headers).get('Idempotency-Key'), `access-mail/${queued.id}`);
+    assert.equal(new Headers(first.init.headers).get('Idempotency-Key'), `access-mail/${queued.id}`);
+    assert.equal(f.rows()[0].attempts, 2);
+    if (kind === 'invitation') await restarted.enqueueInvitation(1, false);
+    else {
+      await restarted.retryVerification(1);
+      assert.equal(JSON.stringify(f.rows()).includes(token(first)), false);
+    }
+    assert.equal((await f.make().dispatch()).sent, 0);
+    assert.equal(f.calls.length, 2, 'successful messages are never replayed');
+  }
+});
+
+test('additive migration preserves old rows; an unattempted bare invitation pins legacy normalization before send and retries it unchanged', async t => {
+  const f = await fixture(t);
+  await f.approve(1, false); f.verified(1); await f.store.enqueueInvitation(1, false);
+  await f.approve(2, false); f.verified(2); await f.store.enqueueInvitation(2, false);
+  f.db.sql.exec("UPDATE access_mail_outbox SET link='https://t.me/FxAeonBot'");
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sent',attempts=1,first_attempt=? WHERE user_id=2").run(f.now());
+  f.db.sql.exec('DROP TABLE access_mail_templates');
+  const before = f.rows();
+  const restarted = f.make(); await restarted.init(); await f.make().init();
+  assert.deepEqual(f.rows(), before, 'migration neither rewrites old outbox rows nor requeues sent ones');
+  f.respond(() => new Response(null, { status: 503 }));
+  assert.equal((await restarted.dispatch()).deferred, 1);
+  assert.equal(f.calls[0].body.text, 'Your FxAeon invitation is ready. Open the miniapp to set up your wallet.\n\nhttps://t.me/FxAeonBot?startapp');
+  assert.equal(f.calls[0].body.html, undefined);
+  assert.deepEqual(f.db.sql.prepare('SELECT * FROM access_mail_templates').all().map(row => ({ ...row })), [{ outbox_id: 'invite:email:1', version: 1 }]);
+  f.advance(4 * 3_600_000);
+  f.respond(() => Response.json({ id: 'accepted' }));
+  assert.equal((await f.make().dispatch()).sent, 1);
+  assert.equal(f.calls[0].init.body, f.calls[1].init.body);
+  assert.equal(new Headers(f.calls[0].init.headers).get('Idempotency-Key'), new Headers(f.calls[1].init.headers).get('Idempotency-Key'));
+  assert.deepEqual(f.rows().find(row => row.user_id === 2), before.find(row => row.user_id === 2));
+  await f.make().enqueueInvitation(2, false); await f.make().dispatch();
+  assert.equal(f.calls.length, 2);
+});
+
+test('enqueue and template selection commit atomically and a missing formatter write never leaves a sendable new row', async t => {
+  const f = await fixture(t);
+  await f.admission.join(1, false);
+  f.db.failAt = 4;
+  await assert.rejects(f.store.setContact(1, 'person@example.com'), { message: 'notification_storage_unavailable' });
+  assert.equal(f.rows().length, 0);
+  assert.equal(f.db.sql.prepare('SELECT count(*) n FROM access_mail_templates').get()!.n, 0);
+  await f.approve(1, false); f.verified(1);
+  f.db.failAt = 1;
+  await assert.rejects(f.store.enqueueInvitation(1, false), { message: 'notification_storage_unavailable' });
+  assert.equal(f.rows().length, 0);
+  assert.equal(f.db.sql.prepare('SELECT count(*) n FROM access_mail_templates').get()!.n, 0);
+  assert.equal((await f.store.dispatch()).sent, 0);
+  assert.equal(f.calls.length, 0);
 });
 
 test('Resend stops after three attempts and never retries past provider idempotency retention', async t => {
@@ -401,7 +837,8 @@ test('permanent provider rejection records failure, returns no provider detail a
 test('crash recovery retries email within its retention window, holds Telegram and exhausts attempt caps', async t => {
   const f = await fixture(t);
   await f.approve(); f.verified(1); await f.store.enqueueInvitation(1, true);
-  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sending', attempts=1, first_attempt=?,lease_until=?").run(f.now(), f.now() + 60_000);
+  f.db.sql.prepare("UPDATE access_mail_outbox SET status='sending', attempts=1, first_attempt=?,lease_until=?,claim=?")
+    .run(f.now(), f.now() + 60_000, `mail-v2:${crypto.randomUUID()}`);
   await f.make().dispatch(); assert.equal(f.calls.length, 0);
   f.advance(60_000); await f.make().dispatch();
   assert.equal(f.calls.length, 1); assert.match(f.calls[0].url, /resend/);

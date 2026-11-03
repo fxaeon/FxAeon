@@ -19,7 +19,7 @@
 .network { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; margin-left: auto; color: var(--mut); font-size: 13px; }
 .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; align-items: start; }
 .metrics dt { grid-column: 1; align-self: center; min-width: 0; color: var(--mut); font-size: 14px; }
-.metrics dd { grid-column: 2; min-width: 0; margin: 0; color: var(--text); font-size: clamp(21px, 3vw, 28px); line-height: 1.15; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.metrics dd { letter-spacing: normal; grid-column: 2; min-width: 0; margin: 0; color: var(--text); font-size: clamp(21px, 3vw, 28px); line-height: 1.15; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
 .metrics small { grid-column: 1 / -1; display: block; color: var(--mut); font-size: 12px; line-height: 1.35; }
 .metrics > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 1px; min-width: 0; }
 .metrics .retryLimit { grid-column: 1 / -1; }
@@ -50,6 +50,7 @@
 .helper { margin: 0; color: var(--mut); font-size: var(--fs-small); line-height: 1.5; }
 .editor > .helper { max-width: 54ch; }
 .card :global([data-amount-field='unified']) { padding: 0; }
+.workspace .card :global(.amount-control button[aria-haspopup="dialog"]) { background: var(--surface-2); }
 .workspace .card :global(.amount-control) { padding: 14px; border-radius: 22px; background: var(--surface); --amount-ring: none; --amount-max-size: 40px; }
 .viewTabs :global(.segmented) { border: 0; border-radius: 16px; background: var(--surface); }
 .workspace .card .viewTabs :global(.segmented[data-thumb])::before { border-radius: 12px; background: var(--surface-2); box-shadow: none; }
@@ -140,16 +141,15 @@
 
 @media (min-width: 840px) {
   .metrics > div { grid-template-columns: minmax(0, 1fr); row-gap: 4px; }
-  .metrics dt, .metrics dd { grid-column: 1; text-align: left; }
+  .metrics dt, .metrics dd { letter-spacing: normal; grid-column: 1; text-align: left; }
 }
 @media (min-width: 840px) and (max-width: 1199px) {
   .metrics { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 1200px) {
-  /* Preserve the form-first DOM order while each column continues below its
-     own summary. The empty flexible track absorbs extra funding-chart height after the
-     sensitivity, instead of inserting space above it. */
-  .layout { grid-template-areas: 'overview action' 'funding action' 'funding sensitivity' 'funding .' 'terms terms'; grid-template-rows: max-content min-content max-content auto min-content; row-gap: 24px; }
+  /* Keep the market overview and form together as the first stage; funding
+     context and the optional scenario follow the taller column. */
+  .layout:not([data-review='true']) { grid-template-areas: 'overview action' 'funding sensitivity' 'funding .' 'terms terms'; grid-template-rows: max-content max-content auto min-content; row-gap: 24px; }
   .details { display: contents; }
   .details > section { margin-bottom: 0; }
   .details > section:first-child { grid-area: funding; }

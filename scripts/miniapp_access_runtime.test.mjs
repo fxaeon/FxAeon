@@ -39,6 +39,32 @@ test('workerd native fetch receiver and real notification/Privy transports', asy
         await store.setContact(1, 'recipient@example.com');
         return Response.json({ dispatch: await store.dispatch(), delivery: await store.verificationStatus(1) });
       }
+      if (path === '/notification-fence') {
+        await env.DB.prepare('INSERT INTO admission_users VALUES (2, NULL, 0)').run();
+        const store = new NotificationStore(env.DB, {
+          RESEND_API_KEY: 're_synthetic_never_live', RESEND_FROM: 'Fixture <test@example.com>'
+        });
+        await store.init(); await store.setContact(2, 'recipient2@example.com');
+        const row = await env.DB.prepare('SELECT * FROM access_mail_outbox WHERE user_id=2').first();
+        const now = Date.now(), day = 'day:' + new Date(now).toISOString().slice(0,10), month = 'month:' + new Date(now).toISOString().slice(0,7);
+        await env.DB.prepare('INSERT INTO access_mail_budgets(period) VALUES(?),(?) ON CONFLICT(period) DO NOTHING').bind(day,month).run();
+        const budgets = async () => (await env.DB.prepare('SELECT period,used FROM access_mail_budgets ORDER BY period').all()).results;
+        const before = await budgets();
+        const claim = crypto.randomUUID();
+        const old = await env.DB.batch([
+          env.DB.prepare('INSERT INTO access_mail_budgets(period) VALUES(?),(?) ON CONFLICT(period) DO NOTHING').bind(day,month),
+          env.DB.prepare("UPDATE access_mail_outbox SET status='sending',attempts=attempts+1,first_attempt=coalesce(first_attempt,?),lease_until=?,claim=? WHERE id=? AND status='pending' AND attempts<3 RETURNING *").bind(now,now+60000,claim,row.id),
+          env.DB.prepare("UPDATE access_mail_budgets SET used=used+1 WHERE period IN (?,?) AND EXISTS(SELECT 1 FROM access_mail_outbox WHERE id=? AND claim=? AND channel='email')").bind(day,month,row.id,claim),
+        ]);
+        const unchanged = JSON.stringify(row) === JSON.stringify(await env.DB.prepare('SELECT * FROM access_mail_outbox WHERE user_id=2').first());
+        const budgetUnchanged = JSON.stringify(before) === JSON.stringify(await budgets());
+        const dispatch = await store.dispatch();
+        const after = await env.DB.prepare('SELECT * FROM access_mail_outbox WHERE user_id=2').first();
+        const afterBudget = await budgets();
+        return Response.json({ oldRows: old[1].results.length, unchanged, budgetUnchanged, dispatch,
+          attempts: after.attempts, prefixed: after.claim.startsWith('mail-v2:'),
+          chargedOnce: afterBudget.every((row,index) => row.used === before[index].used + 1) });
+      }
       if (path === '/privy') {
         const api = new PrivyWalletApi('testapp000000000000000000', 'synthetic-never-live');
         const wallet = { id: 'wallet-1', address: '0x' + 'ab'.repeat(20), verified: true };
@@ -111,6 +137,14 @@ test('workerd native fetch receiver and real notification/Privy transports', asy
       delivery: { state: 'accepted', retryAfterMs: null },
     });
     assert.equal(outbound.filter(call => call.url === 'https://api.resend.com/emails').length, 1);
+  });
+  await t.test('real D1 trigger ignores legacy RETURNING and budget charge, then permits one native v2 send', async () => {
+    assert.deepEqual(await get('/notification-fence'), {
+      oldRows: 0, unchanged: true, budgetUnchanged: true,
+      dispatch: { sent: 1, failed: 0, deferred: 0, uncertain: 0 },
+      attempts: 1, prefixed: true, chargedOnce: true,
+    });
+    assert.equal(outbound.filter(call => call.url === 'https://api.resend.com/emails').length, 2);
   });
   await t.test('Privy default transport works for signed POST and reference GET', async () => {
     assert.deepEqual(await get('/privy'), { hash: HASH, recovered: HASH });
