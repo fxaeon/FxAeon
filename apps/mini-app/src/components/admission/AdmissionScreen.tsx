@@ -1,0 +1,173 @@
+'use client';
+
+import { useId } from 'react';
+import { ArrowRight, ArrowUpRight, Check } from 'lucide-react';
+import FxLogo from '../FxLogo';
+import styles from './AdmissionScreen.module.css';
+
+export type AdmissionScreenState =
+  | 'intro' | 'full' | 'waiting' | 'alerts-off' | 'email' | 'verify' | 'verified'
+  | 'invited' | 'passkey' | 'ready' | 'setup-error' | 'join-error' | 'checking';
+
+export type AdmissionAction =
+  | 'join' | 'open-web' | 'done' | 'allow-notifications' | 'add-email'
+  | 'submit-email' | 'back-to-waitlist' | 'setup-wallet' | 'defer-setup'
+  | 'create-passkey' | 'back-to-invitation' | 'open-app' | 'retry-setup' | 'retry-join';
+
+type CommonProps = {
+  /** Only confirmed permission may produce Telegram delivery copy. */
+  notificationPermission?: 'granted' | 'denied' | 'unknown';
+  /** The parent owns all effects, navigation, failures and state transitions. */
+  onAction: (action: AdmissionAction) => void;
+  busy?: boolean;
+  /** A user-facing failure from the parent, never a raw backend exception. */
+  error?: string;
+  /** Omitted unless the parent supplies a support destination. */
+  supportHref?: string;
+};
+
+export type AdmissionScreenProps = CommonProps & (
+  | { state: 'email'; email: string; onEmailChange: (email: string) => void }
+  | { state: Exclude<AdmissionScreenState, 'email'>; email?: string; onEmailChange?: (email: string) => void }
+);
+
+type Action = { label: string; action: AdmissionAction };
+type Copy = { title: string; lead: string; detail?: string; primary?: Action; secondary?: Action; confirmed?: boolean };
+
+const COPY: Record<AdmissionScreenState, Copy> = {
+  intro: {
+    title: 'Join early access.', lead: 'We’ll invite you once you’re approved.',
+    primary: { label: 'Join', action: 'join' },
+    secondary: { label: 'Use FxAeon on the web', action: 'open-web' },
+  },
+  full: {
+    title: 'Early access\nis full.', lead: 'Join the waitlist for a future opening.',
+    primary: { label: 'Join the waitlist', action: 'join' },
+    secondary: { label: 'Use FxAeon on the web', action: 'open-web' },
+  },
+  waiting: {
+    title: 'You’re on\nthe waitlist.', lead: 'We’ll send you an invite once you’re approved.', confirmed: true,
+    primary: { label: 'Done', action: 'done' },
+    secondary: { label: 'Get an email too', action: 'add-email' },
+  },
+  'alerts-off': {
+    title: 'You’re on\nthe waitlist.', lead: 'We’ll send you an invite once you’re approved.', confirmed: true,
+    detail: 'Allow Telegram invites, add an email, or check back here.',
+    primary: { label: 'Allow Telegram invites', action: 'allow-notifications' },
+    secondary: { label: 'Use email instead', action: 'add-email' },
+  },
+  email: {
+    title: 'Your invite,\nby email.', lead: 'Add an email for your invitation. This is optional.',
+    primary: { label: 'Send confirmation link', action: 'submit-email' },
+    secondary: { label: 'Skip for now', action: 'back-to-waitlist' },
+  },
+  verify: {
+    title: 'Check your\ninbox.', lead: 'Use the confirmation link to verify your email address.',
+    primary: { label: 'Back to the waitlist', action: 'back-to-waitlist' },
+    secondary: { label: 'Use a different email', action: 'add-email' },
+  },
+  verified: {
+    title: 'You’re on\nthe waitlist.', lead: 'We’ll send you an invite once you’re approved.', confirmed: true,
+    detail: 'Your email is confirmed. We’ll send your invite there.',
+    primary: { label: 'Done', action: 'done' },
+    secondary: { label: 'Change email', action: 'add-email' },
+  },
+  invited: {
+    title: 'Your place\nis ready.', lead: 'Set up your wallet to get started.',
+    primary: { label: 'Set up my wallet', action: 'setup-wallet' },
+    secondary: { label: 'Set up later', action: 'defer-setup' },
+  },
+  passkey: {
+    title: 'Secure\nyour wallet.', lead: 'Create a passkey with your fingerprint, face, or device PIN.',
+    detail: 'Keep your passkey synced or backed up so you can use it again.',
+    primary: { label: 'Create passkey', action: 'create-passkey' },
+    secondary: { label: 'Back', action: 'back-to-invitation' },
+  },
+  ready: {
+    title: 'You’re in.', lead: 'Your wallet is ready.', confirmed: true,
+    primary: { label: 'Open FxAeon', action: 'open-app' },
+  },
+  'setup-error': {
+    title: 'Let’s try again.', lead: 'We couldn’t confirm wallet setup. Check again when you’re ready.',
+    primary: { label: 'Try setup again', action: 'retry-setup' },
+    secondary: { label: 'Set up later', action: 'defer-setup' },
+  },
+  'join-error': {
+    title: 'Let’s try again.', lead: 'We couldn’t confirm your place. Check your connection and try again.',
+    primary: { label: 'Try again', action: 'retry-join' },
+    secondary: { label: 'Use FxAeon on the web', action: 'open-web' },
+  },
+  checking: { title: 'Checking your access.', lead: 'One moment.' },
+};
+
+/** Presentation only: rendering or clicking never grants access or verifies an email. */
+export function AdmissionScreen(props: AdmissionScreenProps) {
+  const { state, notificationPermission = 'unknown', busy = false, error, supportHref, onAction } = props;
+  const id = useId();
+  const view = state === 'waiting' && notificationPermission === 'denied' ? 'alerts-off' : state;
+  const copy = COPY[view];
+  const pending = busy || state === 'checking';
+  const detail = view === 'waiting'
+    ? notificationPermission === 'granted'
+      ? 'Your invite will arrive in this Telegram chat.'
+      : 'Check back here for your invitation.'
+    : copy.detail;
+  const secondary = view === 'waiting' && notificationPermission !== 'granted'
+    ? { label: 'Get an email invite', action: 'add-email' as const }
+    : copy.secondary;
+
+  return (
+    <main className={styles.screen} data-admission-state={view} aria-labelledby={`${id}-title`}>
+      <div className={styles.panel}>
+        <header className={styles.header}>
+          <div className={styles.brand}><FxLogo size={32} /><span aria-hidden="true">FxAeon</span></div>
+          <span className={styles.context}>Telegram</span>
+        </header>
+        <div className={styles.content}>
+          <div className={styles.copy}>
+            <div className={styles.message} aria-live="polite" aria-atomic="true">
+              {copy.confirmed && <Check className={styles.mark} size={30} aria-hidden="true" />}
+              <h1 id={`${id}-title`} className={styles.title}>{copy.title}</h1>
+              {' '}
+              <p className={styles.lead}>{copy.lead}</p>
+            </div>
+            {state === 'email' && (
+              <form id={`${id}-email-form`} className={styles.emailForm} aria-label="Invitation email"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!pending) onAction('submit-email');
+                }}>
+                <label htmlFor={`${id}-email`}>Email address</label>
+                <input id={`${id}-email`} name="email" type="email" autoComplete="email"
+                  inputMode="email" autoCapitalize="none" spellCheck={false} maxLength={254} required
+                  placeholder="you@example.com" value={props.email} disabled={pending}
+                  onChange={(event) => props.onEmailChange(event.currentTarget.value)} />
+              </form>
+            )}
+          </div>
+          <div className={styles.actions} aria-busy={pending}>
+            {detail && <p className={styles.detail}>{detail}</p>}
+            {error && <p className={styles.error} role="alert">{error}</p>}
+            {busy && <p className={styles.detail} role="status">One moment…</p>}
+            {copy.primary && (
+              <button className={styles.primary} type={state === 'email' ? 'submit' : 'button'}
+                form={state === 'email' ? `${id}-email-form` : undefined} disabled={pending}
+                onClick={state === 'email' ? undefined : () => onAction(copy.primary!.action)}>
+                {copy.primary.label}<ArrowRight size={17} aria-hidden="true" />
+              </button>
+            )}
+            {secondary && (
+              <button className={styles.secondary} type="button" disabled={pending}
+                onClick={() => onAction(secondary.action)}>
+                {secondary.label}{secondary.action === 'open-web' && <ArrowUpRight size={17} aria-hidden="true" />}
+              </button>
+            )}
+          </div>
+        </div>
+        {supportHref && <footer className={styles.footer}><a href={supportHref}>Feedback &amp; reports</a></footer>}
+      </div>
+    </main>
+  );
+}
+
+export default AdmissionScreen;

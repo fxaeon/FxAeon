@@ -30,9 +30,6 @@ async function installTelegram(page: Page, telegram: boolean | TelegramShimOptio
 }
 
 export async function installMarketPrices(page: Page, enabled: boolean): Promise<void> {
-  // Historical yields are tested with explicit daily samples in their own suite.
-  await page.route('https://yields.llama.fi/**', route => route.abort('blockedbyclient'));
-  await page.route('https://api.llama.fi/chart/**', route => route.abort('blockedbyclient'));
   if (enabled) {
     // Keep price-context E2E assertions deterministic. The production app
     // still owns the Coinbase socket; this fixture only prevents a live
@@ -72,30 +69,7 @@ export async function installMarketPrices(page: Page, enabled: boolean): Promise
       };
     });
   }
-  await page.route("https://coins.llama.fi/**", async (route) => {
-    if (!enabled) return route.abort("blockedbyclient");
-    const encodedIds = new URL(route.request().url()).pathname.split("/prices/current/")[1] ?? "";
-    const ids = decodeURIComponent(encodedIds).split(",").filter(Boolean);
-    const timestamp = Math.floor(Date.now() / 1000);
-    const coins = Object.fromEntries(ids.map((id) => {
-      const normalised = id.toLowerCase();
-      const price = normalised.includes("2260fac5e5542a773aa44fbcfedf7c193bc2c599")
-        ? 104_000
-        : normalised.includes("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
-          ? 2_400
-          : normalised.includes("ae7ab96520de3a18e5e111b5eaab095312d7fe84")
-            ? 2_400
-          : normalised.includes("7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0")
-              ? 2_850
-              : normalised.includes("365accfca291e7d3914637abf1f7635db165bb09")
-                ? 26
-              : 1;
-      return [id, { price, timestamp, confidence: 0.99 }];
-    }));
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ coins }) });
-  });
-
-  // f(x)'s price service supplies FXN and fxUSD; the same fixed quotes as the DefiLlama mock above.
+  // Official snapshots lead; individual CoinGecko contracts fill RPC gaps.
   await page.route("https://api.aladdin.club/api/coingecko/price", async (route) => {
     if (!enabled) return route.abort("blockedbyclient");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: 200, data: { FXN: { usd: 26 }, fxUSD: { usd: 1 } } }) });
@@ -104,6 +78,13 @@ export async function installMarketPrices(page: Page, enabled: boolean): Promise
   await page.route("https://api.coingecko.com/**", async (route) => {
     if (!enabled) return route.abort("blockedbyclient");
     const url = new URL(route.request().url());
+    if (url.pathname === '/api/v3/simple/token_price/ethereum') {
+      const address = url.searchParams.get('contract_addresses')?.toLowerCase() ?? '';
+      const price = address.startsWith('0x2260fac5') ? 104_000
+        : address.startsWith('0xc02aaa39') || address.startsWith('0xae7ab965') ? 2_400
+        : address.startsWith('0x7f39c581') ? 2_850 : address.startsWith('0x365accfc') ? 26 : 1;
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ [address]: { usd: price, last_updated_at: Math.floor(Date.now() / 1000) } }) });
+    }
     const marketId = url.pathname.match(/\/coins\/([^/]+)\/market_chart$/)?.[1];
     if (marketId !== "ethereum" && marketId !== "bitcoin") return route.abort("blockedbyclient");
     const days = Math.max(1, Math.min(30, Number(url.searchParams.get("days")) || 1));

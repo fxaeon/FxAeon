@@ -1,4 +1,37 @@
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 const PLACEHOLDER = /YOUR_|your_|PLACEHOLDER|placeholder|CHANGE_ME|change_me|REPLACE_ME|replace_me|EXAMPLE|example/;
+
+/** Both flags are inert by default. A review marker is required before either passkey path can activate. */
+export function validateWalletActivation(env = {}) {
+  const publicMode = env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off';
+  const serverMode = env.MINIAPP_ACCESS_MODE || 'waitlist';
+  if (!['off', 'passkey'].includes(publicMode)) throw new Error('NEXT_PUBLIC_TELEGRAM_WALLET_MODE must be "off", "passkey", or unset');
+  if (!['waitlist', 'passkey'].includes(serverMode)) throw new Error('MINIAPP_ACCESS_MODE must be "waitlist", "passkey", or unset');
+  if (env.PRIVY_PUBLIC_SIGNUP_DISABLED && env.PRIVY_PUBLIC_SIGNUP_DISABLED !== 'yes') throw new Error('PRIVY_PUBLIC_SIGNUP_DISABLED must be "yes" after verification or unset');
+  if ((publicMode === 'passkey' || serverMode === 'passkey') && env.PRIVY_PUBLIC_SIGNUP_DISABLED !== 'yes') {
+    throw new Error('Passkey activation requires explicit verification that native public signup is closed (PRIVY_PUBLIC_SIGNUP_DISABLED=yes)');
+  }
+  return { publicMode, serverMode };
+}
+
+/** Separate from the browser build environment; never print any binding value. */
+export function validateServerConfig(env = {}) {
+  validateWalletActivation(env);
+  if (env.MINIAPP_ORIGIN !== 'https://fxaeon.com') throw new Error('MINIAPP_ORIGIN must be the production origin');
+  if (!/^(?:[5-9]|[1-9]\d{1,2})$/.test(env.MINIAPP_LEGACY_USERS ?? '') || Number(env.MINIAPP_LEGACY_USERS) > 480) {
+    throw new Error('MINIAPP_LEGACY_USERS requires the reviewed existing-user inventory (5 through 480)');
+  }
+  for (const name of ['PRIVY_APP_ID', 'PRIVY_APP_SECRET', 'RESEND_API_KEY', 'MINIAPP_OPERATOR_TOKEN', 'TELEGRAM_BOT_TOKEN']) {
+    const value = env[name];
+    if (typeof value !== 'string' || value.length < (name === 'MINIAPP_OPERATOR_TOKEN' ? 32 : 16)
+      || value.length > (name === 'MINIAPP_OPERATOR_TOKEN' ? 505 : 4096) || !/^[!-~]+$/.test(value) || PLACEHOLDER.test(value)) {
+      throw new Error(`${name} is required and must contain a valid server binding`);
+    }
+  }
+  if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(env.TELEGRAM_BOT_TOKEN)) throw new Error('TELEGRAM_BOT_TOKEN has an invalid format');
+}
 
 function requireValue(name) {
   const value = process.env[name]?.trim();
@@ -85,7 +118,13 @@ function assertTelegramAdmissionFlag() {
   }
 }
 
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
 try {
+  validateWalletActivation(process.env);
+  if (process.argv.includes('--server')) {
+    validateServerConfig(process.env);
+    console.log('FxAeon server environment verified: reviewed mode and required server bindings are structurally valid.');
+  } else {
   // Local screenshot/fork settings are valid for disposable local builds,
   // but must never be accepted as production deployment configuration. Whole
   // families are rejected, so a new local-only variable needs no edit here.
@@ -113,7 +152,9 @@ try {
   assertTelegramAdmissionFlag();
 
   console.log('FxAeon production environment verified: Privy, RPC, and Telegram configuration are structurally valid.');
+  }
 } catch (error) {
   console.error(`FxAeon production environment invalid: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
+}
 }

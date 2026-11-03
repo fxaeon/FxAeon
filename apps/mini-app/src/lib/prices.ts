@@ -20,28 +20,16 @@ export type UsdPriceUpdate = {
 };
 export type UsdPriceProgressCallback = (snapshot: UsdPriceUpdate) => void;
 
-type LlamaCoin = {
-  price?: unknown;
-  timestamp?: unknown;
-  confidence?: unknown;
-};
-
-type LlamaResponse = {
-  coins?: Record<string, LlamaCoin>;
-};
-
 const PRICE_KEYS = Object.keys(FX_TOKENS) as FxTokenKey[];
 export const USD_PRICE_ASSET_COUNT = PRICE_KEYS.length;
 const ETH_PRICE_ADDRESS = FX_TOKENS.WETH.address;
 // Display-only provider snapshots may remain usable for up to one hour. The
 // supported FX_TOKENS set is read first from f(x)'s own sources (its oracles,
-// vault NAVs and price service); DefiLlama and CoinGecko only fill gaps, and
-// their token quotes can publish asynchronously (wstETH/FXN were observed at
-// roughly twenty-two minutes old). Keep each source timestamp unchanged; this
-// window is never an execution price authority.
+// vault NAVs and price service); CoinGecko only fills gaps. Quotes may publish
+// asynchronously, so keep each source timestamp unchanged. This window is
+// never an execution price authority.
 export const USD_PRICE_MAX_AGE_MS = 60 * 60 * 1_000;
 const MAX_PRICE_AGE_SECONDS = USD_PRICE_MAX_AGE_MS / 1_000;
-const MIN_CONFIDENCE = 0.5;
 export const USD_PRICE_CACHE_KEY = 'fxaeon:usd-prices:v1';
 // Cached and live quotes share the provider's display freshness window.
 // Keep this export for the refresh merger's existing policy boundary.
@@ -52,47 +40,6 @@ const FALLBACK_PRIORITY: FxTokenKey[] = ['fxUSD', 'wstETH', 'ETH', 'WBTC', 'FXN'
 function validTimestamp(value: unknown, nowSeconds: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     && nowSeconds - value <= MAX_PRICE_AGE_SECONDS && value - nowSeconds <= 120;
-}
-
-function coinId(key: FxTokenKey): string {
-  const address = key === 'ETH' ? ETH_PRICE_ADDRESS : FX_TOKENS[key].address;
-  return `ethereum:${address.toLowerCase()}`;
-}
-
-export const USD_PRICE_ENDPOINT = `https://coins.llama.fi/prices/current/${[
-  ...new Set(PRICE_KEYS.map(coinId)),
-].join(',')}`;
-
-export function parseUsdPriceResponse(payload: unknown, nowSeconds = Math.floor(Date.now() / 1000)): {
-  prices: UsdPriceMap;
-  updatedAt: number | null;
-  updatedAts: Partial<Record<FxTokenKey, number>>;
-} {
-  if (!payload || typeof payload !== 'object') throw new Error('Price response is not an object');
-  const coins = (payload as LlamaResponse).coins;
-  if (!coins || typeof coins !== 'object') throw new Error('Price response has no coins');
-
-  const prices: UsdPriceMap = {};
-  const updatedAts: Partial<Record<FxTokenKey, number>> = {};
-  let oldestTimestamp = Infinity;
-  for (const key of PRICE_KEYS) {
-    const coin = coins[coinId(key)];
-    const price = Number(coin?.price);
-    const timestamp = Number(coin?.timestamp);
-    const confidence = Number(coin?.confidence);
-    if (!Number.isFinite(price) || price <= 0) continue;
-    if (!validTimestamp(timestamp, nowSeconds)) continue;
-    if (!Number.isFinite(confidence) || confidence < MIN_CONFIDENCE || confidence > 1) continue;
-    prices[key] = price;
-    updatedAts[key] = timestamp * 1000;
-    oldestTimestamp = Math.min(oldestTimestamp, timestamp);
-  }
-
-  // Each token is independently validated. An unavailable fxUSD quote must
-  // not erase a fresh ETH price; consumers still require every held asset
-  // needed for a total, and must never substitute a stablecoin's peg.
-  if (Object.keys(prices).length === 0) throw new Error('Price response has no validated prices');
-  return { prices, updatedAt: oldestTimestamp * 1000, updatedAts };
 }
 
 function priceAddress(key: FxTokenKey): string {
@@ -121,8 +68,8 @@ export function parseCoinGeckoTokenPriceResponse(payload: unknown, key: FxTokenK
 /**
  * Bounded, display-only prices. No price is used by transaction planning.
  * f(x)'s own sources lead: its oracles, vault NAVs and Chainlink feeds read
- * on-chain at one block, and its price service for FXN and fxUSD. DefiLlama
- * then CoinGecko fill only the tokens those leave out, each still validated
+ * on-chain at one block, and its price service for FXN and fxUSD. CoinGecko
+ * fills only the tokens those leave out, each still validated
  * on its own and never replacing a fresher quote.
  */
 export function createUsdPriceFetcher({ readProtocolPrices = () => readFxProtocolPrices() }: {
@@ -165,20 +112,10 @@ export function createUsdPriceFetcher({ readProtocolPrices = () => readFxProtoco
     signal?.throwIfAborted();
     if (protocol.status === 'fulfilled') take(protocol.value);
     if (service.status === 'fulfilled') take(service.value);
-    if (PRICE_KEYS.some(key => !prices[key])) {
-      try {
-        const response = await requestJson(USD_PRICE_ENDPOINT);
-        if (response.ok) take(parseUsdPriceResponse(await response.json()));
-      } catch {
-        // A partial or failed secondary feed does not make a different token's
-        // independently validated fallback price an execution authority.
-      }
-    }
-    signal?.throwIfAborted();
     const missing = FALLBACK_PRIORITY.filter((key) => !prices[key]);
     const now = Date.now();
     const due = missing.filter((key) => {
-      const cached = fallbackCache.get(coinId(key));
+      const cached = fallbackCache.get(priceAddress(key));
       return !cached || now - cached.checkedAt >= FALLBACK_CACHE_MS;
     });
     const fallbackDeadline = now + 8_000;
@@ -212,7 +149,7 @@ export function createUsdPriceFetcher({ readProtocolPrices = () => readFxProtoco
         stop = true;
       }
       signal?.throwIfAborted();
-      fallbackCache.set(coinId(key), { checkedAt: Date.now(), value });
+      fallbackCache.set(priceAddress(key), { checkedAt: Date.now(), value });
       if (value) {
         prices[key] = value.price;
         updatedAts[key] = value.timestamp * 1000;
@@ -222,7 +159,7 @@ export function createUsdPriceFetcher({ readProtocolPrices = () => readFxProtoco
       if (stop) break;
     }
     for (const key of missing) {
-      const cached = fallbackCache.get(coinId(key));
+      const cached = fallbackCache.get(priceAddress(key));
       if (cached?.value && validTimestamp(cached.value.timestamp, Math.floor(Date.now() / 1000))) {
         prices[key] = cached.value.price;
         updatedAts[key] = cached.value.timestamp * 1000;

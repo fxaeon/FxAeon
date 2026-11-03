@@ -68,7 +68,8 @@ function maxConcurrentProcesses(activity) {
 test('CI source phase runs every source gate and no production/browser route suite', async () => {
   const result = await runPhase('--ci-source');
   assert.equal(result.status, 0, result.stderr);
-  for (const required of ['verify:scope', 'verify:architecture', 'build:landing', 'lint', 'test', 'run audit:all', 'test:landing:browser']) {
+  for (const required of ['verify:scope', 'verify:architecture', 'build:landing', 'lint', 'test', 'run audit:all', 'test:landing:browser',
+    'test:miniapp-access', 'typecheck:miniapp-access', 'test:miniapp-operator', 'test:miniapp-readiness', 'test:scope:contract', 'test:production-env']) {
     assert.ok(result.commands.some((command) => command.includes(required)), `missing ${required}`);
   }
   assert.ok(!result.commands.some((command) => /^build$|test:e2e/.test(command)));
@@ -124,6 +125,10 @@ test('phase failures remain failures and stop dependent source work', async () =
   const sourceFailure = await runPhase('--ci-source', 'verify:scope');
   assert.equal(sourceFailure.status, 7);
   assert.deepEqual(sourceFailure.commands, ['verify:scope']);
+
+  const serverFailure = await runPhase('--ci-source', 'test:miniapp-access');
+  assert.equal(serverFailure.status, 1);
+  assert.ok(!serverFailure.commands.includes('test:landing:browser'));
 
   const isolatedFailure = await runPhase('--ci-isolated-0', 'test:e2e:overlay');
   assert.equal(isolatedFailure.status, 1);

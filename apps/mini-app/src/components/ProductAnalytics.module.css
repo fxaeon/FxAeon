@@ -73,3 +73,16 @@
 @media (prefers-reduced-motion: no-preference) {
   .performanceReading strong, .fundingInspection strong { animation: observation-in 140ms ease-out; }
 }
+
+/* Earn analytics: quiet controls with full touch targets and room to wrap. */
+.earnHistory .header { align-items: center; gap: 2px 12px; }
+.earnHistory .header h3 { font-size: 15px; }
+.metricControl { display: flex; gap: 2px; flex-wrap: wrap; }
+.metricControl button { min-height: 44px; padding: 0 10px; border-radius: 10px; font-size: 12px; color: var(--mut); }
+.metricControl button[aria-pressed='true'] { color: var(--text); background: var(--surface); }
+.metricControl button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.earnHistory .ranges { flex-shrink: 0; }
+.earnHistory .overview { gap: 8px; }
+.earnHistory .performanceReading > span { font-size: 11px; line-height: 1.5; }
+.performanceSource > a { margin-left: auto; }
+@media (forced-colors: active) { .metricControl button[aria-pressed='true'] { outline: 1px solid Highlight; } }

@@ -1,6 +1,6 @@
 # Architecture
 
-FxAeon has two independently deployed applications: a static financial client for web and Telegram, and a static marketing site. Two small read-only Pages Functions provide gas and landing market data, and a third admits Telegram users to the Privy wallet up to a fixed capacity. There is no FxAeon transaction server; the only stored identities are the Telegram user IDs in that admission cohort and its waitlist.
+FxAeon has two independently deployed applications: a static financial client for web and Telegram, and a static marketing site. Read-only Pages Functions provide gas and landing market data. The server-only `server/miniapp-access` package owns Telegram admission, verified notification contacts, passkey challenges, and forwarding user-authorized requests to Privy. It stores public keys and transaction status, never wallet private keys. Protocol planning and simulation remain in the financial client.
 
 ## System map
 
@@ -31,7 +31,7 @@ Paths below are relative to `apps/mini-app/src/`.
 | Route-level provider loading | [RouteProviders](../apps/mini-app/src/components/RouteProviders.tsx), [ProductProviders](../apps/mini-app/src/components/ProductProviders.tsx) | A docs-only visit can avoid the product provider graph |
 | Wallet-mode selection | [ClientWalletProvider](../apps/mini-app/src/components/ClientWalletProvider.tsx) | Stable document choice; host signals are UX hints, not authentication |
 | Ordinary-web signing session | [usePrivyWallet](../apps/mini-app/src/lib/wallet/usePrivyWallet.ts) | Browser-only Wagmi owner; explicitly accepted injected provider |
-| Telegram wallet boundary | [PrivyClientProvider](../apps/mini-app/src/components/PrivyClientProvider.tsx), [PrivyWalletBridge](../apps/mini-app/src/lib/wallet/PrivyWalletBridge.ts) | Lazy SDK, current user/wallet ownership, private dispatch checks |
+| Telegram wallet boundary | [TelegramPasskeyProvider](../apps/mini-app/src/components/admission/TelegramPasskeyProvider.tsx), [miniapp-access](../server/miniapp-access/index.ts) | Verified Telegram identity, permanent approval seat, passkey-owned Privy wallet and durable dispatch recovery; legacy Privy SDK only with passkey mode off |
 | Public wallet data | [WalletDataProvider](../apps/mini-app/src/components/WalletDataProvider.tsx), [web3](../apps/mini-app/src/lib/web3) | Session/chain/address-scoped reads; data clients do not sign |
 | SDK adaptation and plans | [fx/sdk](../apps/mini-app/src/lib/fx/sdk.ts), [fx/service](../apps/mini-app/src/lib/fx/service.ts), [read facade](../apps/mini-app/src/lib/fx/readFacade.ts) | Locked official SDK surface with reviewed local patch |
 | Review preparation and presentation | [ActionReview](../apps/mini-app/src/components/ActionReview.tsx), [review components](../apps/mini-app/src/components/review) | Accepted intent, amount provenance, exact values, and explicit decision |
@@ -56,7 +56,7 @@ accessible heading tree.
 
 Ordinary browsers use the browser signing adapter even if a Privy ID is configured. An explicit catalog choice binds one announced provider; discovery metadata does not prove authenticity. A wallet-browser handoff navigates to a separate context and is not a connection approval.
 
-Configured Telegram launches with nonempty Mini App data load Privy. User agent, theme, platform hints, and an empty Telegram stub are insufficient. A known host can justify a bounded bridge wait; Privy still verifies signed identity. Provider selection stays fixed during that document.
+Configured Telegram launches with nonempty Mini App data choose the Telegram provider. User agent, theme, platform hints, and an empty Telegram stub are insufficient. `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` selects `TelegramPasskeyProvider`: server-verified Telegram identity, approval-gated enrollment, and a user passkey controlling a Privy wallet. The legacy provider remains available only when this flag is off. Provider selection stays fixed during that document. See [deployment](deployment.md#telegram-admission-and-waitlist) for activation requirements.
 
 Privy connection events make wallets available. They do not by themselves accept a replacement signing wallet or resume a previous action. Accepted choice, logout intent, and dispatch authority have distinct lifetimes. Read [wallet ownership](privy-wallet-ownership.md) and [browser handoff](mobile-wallet-browser-handoff.md) before changing those lifecycles.
 
@@ -97,7 +97,7 @@ Reviews retain full source values and caveats through direct disclosures. USD eq
 | Signing identity and consent | Current accepted wallet, fresh account/network checks, and wallet approval |
 | Supported wallet asset balances | Chain-probed canonical RPC reads |
 | Expanded token discovery | Partial display discovery, reconciled with canonical balances |
-| USD prices | f(x)'s own sources first: its pool oracles, vault NAVs and Chainlink feeds read on-chain at one block, and its price service for FXN and fxUSD; DefiLlama, then CoinGecko, fill only what those leave out. Display only; never transaction inputs |
+| USD prices | f(x)'s own sources first: its pool oracles, vault NAVs and Chainlink feeds read on-chain at one block, and its price service for FXN and fxUSD; CoinGecko fills missing supported prices. No DefiLlama calls. Display only; never transaction inputs |
 | Charts | Validated display feeds; never transaction inputs |
 | Indexed position activity | Bounded discovery plus successful receipt/router-event verification |
 | Drafts and recovery records | Local hints that require authoritative reconciliation |
@@ -119,16 +119,33 @@ Portfolio preserves known holdings during refresh and distinguishes zero, partia
 
 [`fxSaveShareHistory`](../apps/mini-app/src/lib/fxSaveShareHistory.ts) reads
 fxSAVE NAV and the block timestamp together through historical Ethereum
-multicalls. Requests start near the viewport, read at most 30 or 90 blocks
-with six concurrent calls, and stop queuing on cancellation or a 20-second
-deadline. Block spacing only locates observations; every displayed date is
-read from the same block as its NAV. Missing archive states remain gaps.
-A stale head, malformed NAV or fewer than six observations is unavailable.
-Cached observations remain fresh for an hour and expire from the mounted
-chart after three days. The chart shows share NAV, never derived APY or a
-transaction quote. DefiLlama APY history has been removed; the live f(x)
-APY stays separate. Touch selection persists and keyboard inspection exposes
-the same observations. Reduced motion disables readout animation.
+multicalls. Requests start near the viewport and require a finalized head no
+older than 30 minutes. The 30D/90D views request up to 61/121 daily observations:
+30/90 days plus 30 days of warmup and both endpoints, with at most 31/91 plotted
+points. UTC timestamp targets resolve to blocks at or before the target within
+60 seconds, using at most eight block probes per target; block spacing is only
+an initial estimate and subsequent probes use observed timestamps. Up to 31/91
+additional anchor resolutions recover full trailing windows when missed slots
+make a daily anchor too recent. These reads are additional to the finalized-head
+NAV read. Six workers per request stop queuing on cancellation or a 30-second
+deadline; already-started RPCs retain the public client's transport timeout.
+Missing archive states remain gaps, without interpolation or invented returns.
+
+Finalized observations are cached per reader by block, with timestamp-to-block
+target lookups shared across ranges. Before each fetch, entries older than 123
+days are pruned and caches are reset if they exceed 4,096 block timestamps or
+1,024 NAV samples or target mappings. These are between-fetch reset thresholds,
+not per-insertion hard caps. Query results are stale after one hour and retained
+for two hours when inactive. Each mounted metric requires six valid points and
+expires three days after its own latest observation, independently of the other.
+[`fxSavePerformance`](../apps/mini-app/src/lib/fxSavePerformance.ts) computes the
+Yield view's **Annualized return** from a full 30-day NAV interval, allowing at
+most 60 extra seconds and using the actual elapsed time with a 365-day year.
+Negative returns are valid; valuation changes are included. The live quoted
+f(x) APY remains separate, and neither history metric supplies transaction
+inputs. A non-annualized period return appears only when the plotted endpoints
+cover the selected range. Touch selection persists and keyboard inspection
+exposes the same observations. Reduced motion disables readout animation.
 USD prices no longer depend on DefiLlama:
 [`fxProtocolPrices`](../apps/mini-app/src/lib/fxProtocolPrices.ts) reads f(x)'s
 stETH, wstETH and WBTC oracles, the fxSAVE and fxSP NAVs and Chainlink's ETH,

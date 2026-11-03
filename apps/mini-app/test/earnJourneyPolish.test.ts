@@ -14,7 +14,7 @@ import { fxSaveUsdValue, fxSaveVaultUsdValue, normalizedFxSaveAssetsWei } from '
 import { claimAvailability } from '../src/lib/earnState';
 import { selectWalletTasks } from '../src/lib/taskState';
 import { FX_TOKENS } from '../src/lib/fx/tokens';
-import { formatUsd, parseUsdPriceResponse, USD_PRICE_MAX_AGE_MS, type UsdPriceSnapshot } from '../src/lib/prices';
+import { formatUsd, parseCoinGeckoTokenPriceResponse, USD_PRICE_MAX_AGE_MS, type UsdPriceSnapshot } from '../src/lib/prices';
 
 // Resolve esbuild through the declared tsx dependency, including strict pnpm
 // layouts, without adding a new application dependency for these tests.
@@ -78,16 +78,13 @@ const now = 1_780_000_000_000;
 const quote = (overrides: Partial<UsdPriceSnapshot> = {}): UsdPriceSnapshot => ({ status: 'ready', prices: { fxSAVE: 1.12345 }, updatedAt: now, ...overrides });
 
 test('per-share value uses the address-matched fxSAVE quote, not fxSP or fxUSD', () => {
-  const coins = {
-    [`ethereum:${FX_TOKENS.fxSAVE.address.toLowerCase()}`]: { price: 1.12345, confidence: 0.99, timestamp: now / 1000 },
-    [`ethereum:${FX_TOKENS.fxUSDBasePool.address.toLowerCase()}`]: { price: 1.04, confidence: 0.99, timestamp: now / 1000 },
-    [`ethereum:${FX_TOKENS.fxUSD.address.toLowerCase()}`]: { price: 0.998, confidence: 0.99, timestamp: now / 1000 },
-  };
-  const parsed = parseUsdPriceResponse({ coins }, now / 1000);
-  assert.equal(fxSaveShareUsdValue({ status: 'ready', ...parsed }, now), 1.12345);
-  delete (coins as Record<string, unknown>)[`ethereum:${FX_TOKENS.fxSAVE.address.toLowerCase()}`];
-  const missing = parseUsdPriceResponse({ coins }, now / 1000);
-  assert.equal(fxSaveShareUsdValue({ status: 'partial', ...missing }, now), null, 'other asset quotes cannot substitute for fxSAVE');
+  const address = FX_TOKENS.fxSAVE.address.toLowerCase();
+  const parsed = parseCoinGeckoTokenPriceResponse({ [address]: { usd: 1.12345, last_updated_at: now / 1000 } }, 'fxSAVE', now / 1000)!;
+  assert.equal(fxSaveShareUsdValue(quote({ prices: { fxSAVE: parsed.price }, updatedAt: parsed.timestamp * 1000 }), now), 1.12345);
+  const missing = parseCoinGeckoTokenPriceResponse({ [FX_TOKENS.fxUSDBasePool.address.toLowerCase()]: { usd: 1.04, last_updated_at: now / 1000 } }, 'fxSAVE', now / 1000);
+  assert.equal(missing, null, 'other asset quotes cannot substitute for fxSAVE');
+  assert.equal(fxSaveShareUsdValue(quote({ prices: { fxUSDBasePool: 1.04, fxUSD: .998 } }), now), null);
+
 });
 
 test('per-share values reject missing, invalid, stale, future and failed data', () => {

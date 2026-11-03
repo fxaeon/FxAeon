@@ -21,11 +21,11 @@ The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect 
 | `NEXT_PUBLIC_INFURA_ETHEREUM_RPC_URL`, `NEXT_PUBLIC_INFURA_BASE_RPC_URL` | Optional GitHub secrets | Secondary HTTP endpoints |
 | `NEXT_PUBLIC_ALCHEMY_DATA_API_KEY` | GitHub secret | Public wallet-token discovery credential |
 | `NEXT_PUBLIC_TELEGRAM_APP_URL` | GitHub variable | Clean bot/Mini App launcher |
-| `TELEGRAM_BOT_TOKEN` | GitHub secret | Bot metadata and menu synchronization; never a public build input |
+| `TELEGRAM_BOT_TOKEN` | GitHub and Pages server secret | Bot metadata, command replies and opted-in invitations; never a public build input |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | GitHub secrets | Pages artifact upload and optional secret synchronization |
 | `ETHERSCAN_API_KEY` | Optional GitHub/Pages production secret | Read-only app gas Function |
 | `NEXT_PUBLIC_TELEGRAM_ADMISSION` | GitHub variable, `on` or unset | Telegram admission gate in front of Privy; off until the D1 binding is deployed |
-| `TELEGRAM_BOT_ID` | Pages secret, synced by the release workflow | The bot’s public numeric ID, derived from `TELEGRAM_BOT_TOKEN`; the token itself never reaches Pages |
+| `TELEGRAM_BOT_ID` | Pages secret, synced by the release workflow | The bot’s public numeric ID, derived from `TELEGRAM_BOT_TOKEN`; identity verification does not use the token |
 | `LIVE_GAS_ORACLE_URL` | Workflow environment | Probe destination only; does not configure the Function |
 
 The Cloudflare token needs Pages Edit on the deployment account. Privy must allow the intended origins and Ethereum/Base configuration. The local-development app ID in the example is rejected by production validation.
@@ -91,28 +91,43 @@ The landing build image/install controls are recorded in its Wrangler configurat
 
 Bot synchronization does not configure BotFather's native Main Mini App/profile launch button. Set those explicitly and verify real `startapp` entry on a phone.
 
+The bot menu contains `/start`, `/help`, and `/support`. The production release installs the authenticated `/api/telegram-bot` webhook after deploying its handler. Synchronization refuses to replace a webhook belonging to another service. Replies are limited to private chats, with durable update deduplication and per-chat limits; commands never approve admissions or submit transactions. The chat menu's **Open FxAeon** button remains available.
+
 Public web mode and Telegram Privy mode have different configuration and identity paths. Changing provider settings does not migrate accounts or move funds.
 
 ### Telegram admission and waitlist
 
-The intended miniapp cohort is at most 480 people, including existing members, leaving headroom below Privy's 500-user threshold. `TELEGRAM_ADMISSION_CAPACITY` defaults to 480 and rejects larger values. Returning admitted members remain admitted even when intake is set to zero. Do not delete cohort members to recycle seats: their Privy accounts still exist.
+The passkey flow keeps Telegram identity and Privy's wallet infrastructure. Everyone joins a waitlist first. An operator approves specific Telegram IDs; approval reserves a permanent D1 seat before sending an invitation or creating a wallet. The limit is 480 including an explicit, monotonic legacy baseline. Five production test accounts were inventoried on 3 November 2026, leaving at most 475 new approvals. Recheck inventory before activation. Other Privy apps, administrator-created wallets and signature/volume quotas are separate constraints.
 
-This is an application entry gate, **not a provider-enforced signup cap**. Privy's native Telegram login does not support its allowlist, and browser code (including remembered admission) can be bypassed. The production gate remains off pending a verified free provider-side solution that retains Telegram-only login. Do not advertise a guaranteed cap or replace Telegram with email login. Both custom JWT and custom OAuth are currently marked Scale in this app's dashboard.
+Configure GitHub Actions server secrets `PRIVY_APP_SECRET`, `RESEND_API_KEY`, `MINIAPP_OPERATOR_TOKEN` and the existing `TELEGRAM_BOT_TOKEN`. The Privy credential needs wallet API access; it is never a wallet owner or additional signer. Restrict Resend to sending from fxaeon.com. Server secrets must not be passed to the static build.
 
-1. The D1 database `fxaeon-admission` was created on 3 November 2026; `wrangler.toml` binds `056c44dd-4524-4b49-ab64-80ae1e53c4b7` as `ADMISSION_DB`. The Function creates its tables on first use through its runtime binding. The existing Pages Write token deploys Pages; separate D1 permissions are needed for direct database administration, not normal runtime queries. Do not expand the CI token speculatively.
-2. Deploy. The release workflow syncs `TELEGRAM_BOT_ID`.
-3. Before any rollout, inventory all Privy accounts and account for other apps sharing the billing limit. The owner confirmed that the current accounts are disposable test accounts, so no identity or wallet migration is required; do not silently count them as production admissions. Confirm provider-side signup enforcement and test returning users, parallel final-seat requests, direct provider signup and provider/storage failures. Only then, with explicit rollout approval, set `NEXT_PUBLIC_TELEGRAM_ADMISSION=on` and deploy again. With it on, a failed bot-ID sync fails the release instead of refusing every new user.
+Use the **Mini App admission operator** workflow on current main. Manual actions default to a network-free dry run. Review an explicit `MINIAPP_LEGACY_USERS` inventory before executing server configuration sync. Initial sync selects `MINIAPP_ACCESS_MODE=waitlist`. It configures the bot identity, Telegram link and `notifications@fxaeon.com` sender; replies go to `support@fxaeon.com`. Scheduled dispatch reconciles durable approvals with pending notifications every 15 minutes. Missing or throttled delivery does not revoke approval.
 
-Raising intake up to 480 admits the next people to open the app. A future server-enforced rollout must synchronize reservations and provider accounts before promoting anyone. Do not run a separate unbounded insertion from the waitlist. This bounded statement documents the D1-side limit only:
+Activation sequence:
+
+1. Pass source, browser, server and deployment checks. Verify the exact deployed revision and fail-closed endpoints.
+2. Disable every native public Privy signup method, including Telegram; close custom authentication and global-wallet bypasses. The miniapp verifies signed Telegram identity itself. Verify provider settings and inventory directly. A configuration assertion alone is not evidence.
+3. Set `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` for the static build. Keep `NEXT_PUBLIC_TELEGRAM_ADMISSION` off. While server mode remains `waitlist`, people can join but cannot provision a wallet.
+4. Verify provider credentials, owner-key provisioning entitlement and mail configuration. Only after public signup is verified disabled set server `PRIVY_PUBLIC_SIGNUP_DISABLED=yes` and `MINIAPP_ACCESS_MODE=passkey`. This does not approve anyone automatically.
+5. Approve the owner's test Telegram ID first. Test the actual phone's browser handoff, synced passkey, return to Telegram, reconnect and authorization. Synthetic signatures and emulated phones are not physical-device proof. Financial transactions require their own explicit approval.
+6. Admit reviewed waitlist members in bounded batches. Never recycle reservations, reset external wallet IDs, or lower the legacy baseline. Unknown transaction outcomes must be reconciled, never automatically repeated.
+
+A rollback must preserve D1 reservations and keep native signup disabled. An old UI may remain unavailable until a compatible build is restored. Losing every copy of a synced passkey or access to the Telegram account has no implemented recovery path.
+
+#### Private approval operations
+
+Inspect waiting Telegram IDs through the authenticated Cloudflare D1 console for `fxaeon-admission`, or the bearer-protected operator API. Keep IDs out of issues, PRs and public Actions inputs/logs. Store the reviewed JSON array in the GitHub Actions secret `MINIAPP_OPERATOR_USER_IDS`, then run **Mini App admission operator → approve** with dry run first, followed by execution. Clear the secret when the batch is finished. Repeating the same batch does not consume duplicate seats.
+
+The workflow reports only counts. Approvals reserve seats permanently; notification failures do not revoke them. To inspect pending rows privately:
 
 ```sql
-INSERT INTO telegram_admission (telegram_user_id, admitted_at)
-SELECT telegram_user_id, unixepoch() * 1000 FROM telegram_waitlist
-WHERE telegram_user_id NOT IN (SELECT telegram_user_id FROM telegram_admission)
-ORDER BY joined_at LIMIT (SELECT MAX(0, 480 - admitted) FROM telegram_admission_count WHERE id = 1);
+SELECT user_id, joined_at FROM admission_users
+WHERE external_id IS NULL ORDER BY joined_at;
 ```
 
-Five test accounts were visible in the FxAeon production app on 3 November 2026, including two with Telegram as their linked login method. This is a point-in-time observation, not a seed list or live capacity count. Removing test accounts alone does not enforce a signup limit.
+Before activation, run **check-readiness** to inventory Privy users and wallets. Set `MINIAPP_EXPECTED_WALLETS` to the reviewed wallet count, then require the strict closure check. After legitimate wallet growth, compare the provider count with D1 reservations before updating this expected count; stale counts deliberately block configuration changes. Never increase or lower `MINIAPP_LEGACY_USERS` merely to make a check pass.
+
+The D1 database is bound by `wrangler.toml`. Normal runtime queries use that binding; direct console/API administration uses the operator's Cloudflare access. The older `/api/telegram-admission` compatibility route must remain disabled (`NEXT_PUBLIC_TELEGRAM_ADMISSION` unset or off). Its browser gate cannot enforce a provider signup cap and its tables do not control this rollout.
 
 ## Rollback and diagnosis
 

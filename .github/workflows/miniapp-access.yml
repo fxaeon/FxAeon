@@ -1,0 +1,126 @@
+name: Mini App admission operator
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Operator action (status summarizes list; setup never enables public signup)
+        type: choice
+        required: true
+        default: status
+        options:
+          - status
+          - list
+          - approve
+          - dispatch
+          - sync-server-config
+          - check-readiness
+      dry_run:
+        description: Validate and show a plan without network calls or changes
+        type: boolean
+        required: true
+        default: true
+      require_closed:
+        description: For check-readiness, require native signup closed and the reviewed wallet inventory count
+        type: boolean
+        required: false
+        default: false
+      server_mode:
+        description: For sync-server-config only; passkey requires reviewed closure and strict provider checks
+        type: choice
+        required: false
+        default: waitlist
+        options:
+          - waitlist
+          - passkey
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: read
+
+# Share the deployment lock so setup cannot race a production deployment.
+concurrency:
+  group: fxaeon-production
+  cancel-in-progress: false
+
+jobs:
+  operator:
+    if: >-
+      github.repository == 'fxaeon/FxAeon' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Verify operator contracts without network
+        run: node --test scripts/miniapp_operator.contract.test.mjs scripts/miniapp_readiness.test.mjs
+      - name: Plan manual action
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run && inputs.action != 'check-readiness'
+        run: node scripts/miniapp_operator.mjs --dry-run
+        env:
+          MINIAPP_OPERATOR_ACTION: ${{ inputs.action }}
+          # Approval identities are private even though this repository and Actions logs are public.
+          MINIAPP_OPERATOR_USER_IDS: ${{ inputs.action == 'approve' && secrets.MINIAPP_OPERATOR_USER_IDS || '[]' }}
+          MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
+          MINIAPP_ACCESS_MODE: ${{ inputs.server_mode || 'waitlist' }}
+          PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
+          MINIAPP_ORIGIN: https://fxaeon.com
+          TELEGRAM_MINIAPP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
+          RESEND_FROM: FxAeon <notifications@fxaeon.com>
+      - name: Plan read-only readiness check
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run && inputs.action == 'check-readiness'
+        run: node -e "console.log(JSON.stringify({ action:'check-readiness', dryRun:true, readOnly:true }))"
+      - name: Run authenticated operator action
+        if: >-
+          github.event_name == 'schedule' ||
+          (github.event_name == 'workflow_dispatch' && !inputs.dry_run && inputs.action != 'sync-server-config' && inputs.action != 'check-readiness')
+        run: node scripts/miniapp_operator.mjs --execute
+        env:
+          MINIAPP_OPERATOR_ACTION: ${{ github.event_name == 'schedule' && 'dispatch' || inputs.action }}
+          MINIAPP_OPERATOR_USER_IDS: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'approve' && secrets.MINIAPP_OPERATOR_USER_IDS || '[]' }}
+          MINIAPP_OPERATOR_TOKEN: ${{ secrets.MINIAPP_OPERATOR_TOKEN }}
+      - name: Check read-only provider readiness
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run && inputs.action == 'check-readiness'
+        shell: bash
+        run: |
+          # GitHub renders an unset variable as an empty string; the probe distinguishes absent from invalid.
+          if [[ -z "${MINIAPP_EXPECTED_WALLETS:-}" ]]; then unset MINIAPP_EXPECTED_WALLETS; fi
+          if [[ "$REQUIRE_CLOSED" == "true" ]]; then
+            node scripts/miniapp_readiness.mjs --require-closed
+          else
+            node scripts/miniapp_readiness.mjs
+          fi
+        env:
+          PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
+          MINIAPP_EXPECTED_WALLETS: ${{ vars.MINIAPP_EXPECTED_WALLETS }}
+          REQUIRE_CLOSED: ${{ inputs.require_closed }}
+      - name: Sync server configuration to production Pages
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run && inputs.action == 'sync-server-config'
+        run: node scripts/miniapp_operator.mjs --action sync-server-config --execute
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MINIAPP_OPERATOR_TOKEN: ${{ secrets.MINIAPP_OPERATOR_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          # Required reviewed existing-user inventory: currently 5. No implicit fallback.
+          MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
+          MINIAPP_ACCESS_MODE: ${{ inputs.server_mode || 'waitlist' }}
+          PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
+          MINIAPP_EXPECTED_WALLETS: ${{ vars.MINIAPP_EXPECTED_WALLETS }}
+          MINIAPP_ORIGIN: https://fxaeon.com
+          TELEGRAM_MINIAPP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
+          RESEND_FROM: FxAeon <notifications@fxaeon.com>
+          # The existing reviewed marker is required; sync reruns the strict probe before any passkey activation.

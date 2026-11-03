@@ -29,6 +29,7 @@
   "dependencies": {
     "@aladdindao/fx-sdk": "1.0.5",
     "@privy-io/react-auth": "3.45.0",
+    "@simplewebauthn/browser": "14.0.0",
     "@tanstack/react-query": "5.105.0",
     "lightweight-charts": "5.2.1",
     "lucide-react": "1.65.0",
