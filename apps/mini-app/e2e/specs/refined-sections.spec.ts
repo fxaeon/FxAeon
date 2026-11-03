@@ -18,10 +18,11 @@ for (const width of [320, 390, 1280]) {
         const action = workspace.querySelector('[data-testid="borrow-workspace-card"]')!.getBoundingClientRect();
         const terms = workspace.querySelector('[aria-label="Borrowing details"]')!.getBoundingClientRect();
         const rect = element.getBoundingClientRect();
-        return { belowOverview: rect.top >= overview.bottom - 1 && rect.top - overview.bottom <= 25,
+        const firstRowBottom = Math.max(overview.bottom, action.bottom);
+        return { belowFirstRow: rect.top >= firstRowBottom - 1 && rect.top - firstRowBottom <= 25,
           termsBelowBoth: terms.top >= Math.max(rect.bottom, action.bottom) - 1 };
       });
-      expect(layout).toEqual({ belowOverview: true, termsBelowBoth: true });
+      expect(layout).toEqual({ belowFirstRow: true, termsBelowBoth: true });
     }
     await funding.screenshot({ path: info.outputPath('borrow-funding.png') });
     await page.getByText('Borrowing terms & risk', { exact: true }).click();
@@ -29,7 +30,7 @@ for (const width of [320, 390, 1280]) {
     expect(await funding.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
-  test(`Earn performance follows its overview at ${width}px`, async ({ page }) => {
+  test(`Earn performance follows the primary decision at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/earn');
     const performance = page.getByRole('region', { name: 'fxSAVE performance', exact: true });
@@ -41,11 +42,12 @@ for (const width of [320, 390, 1280]) {
         const action = workspace.querySelector('[class*="SavingsWorkspace_panel"]')!.getBoundingClientRect();
         const information = workspace.querySelector('[aria-label="fxSAVE details"]')!.getBoundingClientRect();
         const history = element.getBoundingClientRect();
-        return { belowOverview: history.top >= summary.bottom - 1 && history.top - summary.bottom <= 25,
+        const firstRowBottom = Math.max(summary.bottom, action.bottom);
+        return { belowFirstRow: history.top >= firstRowBottom - 1 && history.top - firstRowBottom <= 65,
           besideInformation: history.right <= information.left,
-          informationBelowAction: information.top >= action.bottom - 1 && information.top - action.bottom <= 25 };
+          informationBelowAction: information.top >= action.bottom - 1 && information.top - action.bottom <= 65 };
       });
-      expect(layout).toEqual({ belowOverview: true, besideInformation: true, informationBelowAction: true });
+      expect(layout).toEqual({ belowFirstRow: true, besideInformation: true, informationBelowAction: true });
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });

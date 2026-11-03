@@ -82,7 +82,8 @@
 .moveCard :global(.sticky-action)::before { display: none; }
 .moveCard :global(.button-primary) { min-height: 52px; border-radius: 26px; }
 @media (max-width: 640px) {
-  .moveWorkspace.moveWorkspace { margin-top: 0; min-height: calc(var(--tg-viewport-height, 100dvh) - 144px); padding-block: 8px; }
+  .moveWorkspace.moveWorkspace { margin-top: 0; min-height: 0; justify-content: flex-start; padding-block: 8px; }
+  .cardHead > span { font-size: 28px; }
   .sourcePanel, .destinationPanel { padding: 14px; }
 }
 @media (max-width: 359px) {
