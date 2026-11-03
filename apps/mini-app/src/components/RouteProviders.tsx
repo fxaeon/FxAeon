@@ -5,7 +5,13 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { ProviderLoadingState } from '@/components/ProviderLoadingState';
 
-const ProductProviders = dynamic(() => import('@/components/ProductProviders'), {
+const ProductProviders = dynamic(() => {
+  // Discover wallet chunks alongside the product wrapper, rather than after
+  // its download/evaluation. The existing boundary still owns mounting and
+  // auth selection; a failed warm load must not become an unhandled rejection.
+  void import('@/components/ClientWalletProvider').catch(() => {});
+  return import('@/components/ProductProviders');
+}, {
   // Export one full loading shell; nested wallet boundaries mount in the browser.
   ssr: false,
   loading: () => <ProviderLoadingState />,
