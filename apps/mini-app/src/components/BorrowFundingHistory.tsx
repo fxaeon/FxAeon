@@ -11,6 +11,7 @@ import { MissingValue } from './MissingValue';
 import { useChartWidth } from './useChartWidth';
 import { useChartInspection } from './useChartInspection';
 import { ChartIndicator } from './ChartIndicator';
+import { chartStepObservations } from '@/lib/chartObservation';
 import styles from './ProductAnalytics.module.css';
 
 const date = (timestamp: number, year = false) => new Date(timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC', ...(year ? { year: 'numeric' as const } : {}) });
@@ -46,9 +47,8 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
     enabled: foreground, staleTime: 5 * 60_000, gcTime: 10 * 60_000, retry: false, refetchOnWindowFocus: true,
     refetchInterval: foreground ? 5 * 60_000 : false, refetchIntervalInBackground: false });
   const data = !history.isError && history.data?.market === market && Date.now() / 1000 - history.data.indexedAt <= 86_400 ? history.data : null;
-  // Preserve the actual baseline snapshot date, even when its held rate starts
-  // before the displayed window. Never add a second point at the same timestamp.
-  const points = data ? [data.snapshots[0], ...data.snapshots.slice(1).filter(row => row.timestamp >= data.startAt)] : [];
+  // Preserve the effective baseline's real date; the last equal-time row wins.
+  const points = data ? chartStepObservations(data.snapshots, data.startAt) : [];
   const last = points.at(-1);
   const inspection = useChartInspection({ points, start: data?.startAt ?? 0, end: data?.endAt ?? 0, width, scope: `${market}:${range}`, mode: 'step' });
   const activeIndex = inspection.index;

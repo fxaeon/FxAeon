@@ -45,6 +45,9 @@ test.beforeAll(async () => {
           const rows = [{timestamp:startAt-86400, ratio:100000000000000000n},
             {timestamp:startAt+span*.2, ratio:300000000000000000n},
             {timestamp:startAt+span*.9, ratio:0n}];
+          if(location.search.includes('duplicates')) rows.splice(1,1,
+            {timestamp:startAt,ratio:120000000000000000n}, {timestamp:startAt,ratio:210000000000000000n},
+            {timestamp:startAt+span*.2,ratio:300000000000000000n}, {timestamp:startAt+span*.2,ratio:500000000000000000n});
           if(globalThis.chartShift) rows.splice(1,0,{timestamp:startAt+span*.1,ratio:200000000000000000n});
           return {market,startAt,endAt,indexedAt:endAt,averageRatio:210000000000000000n,snapshots:rows};
         }` }));
@@ -77,7 +80,7 @@ for (const chart of ['earn', 'borrow']) {
     const reading = chart === 'earn' ? page.locator('strong').first() : page.locator('[data-active="true"] strong');
     await expect(reading).toHaveText(chart === 'earn' ? '$1.131' : '≈ 0.0273% / 8h');
     const readoutNode = await reading.elementHandle();
-    await expect(marker(page)).toHaveCSS('transition-duration', '0.12s');
+    await expect(marker(page)).toHaveCSS('transition-duration', chart === 'earn' ? '0.12s' : '0s');
     expect(await reading.evaluate(node => node.getAnimations().length)).toBe(0);
     const bounds = (await slider.boundingBox())!;
     await page.mouse.move(bounds.x + 10, bounds.y + 75); await page.mouse.down();
@@ -167,4 +170,53 @@ test('Borrow pointer holds the previous snapshot across an uneven interval and r
   await expect(slider).toHaveAttribute('aria-valuetext', /0.0273% per eight hours/);
   await page.mouse.move(bounds.x + 8 + (bounds.width - 16) * .95, bounds.y + 80);
   await expect(slider).toHaveAttribute('aria-valuetext', /0% per eight hours/);
+});
+
+test('Borrow duplicate timestamps use the last held rate and every keyboard stop advances', async ({ page }) => {
+  await open(page, 'borrow-duplicates');
+  const slider = page.getByRole('slider');
+  await expect(slider).toHaveAttribute('aria-valuemax', '2');
+  await slider.focus(); await slider.press('Home');
+  await expect(slider).toHaveAttribute('aria-valuenow', '0');
+  await expect(slider).toHaveAttribute('aria-valuetext', /≈ 0.0191% per eight hours/);
+  await slider.press('ArrowRight');
+  await expect(slider).toHaveAttribute('aria-valuenow', '1');
+  await expect(slider).toHaveAttribute('aria-valuetext', /≈ 0.0456% per eight hours/);
+  await slider.press('ArrowRight');
+  await expect(slider).toHaveAttribute('aria-valuenow', '2');
+  await expect(slider).toHaveAttribute('aria-valuetext', /0% per eight hours/);
+  await slider.press('ArrowLeft');
+  await expect(slider).toHaveAttribute('aria-valuenow', '1');
+  const bounds = (await slider.boundingBox())!;
+  await page.mouse.move(bounds.x + 8 + (bounds.width - 16) * .85, bounds.y + 80);
+  await expect(slider).toHaveAttribute('aria-valuetext', /≈ 0.0456% per eight hours/);
+});
+
+test('Borrow step marker snaps both coordinates without ever animating the new rate at an earlier time', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await open(page, 'borrow');
+  const slider = page.getByRole('slider');
+  await slider.focus(); await slider.press('Home');
+  const frames = await slider.evaluate(async node => {
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    const frames = [];
+    for (let i = 0; i < 4; i++) {
+      await new Promise(requestAnimationFrame);
+      const group = node.querySelector<SVGGElement>('[data-chart-indicator]')!;
+      const dot = group.querySelector('circle')!;
+      frames.push({ x: new DOMMatrix(getComputedStyle(group).transform).e,
+        targetX: parseFloat(group.style.transform.replace('translateX(', '')),
+        y: new DOMMatrix(getComputedStyle(dot).transform).f,
+        targetY: parseFloat(dot.style.transform.replace('translateY(', '')),
+        animations: group.getAnimations({ subtree: true }).length,
+        groupDuration: getComputedStyle(group).transitionDuration, dotDuration: getComputedStyle(dot).transitionDuration });
+    }
+    return frames;
+  });
+  await expect(slider).toHaveAttribute('aria-valuenow', '1');
+  for (const frame of frames) {
+    expect(frame.groupDuration).toBe('0s'); expect(frame.dotDuration).toBe('0s');
+    expect(frame.animations).toBe(0);
+    expect(frame.x).toBeCloseTo(frame.targetX, 3); expect(frame.y).toBeCloseTo(frame.targetY, 3);
+  }
 });

@@ -76,7 +76,9 @@
   .indicator, .indicator circle { transition: transform 120ms cubic-bezier(.2, .7, .2, 1); }
   .fundingInspection { transition: opacity 120ms ease-out; }
 }
-.indicator[data-immediate], .indicator[data-immediate] circle, .indicator[data-step] circle { transition: none; }
+/* A step rate changes at one timestamp: moving either coordinate independently
+   could paint the new rate before it actually took effect. Snap the whole marker. */
+.indicator[data-immediate], .indicator[data-immediate] circle, .indicator[data-step], .indicator[data-step] circle { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .indicator, .indicator circle, .fundingInspection { transition: none !important; }
 }

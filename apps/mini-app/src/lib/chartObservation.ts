@@ -12,6 +12,18 @@ export function chartObservationIndex(points: readonly { timestamp: number }[], 
   return time - points[before].timestamp <= points[low].timestamp - time ? before : low;
 }
 
+/** Ordered funding rows can share a timestamp. Match the cost integrator:
+ * the last row at that time is the held rate. Keep only the effective baseline
+ * plus subsequent observations, so each keyboard stop has a unique identity. */
+export function chartStepObservations<T extends { timestamp: number }>(points: readonly T[], start: number): T[] {
+  const unique: T[] = [];
+  for (const point of points) {
+    if (unique.at(-1)?.timestamp === point.timestamp) unique[unique.length - 1] = point;
+    else unique.push(point);
+  }
+  return unique.slice(chartObservationIndex(unique, start, 'step') ?? 0);
+}
+
 /** Use a different marker identity across missing history; never animate through a gap. */
 export function chartObservationSegment(points: readonly { timestamp: number }[], index: number, maxGap: number): number {
   let segment = 0;
