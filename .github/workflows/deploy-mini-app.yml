@@ -68,9 +68,26 @@ jobs:
           NEXT_PUBLIC_ALCHEMY_DATA_API_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_DATA_API_KEY }}
           NEXT_PUBLIC_TELEGRAM_APP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
           NEXT_PUBLIC_TELEGRAM_ADMISSION: ${{ vars.NEXT_PUBLIC_TELEGRAM_ADMISSION }}
+          NEXT_PUBLIC_TELEGRAM_WALLET_MODE: ${{ vars.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off' }}
+          MINIAPP_ACCESS_MODE: ${{ vars.MINIAPP_ACCESS_MODE || 'waitlist' }}
+          PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: pnpm verify:production-env
+      - name: Validate server wallet configuration
+        run: node scripts/validate_production_env.mjs --server
+        env:
+          PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MINIAPP_OPERATOR_TOKEN: ${{ secrets.MINIAPP_OPERATOR_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          MINIAPP_ORIGIN: https://fxaeon.com
+          MINIAPP_ACCESS_MODE: ${{ vars.MINIAPP_ACCESS_MODE || 'waitlist' }}
+          MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
+          NEXT_PUBLIC_TELEGRAM_WALLET_MODE: ${{ vars.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off' }}
+          PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
       - name: Run full verification for manual dispatch
+        # Readiness is checked below before any deployment configuration is written.
         if: github.event_name == 'workflow_dispatch'
         run: pnpm verify
       - name: Build production deployment artifact
@@ -88,6 +105,7 @@ jobs:
           NEXT_PUBLIC_ALCHEMY_DATA_API_KEY: ${{ secrets.NEXT_PUBLIC_ALCHEMY_DATA_API_KEY }}
           NEXT_PUBLIC_TELEGRAM_APP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
           NEXT_PUBLIC_TELEGRAM_ADMISSION: ${{ vars.NEXT_PUBLIC_TELEGRAM_ADMISSION }}
+          NEXT_PUBLIC_TELEGRAM_WALLET_MODE: ${{ vars.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off' }}
       - name: Check production artifact
         env:
           NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}
@@ -101,7 +119,33 @@ jobs:
           node scripts/verify_built_rpc_config.mjs
           pnpm check:bundle
       - name: Stamp production revision
+        # Credential values are scoped to the dedicated scan below, never to a browser build.
         run: node scripts/release_revision.mjs write "$RELEASE_SHA"
+      - name: Check built frontend for configured server secrets
+        run: node scripts/verify_frontend_secrets.mjs --built
+        env:
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MINIAPP_OPERATOR_TOKEN: ${{ secrets.MINIAPP_OPERATOR_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Check provider inventory and signup closure
+        shell: bash
+        run: |
+          if [[ -z "${MINIAPP_EXPECTED_WALLETS:-}" ]]; then unset MINIAPP_EXPECTED_WALLETS; fi
+          if [[ "$MINIAPP_ACCESS_MODE" == "passkey" || "$NEXT_PUBLIC_TELEGRAM_WALLET_MODE" == "passkey" ]]; then
+            node scripts/miniapp_readiness.mjs --require-closed
+          else
+            node scripts/miniapp_readiness.mjs
+          fi
+        env:
+          PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
+          MINIAPP_EXPECTED_WALLETS: ${{ vars.MINIAPP_EXPECTED_WALLETS }}
+          MINIAPP_ACCESS_MODE: ${{ vars.MINIAPP_ACCESS_MODE || 'waitlist' }}
+          NEXT_PUBLIC_TELEGRAM_WALLET_MODE: ${{ vars.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off' }}
       - name: Sync production Pages gas-oracle secret
         id: gas_secret
         env:
@@ -129,8 +173,8 @@ jobs:
           TELEGRAM_ADMISSION: ${{ vars.NEXT_PUBLIC_TELEGRAM_ADMISSION }}
           WRANGLER_SEND_METRICS: 'false'
         run: |
-          # The admission route checks Telegram's Ed25519 launch signature with
-          # the bot's public numeric ID. The bot token itself never reaches Pages.
+          # The legacy admission route needs only the bot's public numeric ID.
+          # Server notifications receive the token in the separate server sync below.
           bot_id="${TELEGRAM_BOT_TOKEN%%:*}"
           if [[ ! "$bot_id" =~ ^[0-9]{5,20}$ ]]; then
             echo "::error::TELEGRAM_BOT_TOKEN does not start with a numeric bot ID."
@@ -143,6 +187,23 @@ jobs:
             fi
             echo "::warning::Pages secret sync was not authorized; Telegram admission stays unavailable until it is."
           fi
+      - name: Sync production Pages wallet server configuration
+        run: node scripts/miniapp_operator.mjs --action sync-server-config --execute
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PRIVY_APP_ID: ${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+          PRIVY_APP_SECRET: ${{ secrets.PRIVY_APP_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MINIAPP_OPERATOR_TOKEN: ${{ secrets.MINIAPP_OPERATOR_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          MINIAPP_ORIGIN: https://fxaeon.com
+          MINIAPP_ACCESS_MODE: ${{ vars.MINIAPP_ACCESS_MODE || 'waitlist' }}
+          MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
+          MINIAPP_EXPECTED_WALLETS: ${{ vars.MINIAPP_EXPECTED_WALLETS }}
+          PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
+          TELEGRAM_MINIAPP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
+          RESEND_FROM: FxAeon <notifications@fxaeon.com>
       - name: Deploy verified production artifact
         run: |
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$RELEASE_SHA"

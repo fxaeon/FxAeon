@@ -8,7 +8,6 @@ import {
   createUsdPriceFetcher,
   parseCoinGeckoTokenPriceResponse,
   parseUsdPriceCache,
-  parseUsdPriceResponse,
   priceKeyForSymbol,
   usdValueForDecimal,
   usdValueForUnits,
@@ -30,52 +29,10 @@ const isCoinGeckoTokenPriceRequest = (value: string): boolean => {
   }
 };
 
-function validPayload(now: number) {
-  const coins: Record<string, { price: number; timestamp: number; confidence: number }> = {};
-  for (const key of keys) {
-    const token = key === "ETH" ? FX_TOKENS.WETH : FX_TOKENS[key];
-    const id = `ethereum:${token.address.toLowerCase()}`;
-    const price = key === "WBTC" ? 104_000 : key === "ETH" || key === "WETH" ? 2_400 : 1;
-    coins[id] = { price, timestamp: now - 12, confidence: 0.99 };
-  }
-  return { coins };
+function primarySnapshot(now: number, omit: FxTokenKey[] = []) {
+  const prices = Object.fromEntries(keys.filter(key => !omit.includes(key)).map(key => [key, key === 'WBTC' ? 104_000 : key === 'ETH' || key === 'WETH' ? 2_400 : 1]));
+  return { prices, updatedAt: (now - 12) * 1000, updatedAts: Object.fromEntries(Object.keys(prices).map(key => [key, (now - 12) * 1000])) };
 }
-
-test("accepts recent, confident prices and maps ETH to WETH", () => {
-  const now = 2_000_000_000;
-  const snapshot = parseUsdPriceResponse(validPayload(now), now);
-  assert.equal(snapshot.prices.ETH, 2_400);
-  assert.equal(snapshot.prices.WETH, 2_400);
-  assert.equal(snapshot.prices.WBTC, 104_000);
-  assert.equal(snapshot.prices.fxUSD, 1);
-  assert.equal(snapshot.prices.FXN, 1);
-  assert.equal(snapshot.updatedAt, (now - 12) * 1_000);
-  assert.equal(snapshot.updatedAts.ETH, (now - 12) * 1_000);
-});
-
-test("preserves each quote timestamp when another token is older", () => {
-  const now = 2_000_000_000;
-  const payload = validPayload(now);
-  payload.coins[`ethereum:${FX_TOKENS.WETH.address.toLowerCase()}`].timestamp = now - 10;
-  payload.coins[`ethereum:${FX_TOKENS.FXN.address.toLowerCase()}`].timestamp = now - 120;
-  const snapshot = parseUsdPriceResponse(payload, now);
-  assert.equal(snapshot.updatedAt, (now - 120) * 1_000);
-  assert.equal(snapshot.updatedAts.ETH, (now - 10) * 1_000);
-  assert.equal(snapshot.updatedAts.FXN, (now - 120) * 1_000);
-});
-
-test('accepts provider quotes inside one hour and isolates an older token', () => {
-  const now = 2_000_000_000;
-  const payload = validPayload(now);
-  payload.coins[`ethereum:${FX_TOKENS.FXN.address.toLowerCase()}`].timestamp = now - (USD_PRICE_MAX_AGE_MS / 1_000 + 1);
-  const snapshot = parseUsdPriceResponse(payload, now);
-  assert.equal(snapshot.prices.ETH, 2_400);
-  assert.equal(snapshot.updatedAts.ETH, (now - 12) * 1_000);
-  assert.equal(snapshot.prices.FXN, undefined, 'a quote older than the provider freshness window is excluded independently');
-  const sevenMinutesOld = validPayload(now);
-  for (const coin of Object.values(sevenMinutesOld.coins)) coin.timestamp = now - 7 * 60;
-  assert.equal(parseUsdPriceResponse(sevenMinutesOld, now).prices.ETH, 2_400);
-});
 
 test('display surfaces retain seven-minute quotes and filter each token at one hour', () => {
   const now = 2_000_000_000_000;
@@ -93,30 +50,9 @@ test('accepts the exact one-hour display boundary and rejects one millisecond ol
   assert.deepEqual(freshDisplayPrices(snapshot, now), { ETH: 2_400 });
   assert.deepEqual(freshDisplayPrices({ ...snapshot, updatedAts: { ETH: boundary - 1 } }, now), {});
   const providerNow = Math.floor(now / 1_000);
-  const providerPayload = validPayload(providerNow);
-  providerPayload.coins[`ethereum:${FX_TOKENS.FXN.address.toLowerCase()}`].timestamp = providerNow - USD_PRICE_MAX_AGE_MS / 1_000;
-  assert.equal(parseUsdPriceResponse(providerPayload, providerNow).prices.FXN, 1);
-  providerPayload.coins[`ethereum:${FX_TOKENS.FXN.address.toLowerCase()}`].timestamp -= 1;
-  assert.equal(parseUsdPriceResponse(providerPayload, providerNow).prices.FXN, undefined);
-});
-
-test("rejects stale and low-confidence prices without discarding independently valid tokens", () => {
-  const now = 2_000_000_000;
-  const stale = validPayload(now);
-  for (const coin of Object.values(stale.coins)) coin.timestamp = now - (USD_PRICE_MAX_AGE_MS / 1_000 + 1);
-  assert.throws(() => parseUsdPriceResponse(stale, now), /no validated prices/);
-
-  const lowConfidence = validPayload(now);
-  for (const coin of Object.values(lowConfidence.coins)) coin.confidence = 0.49;
-  assert.throws(() => parseUsdPriceResponse(lowConfidence, now), /no validated prices/);
-
-  const incomplete = validPayload(now);
-  delete incomplete.coins[`ethereum:${FX_TOKENS.WBTC.address.toLowerCase()}`];
-  incomplete.coins[`ethereum:${FX_TOKENS.fxUSD.address.toLowerCase()}`].timestamp = now - (USD_PRICE_MAX_AGE_MS / 1_000 + 1);
-  const partial = parseUsdPriceResponse(incomplete, now);
-  assert.equal(partial.prices.ETH, 2_400);
-  assert.equal(partial.prices.WBTC, undefined);
-  assert.equal(partial.prices.fxUSD, undefined);
+  const address = FX_TOKENS.FXN.address.toLowerCase();
+  assert.equal(parseCoinGeckoTokenPriceResponse({ [address]: { usd: 1, last_updated_at: providerNow - USD_PRICE_MAX_AGE_MS / 1_000 } }, 'FXN', providerNow)?.price, 1);
+  assert.equal(parseCoinGeckoTokenPriceResponse({ [address]: { usd: 1, last_updated_at: providerNow - USD_PRICE_MAX_AGE_MS / 1_000 - 1 } }, 'FXN', providerNow), null);
 });
 
 test("calculates display-only USD values without changing token units", () => {
@@ -132,7 +68,7 @@ test("calculates display-only USD values without changing token units", () => {
 
 test("restores validated USD snapshots through the quote freshness window", () => {
   const now = 2_000_000_000_000;
-  const prices = parseUsdPriceResponse(validPayload(Math.floor(now / 1_000)), Math.floor(now / 1_000)).prices;
+  const prices = primarySnapshot(Math.floor(now / 1_000)).prices;
   assert.deepEqual(parseUsdPriceCache({ prices, updatedAt: now - 12_000 }, now), {
     prices,
     updatedAt: now - 12_000,
@@ -167,15 +103,15 @@ test("CoinGecko fallback validates the exact contract, numeric price, and timest
 
 test("a delayed protocol price uses a fresh CoinGecko quote without replacing fresh primary tokens", async () => {
   const now = Math.floor(Date.now() / 1000);
-  const payload = validPayload(now);
+  const primary = primarySnapshot(now, ['fxUSD']);
   const address = FX_TOKENS.fxUSD.address.toLowerCase();
-  payload.coins[`ethereum:${address}`].timestamp = now - (USD_PRICE_MAX_AGE_MS / 1_000 + 1);
   const calls: string[] = [];
   const request = (async (input) => {
     const url = String(input); calls.push(url);
-    return Response.json(url.includes('coins.llama.fi') ? payload : { [address]: { usd: 0.998, last_updated_at: now - 3 } });
+    if (url === FX_PRICE_SERVICE_ENDPOINT) return Response.json({}, { status: 503 });
+    return Response.json({ [address]: { usd: 0.998, last_updated_at: now - 3 } });
   }) as typeof fetch;
-  const fetchPrices = withoutProtocolRead();
+  const fetchPrices = createUsdPriceFetcher({ readProtocolPrices: async () => primary });
   const first = await fetchPrices(request);
   assert.equal(first.prices.fxUSD, 0.998);
   assert.equal(first.prices.ETH, 2_400);
@@ -187,20 +123,18 @@ test("a delayed protocol price uses a fresh CoinGecko quote without replacing fr
 
 test("publishes validated primary prices before a slow optional fallback completes", async () => {
   const now = Math.floor(Date.now() / 1000);
-  const payload = validPayload(now);
+  const primary = primarySnapshot(now, ['fxUSD']);
   const address = FX_TOKENS.fxUSD.address.toLowerCase();
-  delete payload.coins[`ethereum:${address}`];
   let releaseFallback: (() => void) | undefined;
   const fallback = new Promise<void>((resolve) => { releaseFallback = resolve; });
   const request = (async input => {
     const url = String(input);
     if (url === FX_PRICE_SERVICE_ENDPOINT) return Response.json({}, { status: 503 });
-    if (url.includes('coins.llama.fi')) return Response.json(payload);
     await fallback;
     return Response.json({ [address]: { usd: 0.998, last_updated_at: now - 3 } });
   }) as typeof fetch;
   const updates: Array<{ prices: Record<string, number>; updatedAt: number | null }> = [];
-  const resultPromise = withoutProtocolRead()(request, undefined, (snapshot) => {
+  const resultPromise = createUsdPriceFetcher({ readProtocolPrices: async () => primary })(request, undefined, (snapshot) => {
     updates.push({ prices: { ...snapshot.prices }, updatedAt: snapshot.updatedAt });
   });
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -214,10 +148,9 @@ test("publishes validated primary prices before a slow optional fallback complet
 });
 
 test("unavailable fallback prices stay absent instead of assuming the stablecoin peg", async () => {
-  const payload = validPayload(Math.floor(Date.now() / 1000));
-  delete payload.coins[`ethereum:${FX_TOKENS.fxUSD.address.toLowerCase()}`];
-  const request = (async input => String(input).includes('coins.llama.fi') ? Response.json(payload) : Response.json({})) as typeof fetch;
-  const result = await withoutProtocolRead()(request);
+  const primary = primarySnapshot(Math.floor(Date.now() / 1000), ['fxUSD']);
+  const request = (async () => Response.json({})) as typeof fetch;
+  const result = await createUsdPriceFetcher({ readProtocolPrices: async () => primary })(request);
   assert.equal(result.prices.ETH, 2_400);
   assert.equal(result.prices.fxUSD, undefined);
 });
@@ -276,7 +209,7 @@ test("aborting a price refresh does not request fallback data", async () => {
 });
 
 
-// f(x)'s own sources lead; DefiLlama and CoinGecko are reached only for what they leave out.
+// f(x)'s own sources lead; CoinGecko is reached only for what they leave out.
 const blockAt = Math.floor(Date.now() / 1000) - 8;
 const ok = (result: unknown) => ({ status: 'success' as const, result });
 const reads = (overrides: Partial<Record<number, ReturnType<typeof ok> | { status: 'failure' }>> = {}) => {
@@ -361,18 +294,29 @@ test("f(x)'s sources cover every token without DefiLlama or CoinGecko", async ()
   assert.equal(updates.length, 2, 'each source publishes as soon as it lands');
 });
 
-test('DefiLlama fills only what f(x) leaves out and never replaces its quotes', async () => {
+test('CoinGecko fills only official gaps, preserves source times, and never replaces protocol quotes', async () => {
   const now = Math.floor(Date.now() / 1000);
+  const calls: string[] = [];
   const request = (async input => {
-    const url = String(input);
+    const url = String(input); calls.push(url);
     if (url === FX_PRICE_SERVICE_ENDPOINT) return Response.json({}, { status: 503 });
-    if (url.includes('coins.llama.fi')) return Response.json(validPayload(now));
-    return Response.json({}, { status: 503 });
+    const address = new URL(url).searchParams.get('contract_addresses')!;
+    return Response.json({ [address]: { usd: 1, last_updated_at: now - 12 } });
   }) as typeof fetch;
   const fetchPrices = createUsdPriceFetcher({ readProtocolPrices: async () => protocolPricesFromReads(reads(), blockAt * 1000) });
   const result = await fetchPrices(request);
-  assert.equal(result.prices.ETH, 2_318.50173849, 'the on-chain quote stays');
+  assert.equal(result.prices.ETH, 2_318.50173849);
   assert.equal(result.prices.fxSAVE, FXSAVE_NAV);
-  assert.equal(result.prices.FXN, 1, 'a token f(x) did not price comes from DefiLlama');
+  assert.equal(result.prices.FXN, 1);
   assert.equal(result.updatedAts.FXN, (now - 12) * 1000);
+  assert.deepEqual(calls, [FX_PRICE_SERVICE_ENDPOINT, coinGeckoTokenPriceEndpoint('fxUSD'), coinGeckoTokenPriceEndpoint('FXN')]);
+});
+
+test('complete official failure attempts only the official feed and CoinGecko, including retries', async () => {
+  const calls: string[] = [];
+  const fetchPrices = withoutProtocolRead();
+  const request = (async input => { calls.push(String(input)); return Response.json({}, { status: 503 }); }) as typeof fetch;
+  await assert.rejects(fetchPrices(request));
+  await assert.rejects(fetchPrices(request));
+  assert.deepEqual(calls, [FX_PRICE_SERVICE_ENDPOINT, coinGeckoTokenPriceEndpoint('fxUSD'), FX_PRICE_SERVICE_ENDPOINT]);
 });

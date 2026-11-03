@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { syncTelegramBot, validatedWebAppUrl } from './sync_telegram_bot.mjs';
+import { syncTelegramBot, validatedWebAppUrl, BOT_COMMANDS, TELEGRAM_WEBHOOK_URL, telegramWebhookSecret } from './sync_telegram_bot.mjs';
+
+// Existing metadata tests use an owned webhook. Dedicated tests below exercise
+// ownership refusal, installation, readback, and derivation with actual calls.
+function withWebhook(fetchImpl) {
+  return async (input, init) => {
+    const method = new URL(input).pathname.split('/').pop();
+    if (method === 'getWebhookInfo') return { ok: true, status: 200, json: async () => ({ ok: true, result: { url: TELEGRAM_WEBHOOK_URL, allowed_updates: ['message'] } }) };
+    if (method === 'setWebhook') return { ok: true, status: 200, json: async () => ({ ok: true, result: true }) };
+    return fetchImpl(input, init);
+  };
+}
 
 const script = readFileSync(new URL('./sync_telegram_bot.mjs', import.meta.url), 'utf8');
 // Git may materialize checked-in YAML with CRLF on Windows. Keep workflow
@@ -17,14 +28,13 @@ test('Telegram sync is constrained to the production static origin', () => {
   assert.match(script, /setChatMenuButton/);
   assert.match(script, /setMyCommands/);
   assert.match(script, /setMy(?:Name|ShortDescription|Description)/);
-  assert.match(script, /commands:\s*\[\]/);
-  assert.doesNotMatch(script, /command:\s*['"](?:start|app|help)['"]/);
+  assert.deepEqual(BOT_COMMANDS.map(item => item.command), ['start', 'help', 'support']);
   assert.match(script, /getMy(?:Name|ShortDescription|Description|Commands)/);
   assert.match(script, /getChatMenuButton/);
   assert.match(script, /AbortController/);
 });
 
-test('Telegram sync clears unhandled commands and verifies every persisted setting', async () => {
+test('Telegram sync installs only handled commands and verifies every persisted setting', async () => {
   const calls = [];
   const expectedMenu = {
     type: 'web_app',
@@ -59,7 +69,7 @@ test('Telegram sync clears unhandled commands and verifies every persisted setti
   await syncTelegramBot({
     token: '123456789:abcdefghijklmnopqrstuvwxyz',
     webAppUrl: expectedMenu.web_app.url,
-    fetchImpl,
+    fetchImpl: withWebhook(fetchImpl),
     timeoutMs: 100,
   });
 
@@ -70,12 +80,12 @@ test('Telegram sync clears unhandled commands and verifies every persisted setti
     'getMyCommands', 'setMyCommands', 'getMyCommands',
     'getChatMenuButton', 'setChatMenuButton', 'getChatMenuButton',
   ]);
-  assert.deepEqual(calls.find(({ method }) => method === 'setMyCommands').payload, { commands: [] });
+  assert.deepEqual(calls.find(({ method }) => method === 'setMyCommands').payload, { commands: BOT_COMMANDS });
   assert.match(calls.find(({ method }) => method === 'setMyDescription').payload.description, /long or short.*fxSAVE.*fxUSD.*Ethereum.*Base/i);
   assert.match(calls.find(({ method }) => method === 'setMyDescription').payload.description, /https:\/\/fxaeon\.com\/(?:|docs)/);
 });
 
-test('Telegram sync makes no writes when every setting already matches', async () => {
+test('Telegram sync makes no metadata writes when settings match (owned webhook is reapplied)', async () => {
   const calls = [];
   const description = 'Open long or short positions, earn with fxSAVE, and borrow fxUSD on Ethereum. Move assets between Ethereum and Base. Built with f(x) SDK. Review every transaction and sign with your own wallet. FxAeon never receives your private keys. Open: https://fxaeon.com/ Docs: https://fxaeon.com/docs';
   const fetchImpl = async (input, init) => {
@@ -85,14 +95,14 @@ test('Telegram sync makes no writes when every setting already matches', async (
       getMyName: { name: 'FxAeon' },
       getMyShortDescription: { short_description: 'Positions, fxSAVE, and fxUSD on Ethereum.' },
       getMyDescription: { description },
-      getMyCommands: [],
+      getMyCommands: BOT_COMMANDS,
       getChatMenuButton: { type: 'web_app', text: 'Open FxAeon', web_app: { url: 'https://fxaeon.com/' } },
     }[method];
     assert.equal(init.method, 'POST');
     return { ok: true, status: 200, json: async () => ({ ok: true, result }) };
   };
 
-  await syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl, timeoutMs: 100 });
+  await syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl: withWebhook(fetchImpl), timeoutMs: 100 });
 
   assert.deepEqual(calls, [
     'getMyName', 'getMyShortDescription', 'getMyDescription', 'getMyCommands', 'getChatMenuButton',
@@ -117,7 +127,7 @@ test('persistent menu readback mismatch is bounded and has secret-free diagnosti
       setMyDescription: true,
       getMyDescription: { description },
       setMyCommands: true,
-      getMyCommands: [],
+      getMyCommands: BOT_COMMANDS,
       setChatMenuButton: true,
       getChatMenuButton: { type: 'default' },
     }[method];
@@ -125,7 +135,7 @@ test('persistent menu readback mismatch is bounded and has secret-free diagnosti
   };
 
   await assert.rejects(
-    syncTelegramBot({ token, fetchImpl, timeoutMs: 100 }),
+    syncTelegramBot({ token, fetchImpl: withWebhook(fetchImpl), timeoutMs: 100 }),
     (error) => {
       assert.match(error.message, /getChatMenuButton readback mismatch \(type=default, text=mismatch, web-app-url=mismatch\)/);
       assert.doesNotMatch(error.message, new RegExp(token));
@@ -144,7 +154,7 @@ test('Telegram sync bounds a stalled request and excludes the bot token from err
   });
 
   await assert.rejects(
-    syncTelegramBot({ token, fetchImpl, timeoutMs: 10 }),
+    syncTelegramBot({ token, fetchImpl: withWebhook(fetchImpl), timeoutMs: 10 }),
     (error) => {
       assert.match(error.message, /getMyName request timed out/);
       assert.doesNotMatch(error.message, new RegExp(token));
@@ -165,7 +175,7 @@ test('Telegram sync stops before later writes when a readback mismatches', async
   };
 
   await assert.rejects(
-    syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl, timeoutMs: 100 }),
+    syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl: withWebhook(fetchImpl), timeoutMs: 100 }),
     /getMyName readback mismatch/,
   );
   assert.deepEqual(calls, ['getMyName', 'setMyName', 'getMyName']);
@@ -181,7 +191,7 @@ test('Telegram sync fails when a changed setting write is rejected', async () =>
   };
 
   await assert.rejects(
-    syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl, timeoutMs: 100 }),
+    syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl: withWebhook(fetchImpl), timeoutMs: 100 }),
     /Telegram Bot API setMyName failed with HTTP 429/,
   );
   assert.deepEqual(calls, ['getMyName', 'setMyName']);
@@ -197,6 +207,77 @@ test('explicit Telegram menu URLs are validated before any API request', async (
     }),
     /Telegram Mini App URL must use https:\/\/fxaeon\.com/,
   );
+});
+
+test('webhook ownership is checked before any mutation and unknown owners are never overwritten or exposed', async () => {
+  for (const url of ['https://other.test/private-path?secret=do-not-log', TELEGRAM_WEBHOOK_URL + '/', 'http://fxaeon.com/api/telegram-bot', undefined]) {
+    const calls = [];
+    await assert.rejects(syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl: async input => {
+      calls.push(new URL(input).pathname.split('/').pop());
+      return { ok: true, status: 200, json: async () => ({ ok: true, result: { url } }) };
+    } }), error => {
+      assert.equal(error.message, 'Telegram webhook ownership conflict; no settings changed');
+      return true;
+    });
+    assert.deepEqual(calls, ['getWebhookInfo']);
+  }
+});
+
+test('empty and owned endpoints install the fixed URL, derived secret and message-only subscription before commands', async () => {
+  const token = '123456789:abcdefghijklmnopqrstuvwxyz';
+  for (const initial of ['', TELEGRAM_WEBHOOK_URL]) {
+    const calls = [];
+    const state = { getWebhookInfo: { url: initial }, getMyCommands: [], getChatMenuButton: {} };
+    await syncTelegramBot({ token, fetchImpl: async (input, init) => {
+      const method = new URL(input).pathname.split('/').pop();
+      const payload = JSON.parse(init.body); calls.push({ method, payload });
+      let result;
+      if (method === 'setWebhook') { state.getWebhookInfo = { url: payload.url, allowed_updates: payload.allowed_updates }; result = true; }
+      else if (method.startsWith('set')) {
+        state[method.replace(/^set/, 'get')] = method === 'setMyCommands' ? payload.commands : method === 'setChatMenuButton' ? payload.menu_button : payload;
+        result = true;
+      } else result = state[method];
+      assert.equal(init.redirect, 'error');
+      return { ok: true, status: 200, json: async () => ({ ok: true, result }) };
+    } });
+    assert.deepEqual(calls.slice(0, 3).map(call => call.method), ['getWebhookInfo', 'setWebhook', 'getWebhookInfo']);
+    assert.deepEqual(calls[1].payload, { url: TELEGRAM_WEBHOOK_URL, allowed_updates: ['message'],
+      secret_token: telegramWebhookSecret(token), max_connections: 4, drop_pending_updates: false });
+    assert.match(calls[1].payload.secret_token, /^[0-9a-f]{64}$/);
+    assert.notEqual(telegramWebhookSecret(token), telegramWebhookSecret('987654321:abcdefghijklmnopqrstuvwxyz'));
+    assert.deepEqual(state.getMyCommands, BOT_COMMANDS);
+  }
+});
+
+test('webhook rejection or failed readback stops before advertising commands', async () => {
+  for (const mode of ['rejected', 'wrong-url', 'wrong-updates']) {
+    const calls = [];
+    await assert.rejects(syncTelegramBot({ token: '123456789:abcdefghijklmnopqrstuvwxyz', fetchImpl: async input => {
+      const method = new URL(input).pathname.split('/').pop(); calls.push(method);
+      const result = calls.length === 1 ? { url: '' } : method === 'setWebhook' ? mode !== 'rejected'
+        : { url: mode === 'wrong-url' ? 'https://untrusted.test' : TELEGRAM_WEBHOOK_URL, allowed_updates: [] };
+      return { ok: true, status: 200, json: async () => ({ ok: true, result }) };
+    } }), /(?:setWebhook rejected setting|getWebhookInfo readback mismatch)/);
+    assert.deepEqual(calls, mode === 'rejected' ? ['getWebhookInfo', 'setWebhook'] : ['getWebhookInfo', 'setWebhook', 'getWebhookInfo']);
+  }
+});
+
+test('preflight timeout includes body reads and ignores hostile raw errors without leaking credentials', async () => {
+  const token = '987654321:abcdefghijklmnopqrstuvwxyz';
+  for (const mode of ['fetch-hang', 'body-hang', 'throw']) {
+    let signal;
+    await assert.rejects(syncTelegramBot({ token, timeoutMs: 10, fetchImpl: async (_input, init) => {
+      signal = init.signal;
+      if (mode === 'throw') throw Error(`https://api.telegram.org/bot${token}/getWebhookInfo private text`);
+      if (mode === 'fetch-hang') return new Promise(() => {});
+      return { ok: true, status: 200, json: () => new Promise(() => {}) };
+    } }), error => {
+      assert.equal(error.message, `Telegram Bot API getWebhookInfo request ${mode === 'throw' ? 'failed' : 'timed out'}`);
+      assert.doesNotMatch(error.message, /https:|private text|987654321/);
+      return true;
+    });
+    assert.equal(signal.aborted, true);
+  }
 });
 
 test('deployment sync uses only the CI secret after Pages deploy', () => {

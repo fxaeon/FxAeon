@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { join, relative, resolve, posix } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 const root = resolve(import.meta.dirname, '..');
@@ -10,7 +11,7 @@ async function walk(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await walk(path));
-    else if (/\.(?:ts|tsx)$/.test(entry.name)) files.push(path);
+    else if (/\.(?:[cm]?js|jsx|ts|tsx)$/.test(entry.name)) files.push(path);
   }
   return files;
 }
@@ -22,30 +23,41 @@ function fail(message) {
 // Inspect the TypeScript syntax tree instead of searching raw text. Product
 // copy and comments can name the SDK; only module syntax or a runtime module
 // load escapes the audited boundary.
-export function hasDirectSdkImport(source, fileName = 'architecture-contract.ts') {
+export function moduleSpecifiers(source, fileName = 'architecture-contract.ts') {
   const kind = fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, kind);
-  const isTarget = (node) => Boolean(node && ts.isStringLiteralLike(node) && node.text === '@aladdindao/fx-sdk');
-  let found = false;
+  const found = [];
+  const record = node => { if (node && ts.isStringLiteralLike(node)) found.push(node.text); };
   const visit = (node) => {
-    if (found) return;
-    if (ts.isImportDeclaration(node) && isTarget(node.moduleSpecifier)) found = true;
-    else if (ts.isExportDeclaration(node) && isTarget(node.moduleSpecifier)) found = true;
+    if (ts.isImportDeclaration(node)) record(node.moduleSpecifier);
+    else if (ts.isExportDeclaration(node)) record(node.moduleSpecifier);
     else if (ts.isImportEqualsDeclaration(node)
-      && ts.isExternalModuleReference(node.moduleReference)
-      && isTarget(node.moduleReference.expression)) found = true;
+      && ts.isExternalModuleReference(node.moduleReference)) record(node.moduleReference.expression);
     else if (ts.isImportTypeNode(node)
-      && ts.isLiteralTypeNode(node.argument)
-      && isTarget(node.argument.literal)) found = true;
-    else if (ts.isCallExpression(node) && node.arguments.length === 1 && isTarget(node.arguments[0])) {
+      && ts.isLiteralTypeNode(node.argument)) record(node.argument.literal);
+    else if (ts.isCallExpression(node) && node.arguments.length >= 1) {
       const expression = node.expression;
       if (expression.kind === ts.SyntaxKind.ImportKeyword
-        || (ts.isIdentifier(expression) && expression.text === 'require')) found = true;
+        || (ts.isIdentifier(expression) && expression.text === 'require')) record(node.arguments[0]);
     }
-    if (!found) ts.forEachChild(node, visit);
+    ts.forEachChild(node, visit);
   };
   visit(file);
   return found;
+}
+
+export function hasDirectSdkImport(source, fileName) {
+  return moduleSpecifiers(source, fileName).includes('@aladdindao/fx-sdk');
+}
+
+export function hasServerImport(source, fileName = 'apps/mini-app/src/contract.ts') {
+  return moduleSpecifiers(source, fileName).some(specifier => {
+    const name = specifier.replaceAll('\\', '/');
+    if (/^(?:@fxaeon\/miniapp-access|@simplewebauthn\/server|@privy-io\/(?:server-auth|node)|server-only)(?:\/|$)/.test(name)) return true;
+    const target = name.startsWith('@/') ? posix.normalize(`apps/mini-app/src/${name.slice(2)}`)
+      : name.startsWith('.') ? posix.normalize(posix.join(posix.dirname(fileName.replaceAll('\\', '/')), name)) : name;
+    return /(?:^|\/)(?:server|functions)(?:\/|$)/.test(target);
+  });
 }
 
 const directSdkAllowlist = new Set([
@@ -55,10 +67,12 @@ const directSdkAllowlist = new Set([
   'apps/mini-app/src/lib/confirmedPositions.ts',
 ]);
 
+export async function verifyArchitecture() {
 for (const file of await walk(sourceRoot)) {
   const source = await readFile(file, 'utf8');
   const name = relative(root, file).replaceAll('\\', '/');
   const isFacade = name.startsWith('apps/mini-app/src/lib/fx/');
+  if (hasServerImport(source, name)) fail(`frontend import crosses the server boundary: ${name}`);
   if (hasDirectSdkImport(source)
     && !isFacade && !directSdkAllowlist.has(name)) {
     fail(`direct SDK import must stay behind the fx façade or an audited display adapter: ${name}`);
@@ -78,4 +92,7 @@ for (const file of await walk(sourceRoot)) {
   }
 }
 
-console.log('FxAeon architecture verified: SDK access is bounded and no app-layer worker authority is active.');
+console.log('FxAeon architecture verified: SDK access is bounded, server modules stay outside the frontend, and no app-layer worker authority is active.');
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await verifyArchitecture();

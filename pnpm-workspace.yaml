@@ -1,6 +1,7 @@
 packages:
   - 'apps/landing'
   - 'apps/mini-app'
+  - 'server/miniapp-access'
 
 allowBuilds:
   '@reown/appkit': true

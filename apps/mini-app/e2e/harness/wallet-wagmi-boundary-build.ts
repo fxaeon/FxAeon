@@ -35,7 +35,7 @@ const mocks: Record<string, string> = {
       };
     }
   `,
-  'next/navigation': `export const useRouter = () => ({ push: (path) => globalThis.__wagmiBoundaryHarness.navigate?.(path) });`,
+  'next/navigation': `export const usePathname = () => location.pathname; export const useRouter = () => ({ push: (path) => globalThis.__wagmiBoundaryHarness.navigate?.(path), replace: (path) => globalThis.__wagmiBoundaryHarness.navigate?.(path) });`,
   '@/components/ProviderLoadingState': `export const ProviderLoadingState = () => <p role="status" data-provider-wait="true">Waiting for wallet provider</p>;`,
   '@/components/WalletRouteProviders': `
     import { useEffect } from 'react';

@@ -46,7 +46,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>Start with the wallet, asset, and network you intend to use. You can explore FxAeon before connecting; submitting an action requires a wallet and a fresh review.</p>
     <ol className={styles.steps}>
       <li><h3 id="start-open">Open FxAeon</h3><p>Launch <ExternalLink href="https://t.me/FxAeonBot">@FxAeonBot</ExternalLink> in Telegram or open the <a href="/">web app</a>. Portfolio is the starting point; a product link can open a particular screen directly.</p></li>
-      <li><h3 id="start-wallet">Choose your wallet</h3><p>In a browser, choose <strong>Connect wallet</strong> and select your existing wallet. Inside Telegram, sign in through Privy with the available Telegram, email, or wallet option. Check the selected address before adding funds. See <a href="/docs/guide/access">Browser &amp; Telegram</a> for the two connection paths.</p></li>
+      <li><h3 id="start-wallet">Choose your wallet</h3><p>In a browser, choose <strong>Connect wallet</strong> and select your existing wallet. Inside Telegram, follow the access screen. Once invited, set up a passkey for your Privy wallet. Check the selected address before adding funds. See <a href="/docs/guide/access">Browser &amp; Telegram</a> for the two connection paths.</p></li>
       <li><h3 id="start-fund">Add funds on the right network</h3><p>Open <a href="/qr">Receive</a> to inspect and copy the complete address or scan its QR code. Send an asset supported by your chosen action on the required network. Keep ETH there for transaction fees: ETH on Base cannot pay an Ethereum fee.</p></li>
       <li><h3 id="start-review">Build and review the action</h3><p>Choose a product, enter an amount, and read the action button if something is missing. Open the review and check amounts, assets, networks, fees, limits, and any recipient. The <a href="/docs/guide/review">review guide</a> explains estimates and exact values.</p></li>
       <li><h3 id="start-confirm">Confirm and follow the result</h3><p>Confirm the request shown by your wallet. An approval can come before the action, so one review may involve several wallet requests. Wait for the result and its receipt link. A submitted bridge also needs destination delivery verification.</p></li>
@@ -61,8 +61,9 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="access-telegram">Sign in through Telegram</h3>
     <ol>
       <li>Open <ExternalLink href="https://t.me/FxAeonBot">@FxAeonBot</ExternalLink> and launch its Mini App.</li>
-      <li>Use the sign-in option presented by Privy. Telegram sign-in uses your Telegram account; email and existing-wallet options may also be available.</li>
-      <li>Check the selected wallet address. Privy supplies a built-in wallet when one is needed.</li>
+      <li>Join the waitlist with your Telegram account. Allow Telegram notifications or verify an optional email address to receive your invitation.</li>
+      <li>Once approved, create a synced passkey for your Privy wallet. Your phone may open its browser to complete this step. Keep access to both your Telegram account and the password manager that stores the passkey.</li>
+      <li>Check the selected wallet address before adding funds. A passkey approval is required for each transaction.</li>
     </ol>
     <p>Telegram provides native Back navigation, sizing, and haptics. Signing in does not approve a token or submit an onchain action.</p>
     <h3 id="access-browser">Use your browser wallet</h3>
@@ -328,7 +329,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="privacy-device">Records on this device</h3>
     <p>FxAeon uses browser storage for transaction settings, wallet preferences, display caches, draft inputs, and recovery records. They help restore the workspace; they do not authorize a transaction. Clearing site data can remove those local records.</p>
     <h3 id="privacy-wallet">Wallets and sign-in</h3>
-    <p>Connecting a wallet shares its public address and selected network with the app. Privy handles built-in wallet and sign-in services; the chosen method can share email or Telegram account information with Privy. FxAeon does not ask you to enter a seed phrase or private key.</p>
+    <p>Connecting a wallet shares its public address and selected network with the app. Telegram access stores your enrollment, passkey public key, wallet address and approval records in Cloudflare. Privy provides the wallet; your passkey authorizes transactions. Optional email addresses are verified through Resend and used for admission invitations. FxAeon does not ask you to enter a seed phrase or private key.</p>
     <p>Disconnecting stops use of the selected wallet. It does not erase blockchain records or revoke token approvals already granted onchain.</p>
     <h3 id="privacy-services">Public records and external services</h3>
     <p>Reading balances, positions, prices, and transaction status involves blockchain and data providers. Requests can include public wallet addresses and transaction hashes. Hosting and service providers also receive ordinary connection information when your browser contacts them.</p>

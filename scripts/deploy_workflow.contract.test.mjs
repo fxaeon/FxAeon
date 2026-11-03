@@ -205,3 +205,51 @@ test('production validation keeps the local development Privy application out', 
   assert.match(productionEnvValidator, /cmu5tz4f000lp0cl5qtd87sro/);
   assert.match(productionEnvValidator, /local-development application/);
 });
+
+test('wallet mode is off by default and requires a reviewed server activation before building', () => {
+  for (const name of ['Validate public build configuration', 'Build production deployment artifact']) {
+    assert.match(step(name), /NEXT_PUBLIC_TELEGRAM_WALLET_MODE: \$\{\{ vars\.NEXT_PUBLIC_TELEGRAM_WALLET_MODE \|\| 'off' \}\}/);
+  }
+  const validation = step('Validate server wallet configuration');
+  assert.match(validation, /node scripts\/validate_production_env\.mjs --server/);
+  assert.match(validation, /PRIVY_PUBLIC_SIGNUP_DISABLED: \$\{\{ vars\.PRIVY_PUBLIC_SIGNUP_DISABLED \}\}/);
+  assert.match(validation, /MINIAPP_LEGACY_USERS: \$\{\{ vars\.MINIAPP_LEGACY_USERS \}\}/);
+  assert.match(validation, /MINIAPP_ACCESS_MODE: \$\{\{ vars\.MINIAPP_ACCESS_MODE \|\| 'waitlist' \}\}/);
+  assert.ok(workflow.indexOf(validation) < workflow.indexOf('      - name: Build production deployment artifact'));
+  assert.doesNotMatch(workflow, /PRIVY_PUBLIC_SIGNUP_DISABLED:\s*['"]?yes/);
+});
+
+test('deployment checks real provider closure and inventory before any config sync; flags alone cannot activate', () => {
+  const readiness = step('Check provider inventory and signup closure');
+  assert.match(readiness, /"\$MINIAPP_ACCESS_MODE" == "passkey" \|\| "\$NEXT_PUBLIC_TELEGRAM_WALLET_MODE" == "passkey"/);
+  assert.match(readiness, /node scripts\/miniapp_readiness\.mjs --require-closed/);
+  assert.match(readiness, /else\s+node scripts\/miniapp_readiness\.mjs\s+fi/);
+  assert.match(readiness, /MINIAPP_EXPECTED_WALLETS: \$\{\{ vars\.MINIAPP_EXPECTED_WALLETS \}\}/);
+  assert.match(readiness, /unset MINIAPP_EXPECTED_WALLETS/);
+  assert.doesNotMatch(readiness, /continue-on-error|\|\| true|PRIVY_PUBLIC_SIGNUP_DISABLED:|CLOUDFLARE_API_TOKEN:/);
+  assert.ok(workflow.indexOf(readiness) < workflow.indexOf('      - name: Sync production Pages gas-oracle secret'));
+  assert.ok(workflow.indexOf(readiness) < workflow.indexOf('      - name: Sync production Pages wallet server configuration'));
+  assert.match(step('Sync production Pages wallet server configuration'), /MINIAPP_EXPECTED_WALLETS: \$\{\{ vars\.MINIAPP_EXPECTED_WALLETS \}\}/);
+});
+
+test('server secrets are isolated from install, tests and browser builds and sync before deployment', () => {
+  const sync = step('Sync production Pages wallet server configuration');
+  assert.match(sync, /node scripts\/miniapp_operator\.mjs --action sync-server-config --execute/);
+  assert.match(sync, /PRIVY_APP_ID: \$\{\{ secrets\.NEXT_PUBLIC_PRIVY_APP_ID \}\}/);
+  assert.match(sync, /TELEGRAM_MINIAPP_URL: \$\{\{ vars\.NEXT_PUBLIC_TELEGRAM_APP_URL \}\}/);
+  assert.match(sync, /RESEND_FROM: FxAeon <notifications@fxaeon\.com>/);
+  const firstStep = workflow.indexOf('    steps:');
+  for (const name of ['PRIVY_APP_SECRET', 'RESEND_API_KEY', 'MINIAPP_OPERATOR_TOKEN', 'TELEGRAM_BOT_TOKEN']) {
+    assert.ok(sync.includes(`${name}: \${{ secrets.${name} }}`));
+    assert.ok(!workflow.slice(0, firstStep).includes(`${name}:`), `${name} is not job-scoped`);
+    assert.ok(!step('Build production deployment artifact').includes(`${name}:`), `${name} is not build-scoped`);
+    assert.ok(!step('Run full verification for manual dispatch').includes(`${name}:`), `${name} is not test-scoped`);
+  }
+  assert.ok(workflow.indexOf('      - name: Check production artifact') < workflow.indexOf(sync));
+  assert.ok(workflow.indexOf(sync) < workflow.indexOf('      - name: Deploy verified production artifact'));
+  const scan = step('Check built frontend for configured server secrets');
+  assert.match(scan, /run: node scripts\/verify_frontend_secrets\.mjs --built/);
+  assert.ok(workflow.indexOf(scan) > workflow.indexOf('      - name: Build production deployment artifact'));
+  assert.ok(workflow.indexOf(scan) < workflow.indexOf(sync));
+  assert.doesNotMatch(scan, /pnpm build|npm run build|pages deploy/);
+});

@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "apps/landing",
-    "apps/mini-app"
+    "apps/mini-app",
+    "server/miniapp-access"
   ],
   "scripts": {
     "build": "pnpm --dir apps/mini-app build",
@@ -12,7 +13,7 @@
     "test:landing": "node --test apps/landing/test/*.test.mjs",
     "test:landing:browser": "node scripts/verify_landing_browser.mjs",
     "dev": "pnpm --dir apps/mini-app dev",
-    "lint": "eslint apps/mini-app/src apps/mini-app/test --cache --cache-strategy content --cache-location .cache/eslint",
+    "lint": "eslint apps/mini-app/src apps/mini-app/test server/miniapp-access functions --cache --cache-strategy content --cache-location .cache/eslint",
     "lint:fix": "eslint apps/mini-app/src --fix",
     "test": "pnpm --dir apps/mini-app test",
     "test:chaos": "pnpm --dir apps/mini-app test:chaos",
@@ -21,6 +22,12 @@
     "test:telegram:contract": "node --test scripts/telegram_bot_sync.contract.test.mjs",
     "test:live-public-config:contract": "node --test scripts/verify_live_public_config.contract.test.mjs",
     "test:architecture:contract": "node --test scripts/verify_architecture.contract.test.mjs",
+    "test:miniapp-access": "pnpm --dir server/miniapp-access test",
+    "typecheck:miniapp-access": "pnpm --dir server/miniapp-access typecheck",
+    "test:miniapp-operator": "node --test scripts/miniapp_operator.contract.test.mjs",
+    "test:miniapp-readiness": "node --test scripts/miniapp_readiness.test.mjs",
+    "test:scope:contract": "node --test scripts/verify_miniapp_scope.test.mjs",
+    "test:production-env": "node --test scripts/validate_production_env.test.mjs",
     "test:anvil:earn": "node scripts/run_anvil_tests.mjs --suite earn",
     "test:anvil:stress": "node scripts/run_anvil_tests.mjs --suite stress",
     "test:anvil:all": "node scripts/run_anvil_tests.mjs --suite all",

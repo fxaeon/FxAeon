@@ -48,6 +48,7 @@ export interface TgWebApp {
   setBackgroundColor?: (color: string) => void;
   setBottomBarColor?: (color: string) => void;
   openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+  requestWriteAccess?: (callback: (allowed: boolean) => void) => void;
   onEvent: (event: string, cb: () => void) => void;
   offEvent: (event: string, cb: () => void) => void;
   BackButton: TgButton;

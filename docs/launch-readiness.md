@@ -30,7 +30,9 @@ Use this for a named release candidate. This file is a checklist of work, not a 
 ## Device and live-service claims
 
 - [ ] Test actual browser-wallet connection/review where relevant.
-- [ ] Verify native Telegram authentication, wallet continuity/recovery, and handoff on supported physical devices before claiming that coverage.
+- [ ] Verify signed Telegram identity, approval-gated wallet enrollment, synced passkey continuity, and browser handoff on supported physical devices before claiming that coverage.
+- [ ] Before activating passkey enrollment, verify all native Privy signup paths are closed, reconcile the legacy inventory, and test concurrent approvals at 479/480. A server flag alone does not prove provider configuration.
+- [ ] Verify notification consent, email confirmation, invitation dispatch, provider failure, lost transaction responses and recovery without resubmission.
 - [ ] Test real `startapp` entry after configuring BotFather's Main Mini App. Workflow menu synchronization alone does not configure it.
 - [ ] Verify actual matching Base delivery before claiming live cross-chain coverage. An Ethereum fork or source receipt is insufficient.
 - [ ] If a required live configuration/device is unavailable, record the exact limitation and the narrower successful checks.

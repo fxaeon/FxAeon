@@ -5,6 +5,11 @@ const legacyFragments = ['overview', 'getting-started', 'access', 'wallets', 'tr
 test.describe('documentation provider lifecycle', () => {
   test.use({ telegram: false, browserWallet: { initiallyConnected: true } });
   test('defers wallet work on a docs entry and preserves the session after visiting the app', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error' && /hydrat|server rendered HTML|Minified React error/i.test(message.text())) errors.push(message.text());
+    });
     await page.setViewportSize({ width: 1280, height: 900 });
     const walletReads = () => page.evaluate(() => {
       const wallet = (window as unknown as { __wallet: { requests: { method: string }[] } }).__wallet;
@@ -23,6 +28,49 @@ test.describe('documentation provider lifecycle', () => {
     await page.getByRole('link', { name: 'Open app', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Open wallet profile', exact: true })).toBeVisible();
     expect(await walletReads()).toBe(initialReads);
+    expect(errors, 'docs/product transitions must hydrate without remount errors').toEqual([]);
+  });
+});
+
+test.describe('static provider boundary', () => {
+  test.use({ javaScriptEnabled: false, telegram: false });
+  test('public docs render without JavaScript and product routes export one complete loading shell', async ({ page }, testInfo) => {
+    await page.goto('/docs/guide/earn');
+    await expect(page.getByRole('heading', { name: 'Earn with fxSAVE', exact: true })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Loading FxAeon', exact: true })).toHaveCount(0);
+    for (const route of ['/', '/earn', '/trade']) {
+      await page.goto(route);
+      const shell = page.getByRole('status', { name: 'Loading FxAeon', exact: true });
+      await expect(shell).toHaveCount(1);
+      await expect(shell).toBeVisible();
+      await expect(shell).toHaveAttribute('aria-busy', 'true');
+      await expect(shell.locator('.app-topbar')).toBeVisible();
+      await expect(shell.locator('.mobile-tabbar')).toBeVisible();
+      await expect(shell.locator('.skeleton').first()).toBeVisible();
+      if (route === '/earn') await page.screenshot({ path: testInfo.outputPath('single-loading-shell-390.png'), fullPage: true });
+    }
+  });
+});
+
+test.describe('product provider hydration', () => {
+  test.use({ telegram: false });
+  test('cold product entries hydrate from the shell to usable wallet and form controls', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error' && /hydrat|server rendered HTML|Minified React error/i.test(message.text())) errors.push(message.text());
+    });
+    for (const route of ['/', '/earn', '/trade']) {
+      await page.goto(route);
+      await expect(page.getByRole('button', { name: 'Connect wallet', exact: true }).first()).toBeVisible();
+      await expect(page.getByRole('status', { name: 'Loading FxAeon', exact: true })).toHaveCount(0);
+      if (route === '/earn') await expect(page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true })).toBeEnabled();
+      if (route === '/trade') {
+        await page.getByLabel('Input asset', { exact: true }).click();
+        await expect(page.getByRole('dialog', { name: 'Input asset', exact: true })).toBeVisible();
+      }
+    }
+    expect(errors).toEqual([]);
   });
 });
 

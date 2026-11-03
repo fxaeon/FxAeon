@@ -598,24 +598,13 @@ test.describe("market price context", () => {
   });
 
   test("keeps a recent validated snapshot visible across a hard navigation when the feed retries", async ({ page, requests }) => {
-    await page.unroute("https://coins.llama.fi/**");
     let calls = 0;
-    await page.route("https://coins.llama.fi/**", async (route) => {
+    await page.route('https://api.coingecko.com/api/v3/simple/token_price/**', async route => {
+      const address = new URL(route.request().url()).searchParams.get('contract_addresses')!;
+      if (!address.startsWith('0xc02aaa39')) return route.fallback();
       calls += 1;
-      if (calls > 1) return route.abort("failed");
-      const encodedIds = new URL(route.request().url()).pathname.split("/prices/current/")[1] ?? "";
-      const ids = decodeURIComponent(encodedIds).split(",").filter(Boolean);
-      const timestamp = Math.floor(Date.now() / 1000);
-      const coins = Object.fromEntries(ids.map((id) => {
-        const normalised = id.toLowerCase();
-        const price = normalised.includes("2260fac5e5542a773aa44fbcfedf7c193bc2c599")
-          ? 104_000
-          : normalised.includes("c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
-            ? 2_400
-            : 1;
-        return [id, { price, timestamp, confidence: 0.99 }];
-      }));
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ coins }) });
+      if (calls > 1) return route.abort('failed');
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ [address]: { usd: 2400, last_updated_at: Math.floor(Date.now() / 1000) } }) });
     });
 
     await page.goto("/trade", { waitUntil: "domcontentloaded" });

@@ -71,7 +71,9 @@ Forms keep labels attached to their controls, errors close to the affected field
 
 ## Product analytics
 
-Earn's historical share NAV sits below its headline facts on desktop and after its action on phones. Use an unfilled line, two quiet range controls, a dated observation and a direct contract source link. Gaps stay visible. Do not derive an APY from NAV or mix it with the live APY. Touch selection persists; keyboard controls expose the same samples. Readout motion reveals the new observation without tweening invented values; reduced motion removes it.
+Earn's historical performance sits below its headline facts on desktop and after its action on phones. Use an unfilled line, quiet Yield / Share value and 30D / 90D controls, a dated observation and a direct contract source link. Yield shows the trailing 30-day annualized NAV return, including valuation changes, separately from the live quoted APY. Require a full measured window; missing reads stay gaps. Touch selection persists; keyboard controls expose the same samples. Readout motion reveals the new observation without tweening invented values; reduced motion removes it.
+
+Telegram admission uses one calm screen with a clear next action. Confirm only durable enrollment: “You’re on the waitlist. We’ll send you an invite once you’re approved.” Telegram notifications need permission; email remains optional and must be verified. Approval, passkey setup and wallet readiness are distinct states. Keep technical details out of the invitation flow. A browser passkey approval retains the exact transaction reviewed in Telegram; addresses and amounts remain readable before authorization.
 
 Borrow's collateral scenario appears only with usable debt, collateral value,
 and a live form guard. One slider illustrates a price change without editing

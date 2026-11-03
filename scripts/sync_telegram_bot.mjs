@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { createHash } from 'node:crypto';
 
 /**
  * Synchronize the Telegram bot's public metadata and default Mini App menu.
@@ -14,6 +15,15 @@ const TELEGRAM_API_ROOT = 'https://api.telegram.org';
 const REQUEST_TIMEOUT_MS = 15_000;
 const MENU_READBACK_ATTEMPTS = 3;
 const MENU_READBACK_DELAY_MS = 500;
+export const TELEGRAM_WEBHOOK_URL = 'https://fxaeon.com/api/telegram-bot';
+export const BOT_COMMANDS = [
+  { command: 'start', description: 'Open FxAeon' },
+  { command: 'help', description: 'Read the guides' },
+  { command: 'support', description: 'Send feedback or report a problem' },
+];
+export function telegramWebhookSecret(token) {
+  return createHash('sha256').update('fxaeon:telegram-webhook:v1\0').update(token).digest('hex');
+}
 
 export function validatedWebAppUrl(value = process.env.TELEGRAM_WEB_APP_URL ?? PRODUCTION_WEB_APP_URL) {
   let url;
@@ -48,17 +58,20 @@ async function callBotApi(token, method, payload, {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Telegram Bot API timeout must be positive');
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timeout;
   let response;
   let result;
   try {
-    response = await fetchImpl(`${TELEGRAM_API_ROOT}/bot${token}/${method}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    result = await response.json();
+    await Promise.race([
+      (async () => {
+        response = await fetchImpl(`${TELEGRAM_API_ROOT}/bot${token}/${method}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload), signal: controller.signal, redirect: 'error',
+        });
+        result = await response.json();
+      })(),
+      new Promise((_, reject) => { timeout = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, timeoutMs); }),
+    ]);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`Telegram Bot API ${method} request timed out`);
@@ -69,6 +82,7 @@ async function callBotApi(token, method, payload, {
     throw new Error(`Telegram Bot API ${method} request failed`);
   } finally {
     clearTimeout(timeout);
+    controller.abort();
   }
   if (!response?.ok || result?.ok !== true) {
     throw new Error(`Telegram Bot API ${method} failed with HTTP ${response?.status ?? 'unknown'}`);
@@ -118,6 +132,7 @@ export async function syncTelegramBot({
   fetchImpl = globalThis.fetch,
   timeoutMs = REQUEST_TIMEOUT_MS,
 } = {}) {
+  if (typeof token !== 'string' || !/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) throw new Error('TELEGRAM_BOT_TOKEN has an invalid format');
   const validatedMenuUrl = validatedWebAppUrl(webAppUrl);
   const metadata = {
     name: 'FxAeon',
@@ -135,7 +150,7 @@ export async function syncTelegramBot({
     let actual = await request(readMethod, {});
     if (compare(expected, actual)) return;
 
-    await request(writeMethod, writePayload);
+    if (await request(writeMethod, writePayload) !== true) throw new Error(`Telegram Bot API ${writeMethod} rejected setting`);
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       actual = await request(readMethod, {});
       if (compare(expected, actual)) return;
@@ -146,13 +161,27 @@ export async function syncTelegramBot({
     throw new Error(`Telegram Bot API ${readMethod} readback mismatch${mismatchSummary(expected, actual)}`);
   };
 
+  // Preflight before ANY mutation. Never take over another service's webhook.
+  const webhook = await request('getWebhookInfo', {});
+  if (!webhook || (webhook.url !== '' && webhook.url !== TELEGRAM_WEBHOOK_URL)) {
+    throw new Error('Telegram webhook ownership conflict; no settings changed');
+  }
+  // Telegram never returns secret_token. Reinstall our own endpoint after deploy
+  // to apply token rotation; URL readback alone cannot verify the stored secret.
+  if (await request('setWebhook', { url: TELEGRAM_WEBHOOK_URL, allowed_updates: ['message'],
+    secret_token: telegramWebhookSecret(token), max_connections: 4, drop_pending_updates: false }) !== true) {
+    throw new Error('Telegram Bot API setWebhook rejected setting');
+  }
+  const installed = await request('getWebhookInfo', {});
+  if (installed?.url !== TELEGRAM_WEBHOOK_URL || !matches(['message'], installed?.allowed_updates)) {
+    throw new Error('Telegram Bot API getWebhookInfo readback mismatch');
+  }
+
   await ensure('setMyName', { name: metadata.name }, 'getMyName', { name: metadata.name });
   await ensure('setMyShortDescription', { short_description: metadata.shortDescription }, 'getMyShortDescription', { short_description: metadata.shortDescription });
   await ensure('setMyDescription', { description: metadata.description }, 'getMyDescription', { description: metadata.description });
 
-  // FxAeon has no Telegram command handler. An empty default list removes
-  // stale command suggestions instead of advertising commands that do nothing.
-  await ensure('setMyCommands', { commands: [] }, 'getMyCommands', []);
+  await ensure('setMyCommands', { commands: BOT_COMMANDS }, 'getMyCommands', BOT_COMMANDS);
 
   const menuButton = {
     type: 'web_app',

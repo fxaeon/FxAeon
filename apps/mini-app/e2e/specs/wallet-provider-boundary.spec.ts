@@ -32,7 +32,7 @@ const mocks: Record<string, string> = {
     }
   `,
   'next/link': `export default function Link({ children, ...props }) { return <a {...props}>{children}</a>; }`,
-  'next/navigation': `export const useRouter = () => ({ push: (path) => globalThis.__providerBoundaryHarness.navigate(path) });`,
+  'next/navigation': `export const usePathname = () => location.pathname; export const useRouter = () => ({ push: (path) => globalThis.__providerBoundaryHarness.navigate(path), replace: (path) => globalThis.__providerBoundaryHarness.navigate(path) });`,
   '@/lib/wallet': `
     import { createContext, useContext, useEffect, useState } from 'react';
     const Context = createContext(null);
@@ -127,7 +127,7 @@ type Build = {
   onResolve: (options: { filter: RegExp }, callback: (args: { path: string }) => unknown) => void;
   onLoad: (options: { filter: RegExp; namespace: string }, callback: (args: { path: string }) => unknown) => void;
 };
-type Variant = 'configured' | 'unconfigured';
+type Variant = 'configured' | 'unconfigured' | 'passkey';
 type Bundle = { files: Map<string, string>; privyPaths: Set<string> };
 
 async function buildHarness(variant: Variant): Promise<Bundle> {
@@ -136,7 +136,10 @@ async function buildHarness(variant: Variant): Promise<Bundle> {
     entryPoints: [entry], outdir, bundle: true, write: false, splitting: true,
     format: 'esm', platform: 'browser', target: 'es2020', jsx: 'automatic',
     absWorkingDir: root,
-    define: { 'process.env.NEXT_PUBLIC_PRIVY_APP_ID': JSON.stringify(variant === 'configured' ? 'fake-configured-app-id' : '') },
+    define: {
+      'process.env.NEXT_PUBLIC_PRIVY_APP_ID': JSON.stringify(variant === 'configured' ? 'fake-configured-app-id' : ''),
+      'process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE': JSON.stringify(variant === 'passkey' ? 'passkey' : 'off'),
+    },
     plugins: [{ name: 'wallet-provider-boundary-leaves', setup(build: Build) {
       build.onResolve({ filter: /.*/ }, ({ path }) => {
         if (mocks[path]) return { path, namespace: 'mock' };
@@ -170,10 +173,10 @@ const emptyState: ProviderBoundaryHarnessState = {
 };
 
 test.beforeAll(async () => {
-  bundles = { configured: await buildHarness('configured'), unconfigured: await buildHarness('unconfigured') };
+  bundles = { configured: await buildHarness('configured'), unconfigured: await buildHarness('unconfigured'), passkey: await buildHarness('passkey') };
   server = createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://localhost').pathname;
-    const variant: Variant = path.startsWith('/unconfigured/') ? 'unconfigured' : 'configured';
+    const variant: Variant = path.startsWith('/unconfigured/') ? 'unconfigured' : path.startsWith('/passkey/') ? 'passkey' : 'configured';
     response.setHeader('Cache-Control', 'no-store');
     const source = bundles[variant].files.get(path);
     if (source) {
@@ -279,6 +282,22 @@ async function openPendingTelegramHarness(page: Page, host: 'user-agent' | 'nati
   expect(await state(page)).toMatchObject({ browserMounts: 0, privyMounts: 0, childMounts: 0, importMarkers: [] });
   return observation;
 }
+
+test('passkey-enabled ordinary web without the Telegram SDK or Privy ID never waits for the bridge', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-11-03T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-03T00:00:01Z'));
+  const observation = await openHarness(page, { variant: 'passkey', bridge: 'absent', waitUntilReady: false });
+  let advanced = 0;
+  await expect.poll(async () => {
+    // Allow React's lazy boundary to reveal, but never advance the 8 s bridge timeout.
+    if (advanced < 1000) { await page.clock.runFor(100); advanced += 100; }
+    return page.locator('[data-harness-ready]').count();
+  }).toBe(1);
+  expect(await page.evaluate(() => Boolean((window as any).Telegram))).toBe(false);
+  await expect(page.getByRole('heading', { name: 'Connect your wallet' })).toBeVisible();
+  await expect(page.locator('[data-provider-wait="true"]')).toHaveCount(0);
+  await expectBrowserOnly(page, observation);
+});
 
 test('configured ordinary web with the Telegram SDK stub uses browser login without fetching Privy', async ({ page }) => {
   const observation = await openHarness(page, { bridge: 'unknown' });

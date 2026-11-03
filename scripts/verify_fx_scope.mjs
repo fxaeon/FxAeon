@@ -1,6 +1,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join, relative, resolve } from 'node:path';
+import { WALLET_ROUTES, BOT_ROUTES, SERVER_MODULES, walletRouteViolation, botRouteViolation, serverModuleViolations } from './verify_miniapp_scope.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const mini = join(root, 'apps', 'mini-app');
@@ -36,6 +37,9 @@ const allowedRoutes = new Set([
   'docs',
   'earn',
   'history',
+  // Explicit passkey browser handoff and email-verification surfaces.
+  'wallet-approval',
+  'invite',
   'login',
   'more',
   'move',
@@ -51,6 +55,7 @@ const allowedRoutes = new Set([
 const forbiddenSourcePatterns = [
   ['legacy backend client', /@\/lib\/api|\/api\/v1\/miniapp|NEXT_PUBLIC_BOT_API_URL/],
   ['server Privy authority', /@privy-io\/server-auth|PRIVY_AUTHORIZATION_KEY|PRIVY_APP_SECRET/],
+  ['server admission credentials', /\b(?:RESEND_API_KEY|MINIAPP_OPERATOR_TOKEN|TELEGRAM_BOT_TOKEN)\b/],
   ['delegated signing', /grantAuthorization|walletDelegated|PRIVY_SIGNER_ID|NEXT_PUBLIC_PRIVY_SIGNER_ID/],
   ['removed shared protocol layer', /@fxaeon\/shared/],
 ];
@@ -58,6 +63,7 @@ const forbiddenSourcePatterns = [
 async function walk(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (['node_modules', '.git', 'dist'].includes(entry.name)) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) files.push(...await walk(path));
     else files.push(path);
@@ -227,10 +233,8 @@ for (const file of sourceFiles) {
   }
 }
 
-// Two bounded Pages Functions exist, and neither can become a general backend
-// or signer. The gas oracle is a fixed, read-only Ethereum price proxy. The
-// Telegram admission route verifies Telegram's launch signature (verify-only
-// crypto, no outbound requests) and keeps its own cohort in D1.
+// The gas oracle and legacy admission route keep their existing boundaries.
+// Two exact adapters expose the separately audited durable/passkey package.
 const functionsDirectory = join(root, 'functions');
 const functionFiles = await walk(functionsDirectory).catch(() => []);
 const gasFunction = join(functionsDirectory, 'api', 'gas.ts');
@@ -254,9 +258,33 @@ for (const file of functionFiles) {
     if (!source.includes('ADMISSION_DB') || !source.includes('TELEGRAM_BOT_ID') || !source.includes('crypto.subtle.verify')) {
       fail(`the admission Pages Function must verify launch data against its fixed bindings: ${relative(root, file)}`);
     }
+  } else if (WALLET_ROUTES.has(relative(root, file).replaceAll('\\', '/'))) {
+    const violation = walletRouteViolation(relative(root, file).replaceAll('\\', '/'), source);
+    if (violation) fail(`${violation}: ${relative(root, file)}`);
+  } else if (BOT_ROUTES.has(relative(root, file).replaceAll('\\', '/'))) {
+    const violation = botRouteViolation(relative(root, file).replaceAll('\\', '/'), source);
+    if (violation) fail(`${violation}: ${relative(root, file)}`);
   } else {
     fail(`unsupported Pages Function: ${relative(root, file)}`);
   }
+}
+
+for (const route of [...WALLET_ROUTES.keys(), ...BOT_ROUTES.keys()]) {
+  if (!functionFiles.includes(join(root, route))) fail(`missing reviewed Pages Function: ${route}`);
+}
+const serverDirectory = join(root, 'server', 'miniapp-access');
+const serverFiles = (await walk(serverDirectory)).filter(file => file.endsWith('.ts') && !file.endsWith('.test.ts'));
+for (const file of serverFiles) {
+  const name = relative(serverDirectory, file).replaceAll('\\', '/');
+  for (const violation of serverModuleViolations(name, await readFile(file, 'utf8'))) fail(`${violation}: ${relative(root, file)}`);
+}
+for (const name of SERVER_MODULES) {
+  if (!serverFiles.includes(join(serverDirectory, name))) fail(`missing reviewed server module: ${name}`);
+}
+const serverPackage = JSON.parse(await readFile(join(serverDirectory, 'package.json'), 'utf8'));
+if (serverPackage.name !== '@fxaeon/miniapp-access' || serverPackage.private !== true) fail('the server package must remain private');
+for (const [name, version] of Object.entries({ ...serverPackage.dependencies, ...serverPackage.devDependencies })) {
+  if (typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(version)) fail(`server dependency ${name} must use an exact reviewed version`);
 }
 
 const workflowDirectory = join(root, '.github', 'workflows');
@@ -270,4 +298,4 @@ for (const file of workflowFiles) {
   }
 }
 
-console.log(`FxAeon scope verified: ${expectedMethods.length} official methods, ${allowedRoutes.size} routes, no app-layer backend authority; the read-only gas oracle and verify-only Telegram admission route are bounded.`);
+console.log(`FxAeon scope verified: ${expectedMethods.length} official methods, ${allowedRoutes.size} routes; frontend authority, gas, admission, two wallet adapters, and the Telegram-only bot adapter are bounded.`);

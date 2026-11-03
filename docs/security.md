@@ -33,9 +33,15 @@ See [architecture](architecture.md#transaction-lifecycle), [wallet ownership](pr
 
 Ordinary web selects an explicitly accepted injected provider. Provider announcements and brand metadata are availability hints, not proof of identity. Ambiguity fails closed; an unrelated global provider cannot replace the selected one.
 
-Only configured Telegram launches with nonempty data choose Privy. Host detection is a UX decision; Privy verifies signed identity. Connection events do not silently accept another wallet, sign, or resume a prior form action.
+Only configured Telegram launches with nonempty data choose the Telegram wallet. Host detection is a UX decision. In passkey mode, the server verifies Telegram's Ed25519 launch signature and the user's passkey authorizes each wallet request. Connection events do not silently accept another wallet, sign, or resume a prior form action.
 
-Wallet-browser links strip query/fragment/launch data and carry only reviewed public routes. Opening another app or download page is not a completed connection. When `NEXT_PUBLIC_TELEGRAM_ADMISSION=on`, a Telegram launch asks `/api/telegram-admission` before Privy loads. The Function verifies Telegram’s Ed25519 launch signature with the bot’s public numeric ID (it holds no bot token or key), checks that the launch is under 24 hours old, and admits a permanent first-come cohort in D1. A user outside the cohort sees a waitlist and never loads Privy. Until Privy custom authentication replaces native Telegram sign-in, this gates everyone using FxAeon but cannot stop someone who calls Privy’s API directly with their own launch data, so it bounds the cohort rather than every billing input.
+Ordinary wallet-browser links strip launch data and carry only public routes. The dedicated passkey handoff uses a short-lived, single-use random capability in the URL fragment; its hash is stored server-side. It carries no Telegram launch data. Opening another app is not a completed approval.
+
+`NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` replaces native Privy signup with server-verified Telegram identity and user-owned Privy wallets. Approval reserves a permanent D1 seat before wallet creation. Database constraints cap approved reservations plus the explicit legacy baseline at 480; seats, owner keys and wallet identities cannot be recycled. Provisioning retries reuse the same external ID. This bound requires public Privy signup to be closed and the provider inventory to be reconciled before activation. If external-wallet login remains enabled, its signup flag must be off and an enabled, empty provider allowlist must be verified through the authenticated API. It does not limit other Privy apps, administrator-created wallets, monthly signatures or transaction volume.
+
+Passkeys must verify user presence, user verification, exact RP/origin/challenge, ES256 and backup state before enrollment. Privy receives only the corresponding public key as sole owner, with no additional signer. The application secret transports requests; it is not a wallet authorization key. A passkey authorizes the canonical request containing the exact reviewed transaction, wallet, expiry and idempotency key. The browser independently checks that request. Synced passkeys support using the same credential on another device; losing every copy or the Telegram account is not an implemented recovery path. Physical-device and live-provider verification remain release requirements.
+
+The old `/api/telegram-admission` gate remains a legacy compatibility endpoint. Its browser gate cannot enforce a Privy signup cap and must not be used as a substitute for the passkey rollout.
 
 ## Public inputs and server functions
 
@@ -43,7 +49,11 @@ All `NEXT_PUBLIC_*` values are public build inputs. Browser credentials need ori
 
 Reviewed HTTPS Alchemy/Infura endpoints and chain probes protect selected read boundaries. Explicit local-fork builds have separate loopback rules and are rejected by production environment validation.
 
-The root optional `/api/gas` Function reads a fixed Ethereum gas oracle. The separate landing `/api/market-data` Function reads fixed public display feeds. The admission Function makes no outbound request and only verifies signatures. None accepts protocol plans, signs transactions, or acts as a general RPC proxy.
+The root optional `/api/gas` Function reads a fixed Ethereum gas oracle. The separate landing `/api/market-data` Function reads fixed public display feeds. `/api/telegram-wallet` accepts only explicit enrollment, notification, handoff and Ethereum transaction actions; its outbound providers are fixed. It verifies a passkey before forwarding a signed authorization to Privy and cannot plan trades or act as a general RPC proxy. `/api/miniapp-operator` requires a separate server bearer credential and handles approval and notification dispatch. No server holds a user wallet private key.
+
+The `/api/telegram-bot` webhook authenticates Telegram with a domain-separated secret derived from the bot token. It accepts only bounded private-chat commands, deduplicates updates, and limits replies. It has no enrollment or wallet authority.
+
+Notification email addresses require explicit single-use confirmation before invitations. Mail delivery is budgeted and deduplicated; ambiguous Telegram sends are not blindly retried. Provider errors and credentials must never appear in responses or logs. Support receives replies at `support@fxaeon.com`; mail is limited to requested verification and admission notices.
 
 Local storage, cached/indexed data and display quotes remain untrusted inputs to financial decisions. Missing/stale reads are not zero. Position valuation and rebalance-distance displays are not P&L, ROI, health or liquidation guarantees. The separate estimated PnL and entry price come from indexed order history and the SDK mid price; they are display-only, hidden while the index disagrees with the chain, and never enter execution decisions.
 

@@ -16,15 +16,17 @@
   <h2>On your device</h2>
   <p>The app stores transaction settings, selected wallet preferences, price caches, draft inputs, and transaction recovery records in browser storage. These records help restore your workspace; they do not authorize transactions. The app and landing page use a single dark appearance. Clearing site data removes the app’s local records.</p>
   <h2>Wallets and sign-in</h2>
-  <p>Connecting a wallet shares its public address and selected network with the app. Signing in through Privy may share your email or Telegram account information with Privy, depending on the method you choose. Privy manages authentication storage and embedded-wallet services. FxAeon does not ask you to enter a seed phrase or private key.</p>
+  <p>Connecting a wallet shares its public address and selected network with the app. Telegram access uses your signed Telegram account information. For passkey wallets, FxAeon stores your Telegram ID, enrollment and notification preferences, passkey public key, wallet address, and approval records in Cloudflare. Privy provides the wallet and receives its public owner key and authorized requests. FxAeon does not receive your passkey private key, fingerprint, face scan, wallet private key, or seed phrase.</p>
+  <p>If you add an email address, we store it for verification and admission invitations through Resend. Telegram invitations require your permission to receive bot messages. These contacts are not used for marketing. Approved enrollment records are retained to enforce the access limit and prevent duplicate wallet creation; clearing browser storage does not remove them.</p>
   <p>Disconnecting stops the app from using the selected wallet. It does not delete public blockchain records or revoke token approvals.</p>
   <h2>External services</h2>
   <p>The app requests balances, positions, transaction status, and market prices from blockchain and data providers. These requests can include your public wallet address and transaction hashes. Hosting and service providers receive network information such as your IP address when your browser connects to them. Transactions and wallet activity on public blockchains are publicly visible.</p>
-  <p>Read the policies of <a href="https://www.privy.io/privacy-policy">Privy</a>, <a href="https://www.alchemy.com/policies/privacy-policy">Alchemy</a>, <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a>, and <a href="https://telegram.org/privacy">Telegram</a>, and the wallet provider you use, for their data practices.</p>
+  <p>Read the policies of <a href="https://www.privy.io/privacy-policy">Privy</a>, <a href="https://www.alchemy.com/policies/privacy-policy">Alchemy</a>, <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare</a>, <a href="https://resend.com/legal/privacy-policy">Resend</a>, and <a href="https://telegram.org/privacy">Telegram</a>, and the wallet provider you use, for their data practices.</p>
+  <p>The bot stores chat IDs, update IDs, and timestamps to prevent duplicate replies and abuse. Its command handler does not store message text; it removes metadata older than two days when processing new commands.</p>
   <h2>Cookies and analytics</h2>
-  <p>The standalone landing page does not use cookies, analytics, or advertising trackers. The app uses browser storage for its features and Privy session storage for sign-in. FxAeon does not add marketing analytics or advertising trackers.</p>
+  <p>The standalone landing page does not use cookies, analytics, or advertising trackers. The app uses browser storage for its features. Legacy Privy sign-in, when enabled, also uses Privy session storage. FxAeon does not add marketing analytics or advertising trackers.</p>
   <h2>Contact</h2>
-  <p>You can reach FxAeon through <a href="https://x.com/FxAeonxyz">@FxAeonxyz on X</a>.</p>
+  <p>For feedback, reports, or questions about your data, email <a href="mailto:support@fxaeon.com">support@fxaeon.com</a>.</p>
   <a class="back" href="/">← Back to portfolio</a>
 </main></body>
 </html>

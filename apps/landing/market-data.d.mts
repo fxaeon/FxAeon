@@ -3,7 +3,7 @@ export type LandingMetric = {
   status: 'fresh' | 'unavailable';
   fetchedAt: number | null;
   sourceAt?: number;
-  source: 'aladdin' | 'defillama' | 'coingecko';
+  source: 'aladdin' | 'coingecko';
   sourceUrl: string;
 };
 
