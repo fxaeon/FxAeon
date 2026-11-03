@@ -813,6 +813,15 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await expect(funding.locator('dt')).toContainText('Funding status: OFF');
     await expect(funding.locator('dt span[class*="fundingStatusOff"]')).toHaveCount(1);
     await expect(funding).not.toContainText('APR');
+    if (width >= 1200) {
+      const overview = page.getByRole('region', { name: 'fxUSD borrowing overview' });
+      const form = page.getByTestId('borrow-workspace-card');
+      const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
+      const [overviewBox, formBox, historyBox] = await Promise.all([overview.boundingBox(), form.boundingBox(), history.boundingBox()]);
+      expect(Math.abs(overviewBox!.y - formBox!.y)).toBeLessThanOrEqual(2);
+      expect(overviewBox!.x + overviewBox!.width).toBeLessThanOrEqual(formBox!.x);
+      expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+    }
     await page.screenshot({ path: info.outputPath(`borrow-funding-status-${width}.png`), animations: 'disabled' });
     await enlargeFormText(page);
     await expectFormMetricRows(rows);

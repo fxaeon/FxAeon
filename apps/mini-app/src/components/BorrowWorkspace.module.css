@@ -147,10 +147,9 @@
   .metrics { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 1200px) {
-  /* Preserve the form-first DOM order while each column continues below its
-     own summary. The empty flexible track absorbs extra funding-chart height after the
-     sensitivity, instead of inserting space above it. */
-  .layout { grid-template-areas: 'overview action' 'funding action' 'funding sensitivity' 'funding .' 'terms terms'; grid-template-rows: max-content min-content max-content auto min-content; row-gap: 24px; }
+  /* Keep the market overview and form together as the first stage; funding
+     context and the optional scenario follow the taller column. */
+  .layout:not([data-review='true']) { grid-template-areas: 'overview action' 'funding sensitivity' 'funding .' 'terms terms'; grid-template-rows: max-content max-content auto min-content; row-gap: 24px; }
   .details { display: contents; }
   .details > section { margin-bottom: 0; }
   .details > section:first-child { grid-area: funding; }
