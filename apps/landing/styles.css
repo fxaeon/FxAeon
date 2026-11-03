@@ -43,17 +43,27 @@ a svg,button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; 
 .button.primary { background: var(--text); color: white; }
 .button.subtle { background: transparent; }
 .text-link { display: inline-flex; align-items: center; min-height: 44px; gap: 10px; }
-.hero { position: relative; isolation: isolate; overflow: hidden; display: grid; place-items: center; min-height: 670px; margin-top: 72px; padding: 75px 24px 65px; background: #2459e8; color: white; }
-.hero-emblem { position: absolute; z-index: -1; width: 1200px; height: 1200px; left: calc(50% - 600px); top: -250px; transform: rotate(-12deg); fill: #3065e8; pointer-events: none; }
-.hero-emblem path { transform-box: fill-box; transform-origin: center; }
-.emblem-second { fill: #1d4fd9; }
-.hero-copy { text-align: center; }
+.hero { position: relative; isolation: isolate; overflow: hidden; display: grid; place-items: center; min-height: 790px; margin: 88px 16px 0; padding: 155px 24px; border-radius: 12px; background: #141615; color: #f5f4ef; }
+.hero-copy { position: relative; z-index: 2; text-align: center; }
+.journey-scene { position: absolute; inset: 0; pointer-events: none; }
+.journey-world { position: absolute; inset: 0; }
+.motion-print { position: absolute; width: 220px; aspect-ratio: 4 / 5; overflow: hidden; box-shadow: 0 16px 32px #0004; will-change: transform; }
+.motion-print svg { display: block; width: 100%; height: 100%; }
+.print-blue { left: 3%; top: 4%; transform: rotate(-14deg); }
+.print-lime { right: 3%; bottom: 3%; transform: rotate(12deg); }
+.print-coral { right: 8%; top: -18%; transform: rotate(-18deg); }
+.print-type { left: 9%; bottom: -20%; transform: rotate(12deg); background: #f5f4ef; color: #171917; }
+.print-type span { display: block; padding: 20px 14px; font: 700 48px/.95 Manrope,sans-serif; }
+.print-type b { color: #2459e8; font-weight: inherit; }
+.print-type i { display: block; height: 9px; background: #2459e8; margin: 6px 16px; transform: rotate(-8deg); }
+.print-glyph,.print-tunnel,.print-arrow { transform-box: fill-box; transform-origin: center; }
+.scene-toggle { position: absolute; z-index: 3; bottom: 16px; right: 24px; padding: 10px 12px; min-height: 44px; background: #141615; color: #f5f4ef; border-radius: 4px; font-size: 11px; }
 .hero-line { display: block; overflow: clip; padding-block: .04em; margin-block: -.04em; }
 .hero-line > span { display: block; }
-.hero h1 { font-size: clamp(70px, 8.8vw, 128px); font-weight: 600; line-height: .98; }
+.hero h1 { font-size: clamp(70px, 7.5vw, 108px); font-weight: 500; line-height: 1; }
 .hero .lede { margin-top: 28px; font-size: 17px; line-height: 1.5; }
 .hero .actions { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 26px; }
-.hero .button.primary { background: var(--bg); color: var(--text); }
+.hero .button.primary { background: #d5f375; color: #17251f; border-radius: 999px; }
 .hero-credit { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 24px; font-size: 11px; }
 .hero-credit img { width: 18px; height: 18px; }
 .products { max-width: 1440px; padding: 100px 48px 40px; }
@@ -110,14 +120,23 @@ a svg,button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; 
 .footer-bottom { margin-top: 64px; color: var(--muted); font-size: 11px; }
 @keyframes enter { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes type-arrive { from { transform: translateY(108%); } to { transform: translateY(0); } }
-@keyframes emblem-first { from { transform: translate(-22%, -34%) rotate(-14deg); } to { transform: none; } }
-@keyframes emblem-second { from { transform: translate(22%, 34%) rotate(14deg); } to { transform: none; } }
+@keyframes print-drift { 0%,100% { translate: 0 0; } 50% { translate: 0 -20px; } }
+@keyframes glyph-slide { 0%,20%,100% { transform: translateY(0); } 50%,70% { transform: translateY(8px) scale(.92); } }
+@keyframes tunnel-turn { 0%,15%,100% { transform: scale(1) rotate(0); } 45%,70% { transform: scale(.78) rotate(90deg); } }
+@keyframes arrow-step { 0%,20%,100% { transform: translate(0,0); } 40%,60% { transform: translate(12px,-12px); } }
 @keyframes menu-row { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   .hero-line > span { animation: type-arrive .85s var(--settle) both; }
   .hero-line:nth-child(2) > span { animation-delay: .08s; }
-  .emblem-first { animation: emblem-first 1.35s var(--settle) both; }
-  .emblem-second { animation: emblem-second 1.35s .08s var(--settle) both; }
+  :root[data-js] .motion-print { animation: print-drift 9s ease-in-out infinite; }
+  :root[data-js] .print-lime { animation-delay: -4s; }
+  :root[data-js] .print-coral { animation-delay: -6s; }
+  :root[data-js] .print-type { animation-delay: -2s; }
+  :root[data-js] .print-glyph { animation: glyph-slide 6s var(--settle) infinite; }
+  :root[data-js] .print-tunnel { animation: tunnel-turn 8s var(--settle) infinite; }
+  :root[data-js] .print-arrow { animation: arrow-step 5s var(--settle) infinite; }
+  :root[data-js] .journey-scene * { animation-play-state: paused; }
+  :root[data-js] .journey-scene[data-state='running'] * { animation-play-state: running; }
   [data-reveal="waiting"] { opacity: 0; transform: translateY(20px); }
   [data-reveal="entered"] { animation: enter .65s var(--settle) both; }
   [data-reveal]:focus-within { opacity: 1; transform: none; animation: none; }
@@ -206,13 +225,19 @@ h2 { font-size: clamp(30px, 3.7vw, 44px); }
   :root:not([data-js]) .nav-links { display: flex; width: 100%; justify-content: space-between; gap: 0; font-size: 12px; }
   :root:not([data-js]) .menu-toggle { display: none; }
   :root:not([data-js]) .hero { margin-top: 0; }
-  .hero { margin-top: 64px; min-height: 570px; padding: 66px 16px 48px; }
-  .hero-emblem { width: 800px; height: 800px; left: calc(50% - 400px); top: -100px; transform: rotate(-15deg); }
-  .hero h1 { font-size: clamp(54px, 15.2vw, 94px); }
-  .hero .lede { font-size: 15px; margin-top: 24px; }
+  .hero { margin: 72px 8px 0; min-height: 700px; padding: 190px 12px 200px; border-radius: 8px; }
+  .hero h1 { font-size: clamp(44px, 12.4vw, 76px); }
+  .hero .lede { font-size: 14px; margin-top: 20px; }
   .hero .actions { margin-top: 24px; gap: 0; }
   .hero .button { padding-inline: 16px; font-size: 12px; }
   .hero-credit { margin-top: 24px; }
+  .motion-print { width: 142px; }
+  .print-blue { left: -5%; top: -2%; transform: rotate(-14deg); }
+  .print-coral { right: -3%; top: -9%; transform: rotate(15deg); }
+  .print-lime { right: -6%; bottom: -5%; transform: rotate(14deg); }
+  .print-type { left: -4%; bottom: -12%; transform: rotate(-12deg); }
+  .print-type span { font-size: 31px; padding: 16px 12px; }
+  .scene-toggle { bottom: 13px; right: 50%; transform: translateX(50%); font-size: 10px; }
   .products { padding: 56px 20px 24px; }
   .products .section-head { display: block; margin-bottom: 32px; }
   .products .section-head h2 { font-size: 46px; }
@@ -259,7 +284,14 @@ h2 { font-size: clamp(30px, 3.7vw, 44px); }
   .footer-directory { grid-template-columns: 1fr 1fr; gap: 32px; }
   .footer-about { grid-column: 1 / -1; }
 }
-@media (max-width: 350px) { .hero { min-height: 500px; padding-top: 52px; } .hero h1 { font-size: 50px; } .card-copy h3 { font-size: 44px; } .product-card { min-height: 330px; } .outcome-figure { font-size: 34px; } .trade-scenarios strong { font-size: 19px; } }
+@media (max-width: 350px) { .hero { min-height: 640px; padding: 170px 12px 180px; } .hero h1 { font-size: 40px; } .hero .button { padding-inline: 12px; } .motion-print { width: 120px; } .print-type span { font-size: 27px; } .card-copy h3 { font-size: 44px; } .product-card { min-height: 330px; } .outcome-figure { font-size: 34px; } .trade-scenarios strong { font-size: 19px; } }
+@media (max-width: 760px) and (max-height: 720px) {
+  .hero { min-height: 580px; padding-top: 150px; padding-bottom: 140px; }
+  .hero .lede { margin-top: 16px; }
+  .hero .actions { margin-top: 18px; }
+  .hero-credit { margin-top: 18px; }
+  .motion-print { width: 120px; }
+}
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *,*::before,*::after { animation: none !important; transition: none !important; } }
 
 :root:not([data-js]) .menu-toggle, :root:not([data-js]) .calculator-controls, :root:not([data-js]) .outcome-frame, :root:not([data-js]) .product-navigation { display: none; }
