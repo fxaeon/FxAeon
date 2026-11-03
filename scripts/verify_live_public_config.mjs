@@ -1,88 +1,128 @@
-const DEFAULT_APP_URL = 'https://fxaeon.com/';
-// The financial app now owns the public root and opens Portfolio there. Keep
-// the explicit route probe so this gate checks the wallet bundle itself.
+import { createHash } from 'node:crypto';
+import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { validateRevision, verifyReleaseRevision } from './release_revision.mjs';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const APP_ORIGIN = 'https://fxaeon.com';
 const WALLET_CONFIG_PROBE_PATH = '/portfolio';
-const ALLOWED_APP_HOSTS = new Set(['fxaeon.com', 'fxaeon.pages.dev']);
-const DEFAULT_ATTEMPTS = 18;
-const DEFAULT_INTERVAL_MS = 10_000;
+const MAX_CHUNK_BYTES = 8 * 1024 * 1024;
+const MAX_MATCHES = 16;
+const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 
-function required(name) {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`${name} is required`);
-  return value;
-}
-
-function positiveInteger(name, fallback) {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`${name} must be a positive integer`);
+export function validateChunkPath(path) {
+  if (typeof path !== 'string' || path.length > 300
+    || path.split('/').some(segment => segment === '.' || segment === '..')
+    || !/^\/_next\/static\/chunks\/(?:(?:[A-Za-z0-9_.-]+|\[[A-Za-z0-9_-]+\])\/)*[A-Za-z0-9_-]+[.-][a-f0-9]{8,64}\.js$/.test(path)) {
+    throw new Error('Invalid hashed artifact chunk path');
   }
-  return value;
+  return path;
 }
 
-function sameOriginJavaScriptUrls(html, pageUrl) {
-  const origin = new URL(pageUrl).origin;
-  const urls = new Set();
-  const attribute = /(?:src|href)=["']([^"']+\.js(?:\?[^"']*)?)["']/giu;
-  for (const match of html.matchAll(attribute)) {
-    const url = new URL(match[1], pageUrl);
-    if (url.origin === origin) urls.add(url.href);
-  }
-  return [...urls];
-}
-
-async function fetchText(url) {
-  const response = await fetch(url, {
-    cache: 'no-store',
-    headers: { 'User-Agent': 'FxAeon-live-config-verifier' },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) throw new Error(`deployment returned HTTP ${response.status}`);
-  return response.text();
-}
-
-async function deploymentContains(pageUrl, expectedValue, revision) {
-  const root = new URL(pageUrl);
-  root.searchParams.set('deployment', revision);
-  const html = await fetchText(root);
-  if (html.includes(expectedValue)) return true;
-
-  const scripts = sameOriginJavaScriptUrls(html, root);
-  if (scripts.length === 0) throw new Error('deployment HTML did not reference any same-origin JavaScript');
-  const sources = await Promise.all(scripts.slice(0, 100).map(fetchText));
-  return sources.some((source) => source.includes(expectedValue));
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-const appUrl = process.env.LIVE_APP_URL?.trim() || DEFAULT_APP_URL;
-const expectedPrivyAppId = required('EXPECTED_PUBLIC_PRIVY_APP_ID');
-const revision = required('GITHUB_SHA');
-const attempts = positiveInteger('LIVE_CONFIG_ATTEMPTS', DEFAULT_ATTEMPTS);
-const intervalMs = positiveInteger('LIVE_CONFIG_INTERVAL_MS', DEFAULT_INTERVAL_MS);
-
-const parsedUrl = new URL(appUrl);
-if (parsedUrl.protocol !== 'https:' || !ALLOWED_APP_HOSTS.has(parsedUrl.hostname)) {
-  throw new Error('LIVE_APP_URL must use https://fxaeon.com (or the fxaeon.pages.dev Pages preview origin)');
-}
-const walletConfigUrl = new URL(WALLET_CONFIG_PROBE_PATH, parsedUrl);
-
-let lastError;
-for (let attempt = 1; attempt <= attempts; attempt += 1) {
-  try {
-    if (await deploymentContains(walletConfigUrl, expectedPrivyAppId, revision)) {
-      console.log('Live FxAeon bundle contains the expected public wallet configuration.');
-      process.exit(0);
+/** Discover only local build chunks; remote HTML/runtime code never supplies fallback paths. */
+export async function discoverConfigChunks(artifactDir, expectedValue, revision) {
+  if (typeof expectedValue !== 'string' || !/^[a-z0-9]{20,64}$/i.test(expectedValue)) throw new Error('Invalid public app ID');
+  const root = resolve(artifactDir);
+  if (await realpath(root) !== root) throw new Error('Artifact directory must not resolve through a symlink');
+  const marker = JSON.parse(await readFile(join(root, 'release.json'), 'utf8'));
+  if (marker.revision !== validateRevision(revision)) throw new Error('Local artifact revision mismatch');
+  const matches = [];
+  let entries = 0;
+  let bytes = 0;
+  async function walk(directory, prefix) {
+    if (await realpath(directory) !== directory) throw new Error('Artifact chunks must not resolve through a symlink');
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      if (++entries > 4096) throw new Error('Artifact entry limit exceeded');
+      if (entry.isSymbolicLink()) throw new Error('Artifact symlink rejected');
+      const file = join(directory, entry.name);
+      const path = `${prefix}/${entry.name}`;
+      if (entry.isDirectory()) await walk(file, path);
+      else if (entry.isFile() && entry.name.endsWith('.js')) {
+        validateChunkPath(path);
+        const size = (await lstat(file)).size;
+        bytes += size;
+        if (size > MAX_CHUNK_BYTES || bytes > 128 * 1024 * 1024) throw new Error('Artifact byte limit exceeded');
+        const source = await readFile(file);
+        if (source.includes(expectedValue)) {
+          matches.push({ path, sha256: digest(source) });
+          if (matches.length > MAX_MATCHES) throw new Error('Too many public configuration chunks');
+        }
+      }
     }
-    lastError = new Error('live bundle does not contain the expected public wallet configuration');
-  } catch (error) {
-    lastError = error;
   }
-  if (attempt < attempts) await sleep(intervalMs);
+  await walk(join(root, '_next', 'static', 'chunks'), '/_next/static/chunks');
+  if (!matches.length) throw new Error('Local artifact has no public configuration chunks');
+  return matches;
 }
 
-throw new Error(`Live deployment configuration check failed: ${lastError?.message ?? 'unknown error'}`);
+async function fetchBytes(url, fetchImpl, maxBytes) {
+  const response = await fetchImpl(url, {
+    method: 'GET', redirect: 'error', credentials: 'omit', cache: 'no-store',
+    headers: { 'User-Agent': 'FxAeon-live-config-verifier' }, signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status !== 200 || response.redirected || (response.url && response.url !== url.href)) {
+    throw new Error('Deployment returned an unexpected response');
+  }
+  if (!response.body) throw new Error('Deployment returned an empty response');
+  const reader = response.body.getReader();
+  const parts = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) { await reader.cancel(); throw new Error('Deployment response byte limit exceeded'); }
+      parts.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  return Buffer.concat(parts);
+}
+
+export async function verifyLivePublicConfig({ expectedValue, revision, artifactDir = join(REPO_ROOT, 'apps/mini-app/dist'),
+  fetchImpl = globalThis.fetch } = {}) {
+  const chunks = await discoverConfigChunks(artifactDir, expectedValue, revision);
+  // Also enforce ordering here, independently of the preceding deployment workflow gate.
+  await verifyReleaseRevision(revision, { fetchImpl, attempts: 1 });
+  const walletConfigUrl = new URL(WALLET_CONFIG_PROBE_PATH, APP_ORIGIN);
+  walletConfigUrl.searchParams.set('deployment', revision);
+  const html = (await fetchBytes(walletConfigUrl, fetchImpl, 2 * 1024 * 1024)).toString('utf8');
+  const references = [...html.matchAll(/(?:src|href)=["']([^"']+\.js(?:\?[^"']*)?)["']/giu)];
+  if (!/<html[\s>]/i.test(html) || references.length === 0 || references.length > 100
+    || !references.some(([, path]) => {
+      const url = new URL(path, walletConfigUrl);
+      return url.origin === APP_ORIGIN && url.pathname.startsWith('/_next/static/chunks/');
+    })) throw new Error('Portfolio HTML did not reference the wallet JavaScript bundle');
+  for (const chunk of chunks) {
+    const url = new URL(validateChunkPath(chunk.path), APP_ORIGIN);
+    const live = await fetchBytes(url, fetchImpl, MAX_CHUNK_BYTES);
+    if (digest(live) !== chunk.sha256) throw new Error('Live configuration chunk differs from the release artifact');
+  }
+  return { verified: true, chunkCount: chunks.length };
+}
+
+export async function main(env = process.env) {
+  if (env.LIVE_APP_URL && ![APP_ORIGIN, `${APP_ORIGIN}/`].includes(env.LIVE_APP_URL)) throw new Error('LIVE_APP_URL must be https://fxaeon.com');
+  const attempts = Number(env.LIVE_CONFIG_ATTEMPTS ?? 18);
+  const intervalMs = Number(env.LIVE_CONFIG_INTERVAL_MS ?? 10_000);
+  if (!Number.isSafeInteger(attempts) || attempts < 1 || attempts > 20
+    || !Number.isSafeInteger(intervalMs) || intervalMs < 1 || intervalMs > 30_000) throw new Error('Invalid retry limits');
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await verifyLivePublicConfig({ expectedValue: env.EXPECTED_PUBLIC_PRIVY_APP_ID, revision: env.GITHUB_SHA });
+      console.log('Live FxAeon wallet configuration matches the verified release artifact.');
+      return;
+    } catch (error) {
+      if (attempt === attempts) throw error;
+    }
+    await new Promise(resolveDelay => setTimeout(resolveDelay, intervalMs));
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(() => {
+    console.error('Live deployment configuration check failed.');
+    process.exitCode = 1;
+  });
+}
