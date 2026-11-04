@@ -11,11 +11,11 @@ const known = {
 };
 const zod = {
   github_advisory_id: 'GHSA-mrhx-c7xc-m3w5', module_name: 'zod',
-  severity: 'high', findings: [{ version: '3.25.76' }, { version: '4.6.7' }], title: 'Unbounded collection validation',
+  severity: 'high', findings: [{ version: '3.25.76' }], title: 'Unbounded collection validation',
 };
 for (const [name, advisories, code] of [
   ['braces advisories no longer have a blanket exception', [known], 1],
-  ['verified Zod compatibility backports are permitted', [zod], 0],
+  ['the verified remaining Zod 3 backport is permitted', [zod], 0],
   ['a Zod finding for an unverified version remains blocking', [{ ...zod, findings: [{ version: '3.22.4' }] }], 1],
   ['a different Zod advisory remains blocking', [{ ...zod, github_advisory_id: 'GHSA-other' }], 1],
   ['a same-name non-Zod module does not use the Zod exception', [{ ...zod, module_name: 'other' }], 1],
