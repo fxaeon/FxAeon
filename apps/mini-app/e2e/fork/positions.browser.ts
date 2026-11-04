@@ -1,3 +1,4 @@
+import { chooseForkBrowserWallet } from './fork-wallet-picker';
 /**
  * Protected real-fork browser acceptance test. All protocol transactions are
  * planned, reviewed, simulated and sent by the actual browser application.
@@ -893,21 +894,15 @@ async function runProof(captureStage: string) {
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
       await expect(activePage.getByRole('dialog', { name: 'Input asset', exact: true })).toBeVisible();
     };
-    // A full document navigation intentionally does not silently restore the
-    // selected wallet (`reconnectOnMount` is disabled). Re-select the same
-    // fork-only injected wallet through the normal chooser before continuing
-    // a connected-session assertion. This keeps the harness faithful to the
-    // app's explicit reconnect behavior without changing the provider state.
+    // After navigation, wait for an existing session or explicitly select the
+    // same unannounced fork wallet through the ordinary chooser.
     const ensureForkWalletConnected = async (): Promise<void> => {
       const expectedAddress = selectedWallet;
       assert.ok(expectedAddress, 'connected fork browser steps require an explicitly selected account');
       const profile = activePage.getByRole('button', { name: 'Open wallet profile' });
       if (!await profile.isVisible().catch(() => false)) {
         await activePage.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true }).click();
-        await activePage.getByRole('dialog', { name: 'Connect your wallet', exact: true })
-          .getByRole('button', { name: 'Other wallets', exact: true }).click();
-        await activePage.getByRole('dialog', { name: 'Other wallets', exact: true })
-          .locator('[data-wallet-id="legacy:browser"]').click();
+        await chooseForkBrowserWallet(activePage);
       }
       await expect(profile).toContainText(`${expectedAddress.slice(0, 6)}…${expectedAddress.slice(-4)}`);
     };
@@ -950,10 +945,7 @@ async function runProof(captureStage: string) {
     // A fresh browser session has no remembered provider choice. Connect the
     // fork-only injected adapter through the same chooser as a real user.
     await page.locator('.app-topbar').getByRole('button', { name: 'Connect wallet', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Connect your wallet', exact: true })
-      .getByRole('button', { name: 'Other wallets', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Other wallets', exact: true })
-      .locator('[data-wallet-id="legacy:browser"]').click();
+    await chooseForkBrowserWallet(page);
     await expect(page.getByRole('button', { name: 'Open wallet profile' })).toBeVisible();
     await ensureInputAssetPickerOpen();
     const sessionUsdcOption = page.getByRole('option', { name: /^USDC\b/i });

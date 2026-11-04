@@ -9,7 +9,6 @@
 }
 .docsChrome {
   position: sticky; top: 0; z-index: 30; margin-bottom: 48px;
-  border-bottom: 1px solid var(--line);
   background: var(--glass-strong); backdrop-filter: blur(20px);
 }
 .docsTopbar {
@@ -33,8 +32,8 @@
 .chromeLinks { display: flex; align-items: center; justify-content: flex-end; gap: 22px; }
 .chromeLinks a { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; color: var(--mut); font-size: 13px; text-decoration: none; white-space: nowrap; }
 .chromeLinks a:hover { color: var(--text); }
-.chromeLinks .openApp { padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); background: var(--surface); }
-.chromeLinks .openApp:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.chromeLinks .openApp { padding: 0 16px; border-radius: 999px; color: var(--text); background: var(--surface); }
+.chromeLinks .openApp:hover { background: var(--surface-2); }
 .mobileActions, .mobileMenu { display: none; }
 .docsLayout { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: start; gap: clamp(32px, 4vw, 64px); width: min(1440px, calc(100% - 64px)); margin: auto; }
 .docsNav { position: sticky; top: calc(var(--docs-chrome-height) + 24px); min-width: 0; max-height: calc(100dvh - var(--docs-chrome-height) - 48px); }
@@ -118,19 +117,19 @@
 .codeBlock pre { max-width: 100%; overflow: auto; padding: 20px; color: var(--text); font-size: 13px; line-height: 1.8; tab-size: 2; scrollbar-width: thin; }
 .codeBlock code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .topicGrid, .productGuides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 24px 0 36px; }
-.articleBody .topicCard, .articleBody .productGuides > a { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); text-decoration: none; transition: border-color var(--dur-fast), background-color var(--dur-fast); }
-.articleBody .topicCard:hover, .articleBody .productGuides > a:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.articleBody .topicCard, .articleBody .productGuides > a { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 24px; border-radius: 16px; background: var(--surface); color: var(--text); text-decoration: none; transition: background-color var(--dur-fast); }
+.articleBody .topicCard:hover, .articleBody .productGuides > a:hover { background: var(--surface-2); }
 .topicIcon, .guideTitle { display: flex; align-items: center; gap: 12px; width: 100%; color: var(--mint-text); }
 .topicIcon :is(svg, i):last-child, .guideTitle :is(svg, i):last-child { margin-left: auto; color: var(--mut-2); }
 .guideTitle strong { color: var(--text); }
 .topicCard > span:last-child, .productGuides > a > span:not(.guideTitle) { color: var(--mut); font-size: 14px; line-height: 1.7; }
 .productGuides small { margin-top: auto; color: var(--mut-2); font-size: 12px; }
-.articleBody .startGuide { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; margin-bottom: 36px; border: 1px solid var(--line-strong); border-radius: 16px; color: var(--text); background: var(--surface); text-decoration: none; }
+.articleBody .startGuide { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px; margin-bottom: 36px; border-radius: 16px; color: var(--text); background: var(--surface); text-decoration: none; transition: background-color var(--dur-fast); }
 .startGuide > span { display: flex; flex-direction: column; gap: 8px; }
 .startGuide strong { font-size: 18px; }
 .startGuide small { color: var(--mut); font-size: 14px; line-height: 1.65; }
 .startGuide > :is(svg, i) { flex: 0 0 auto; color: var(--mint-text); }
-.articleBody .startGuide:hover { border-color: var(--mint-text); }
+.articleBody .startGuide:hover { background: var(--surface-2); }
 .resourceLinks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 20px 0 40px; }
 .articleBody .resourceLinks a { display: flex; align-items: center; justify-content: space-between; min-height: 56px; gap: 12px; border-bottom: 1px solid var(--line); color: var(--text); font-size: 14px; text-decoration: none; }
 .resourceLinks :is(svg, i) { flex: 0 0 auto; color: var(--mut-2); }
@@ -141,16 +140,16 @@
 .articleOutline > a[aria-current='location'] { color: var(--mint-text); border-color: var(--mint-text); }
 .articleOutline > a:hover { color: var(--text); }
 .articlePagination { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 48px 0 32px; }
-.articlePagination a { display: flex; align-items: center; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; color: var(--text); text-decoration: none; font-size: 14px; line-height: 1.6; }
+.articlePagination a { display: flex; align-items: center; gap: 12px; padding: 18px; border-radius: 14px; color: var(--text); background: var(--surface); text-decoration: none; font-size: 14px; line-height: 1.6; }
 .articlePagination a:last-child { justify-content: flex-end; text-align: right; }
-.articlePagination a:hover { border-color: var(--line-strong); background: var(--surface); }
+.articlePagination a:hover { background: var(--surface-2); }
 .articlePagination small { display: block; margin-bottom: 4px; color: var(--mut-2); font-size: 12px; }
 .articlePagination :is(svg, i) { flex: 0 0 16px; color: var(--mut-2); }
 .nextPage { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px; margin: 40px 0 32px; border: 1px solid var(--line); border-radius: 14px; color: var(--text); text-decoration: none; }
 .nextPage > span { display: flex; flex-direction: column; gap: 8px; }
 .nextLabel { color: var(--mut-2); font-size: 12px; }
 .nextPage:hover { background: var(--surface); }
-.docsFooter { padding-top: 24px; border-top: 1px solid var(--line); color: var(--mut-2); font-size: 12px; line-height: 1.8; }
+.docsFooter { padding-top: 24px; color: var(--mut-2); font-size: 12px; line-height: 1.8; }
 .footerLinks { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; }
 .footerLinks a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--mut); text-decoration: none; }
 .footerLinks a:hover { color: var(--mint-text); }

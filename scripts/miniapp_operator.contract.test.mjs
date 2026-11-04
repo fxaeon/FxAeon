@@ -277,8 +277,26 @@ test('config readback fails if named-binding PATCH unexpectedly removes an unrel
   assert.equal(fake.calls.filter(call => call.init.method === 'PATCH').length, 1, 'never blindly retries a partial config mutation');
 });
 
+test('server-config sync rejects mismatched modes before any provider or Cloudflare request', async () => {
+  let calls = 0;
+  const fetchImpl = async () => { calls++; throw new Error('Network must not run'); };
+  for (const modes of [
+    { NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'off', MINIAPP_ACCESS_MODE: 'passkey' },
+    { NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'passkey', MINIAPP_ACCESS_MODE: 'waitlist' },
+    { MINIAPP_ACCESS_MODE: 'passkey' },
+  ]) {
+    for (const dryRun of [true, false]) {
+      await assert.rejects(runOperator(options('sync-server-config', [], dryRun), {
+        env: { ...configEnv(), ...modes, PRIVY_PUBLIC_SIGNUP_DISABLED: 'yes' }, fetchImpl,
+      }), /wallet modes must match/);
+    }
+  }
+  assert.equal(calls, 0);
+});
+
 test('later passkey setup requires a deliberate review marker; default setup never sets it', async () => {
-  const configured = { ...configEnv(), PRIVY_APP_ID: 'syntheticapp0000000000000', MINIAPP_ACCESS_MODE: 'passkey', MINIAPP_EXPECTED_WALLETS: '2' };
+  const configured = { ...configEnv(), PRIVY_APP_ID: 'syntheticapp0000000000000', MINIAPP_ACCESS_MODE: 'passkey',
+    NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'passkey', MINIAPP_EXPECTED_WALLETS: '2' };
   await assert.rejects(runOperator(options('sync-server-config'), { env: configured, fetchImpl: noNetwork }), /verification/);
   const fake = activationFixture(configured);
   const result = await runOperator(options('sync-server-config'), {
@@ -311,7 +329,7 @@ function activationFixture(configured, { open = false } = {}) {
 
 test('even a yes review flag cannot activate while provider signup is open or the wallet inventory is unreviewed', async () => {
   const configured = { ...configEnv(), PRIVY_APP_ID: 'syntheticapp0000000000000', MINIAPP_ACCESS_MODE: 'passkey',
-    PRIVY_PUBLIC_SIGNUP_DISABLED: 'yes', MINIAPP_EXPECTED_WALLETS: '2' };
+    NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'passkey', PRIVY_PUBLIC_SIGNUP_DISABLED: 'yes', MINIAPP_EXPECTED_WALLETS: '2' };
   for (const [overrides, open] of [[{}, true], [{ MINIAPP_EXPECTED_WALLETS: undefined }, false], [{ MINIAPP_EXPECTED_WALLETS: '3' }, false]]) {
     const fake = activationFixture(configured, { open });
     await assert.rejects(runOperator(options('sync-server-config'), { env: { ...configured, ...overrides }, fetchImpl: fake.fetchImpl }), /strict read-only provider check/);
@@ -426,6 +444,13 @@ test('manual activation uses an explicit mode choice only for config sync and re
   assert.doesNotMatch(operator, /server_mode|MINIAPP_ACCESS_MODE|PRIVY_PUBLIC_SIGNUP_DISABLED/);
   const script = readFileSync(new URL('./miniapp_operator.mjs', import.meta.url), 'utf8');
   assert.match(script, /mode === 'passkey' && env\.PRIVY_PUBLIC_SIGNUP_DISABLED !== 'yes'/);
+  assert.match(script, /validateWalletActivation\(env\)/);
+  for (const name of ['Plan manual action', 'Sync server configuration to production Pages']) {
+    const start = workflow.indexOf(`      - name: ${name}`);
+    assert.ok(start >= 0, name);
+    const end = workflow.indexOf('      - name:', start + 1);
+    assert.match(workflow.slice(start, end < 0 ? undefined : end), /NEXT_PUBLIC_TELEGRAM_WALLET_MODE: \$\{\{ vars\.NEXT_PUBLIC_TELEGRAM_WALLET_MODE \|\| 'off' \}\}/);
+  }
   assert.match(script, /probeReadiness\(\{ env, fetchImpl, requireClosed: true/);
   assert.ok(script.indexOf('probeReadiness({ env, fetchImpl, requireClosed: true') < script.indexOf("method: 'PATCH'"));
 });

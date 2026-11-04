@@ -4,24 +4,28 @@ import { FX_SAVE_APY_ENDPOINT, FX_SAVE_TOKEN_ADDRESS } from '../../src/lib/fxSav
 test.describe('Earn entry and honest unavailable state', () => {
   test.use({ telegram: false });
 
-  test('keeps the position, APY, action tabs, and primary action together on a normal phone viewport', async ({ page }) => {
+  test('keeps performance ahead of the editor and makes the amount immediately reachable on a normal phone', async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto('/earn', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'fxSAVE', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Your fxSAVE earnings' }).getByText('APY', { exact: true })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Deposit', exact: true })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Withdraw', exact: true })).toBeVisible();
-    const primary = page.getByRole('button', { name: 'Connect wallet', exact: true }).last();
-    await expect(primary).toBeVisible();
+    const amount = page.getByLabel('Amount in fxUSD', { exact: true });
+    await expect(amount).toBeVisible();
     const nav = page.locator('nav.mobile-tabbar[aria-label="Primary navigation"]');
     await expect(nav).toBeVisible();
     const geometry = await page.evaluate(() => {
-      const action = document.querySelector<HTMLElement>('.reviewTrigger .button-primary');
+      const amount = document.querySelector<HTMLElement>('[aria-label="Amount in fxUSD"]');
+      const history = document.querySelector<HTMLElement>('[aria-label="fxSAVE performance"]');
+      const panel = document.querySelector<HTMLElement>('[data-result-container]');
       const navigation = document.querySelector<HTMLElement>('nav.mobile-tabbar[aria-label="Primary navigation"]');
-      if (!action || !navigation) throw new Error('Earn primary action and bottom navigation must be mounted');
-      return { actionBottom: action.getBoundingClientRect().bottom, navTop: navigation.getBoundingClientRect().top };
+      if (!amount || !history || !panel || !navigation) throw new Error('Earn summary, performance, amount, and navigation must be mounted');
+      return { amountTop: amount.getBoundingClientRect().top, navTop: navigation.getBoundingClientRect().top,
+        historyBottom: history.getBoundingClientRect().bottom, panelTop: panel.getBoundingClientRect().top };
     });
-    expect(geometry.actionBottom, 'Earn primary action must clear the fixed bottom navigation').toBeLessThanOrEqual(geometry.navTop + 1);
+    expect(geometry.historyBottom, 'Performance is visible before the editor').toBeLessThanOrEqual(geometry.panelTop + 1);
+    expect(geometry.amountTop, 'The deposit amount remains in the first phone viewport').toBeLessThanOrEqual(geometry.navTop + 1);
   });
 
   test('keeps the narrow Earn form within 320px while allowing natural vertical scrolling', async ({ page }) => {

@@ -170,7 +170,7 @@ test('hover reveal returns the desktop toggle beside the brand without moving na
   const collapsedRect = await collapsedToggle.boundingBox();
   expect(collapsedRect).not.toBeNull();
 
-  const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+  const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('a[aria-label="FxAeon portfolio"] svg, .desktop-navigation a svg')].map(icon => {
     const rect = icon.getBoundingClientRect();
     return { left: rect.left, top: rect.top };
   }));
@@ -183,7 +183,10 @@ test('hover reveal returns the desktop toggle beside the brand without moving na
   expect(hoverRect!.y).toBeCloseTo(pinnedRect!.y, 0);
   expect(hoverRect!.width).toBeGreaterThanOrEqual(44);
   expect(hoverRect!.height).toBeGreaterThanOrEqual(44);
-  const hoverIcons = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+  const wordmark = await sidebar.getByRole('link', { name: 'FxAeon portfolio' }).locator('span').boundingBox();
+  expect(wordmark).not.toBeNull();
+  expect(wordmark!.x + wordmark!.width + 8).toBeLessThanOrEqual(hoverRect!.x);
+  const hoverIcons = await sidebar.evaluate(element => [...element.querySelectorAll('a[aria-label="FxAeon portfolio"] svg, .desktop-navigation a svg')].map(icon => {
     const rect = icon.getBoundingClientRect();
     return { left: rect.left, top: rect.top };
   }));
@@ -213,7 +216,7 @@ test('collapsed desktop rails reveal on hover without moving content or changing
     await page.mouse.move(width - 20, 800);
     await expectSidebarFits(page, 72);
     const before = await page.locator('[data-shell-content]').boundingBox();
-    const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+    const iconRects = await sidebar.evaluate(element => [...element.querySelectorAll('a[aria-label="FxAeon portfolio"] svg, .desktop-navigation a svg')].map(icon => {
       const rect = icon.getBoundingClientRect();
       return { left: rect.left, top: rect.top };
     }));
@@ -221,7 +224,7 @@ test('collapsed desktop rails reveal on hover without moving content or changing
     await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().width)).toBe(224);
     await expect(portfolio.locator('span')).toBeVisible();
     await expect.poll(() => sidebar.evaluate((element, before) => {
-      const after = [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+      const after = [...element.querySelectorAll('a[aria-label="FxAeon portfolio"] svg, .desktop-navigation a svg')].map(icon => {
         const rect = icon.getBoundingClientRect();
         return { left: rect.left, top: rect.top };
       });
@@ -239,7 +242,7 @@ test('collapsed desktop rails reveal on hover without moving content or changing
     await page.mouse.move(width - 20, 800);
     const closeSamples = await sidebar.evaluate(async (element, before) => {
       const samples: Array<Array<{ left: number; top: number }>> = [];
-      const capture = () => [...element.querySelectorAll('.brand svg, .desktop-navigation a svg')].map(icon => {
+      const capture = () => [...element.querySelectorAll('a[aria-label="FxAeon portfolio"] svg, .desktop-navigation a svg')].map(icon => {
         const rect = icon.getBoundingClientRect();
         return { left: rect.left, top: rect.top };
       });

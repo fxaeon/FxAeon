@@ -27,9 +27,12 @@ test('production checkouts do not persist credentials and protected proof upload
   }
   assert.match(anvilWorkflow, /if: github\.repository == 'fxaeon\/FxAeon' && github\.ref == 'refs\/heads\/main'/);
   const upload = anvilWorkflow.slice(anvilWorkflow.indexOf('      - name: Upload redacted protocol proof'));
-  assert.match(upload, /if: success\(\)/);
-  assert.doesNotMatch(upload, /if: always\(\)|path: artifacts\/anvil\/\s/);
-  for (const file of ['protocol-proof.json', 'earn-proof.json', 'browser-proof.json']) assert.ok(upload.includes(`artifacts/anvil/${file}`));
+  for (const [id, file] of [['protocol_proof', 'protocol-proof.json'], ['earn_proof', 'earn-proof.json'], ['browser_proof', 'browser-proof.json']]) {
+    assert.match(anvilWorkflow, new RegExp(`id: ${id}`));
+    assert.ok(upload.includes("if: ${{ !cancelled() && steps." + id + ".outcome == 'success' }}"));
+    assert.ok(upload.includes(`path: artifacts/anvil/${file}`));
+  }
+  assert.doesNotMatch(upload, /if: always\(\)|path: artifacts\/anvil\/\s|\.log|\.zip|\.png/);
 });
 
 test('container shell steps trust only the checked-out workspace before verification', () => {
@@ -220,7 +223,7 @@ test('production validation keeps the local development Privy application out', 
 });
 
 test('wallet mode is off by default and requires a reviewed server activation before building', () => {
-  for (const name of ['Validate public build configuration', 'Build production deployment artifact']) {
+  for (const name of ['Validate public build configuration', 'Build production deployment artifact', 'Sync production Pages wallet server configuration']) {
     assert.match(step(name), /NEXT_PUBLIC_TELEGRAM_WALLET_MODE: \$\{\{ vars\.NEXT_PUBLIC_TELEGRAM_WALLET_MODE \|\| 'off' \}\}/);
   }
   const validation = step('Validate server wallet configuration');

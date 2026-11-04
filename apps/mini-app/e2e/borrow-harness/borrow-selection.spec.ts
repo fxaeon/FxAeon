@@ -608,9 +608,9 @@ test('funding status distinguishes verified zero, positive and tiny positive cha
   await expect(metric.getByRole('status')).toHaveCount(0);
   await expect(metric).not.toContainText('APR');
   const history = page.getByRole('region', { name: 'ETH borrow funding history', exact: true });
-  await expect(history).toContainText('Funding status: OFF');
-  await expect(history.locator('strong').first()).toHaveText('0% / 8h');
-  await expect(history.getByRole('button', { name: 'About Funding status: OFF', exact: true })).toBeVisible();
+  await expect(history).not.toContainText('Funding status');
+  await expect(history).toContainText('Average cost APR');
+  await expect(metric.getByRole('button', { name: 'About Funding status: OFF', exact: true })).toBeVisible();
   await page.evaluate(() => { Object.assign(window, { __borrowFundingRatio: 35000000000000000n }); window.dispatchEvent(new Event('online')); });
   await expect(metric.locator('dd')).toHaveText('≈ 0.0031% / 8h');
   await expect(metric.locator('dt')).toContainText('Funding status: ON');
@@ -839,9 +839,9 @@ test('styled Borrow outcome rows stay compact and wrap at 320px with 200% text',
     await periods.getByRole('button', { name: '1Y', exact: true }).click();
     await expect(history).toContainText('5.25%');
     const definitions = history.locator('[data-info-help-trigger]');
-    await expect(definitions).toHaveCount(3);
+    await expect(definitions).toHaveCount(2);
     expect(await definitions.evaluateAll(controls => controls.map(control => control.getAttribute('aria-label')))).toEqual([
-      'About Funding & costs', 'About Funding status: OFF', 'About Average cost APR',
+      'About Funding & costs', 'About Average cost APR',
     ]);
     for (const control of await definitions.all()) {
       await control.scrollIntoViewIfNeeded();

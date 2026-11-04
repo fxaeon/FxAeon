@@ -23,7 +23,7 @@
   .sidebar:not([data-sidebar-expanded='false']) .brand span, .sidebar:not([data-sidebar-expanded='false']) .links a span { display: inline; }
   .sidebar:not([data-sidebar-expanded='false']) .links a { justify-content: flex-start; }
   .toggle { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; margin-left: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--mut); cursor: pointer; }
-  .sidebar[data-sidebar-expanded='false'] .brandRow { min-height: 96px; flex-direction: column; gap: 8px; }
+  .sidebar[data-sidebar-expanded='false'] .brandRow { min-height: 96px; flex-direction: column; align-items: flex-start; gap: 8px; }
   .sidebar[data-sidebar-expanded='false'] .toggle { position: absolute; top: 52px; left: 2px; margin: 0; transition: top 160ms ease, left 160ms ease; }
   .sidebar[data-sidebar-expanded='false'] .links { margin-top: 12px; }
 }

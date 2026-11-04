@@ -61,7 +61,7 @@ pnpm verify
 
 ## Architecture and safety
 
-The financial app is a static Next.js export. The selected user wallet signs transactions; FxAeon has no transaction backend, delegated signer, private-key input, or background executor. The reviewed, pinned [f(x) SDK surface](fx-scope.lock.json) plans supported actions; reviews bind terms to the current wallet and inputs, and dependent steps require verified receipts.
+The financial app is a static Next.js export with Pages Functions for Telegram access and wallet requests. Ordinary browsers use the selected external wallet. In the configured Telegram passkey flow, the server verifies launch identity and passkey approval before forwarding the approved transaction to the bound Privy wallet. Optional invitation email is not wallet login or recovery. The reviewed, pinned [f(x) SDK surface](fx-scope.lock.json) plans supported actions; reviews bind terms to the current wallet and inputs, and dependent steps require verified receipts.
 
 Prices, charts, and portfolio estimates are display context. They do not set signing amounts or protocol limits. Missing or stale data stays unavailable. Two separate read-only Pages Functions serve optional [gas quotes](functions/api/gas.ts) and [landing market data](apps/landing/functions/api/market-data.ts).
 
@@ -86,7 +86,7 @@ The [developer handbook](docs/README.md) links the implementation guides, packag
 | --- | --- |
 | [`apps/mini-app`](apps/mini-app/README.md) | Financial app, wallet adapters, SDK integration, and browser harnesses |
 | [`apps/landing`](apps/landing/README.md) | Independent marketing site and display-only market data |
-| [`functions`](functions) | Optional app gas Pages Function |
+| [`functions`](functions) | App Pages Functions, including gas, Telegram admission and passkey wallet requests |
 | [`docs`](docs/README.md) | Maintained developer handbook and implementation references |
 | [`scripts`](scripts) | Verification, build, deployment, and capture tools |
 | [`patches`](patches) | Version-bound dependency patches |

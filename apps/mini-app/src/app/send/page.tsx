@@ -28,7 +28,7 @@ import { displayAssetSymbol } from '@/components/AssetPresentation';
 import { WalletAssetPicker } from '@/components/WalletAssetPicker';
 import { StickyAction } from '@/components/StickyAction';
 import { TransactionSettings } from '@/components/TransactionSettings';
-import { StatusNotice } from '@/components/ProductUI';
+import { PageHeading, StatusNotice } from '@/components/ProductUI';
 import { useRefreshAction } from '@/lib/useRefreshAction';
 import type { WalletAsset } from '@/lib/walletAssets';
 import styles from './send.module.css';
@@ -39,9 +39,12 @@ const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.sl
 
 export default function SendPage() {
   const wallet = usePrivyWallet();
-  return <AppShell title="Send">{wallet.address
+  return <AppShell title={wallet.address ? 'Send' : undefined}>{wallet.address
     ? <SendForm key={`${wallet.address.toLowerCase()}:${wallet.connectionVersion}`} />
-    : <WalletConnectCTA compact ready={wallet.ready} authenticated={wallet.authenticated} body="Connect a wallet to send." />}</AppShell>;
+    : <>
+      <PageHeading title="Send" backHref="/more" visible />
+      <WalletConnectCTA compact ready={wallet.ready} authenticated={wallet.authenticated} body="Connect a wallet to send." />
+    </>}</AppShell>;
 }
 
 function SendForm() {

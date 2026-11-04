@@ -9,12 +9,13 @@
 .stat { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: baseline; gap: 4px 16px; }
 .stat dt { color: var(--mut); font-size: 12px; font-weight: 400; }
 .stat dd { min-width: 0; margin: 0; color: var(--text); font-size: 13px; font-weight: 500; text-align: right; line-height: 1.5; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.stat .statHint { grid-column: 2; color: var(--mut); font-size: 11px; font-weight: 400; letter-spacing: 0; line-height: 1.5; }
+.stat .statHint { grid-column: 1 / -1; color: var(--mut); font-size: 11px; font-weight: 400; letter-spacing: 0; line-height: 1.5; text-align: left; }
 .explainer { min-width: 0; }
 .explainer > summary { display: flex; min-height: 56px; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; list-style: none; font-size: 13px; color: var(--text); }
 .explainer > summary::-webkit-details-marker { display: none; }
 .explainer[open] > summary > svg { transform: rotate(180deg); }
 .explainerBody { display: grid; gap: 16px; padding-bottom: 16px; }
+.explainer:not([open]) > .explainerBody { display: none; }
 .lede { margin: 0; max-width: 66ch; color: var(--mut); font-size: 12px; line-height: 1.7; }
 .callout { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 10px; padding: 12px 0; }
 .calloutIcon { padding-top: 2px; color: var(--warn); }

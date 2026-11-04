@@ -24,6 +24,24 @@ First paint uses that same public presentation while wallet providers initialize
 The account skeleton appears only after an authenticated selected wallet is known;
 wallet restoration does not manufacture a connected account or a zero balance.
 
+## Telegram access and disconnect
+
+In the configured passkey mode, an authenticated Telegram status request
+automatically reserves a place while wallet setup and admission are enabled.
+The default admission threshold and permanent hard cap are 480, counting the
+legacy baseline plus every lifetime reservation, including unfinished wallet
+setup. Admission can pause or use a lower threshold; waitlist/email verification
+alone does not authorize a wallet. Existing reservations are not freed by
+disconnecting. See `server/miniapp-access/admissionPolicy.ts` and `store.ts`.
+
+Telegram wallet setup requires a synced/backed-up passkey. The app currently
+offers no replacement-key enrollment, passkey reset, or email wallet recovery.
+Keep access to the Telegram identity and the passkey provider. A manual disconnect
+removes the selected wallet from the app and persists an identity-scoped local
+opt-out where storage works. Public routes remain browsable; explicit Sign in or
+Connect wallet rechecks access and recovery before restoring the wallet. Disconnect
+does not revoke onchain allowances or erase an unresolved server operation.
+
 ## Inputs and previews
 
 A preview describes its matching ticket. Amount, asset, direction, recipient, or wallet changes invalidate it; stale values must not describe a newer intent.
@@ -63,11 +81,12 @@ Empty amounts omit the sensitivity section. Entered amounts with unavailable
 collateral valuation or an unverified form limit also omit the illustration,
 without an invented zero value or risk curve.
 
-Borrow funding history presents the current gross collateral charge per eight
-hours first, with annualized APR as secondary context. Historical charges and
-their period average use the same eight-hour basis. Short-pool earnings are
-not folded into the chart's gross whole-collateral basis; historical values are
-not a current quote or an earned return.
+Borrow's current funding status presents the collateral charge per eight hours.
+It identifies a gross charge when the short-pool offset cannot be verified; a net
+rate is shown only when that offset is verified. Funding history charts gross
+eight-hour charges, with a time-weighted annualized Average cost APR for the
+displayed dates. Short-pool earnings are not folded into that historical gross
+whole-collateral basis; historical values are not a current quote or earned return.
 
 Borrow places the verified state beside its label: “Funding status: ON” or
 “Funding status: OFF”. Only ON is red and OFF green; the eight-hour rate remains
@@ -87,7 +106,7 @@ A position's estimated PnL is a separate figure: its own labelled column in wide
 
 A product action prepares an explicit review before execution. Accepted routes are bound to current signing inputs and wallet session; expired/changed reviews require refresh and acceptance.
 
-The review leads with amount consequences, then relevant debt/LTV, limits, costs and risk. Contextual information controls explain terms; exact-value controls retain precision and source caveats. Additional contract/request/verification evidence lives in one technical disclosure rather than duplicating decision terms.
+The review leads with amount consequences, then relevant debt/LTV, limits, costs and risk. Contextual information controls explain terms; exact-value controls retain precision and source caveats. The compact review omits contract, calldata, nonce and fingerprint disclosures; the wallet request and receipt links provide their respective evidence.
 
 Estimates are labelled. Rounded displays and USD equivalents retain appropriate approximation; minimums, accepted amounts and native fee caps remain inspectable. An unknown rate is not 0%, an unavailable fee is not free, and a displayed USD estimate is not a signed limit.
 
@@ -113,6 +132,14 @@ A wallet request is not submission. A returned hash is not confirmation. Results
 The next dependent step waits for its verified predecessor. Rejection, revert, timeout, canonical mismatch, or signing-session changes stop progression. Uncertain transactions remain inspectable and do not create an automatic retry/resubmit action.
 
 Drafts restore form values into a fresh review. They contain no executable authority and do not prove a prompt, signature, hash, or receipt. Local and indexed history remain distinct sources.
+
+Telegram wallet recovery also checks server-stored operation status, even when a
+local hint is missing. An unknown dispatch result can remain blocked without a
+hash; no returned hash is not proof of no submission. Check status reconciles the
+existing operation without resending. A recovered hash can be acknowledged after
+inspection; acknowledgement is not chain confirmation or bridge delivery. Clearing
+local history or disconnecting does not resolve the stored uncertainty. This
+operation lookup does not restore every local draft or complete wallet history.
 
 A bridge source receipt does not establish destination delivery. Move matches the relevant cross-chain events and preserves pending/unverified states until delivery is proven.
 

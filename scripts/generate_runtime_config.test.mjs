@@ -47,17 +47,33 @@ test('generated production vars use the same validated configuration as server s
   assert.deepEqual({ ...preview.vars }, {}); assert.deepEqual(preview.d1_databases, []);
 });
 
-test('waitlist staging and rollback permit a passkey frontend and remove stale activation vars', t => {
+test('waitlist staging and rollback require a paired frontend and remove stale activation vars', t => {
   const path = workspace(t); writeFileSync(path, generateRuntimeConfig(RAW, ENV));
   const raw = experimental_readRawConfig({ config: path }).rawConfig;
-  const generated = generateRuntimeConfig(raw, { ...ENV, MINIAPP_ACCESS_MODE: 'waitlist' });
+  assert.throws(() => generateRuntimeConfig(raw, { ...ENV, MINIAPP_ACCESS_MODE: 'waitlist' }), /wallet modes must match/);
+  const staging = { ...ENV, MINIAPP_ACCESS_MODE: 'waitlist', NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'off' };
+  const generated = generateRuntimeConfig(raw, staging);
   writeFileSync(path, generated);
   const production = unstable_readConfig({ config: path, env: 'production' }, { hideWarnings: true });
   assert.equal(production.vars.MINIAPP_ACCESS_MODE, 'waitlist');
   assert.equal(production.vars.PRIVY_PUBLIC_SIGNUP_DISABLED, undefined);
   assert.equal(production.vars.MINIAPP_LEGACY_USERS, '5');
   assert.equal(generateRuntimeConfig(experimental_readRawConfig({ config: path }).rawConfig,
-    { ...ENV, MINIAPP_ACCESS_MODE: 'waitlist' }), generated);
+    staging), generated);
+});
+
+test('production manifest CLI rejects mismatches before changing the config file', async t => {
+  const path = workspace(t);
+  for (const modes of [
+    { NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'off', MINIAPP_ACCESS_MODE: 'passkey' },
+    { NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'passkey', MINIAPP_ACCESS_MODE: 'waitlist' },
+  ]) {
+    let output = '';
+    assert.equal(await main({ argv: ['--production'], env: { ...ENV, ...modes }, configPath: path,
+      write: text => { output += text; } }), 1);
+    assert.deepEqual(JSON.parse(output), { runtimeConfigGenerated: false });
+    assert.equal(readFileSync(path, 'utf8'), SOURCE);
+  }
 });
 
 test('runtime inputs reject missing baseline, invalid mode, injection and unreviewed activation', () => {

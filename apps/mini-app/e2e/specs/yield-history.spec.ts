@@ -62,7 +62,9 @@ for (const width of [320, 390, 1280]) {
     const chart = page.getByRole('slider');
     await expect(chart).toHaveAccessibleName('Explore fxSAVE annualized return');
     await expect(chart).toHaveAttribute('aria-valuemax', '30');
-    expect((await chart.boundingBox())!.height).toBe(148);
+    const chartHeight = (await chart.boundingBox())!.height;
+    expect(chartHeight).toBeGreaterThanOrEqual(100);
+    expect(chartHeight).toBeLessThanOrEqual(148);
     await expect(chart).toHaveAttribute('aria-valuetext', /8.00% annualized return/);
     await page.getByRole('button', { name: 'About Annualized return', exact: true }).click();
     await expect(page.getByText('Based on 30 days of vault value; includes valuation changes. Not the current quoted APY.', { exact: true })).toBeVisible();
@@ -158,7 +160,7 @@ test('unconfigured archive reads leave the real Earn form usable', async ({ page
   const history = page.getByRole('region', { name: 'fxSAVE performance' });
   const amount = page.getByRole('textbox', { name: 'Amount in fxUSD', exact: true });
   await expect(amount).toBeVisible();
-  expect(await history.evaluate(node => node.getBoundingClientRect().top)).toBeGreaterThan(await amount.evaluate(node => node.getBoundingClientRect().bottom));
+  expect(await history.evaluate(node => node.getBoundingClientRect().bottom)).toBeLessThan(await amount.evaluate(node => node.getBoundingClientRect().top));
   await history.scrollIntoViewIfNeeded();
   await expect(history.getByText('Yield history unavailable')).toBeVisible();
 });

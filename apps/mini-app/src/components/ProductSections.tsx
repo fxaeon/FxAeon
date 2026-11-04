@@ -10,7 +10,6 @@ import { ValueOrSkeleton } from '@/components/MissingValue';
 
 import type { MarketSymbol } from '@/lib/marketData';
 import { Callout, PageSections, Section, StatGrid } from '@/components/PageSections';
-import { YieldFlow } from '@/components/YieldFlow';
 
 import styles from '@/components/PageSections.module.css';
 
@@ -55,7 +54,6 @@ export function EarnSections({ cooldown, instantFee, vaultStatus, showWithdrawal
     </Section>}
     <Section id="earn-yield" title="How fxSAVE earns yield" expandable action={howItWorks('earn')}>
       <p className={styles.lede}>fxSAVE holds f(x) Protocol stability pool shares and compounds what they earn, so its value per share follows the vault. The APY is variable.</p>
-      <YieldFlow />
     </Section>
   </PageSections>;
 }
@@ -67,9 +65,8 @@ export function BorrowSections({ ltvLimit }: { ltvLimit: string }) {
       <StatGrid stats={[
         // The displayed pool maximum is distinct from the guarded form ceiling.
         { label: 'Pool maximum LTV', value: ltvLimit, hint: 'The form keeps a buffer below this limit' },
-        { label: 'Action fees', value: 'Opening · repayment', hint: 'Funding charges are shown separately' },
-        { label: 'Collateral', value: 'ETH · BTC', hint: 'ETH, WETH, stETH, wstETH, or WBTC' },
-        { label: 'You borrow', value: 'fxUSD', hint: 'On Ethereum' },
+        { label: 'Action fees', value: 'Opening · repayment', hint: 'Separate from funding; shown before confirmation' },
+        { label: 'Collateral', value: 'ETH · WETH · stETH · wstETH · WBTC' },
       ]} />
       {rebalancingNote}
     </Section>

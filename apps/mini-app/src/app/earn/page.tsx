@@ -571,8 +571,8 @@ export default function EarnPage() {
   // display-rounded one) decides whether a withdrawal fits.
   const reviewBlocker = !wallet.address || mode === 'claim' ? null
     : mode === 'deposit'
-      ? amountBlocker(amount, token === 'usdc' ? 6 : 18, labelToken(token), saveBalances?.[token], { emptyLabel: `No ${labelToken(token)} to deposit` })
-      : amountBlocker(shares, 18, 'fxSAVE', walletData?.balance ? { status: 'ready', amount: formatUnits(walletData.balance.balanceWei, 18) } : undefined, { allowAll: true, emptyLabel: 'No fxSAVE to withdraw' });
+      ? amountBlocker(amount, token === 'usdc' ? 6 : 18, labelToken(token), saveBalances?.[token], { emptyLabel: 'Deposit' })
+      : amountBlocker(shares, 18, 'fxSAVE', walletData?.balance ? { status: 'ready', amount: formatUnits(walletData.balance.balanceWei, 18) } : undefined, { allowAll: true, emptyLabel: 'Withdraw' });
   const operationLabel = mode === 'claim' ? 'Claim withdrawal' : mode === 'withdraw' ? 'Withdraw fxSAVE' : 'Deposit into fxSAVE';
   const warningTitle = activeReadWarnings.includes('balance') ? 'fxSAVE balance unavailable'
     : activeReadWarnings.includes('claim status') || activeReadWarnings.includes('redemption status') ? 'Withdrawal status unavailable'
@@ -600,6 +600,7 @@ export default function EarnPage() {
           readWarnings={activeReadWarnings} config={config} fxSaveApy={fxSaveApy} fxSaveApyStatus={fxSaveApyStatus}
           onClaim={() => changeMode('claim')} claimTriggerRef={claimTriggerRef} />
         </div>}
+        {inputStage && mode !== 'claim' && <div className={presentation.historySlot}><FxSaveHistory /></div>}
         <EarnClaimSheet mode={mode} stage={reviewStage} onClose={() => changeMode('withdraw')} triggerRef={claimTriggerRef}>
         <ProductSurface data-result-container className={presentation.panel} data-flow-stage={reviewStage} data-claim-flow={mode === 'claim'}>
           <ActionReview
@@ -646,7 +647,6 @@ export default function EarnPage() {
           />
         </ProductSurface>
         </EarnClaimSheet>
-        {inputStage && mode !== 'claim' && <div className={presentation.historySlot}><FxSaveHistory /></div>}
         {inputStage && mode !== 'claim' && <div className={presentation.vaultInfo}>
           <EarnSections cooldown={config && !readWarnings.includes('vault configuration') ? formatCooldown(config.cooldownPeriodSeconds) : null} instantFee={config && !readWarnings.includes('vault configuration') ? formatRatio(config.instantRedeemFeeRatio) : null}
             vaultStatus={readWarnings.includes('vault configuration') ? 'unavailable' : 'loading'} showWithdrawalTerms
@@ -802,7 +802,7 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
       <AmountField label="Amount" symbol={labelToken(token)} value={amount} onChange={onAmountChange}
         compact showShortcuts maxDecimals={token === 'usdc' ? 6 : 18} balanceState={amountBalance} tokenSelector={picker} />
       {zeroExternalBalance && <p className={presentation.fundingGuide}>
-        No {labelToken(token)} available. <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
+        <Link href="/qr">Receive assets on Ethereum</Link> or choose an asset with a balance.
       </p>}
       {depositEstimate && <section className={presentation.outcome} aria-label="Deposit outcome">
         <EstimateRow label="Receive" value={depositEstimate}
@@ -812,12 +812,12 @@ function EarnActionEditor({ mode, token, onTokenChange, amount, onAmountChange, 
     {mode === 'withdraw' && <>
       <AmountField label="Amount" symbol="fxSAVE" value={shares} onChange={onSharesChange}
         compact showShortcuts balanceState={shareBalance} allowAll maxDecimals={18} />
-      {zeroShareBalance && <p className={presentation.fundingGuide}>No fxSAVE yet. <button type="button" onClick={onDeposit}>Switch to Deposit</button> using fxUSD, USDC, or fxSP.</p>}
+      {zeroShareBalance && <p className={presentation.fundingGuide}><button type="button" onClick={onDeposit}>Switch to Deposit</button> to use fxUSD, USDC, or fxSP.</p>}
       <div className={presentation.withdrawOptions}>
         <ChoiceCards value={token === 'fxUSDBasePool' ? 'direct' : instant ? 'instant' : 'cooldown'}
           onChange={(value) => onWithdrawalMethodChange(value as 'cooldown' | 'instant' | 'direct')} label="Withdrawal method" options={[
             { value: 'cooldown', label: 'After cooldown', description: config ? formatCooldown(config.cooldownPeriodSeconds) : undefined },
-            { value: 'instant', label: 'Instant' },
+            { value: 'instant', label: 'Instant', description: config ? `${formatRatio(config.instantRedeemFeeRatio)} fee` : undefined },
             { value: 'direct', label: 'fxSP' },
           ]} />
       </div>

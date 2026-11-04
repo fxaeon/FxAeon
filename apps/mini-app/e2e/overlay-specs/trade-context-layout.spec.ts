@@ -21,7 +21,7 @@ const mocks: Record<string, string> = {
 let bundle: { script: string; css: string };
 test.beforeAll(async () => {
   const result = await esbuild.build({
-    stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import{TradeContext}from './src/components/TradeContext';createRoot(document.getElementById('root')).render(<TradeContext market="ETH" side="long" leverage={2} openPositions={0} positionsStatus={globalThis.__tradeDisconnected?'disconnected':'ready'}/>);`, loader: 'tsx', resolveDir: app },
+    stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import{TradeContext,RouteDelivery}from './src/components/TradeContext';createRoot(document.getElementById('root')).render(<><TradeContext market="ETH" side="long" leverage={2} openPositions={globalThis.__positions ?? 0} positionsStatus={globalThis.__tradeDisconnected?'disconnected':'ready'}/><RouteDelivery sourceChainId={8453}/></>);`, loader: 'tsx', resolveDir: app },
     bundle: true, write: false, outdir: 'trade-context-fixture', format: 'iife', platform: 'browser', target: 'es2022', jsx: 'automatic', loader: { '.module.css': 'local-css' },
     plugins: [{ name: 'trade-context-fixtures', setup(build: any) {
       build.onResolve({ filter: /^\.\/(PriceProvider|TokenIcon)$/ }, ({ path }: { path: string }) => ({ path: `@/components/${path.slice(2)}`, namespace: 'fixture' }));
@@ -54,7 +54,9 @@ for (const width of [320, 390, 1280]) test(`Trade supporting facts and scenario 
   await expect(page.getByRole('dialog')).toContainText('not projected PnL');
   await expect(page.getByRole('dialog')).toContainText('liquidation');
   await expect(conditions).toBeVisible();
-  await expect(exposure).toContainText('0 open ETH positions');
+  await expect(exposure).toContainText('No open ETH positions.');
+  await expect(exposure).not.toContainText('Review your positions');
+  await expect(exposure.getByRole('link', { name: 'View positions' })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   const geometry = await exposure.evaluate(element => { const box=element.getBoundingClientRect(); const parent=element.parentElement!.getBoundingClientRect(); return { width:box.width, parent:parent.width, background:getComputedStyle(element).backgroundColor }; });
   expect(geometry.background).toBe('rgba(0, 0, 0, 0)');
@@ -64,6 +66,34 @@ for (const width of [320, 390, 1280]) test(`Trade supporting facts and scenario 
   await page.keyboard.press('ArrowRight');
   await expect(slider).toHaveValue('-9');
   await page.screenshot({ path: info.outputPath(`trade-context-${width}.png`), fullPage: true, animations: 'disabled' });
+});
+
+test('risk and delivery disclosures toggle and retain essential warnings', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.setContent('<html data-theme="dark"><body><div id="root"></div></body></html>');
+  await page.addStyleTag({ content: bundle.css });
+  await page.evaluate(() => { (globalThis as typeof globalThis & { __positions: number }).__positions = 1; });
+  await page.addScriptTag({ content: bundle.script });
+  const exposure = page.getByRole('region', { name: 'Your existing exposure' });
+  await expect(exposure).toContainText('1 open ETH position');
+  await expect(exposure.getByRole('link', { name: 'View positions' })).toHaveAttribute('href', '/positions');
+  for (const [title, warning] of [['How protection works', 'losses and liquidation remain possible'], ['Route and delivery', 'Source confirmation does not mean destination delivery']] as const) {
+    const details = page.locator('details').filter({ has: page.locator('summary', { hasText: title }) });
+    const summary = details.locator('summary');
+    const body = details.locator('div').first();
+    await expect(details).not.toHaveAttribute('open', '');
+    await expect(body).toBeHidden();
+    await summary.click();
+    await expect(details).toHaveAttribute('open', '');
+    await expect(body).toBeVisible();
+    await expect(body).toContainText(warning);
+    await expect(body.locator('[role="img"]')).toHaveCount(0);
+    await summary.click();
+    await expect(body).toBeHidden();
+  }
+  await page.getByText('Route and delivery', { exact: true }).click();
+  await expect(page.getByText(/fxUSD and fxSAVE bridge from Base to Ethereum/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
 
 test('supporting facts do not depend on the exposure section being present', async ({ page }) => {
