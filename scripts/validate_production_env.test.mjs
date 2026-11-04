@@ -37,7 +37,7 @@ test('paired passkey production passes only with native-signup closure verified'
   }
 });
 
-test('explicit paired legacy development configuration remains supported', () => {
+test('paired disabled Telegram development configuration remains supported', () => {
   const env = { NODE_ENV: 'development', NEXT_PUBLIC_PRIVY_APP_ID: 'configured-development-app',
     NEXT_PUBLIC_TELEGRAM_WALLET_MODE: 'off', MINIAPP_ACCESS_MODE: 'waitlist' };
   assert.deepEqual(validateWalletActivation(env), { publicMode: 'off', serverMode: 'waitlist' });

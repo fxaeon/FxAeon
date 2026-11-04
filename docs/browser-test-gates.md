@@ -2,7 +2,7 @@
 
 Built-route tests and isolated harnesses solve different problems. `pnpm test:e2e` collects the production-export suite only; it does not collect all the isolated projects.
 
-Run these commands from the repository root. All nine isolated gates are included in `pnpm verify`.
+Run these commands from the repository root. All eight isolated gates are included in `pnpm verify`.
 
 | Gate | Collection/config under `apps/mini-app` | Command |
 | --- | --- | --- |
@@ -10,14 +10,13 @@ Run these commands from the repository root. All nine isolated gates are include
 | Borrow eligibility | `e2e/borrow-harness`; `e2e/borrow-harness.config.ts` | `pnpm test:e2e:borrow-harness` |
 | Move review/session behavior | `e2e/move-harness`; `e2e/move-harness.config.ts` | `pnpm test:e2e:move-harness` |
 | Positions, review layout, list/detail continuity | `e2e/positions-harness`; `e2e/positions-harness.config.ts` | `pnpm test:e2e:positions-harness` |
-| Privy send adapter | `e2e/specs/privy-send-adapter.spec.ts`; `e2e/privy-send-harness.config.ts` | `pnpm test:e2e:privy-send-harness` |
 | Trade, Max, outcome and review preparation | `e2e/trade-harness`; `e2e/trade-harness.config.ts` | `pnpm test:e2e:trade-harness` |
-| Telegram-only provider routing | `e2e/wallet-provider-harness.config.ts` | `pnpm test:e2e:wallet-provider-harness` |
+| Browser/passkey provider routing and disabled Telegram fail-closed behavior | `e2e/wallet-provider-harness.config.ts` | `pnpm test:e2e:wallet-provider-harness` |
 | Mobile wallet-browser handoff | `e2e/mobile-wallet-harness.config.ts` | `pnpm test:e2e:mobile-wallet-harness` |
 | Overlays, amount entry, page and portfolio states | `e2e/overlay-specs`; `playwright.overlay.config.ts` | `pnpm test:e2e:overlay` |
 | Deterministic state catalog | `e2e/state-lab`; `playwright.state-lab.config.ts` | `pnpm test:e2e:state-lab` |
 
-The Privy send spec is also collected by the built-route suite. Its focused configuration is useful for iteration, but that overlap is not additional independent real-wallet coverage.
+The provider harness retains real route boundaries and browser Wagmi ownership, with synthetic passkey/provider leaves. The overlay passkey-client suite separately exercises the real Telegram passkey provider and its request handling.
 
 ## Select a focused test
 

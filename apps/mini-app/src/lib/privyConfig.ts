@@ -1,14 +1,8 @@
 /**
- * Privy build-time configuration — kept in a tiny standalone module so pages
- * can check it WITHOUT pulling the heavy @privy-io/react-auth bundle into
- * their chunk; wallet routes load it only when needed.
+ * Public Privy application identity. Passkey signing challenges are bound to
+ * this build-time value; it is not a browser authentication SDK or signer.
  */
 
 const APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
-
-/** True when this build can talk to Privy. */
-export function privyConfigured(): boolean {
-  return Boolean(APP_ID);
-}
 
 export const PRIVY_APP_ID = APP_ID;

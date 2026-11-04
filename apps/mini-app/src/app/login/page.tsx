@@ -1,30 +1,19 @@
 'use client';
 
 /** Compatibility entry for old links; normal wallet flows open in place. */
-import { Suspense, useEffect, useState, type MouseEvent } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import FxLogo from '@/components/FxLogo';
-import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { Button, FullScreenSpinner } from '@/components/ui';
 import { GroupedAddress } from '@/components/GroupedAddress';
 import { WalletAvatar } from '@/components/WalletAvatar';
 import { isWalletConnectCancellation, usePrivyWallet } from '@/lib/wallet';
 import { userSafeError } from '@/lib/errors';
-import { haptic, hasTelegramMiniAppLaunchData, openExternalLink } from '@/lib/telegram';
+import { haptic } from '@/lib/telegram';
 import styles from '@/components/UtilitySurfaces.module.css';
 
-// The Privy SDK is heavy. Loading the flow dynamically keeps it
-// out of this page's first-paint bundle — the chunk is only fetched once the
-// Telegram provider gate below passes.
-const PrivyFlow = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey' ? dynamic(() => import('./PrivyFlow'), {
-  ssr: false,
-  loading: () => <FullScreenSpinner asMain />,
-}) : BrowserWalletFlow;
-
 function LoginContent() {
-  const providerMode = useWalletProviderMode();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -34,36 +23,7 @@ function LoginContent() {
 
   if (!mounted) return <FullScreenSpinner asMain />;
 
-  if (providerMode !== 'privy') {
-    if (hasTelegramMiniAppLaunchData()) return <TelegramUnavailableFlow />;
-    return <BrowserWalletFlow />;
-  }
-
-  return <PrivyFlow />;
-}
-
-function TelegramUnavailableFlow() {
-  const browserUrl = 'https://fxaeon.com/';
-  const openBrowser = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && openExternalLink(browserUrl)) {
-      event.preventDefault();
-    }
-  };
-  return (
-    <main className={`${styles.loginPanel} ${styles.authStage} utility-stage mx-auto w-full`}>
-      <span className={styles.authHalo} aria-hidden="true"><FxLogo size={44} /></span>
-      <h1 className={styles.authTitle}>Connect in your browser</h1>
-      <p className={styles.authLead}>
-        Wallet sign-in isn’t available here. Open FxAeon in your browser to connect a wallet.
-      </p>
-      <div className={styles.authActions}>
-        <a href={browserUrl} target="_blank" rel="noopener noreferrer" onClick={openBrowser} className="button button-primary glass-press flex min-h-12 w-full items-center justify-center gap-2 px-4 py-3 font-semibold">
-          Continue in browser <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </a>
-      </div>
-      <Link href="/" className={styles.authBack}><ArrowLeft aria-hidden="true" />Back to Portfolio</Link>
-    </main>
-  );
+  return <BrowserWalletFlow />;
 }
 
 function BrowserWalletFlow() {

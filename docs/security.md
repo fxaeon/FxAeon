@@ -33,7 +33,7 @@ See [architecture](architecture.md#transaction-lifecycle), [wallet ownership](pr
 
 Ordinary web selects an explicitly accepted injected provider. Provider announcements and brand metadata are availability hints, not proof of identity. Ambiguity fails closed; an unrelated global provider cannot replace the selected one.
 
-Only configured Telegram launches with nonempty data choose the Telegram wallet. Host detection is a UX decision. In passkey mode, the server verifies Telegram's Ed25519 launch signature and the user's passkey authorizes each wallet request. Connection events do not silently accept another wallet, sign, or resume a prior form action.
+Telegram launch data or a recognized Telegram host selects the Telegram boundary. Host detection is a UX decision, never authentication. Wallet access requires configured passkey mode and the public Privy app ID; disabled or incomplete configuration shows an unavailable screen. The server verifies Telegram's Ed25519 launch signature and the user's passkey authorizes each wallet request. Connection events do not silently accept another wallet, sign, or resume a prior form action.
 
 Ordinary wallet-browser links strip launch data and carry only public routes. The dedicated passkey handoff uses a short-lived, single-use random capability in the URL fragment; its hash is stored server-side. It carries no Telegram launch data. Opening another app is not a completed approval.
 
@@ -41,7 +41,7 @@ Passkey mode replaces native Privy signup with server-verified Telegram identity
 
 Passkeys must verify user presence, user verification, exact RP/origin/challenge, ES256 and backup state before enrollment. Approvals require the enrolled credential's immutable backup eligibility to match; mutable current backup state does not invalidate its ownership. Privy receives only the corresponding public key as sole owner, with no additional signer. The application secret transports requests; it is not a wallet authorization key. A passkey authorizes the canonical request containing the exact reviewed transaction, wallet, expiry and idempotency key. The browser independently checks that request. Synced passkeys support using the same credential on another device; losing every copy or the Telegram account is not an implemented recovery path. Physical-device and live-provider verification remain release requirements.
 
-The old `/api/telegram-admission` gate remains a legacy compatibility endpoint. Its browser gate cannot enforce a Privy signup cap and must not be used as a substitute for the passkey rollout.
+The old `/api/telegram-admission` endpoint remains for compatibility; the native browser gate and React-auth SDK are removed. Disabled Telegram configuration cannot fall through to native login or browser signing. The endpoint is not a substitute for the passkey rollout or provider signup closure.
 
 ## Public inputs and server functions
 
@@ -78,10 +78,9 @@ The typed ESLint tooling's minimatch 10.2.6 dependency is replaced by 11.0.1 for
 backport for [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
 The vulnerable behavior is retained in the upstream Zod 3 line, so the patch
 limits work for oversized arrays and sets before visiting their elements.
-`zod@4.4.3` consumers are moved to `4.6.7`, whose bundled Zod 3 compatibility
-subpath receives the corresponding patch. The workspace keeps Zod 3 and Zod 4
-as separate API generations; it does not replace Zod 3 consumers with Zod 4.
-The guard checks the active `viem`, SDK, Privy, Wagmi and Porto resolution paths,
+Removing native React-auth also removes its standalone Zod 4 dependency and
+patch. Zod 3 remains through `viem`, the f(x) SDK and Wagmi: SDK removal does not
+fix its advisory. The guard checks those active consumer resolution paths,
 the patched package hashes and bounded array, set and map regressions,
 including asynchronous parsing and valid-input compatibility.
 

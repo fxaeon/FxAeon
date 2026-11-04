@@ -21,8 +21,8 @@ const esbuild = createRequire(appRequire.resolve('tsx/package.json'))('esbuild')
   build: (options: Record<string, unknown>) => Promise<BuildResult>;
 };
 
-// These are external service/route-data leaves only. In particular, both real
-// providers, both real wallet adapters, FxWalletContext, Telegram detection,
+// These are external service/route-data leaves only. In particular, the real browser
+// provider and wallet adapter, FxWalletContext, Telegram detection,
 // discovery, the picker, the browser session owner, and Wagmi actions remain.
 const mocks: Record<string, string> = {
   'next/dynamic': `
@@ -49,30 +49,7 @@ const mocks: Record<string, string> = {
     }
   `,
   '@/lib/fx/clients': `export const getPublicClient = () => { throw Error('Public RPC is disabled in the synthetic ownership harness'); };`,
-  '@privy-io/react-auth': `
-    import { useEffect } from 'react';
-    const h = globalThis.__wagmiBoundaryHarness;
-    h.privyModuleLoads += 1;
-    const address = '0x00000000000000000000000000000000000000ee';
-    const wallets = [{ address, type: 'ethereum', walletClientType: 'privy-v2', chainId: 'eip155:1',
-      getEthereumProvider: async () => h.embeddedProvider,
-      switchChain: async () => { throw Error('Synthetic embedded network switching is disabled'); },
-    }];
-    const user = { id: 'synthetic-funded-telegram-user', isGuest: false, wallet: { address } };
-    const called = () => { h.privyHookCalls += 1; };
-    const forbidden = () => { h.forbiddenCalls.push('privy:mutation'); throw Error('Synthetic authentication/signing is disabled'); };
-    export function PrivyProvider({ children }) {
-      useEffect(() => { h.privyMounts += 1; return () => { h.privyUnmounts += 1; }; }, []);
-      return children;
-    }
-    export const usePrivy = () => { called(); return { ready: true, authenticated: true, user }; };
-    export const useWallets = () => { called(); return { ready: true, wallets }; };
-    export const useModalStatus = () => { called(); return { isOpen: false }; };
-    export const useLogout = () => { called(); return { logout: forbidden }; };
-    export const useLogin = () => { called(); return { login: forbidden }; };
-    export const useConnectWallet = () => { called(); return { connectWallet: forbidden }; };
-    export const useSendTransaction = () => { called(); return { sendTransaction: forbidden }; };
-  `,
+  '@/components/admission/TelegramPasskeyProvider': `export default function DisabledPasskey() { throw Error('Passkey must not mount in the disabled fixture'); }`,
 };
 
 // Forward to the installed public Wagmi exports without changing arguments,
@@ -131,6 +108,7 @@ export async function buildWalletWagmiBoundaryHarness(): Promise<WalletWagmiBoun
     splitting: true, format: 'esm', jsx: 'automatic', metafile: true,
     plugins: [{ name: 'wallet-wagmi-boundary-services', setup(build: BuildApi) {
       build.onResolve({ filter: /.*/ }, ({ path }) => {
+        if (path.startsWith('@privy-io/')) throw Error('Native React-auth must not return');
         if (path === 'wagmi') return { path, namespace: 'wagmi-probe' };
         if (mocks[path]) return { path, namespace: 'mock' };
         if (path.endsWith('.css')) return { path, namespace: 'styles' };
@@ -147,14 +125,14 @@ export async function buildWalletWagmiBoundaryHarness(): Promise<WalletWagmiBoun
   const urlPath = (file: string) => `/${relative(outdir, resolve(root, file)).replaceAll('\\', '/')}`;
   const files = new Map([...bootstrap.outputFiles, ...result.outputFiles].map((file) => [urlPath(file.path), file.text]));
   const privyPaths = new Set(Object.entries(result.metafile.outputs)
-    .filter(([, output]) => Object.hasOwn(output.inputs, 'mock:@privy-io/react-auth')).map(([path]) => urlPath(path)));
-  assert.ok(privyPaths.size > 0, 'Privy service must be present in a separately loaded chunk');
+    .filter(([, output]) => Object.keys(output.inputs).some((input) => /@privy-io/.test(input))).map(([path]) => urlPath(path)));
+  assert.equal(privyPaths.size, 0, 'Native Privy SDK must not be bundled');
   assert.ok(!privyPaths.has('/wallet-wagmi-boundary-entry.js'), 'Ordinary web must not eagerly import Privy');
   const realModules = Object.keys(result.metafile.inputs).map((path) => path.replaceAll('\\', '/'));
   for (const path of [
-    'src/components/ClientWalletProvider.tsx', 'src/components/PrivyClientProvider.tsx',
+    'src/components/ClientWalletProvider.tsx',
     'src/components/ExternalWalletDialog.tsx', 'src/lib/wallet/context.ts',
-    'src/lib/wallet/usePrivyWallet.ts', 'src/lib/wallet/PrivyWalletBridge.ts',
+    'src/lib/wallet/usePrivyWallet.ts',
     'src/lib/wallet/browserWagmiSessionOwner.ts', 'src/lib/telegram.ts',
     '/wagmi/dist/esm/exports/index.js', '/wagmi/dist/esm/exports/actions.js',
   ]) assert.ok(realModules.some((input) => input.endsWith(path)), `Harness must retain real ${path}`);

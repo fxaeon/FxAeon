@@ -1,552 +1,166 @@
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
 import { relative, resolve } from 'node:path';
-import { test, expect, type Frame, type Page } from '@playwright/test';
-import type { ProviderBoundaryHarnessState } from '../harness/wallet-provider-boundary-entry';
+import { test, expect, type Page } from '@playwright/test';
 
-const root = resolve(__dirname, '../../../..');
-const miniApp = resolve(root, 'apps/mini-app');
-const require = createRequire(resolve(root, 'package.json'));
-const tsxPackage = require.resolve('tsx/package.json', { paths: [miniApp] });
-const esbuild = createRequire(tsxPackage)('esbuild') as {
-  build: (options: Record<string, unknown>) => Promise<{ outputFiles: Array<{ path: string; text: string }> }>;
+const app = resolve(__dirname, '../..');
+const appRequire = createRequire(resolve(app, 'package.json'));
+const esbuild = createRequire(appRequire.resolve('tsx/package.json'))('esbuild') as {
+  build(options: Record<string, unknown>): Promise<{ outputFiles: Array<{ path: string; text: string }>; metafile: { inputs: Record<string, unknown> } }>;
 };
-const src = resolve(miniApp, 'src');
-const entry = resolve(miniApp, 'e2e/harness/wallet-provider-boundary-entry.tsx');
+const variants = {
+  browser: { appId: '', mode: 'off' },
+  disabled: { appId: 'synthetic-configured-app-id', mode: 'off' },
+  passkey: { appId: 'synthetic-configured-app-id', mode: 'passkey' },
+  missing: { appId: '', mode: 'passkey' },
+} as const;
+type Variant = keyof typeof variants;
+const bundles = new Map<Variant, Map<string, string>>();
 
-// Keep the production boundary, detector, mode context, login page and Settings
-// wallet section. Replace external services and visual leaves only. In particular,
-// real dynamic import expressions survive as separate HTTP-loaded ES modules.
+// Keep real route/product/provider selection, launch detection and login UI.
+// Wallet service leaves are isolated here; the real passkey provider is tested
+// independently by telegram-passkey-client and emitted startup verification.
 const mocks: Record<string, string> = {
-  // Exercise the real early-loading route/product/wallet boundaries. Prices
-  // are independent of auth selection and have their own runtime suite.
-  '@/components/RoutePriceProvider': `export default function Price({ children }) { return children; }`,
-  'next/dynamic': `
-    import { createContext, lazy, Suspense } from 'react';
-    export const HarnessDynamicFallback = createContext(false);
-    export default function dynamic(loader, options = {}) {
-      const Component = lazy(loader);
-      return function DynamicComponent(props) {
-        const Loading = options.loading;
-        const fallback = Loading ? <HarnessDynamicFallback.Provider value={true}><Loading /></HarnessDynamicFallback.Provider> : null;
-        return <Suspense fallback={fallback}><Component {...props} /></Suspense>;
-      };
-    }
-  `,
-  'next/link': `export default function Link({ children, ...props }) { return <a {...props}>{children}</a>; }`,
-  'next/navigation': `export const usePathname = () => location.pathname; export const useRouter = () => ({ push: (path) => globalThis.__providerBoundaryHarness.navigate(path), replace: (path) => globalThis.__providerBoundaryHarness.navigate(path) });`,
+  'next/dynamic': `import {lazy,Suspense} from 'react';export default (load,o={})=>{const C=lazy(load);return p=><Suspense fallback={o.loading?<o.loading/>:null}><C {...p}/></Suspense>}`,
+  'next/link': `export default ({children,...p})=><a {...p}>{children}</a>`,
+  'next/navigation': `export const usePathname=()=>globalThis.__boundary.path;export const useRouter=()=>({push:p=>globalThis.__boundary.navigate(p),replace:p=>globalThis.__boundary.navigate(p)})`,
+  '@/components/RoutePriceProvider': `export default ({children})=>children`,
+  '@/components/ProviderLoadingState': `export const ProviderLoadingState=()=> <p role="status">Loading providers</p>`,
+  '@/components/FxLogo': `export default ()=> <span/>`,
+  '@/components/WalletAvatar': `export const WalletAvatar=()=> <span/>`,
+  '@/components/GroupedAddress': `export const GroupedAddress=({address})=> <span>{address}</span>`,
+  '@/components/ui': `export const Button=({children,loading,variant,...p})=><button {...p}>{children}</button>;export const FullScreenSpinner=()=> <p role="status">Loading wallet</p>`,
+  '@/components/WalletRouteProviders': `export default ({children})=>children`,
   '@/lib/wallet': `
-    import { createContext, useContext, useEffect, useState } from 'react';
-    const Context = createContext(null);
-    export function HarnessWalletProvider({ children, kind }) {
-      const [connected, setConnected] = useState(() => new URLSearchParams(location.search).get('connected') === '1');
-      useEffect(() => {
-        const h = globalThis.__providerBoundaryHarness;
-        h[kind + 'Mounts'] += 1;
-        return () => { h[kind + 'Unmounts'] += 1; };
-      }, []);
-      const address = connected ? '0x00000000000000000000000000000000000000aa' : undefined;
-      const wallet = { ready: true, authenticated: connected, address, isEmbedded: connected && kind === 'privy',
-        selectedWallet: address ? { address, walletClientType: kind === 'privy' ? 'privy-v2' : 'browser' } : undefined,
-        connect: async () => { globalThis.__providerBoundaryHarness.connectCalls += 1; setConnected(true); },
-      };
-      return <Context.Provider value={wallet}>{children}</Context.Provider>;
+    import {useEffect,useState} from 'react';import {FxWalletContext,usePrivyWallet} from '@/lib/wallet/context';
+    export {usePrivyWallet};export const isWalletConnectCancellation=()=>false;
+    export function HarnessWallet({children,kind}) {
+      const [connected,setConnected]=useState(kind==='passkey');
+      useEffect(()=>{const h=globalThis.__boundary;h[kind+'Mounts']++;return()=>{h[kind+'Unmounts']++;};},[]);
+      const address=connected?'0x00000000000000000000000000000000000000aa':undefined;
+      const wallet={ready:true,authenticated:connected,address,isEmbedded:kind==='passkey',connectionVersion:0,
+        selectedWallet:connected?{address,walletClientType:kind==='passkey'?'telegram-passkey':'browser'}:undefined,
+        connect:async()=>{globalThis.__boundary.connectCalls++;setConnected(true);}};
+      return <FxWalletContext.Provider value={wallet}>{children}</FxWalletContext.Provider>;
     }
-    export function BrowserWalletProvider({ children, allowTelegramHost = false }) {
-      globalThis.__providerBoundaryHarness.browserAllowsTelegramHost = allowTelegramHost;
-      return <HarnessWalletProvider kind="browser">{children}</HarnessWalletProvider>;
-    }
-    export function usePrivyWallet() {
-      const value = useContext(Context);
-      if (!value) throw new Error('Wallet flow rendered outside its selected provider');
-      return value;
-    }
-    export const useWalletReadyTimeout = () => false;
-    export const isWalletConnectCancellation = () => false;
+    export const BrowserWalletProvider=({children})=><HarnessWallet kind="browser">{children}</HarnessWallet>;
   `,
-  '@/components/WalletRouteProviders': `
-    import { useEffect } from 'react';
-    export default function WalletRouteProviders({ children }) {
-      useEffect(() => {
-        const h = globalThis.__providerBoundaryHarness;
-        h.routeMounts += 1;
-        return () => { h.routeUnmounts += 1; };
-      }, []);
-      return <div data-route-providers="true">{children}</div>;
-    }
+  '@/components/admission/TelegramPasskeyProvider': `
+    import {HarnessWallet} from '@/lib/wallet';globalThis.__boundary.passkeyEvaluations++;
+    export default ({children})=><HarnessWallet kind="passkey">{children}</HarnessWallet>;
   `,
-  '@/components/PrivyClientProvider': `
-    import { HarnessWalletProvider } from '@/lib/wallet';
-    import WalletRouteProviders from '@/components/WalletRouteProviders';
-    import { usePrivy } from '@privy-io/react-auth';
-    globalThis.__providerBoundaryHarness.importMarkers.push('PRIVY_PROVIDER_MODULE');
-    export default function PrivyClientProvider({ children }) {
-      usePrivy();
-      return <HarnessWalletProvider kind="privy"><WalletRouteProviders>{children}</WalletRouteProviders></HarnessWalletProvider>;
-    }
-  `,
-  '@privy-io/react-auth': `
-    globalThis.__providerBoundaryHarness.importMarkers.push('PRIVY_SDK_MODULE');
-    const called = () => { globalThis.__providerBoundaryHarness.sdkHookCalls += 1; };
-    export function usePrivy() { called(); return { ready: true, authenticated: false }; }
-    export function useWallets() { called(); return { ready: true, wallets: [] }; }
-    export function useLogin() { called(); return { login: () => {} }; }
-    export function useCreateWallet() { called(); return { createWallet: async () => {} }; }
-    export function useExportWallet() { called(); return { exportWallet: async () => {} }; }
-  `,
-  '@/components/ProviderLoadingState': `
-    import { useContext } from 'react';
-    import { HarnessDynamicFallback } from 'next/dynamic';
-    // Distinguish the real client boundary's bridge wait from the outer lazy
-    // import fallback, so tests cannot inject the bridge before selection runs.
-    export const ProviderLoadingState = () => <p role="status" data-provider-wait={String(!useContext(HarnessDynamicFallback))}>Loading provider</p>;
-  `,
-  '@/components/ui': `
-    export function Button({ children, loading, variant, ...props }) { return <button {...props} disabled={props.disabled || loading}>{children}</button>; }
-    export const FullScreenSpinner = () => <p role="status">Loading wallet</p>;
-    export const AddressChip = ({ address }) => <span>{address}</span>;
-  `,
-  '@/components/FxLogo': `export default function FxLogo() { return <span aria-hidden="true" />; }`,
-  '@/components/GroupedAddress': `export const GroupedAddress = ({ address }) => <span>{address}</span>;`,
-  '@/components/WalletAvatar': `export const WalletAvatar = () => <span aria-hidden="true" />;`,
-  '@/lib/i18n': `export const useT = () => (key) => key;`,
-  '@/lib/fx/gasFeePolicy': `
-    export async function fetchGasTierQuotes(chainId) {
-      globalThis.__providerBoundaryHarness.gasQuoteChains.push(chainId);
-      const fetchedAt = Date.now();
-      const baseFeePerGasWei = 1000000000n;
-      const prices = { standard: 1200000000n, fast: 1500000000n, rapid: 2100000000n };
-      const tiers = Object.fromEntries(Object.entries(prices).map(([tier, gasPriceWei]) => [tier, {
-        tier, gasPriceWei, maxFeePerGas: baseFeePerGasWei + gasPriceWei,
-        maxPriorityFeePerGas: gasPriceWei - baseFeePerGasWei, source: 'rpc',
-      }]));
-      return { chainId, fetchedAt, validUntil: fetchedAt + 30000, source: 'rpc', baseFeePerGasWei, tiers };
-    }
-  `,
-};
-
-type Build = {
-  onResolve: (options: { filter: RegExp }, callback: (args: { path: string }) => unknown) => void;
-  onLoad: (options: { filter: RegExp; namespace: string }, callback: (args: { path: string }) => unknown) => void;
-};
-type Variant = 'configured' | 'unconfigured' | 'passkey' | 'passkey-configured';
-type Bundle = { files: Map<string, string>; privyPaths: Set<string> };
-
-async function buildHarness(variant: Variant): Promise<Bundle> {
-  const outdir = resolve(miniApp, 'e2e/.provider-boundary-memory', variant);
-  const result = await esbuild.build({
-    entryPoints: [entry], outdir, bundle: true, write: false, splitting: true,
-    format: 'esm', platform: 'browser', target: 'es2020', jsx: 'automatic',
-    absWorkingDir: root,
-    define: {
-      'process.env.NEXT_PUBLIC_PRIVY_APP_ID': JSON.stringify(variant === 'configured' || variant === 'passkey-configured' ? 'fake-configured-app-id' : ''),
-      'process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE': JSON.stringify(variant.startsWith('passkey') ? 'passkey' : 'off'),
-    },
-    plugins: [{ name: 'wallet-provider-boundary-leaves', setup(build: Build) {
-      build.onResolve({ filter: /.*/ }, ({ path }) => {
-        if (mocks[path]) return { path, namespace: 'mock' };
-        if (path.endsWith('.css')) return { path, namespace: 'styles' };
-        if (!path.startsWith('@/')) return undefined;
-        const candidate = resolve(src, path.slice(2));
-        for (const extension of ['.tsx', '.ts']) if (existsSync(candidate + extension)) return { path: candidate + extension };
-        for (const index of ['index.tsx', 'index.ts']) if (existsSync(resolve(candidate, index))) return { path: resolve(candidate, index) };
-        return { path: candidate };
-      });
-      build.onLoad({ filter: /.*/, namespace: 'mock' }, ({ path }) => ({ contents: mocks[path], loader: 'tsx', resolveDir: miniApp }));
-      build.onLoad({ filter: /.*/, namespace: 'styles' }, () => ({ contents: 'export default {};', loader: 'js' }));
-    } }],
-  });
-  const files = new Map(result.outputFiles.map((file) => [`/${variant}/${relative(outdir, file.path).replaceAll('\\', '/')}`, file.text]));
-  const privyPaths = new Set([...files].filter(([, source]) => /PRIVY_(?:PROVIDER|SDK)_MODULE/.test(source)).map(([path]) => path));
-  // Native mode retains a real separate import; builds that cannot select it
-  // must omit that dependency entirely, including passkey builds with an app ID.
-  if (variant === 'configured') expect(privyPaths.size).toBeGreaterThan(0);
-  else expect(privyPaths.size).toBe(0);
-  expect(privyPaths.has(`/${variant}/wallet-provider-boundary-entry.js`)).toBe(false);
-  return { files, privyPaths };
-}
-
-let server: Server;
-let origin: string;
-let bundles: Record<Variant, Bundle>;
-const emptyState: ProviderBoundaryHarnessState = {
-  browserMounts: 0, browserUnmounts: 0, privyMounts: 0, privyUnmounts: 0,
-  routeMounts: 0, routeUnmounts: 0, childMounts: 0, childUnmounts: 0,
-  connectCalls: 0, sdkHookCalls: 0, importMarkers: [], gasQuoteChains: [],
 };
 
 test.beforeAll(async () => {
-  bundles = { configured: await buildHarness('configured'), unconfigured: await buildHarness('unconfigured'), passkey: await buildHarness('passkey'), 'passkey-configured': await buildHarness('passkey-configured') };
-  server = createServer((request, response) => {
-    const path = new URL(request.url ?? '/', 'http://localhost').pathname;
-    const variant: Variant = path.startsWith('/unconfigured/') ? 'unconfigured' : path.startsWith('/passkey-configured/') ? 'passkey-configured' : path.startsWith('/passkey/') ? 'passkey' : 'configured';
-    response.setHeader('Cache-Control', 'no-store');
-    const source = bundles[variant].files.get(path);
-    if (source) {
-      response.writeHead(200, { 'Content-Type': 'text/javascript' });
-      response.end(source);
-    } else if (path.endsWith('.js')) {
-      response.writeHead(404); response.end();
-    } else {
-      response.writeHead(200, { 'Content-Type': 'text/html' });
-      response.end(`<!doctype html><html><body><div id="root"></div><script>globalThis.__providerBoundaryHarness=${JSON.stringify(emptyState)}</script><script type="module" src="/${variant}/wallet-provider-boundary-entry.js"></script></body></html>`);
-    }
-  });
-  await new Promise<void>((resolveListen) => server.listen(0, '127.0.0.1', resolveListen));
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Harness server has no port');
-  origin = `http://127.0.0.1:${address.port}`;
-});
-
-test.afterAll(async () => { if (server) await new Promise<void>((resolveClose, reject) => server.close((error) => error ? reject(error) : resolveClose())); });
-
-async function openHarness(page: Page, { variant = 'configured', path = '/login', hash = '', bridge = 'absent', telegramUa = false, telegramProxy = false, waitUntilReady = true }: {
-  variant?: Variant; path?: string; hash?: string; bridge?: 'absent' | 'unknown' | 'telegram' | 'telegram-data';
-  telegramUa?: boolean; telegramProxy?: boolean; waitUntilReady?: boolean;
-} = {}) {
-  const requests: string[] = [];
-  const errors: string[] = [];
-  page.on('request', (request) => requests.push(new URL(request.url()).pathname));
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.addInitScript(({ bridge, telegramUa, telegramProxy }) => {
-    if (bridge !== 'absent') (window as any).Telegram = { WebApp: {
-      platform: bridge === 'telegram' || bridge === 'telegram-data' ? 'android' : 'unknown',
-      initData: bridge === 'telegram-data' ? 'auth_date=1&hash=synthetic' : '',
-    } };
-    if (telegramUa) Object.defineProperty(navigator, 'userAgent', { configurable: true, value: `${navigator.userAgent} Telegram/11.0` });
-    if (telegramProxy) (window as any).TelegramWebviewProxy = { postEvent: () => {} };
-  }, { bridge, telegramUa, telegramProxy });
-  await page.goto(`${origin}/${variant}${path}${hash}`);
-  if (waitUntilReady) await expect(page.locator('[data-harness-ready]')).toBeVisible();
-  return { requests, errors, variant };
-}
-
-async function state(page: Page | Frame) {
-  return page.evaluate(() => {
-    const { navigate: _navigate, rerender: _rerender, ...snapshot } = globalThis.__providerBoundaryHarness;
-    return snapshot;
-  });
-}
-
-async function expectBrowserOnly(page: Page | Frame, observation: Awaited<ReturnType<typeof openHarness>>) {
-  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'browser');
-  const current = await state(page);
-  expect(current.browserMounts).toBe(1);
-  expect(current.browserAllowsTelegramHost).toBe(observation.variant === 'configured');
-  expect(current.privyMounts).toBe(0);
-  expect(current.sdkHookCalls).toBe(0);
-  expect(current.importMarkers).toEqual([]);
-  expect(observation.requests.filter((path) => bundles[observation.variant].privyPaths.has(path))).toEqual([]);
-  expect(observation.errors).toEqual([]);
-}
-
-async function openIframeHarness(page: Page, parentUrl: string, hash = '') {
-  const requests: string[] = [];
-  const errors: string[] = [];
-  page.on('request', (request) => requests.push(new URL(request.url()).pathname));
-  page.on('pageerror', (error) => errors.push(error.message));
-  // Use a real cross-origin iframe and browser-provided ancestor/referrer
-  // metadata. Both HTTPS origins are intercepted; no live host or private
-  // network permission is needed for the fixture.
-  const frameOrigin = 'https://fxaeon-harness.test';
-  await page.route(`${frameOrigin}/**`, (route) => {
-    const path = new URL(route.request().url()).pathname;
-    const source = bundles.configured.files.get(path);
-    if (source) return route.fulfill({ contentType: 'text/javascript', body: source });
-    if (path.endsWith('.js')) return route.fulfill({ status: 404, body: '' });
-    return route.fulfill({ contentType: 'text/html', body:
-      `<!doctype html><html><body><div id="root"></div><script>globalThis.__providerBoundaryHarness=${JSON.stringify(emptyState)}</script><script type="module" src="/configured/wallet-provider-boundary-entry.js"></script></body></html>`,
+  for (const [variant, config] of Object.entries(variants) as Array<[Variant, typeof variants[Variant]]>) {
+    const outdir = resolve(app, 'e2e/.provider-boundary-memory', variant);
+    const result = await esbuild.build({
+      stdin: { contents: `
+        import {useState} from 'react';import {createRoot} from 'react-dom/client';
+        import RouteProviders from '@/components/RouteProviders';import LoginPage from '@/app/login/page';
+        import WalletSection from '@/components/WalletSection';import {useWalletProviderMode} from '@/lib/wallet/providerMode';
+        const h=globalThis.__boundary={path:new URLSearchParams(location.search).get('path')||'/login',browserMounts:0,browserUnmounts:0,passkeyMounts:0,passkeyUnmounts:0,passkeyEvaluations:0,connectCalls:0};
+        function Content(){const mode=useWalletProviderMode();return <section data-provider-mode={mode}>{h.path==='/settings'?<WalletSection/>:<LoginPage/>}</section>}
+        function App(){const[,update]=useState(0);h.navigate=p=>{h.path=p;update(n=>n+1)};const privatePage=['/invite','/wallet-approval'].includes(h.path);return <><nav><button onClick={()=>h.navigate('/settings')}>Open settings</button><button onClick={()=>h.navigate('/login')}>Open login</button></nav><RouteProviders>{privatePage?<p>Private capability page</p>:<Content/>}</RouteProviders></>}
+        createRoot(document.getElementById('root')).render(<App/>);
+      `, resolveDir: app, sourcefile: 'provider-boundary-entry.tsx', loader: 'tsx' },
+      outdir, entryNames: 'entry', chunkNames: '[name]-[hash]', bundle: true, splitting: true,
+      write: false, metafile: true, format: 'esm', platform: 'browser', target: 'es2020', jsx: 'automatic',
+      absWorkingDir: app, logLevel: 'error', define: {
+        'process.env.NODE_ENV': '"production"',
+        'process.env.NEXT_PUBLIC_PRIVY_APP_ID': JSON.stringify(config.appId),
+        'process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE': JSON.stringify(config.mode),
+      },
+      plugins: [{ name: 'boundary-service-leaves', setup(build: {
+        onResolve(options: { filter: RegExp }, callback: (args: { path: string }) => unknown): void;
+        onLoad(options: { filter: RegExp; namespace: string }, callback: (args: { path: string }) => unknown): void;
+      }) {
+        build.onResolve({ filter: /.*/ }, ({ path }) => {
+          if (path.startsWith('@privy-io/')) throw new Error('Native Privy SDK must not return');
+          if (mocks[path]) return { path, namespace: 'leaf' };
+          if (path.endsWith('.css')) return { path, namespace: 'css' };
+          if (!path.startsWith('@/')) return undefined;
+          const candidate = resolve(app, 'src', path.slice(2));
+          for (const extension of ['.tsx', '.ts', '/index.ts', '/index.tsx']) if (existsSync(candidate + extension)) return { path: candidate + extension };
+          return { path: candidate };
+        });
+        build.onLoad({ filter: /.*/, namespace: 'leaf' }, ({ path }) => ({ contents: mocks[path], loader: 'tsx', resolveDir: app }));
+        build.onLoad({ filter: /.*/, namespace: 'css' }, () => ({ contents: 'export default {}', loader: 'js' }));
+      } }],
     });
+    expect(Object.keys(result.metafile.inputs).join('\n')).not.toMatch(/@privy-io|PrivyClientProvider|PrivyFlow/);
+    bundles.set(variant, new Map(result.outputFiles.map(f => [`/${relative(outdir, f.path).replaceAll('\\', '/')}`, f.text])));
+  }
+});
+
+async function open(page: Page, variant: Variant, { launch = false, host = false, path = '/login' } = {}) {
+  const errors: string[] = [], requests: string[] = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.addInitScript(({ host }) => {
+    if (host) Object.defineProperty(window, 'TelegramWebviewProxy', { configurable: true, value: { postEvent() {} } });
+  }, { host });
+  const files = bundles.get(variant)!;
+  await page.route('http://provider-boundary.test/**', route => {
+    const p = new URL(route.request().url()).pathname;
+    requests.push(p);
+    return route.fulfill(p.endsWith('.js') ? { contentType: 'text/javascript', body: files.get(p) ?? '' }
+      : { contentType: 'text/html', body: '<div id="root"></div><script type="module" src="/entry.js"></script>' });
   });
-  await page.route(parentUrl, (route) => route.fulfill({ contentType: 'text/html', body:
-    `<!doctype html><html><body><iframe title="Mini App" src="${frameOrigin}/configured/login${hash}" style="width:100%;height:700px"></iframe></body></html>`,
-  }));
-  await page.goto(parentUrl);
-  const element = await page.locator('iframe[title="Mini App"]').elementHandle();
-  const frame = await element?.contentFrame();
-  if (!frame) throw new Error('Mini App iframe did not load');
-  return { frame, requests, errors, variant: 'configured' as const };
+  const hash = launch ? '#tgWebAppData=' + encodeURIComponent('auth_date=1&user={"id":123}&signature=synthetic') : '';
+  await page.goto(`http://provider-boundary.test/?path=${encodeURIComponent(path)}${hash}`, { waitUntil: 'domcontentloaded' });
+  return { errors, requests };
+}
+const state = (page: Page) => page.evaluate(() => (globalThis as unknown as { __boundary: Record<string, number> }).__boundary);
+
+for (const variant of Object.keys(variants) as Variant[]) {
+  test(`${variant}: ordinary web retains browser wallet connect and Settings without native auth`, async ({ page }) => {
+    const result = await open(page, variant);
+    await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
+    await page.getByRole('button', { name: 'Open settings' }).click();
+    await expect(page.getByText('Browser wallet connected', { exact: true })).toBeVisible();
+    expect(await state(page)).toMatchObject({ browserMounts: 1, browserUnmounts: 0, passkeyMounts: 0, passkeyEvaluations: 0, connectCalls: 1 });
+    expect(result.errors).toEqual([]);
+  });
 }
 
-async function openPendingTelegramHarness(page: Page, host: 'user-agent' | 'native-proxy') {
-  // Control the real 100 ms polling timer and 8 s bound without slowing the
-  // suite down or replacing the production wait helper with a test mock.
-  await page.clock.install({ time: new Date('2026-10-09T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-10-09T00:00:01Z'));
-  const observation = await openHarness(page, {
-    telegramUa: host === 'user-agent', telegramProxy: host === 'native-proxy', waitUntilReady: false,
-  });
-  await expect.poll(async () => {
-    // React's outer lazy boundary may also schedule its reveal; advancing the
-    // clock lets that finish before checking the client's distinct wait state.
-    await page.clock.runFor(100);
-    return page.locator('[data-provider-wait="true"]').count();
-  }).toBe(1);
-  expect(await state(page)).toMatchObject({ browserMounts: 0, privyMounts: 0, childMounts: 0, importMarkers: [] });
-  return observation;
-}
-
-test('passkey-enabled ordinary web without the Telegram SDK or Privy ID never waits for the bridge', async ({ page }) => {
-  await page.clock.install({ time: new Date('2026-11-03T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-11-03T00:00:01Z'));
-  const observation = await openHarness(page, { variant: 'passkey', bridge: 'absent', waitUntilReady: false });
-  let advanced = 0;
-  await expect.poll(async () => {
-    // Allow React's lazy boundary to reveal, but never advance the 8 s bridge timeout.
-    if (advanced < 1000) { await page.clock.runFor(100); advanced += 100; }
-    return page.locator('[data-harness-ready]').count();
-  }).toBe(1);
-  expect(await page.evaluate(() => Boolean((window as any).Telegram))).toBe(false);
-  await expect(page.getByRole('heading', { name: 'Connect your wallet' })).toBeVisible();
-  await expect(page.locator('[data-provider-wait="true"]')).toHaveCount(0);
-  await expectBrowserOnly(page, observation);
-});
-
-test('configured ordinary web with the Telegram SDK stub uses browser login without fetching Privy', async ({ page }) => {
-  const observation = await openHarness(page, { bridge: 'unknown' });
-  await expect(page.getByRole('heading', { name: 'Connect your wallet' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /create|export|email/i })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  expect((await state(page)).connectCalls).toBe(1);
-  await expectBrowserOnly(page, observation);
-});
-
-test('configured browser Settings connects externally without mounting Privy hooks', async ({ page }) => {
-  const observation = await openHarness(page, { path: '/settings', bridge: 'unknown' });
-  await expect(page.getByText('Connect a browser wallet', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /create|export/i })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
-  await expect(page.getByText('Browser wallet connected', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Open login', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  expect((await state(page)).connectCalls).toBe(1);
-  await expectBrowserOnly(page, observation);
-});
-
-test('Telegram launch hash selects Privy before the bridge loads and keeps it across navigation', async ({ page }) => {
-  // Synthetic launch-shaped data tests routing only, never authentication.
-  const observation = await openHarness(page, { path: '/login?consumeLaunchHash=1', hash: '#tgWebAppData=auth_date%3D1%26hash%3Dsynthetic' });
-  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-  await expect(page.getByRole('heading', { name: 'loginCard.signIn' })).toBeVisible();
-  expect(new URL(page.url()).hash).toBe('');
-  const identity = await page.locator('[data-identity]').getAttribute('data-identity');
-  await page.evaluate(() => {
-    history.replaceState(null, '', location.pathname);
-    (window as any).Telegram = { WebApp: { platform: 'android', initData: 'synthetic-only' } };
-    globalThis.__providerBoundaryHarness.rerender?.();
-  });
-  await page.getByRole('button', { name: 'Open settings', exact: true }).click();
-  await expect(page.getByText('No wallet connected', { exact: true })).toBeVisible();
-  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-  await expect(page.locator('[data-identity]')).toHaveAttribute('data-identity', identity!);
-  const current = await state(page);
-  expect(current).toMatchObject({ browserMounts: 0, privyMounts: 1, privyUnmounts: 0, routeMounts: 1, routeUnmounts: 0, childMounts: 1, childUnmounts: 0 });
-  expect(current.importMarkers.filter((marker) => marker === 'PRIVY_PROVIDER_MODULE')).toHaveLength(1);
-  expect(current.sdkHookCalls).toBeGreaterThan(0);
-  expect(observation.requests.some((path) => bundles.configured.privyPaths.has(path))).toBe(true);
-  expect(observation.errors).toEqual([]);
-});
-
-test('Telegram user agent with an empty SDK bridge keeps the configured browser connect flow', async ({ page }) => {
-  const observation = await openHarness(page, { telegramUa: true, bridge: 'unknown' });
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  await expectBrowserOnly(page, observation);
-});
-
-test('a Telegram Web iframe reload waits for the bridge after its launch hash was consumed', async ({ page }) => {
-  const observation = await openIframeHarness(page, 'https://web.telegram.org/k/', '#tgWebAppData=auth_date%3D1%26hash%3Dsynthetic');
-  const { frame } = observation;
-  await expect(frame.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-  await frame.evaluate(() => history.replaceState(null, '', location.pathname));
-  await frame.goto(frame.url());
-  await expect(frame.locator('[data-provider-wait="true"]')).toBeVisible();
-  expect(await state(frame)).toMatchObject({ browserMounts: 0, privyMounts: 0, childMounts: 0, importMarkers: [] });
-  expect(await frame.evaluate(() => navigator.userAgent)).not.toMatch(/Telegram/i);
-  await frame.evaluate(() => {
-    (window as any).Telegram = { WebApp: { platform: 'web', initData: 'auth_date=1&hash=synthetic-reload' } };
-  });
-  await expect(frame.getByRole('heading', { name: 'loginCard.signIn' })).toBeVisible();
-  await expect(frame.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-  const identity = await frame.locator('[data-identity]').getAttribute('data-identity');
-  await frame.getByRole('button', { name: 'Open settings', exact: true }).click();
-  await expect(frame.getByText('No wallet connected', { exact: true })).toBeVisible();
-  await expect(frame.locator('[data-identity]')).toHaveAttribute('data-identity', identity!);
-  expect(await state(frame)).toMatchObject({ browserMounts: 0, privyMounts: 1, privyUnmounts: 0, childMounts: 1, childUnmounts: 0 });
-  expect(observation.errors).toEqual([]);
-});
-
-test('Telegram Web parent alone cannot load Privy when the delayed bridge has no data', async ({ page }) => {
-  const observation = await openIframeHarness(page, 'https://web.telegram.org/a/');
-  await expect(observation.frame.locator('[data-provider-wait="true"]')).toBeVisible();
-  await observation.frame.evaluate(() => {
-    (window as any).Telegram = { WebApp: { platform: 'web', initData: '' } };
-  });
-  await expect(observation.frame.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
-  await expectBrowserOnly(observation.frame, observation);
-});
-
-test('an unrelated iframe does not wait for Telegram or request Privy', async ({ page }) => {
-  const observation = await openIframeHarness(page, 'https://web.telegram.org.example.com/k/');
-  await expect(observation.frame.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
-  await expect(observation.frame.locator('[data-provider-wait="true"]')).toHaveCount(0);
-  await expectBrowserOnly(observation.frame, observation);
-});
-
-for (const host of ['user-agent', 'native-proxy'] as const) {
-  test(`a Telegram reload with ${host} waits for delayed launch data before mounting Privy`, async ({ page }) => {
-    const observation = await openPendingTelegramHarness(page, host);
-    await page.clock.runFor(500);
-    expect(await state(page)).toMatchObject({ browserMounts: 0, privyMounts: 0, importMarkers: [] });
-    await page.evaluate(() => {
-      (window as any).Telegram = { WebApp: { platform: 'android', initData: 'auth_date=1&hash=synthetic-delayed' } };
+for (const variant of ['browser', 'disabled', 'missing'] as Variant[]) {
+  for (const signal of ['launch', 'host'] as const) {
+    test(`${variant}: Telegram ${signal} fails closed without a configured passkey path`, async ({ page }) => {
+      const result = await open(page, variant, { [signal]: true });
+      await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser' })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Continue in browser' })).toHaveAttribute('href', 'https://fxaeon.com/');
+      await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(0);
+      expect(await state(page)).toMatchObject({ browserMounts: 0, passkeyMounts: 0, passkeyEvaluations: 0, connectCalls: 0 });
+      expect(result.errors).toEqual([]);
     });
-    await page.clock.runFor(100);
-    await page.clock.resume();
-    await expect(page.getByRole('heading', { name: 'loginCard.signIn' })).toBeVisible();
-    await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-    const identity = await page.locator('[data-identity]').getAttribute('data-identity');
-    await page.evaluate(() => {
-      delete (window as any).Telegram;
-      globalThis.__providerBoundaryHarness.rerender?.();
-    });
-    await page.getByRole('button', { name: 'Open settings', exact: true }).click();
-    await expect(page.getByText('No wallet connected', { exact: true })).toBeVisible();
-    await expect(page.locator('[data-identity]')).toHaveAttribute('data-identity', identity!);
-    const current = await state(page);
-    expect(current).toMatchObject({ browserMounts: 0, privyMounts: 1, privyUnmounts: 0, routeMounts: 1, routeUnmounts: 0, childMounts: 1, childUnmounts: 0 });
-    expect(current.importMarkers.filter((marker) => marker === 'PRIVY_PROVIDER_MODULE')).toHaveLength(1);
-    expect(observation.errors).toEqual([]);
-  });
+  }
 }
 
-test('an empty delayed Telegram bridge settles on the browser provider without loading Privy', async ({ page }) => {
-  const observation = await openPendingTelegramHarness(page, 'native-proxy');
-  await page.evaluate(() => {
-    (window as any).Telegram = { WebApp: { platform: 'android', initData: '' } };
-  });
-  await page.clock.runFor(100);
-  await page.clock.resume();
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
+test('configured Telegram passkey path mounts only that service and survives route navigation', async ({ page }) => {
+  const result = await open(page, 'passkey', { launch: true, path: '/settings' });
+  await expect(page.getByText('Telegram wallet connected', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'telegram');
+  await page.getByRole('button', { name: 'Open login' }).click();
   await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  await expectBrowserOnly(page, observation);
+  expect(await state(page)).toMatchObject({ browserMounts: 0, passkeyMounts: 1, passkeyUnmounts: 0, passkeyEvaluations: 1 });
+  expect(result.errors).toEqual([]);
 });
 
-test('a missing Telegram bridge falls back after the bounded wait and never replaces the connected wallet', async ({ page }) => {
-  const observation = await openPendingTelegramHarness(page, 'user-agent');
-  await page.clock.runFor(7_000);
-  await expect(page.locator('[data-provider-wait="true"]')).toBeVisible();
-  expect(await state(page)).toMatchObject({ browserMounts: 0, privyMounts: 0, importMarkers: [] });
-  await page.clock.runFor(1_100);
-  // Keep time paused until fallback is visible. Resuming first would let a
-  // regressed longer timeout pass through Playwright's real-time auto-wait.
-  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'browser');
-  await expect(page.locator('[data-provider-wait="true"]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Connect wallet' })).toBeVisible();
-  await page.clock.resume();
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  const identity = await page.locator('[data-identity]').getAttribute('data-identity');
-  await page.evaluate(() => {
-    (window as any).Telegram = { WebApp: { platform: 'android', initData: 'auth_date=1&hash=too-late-synthetic' } };
-    globalThis.__providerBoundaryHarness.rerender?.();
-  });
-  await page.getByRole('button', { name: 'Open settings', exact: true }).click();
-  await expect(page.getByText('Browser wallet connected', { exact: true })).toBeVisible();
-  await expect(page.locator('[data-identity]')).toHaveAttribute('data-identity', identity!);
-  expect(await state(page)).toMatchObject({ browserUnmounts: 0, routeMounts: 1, routeUnmounts: 0, childMounts: 1, childUnmounts: 0 });
-  await expectBrowserOnly(page, observation);
+test('a delayed native bridge cannot initialize a browser signer before passkey selection', async ({ page }) => {
+  const result = await open(page, 'passkey', { host: true, path: '/settings' });
+  await expect(page.getByRole('status')).toBeVisible();
+  expect(await state(page)).toMatchObject({ browserMounts: 0, passkeyMounts: 0 });
+  await page.evaluate(() => { Object.defineProperty(window, 'Telegram', { configurable: true, value: { WebApp: { initData: 'auth_date=1&user={"id":123}&signature=synthetic' } } }); });
+  await expect(page.getByText('Telegram wallet connected', { exact: true })).toBeVisible();
+  expect(await state(page)).toMatchObject({ browserMounts: 0, passkeyMounts: 1 });
+  expect(result.errors).toEqual([]);
 });
 
-test('a Telegram platform hint alone keeps the configured browser connect flow', async ({ page }) => {
-  const observation = await openHarness(page, { bridge: 'telegram' });
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  await expectBrowserOnly(page, observation);
-});
-
-test('nonempty Telegram bridge launch data selects Privy without a URL hash', async ({ page }) => {
-  const observation = await openHarness(page, { bridge: 'telegram-data' });
-  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-  await expect(page.getByRole('heading', { name: 'loginCard.signIn' })).toBeVisible();
-  expect((await state(page)).privyMounts).toBe(1);
-  expect(observation.errors).toEqual([]);
-});
-
-for (const hash of ['#tgWebAppData=', '#tgWebAppVersion=8.0&tgWebAppPlatform=android']) {
-  test(`Telegram marker without launch data stays in browser mode: ${hash}`, async ({ page }) => {
-    const observation = await openHarness(page, { hash });
-    await expect(page.getByRole('heading', { name: 'Connect your wallet' })).toBeVisible();
-    await expectBrowserOnly(page, observation);
-  });
-}
-
-test('later Telegram hints do not replace an already connected browser provider', async ({ page }) => {
-  const observation = await openHarness(page, { bridge: 'unknown' });
-  await page.getByRole('button', { name: 'Connect wallet' }).click();
-  await expect(page.getByRole('heading', { name: 'Wallet connected' })).toBeVisible();
-  const identity = await page.locator('[data-identity]').getAttribute('data-identity');
-  await page.evaluate(() => {
-    history.replaceState(null, '', `${location.pathname}#tgWebAppData=synthetic`);
-    (window as any).Telegram = { WebApp: { platform: 'android', initData: 'synthetic-only' } };
-    globalThis.__providerBoundaryHarness.rerender?.();
-  });
-  await page.getByRole('button', { name: 'Open settings', exact: true }).click();
-  await expect(page.getByText('Browser wallet connected', { exact: true })).toBeVisible();
-  await expect(page.locator('[data-identity]')).toHaveAttribute('data-identity', identity!);
-  expect(await state(page)).toMatchObject({ browserUnmounts: 0, routeMounts: 1, routeUnmounts: 0, childMounts: 1, childUnmounts: 0 });
-  await expectBrowserOnly(page, observation);
-});
-
-test('a build without a Privy app ID keeps ordinary browser wallet access', async ({ page }) => {
-  const observation = await openHarness(page, { variant: 'unconfigured' });
-  await expect(page.getByRole('heading', { name: 'Connect your wallet' })).toBeVisible();
-  await expectBrowserOnly(page, observation);
-});
-
-test('a build without a Privy app ID gives Telegram a browser handoff without loading Privy', async ({ page }) => {
-  const observation = await openHarness(page, { variant: 'unconfigured', hash: '#tgWebAppData=auth_date%3D1%26hash%3Dsynthetic' });
-  await expect(page.getByRole('heading', { name: 'Connect in your browser' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Continue in browser' })).toHaveAttribute('href', 'https://fxaeon.com/');
-  await expect(page.getByRole('button', { name: 'Connect wallet' })).toHaveCount(0);
-  await expectBrowserOnly(page, observation);
-});
-
-for (const connected of [false, true]) {
-  test(`browser transaction settings preserve slippage without gas reads or speed choices (${connected ? 'connected' : 'disconnected'})`, async ({ page }) => {
-    const observation = await openHarness(page, { path: `/transaction-settings?connected=${connected ? '1' : '0'}`, bridge: 'unknown' });
-    await expect(page.locator('[data-connected]')).toHaveAttribute('data-connected', String(connected));
-    expect((await state(page)).gasQuoteChains).toEqual([]);
-    await page.getByRole('button', { name: /^Transaction settings,/ }).click();
-    const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
-    await expect(dialog.getByRole('radiogroup', { name: 'Max slippage' })).toBeVisible();
-    await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toHaveCount(0);
-    await expect(dialog.getByRole('radio', { name: /Standard|Fast|Rapid/ })).toHaveCount(0);
-    await dialog.getByRole('radio', { name: '1%', exact: true }).click();
-    await expect(dialog.getByRole('radio', { name: '1%', exact: true })).toHaveAttribute('aria-checked', 'true');
-    await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveValue('1');
-    expect((await state(page)).gasQuoteChains).toEqual([]);
-    await expectBrowserOnly(page, observation);
-  });
-}
-
-test('embedded transaction settings retain gas quotes and speed choices alongside slippage', async ({ page }) => {
-  const observation = await openHarness(page, { path: '/transaction-settings?connected=1', bridge: 'telegram-data' });
-  await expect(page.locator('[data-provider-mode]')).toHaveAttribute('data-provider-mode', 'privy');
-  expect((await state(page)).gasQuoteChains).toEqual([]);
-  await page.getByRole('button', { name: /^Transaction settings,/ }).click();
-  const dialog = page.getByRole('dialog', { name: 'Transaction settings', exact: true });
-  await expect(dialog.getByRole('radiogroup', { name: 'Network speed' })).toBeVisible();
-  const fast = dialog.getByRole('radio', { name: /^Fast\s*1\.50 gwei$/ });
-  await expect(fast).toBeVisible();
-  expect((await state(page)).gasQuoteChains).toEqual([1]);
-  await fast.click();
-  await expect(fast).toHaveAttribute('aria-checked', 'true');
-  await dialog.getByRole('radio', { name: '1%', exact: true }).click();
-  await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveValue('1');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fxaeon.settings.v1') ?? '{}'))).toMatchObject({ gasTier: 'fast', slippageBps: 100 });
-  expect((await state(page)).gasQuoteChains).toEqual([1]);
-  expect(observation.errors).toEqual([]);
+for (const path of ['/invite', '/wallet-approval']) test(`${path} stays independent from wallet configuration`, async ({ page }) => {
+  const result = await open(page, 'disabled', { launch: true, path });
+  await expect(page.getByText('Private capability page')).toBeVisible();
+  expect(await state(page)).toMatchObject({ browserMounts: 0, passkeyMounts: 0, passkeyEvaluations: 0 });
+  expect(result.errors).toEqual([]);
 });

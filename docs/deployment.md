@@ -13,7 +13,7 @@ Configuration lives in the [root Wrangler file](../wrangler.toml), [landing Wran
 
 The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect their configuration in Actions, but the compiled values are public. Restrict browser credentials by origin, chain, and quota. A Pages runtime variable cannot rewrite a previously built bundle.
 
-Production validation and server-config sync require matching wallet modes: `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` with `MINIAPP_ACCESS_MODE=passkey`, or `off` with `waitlist`. Passkey mode also requires the reviewed native-signup closure marker. Staging and rollback must use a paired configuration; changing only one mode is rejected. Explicit legacy development builds remain supported. This validation does not migrate wallets or change their owners.
+Production validation and server-config sync require matching wallet modes: `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` with `MINIAPP_ACCESS_MODE=passkey`, or `off` with `waitlist`. Passkey mode also requires the reviewed native-signup closure marker. Staging and rollback must use a paired configuration; changing only one mode is rejected. The off/waitlist configuration disables Telegram wallet access, including in development; it does not activate native login. Ordinary browser wallets remain available. This validation does not migrate wallets or change their owners. The public Privy app ID remains required to verify the canonical signing request's app identity.
 
 | Setting | Production storage | Use |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Production validation and server-config sync require matching wallet modes: `NEX
 | `TELEGRAM_BOT_TOKEN` | GitHub and Pages server secret | Bot metadata, command replies and opted-in invitations; never a public build input |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | GitHub secrets | Pages artifact upload and optional secret synchronization |
 | `ETHERSCAN_API_KEY` | Optional GitHub/Pages production secret | Read-only app gas Function |
-| `NEXT_PUBLIC_TELEGRAM_ADMISSION` | GitHub variable, `on` or unset | Telegram admission gate in front of Privy; off until the D1 binding is deployed |
+| `NEXT_PUBLIC_TELEGRAM_ADMISSION` | Legacy GitHub variable, `on` or unset | Retained release-input compatibility; does not enable native login or replace passkey admission |
 | `TELEGRAM_BOT_ID` | Pages secret, synced by the release workflow | The bot’s public numeric ID, derived from `TELEGRAM_BOT_TOKEN`; identity verification does not use the token |
 | `LIVE_GAS_ORACLE_URL` | Workflow environment | Probe destination only; does not configure the Function |
 
@@ -40,7 +40,7 @@ For each chain, HTTP/SDK reads prefer primary Alchemy, then Infura, then Alchemy
 
 ## Preview environments
 
-Cloudflare Git previews build independently and do not inherit GitHub Actions secrets. Set Preview variables deliberately. An empty Privy ID produces browser mode, even with Telegram launch hints; a passing placeholder/credential-free build does not prove configured Telegram authentication.
+Cloudflare Git previews build independently and do not inherit GitHub Actions secrets. Set Preview variables deliberately. An empty Privy ID leaves ordinary browser wallets available but disables Telegram wallet access; a passing placeholder/credential-free build does not prove configured Telegram authentication.
 
 Record the preview revision and which services are configured before testing. Browser/provider mocks and module-load checks can validate narrower behavior, but do not substitute for live authentication or device evidence.
 

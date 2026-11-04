@@ -87,12 +87,11 @@ test('serial verification preserves source gates while limiting local process ov
   assert.ok(!result.commands.some((command) => /^build$|test:e2e/.test(command)));
 });
 
-test('isolated CI phases partition all nine browser harnesses exactly once', async () => {
+test('isolated CI phases partition all eight browser harnesses exactly once', async () => {
   const expected = [
     'test:e2e:borrow-harness',
     'test:e2e:move-harness',
     'test:e2e:positions-harness',
-    'test:e2e:privy-send-harness',
     'test:e2e:trade-harness',
     'test:e2e:wallet-provider-harness',
     'test:e2e:mobile-wallet-harness',

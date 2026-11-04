@@ -8,13 +8,14 @@ const root = resolve(import.meta.dirname, '..');
 const workspace = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8');
 const lock = readFileSync(resolve(root, 'pnpm-lock.yaml'), 'utf8');
 assert.match(workspace, /'zod@3\.22\.4': '3\.25\.76'/);
-assert.match(workspace, /'zod@4\.4\.3': '4\.6\.7'/);
 assert.match(workspace, /zod@3\.25\.76: patches\/zod@3\.25\.76\.patch/);
-assert.match(workspace, /zod@4\.6\.7: patches\/zod@4\.6\.7\.patch/);
-const packageVersions = [...lock.matchAll(/^  zod@([^:]+):$/gm)].map((match) => match[1]);
-assert.deepEqual(packageVersions.sort(), ['3.25.76', '4.6.7'], 'Re-review all resolved Zod versions');
+// pnpm 11 writes unquoted patched snapshot keys too. Inspect the package
+// inventory so the same version's patch-qualified snapshot is not a second version.
+const lockPackages = lock.match(/^packages:\r?\n([\s\S]*?)(?=^snapshots:)/m)?.[1];
+assert.ok(lockPackages, 'The lockfile package inventory must be present');
+const packageVersions = [...lockPackages.matchAll(/^  zod@([^:]+):$/gm)].map((match) => match[1]);
+assert.deepEqual(packageVersions.sort(), ['3.25.76'], 'Re-review all resolved Zod versions');
 assert.match(lock, /^  zod@3\.25\.76: f2cc235a1c60e57a7eddf149dd5478b5718dbae033ca1483805099bb371fef9f$/m);
-assert.match(lock, /^  zod@4\.6\.7: 535b41d8a1d7656e8a072d730e3541ac5fee84d0d7da95fa1db8f648c6e40759$/m);
 
 const expected = {
   '3.25.76': {
@@ -27,11 +28,6 @@ const expected = {
     'v4/core/checks.js': '2904b783a6cd7c3edbe42a0db914d24f172951d0fcfe47601af8d517b52e8426',
     'v4/core/schemas.cjs': '950fe8d397473ad5ff9c985a38b68f75864811b2f2ef69e8abb2b68684b7e73e',
     'v4/core/schemas.js': 'cd4a117a266a4d30601902bce9d3706f97b70bc89fff2541545a44e0b804d022',
-  },
-  '4.6.7': {
-    'src/v3/types.ts': '6951412f7d0ac358d141ab62ba9a02d771ca2afb9b8035e97f842670e40ad7e8',
-    'v3/types.cjs': '99170c934876b4ae77ec976b2ecc9ef46beace793675f8cf11f90b5395d95a03',
-    'v3/types.js': 'e1fffb0c76dd1cd8c6e17562faf94e5f3c216c6a8dda087392c5641c9e8c38d4',
   },
 };
 
@@ -50,22 +46,16 @@ function packageFromConsumer(packageRequire, version) {
   return { packageRoot, require: createRequire(entry) };
 }
 
-// Verify each package path the app uses for Zod 3, then the Zod 4 path reached
-// through Wagmi's connector stack. This guards the active virtual-store links,
+// Verify each remaining app consumer's active Zod 3 virtual-store links,
 // not merely patch files or stale package directories left by older installs.
 const zod3Roots = new Set();
 let zod3Require;
-for (const dependency of ['viem', '@aladdindao/fx-sdk', '@privy-io/react-auth', 'wagmi']) {
+for (const dependency of ['viem', '@aladdindao/fx-sdk', 'wagmi']) {
   const { packageRoot, require } = packageFromConsumer(createRequire(miniAppRequire.resolve(dependency)), '3.25.76');
   zod3Roots.add(packageRoot);
   zod3Require ??= require;
 }
 assert.equal(zod3Roots.size, 1, 'Zod 3 consumers must share the single patched lockfile instance');
-
-const wagmiRequire = createRequire(miniAppRequire.resolve('wagmi'));
-const portoRequire = createRequire(wagmiRequire.resolve('porto'));
-const { packageRoot: zod4Root, require: zod4Require } = packageFromConsumer(portoRequire, '4.6.7');
-assert.ok(zod4Root !== [...zod3Roots][0], 'Zod 3 and Zod 4 must remain separate package instances');
 
 async function assertBoundedArrayAndSet(z, name) {
   for (const [kind, build, input] of [
@@ -123,18 +113,12 @@ function assertOverwriteCompatibility(z, name) {
 
 const zod3 = zod3Require('zod');
 const zod3V4 = zod3Require('zod/v4');
-const zod4V3 = zod4Require('zod/v3');
-const zod4 = zod4Require('zod');
 for (const [z, name] of [
   [zod3, 'Zod 3 public API'],
   [zod3V4, 'Zod 3 bundled v4'],
-  [zod4V3, 'Zod 4 bundled v3'],
-  [zod4, 'Zod 4 public API'],
 ]) await assertBoundedArrayAndSet(z, name);
 await assertBoundedMap(zod3V4, 'Zod 3 bundled v4');
-await assertBoundedMap(zod4, 'Zod 4 public API');
 assertBackportCompatibility(zod3V4, 'Zod 3 bundled v4');
 assertOverwriteCompatibility(zod3V4, 'Zod 3 bundled v4');
-assertOverwriteCompatibility(zod4, 'Zod 4 public API');
 
-console.log('[audit] Verified patched Zod 3/4 package hashes and active app consumer paths; Zod 3 APIs remain separate from Zod 4.');
+console.log('[audit] Verified patched Zod 3 public/bundled APIs, package hashes and remaining active app consumer paths.');

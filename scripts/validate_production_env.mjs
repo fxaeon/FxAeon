@@ -3,7 +3,7 @@ import { pathToFileURL } from 'node:url';
 
 const PLACEHOLDER = /YOUR_|your_|PLACEHOLDER|placeholder|CHANGE_ME|change_me|REPLACE_ME|replace_me|EXAMPLE|example/;
 
-/** Production modes must agree; paired legacy mode remains available explicitly. */
+/** Production modes must agree; paired disabled Telegram mode remains available. */
 export function validateWalletActivation(env = {}) {
   const publicMode = env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off';
   const serverMode = env.MINIAPP_ACCESS_MODE || 'waitlist';

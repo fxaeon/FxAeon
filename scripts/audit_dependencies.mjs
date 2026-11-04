@@ -31,7 +31,7 @@ for (const advisory of advisories) {
     && advisory.module_name === 'zod'
     && advisory.severity === 'high'
     && advisory.findings?.length > 0
-    && advisory.findings.every((finding) => ['3.25.76', '4.6.7'].includes(finding.version));
+    && advisory.findings.every((finding) => finding.version === '3.25.76');
   const verified = zodMitigated;
   console.log(`[audit] ${verified ? 'Verified local mitigation' : advisory.severity}: ${advisory.github_advisory_id} ${advisory.module_name} — ${advisory.title}`);
   if (!verified && !['info', 'low', 'moderate'].includes(advisory.severity)) failed = true;
