@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('node:fs/promises');
+const fsSync = require('node:fs');
 const path = require('node:path');
 
 const PLUGIN_NAME = 'FxAeonPrivateWebpackModuleAttributionPlugin';
@@ -169,6 +170,16 @@ function assertNoSymlinkInPrivatePath(appRoot, reportDirectory) {
   }
 }
 
+function assertReportDestinationNotSymlink(reportPath, lstat = fsSync.lstatSync) {
+  try {
+    if (lstat(reportPath).isSymbolicLink()) {
+      throw new Error('Private webpack attribution report must not replace or follow a symlink.');
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+}
+
 class WebpackModuleAttributionPlugin {
   apply(compiler) {
     compiler.hooks.done.tapPromise(PLUGIN_NAME, async (stats) => {
@@ -179,6 +190,7 @@ class WebpackModuleAttributionPlugin {
       assertNoSymlinkInPrivatePath(appRoot, reportDirectory);
       await fs.mkdir(reportDirectory, { recursive: true });
       const reportPath = path.join(reportDirectory, 'client-module-attribution.json');
+      assertReportDestinationNotSymlink(reportPath);
       const report = createReport(compilation, appRoot);
       await fs.writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
     });
@@ -199,6 +211,7 @@ function installOptInPlugin(config, options = {}) {
 module.exports = {
   WebpackModuleAttributionPlugin,
   createReport,
+  assertReportDestinationNotSymlink,
   installOptInPlugin,
   isEnabled,
   privateReportDirectory,

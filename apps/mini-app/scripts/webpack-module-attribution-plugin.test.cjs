@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   createReport,
+  assertReportDestinationNotSymlink,
   installOptInPlugin,
   isEnabled,
   privateReportDirectory,
@@ -33,6 +34,19 @@ test('private report directory stays outside the publishable output', () => {
   assert.throws(
     () => privateReportDirectory('C:\\repo\\apps\\mini-app', 'C:\\repo\\apps\\mini-app\\.cache'),
     /overlaps the configured build output/,
+  );
+});
+
+test('report writer rejects a symlink at the final report path', () => {
+  assert.throws(
+    () => assertReportDestinationNotSymlink('C:\\repo\\apps\\mini-app\\.cache\\webpack-module-attribution\\client-module-attribution.json', () => ({ isSymbolicLink: () => true })),
+    /must not replace or follow a symlink/,
+  );
+  assert.doesNotThrow(
+    () => assertReportDestinationNotSymlink('C:\\repo\\apps\\mini-app\\.cache\\webpack-module-attribution\\client-module-attribution.json', () => ({ isSymbolicLink: () => false })),
+  );
+  assert.doesNotThrow(
+    () => assertReportDestinationNotSymlink('missing-report.json', () => { throw Object.assign(new Error('missing'), { code: 'ENOENT' }); }),
   );
 });
 
