@@ -367,6 +367,6 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="help-claim">A withdrawal is not ready to claim</h3>
     <p>Read Earn’s live claim status and the available time. A queued request is not an immediate payout, and a fresh read is needed before claim review. Direct redemption to fxSP is a different route with no queued claim.</p>
     <h3 id="help-support">Find help with a specific transaction</h3>
-    <p>Keep the network, public wallet address, transaction hash, and displayed status. Reach FxAeon through <ExternalLink href="https://x.com/FxAeonxyz">@FxAeonxyz on X</ExternalLink>. Never share a seed phrase or private key.</p>
+    <p>For feedback or transaction reports, email <a href="mailto:support@fxaeon.com">support@fxaeon.com</a>. Include the network, public wallet address, transaction hash if available, and displayed status. Never share a seed phrase, private key, or passkey.</p>
   </> },
 ];
