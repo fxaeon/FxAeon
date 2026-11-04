@@ -128,7 +128,7 @@ test('disconnected Earn keeps share-denominated vault assets in details, not the
 test('missing withdrawal terms have one retry and recover without losing the amount', async ({ page }) => {
   await mount(page, false, '2', 'withdraw', { configFailure: true });
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
-  await page.getByLabel('Amount', { exact: true }).fill('12.3456789');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('12.3456789');
   await expect(page.getByText('Cooldown and fee unavailable.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Cooldown unavailable', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('radio', { name: 'Instant', exact: true })).toBeVisible();
@@ -138,7 +138,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await retry.click();
   await expect(page.getByRole('radio', { name: /After cooldown.*1h/ })).toBeChecked();
   await expect(page.getByRole('radio', { name: /^Instant/ })).toBeVisible();
-  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12.3456789');
+  await expect(page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ })).toHaveValue('12.3456789');
   await expect(retry).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeEnabled();
 });
@@ -154,7 +154,7 @@ test('routed deposits offer and forward slippage; direct fxSP deposits do not', 
     if (token === 'fxUSDBasePool') await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveCount(0);
     else await expect(dialog.getByRole('textbox', { name: 'Slippage tolerance percentage' })).toHaveValue('0.5');
     await dialog.getByRole('button', { name: 'Close transaction settings' }).click();
-    await page.getByLabel('Amount', { exact: true }).fill('10');
+    await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('10');
     await page.getByRole('button', { name: 'Review deposit', exact: true }).click();
     const plan = await page.evaluate(() => {
       const harness = globalThis as typeof globalThis & { __earnHarness: { plans: Array<{ slippage?: number; tokenIn: string }> } };
@@ -181,13 +181,13 @@ test('disconnected Earn shows the deposit amount and keeps it through wallet con
   await mount(page, false);
   await page.evaluate(() => (globalThis as typeof globalThis & { __earnHarness: { disconnect: () => void } }).__earnHarness.disconnect());
   await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
-  await page.getByLabel('Amount', { exact: true }).fill('12');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('12');
   const outcome = page.getByRole('region', { name: 'Deposit outcome' });
   await expect(outcome).toContainText('Receive');
   await expect(outcome).toContainText('24 fxSAVE');
   await expect(page.getByText(/No fxUSD available|No fxSAVE yet/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
-  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12');
+  await expect(page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ })).toHaveValue('12');
   await expect(outcome).toContainText('24 fxSAVE');
   await expect(page.getByRole('button', { name: 'Review deposit', exact: true })).toBeEnabled();
 });
@@ -201,13 +201,13 @@ test('disconnected Earn retries one failed public quote for the same amount with
     app.__earnQuoteFailOnce = true;
     app.__earnQuoteCalls = 0;
   });
-  await page.getByLabel('Amount', { exact: true }).fill('12');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('12');
   await page.clock.runFor(250);
   await expect(page.getByRole('region', { name: 'Deposit outcome' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toBeVisible();
   await page.clock.runFor(15_100);
   await expect(page.getByRole('region', { name: 'Deposit outcome' })).toContainText('24 fxSAVE');
-  await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('12');
+  await expect(page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ })).toHaveValue('12');
   const state = await page.evaluate(() => {
     const app = globalThis as typeof globalThis & { __earnHarness: { plans: unknown[] }; __earnQuoteCalls: number };
     return { quoteCalls: app.__earnQuoteCalls, plans: app.__earnHarness.plans.length };
@@ -306,7 +306,7 @@ test('transaction settings stay beside the form; explicit custom edits persist',
   await expect(input).toHaveValue('0.75');
   expect(await storedSlippage(page)).toBe(75);
   await editDialog.getByRole('button',{name:'Close transaction settings'}).click();
-  await page.getByLabel('Amount',{exact:true}).fill('10');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('10');
   await page.getByRole('button',{name:'Review withdrawal',exact:true}).click();
   await expect(page.getByRole('region',{name:'Earn review'})).toContainText('Review slippage: 0.75%');
 });
@@ -316,12 +316,12 @@ test('withdrawals compare the exact fxSAVE balance, and vault details read in th
   await page.getByRole('button',{name:'Withdraw',exact:true}).click();
   // The field gets the exact share balance: it rounds its own figure down, and
   // its over-balance check must agree with the review's exact limit.
-  const amount=page.getByLabel('Amount',{exact:true});
-  await expect(amount).toHaveAttribute('data-available','600.123456789');
+  const amount=page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ });
+  await expect(page.locator('.amount-control [title="600.123456789 fxSAVE"]')).toBeVisible();
   await amount.fill('600.123456789');
   await expect(page.getByRole('button',{name:'Review withdrawal',exact:true})).toBeEnabled();
   await amount.fill('600.12345679');
-  await expect(page.getByRole('button',{name:'Review withdrawal',exact:true})).toBeDisabled();
+  await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Insufficient fxSAVE', exact: true })).toBeDisabled();
   const vault=page.getByRole('region',{name:'Vault details & transparency'});
   // fxSAVE's harvester ratio has 1e9 precision: 100000 is 0.01%, not 0%.
   await expect(vault).toContainText('Harvester ratio0.01%');
@@ -502,7 +502,7 @@ test('Earn places performance before the primary decision with matching DOM orde
       });
       expect(clearance.buttonHeight).toBeGreaterThanOrEqual(44);
       expect(clearance.buttonBottom, 'Primary action clears the fixed phone navigation after scrolling into view').toBeLessThanOrEqual(clearance.navTop + 1);
-      await expect(page.getByRole('button', { name: 'Deposit', exact: true })).toBeDisabled();
+      await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Deposit', exact: true })).toBeDisabled();
       await page.screenshot({ path: info.outputPath(`earn-deposit-${width}x${height}-editor.png`), animations: 'disabled' });
       await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
       const methods = page.getByRole('group', { name: 'Withdrawal method' });
@@ -795,7 +795,7 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
     await expect(outcome.getByText('Claim assets', { exact: true })).toBeVisible();
     await expect(outcome.getByText('fxUSD / USDC', { exact: true })).toBeVisible();
     await gasOnlySettings(page);
-    await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
+    await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('10.000000000000000001');
     // Open the review unless the restored draft already resumed it. Whether a draft
     // should resume again after an asset change is not this test's claim.
     const review = page.getByRole('region', { name: 'Earn review' });
@@ -820,7 +820,7 @@ test('queued stable and direct base-pool withdrawals hide unused settings and pr
   await expect(page.getByText('Direct redemption to fxSP has no cooldown or queued claim.', { exact: true })).toBeVisible();
   await expect(page.getByText(/A queued withdrawal is claimed later/)).toHaveCount(0);
   await gasOnlySettings(page);
-  await page.getByLabel('Amount', { exact: true }).fill('10.000000000000000001');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('10.000000000000000001');
   await page.getByRole('button', { name: 'Review withdrawal', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Earn review' })).toBeVisible();
   expect(await latestPlan(page)).toMatchObject({ tokenOut: 'fxUSDBasePool', amount: '10000000000000000001', instant: false });
@@ -837,15 +837,16 @@ test('hiding unused controls does not enable missing or invalid withdrawal amoun
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
   for (const method of [/After cooldown/, /^Instant/, /^fxSP/]) {
     await page.getByRole('radio', { name: method }).locator('..').click();
-    await page.getByLabel('Amount', { exact: true }).fill('');
-    const review = page.getByRole('button', { name: 'Review withdrawal', exact: true });
+    await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('');
+    const review = page.locator('.reviewTrigger').getByRole('button');
     await expect(review).toBeDisabled();
+    await expect(review).toHaveText('Enter an amount');
     if (method.source !== '^Instant') await gasOnlySettings(page);
     for (const amount of ['0', '-1', 'bad', '601', '1.0000000000000000001']) {
-      await page.getByLabel('Amount', { exact: true }).fill(amount);
+      await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill(amount);
       await expect(review).toBeDisabled();
     }
-    await page.getByLabel('Amount', { exact: true }).fill('600');
+    await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('600');
     await expect(review).toBeEnabled();
   }
   expect(await latestPlan(page)).toBeUndefined();
@@ -856,7 +857,7 @@ test('direct base-pool routes show config-based share estimates and verified emp
   await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
   await page.getByLabel('Earn asset', { exact: true }).selectOption('fxUSDBasePool');
   await expect(page.getByRole('region', { name: 'Deposit outcome', exact: true })).toHaveCount(0);
-  await page.getByLabel('Amount', { exact: true }).fill('10');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('10');
   await expect(page.getByText('Receive', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSAVE', { exact: true })).toBeVisible();
   const estimateHelp = page.getByRole('button', { name: 'About Receive', exact: true });
@@ -887,19 +888,19 @@ test('direct base-pool routes show config-based share estimates and verified emp
 
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
   await page.getByRole('radio', { name: /^fxSP/ }).locator('..').click();
-  await page.getByLabel('Amount', { exact: true }).fill('10');
+  await page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ }).fill('10');
   await expect(page.getByText('Receive', { exact: true })).toBeVisible();
   await expect(page.getByText('≈ 10 fxSP', { exact: true })).toBeVisible();
 
   await mount(page, false, '2', 'deposit', { noExternal: true });
   await expect(page.getByText(/No fxUSD available/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Receive assets on Ethereum', exact: true })).toHaveAttribute('href', '/qr');
-  await expect(page.getByRole('button', { name: 'Deposit', exact: true })).toBeDisabled();
+  await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Deposit', exact: true })).toBeDisabled();
 
   await mount(page, false, '2', 'withdraw', { shares: '0' });
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
   await expect(page.getByText(/No fxSAVE yet/)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Withdraw', exact: true })).toBeDisabled();
+  await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Withdraw', exact: true })).toBeDisabled();
   const deposit = page.getByRole('button', { name: 'Switch to Deposit', exact: true });
   await expect(deposit).toBeVisible();
   for (const width of [320, 390, 1280]) {
@@ -907,8 +908,8 @@ test('direct base-pool routes show config-based share estimates and verified emp
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', width);
   }
   await deposit.click();
-  await expect(page.getByLabel('Amount', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Review deposit', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ })).toBeVisible();
+  await expect(page.locator('.reviewTrigger').getByRole('button', { name: 'Enter an amount', exact: true })).toBeDisabled();
 });
 
 for (const instant of [false, true]) {
@@ -965,7 +966,7 @@ for (const width of [320, 390]) {
 test('Instant receive-asset edits preserve exact shares and require a new review, including resumed drafts', async ({ page }) => {
   await mount(page, true, '0.291', 'withdraw', {token: 'fxUSD', instant: true});
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
-  const amount = page.getByLabel('Amount', { exact: true });
+  const amount = page.getByRole('textbox', { name: /^Amount in (fxUSD|USDC|fxSP|fxSAVE)$/ });
   await amount.fill('10.000000000000000001');
   await page.getByLabel('Earn asset', { exact: true }).selectOption('usdc');
   await expect(amount).toHaveValue('10.000000000000000001');
