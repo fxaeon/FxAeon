@@ -1,4 +1,4 @@
-import { expect, test, assertNoBackendRequests } from "../fixtures/test";
+import { expect, test, assertNoBackendRequests, expectDisabledTelegramWallet } from "../fixtures/test";
 import type { Page } from "@playwright/test";
 
 async function assertNoTopOverlay(page: Page) {
@@ -92,7 +92,7 @@ test.describe("browser entry", () => {
   test("canonical root preserves Telegram payloads and query state", async ({ page, requests }) => {
     await page.goto("/?ref=telegram#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/?ref=telegram#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8\.0$/);
-    await expect(page.getByRole("heading", { name: "Portfolio", exact: true })).toBeVisible();
+    await expectDisabledTelegramWallet(page);
     assertNoBackendRequests(requests);
   });
 
@@ -151,24 +151,20 @@ test.describe("Telegram bridge availability", () => {
     assertNoBackendRequests(requests);
   });
 
-  test("a Telegram launch remains usable when its bridge never arrives", async ({ page, requests }) => {
+  test("an unconfigured Telegram launch remains closed when its bridge never arrives", async ({ page, requests }) => {
     await page.route("**/telegram-web-app.js", (route) => route.abort("failed"));
     await page.goto("/#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/?(?:#.*)?$/, { timeout: 5_000 });
-    await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
-    await expect(page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+    await expectDisabledTelegramWallet(page);
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
     assertNoBackendRequests(requests);
   });
 
-  test("a Telegram protocol route uses the safe Telegram sign-in path", async ({ page, requests }) => {
+  test("an unconfigured Telegram protocol route never falls back to wallet sign-in", async ({ page, requests }) => {
     await page.route("**/telegram-web-app.js", (route) => route.abort("failed"));
     await page.goto("/portfolio#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: /portfolio/i })).toBeVisible();
-    await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
-    await page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true }).click();
+    await expectDisabledTelegramWallet(page);
     await expect(page).toHaveURL(/\/portfolio(?:#.*)?$/);
-    await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     await expect(page.locator("body")).not.toContainText(/Telegram bridge unavailable/i);
     assertNoBackendRequests(requests);
   });
@@ -189,14 +185,13 @@ test.describe("Telegram browser recovery", () => {
   });
 });
 
-test.describe("Telegram connect CTA with an available bridge", () => {
+test.describe("disabled Telegram entry with an available bridge", () => {
   test.use({ telegram: true });
 
-  test("uses the Telegram/Privy entry instead of injected-wallet discovery", async ({ page, requests }) => {
+  test("does not activate native authentication or injected-wallet discovery", async ({ page, requests }) => {
     await page.goto("/portfolio", { waitUntil: "domcontentloaded" });
-    await page.locator(".app-topbar").getByRole("button", { name: "Sign in", exact: true }).click();
+    await expectDisabledTelegramWallet(page);
     await expect(page).toHaveURL(/\/portfolio\/?$/);
-    await expect(page.locator("body")).not.toContainText(/sign-in is initializing|Telegram wallet sign-in is unavailable|No browser wallet detected/i);
     assertNoBackendRequests(requests);
   });
 });

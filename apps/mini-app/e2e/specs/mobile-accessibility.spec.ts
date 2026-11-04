@@ -1,4 +1,4 @@
-import { expect, test, assertNoBackendRequests } from "../fixtures/test";
+import { expect, test, assertNoBackendRequests, expectDisabledTelegramWallet } from "../fixtures/test";
 import type { Page } from "@playwright/test";
 
 const ROUTES = ["/", "/login", "/portfolio", "/trade", "/positions", "/borrow", "/earn", "/move", "/more", "/settings", "/history", "/qr", "/docs", "/docs/guide", "/docs/sdk"];
@@ -74,7 +74,7 @@ async function expectReachableControls(page: Page, context: string, timeout = 10
   await Promise.all(controls.map(control => control.dispose()));
 }
 
-test.describe("mobile web and Telegram accessibility contract", () => {
+test.describe("mobile browser accessibility contract", () => {
   test("fixed navigation coverage must recover by scrolling while real help overlaps and unreachable controls fail", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 844 });
     const styles = '<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;min-height:1400px}button{position:absolute;width:24px;height:24px;padding:0}nav{position:fixed;inset:auto 0 0;height:64px}nav button{position:static;width:100%;height:64px}</style>';
@@ -151,5 +151,27 @@ test.describe("mobile web and Telegram accessibility contract", () => {
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
     await expect(page).toHaveURL(/\/trade$/);
+  });
+});
+
+test.describe('disabled Telegram accessibility', () => {
+  test.use({ telegram: true });
+
+  test('closed wallet entry retains a reachable keyboard-accessible browser handoff', async ({ page, requests }) => {
+    await page.goto('/trade', { waitUntil: 'domcontentloaded' });
+    await expectDisabledTelegramWallet(page);
+    await expect(page.locator('main:visible')).toBeVisible();
+    const handoff = page.getByRole('link', { name: 'Continue in browser', exact: true });
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 568 });
+      const bounds = await handoff.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.width).toBeGreaterThanOrEqual(44);
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1);
+    }
+    await handoff.focus();
+    await expect(handoff).toBeFocused();
+    assertNoBackendRequests(requests);
   });
 });
