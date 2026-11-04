@@ -54,7 +54,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="start-next">What next?</h3>
     {topicCards}
     <h3 id="start-stuck">If something stops</h3>
-    <p>A rejected request is different from a submitted transaction. If you have a transaction hash, open <a href="/history">History</a> and check its status before sending again. No returned hash does not prove that nothing was sent: if the result is unknown, follow <a href="/docs/guide/history#history-telegram">Telegram wallet recovery</a> before trying again. Once you establish that nothing submitted, correct the input or connection and start a fresh review.</p>
+    <p>A rejected request is different from a submitted transaction. If you have a transaction hash, open <a href="/history">History</a> and check its status before sending again. A missing hash does not prove that nothing was sent: if the result is unknown, follow <a href="/docs/guide/history#history-telegram">Telegram wallet recovery</a> before trying again. Once you have confirmed that nothing was submitted, correct the input or connection and start a fresh review.</p>
   </> },
   { id: 'access', title: 'Browser & Telegram', content: <>
     <p>Both entry points offer the same supported products. The connection experience depends on whether you open FxAeon in a browser or inside Telegram.</p>
