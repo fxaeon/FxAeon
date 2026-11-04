@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import type { FxSdk, FxSdkConfig } from '@aladdindao/fx-sdk';
@@ -14,11 +14,11 @@ const esbuild = createRequire(createRequire(resolve(root, 'package.json')).resol
 const mocks: Record<string, string> = {
   'next/link': `export default ({href,children,...props}) => <a href={href} {...props}>{children}</a>;`,
   'next/navigation': `export const useRouter = () => ({push:(href) => {history.pushState({},'',href);globalThis.__earnHarness.navigate();}});`,
-  '@/components/ui': `export const AppShell = ({children}) => <main style={{padding:16}}>{children}</main>;`,
+  '@/components/ui': `export const AppShell = ({children}) => <><main style={{padding:'12px 16px 90px'}}>{children}</main><nav aria-label="Primary navigation" className="mobile-tabbar" style={{position:'fixed',zIndex:5,bottom:8,left:12,right:12,height:64,display:'flex',justifyContent:'space-around',alignItems:'center',borderRadius:22,background:'#16181d',color:'#a6a9b0'}}><span>Portfolio</span><span>Trade</span><span>Earn</span><span>Borrow</span><span>Move</span></nav></>;`,
   '@/components/ProductUI': `export const PageHeading = ({title}) => <h1>{title}</h1>; export const ProductNav = () => <nav>Products</nav>; export const ProductSurface = ({children,...props}) => <section {...props}>{children}</section>; export const Disclosure = ({title,children}) => <section aria-label={title}>{children}</section>; export const MetricRows = ({rows}) => <dl>{rows.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>; export const StatusNotice = ({title}) => <p>{title}</p>; export { ChoiceCards } from 'real:components/ProductUI';`,
-  '@/components/ProductSections': `export const EarnSections = () => null;`,
-  // History has its own built-route data/keyboard tests; this fixture owns settings.
-  '@/components/FxSaveHistory': `export const FxSaveHistory = () => <section aria-label="fxSAVE performance">Performance fixture</section>;`,
+  '@/components/ProductSections': `export const EarnSections = ({cooldown,instantFee}) => <section aria-label="fxSAVE details"><details><summary>Withdrawal terms</summary><p>Withdrawal cooldown {cooldown}</p><p>Instant withdrawal fee {instantFee}</p><p>Queued withdrawals require a separate claim transaction and may pay out both fxUSD and USDC.</p></details><details><summary>How fxSAVE earns yield</summary><p>fxSAVE holds f(x) Protocol stability pool shares and compounds what they earn. APY is variable.</p></details></section>;`,
+  '@/components/FxSaveHistory': `export { FxSaveHistory } from 'real:components/FxSaveHistory';`,
+  '@tanstack/react-query': `export const useQuery = () => ({data:Array.from({length:40},(_,index)=>({timestamp:Date.now()-(39-index)*86400000,price:1+index*0.0002})),isPending:false,isError:false,isFetching:false,refetch:async()=>({})});`,
   '@/components/TokenIcon': `export default () => <span />; export const ChainIcon = () => <span aria-hidden="true" />;`,
   '@/components/MissingValue': `export const MissingValue = () => <span>Unavailable</span>; export const ValueOrSkeleton = ({value}) => <span>{value}</span>;`,
   '@/components/PriceProvider': `export const useUsdPrices = () => ({status:'ready',prices:{fxUSDBasePool:1,fxUSD:1},refresh:async () => {}});`,
@@ -29,13 +29,13 @@ const mocks: Record<string, string> = {
   '@/lib/wallet': `import React from 'react'; export const usePrivyWallet = () => { const [connected,setConnected] = React.useState(globalThis.__earnWalletConnected !== false); React.useEffect(() => { const update = () => setConnected(globalThis.__earnWalletConnected !== false); window.addEventListener('earn-wallet-change',update); return () => window.removeEventListener('earn-wallet-change',update); },[]); return {address:connected ? '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' : undefined,chainId:connected ? 1 : undefined,isEmbedded:true}; };`,
   '@/lib/earnPublicEstimate': `export const createEarnEstimateGuard = () => {let generation=0;return {next:() => ++generation,current:(request) => request === generation,invalidate:() => {generation++;}};};export const quotePublicFxSaveDeposit = async (_token, amount) => {globalThis.__earnQuoteCalls=(globalThis.__earnQuoteCalls ?? 0)+1;if(globalThis.__earnQuoteFailOnce && globalThis.__earnQuoteCalls===1)throw new Error('Fixture public read unavailable');return amount * 2n;};`,
   '@/components/WalletDataProvider': `const refresh = async () => {}; export const useFxSaveClaimable = () => ({status:'ready',data:{hasPendingRedeem:false},refresh});`,
-  '@/components/ProtocolForm': `export const AmountField = ({label,value,onChange,tokenSelector,balanceState}) => <>{tokenSelector}<label>{label}<input aria-label={label} data-available={balanceState?.amount} value={value} onChange={event => onChange(event.target.value)} /></label></>; export const TokenSelect = ({value,onChange,options}) => <select aria-label="Earn asset" value={value} onChange={event => onChange(event.target.value)}>{options.map(token => <option key={token} value={token}>{token}</option>)}</select>; export const Segmented = ({options,onChange}) => <div>{options.map(option => <button key={option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; const refresh = async () => {}; const balancesFor = () => {const zero = new URLSearchParams(location.search).has('fixtureNoExternal'); const amount = zero ? '0' : '1000'; return {fxUSD:{status:'ready',amount},usdc:{status:'ready',amount},fxUSDBasePool:{status:'ready',amount}};}; export const useWalletTokenBalances = () => ({status:'ready',balances:balancesFor(),refresh});`,
+  '@/components/ProtocolForm': `export { AmountField } from 'real:components/AmountField'; export const TokenSelect = ({value,onChange,options}) => <select aria-label="Earn asset" value={value} onChange={event => onChange(event.target.value)}>{options.map(token => <option key={token} value={token}>{token}</option>)}</select>; export const Segmented = ({options,onChange}) => <div className="segmented">{options.map(option => <button className="segmented-option" key={option.value} onClick={() => onChange(option.value)}>{option.label}</button>)}</div>; const refresh = async () => {}; const balancesFor = () => {const zero = new URLSearchParams(location.search).has('fixtureNoExternal'); const amount = zero ? '0' : '1000'; return {fxUSD:{status:'ready',amount},usdc:{status:'ready',amount},fxUSDBasePool:{status:'ready',amount}};}; export const useWalletTokenBalances = () => ({status:'ready',balances:balancesFor(),refresh});`,
   '@/components/ActionReview': `import React from 'react';import {usePrivyWallet} from '@/lib/wallet'; export const ActionReview = ({editor,planBuilder,resumeReview,onStageChange,label,blocker}) => {
     const wallet=usePrivyWallet();
     const [review,setReview] = React.useState(false); const resumed = React.useRef(false);
     const open = async () => {if (!planBuilder || blocker) return; const plan=await planBuilder();globalThis.__earnHarness.minimumFxSP=plan?.minimumFxSP;setReview(true);onStageChange('review');};
     React.useEffect(() => {if(resumeReview && planBuilder && !resumed.current){resumed.current=true;void open();}},[resumeReview,planBuilder]);
-    return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p>{globalThis.__earnHarness.minimumFxSP !== undefined && <p>Minimum fxSP: {globalThis.__earnHarness.minimumFxSP}</p>}<button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<button disabled={Boolean(wallet.address) && (!planBuilder || Boolean(blocker))} onClick={wallet.address ? open : () => globalThis.__earnHarness.connect()}>{wallet.address ? label : 'Connect wallet'}</button></>;
+    return review ? <section aria-label="Earn review"><p>Review slippage: {globalThis.__earnHarness.plans.at(-1)?.slippage}%</p>{globalThis.__earnHarness.minimumFxSP !== undefined && <p>Minimum fxSP: {globalThis.__earnHarness.minimumFxSP}</p>}<button onClick={() => {setReview(false);onStageChange('input');}}>Edit</button></section> : <>{editor}<div className="reviewTrigger"><button className="button-primary" style={{minHeight:52,width:'100%',borderRadius:26,background:'#2868f0',color:'#fff'}} disabled={Boolean(wallet.address) && (!planBuilder || Boolean(blocker))} onClick={wallet.address ? open : () => globalThis.__earnHarness.connect()}>{wallet.address ? blocker || label : 'Connect wallet'}</button></div></>;
   };`,
   '@/lib/fx': `
     // Wallet asset formatting needs real address/token identities, not live balances.
@@ -46,7 +46,7 @@ const mocks: Record<string, string> = {
     let configReads = 0;
     export const getFxReadFacade = () => ({getFxSaveConfig:async () => {
       if (new URLSearchParams(location.search).has('fixtureConfigFailure') && ++configReads === 1) throw new Error('Fixture vault read unavailable');
-      return {cooldownPeriodSeconds:3600n,instantRedeemFeeRatio:1000000000000000n,expenseRatio:0n,harvesterRatio:100000n,threshold:100n*10n**18n,totalAssetsWei:1000n*10n**18n,totalSupplyWei:1000n*10n**18n};
+      return {cooldownPeriodSeconds:3600n,instantRedeemFeeRatio:10000000000000000n,expenseRatio:0n,harvesterRatio:100000n,threshold:100n*10n**18n,totalAssetsWei:1000n*10n**18n,totalSupplyWei:1000n*10n**18n};
     },getFxSaveBalance:async () => ({balanceWei:BigInt(new URLSearchParams(location.search).get('fixtureShares') ?? 600n*10n**18n),assetsWei:62045n*10n**16n}),getFxSaveRedeemStatus:async () => ({hasPendingRedeem:false})});
     export const signatureDraftIdFromSearch = search => new URLSearchParams(search).get('fxDraft');
     export const restoreSignatureRequiredDraftFromSearch = (search,scope) => new URLSearchParams(search).has('fxDraft') && scope.actionKey === (new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'earn:deposit' : 'earn:withdraw') ? ({draft:{resumePath:'/earn'},formState:{mode:new URLSearchParams(search).get('fixtureMode') === 'deposit' ? 'deposit' : 'withdraw',token:new URLSearchParams(search).get('fixtureToken') ?? 'fxUSD',amount:'10',shares:'10',instant:new URLSearchParams(search).get('fixtureInstant') !== 'false',slippage:new URLSearchParams(search).get('fixtureSlippage') ?? '2'}}) : undefined;
@@ -70,7 +70,7 @@ test.beforeAll(async () => {
       onResolve:(options:{filter:RegExp},callback:(args:{path:string}) => unknown) => void;
       onLoad:(options:{filter:RegExp;namespace:string},callback:(args:{path:string}) => unknown) => void;
     }) {
-      build.onResolve({filter:/^(@\/|next\/)/},({path}) => {
+      build.onResolve({filter:/^(@\/|next\/|@tanstack\/)/},({path}) => {
         if(mocks[path]) return {path,namespace:'fixture'};
         const base=resolve(root,'src',path.slice(2));
         return {path:[base,`${base}.ts`,`${base}.tsx`].find(existsSync) ?? base};
@@ -93,7 +93,8 @@ async function mount(page:Page,resume=true,slippage='2',mode:'withdraw'|'deposit
   const external = [fixture.noExternal ? 'fixtureNoExternal=1' : '', fixture.configFailure ? 'fixtureConfigFailure=1' : ''].filter(Boolean).join('&');
   await page.goto(`http://earn.test/earn${resume ? `?fxDraft=fixture${mode === 'deposit' ? '&fixtureMode=deposit' : ''}${slippage === '2' ? '' : `&fixtureSlippage=${slippage}`}${fixture.token ? `&fixtureToken=${fixture.token}` : ''}${fixture.instant === false ? '&fixtureInstant=false' : ''}${shares ? `&${shares}` : ''}${external ? `&${external}` : ''}` : shares || external ? `?${[shares, external].filter(Boolean).join('&')}` : ''}`);
   await page.evaluate(() => localStorage.setItem('fxaeon.settings.v1',JSON.stringify({slippageBps:50,gasTier:'standard'})));
-  await page.addStyleTag({content:`*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;--fs-small:14px;--fs-caption:12px;--text:#111;--mut:#555;--surface:#fff;--surface-2:#eee;--line:#ccc;--success:#16803b;--radius-sm:8px;--dur-fast:0ms}button{font:inherit;border:0;padding:0;cursor:pointer;background:none}${css}`});
+  const font = readFileSync(resolve(root, 'src/app/fonts/inter-latin.woff2')).toString('base64');
+  await page.addStyleTag({content:`@font-face{font-family:Inter;src:url(data:font/woff2;base64,${font}) format('woff2');font-weight:100 900;font-display:swap}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}*{box-sizing:border-box}body{margin:0;background:#0b0d10;color:#f5f6f8;font-family:Inter,Arial,sans-serif;--font-sans:Inter,Arial,sans-serif;--fs-small:14px;--fs-caption:12px;--text:#f5f6f8;--mut:#a6a9b0;--surface:#16181d;--surface-2:#20232a;--surface-3:#242832;--line:#2b2e36;--bg:#0b0d10;--success:#44c592;--mint:#4f86ff;--mint-text:#7aa3ff;--focus-ring:#9abaff;--radius-sm:8px;--dur-fast:0ms}button{font:inherit;border:0;padding:0;cursor:pointer}.amount-control{background:#16181d;border:1px solid #2b2e36;border-radius:18px;padding:12px}.amount-control input{display:block;width:100%;min-height:44px;background:transparent;color:inherit;border:0;font-size:26px}.amount-control small{display:block;margin-top:8px;color:#a6a9b0}.segmented{display:flex;min-height:44px;flex:1;border-radius:14px;background:#16181d}.segmented-option{flex:1;min-height:44px;border-radius:12px;color:inherit}${css}`});
   await page.addScriptTag({content:script});
   if(resume) await expect(page.getByRole('region',{name:'Earn review'})).toContainText(`Review slippage: ${fixture.token === 'fxUSDBasePool' || mode === 'withdraw' && fixture.instant === false ? '' : slippage}%`);
   else if (fixture.shares === '0') await expect(page.getByText('0 fxSAVE', { exact: true })).toBeVisible();
@@ -130,7 +131,7 @@ test('missing withdrawal terms have one retry and recover without losing the amo
   await page.getByLabel('Amount', { exact: true }).fill('12.3456789');
   await expect(page.getByText('Cooldown and fee unavailable.', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Cooldown unavailable', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('Fee unavailable', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('radio', { name: 'Instant', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Review withdrawal', exact: true })).toBeDisabled();
   const retry = page.getByRole('button', { name: 'Retry vault terms', exact: true });
   await expect(retry).toHaveCount(1);
@@ -447,10 +448,12 @@ test('Earn summary keeps two normal columns and separates enlarged APY and balan
   }
 });
 
-test('Earn places performance after the primary decision on phones and desktop', async ({ page }, info) => {
-  for (const width of [320, 390, 1024, 1280]) {
-    await page.setViewportSize({ width, height: 900 });
-    await mount(page, false);
+test('Earn places performance before the primary decision with matching DOM order', async ({ page }, info) => {
+  for (const viewport of [{ width: 320, height: 568 }, { width: 393, height: 852 }, { width: 1024, height: 900 }, { width: 1280, height: 900 }]) {
+    const { width, height } = viewport;
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await mount(page, false, '2', 'deposit', { noExternal: width < 840 });
     const summary = page.getByRole('region', { name: 'Your fxSAVE earnings' });
     const form = page.locator('[data-flow-stage]').first();
     const history = page.getByRole('region', { name: 'fxSAVE performance' });
@@ -461,7 +464,14 @@ test('Earn places performance after the primary decision on phones and desktop',
       expect(historyBox!.y).toBeGreaterThanOrEqual(summaryBox!.y + summaryBox!.height - 1);
       expect(historyBox!.y - (summaryBox!.y + summaryBox!.height)).toBeLessThanOrEqual(32);
     } else {
-      expect(historyBox!.y).toBeGreaterThanOrEqual(formBox!.y + formBox!.height - 1);
+      expect(historyBox!.y).toBeGreaterThanOrEqual(summaryBox!.y + summaryBox!.height - 1);
+      expect(historyBox!.y + historyBox!.height).toBeLessThanOrEqual(formBox!.y + 1);
+      const order = await page.evaluate(() => {
+        const history = document.querySelector('[aria-label="fxSAVE performance"]')!;
+        const form = document.querySelector('[data-flow-stage]')!;
+        return Boolean(history.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING);
+      });
+      expect(order).toBe(true);
     }
     if (width >= 840) {
       expect(Math.abs(summaryBox!.y - formBox!.y)).toBeLessThanOrEqual(2);
@@ -470,7 +480,41 @@ test('Earn places performance after the primary decision on phones and desktop',
       expect(summaryBox!.y + summaryBox!.height).toBeLessThanOrEqual(formBox!.y + 1);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    await page.screenshot({ path: info.outputPath(`earn-layout-${width}.png`), animations: 'disabled' });
+    if (width < 840) {
+      const chart = history.getByRole('slider', { name: 'Explore fxSAVE annualized return', exact: true });
+      await expect(chart).toBeVisible();
+      const chartHeight = await chart.evaluate(element => element.getBoundingClientRect().height);
+      expect(chartHeight, 'Phone chart stays compact while retaining the real interactive chart').toBeLessThanOrEqual(120);
+      const funding = page.getByText('Receive assets on Ethereum', { exact: true });
+      await expect(funding).toBeVisible();
+      await expect(page.getByText('No fxUSD available', { exact: true })).toHaveCount(0);
+      await page.screenshot({ path: info.outputPath(`earn-deposit-${width}x${height}-overview.png`), animations: 'disabled' });
+      const amount = page.getByLabel('Amount in fxUSD', { exact: true });
+      await amount.scrollIntoViewIfNeeded();
+      await expect(amount).toBeInViewport();
+      const primary = page.locator('.reviewTrigger .button-primary');
+      await primary.scrollIntoViewIfNeeded();
+      const clearance = await page.evaluate(() => {
+        const button = document.querySelector<HTMLElement>('.reviewTrigger .button-primary')!;
+        const navigation = document.querySelector<HTMLElement>('nav.mobile-tabbar[aria-label="Primary navigation"]')!;
+        return { buttonBottom: button.getBoundingClientRect().bottom, navTop: navigation.getBoundingClientRect().top,
+          buttonHeight: button.getBoundingClientRect().height };
+      });
+      expect(clearance.buttonHeight).toBeGreaterThanOrEqual(44);
+      expect(clearance.buttonBottom, 'Primary action clears the fixed phone navigation after scrolling into view').toBeLessThanOrEqual(clearance.navTop + 1);
+      await expect(page.getByRole('button', { name: 'Deposit', exact: true })).toBeDisabled();
+      await page.screenshot({ path: info.outputPath(`earn-deposit-${width}x${height}-editor.png`), animations: 'disabled' });
+      await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+      const methods = page.getByRole('group', { name: 'Withdrawal method' });
+      const instant = methods.getByRole('radio', { name: 'Instant 1% fee', exact: true });
+      await expect(instant).toBeVisible();
+      await instant.check();
+      await page.screenshot({ path: info.outputPath(`earn-withdraw-${width}x${height}.png`), animations: 'disabled', fullPage: true });
+      const targets = await methods.locator('label').evaluateAll(labels => labels.map(label => label.getBoundingClientRect().height));
+      expect(targets.every(target => target >= 44)).toBe(true);
+    } else {
+      await page.screenshot({ path: info.outputPath(`earn-layout-${width}.png`), animations: 'disabled' });
+    }
     await page.unrouteAll({ behavior: 'ignoreErrors' });
   }
 });
@@ -848,13 +892,14 @@ test('direct base-pool routes show config-based share estimates and verified emp
   await expect(page.getByText('≈ 10 fxSP', { exact: true })).toBeVisible();
 
   await mount(page, false, '2', 'deposit', { noExternal: true });
-  await expect(page.getByText('No fxUSD available.', { exact: false })).toBeVisible();
+  await expect(page.getByText(/No fxUSD available/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Receive assets on Ethereum', exact: true })).toHaveAttribute('href', '/qr');
-  await expect(page.getByRole('button', { name: 'Deposit assets', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Deposit', exact: true })).toBeDisabled();
 
   await mount(page, false, '2', 'withdraw', { shares: '0' });
   await page.getByRole('button', { name: 'Withdraw', exact: true }).click();
-  await expect(page.getByText('No fxSAVE yet.', { exact: false })).toBeVisible();
+  await expect(page.getByText(/No fxSAVE yet/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Withdraw', exact: true })).toBeDisabled();
   const deposit = page.getByRole('button', { name: 'Switch to Deposit', exact: true });
   await expect(deposit).toBeVisible();
   for (const width of [320, 390, 1280]) {

@@ -211,12 +211,16 @@ test('signature-required drafts preserve explicit method, amounts, token and sli
   }
 });
 
-function editor(token: 'fxUSD' | 'fxUSDBasePool', instant: boolean, config: object | null) {
-  const props = { mode: 'withdraw', token, instant, shares: '2', amount: '', config, estimateConfig: config, walletData: null,
-    configLoading: false, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onWithdrawalMethodChange() {}, onDeposit() {}, balanceUnavailable: false };
-  const ChoiceCards = ({ options }: { options: { value: string; label: string; description: string }[] }) => React.createElement('fieldset', null, options.map(option => React.createElement('label', { key: option.value }, option.label, ' ', option.description)));
+function editor(token: 'fxUSD' | 'fxUSDBasePool', instant: boolean, config: object | null, mode: 'deposit' | 'withdraw' = 'withdraw', zeroBalance = false, configLoading = false) {
+  const props = { mode, token, instant, shares: '2', amount: '', config, estimateConfig: config,
+    walletData: zeroBalance ? { balance: { balanceWei: 0n } } : null,
+    balances: zeroBalance ? { fxUSD: { status: 'ready', amount: '0' } } : undefined,
+    balanceStatus: zeroBalance ? 'ready' : 'disconnected',
+    configLoading, onRetryConfig() {}, onTokenChange() {}, onAmountChange() {}, onSharesChange() {}, onWithdrawalMethodChange() {}, onDeposit() {}, balanceUnavailable: false };
+  const ChoiceCards = ({ options }: { options: { value: string; label: string; description?: React.ReactNode }[] }) => React.createElement('fieldset', null, options.map(option => React.createElement('label', { key: option.value }, option.label, ' ', option.description)));
   return renderToStaticMarkup(evaluate<React.ReactNode>([helpers, declaration(page, 'directFxSaveEstimate'), declaration(page, 'EstimateRow'), declaration(page, 'VaultTermsStatus'), declaration(page, 'EarnActionEditor'), 'EarnActionEditor(props);'].join('\n'), {
     props, ChoiceCards, AmountField: () => null, TokenSelect: () => null, labelToken: (key: string) => key === 'fxUSDBasePool' ? 'fxSP' : key,
+    Link: ({ href, children }: { href: string; children: React.ReactNode }) => React.createElement('a', { href }, children),
     parseAmount: (value: string) => value ? parseUnits(value, 18) : null,
   }));
 }
@@ -243,15 +247,24 @@ test('withdrawal fees, configured cooldown, queued payout units and unknown term
   const queued = editor('fxUSD', false, config);
   assert.match(queued, /90m/);
   assert.match(queued, /Instant/);
+  assert.match(queued, /Instant 2% fee/);
   assert.match(queued, /Claim assets/);
   assert.match(queued, /fxUSD \/ USDC/);
   assert.match(queued, /Network fees apply to the withdrawal request and claim/);
   const missing = editor('fxUSD', false, null);
   assert.doesNotMatch(missing, /Cooldown and fee unavailable/);
   assert.match(missing, /Retry vault terms/);
-  assert.equal((missing.match(/unavailable/g) ?? []).length, 0, 'missing terms do not add placeholder captions');
+  assert.doesNotMatch(missing, /Fee unavailable/);
   assert.match(missing, /aria-label="Retry vault terms"/);
   assert.doesNotMatch(missing, /24h|1% fee|0% fee/);
+});
+
+test('instant option retains the numeric fee during refresh and stays quiet without config', () => {
+  const updating = editor('fxUSD', true, config, 'withdraw', false, true);
+  assert.match(updating, /Instant 2% fee/);
+  assert.doesNotMatch(updating, /Updating fee|Fee loading|Fee unavailable/);
+  assert.match(editor('fxUSD', true, config), /Instant 2% fee/);
+  assert.doesNotMatch(editor('fxUSD', true, null), /Fee unavailable/);
 });
 
 test('direct fxSP redemption keeps no-cooldown terms visible outside optional estimate help', () => {
@@ -259,8 +272,25 @@ test('direct fxSP redemption keeps no-cooldown terms visible outside optional es
   assert.match(html, /Receive/);
   assert.match(html, /≈ 2\.4 fxSP/);
   assert.match(html, /Direct redemption to fxSP has no cooldown or queued claim/);
+  assert.match(html, /Instant 2% fee/);
   assert.match(html, /data-help="Based on current vault assets and share supply\."/);
-  assert.doesNotMatch(html, /data-help="[^"]*no cooldown|24h|Instant 2% fee/);
+  assert.doesNotMatch(html, /data-help="[^"]*no cooldown|24h/);
+});
+
+test('Earn keeps zero-balance guidance concise and puts performance before the editor', () => {
+  const deposit = editor('fxUSD', false, config, 'deposit', true);
+  assert.match(deposit, /Receive assets on Ethereum/);
+  assert.doesNotMatch(deposit, /No fxUSD available/);
+  const withdraw = editor('fxUSD', false, config, 'withdraw', true);
+  assert.match(withdraw, /Switch to Deposit/);
+  assert.doesNotMatch(withdraw, /No fxSAVE yet/);
+  assert.ok(pageText.indexOf('className={presentation.historySlot}') < pageText.indexOf('<EarnClaimSheet'), 'DOM reading order follows chart-before-form order');
+  assert.match(css, /grid-template-areas: 'summary' 'history' 'action' 'information'/);
+  const analyticsCss = source('../src/components/ProductAnalytics.module.css');
+  assert.match(analyticsCss, /\.earnHistory \.plot \{ height: 120px; \}/);
+  assert.match(analyticsCss, /@media \(max-width: 359px\) \{ \.earnHistory \.plot \{ height: 108px; \} \}/);
+  assert.doesNotMatch(source('../src/components/ProductSections.tsx'), /YieldFlow/);
+  assert.match(css, /\.withdrawOptions :global\(label\) \{ min-height: 52px/);
 });
 
 test('direct withdrawal omits token-only receive fallback without an estimate', () => {

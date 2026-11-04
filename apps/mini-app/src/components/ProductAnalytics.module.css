@@ -91,7 +91,10 @@
 .metricControl button[aria-pressed='true'] { color: var(--text); background: var(--surface); }
 .metricControl button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .earnHistory .ranges { flex-shrink: 0; }
-.earnHistory .overview { gap: 8px; }
+.earnHistory.section { margin-bottom: 0; padding-top: 6px; }
+.earnHistory .overview { gap: 4px; }
+.earnHistory .plot { height: 120px; }
 .earnHistory .performanceReading > span { font-size: 11px; line-height: 1.5; }
 .performanceSource > a { margin-left: auto; }
+@media (max-width: 359px) { .earnHistory .plot { height: 108px; } }
 @media (forced-colors: active) { .metricControl button[aria-pressed='true'] { outline: 1px solid Highlight; } }

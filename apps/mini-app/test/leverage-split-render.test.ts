@@ -19,7 +19,7 @@ const previousReact = globalReact.React;
 globalReact.React = React;
 const testRequire = createRequire(import.meta.url);
 const previousCssLoader = testRequire.extensions['.css'];
-const stylesPaths = new Set(['LeverageSplit', 'PageSections', 'YieldFlow', 'trade-surfaces', 'AmountField', 'TradeContext', 'InfoHelp'].map((name) =>
+const stylesPaths = new Set(['LeverageSplit', 'PageSections', 'trade-surfaces', 'AmountField', 'TradeContext', 'InfoHelp'].map((name) =>
   fileURLToPath(new URL(`../src/components/${name}.module.css`, import.meta.url)).toLowerCase()));
 testRequire.extensions['.css'] = (loadedModule, filename) => {
   if (!stylesPaths.has(filename.toLowerCase())) {

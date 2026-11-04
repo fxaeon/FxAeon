@@ -10,7 +10,6 @@ import { ValueOrSkeleton } from '@/components/MissingValue';
 
 import type { MarketSymbol } from '@/lib/marketData';
 import { Callout, PageSections, Section, StatGrid } from '@/components/PageSections';
-import { YieldFlow } from '@/components/YieldFlow';
 
 import styles from '@/components/PageSections.module.css';
 
@@ -55,7 +54,6 @@ export function EarnSections({ cooldown, instantFee, vaultStatus, showWithdrawal
     </Section>}
     <Section id="earn-yield" title="How fxSAVE earns yield" expandable action={howItWorks('earn')}>
       <p className={styles.lede}>fxSAVE holds f(x) Protocol stability pool shares and compounds what they earn, so its value per share follows the vault. The APY is variable.</p>
-      <YieldFlow />
     </Section>
   </PageSections>;
 }
