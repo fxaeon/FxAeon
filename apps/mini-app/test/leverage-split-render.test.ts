@@ -110,9 +110,9 @@ test('each action page keeps its live facts and f(x) explainer, and leaves steps
     { docs: 'trade', html: renderToStaticMarkup(React.createElement(TradeSections, { market: 'ETH', side: 'long', leverage: { min: 1.1, max: 6.1 }, selectedLeverage: 2, openPositions: 2, positionsStatus: 'ready' })),
       keeps: ['What if ETH moves?', 'Protocol conditions', 'Gross funding charge', 'Your existing exposure', 'How protection works'] },
     { docs: 'earn', html: renderToStaticMarkup(React.createElement(EarnSections, { cooldown: '1h', instantFee: '1%', vaultStatus: 'unavailable' })),
-      keeps: ['Withdrawal terms', '1h', 'Instant withdrawal fee', 'How fxSAVE earns yield', 'Sources of stability pool rewards'] },
+      keeps: ['Withdrawal terms', '1h', 'Instant withdrawal fee', 'How fxSAVE earns yield', 'stability pool shares', 'The APY is variable'] },
     { docs: 'borrow', html: renderToStaticMarkup(React.createElement(BorrowSections, { ltvLimit: '85.4%' })),
-      keeps: ['Borrowing terms', '85.4%', 'ETH, WETH, stETH, wstETH, or WBTC', 'A brake before liquidation'] },
+      keeps: ['Borrowing terms', '85.4%', 'ETH · WETH · stETH · wstETH · WBTC', 'A brake before liquidation'] },
     { docs: 'move', html: renderToStaticMarkup(React.createElement(MoveSections)), keeps: ['Route and delivery', 'LayerZero', 'Ethereum', 'Base'] },
   ];
   for (const { docs, html, keeps } of pages) {
