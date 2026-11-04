@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const path = require('node:path');
 const { availableParallelism, totalmem } = require('node:os');
+const { installOptInPlugin } = require('./scripts/webpack-module-attribution-plugin.cjs');
 
 // Static page workers each retain the app's wallet graph. Bound their memory
 // use on laptops while keeping parallel export work on larger build runners.
@@ -26,6 +27,9 @@ const nextConfig = {
   distDir: configuredDistDir || (process.env.NODE_ENV === 'development' ? '.next' : 'dist'),
   images: { unoptimized: true },
   webpack: (config, { isServer }) => {
+    // Private, read-only module/chunk attribution for an explicitly requested
+    // client build. The plugin writes under .cache, never the export directory.
+    installOptInPlugin(config, { env: process.env, isServer });
     // Read-only evidence for the disposable local-fork test artifact only.
     // Keep this out of normal builds instead of retaining hidden product UI.
     if (process.env.FX_E2E_REVIEW_EVIDENCE === '1') {
