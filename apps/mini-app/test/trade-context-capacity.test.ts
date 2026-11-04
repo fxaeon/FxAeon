@@ -15,6 +15,12 @@ function evaluate(names: string[], expression: string, bindings = {}) {
   return runInNewContext(ts.transpileModule(code + '\n' + expression, { compilerOptions: { target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.React } }).outputText, { React, formatUnits, formatBalanceDecimal, ...bindings });
 }
 const format = evaluate(['formatCapacityDisplay'], 'formatCapacityDisplay;') as (amount: bigint, decimals: number) => string;
+const formatDifference = evaluate(['formatOracleDifference'], 'formatOracleDifference;') as (percent: number) => string;
+test('oracle difference suppresses rounded negative zero without losing meaningful signs', () => {
+  for (const [value, expected] of [[-0.001, '0.00%'], [-0, '0.00%'], [0, '0.00%'], [0.001, '0.00%'], [-0.012, '-0.01%'], [0.012, '+0.01%']] as const) {
+    assert.equal(formatDifference(value), expected);
+  }
+});
 test('capacity copy truncates large amounts and preserves magnitude, zero and positive dust', () => {
   for (const [value, expected] of [
     ['494685.3288', '≈ 494.68K'], ['140289268.9555', '≈ 140.28M'], ['999.999', '≈ 999.99'],
@@ -34,7 +40,7 @@ test('Trade retains exact capacity units in titles and keeps price sensitivity i
     usePoolCapacity: () => ({ value, status: 'ready' }), poolCapacityUnits: () => ({ collateralDecimals: 18, debtDecimals: 18, collateralSymbol: 'fxUSD', debtSymbol: 'stETH' }),
     useOracleObservation: () => ({ value: null, status: 'unavailable' }), useOracleMarketDifference: () => null,
     tradeFundingDisplay: nothing, tradeSensitivity, tradeScenarioPrice, tradeMarketReference, formatUsdPrice, USD_PRICE_MAX_AGE_MS,
-    styles: {}, MissingValue: nothing, MetricLabel: nothing, Link: nothing, ShieldCheck: nothing, ChevronRight: nothing, ChartNoAxesCombined: nothing, ArrowRight: nothing, TrendingDown: nothing,
+    styles: {}, MissingValue: nothing, MetricLabel: nothing, Link: nothing, ShieldCheck: nothing, ChevronRight: nothing, ChevronDown: nothing,
   }) as React.ReactElement;
   const elements = (node: any): any[] => Array.isArray(node) ? node.flatMap(elements) : node?.props ? [node, ...elements(node.props.children)] : [];
   const text = (node: any): string => Array.isArray(node) ? node.map(text).join('') : node?.props ? text(node.props.children) : typeof node === 'string' || typeof node === 'number' ? String(node) : '';
