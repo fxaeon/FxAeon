@@ -7,6 +7,6 @@ export const FxWalletContext = createContext<FxPrivyWallet | null>(null);
 
 export function usePrivyWallet(): FxPrivyWallet {
   const wallet = useContext(FxWalletContext);
-  if (!wallet) throw new Error('usePrivyWallet must be used inside PrivyClientProvider');
+  if (!wallet) throw new Error('usePrivyWallet must be used inside a wallet provider');
   return wallet;
 }

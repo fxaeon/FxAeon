@@ -22,10 +22,11 @@ export function observationMs(value = '1000') {
   return ms;
 }
 export function passkeyStartupCases(themes, selection = 'all') {
-  if (!['all', 'matrix', 'trade-deeplink'].includes(selection)) throw new Error('FXAEON_CONFIGURED_STARTUP_CASE must be all, matrix, or trade-deeplink.');
+  if (!['all', 'matrix', 'trade-deeplink', 'desktop-prefetch'].includes(selection)) throw new Error('FXAEON_CONFIGURED_STARTUP_CASE must be all, matrix, trade-deeplink, or desktop-prefetch.');
   const matrix = themes.flatMap(theme => ['fast', 'delayed'].map(timing => ({ theme, timing, caseName: timing, startParam: null, expectedPath: '/' })));
   const deepLink = { theme: themes.includes('dark') ? 'dark' : themes[0], timing: 'delayed', caseName: 'trade-deeplink', startParam: 'trade', expectedPath: '/trade' };
-  return selection === 'matrix' ? matrix : selection === 'trade-deeplink' ? [deepLink] : [...matrix, deepLink];
+  const desktop = { ...deepLink, caseName: 'desktop-prefetch', startParam: null, expectedPath: '/' };
+  return selection === 'matrix' ? matrix : selection === 'trade-deeplink' ? [deepLink] : selection === 'desktop-prefetch' ? [desktop] : [...matrix, deepLink, desktop];
 }
 export function passkeyLaunchUrl(baseUrl, launch, startParam) {
   const url = new URL('/', baseUrl);

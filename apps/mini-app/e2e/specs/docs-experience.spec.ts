@@ -264,7 +264,7 @@ test.describe('documentation experience', () => {
     await expect(options).toBeVisible();
     await expect(options.getByRole('link', { name: 'Open app', exact: true })).toHaveAttribute('href', '/');
     await expect(options.getByRole('link', { name: /^Website/ })).toHaveAttribute('href', 'https://fxaeon.xyz/');
-    await expect(options.getByRole('link', { name: /^Support/ })).toHaveAttribute('href', 'https://x.com/FxAeonxyz');
+    await expect(options.getByRole('link', { name: /^Support/ })).toHaveAttribute('href', 'mailto:support@fxaeon.com');
 
     await expect(options.getByRole('button', { name: /Switch to .* theme/ })).toHaveCount(0);
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');

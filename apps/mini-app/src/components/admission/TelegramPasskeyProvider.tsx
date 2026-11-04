@@ -27,7 +27,7 @@ import admissionStyles from './AdmissionScreen.module.css';
 
 const READ_METHODS = new Set(['eth_blockNumber', 'eth_call', 'eth_estimateGas', 'eth_gasPrice', 'eth_maxPriorityFeePerGas', 'eth_feeHistory', 'eth_getBalance', 'eth_getCode', 'eth_getStorageAt', 'eth_getTransactionCount', 'eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'eth_getLogs']);
 
-/** Compatibility descriptor only. Signing is exclusively FxPrivyWallet.sendTransaction. */
+/** App-owned read descriptor. Signing is exclusively FxPrivyWallet.sendTransaction. */
 export function passkeyWalletDescriptor(wallet: MiniappWallet, chainId: FxChainId, assertCurrent: () => void, switchChain: (chainId: FxChainId) => Promise<void>): FxSelectedWallet {
   const provider = {
     async request({ method, params }: { method: string; params?: unknown[] }) {
@@ -45,7 +45,7 @@ export function passkeyWalletDescriptor(wallet: MiniappWallet, chainId: FxChainI
   return {
     address: wallet.address, type: 'ethereum', walletClientType: 'telegram-passkey', chainId: `eip155:${chainId}`,
     getEthereumProvider: async () => { assertCurrent(); return provider; }, switchChain,
-  } as unknown as FxSelectedWallet;
+  };
 }
 
 type Operation = { generation: number; controller: AbortController; launchData: string };

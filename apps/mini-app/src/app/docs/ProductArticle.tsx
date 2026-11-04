@@ -54,7 +54,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="start-next">What next?</h3>
     {topicCards}
     <h3 id="start-stuck">If something stops</h3>
-    <p>A rejected request is different from a submitted transaction. If you have a transaction hash, open <a href="/history">History</a> and check its status before sending again. If no transaction was submitted, correct the input or connection and start a fresh review. See <a href="/docs/guide/troubleshooting">Troubleshooting</a> for the next step in each state.</p>
+    <p>A rejected request is different from a submitted transaction. If you have a transaction hash, open <a href="/history">History</a> and check its status before sending again. A missing hash does not prove that nothing was sent: if the result is unknown, follow <a href="/docs/guide/history#history-telegram">Telegram wallet recovery</a> before trying again. Once you have confirmed that nothing was submitted, correct the input or connection and start a fresh review.</p>
   </> },
   { id: 'access', title: 'Browser & Telegram', content: <>
     <p>Both entry points offer the same supported products. The connection experience depends on whether you open FxAeon in a browser or inside Telegram.</p>
@@ -65,7 +65,10 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
       <li>Create a synced passkey for your Privy wallet. Your phone may open its browser to complete this step. Keep access to both your Telegram account and the password manager that stores the passkey.</li>
       <li>Check the selected wallet address before adding funds. A passkey approval is required for each transaction.</li>
     </ol>
+    <p>With wallet setup enabled, a verified Telegram launch automatically reserves a place while admission is open. The hard cap is <strong>480 places in total</strong>, including legacy users and reserved places whose wallet setup is unfinished. By default admission is open below that count; access can be paused or limited earlier. A reserved place still needs passkey and wallet setup. Joining the waitlist or verifying an invitation email does not grant wallet access.</p>
     <p>Telegram provides native Back navigation, sizing, and haptics. Signing in does not approve a token or submit an onchain action.</p>
+    <h3 id="access-recovery">Keep access to your passkey</h3>
+    <p>Use a synced or backed-up passkey. FxAeon currently has no passkey reset, replacement-key enrollment, or email-based wallet recovery. Recover a synced passkey through its password manager or passkey provider. Losing access to your Telegram account or passkey can prevent wallet access; an optional invitation email is not a recovery key.</p>
     <h3 id="access-browser">Use your browser wallet</h3>
     <ol>
       <li>Open the <a href="/">web app</a> and choose <strong>Connect wallet</strong>.</li>
@@ -91,6 +94,8 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     </ul>
     <p>FxAeon shows the sequence in the review and names the current request while it waits for your wallet. Confirm only the request you expect. An approval receipt does not prove that the later trade, deposit, loan, or bridge completed.</p>
     <div className={styles.callout}><p>Check the network, contract, asset, amount, recipient where applicable, and allowance in the wallet prompt. Disconnecting a wallet does not revoke an onchain token approval.</p></div>
+    <h3 id="wallet-disconnect">Disconnect and reconnect</h3>
+    <p>Choose <strong>Disconnect wallet</strong> in the wallet controls to stop using the selected account. In Telegram, the app remembers that choice for that Telegram identity on this browser when site storage is available, and keeps public routes browsable. Choose <strong>Sign in</strong> in the header or a product’s <strong>Connect wallet</strong> action to reconnect; reopening alone does not override the saved disconnect choice. Disconnecting does not delete the wallet, release its reserved place, or resolve a transaction whose result is unknown.</p>
     <h3 id="wallet-send">Send to another wallet</h3>
     <p>Open <a href="/send">Send</a> to transfer ETH or a supported token shown in the asset picker on Ethereum or Base. Check the asset’s network, enter the amount and complete recipient address, then review the transfer and network fee before confirming in your wallet. Keep ETH on that same network for fees.</p>
     <p>Send keeps the asset on its selected network. To transfer fxUSD or fxSAVE between Ethereum and Base, use <a href="/docs/guide/move">Move</a> instead. A transaction hash means <strong>Submitted</strong>, not confirmed. Follow its status in <a href="/history">History</a> and inspect the network explorer link before trying again.</p>
@@ -113,6 +118,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="trade-example">How leverage changes your equity</h3>
     <p>A simplified long with $100 of equity, $300 of collateral, and $200 of debt has 3× leverage. A 10% collateral-price rise would leave $130 of equity; a 10% fall would leave $70. This arithmetic excludes fees, funding, and rebalancing. It is not a forecast for a live position.</p>
     <h3 id="trade-rebalancing">Read the position’s risk</h3>
+    <p>The public funding display is a gross collateral charge. A review can show a current net funding rate per eight hours when the required pool and price inputs are verified. These are variable rate snapshots, not a fixed future cost or a total already paid.</p>
     <p>The review can show estimated rebalance and liquidation prices when the required pool inputs are available. Those thresholds use the pool’s collateral units and can change. Rebalancing reduces exposure; it does not return lost equity or guarantee protection from liquidation. See the <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/rebalancing-the-position-liquidation-brake">protocol’s rebalancing mechanism</ExternalLink>.</p>
     <h3 id="trade-questions">After submission</h3>
     <p>A confirmed result identifies the action and links its transaction. Choose <strong>View position</strong> to inspect the position; it may need a fresh chain read before its current values appear. Later changes belong in <a href="/positions">Positions</a>, with a separate review for each action.</p>
@@ -165,6 +171,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>A confirmed request queues a redemption; it does not pay out immediately. Earn and Portfolio expose its claim status. When a fresh read says it is ready, open the claim, review it, and confirm the separate transaction. The pending quantity is recorded in fxSP; payout previews are estimates of fxUSD and USDC, not fixed final amounts.</p>
     <h3 id="earn-questions">Understand the return and result</h3>
     <p>The vault compounds Stability Pool rewards. A quoted APY is an annualized display rate, not a guaranteed return or your earnings to date. Read the <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/stability-pool">Stability Pool and fxSAVE explanation</ExternalLink> and <a href="/docs/guide/risks">risk guide</a> before depositing.</p>
+    <p>The headline APY comes from the official f(x) data feed. The chart’s APY series is calculated separately from historical onchain vault share values over trailing 30-day intervals; it includes valuation changes. Neither series measures your personal earnings, and a historical rate is not a current quote. The Share value view tracks value per share, not the number of shares in your wallet.</p>
     <p>Wait for the confirmed receipt and a refreshed balance or claim status. If a read fails, retry the read; if an action submitted, check <a href="/history">History</a> before sending another request. fxSAVE held on Base must return to Ethereum to use Earn here.</p>
   </> },
   { id: 'borrow', title: 'Borrow fxUSD', content: <>
@@ -180,7 +187,8 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     </ol>
     <h3 id="borrow-questions">Understand the borrowing cost</h3>
     <p>Debt added can exceed the fxUSD delivered to your wallet. The protocol charges opening and closing fees and can apply temporary funding charges. A base rate of zero does not establish the current total borrowing cost. If the current rate is not quoted or unavailable, do not read that as 0%.</p>
-    <p><strong>Funding status</strong> shows whether funding is active and the selected pool’s current annualized charge from f(x)’s contracts. Funding is a borrowing cost, not yield. It applies to the whole collateral, not only the borrowed fxUSD; at a lower LTV, the cost is larger relative to your debt. Funding can activate or change while a position is open. The displayed rate is a recent snapshot, not a fixed rate for the loan’s lifetime. The info icon explains the basis and offers an f(x) verification link when the read is unavailable or stale.</p>
+    <p><strong>Funding status</strong> shows whether the verified rate is active, with the current charge <strong>per eight hours</strong>. When labelled <strong>Gross charge</strong>, it excludes an unverified short-pool earnings offset; it is not a verified net rate. Funding is a borrowing cost, not yield. It applies to the whole collateral, not only the borrowed fxUSD; at a lower LTV, the cost is larger relative to your debt. Funding can activate or change while a position is open. The info icon explains the basis and offers an f(x) verification link when the read is unavailable or stale.</p>
+    <p><strong>Funding &amp; costs</strong> charts historical gross charges per eight hours. Its <strong>Average cost APR</strong> is a time-weighted annualized average over the displayed dates, not your debt APR, earned yield, or the current rate. These snapshots do not establish the total funding already paid by your position.</p>
     <p>The <ExternalLink href="https://fxprotocol.gitbook.io/fx-docs/f-x-protocol-mechanisms/fxmint-borrowing-fxusd-against-your-btc-and-eth">protocol’s fxMINT documentation</ExternalLink> explains debt, fees, and temporary borrowing costs. Use the current review for the action’s amounts.</p>
     <h3 id="borrow-manage">Manage collateral and debt</h3>
     <p>Under <strong>Your positions</strong>, select the loan and choose <strong>Add collateral</strong>, <strong>Borrow more</strong>, <strong>Repay debt</strong>, or <strong>Withdraw collateral</strong>. Where offered, combine repayment with withdrawal or collateral with borrowing. A long in Positions can open Borrow through <strong>Borrow against this position</strong>.</p>
@@ -246,7 +254,7 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <p>If ETH is short, the review identifies the network and the amount to add when it can establish one. <strong>Receive ETH</strong> opens the funding path. Add funds on that network and prepare a fresh review. A verified receipt supplies the actual charged network fee after execution.</p>
     <h3 id="fees-slippage">Set the applicable slippage limit</h3>
     <p>Max slippage is the adverse price movement you permit between quote and execution. A lower tolerance can cause a transaction to revert; a higher tolerance permits a less favorable execution. It is different from the protocol fee and price impact.</p>
-    <p>The gear on Trade, position actions, routed fxSAVE deposits, and applicable instant fxSAVE withdrawals offers 0.1%, 0.5%, 1%, 2%, or a custom value greater than zero and up to 2%. Routed fxSAVE deposits apply slippage to the <a href="/docs/guide/earn#earn-deposit-protection">base-pool-share minimum</a>, not a final fxSAVE minimum. Borrow and Move retain their action-specific limits.</p>
+    <p>The gear on Trade, position actions, routed fxSAVE deposits, and applicable instant fxSAVE withdrawals offers 0.1%, 0.5%, 1%, 2%, or a custom value from <strong>0.1% to 2%</strong> in 0.01 percentage-point increments. The default is 0.5%. Routed fxSAVE deposits apply slippage to the <a href="/docs/guide/earn#earn-deposit-protection">base-pool-share minimum</a>, not a final fxSAVE minimum. Borrow and Move retain their action-specific limits.</p>
     <h3 id="fees-settings">Wallet and saved settings</h3>
     <p>Network speed applies to the built-in wallet. An external wallet controls its own gas settings, so a form with only gas settings can hide the gear for that wallet. Settings are saved on this device and update open forms. Always read the wallet prompt and the current review before confirming.</p>
     <p>See <a href="/docs/guide/review">Review &amp; confirmation</a> for exact fees, changed terms, and receipts.</p>
@@ -321,8 +329,11 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="history-partial">If only part of the action completed</h3>
     <p>An approval may succeed before a later action fails or is rejected. Read which steps have hashes and which have confirmed receipts. Do not mistake an approval for the intended action, or an unverified bridge delivery for a failed source send.</p>
     <p>Return to the product and prepare a fresh review only after understanding the earlier transaction’s status. Reconnecting, refreshing, or reopening FxAeon does not by itself submit another transaction.</p>
+    <h3 id="history-telegram">An unknown Telegram wallet result</h3>
+    <p>If the wallet shows <strong>Check your transaction.</strong>, use <strong>Check status</strong>. A request can have reached the wallet service even when no hash was returned. FxAeon checks the stored operation and blocks new signing while its result remains unresolved; it does not resend that operation.</p>
+    <p>If a hash is recovered, inspect it on its network before choosing <strong>I’ve reviewed this transaction</strong>. That acknowledgement clears the wallet recovery prompt; it does not establish chain confirmation or bridge delivery. If no hash can be established, the block can remain. Disconnecting or clearing local records is not a way to establish that nothing was sent.</p>
     <h3 id="history-storage">Know what the record can restore</h3>
-    <p>Recovery records depend on this browser’s site data. Another device or cleared storage may not contain them, while submitted transactions remain onchain. Keep important transaction hashes. See <a href="/docs/guide/privacy">Privacy &amp; data</a> for local storage and <a href="/docs/guide/troubleshooting">Troubleshooting</a> for an unclear status.</p>
+    <p>Drafts and local history hints depend on this browser’s site data. Another device or cleared storage may not contain them, while submitted transactions remain onchain. The Telegram wallet also checks server-stored operation status on reconnection; this does not restore every local draft or history entry. Keep important transaction hashes. See <a href="/docs/guide/access#access-recovery">passkey access limits</a>, <a href="/docs/guide/privacy">Privacy &amp; data</a>, and <a href="/docs/guide/troubleshooting">Troubleshooting</a>.</p>
   </> },
   { id: 'privacy', title: 'Privacy & risks', content: <>
     <p>Read <a href="/privacy">How FxAeon handles your data</a> for the privacy disclosure. This guide explains the practical difference between local records, wallet information, and public chain data.</p>
@@ -350,12 +361,12 @@ export const productSections: { id: string; title: string; aliases?: string[]; c
     <h3 id="help-quote">The quote expired or changed</h3>
     <p>Refresh the quote or return to a fresh review. Read the updated output, limits, and fees before choosing the action again. Changing an amount, asset, recipient, wallet, or network can invalidate the earlier quote.</p>
     <h3 id="help-receipt">The action stopped or a receipt is unclear</h3>
-    <p>Check the wallet’s activity and the <a href="/history">History</a> entry. A rejection, failed transaction, timeout, or receipt mismatch can stop later requests. If a hash exists, inspect it on its network before submitting again. Earlier approved or confirmed steps do not disappear when a later step stops.</p>
+    <p>Check the wallet’s activity and the <a href="/history">History</a> entry. A rejection, failed transaction, timeout, or receipt mismatch can stop later requests. If a hash exists, inspect it on its network before submitting again. If the Telegram wallet reports an unknown result without a hash, use <a href="/docs/guide/history#history-telegram">Check status and the recovery prompt</a>. Earlier approved or confirmed steps do not disappear when a later step stops.</p>
     <h3 id="help-delivery">Sent but not received</h3>
     <p>A source confirmation can precede bridge delivery. Keep the History entry and inspect both network receipt links where available. If destination delivery remains unverified, do not repeat the transfer. See <a href="/docs/guide/move#move-delivery">Follow delivery</a>.</p>
     <h3 id="help-claim">A withdrawal is not ready to claim</h3>
     <p>Read Earn’s live claim status and the available time. A queued request is not an immediate payout, and a fresh read is needed before claim review. Direct redemption to fxSP is a different route with no queued claim.</p>
     <h3 id="help-support">Find help with a specific transaction</h3>
-    <p>Keep the network, public wallet address, transaction hash, and displayed status. Reach FxAeon through <ExternalLink href="https://x.com/FxAeonxyz">@FxAeonxyz on X</ExternalLink>. Never share a seed phrase or private key.</p>
+    <p>For feedback or transaction reports, email <a href="mailto:support@fxaeon.com">support@fxaeon.com</a>. Include the network, public wallet address, transaction hash if available, and displayed status. Never share a seed phrase, private key, or passkey.</p>
   </> },
 ];

@@ -6,7 +6,6 @@ import { runInNewContext } from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { positionPoolAddress } from '../src/lib/fx/policy';
 
 const require = createRequire(import.meta.url);
 const previousCss = require.extensions['.css'];
@@ -16,17 +15,16 @@ globalReact.React = React;
 require.extensions['.css'] = (module, path) => { module.exports = Object.fromEntries([...readFileSync(path, 'utf8').matchAll(/\.([_a-zA-Z][\w-]*)/g)].map(match => [match[1], match[1]])); };
 after(() => { if (previousCss) require.extensions['.css'] = previousCss; else delete require.extensions['.css']; if (previousReact) globalReact.React = previousReact; else Reflect.deleteProperty(globalThis, 'React'); });
 
-test('Borrow history labels live and historical annualized figures as costs and exposes a keyboard-readable eight-hour chart', async () => {
+test('Borrow history labels historical annualized figures as costs and exposes a keyboard-readable eight-hour chart', async () => {
   const { BorrowFundingHistory } = await import('../src/components/BorrowFundingHistory');
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const now = Math.floor(Date.now() / 1000);
   const ratio = 45318576060452136n;
   client.setQueryData(['borrow-funding-history', 'ETH', '1Y'], { market: 'ETH', startAt: now - 365 * 86_400, endAt: now, indexedAt: now,
     averageRatio: ratio / 2n, snapshots: [{ timestamp: now - 30 * 86_400, ratio: 0n }, { timestamp: now - 15 * 86_400, ratio }] });
-  const rate = { market: 'ETH' as const, pool: positionPoolAddress('ETH', 'long'), ratio, netRatio: ratio, readAt: Date.now() };
-  const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH', rate, status: 'ready' })));
+  const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH' })));
   assert.match(html, /Funding &amp; costs/);
-  assert.match(html, /class="secondaryReading"[^]*?Funding status[^]*?0\.0041% \/ 8h/);
+  assert.doesNotMatch(html, /Funding status/);
   assert.doesNotMatch(html, /Current cost APR|Period average/);
   assert.match(html, /Average cost APR/);
   assert.match(html, /2\.2659%/);
@@ -48,7 +46,7 @@ test('aged cached history shows unavailable with retry rather than an endless lo
   const now = Math.floor(Date.now() / 1000);
   client.setQueryData(['borrow-funding-history', 'ETH', '1Y'], { market: 'ETH', startAt: now - 30 * 86_400, endAt: now - 86_401, indexedAt: now - 86_401,
     averageRatio: 0n, snapshots: [{ timestamp: now - 30 * 86_400, ratio: 0n }] });
-  const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH', rate: null, status: 'unavailable' })));
+  const html = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(BorrowFundingHistory, { market: 'ETH' })));
   assert.match(html, /Funding history unavailable/);
   assert.match(html, /Retry/);
   assert.doesNotMatch(html, /Loading funding history|role="slider"/);
@@ -98,7 +96,7 @@ test('no-cache offline history is explicit, then foreground connectivity enables
   });
   const render = () => {
     index = 0; effects = [];
-    const tree = module.exports.BorrowFundingHistory({ market: 'ETH', rate: null, status: 'unavailable' });
+    const tree = module.exports.BorrowFundingHistory({ market: 'ETH' });
     effects.forEach(effect => effect());
     return renderToStaticMarkup(tree);
   };

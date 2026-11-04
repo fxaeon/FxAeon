@@ -4,7 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink } from 'lucide-react';
 import { readBorrowFundingHistory, type BorrowFundingHistoryRange } from '@/lib/fx/borrowFundingHistory';
-import { borrowFundingDisplay, borrowFundingIsFresh, formatBorrowFundingApr, formatBorrowFundingEightHour, type BorrowFundingRate } from '@/lib/fx/borrowFunding';
+import { formatBorrowFundingApr, formatBorrowFundingEightHour } from '@/lib/fx/borrowFunding';
 import type { FxSdkMarket } from '@/lib/fx/tokens';
 import { MetricLabel } from './InfoHelp';
 import { MissingValue } from './MissingValue';
@@ -18,7 +18,7 @@ const date = (timestamp: number, year = false) => new Date(timestamp * 1000).toL
 const ranges: BorrowFundingHistoryRange[] = ['1M', '3M', '6M', '1Y', 'All'];
 
 /** Official pool snapshots: eight-hour collateral charges, separate from yield. */
-export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMarket; rate: BorrowFundingRate | null; status: 'loading' | 'ready' | 'unavailable' }) {
+export function BorrowFundingHistory({ market }: { market: FxSdkMarket }) {
   const { ref, width } = useChartWidth();
   const id = useId();
   const queryClient = useQueryClient();
@@ -53,14 +53,12 @@ export function BorrowFundingHistory({ market, rate, status }: { market: FxSdkMa
   const inspection = useChartInspection({ points, start: data?.startAt ?? 0, end: data?.endAt ?? 0, width, scope: `${market}:${range}`, mode: 'step' });
   const activeIndex = inspection.index;
   const active = activeIndex === null ? undefined : points[activeIndex];
-  const current = borrowFundingIsFresh(rate, market) ? borrowFundingDisplay(rate) : null;
   const maximum = Math.max(...points.map(point => Number(point.ratio) / 1e18 / 1095 * 100), .0001) * 1.15;
   const x = (timestamp: number) => 8 + Math.max(0, timestamp - (data?.startAt ?? 0)) / Math.max(1, (data?.endAt ?? 0) - (data?.startAt ?? 0)) * (width - 16);
   const y = (ratio: bigint) => 126 - (Number(ratio) / 1e18 / 1095 * 100) / maximum * 112;
   const line = points.map((point, index) => `${index === 0 ? 'M' : 'H'}${x(point.timestamp).toFixed(2)}${index === 0 ? ',' : ' V'}${y(point.ratio).toFixed(2)}`).join(' ') + (data && last ? ` H${x(data.endAt).toFixed(2)}` : '');
   return <section ref={ref} className={`${styles.section} ${styles.funding}`} aria-label={`${market} borrow funding history`}>
     <header className={styles.header}><h3><MetricLabel minimalHelp label="Funding & costs" help="Official f(x) funding history for this collateral pool. The chart shows gross charges per eight hours, as in fxMINT Advanced. The average is annualized over the displayed dates. These variable costs apply to the whole collateral; any short-pool earnings offset is separate." /></h3></header>
-    <div className={styles.secondaryReading}><span><MetricLabel minimalHelp label={current ? `Funding status: ${current.status.toUpperCase()}` : 'Funding status'} visualLabel={current ? <>Funding status: <span className={current.status === 'On' ? styles.fundingStatusOn : styles.fundingStatusOff}>{current.status.toUpperCase()}</span></> : undefined} help={current?.title ?? 'The current eight-hour collateral charge could not be verified. Historical observations do not establish the current rate.'} /></span><strong>{current?.value ?? <MissingValue width="sm" status={status === 'loading' ? 'loading' : 'unavailable'} label={status === 'loading' ? 'Loading current funding charge' : 'Current funding charge unavailable'} />}</strong></div>
     <div className={styles.overview}>
       <div className={styles.performanceReading}><span><MetricLabel minimalHelp label="Average cost APR" help="Time-weighted annualized gross borrowing charge over the displayed dates. Each indexed rate applies until the next snapshot, ending at the index’s verified block. This is a historical cost average, not an earned return or forecast." /></span><strong>{data?.averageRatio !== null && data?.averageRatio !== undefined ? formatBorrowFundingApr(data.averageRatio) : <MissingValue status={history.isPending && online !== false ? 'loading' : 'unavailable'} label={history.isPending && online !== false ? 'Loading average funding cost' : 'Average funding cost unavailable'} />}</strong></div>
     </div>

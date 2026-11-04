@@ -18,7 +18,7 @@ const script = readFileSync(new URL('./sync_telegram_bot.mjs', import.meta.url),
 // Git may materialize checked-in YAML with CRLF on Windows. Keep workflow
 // structure assertions independent of checkout line endings.
 const workflow = readFileSync(new URL('../.github/workflows/deploy-mini-app.yml', import.meta.url), 'utf8').replace(/\r\n?/g, '\n');
-const provider = readFileSync(new URL('../apps/mini-app/src/components/PrivyClientProvider.tsx', import.meta.url), 'utf8');
+const provider = readFileSync(new URL('../apps/mini-app/src/components/ClientWalletProvider.tsx', import.meta.url), 'utf8');
 
 test('profile copy fits Telegram limits and matches the reviewed handoff without markup', () => {
   assert.ok(BOT_PROFILE.name.length > 0 && BOT_PROFILE.name.length <= 64);
@@ -313,6 +313,6 @@ test('deployment sync uses only the CI secret after Pages deploy', () => {
 
 test('configured Telegram auth waits for a delayed bridge before mounting Privy', () => {
   assert.match(provider, /waitForTelegramWebApp/);
-  assert.match(provider, /restoreTelegramLaunchHash\(\)/);
-  assert.match(provider, /telegramBridgeSettled/);
+  assert.match(provider, /TelegramPasskeyProvider/);
+  assert.match(provider, /TelegramWalletUnavailable/);
 });

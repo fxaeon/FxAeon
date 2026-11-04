@@ -31,7 +31,7 @@ Paths below are relative to `apps/mini-app/src/`.
 | Route-level provider loading | [RouteProviders](../apps/mini-app/src/components/RouteProviders.tsx), [ProductProviders](../apps/mini-app/src/components/ProductProviders.tsx) | A docs-only visit can avoid the product provider graph |
 | Wallet-mode selection | [ClientWalletProvider](../apps/mini-app/src/components/ClientWalletProvider.tsx) | Stable document choice; host signals are UX hints, not authentication |
 | Ordinary-web signing session | [usePrivyWallet](../apps/mini-app/src/lib/wallet/usePrivyWallet.ts) | Browser-only Wagmi owner; explicitly accepted injected provider |
-| Telegram wallet boundary | [TelegramPasskeyProvider](../apps/mini-app/src/components/admission/TelegramPasskeyProvider.tsx), [miniapp-access](../server/miniapp-access/index.ts) | Verified Telegram identity, permanent approval seat, passkey-owned Privy wallet and durable dispatch recovery; legacy Privy SDK only with passkey mode off |
+| Telegram wallet boundary | [TelegramPasskeyProvider](../apps/mini-app/src/components/admission/TelegramPasskeyProvider.tsx), [miniapp-access](../server/miniapp-access/index.ts) | Verified Telegram identity, permanent approval seat, passkey-owned Privy wallet and durable dispatch recovery; disabled Telegram configuration fails closed |
 | Public wallet data | [WalletDataProvider](../apps/mini-app/src/components/WalletDataProvider.tsx), [web3](../apps/mini-app/src/lib/web3) | Session/chain/address-scoped reads; data clients do not sign |
 | SDK adaptation and plans | [fx/sdk](../apps/mini-app/src/lib/fx/sdk.ts), [fx/service](../apps/mini-app/src/lib/fx/service.ts), [read facade](../apps/mini-app/src/lib/fx/readFacade.ts) | Locked official SDK surface with reviewed local patch |
 | Review preparation and presentation | [ActionReview](../apps/mini-app/src/components/ActionReview.tsx), [review components](../apps/mini-app/src/components/review) | Accepted intent, amount provenance, exact values, and explicit decision |
@@ -56,16 +56,11 @@ accessible heading tree.
 
 Ordinary browsers use the browser signing adapter even if a Privy ID is configured. An explicit catalog choice binds one announced provider; discovery metadata does not prove authenticity. A wallet-browser handoff navigates to a separate context and is not a connection approval.
 
-Configured Telegram launches with nonempty Mini App data choose the Telegram provider. User agent, theme, platform hints, and an empty Telegram stub are insufficient. `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` selects `TelegramPasskeyProvider`: server-verified Telegram identity, approval-gated enrollment, and a user passkey controlling a Privy wallet. The legacy provider remains available only when this flag is off. Provider selection stays fixed during that document. See [deployment](deployment.md#telegram-admission-and-waitlist) for activation requirements.
+Telegram launch data or a recognized Telegram host selects the Telegram boundary. A configured host waits for the bridge when needed; host signals choose UX and never authenticate a user. `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` plus the public Privy app ID selects `TelegramPasskeyProvider`: server-verified Telegram identity, approval-gated enrollment, and a user passkey controlling a Privy wallet. Disabled or incomplete Telegram configuration shows an unavailable screen without native login or browser-wallet fallback. Provider selection stays fixed during that document. See [deployment](deployment.md#telegram-admission-and-waitlist) for activation requirements.
 
-Privy connection events make wallets available. They do not by themselves accept a replacement signing wallet or resume a previous action. Accepted choice, logout intent, and dispatch authority have distinct lifetimes. Read [wallet ownership](privy-wallet-ownership.md) and [browser handoff](mobile-wallet-browser-handoff.md) before changing those lifecycles.
+Browser wallets retain explicit connection and dispatch authority. Telegram retains server REST custody and passkey approval; the native React-auth provider, login, export and bridge are removed. The public Privy app ID still binds the browser's canonical signing-request verification. Read [wallet ownership](privy-wallet-ownership.md) and [browser handoff](mobile-wallet-browser-handoff.md) before changing those lifecycles.
 
-Application read failover does not replace a wallet's internal RPC routing.
-The pinned Privy integration keeps its managed Ethereum route and visible
-signing screens; external-wallet sends use the selected provider. An embedded
-wallet export can show Privy's secure connecting and authentication screens
-before key export. That transition alone does not establish a lost app session;
-do not bypass it or reconnect the account to conceal it.
+Application read failover does not replace a wallet's internal RPC routing. External-wallet sends use the selected provider; Telegram sends require the passkey-authorized canonical request.
 
 ## Transaction lifecycle
 

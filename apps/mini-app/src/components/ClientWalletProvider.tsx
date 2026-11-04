@@ -5,20 +5,13 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { TELEGRAM_PASSKEY_MODE } from '@/lib/miniappAccess';
 import { PRIVY_APP_ID } from '@/lib/privyConfig';
-import { getWebApp, hasTelegramMiniAppLaunchData, hasTelegramNativeHostHint, hasTelegramWebHostHint, waitForTelegramWebApp } from '@/lib/telegram';
+import { hasTelegramMiniAppLaunchData, hasTelegramNativeHostHint, hasTelegramWebHostHint, waitForTelegramWebApp } from '@/lib/telegram';
 import { BrowserWalletProvider } from '@/lib/wallet';
 import { WalletProviderModeContext, type WalletProviderMode } from '@/lib/wallet/providerMode';
 import { ProviderLoadingState } from '@/components/ProviderLoadingState';
-import { TelegramAdmissionGate } from '@/components/TelegramAdmissionGate';
+import TelegramWalletUnavailable from '@/components/admission/TelegramWalletUnavailable';
 import WalletRouteProviders from '@/components/WalletRouteProviders';
 
-// Keep native-login SDK code out of builds that cannot use that login mode.
-// These direct environment expressions are replaced by Next at build time.
-const TelegramWalletProvider = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey'
-  ? dynamic(() => import('@/components/PrivyClientProvider'), {
-  ssr: false,
-  loading: () => <ProviderLoadingState />,
-}) : ProviderLoadingState;
 const TelegramPasskeyProvider = dynamic(() => import('@/components/admission/TelegramPasskeyProvider'), {
   ssr: false,
   loading: () => <ProviderLoadingState />,
@@ -39,16 +32,17 @@ function SelectedWalletProvider({ children }: { children: React.ReactNode }) {
   // launches already carrying data remain immediate. This chooses UX only;
   // the server verifies signed Telegram identity before granting access.
   const [mode, setMode] = useState<WalletProviderMode | null>(() => {
-    if (!TELEGRAM_PASSKEY_MODE && !PRIVY_APP_ID) return 'browser';
-    if (hasTelegramMiniAppLaunchData()) return 'privy';
-    return (TELEGRAM_PASSKEY_MODE || !getWebApp()) && (hasTelegramNativeHostHint() || hasTelegramWebHostHint()) ? null : 'browser';
+    if (hasTelegramMiniAppLaunchData()) return 'telegram';
+    const telegramHost = hasTelegramNativeHostHint() || hasTelegramWebHostHint();
+    if (telegramHost) return TELEGRAM_PASSKEY_MODE && PRIVY_APP_ID ? null : 'telegram';
+    return 'browser';
   });
   useEffect(() => {
     if (mode !== null) return;
     let cancelled = false;
     void waitForTelegramWebApp().then(() => {
       if (!cancelled) setMode(hasTelegramMiniAppLaunchData()
-        || (TELEGRAM_PASSKEY_MODE && (hasTelegramNativeHostHint() || hasTelegramWebHostHint())) ? 'privy' : 'browser');
+        || hasTelegramNativeHostHint() || hasTelegramWebHostHint() ? 'telegram' : 'browser');
     });
     return () => { cancelled = true; };
   }, [mode]);
@@ -56,14 +50,12 @@ function SelectedWalletProvider({ children }: { children: React.ReactNode }) {
   // later bridge update. Known Telegram hosts remain gated in passkey mode
   // even when the bounded bridge wait ends without a signed payload.
   if (mode === null) return <ProviderLoadingState />;
-  if (mode === 'privy' && TELEGRAM_PASSKEY_MODE) return <WalletProviderModeContext.Provider value="browser">
-    <TelegramPasskeyProvider>{children}</TelegramPasskeyProvider>
+  if (mode === 'telegram') return <WalletProviderModeContext.Provider value="telegram">
+    {TELEGRAM_PASSKEY_MODE && PRIVY_APP_ID
+      ? <TelegramPasskeyProvider>{children}</TelegramPasskeyProvider>
+      : <TelegramWalletUnavailable />}
   </WalletProviderModeContext.Provider>;
-  // Admission runs before the Privy chunk is requested: a waitlisted Telegram
-  // user never initializes Privy or counts as one of its monthly users.
   return <WalletProviderModeContext.Provider value={mode}>
-    {mode === 'privy'
-      ? <TelegramAdmissionGate><TelegramWalletProvider>{children}</TelegramWalletProvider></TelegramAdmissionGate>
-      : <BrowserWalletProvider allowTelegramHost={Boolean(PRIVY_APP_ID)}><WalletRouteProviders>{children}</WalletRouteProviders></BrowserWalletProvider>}
+    <BrowserWalletProvider><WalletRouteProviders>{children}</WalletRouteProviders></BrowserWalletProvider>
   </WalletProviderModeContext.Provider>;
 }

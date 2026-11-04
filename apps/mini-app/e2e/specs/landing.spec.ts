@@ -1,4 +1,4 @@
-import { expect, test, assertNoBackendRequests } from "../fixtures/test";
+import { expect, test, assertNoBackendRequests, expectDisabledTelegramWallet } from "../fixtures/test";
 
 test.describe("canonical app home", () => {
   test.use({ telegram: false });
@@ -21,10 +21,10 @@ test.describe("canonical app home", () => {
     assertNoBackendRequests(requests);
   });
 
-  test("Telegram launch payload at root stays on the app home", async ({ page, requests }) => {
+  test("Telegram launch payload at root stays on the canonical URL and fails closed when unconfigured", async ({ page, requests }) => {
     await page.goto("/#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8.0&tgWebAppPlatform=tdesktop", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/#tgWebAppData=query_id%3Dtest&tgWebAppVersion=8\.0&tgWebAppPlatform=tdesktop$/);
-    await expect(page.getByRole("heading", { name: "Portfolio", exact: true })).toBeVisible();
+    await expectDisabledTelegramWallet(page);
     assertNoBackendRequests(requests);
   });
 });

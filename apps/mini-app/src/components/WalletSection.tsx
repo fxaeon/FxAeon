@@ -1,17 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import dynamic from 'next/dynamic';
 import { Wallet, type LucideIcon } from 'lucide-react';
 import { haptic } from '@/lib/telegram';
 import { isWalletConnectCancellation, usePrivyWallet } from '@/lib/wallet';
-import { useWalletProviderMode } from '@/lib/wallet/providerMode';
 import { userSafeError } from '@/lib/errors';
 import { Button } from '@/components/ui';
 import styles from './WalletSection.module.css';
 
-const PrivyWalletControls = process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE !== 'passkey'
-  ? dynamic(() => import('./PrivyWalletSection'), { ssr: false }) : BrowserWalletControls;
 function ActionRow({ icon: Icon, title, detail, label, onClick, loading = false, disabled = false, variant = 'ghost' }: {
   icon: LucideIcon;
   title: string;
@@ -55,6 +51,5 @@ function BrowserWalletControls() {
 }
 
 export default function WalletSection() {
-  const providerMode = useWalletProviderMode();
-  return providerMode === 'privy' ? <PrivyWalletControls /> : <BrowserWalletControls />;
+  return <BrowserWalletControls />;
 }

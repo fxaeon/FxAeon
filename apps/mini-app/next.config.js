@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const path = require('node:path');
 const { availableParallelism, totalmem } = require('node:os');
+const { installOptInPlugin } = require('./scripts/webpack-module-attribution-plugin.cjs');
 
 // Static page workers each retain the app's wallet graph. Bound their memory
 // use on laptops while keeping parallel export work on larger build runners.
@@ -25,7 +26,10 @@ const nextConfig = {
   // concurrently in this checkout, even with different final output paths.
   distDir: configuredDistDir || (process.env.NODE_ENV === 'development' ? '.next' : 'dist'),
   images: { unoptimized: true },
-  webpack: (config, { webpack, isServer }) => {
+  webpack: (config, { isServer }) => {
+    // Private, read-only module/chunk attribution for an explicitly requested
+    // client build. The plugin writes under .cache, never the export directory.
+    installOptInPlugin(config, { env: process.env, isServer });
     // Read-only evidence for the disposable local-fork test artifact only.
     // Keep this out of normal builds instead of retaining hidden product UI.
     if (process.env.FX_E2E_REVIEW_EVIDENCE === '1') {
@@ -44,39 +48,7 @@ const nextConfig = {
     // check both the largest chunk and the full raw/gzipped JavaScript total.
     if (!isServer && config.optimization?.splitChunks) {
       config.optimization.splitChunks.maxSize = 1_900_000;
-      // Privy's shared presentation wrapper otherwise repeats in dozens of
-      // lazy authentication screens, below Next's shared-chunk size threshold.
-      // Keep the original module once; authentication screens stay lazy.
-      config.optimization.splitChunks.cacheGroups = {
-        ...config.optimization.splitChunks.cacheGroups,
-        privyScreen: {
-          test: /[\\/]@privy-io[\\/]react-auth[\\/]dist[\\/]esm[\\/]Screen-[^\\/]+\.mjs$/,
-          name: 'privy-screen',
-          chunks: 'all',
-          minChunks: 2,
-          enforce: true,
-          reuseExistingChunk: true,
-          priority: 10,
-        },
-      };
     }
-    // Privy's optional CAPTCHA screen imports @hcaptcha/loader. The upstream
-    // loader bundles a hCaptcha-owned Sentry client and DSN; FxAeon has no
-    // telemetry authority, so keep the script/token API but remove that
-    // diagnostic implementation from the shipped browser artifact.
-    config.resolve.alias = {
-      ...(config.resolve.alias ?? {}),
-      '@hcaptcha/loader$': path.resolve(__dirname, 'src/lib/hcaptcha-loader.ts'),
-    };
-    // Privy publishes optional integrations as dynamic imports in its main
-    // entrypoint. FxAeon does not enable Stripe onramping or Farcaster/Solana;
-    // explicitly ignore those optional peers instead of shipping dead code or
-    // producing a misleading module-not-found warning on every release build.
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^(@stripe\/crypto|@farcaster\/mini-app-solana)$/,
-      })
-    );
     config.ignoreWarnings = [
       ...(config.ignoreWarnings ?? []),
       // ox/viem's Tempo worker loader intentionally selects a module at

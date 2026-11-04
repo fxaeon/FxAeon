@@ -5,7 +5,7 @@ for configuration and [browser gates](browser-test-gates.md) for deterministic t
 The device-validation limits below remain part of the release contract.
 
 FxAeon uses a browser-only Wagmi session owner on ordinary web and its existing
-Privy flow in Telegram. Shared Wagmi data clients remain read-only. Browser
+Telegram admission/passkey flow for the configured Mini App. Shared Wagmi data clients remain read-only. Browser
 signing configs use exactly one selected provider, with automatic discovery and
 broad reconnect disabled. This change adds no wallet SDK, relay, QR
 pairing, project configuration or metered connection service. Existing RPC
@@ -125,7 +125,7 @@ No physical iOS/Android wallet handoff or original-tab return has been verified.
 Official link references:
 
 - [MetaMask links](https://docs.metamask.io/metamask-connect/evm/guides/metamask-exclusive/use-deeplinks/)
-- [Trust Wallet links](https://developer.trustwallet.com/developer/develop-for-trust/deeplinking)
+- Trust Wallet: the former developer deep-link guide redirects to the wallet home page (checked 4 November 2026). No current live deep-link reference was verified; repeat source and device validation before changing its route.
 - [Phantom browser link](https://docs.phantom.com/phantom-deeplinks/other-methods/browse)
 - [Rabby registered universal link](https://github.com/RabbyHub/rabby-mobile/blob/784783cc9ddce0edf90b8a65e5c18bc02b57af00/apps/mobile/src/constant/universalLink.ts) and [handler](https://github.com/RabbyHub/rabby-mobile/blob/784783cc9ddce0edf90b8a65e5c18bc02b57af00/apps/mobile/src/hooks/universalLink.ts)
 - [Rainbow browser-link handler](https://github.com/rainbow-me/rainbow/blob/206981573a4da4ca24985bc0819a70a17819f079/src/handlers/deeplinks.ts) and [registered domain](https://github.com/rainbow-me/rainbow/blob/206981573a4da4ca24985bc0819a70a17819f079/ios/Rainbow/Rainbow.entitlements)
@@ -160,7 +160,7 @@ Already-dispatched transaction results survive local retirement for receipt
 tracking, with no replay or publication of an obsolete session.
 
 None of this changes the shared read-only Wagmi config or mounts a browser signer
-inside the Privy arm. Exact documented namespaces for Base, OKX, Trust and Phantom
+inside the Telegram passkey arm. Exact documented namespaces for Base, OKX, Trust and Phantom
 supplement announcements; conflicting identity claims fail closed before dedup.
 These source-compatible routes still require current release/device testing.
 

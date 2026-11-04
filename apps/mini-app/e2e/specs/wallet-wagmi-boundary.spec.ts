@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import { expect, test, type Page } from '@playwright/test';
 import { buildWalletWagmiBoundaryHarness, type WalletWagmiBoundaryBundle } from '../harness/wallet-wagmi-boundary-build';
-import { BROWSER_ADDRESS, EMBEDDED_ADDRESS, EMBEDDED_BALANCE, type BoundaryMode } from '../harness/wallet-wagmi-boundary-state';
+import { BROWSER_ADDRESS, type BoundaryMode } from '../harness/wallet-wagmi-boundary-state';
 import { WALLET_CATALOG } from '../../src/lib/wallet/walletCatalog';
 
 let bundle: WalletWagmiBoundaryBundle;
@@ -35,18 +35,6 @@ async function open(page: Page, mode: BoundaryMode) {
 const snapshot = (page: Page) => page.evaluate(() => globalThis.__wagmiBoundaryHarness.snapshot());
 const owner = (page: Page) => page.getByTestId('wallet-owner');
 
-async function expectFundedPrivyOwner(page: Page) {
-  await expect(owner(page)).toHaveAttribute('data-provider-mode', 'privy');
-  await expect(owner(page)).toHaveAttribute('data-authenticated', 'true');
-  await expect(owner(page)).toHaveAttribute('data-embedded', 'true');
-  await expect(owner(page)).toHaveAttribute('data-wallet-client', 'privy-v2');
-  await expect(owner(page)).toHaveAttribute('data-address', EMBEDDED_ADDRESS);
-  await expect(owner(page)).toHaveAttribute('data-balance-wei', EMBEDDED_BALANCE);
-  expect(await snapshot(page)).toMatchObject({
-    configCreates: 0, connectorCreates: 0, discoveryRequests: 0,
-    wagmiConnections: [], browserCalls: [], decoyCalls: [], forbiddenCalls: [], errors: [],
-  });
-}
 async function expectNoPrivy(page: Page, observation: Awaited<ReturnType<typeof open>>) {
   expect(await snapshot(page)).toMatchObject({ privyModuleLoads: 0, privyMounts: 0, privyHookCalls: 0, embeddedCalls: [], decoyCalls: [], forbiddenCalls: [], errors: [] });
   expect(observation.requests.filter((path) => bundle.privyPaths.has(path))).toEqual([]);
@@ -76,30 +64,17 @@ async function selectExactFake(page: Page) {
   expect(state.decoyCalls).toEqual([]);
 }
 
-test('Telegram keeps its funded embedded owner and never instantiates real browser Wagmi after navigation, remount, or reload', async ({ page }) => {
+test('disabled Telegram never initializes browser Wagmi after navigation, remount or reload', async ({ page }) => {
   const observation = await open(page, 'telegram');
-  await expectFundedPrivyOwner(page);
-  expect((await snapshot(page)).privyModuleLoads).toBe(1);
-  expect(observation.requests.some((path) => bundle.privyPaths.has(path))).toBe(true);
-  const identity = await owner(page).getAttribute('data-identity');
+  await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser' })).toBeVisible();
   await page.getByRole('button', { name: 'Announce injected fake', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Open settings', exact: true }).click();
-  expect(new URL(page.url()).hash).toBe('');
-  await expect(owner(page)).toHaveAttribute('data-route', 'settings');
-  await expect(owner(page)).toHaveAttribute('data-identity', identity!);
-  await expectFundedPrivyOwner(page);
-  expect(await snapshot(page)).toMatchObject({ privyMounts: 1, privyUnmounts: 0, routeMounts: 1, routeUnmounts: 0 });
   await page.getByRole('button', { name: 'Remount provider', exact: true }).click();
-  await expect(owner(page)).not.toHaveAttribute('data-identity', identity!);
-  await expectFundedPrivyOwner(page);
-  expect(await snapshot(page)).toMatchObject({ privyMounts: 2, privyUnmounts: 1, childMounts: 2, childUnmounts: 1 });
+  await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser' })).toBeVisible();
   await page.reload();
-  await expectFundedPrivyOwner(page);
-  await expect(owner(page)).toHaveAttribute('data-route', 'settings');
-  expect(await snapshot(page)).toMatchObject({ privyMounts: 1, privyUnmounts: 0 });
-  expect(observation.errors).toEqual([]);
+  await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser' })).toBeVisible();
+  expect(await snapshot(page)).toMatchObject({ configCreates: 0, connectorCreates: 0, discoveryRequests: 0, browserCalls: [], privyModuleLoads: 0 });
+  await expectNoPrivy(page, observation);
 });
 
 test('OKX announcement takes precedence over its distinct namespace wrapper without preselection requests', async ({ page }) => {
@@ -183,11 +158,11 @@ test('late Telegram launch hints cannot replace a connected real Wagmi browser o
   await expectNoPrivy(page, observation);
 });
 
-test('a pending Telegram host keeps browser discovery and Wagmi inert until the delayed launch bridge selects Privy', async ({ page }) => {
+test('a disabled Telegram host stays closed when its bridge arrives later', async ({ page }) => {
   const observation = await open(page, 'bridge-wait');
-  await expect(page.locator('[data-provider-wait="true"]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser' })).toBeVisible();
   expect(await snapshot(page)).toMatchObject({ configCreates: 0, connectorCreates: 0, discoveryRequests: 0, browserCalls: [], decoyCalls: [], privyModuleLoads: 0 });
   await page.getByRole('button', { name: 'Add Telegram launch hints', exact: true }).click();
-  await expectFundedPrivyOwner(page);
-  expect(observation.errors).toEqual([]);
+  await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser' })).toBeVisible();
+  await expectNoPrivy(page, observation);
 });

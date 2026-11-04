@@ -188,13 +188,13 @@ export default function DocsShell({ page, children, home = false, articleId }: {
             </div>
             <nav className={styles.chromeLinks} aria-label="FxAeon links">
               <ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink>
-              <span className={styles.supportLink}><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink></span>
+              <span className={styles.supportLink}><a href="mailto:support@fxaeon.com">Support</a></span>
               <Link href="/" prefetch={false} className={styles.openApp}>Open app <DocsIcon name="ArrowUpRight" size={14} /></Link>
             </nav>
             <div className={styles.mobileActions}>
               <button ref={mobileSearchRef} type="button" aria-label="Search documentation" aria-expanded={mobileSearchOpen} onClick={() => { panelOpenerRef.current = mobileSearchRef.current; setMobileSearchOpen(!mobileSearchOpen); setMobileLinksOpen(false); setContentsOpen(!mobileSearchOpen); if (mobileSearchOpen) setQuery(''); }}><DocsIcon name="Search" size={20} /></button>
               <button ref={mobileOptionsRef} type="button" aria-label="More documentation options" aria-expanded={mobileLinksOpen} onClick={() => { panelOpenerRef.current = mobileOptionsRef.current; setMobileLinksOpen(!mobileLinksOpen); setMobileSearchOpen(false); setContentsOpen(false); setQuery(''); }}><DocsIcon name="EllipsisVertical" size={20} /></button>
-              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><ExternalLink href="https://x.com/FxAeonxyz">Support</ExternalLink><Link href="/" prefetch={false}>Open app</Link></nav>}
+              {mobileLinksOpen && <nav className={styles.mobileLinks} aria-label="Documentation options"><ExternalLink href="https://fxaeon.xyz/">Website</ExternalLink><a href="mailto:support@fxaeon.com">Support</a><Link href="/" prefetch={false}>Open app</Link></nav>}
             </div>
           </div>
 

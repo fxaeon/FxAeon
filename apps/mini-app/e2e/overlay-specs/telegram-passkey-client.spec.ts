@@ -32,7 +32,6 @@ test.beforeAll(async () => {
   const mocks: Record<string, string> = {
     'next/dynamic': `import React from 'react';export default (loader,options={}) => {const C=React.lazy(loader);const Loading=options.loading;return props => <React.Suspense fallback={Loading?<Loading/>:null}><C {...props}/></React.Suspense>};`,
     'next/navigation': `export const usePathname=()=>location.pathname;export const useRouter=()=>({replace:path=>history.replaceState({},'',path)});`,
-    '@/components/PrivyClientProvider': `throw new Error('PRIVY_NATIVE_LOADED');export default ()=>null;`,
     '@/components/WalletRouteProviders': `export default ({children})=><>{children}</>;`,
     '@/lib/wallet': `export const BrowserWalletProvider=({children})=><div data-browser-wallet>{children}</div>;export {usePrivyWallet} from './src/lib/wallet/context';export {isWalletConnectCancellation} from './src/lib/wallet/connectWatch';`,
     '@/lib/fx/clients': `export const getPublicClient=()=>({request:async args=>{window.client.reads.push(args);return '0x1'}});`,

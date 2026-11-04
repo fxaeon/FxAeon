@@ -178,9 +178,8 @@ const isolatedBrowserChecks = [
   { args: ['test:e2e:borrow-harness'], label: 'Borrow selection browser harness' },
   { args: ['test:e2e:move-harness'], label: 'Move review layout browser harness' },
   { args: ['test:e2e:positions-harness'], label: 'Positions review layout browser harness' },
-  { args: ['test:e2e:privy-send-harness'], label: 'Privy embedded send adapter browser harness' },
   { args: ['test:e2e:trade-harness'], label: 'Trade native Max lifecycle browser harness' },
-  { args: ['test:e2e:wallet-provider-harness'], label: 'Telegram-only Privy provider routing browser harness' },
+  { args: ['test:e2e:wallet-provider-harness'], label: 'Browser and Telegram passkey provider routing browser harness' },
   { args: ['test:e2e:mobile-wallet-harness'], label: 'Mobile wallet-browser handoff browser harness' },
   { args: ['test:e2e:overlay'], label: 'Overlay lifecycle browser harness' },
   { args: ['test:e2e:state-lab'], label: 'UI state lab browser suite' },
@@ -188,9 +187,9 @@ const isolatedBrowserChecks = [
 const isolatedGroups = [
   // Trade and overlay are the longest suites; running them in the same group
   // overlaps their single-worker runs without adding another CI job.
-  [isolatedBrowserChecks[7], isolatedBrowserChecks[4]],
-  [isolatedBrowserChecks[6], isolatedBrowserChecks[1]],
-  [isolatedBrowserChecks[0], isolatedBrowserChecks[2], isolatedBrowserChecks[3], isolatedBrowserChecks[5], isolatedBrowserChecks[8]],
+  [isolatedBrowserChecks[6], isolatedBrowserChecks[3]],
+  [isolatedBrowserChecks[5], isolatedBrowserChecks[1]],
+  [isolatedBrowserChecks[0], isolatedBrowserChecks[2], isolatedBrowserChecks[4], isolatedBrowserChecks[7]],
 ];
 const isolatedGroupIndex = phase.startsWith('ci-isolated-') ? Number(phase.slice('ci-isolated-'.length)) : null;
 const selectedIsolatedChecks = isolatedGroupIndex === null

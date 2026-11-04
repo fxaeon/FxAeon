@@ -164,7 +164,10 @@ test('web app actions work on every device and Telegram remains an explicit choi
   const actions = elementSource(html, /<div class="actions"/, 'div');
   assert.deepEqual(links(actions).map(link => link.href), ['https://fxaeon.com/', 'https://t.me/FxAeonBot?startapp=']);
   const footer = elementSource(html, /<footer class="site-footer">/, 'footer');
-  assert.deepEqual(links(footer).map(link => link.href).filter(href => href === 'https://fxaeon.com/'), ['https://fxaeon.com/']);
+  const domains = elementSource(footer, /<nav class="footer-domains"/, 'nav');
+  assert.deepEqual(links(domains).map(link => link.href), ['https://fxaeon.xyz/', 'https://fxaeon.com/']);
+  assert.match(textOf(domains), /fxaeon\.xyz Website fxaeon\.com App/);
+  assert.deepEqual(links(footer.replace(domains, '')).map(link => link.href).filter(href => href === 'https://fxaeon.com/'), ['https://fxaeon.com/']);
   assert.match(html, /https:\/\/t\.me\/FxAeonBot/);
   assert.match(html, /Open in Telegram/);
   assert.match(html, /https:\/\/fxaeon\.com\/move/);

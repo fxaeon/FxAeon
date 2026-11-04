@@ -51,10 +51,12 @@ jobs:
           pnpm verify:scope
           pnpm --dir apps/mini-app exec tsx --test test/sdk-debt-ratio-packing.test.ts
       - name: Open and verify all four real f(x) positions
+        id: protocol_proof
         run: pnpm test:anvil
         env:
           ANVIL_FORK_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}
       - name: Verify real fxSAVE Earn lifecycle on disposable fork
+        id: earn_proof
         run: pnpm test:anvil:earn
         env:
           ANVIL_FORK_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}
@@ -67,18 +69,33 @@ jobs:
       - name: Install browser acceptance runtime
         run: pnpm --dir apps/mini-app exec playwright install --with-deps chromium
       - name: Open and close all positions through the mobile browser UI
+        id: browser_proof
         run: pnpm test:anvil:browser
         env:
           ANVIL_FORK_URL: ${{ secrets.NEXT_PUBLIC_ALCHEMY_ETHEREUM_RPC_URL }}
           FX_ANVIL_MANIFEST_PATH: artifacts/anvil/browser-proof.json
+      # Upload only validated JSON from successful suites, even when a later suite fails.
       - name: Upload redacted protocol proof
-        if: success()
+        if: ${{ !cancelled() && steps.protocol_proof.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fxaeon-anvil-protocol-proof-${{ github.run_id }}
-          path: |
-            artifacts/anvil/protocol-proof.json
-            artifacts/anvil/earn-proof.json
-            artifacts/anvil/browser-proof.json
+          path: artifacts/anvil/protocol-proof.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload redacted Earn proof
+        if: ${{ !cancelled() && steps.earn_proof.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fxaeon-anvil-earn-proof-${{ github.run_id }}
+          path: artifacts/anvil/earn-proof.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload redacted browser proof
+        if: ${{ !cancelled() && steps.browser_proof.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fxaeon-anvil-browser-proof-${{ github.run_id }}
+          path: artifacts/anvil/browser-proof.json
           if-no-files-found: warn
           retention-days: 14

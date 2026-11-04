@@ -20,7 +20,7 @@ test.beforeAll(async () => {
       const client = new QueryClient();
       globalThis.refreshCharts = () => { globalThis.chartShift = 1; return client.invalidateQueries(); };
       function Lab() { const [market, setMarket] = useState('ETH'); return <><button onClick={() => setMarket(market === 'ETH' ? 'BTC' : 'ETH')}>Switch market</button>
-        {location.search.includes('borrow') ? <BorrowFundingHistory market={market} rate={null} status="unavailable"/> : <FxSaveHistory/>}</>; }
+        {location.search.includes('borrow') ? <BorrowFundingHistory market={market}/> : <FxSaveHistory/>}</>; }
       createRoot(document.getElementById('root')).render(<QueryClientProvider client={client}><Lab/></QueryClientProvider>);`, loader: 'tsx', resolveDir: appRoot },
     absWorkingDir: appRoot, tsconfig: resolve(appRoot, 'tsconfig.json'), bundle: true, write: false,
     outfile: 'chart-lab.js', format: 'iife', platform: 'browser', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"' },

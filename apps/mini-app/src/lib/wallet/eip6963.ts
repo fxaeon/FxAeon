@@ -6,6 +6,14 @@ export type Eip6963Provider = {
   on?: (event: string, listener: (...args: unknown[]) => void) => void;
   removeListener?: (event: string, listener: (...args: unknown[]) => void) => void;
 };
+
+declare global {
+  interface Window {
+    /** Optional injected wallet; its presence does not select or authenticate it. */
+    ethereum?: Eip6963Provider;
+  }
+}
+
 export type Eip6963Announcement = { info?: { rdns?: string; name?: string; icon?: unknown }; provider?: Eip6963Provider };
 export type DiscoveredEip6963Provider = { provider: Eip6963Provider; name: string; rdns: string; icon?: string };
 export type WalletProviderDiscoveryTarget = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;

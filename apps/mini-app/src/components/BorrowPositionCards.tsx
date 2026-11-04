@@ -96,7 +96,7 @@ export function BorrowPositionsState({ kind, refreshing, onRetry, children }: {
   const title = kind === 'loading' ? 'Loading your positions' : kind === 'unavailable' ? 'Couldn’t load positions' : kind === 'disconnected' ? 'Your borrowing positions' : 'No borrowing positions yet';
   const description = kind === 'unavailable' ? 'Your positions haven’t changed. Try loading them again.'
     : kind === 'disconnected' ? 'Connect your wallet to view and manage your collateral.'
-      : kind === 'empty' ? 'Borrow fxUSD against ETH or BTC, then manage your collateral and debt here.' : 'Reading your ETH and BTC collateral.';
+      : kind === 'empty' ? 'Borrow fxUSD against your ETH or BTC.' : 'Reading your ETH and BTC collateral.';
   return <section className={styles.state} aria-busy={kind === 'loading' || refreshing || undefined}>
     <span className={styles.stateIcon}><Icon size={23} aria-hidden="true" /></span>
     <div role="status"><h2>{title}</h2><p>{description}</p></div>

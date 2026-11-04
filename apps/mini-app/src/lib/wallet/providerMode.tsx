@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from 'react';
 
-export type WalletProviderMode = 'browser' | 'privy';
+export type WalletProviderMode = 'browser' | 'telegram';
 export const WalletProviderModeContext = createContext<WalletProviderMode>('browser');
 
 /** The provider selected for this document, never inferred from an app ID alone. */

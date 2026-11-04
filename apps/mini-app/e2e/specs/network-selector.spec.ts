@@ -1,4 +1,4 @@
-import { test, expect } from '../fixtures/test';
+import { test, expect, expectDisabledTelegramWallet } from '../fixtures/test';
 import type { Page } from '@playwright/test';
 
 const WALLET = '0x930f0000000000000000000000000000000098b9';
@@ -285,13 +285,14 @@ test.describe('disconnected header wallet control', () => {
   });
 });
 
-test.describe('Telegram header sign-in', () => {
+test.describe('disabled Telegram wallet entry', () => {
   test.use({ telegram: true, browserWallet: false });
 
-  test('labels the Telegram entry Sign in without changing the browser entry', async ({ page }) => {
+  test('withholds header wallet actions without changing the browser entry', async ({ page }) => {
     await page.goto('/trade', { waitUntil: 'domcontentloaded' });
     const controls = page.getByRole('group', { name: 'Wallet and network controls' });
-    await expect(controls.getByRole('button', { name: 'Sign in', exact: true })).toHaveText('Sign in');
+    await expectDisabledTelegramWallet(page);
+    await expect(controls).toHaveCount(0);
     await expect(controls.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(0);
     await expect(controls.locator('.network-selector')).toHaveCount(0);
   });

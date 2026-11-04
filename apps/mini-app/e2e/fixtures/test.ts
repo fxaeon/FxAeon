@@ -1,8 +1,9 @@
 /**
- * Minimal browser fixture for the client-first Mini App.
+ * Credential-free browser fixture for the Mini App.
  *
- * The app has no FxAeon HTTP API. Telegram is the only host integration we
- * shim here; RPC/Privy are deliberately left unconfigured in the test build.
+ * Ordinary browser entry is the default. Tests opt into Telegram explicitly;
+ * its wallet entry fails closed while passkey service settings are absent.
+ * Configured passkey service behavior has its own joined integration fixture.
  * The external USD feed is unavailable by default so screens must report an
  * honest unavailable state instead of fabricating balances or confirmations.
  */
@@ -169,7 +170,7 @@ export const test = base.extend<{
   marketPrices: boolean;
   requests: ObservedRequests;
 }>({
-  telegram: [true, { option: true }],
+  telegram: [false, { option: true }],
   browserWallet: [false, { option: true }],
   marketPrices: [false, { option: true }],
   requests: async ({ page }, use) => {
@@ -201,6 +202,14 @@ export const test = base.extend<{
 });
 
 export { expect };
+
+/** The unconfigured export must never activate an alternate wallet owner. */
+export async function expectDisabledTelegramWallet(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Open FxAeon in your browser', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Continue in browser', exact: true })).toHaveAttribute('href', 'https://fxaeon.com/');
+  await expect(page.getByRole('button', { name: /^(?:Sign in|Connect wallet)$/i })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Connect your wallet', exact: true })).toHaveCount(0);
+}
 
 export function assertNoBackendRequests(requests: ObservedRequests): void {
   expect(requests.backend, "client-first app must not call an FxAeon backend").toEqual([]);

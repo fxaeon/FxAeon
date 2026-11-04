@@ -41,7 +41,7 @@ export function DesktopSidebar({ pathname, loading = false }: { pathname: string
   };
   return <aside className={styles.sidebar} data-desktop-sidebar data-sidebar-expanded={ready ? String(expanded) : undefined} aria-hidden={loading || undefined} inert={loading || undefined}>
     <div className={styles.brandRow}>
-      <Link href="/" aria-label="FxAeon portfolio" className={styles.brand}><svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true"><use href="/brand/navigation.svg#FxAeon" /></svg><span>FxAeon</span></Link>
+      <Link href="/" prefetch={loading ? false : undefined} aria-label="FxAeon portfolio" className={styles.brand}><svg width="30" height="30" viewBox="0 0 64 64" fill="none" aria-hidden="true"><use href="/brand/navigation.svg#FxAeon" /></svg><span>FxAeon</span></Link>
       <button className={styles.toggle} type="button" onClick={toggle} aria-expanded={expanded} aria-controls={navigationId} aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'} title={expanded ? 'Collapse navigation' : 'Expand navigation'}>
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href={`/brand/navigation.svg#${expanded ? 'PanelLeftClose' : 'PanelLeftOpen'}`} /></svg>
       </button>
@@ -49,7 +49,7 @@ export function DesktopSidebar({ pathname, loading = false }: { pathname: string
     <nav id={navigationId} className={`desktop-navigation ${styles.links}`} aria-label="Primary navigation">
       {destinations.map(({ href, key, icon, also }) => {
         const active = pathname === href || also.some(prefix => pathname?.startsWith(prefix));
-        return <Link key={href} href={href} aria-label={t(key)} title={expanded ? undefined : t(key)} aria-current={active ? 'page' : undefined} className={href === '/more' ? styles.utility : undefined}>
+        return <Link key={href} href={href} prefetch={loading ? false : undefined} aria-label={t(key)} title={expanded ? undefined : t(key)} aria-current={active ? 'page' : undefined} className={href === '/more' ? styles.utility : undefined}>
           {/* One cacheable sprite avoids repeating six path sets in every exported route. */}
           <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><use href={`/brand/navigation.svg#${icon}`} /></svg><span>{t(key)}</span>
         </Link>;

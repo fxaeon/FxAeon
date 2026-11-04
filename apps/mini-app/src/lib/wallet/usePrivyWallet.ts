@@ -124,13 +124,12 @@ function walletDescriptor(session: DisplayProjection, owner: SessionOwner): FxSe
     // Expose only the fenced facade. Raw identity/config/connector stay private.
     getEthereumProvider: async () => session.provider,
     switchChain: (nextChain: FxChainId) => owner.switchChain(nextChain),
-  } as unknown as FxSelectedWallet;
+  };
 }
 
-/** Browser Wagmi session owner; Telegram mounts its separate Privy branch. */
-export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
+/** Browser Wagmi session owner; Telegram mounts its separate passkey owner. */
+export function BrowserWalletProvider({ children }: {
   children: ReactNode;
-  allowTelegramHost?: boolean;
 }) {
   const [ready, setReady] = useState(false);
   const [, setProviderVersion] = useState(0);
@@ -181,7 +180,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
 
   useEffect(() => {
     mountedRef.current = true;
-    if (!allowTelegramHost && isTelegramLaunchContext()) { setReady(true); return; }
+    if (isTelegramLaunchContext()) { setReady(true); return; }
     let mounted = true;
     let restoring = false;
     let discovering = true;
@@ -295,7 +294,7 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
       restoreAbortRef.current?.abort();
       restoreAbortRef.current = null;
     };
-  }, [allowTelegramHost, connection, owner]);
+  }, [connection, owner]);
 
   const chooserOpen = connectionState.status !== 'closed';
   useEffect(() => {
@@ -318,9 +317,9 @@ export function BrowserWalletProvider({ children, allowTelegramHost = false }: {
   }, [chooserOpen, owner]);
 
   const connect = useCallback(() => {
-    if (!allowTelegramHost && isTelegramLaunchContext()) return Promise.resolve();
+    if (isTelegramLaunchContext()) return Promise.resolve();
     return connection.open();
-  }, [allowTelegramHost, connection]);
+  }, [connection]);
   useEffect(() => () => {
     mountedRef.current = false;
     connection.cancel();

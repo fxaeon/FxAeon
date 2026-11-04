@@ -13,6 +13,8 @@ Configuration lives in the [root Wrangler file](../wrangler.toml), [landing Wran
 
 The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect their configuration in Actions, but the compiled values are public. Restrict browser credentials by origin, chain, and quota. A Pages runtime variable cannot rewrite a previously built bundle.
 
+Production validation and server-config sync require matching wallet modes: `NEXT_PUBLIC_TELEGRAM_WALLET_MODE=passkey` with `MINIAPP_ACCESS_MODE=passkey`, or `off` with `waitlist`. Passkey mode also requires the reviewed native-signup closure marker. Staging and rollback must use a paired configuration; changing only one mode is rejected. The off/waitlist configuration disables Telegram wallet access, including in development; it does not activate native login. Ordinary browser wallets remain available. This validation does not migrate wallets or change their owners. The public Privy app ID remains required to verify the canonical signing request's app identity.
+
 | Setting | Production storage | Use |
 | --- | --- | --- |
 | `NEXT_PUBLIC_PRIVY_APP_ID` | GitHub secret | Intended production Privy application |
@@ -24,7 +26,7 @@ The app consumes `NEXT_PUBLIC_*` settings at build time. GitHub Secrets protect 
 | `TELEGRAM_BOT_TOKEN` | GitHub and Pages server secret | Bot metadata, command replies and opted-in invitations; never a public build input |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | GitHub secrets | Pages artifact upload and optional secret synchronization |
 | `ETHERSCAN_API_KEY` | Optional GitHub/Pages production secret | Read-only app gas Function |
-| `NEXT_PUBLIC_TELEGRAM_ADMISSION` | GitHub variable, `on` or unset | Telegram admission gate in front of Privy; off until the D1 binding is deployed |
+| `NEXT_PUBLIC_TELEGRAM_ADMISSION` | Legacy GitHub variable, `on` or unset | Retained release-input compatibility; does not enable native login or replace passkey admission |
 | `TELEGRAM_BOT_ID` | Pages secret, synced by the release workflow | The bot’s public numeric ID, derived from `TELEGRAM_BOT_TOKEN`; identity verification does not use the token |
 | `LIVE_GAS_ORACLE_URL` | Workflow environment | Probe destination only; does not configure the Function |
 
@@ -38,7 +40,7 @@ For each chain, HTTP/SDK reads prefer primary Alchemy, then Infura, then Alchemy
 
 ## Preview environments
 
-Cloudflare Git previews build independently and do not inherit GitHub Actions secrets. Set Preview variables deliberately. An empty Privy ID produces browser mode, even with Telegram launch hints; a passing placeholder/credential-free build does not prove configured Telegram authentication.
+Cloudflare Git previews build independently and do not inherit GitHub Actions secrets. Set Preview variables deliberately. An empty Privy ID leaves ordinary browser wallets available but disables Telegram wallet access; a passing placeholder/credential-free build does not prove configured Telegram authentication.
 
 Record the preview revision and which services are configured before testing. Browser/provider mocks and module-load checks can validate narrower behavior, but do not substitute for live authentication or device evidence.
 
@@ -103,13 +105,17 @@ Runtime admission policy is managed through the **Mini App admission operator** 
 
 To change policy without a redeploy, first run `status`, then select `configure` and enter all three inputs: `threshold` (1–480), `paused` (`true` to pause, `false` to resume), and `expected_revision` (the revision from status). Use the dry run to validate the plan, then clear **dry_run** to apply it. A conflicting revision rejects the change; run status again and review before retrying. Lowering the threshold does not evict existing reservations, and the hard capacity remains 480. Dry runs make no network requests; status and activity are read-only. Approval identities remain in the production environment secret, never workflow inputs.
 
+Pausing stops new reservations and approvals. People with an existing reservation can still finish wallet setup, sign, and reconcile pending transactions. Admission pause is not an emergency wallet shutdown control.
+
 Provider public signup must be closed and the provider inventory reconciled before activation. A browser gate or configuration assertion alone cannot enforce this boundary. The provider application credential transports requests and is never a wallet owner or additional signer. Keep all server credentials out of static builds and generated plaintext configuration.
+
+Every passkey deployment repeats the provider inventory and signup-closure check. The repository variable `MINIAPP_EXPECTED_WALLETS` must match the reviewed current provider wallet count; newly provisioned wallets can therefore stop a later release until reconciled. Before updating that variable, compare the complete provider inventory with the permanent reservations and provisioned-wallet records in the admission database. Investigate any unexplained wallet instead of adjusting the expected count to make the check pass. Update only the expected inventory count after reconciliation, then rerun the release check. Do not increase `MINIAPP_LEGACY_USERS` or the database legacy baseline to account for wallets created through the passkey flow: those people already hold counted reservations.
 
 Configuration sync proves saved settings, not an already deployed worker's bindings. A verified release must package the reviewed runtime configuration, deploy the intended revision, and verify authenticated runtime behavior before enrollment expands. Physical-device passkey handoff and live-provider entitlement require separate evidence; synthetic tests do not establish them.
 
 Rollback must preserve reservations and keep public signup closed. Never recycle seats, replace owner keys or external wallet identities, or alter the legacy baseline to bypass a capacity check. Unknown transaction outcomes must be reconciled without automatic resubmission. Losing every copy of a synced passkey or access to the Telegram account has no implemented recovery path.
 
-Account inventories, approval identities, provider configuration procedures and operational checklists belong in private operator records. Keep them out of public issues, workflow inputs, logs and artifacts. The older admission compatibility endpoint cannot enforce a provider signup cap and must not substitute for the passkey flow. See the [security model](security.md) for the public controls and their limits. Security depends on enforced authorization and database/provider constraints, not on keeping these procedures private.
+Credentials, authentication payloads, personal identifiers, account inventories and approval identities belong in private operator records. Keep them out of public issues, workflow inputs, logs and artifacts. General setup procedures, control semantics and threat models can remain public. The older admission compatibility endpoint cannot enforce a provider signup cap and must not substitute for the passkey flow. See the [security model](security.md) for the public controls and their limits. Security depends on enforced authorization and database/provider constraints, not on keeping these procedures private.
 
 ## Rollback and diagnosis
 

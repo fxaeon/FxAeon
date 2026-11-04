@@ -46,8 +46,7 @@ export function usePrivyWallet() {
   '@/lib/wallet/activeWalletAddress': `export const activeWalletAddress = (wallet) => wallet.ready && wallet.authenticated ? wallet.address ?? null : null;`,
   '@/components/ConnectWalletButton': `import React from 'react'; export default function ConnectWalletButton({ children, loadingLabel, ...props }) { return <button type="button" {...props}>{children}</button>; }`,
   '@/components/AccountControls': `export const useVerifiedWalletName = () => null;`,
-  '@/components/WalletExportAction': `export const WalletExportAction = () => null;`,
-  '@/lib/privyConfig': `export const privyConfigured = () => false; export const PRIVY_APP_ID = '';`,
+  '@/lib/privyConfig': `export const PRIVY_APP_ID = '';`,
   '@/lib/pendingActivity': `export const usePendingActivity = () => ({ pendingCount: 0, notices: [], dismiss() {} });`,
   '@/components/WalletDemandProvider': `import { useSyncExternalStore } from 'react';
 let profile = null; const listeners = new Set();

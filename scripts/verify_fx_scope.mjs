@@ -1,5 +1,4 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { join, relative, resolve } from 'node:path';
 import { WALLET_ROUTES, BOT_ROUTES, SERVER_MODULES, walletRouteViolation, botRouteViolation, serverModuleViolations } from './verify_miniapp_scope.mjs';
 
@@ -108,6 +107,12 @@ const debtRatioPackingFix = [
   'Debt ratio bounds must fit uint60',
   'Minimum debt ratio cannot exceed maximum debt ratio',
 ];
+const fxSaveDepositFloorFix = [
+  'const scaledSlippage = slippage * 1000000;',
+  'const tolerance = Math.round(scaledSlippage);',
+  'Deposit slippage supports at most six decimal places',
+  'const minShares = (basePoolSharesOut * BigInt(100000000 - tolerance) + 99999999n) / 100000000n;',
+];
 // A correct patch file/lock hash does not prove the installed files were
 // patched. Check both entry points used by browser builds and Node tooling.
 for (const bundle of ['index.js', 'index.cjs']) {
@@ -121,6 +126,10 @@ for (const bundle of ['index.js', 'index.cjs']) {
   if (debtRatioPackingFix.some((required) => !sdkRuntime.includes(required))
     || sdkRuntime.includes('return cBN(maxDebtRatio).times(cBN(2).pow(60)).plus(minDebtRatio).toFixed(0);')) {
     failInstalledDependency(`the installed SDK ${bundle} is missing exact integer debt-ratio packing`);
+  }
+  if (fxSaveDepositFloorFix.some((required) => !sdkRuntime.includes(required))
+    || sdkRuntime.includes('const minShares = indexRes > 0n ? basePoolSharesOut * 10n ** 18n * 9996n / indexRes / 10000n : basePoolSharesOut;')) {
+    failInstalledDependency(`the installed SDK ${bundle} is missing the selected-slippage fxSAVE deposit floor`);
   }
   if (/console\.log\("(?:err------|poolData-->|poolInfo-->)"/.test(sdkRuntime)) {
     failInstalledDependency(`the installed SDK ${bundle} still contains audited-out production diagnostic logs`);
@@ -144,43 +153,12 @@ for (const required of shortPoolFix) {
 for (const required of debtRatioPackingFix) {
   if (!patch.includes(required)) fail('the local exact debt-ratio packing fix is missing');
 }
+for (const required of fxSaveDepositFloorFix) {
+  if (!patch.includes(required)) fail('the selected-slippage fxSAVE deposit floor fix is missing');
+}
 
-try {
-  // Resolve through the actual pinned wallet dependency tree, not a possibly
-  // different root-hoisted query-string. Resolution does not execute wallet
-  // modules. x402 exposes subpaths only, so use its client entry as the anchor.
-  let dependencyRequire = createRequire(join(mini, 'package.json'));
-  for (const dependency of [
-    '@privy-io/react-auth',
-    'x402/client',
-    'wagmi',
-    '@wagmi/connectors',
-    '@walletconnect/ethereum-provider',
-    '@walletconnect/utils',
-  ]) {
-    dependencyRequire = createRequire(dependencyRequire.resolve(dependency));
-  }
-  // Only this pure parser is executed: no provider initialization or network.
-  // Its v7 CJS adapter must unwrap the overridden ESM decoder's default export.
-  const queryString = dependencyRequire('query-string');
-  const decoded = queryString.parseUrl(
-    'https://fxaeon.invalid/wallet?unicode=%E2%9C%93%20%F0%9F%9A%80&percent=100%25&space=one+two&malformed=%E0%A4%A&invalid=%ZZ%&mixed=%E2%9C%93%ZZ',
-  );
-  const expected = {
-    unicode: '✓ 🚀',
-    percent: '100%',
-    space: 'one two',
-    malformed: '%E0%A4%A',
-    invalid: '%ZZ%',
-    mixed: '✓%ZZ',
-  };
-  if (decoded.url !== 'https://fxaeon.invalid/wallet'
-    || Object.keys(decoded.query).length !== Object.keys(expected).length
-    || Object.entries(expected).some(([key, value]) => decoded.query[key] !== value)) {
-    throw new Error('Unicode, percent, or malformed-encoding decoding returned an unexpected result');
-  }
-} catch (error) {
-  failInstalledDependency(`the installed WalletConnect query-string URL decoder failed its compatibility smoke (${error instanceof Error ? error.message : 'unknown decoder failure'})`);
+if (JSON.parse(await readFile(join(mini, 'package.json'), 'utf8')).dependencies['@privy-io/react-auth']) {
+  fail('native Privy browser authentication must not return as an app dependency');
 }
 
 const staticHeaders = await readFile(join(mini, 'public', '_headers'), 'utf8');
@@ -189,18 +167,11 @@ if (!scriptDirective || scriptDirective.includes("'unsafe-inline'")) {
   fail("the production script-src policy must be hash-based and cannot allow 'unsafe-inline'");
 }
 const scriptSources = new Set(scriptDirective.split(/\s+/));
-if (!scriptSources.has('https://auth.privy.io')) {
-  fail('the production script-src policy must allow Privy’s Telegram login bridge');
-}
 const frameSources = new Set(staticHeaders.match(/frame-src\s+([^;]+)/)?.[1].split(/\s+/) ?? []);
 const childSources = new Set(staticHeaders.match(/child-src\s+([^;]+)/)?.[1].split(/\s+/) ?? []);
-const configuredPrivyOrigin = 'https://privy.fxaeon.com';
-if (!frameSources.has(configuredPrivyOrigin) || !childSources.has(configuredPrivyOrigin)) {
-  fail(`the production CSP policy must allow the configured Privy custom frame origin (${configuredPrivyOrigin})`);
-}
 const connectSources = new Set(staticHeaders.match(/connect-src\s+([^;]+)/)?.[1].split(/\s+/) ?? []);
-if (!connectSources.has(configuredPrivyOrigin)) {
-  fail(`the production CSP policy must allow the configured Privy custom API origin (${configuredPrivyOrigin})`);
+if ([...scriptSources, ...frameSources, ...childSources, ...connectSources].some(source => /privy\.(?:io|systems)|privy\.fxaeon\.com/.test(source))) {
+  fail('native Privy browser authentication origins must not return');
 }
 if (connectSources.has('https:') || connectSources.has('wss:')) {
   fail('connect-src contains a broad scheme source instead of reviewed hosts');

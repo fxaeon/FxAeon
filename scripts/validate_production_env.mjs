@@ -3,12 +3,15 @@ import { pathToFileURL } from 'node:url';
 
 const PLACEHOLDER = /YOUR_|your_|PLACEHOLDER|placeholder|CHANGE_ME|change_me|REPLACE_ME|replace_me|EXAMPLE|example/;
 
-/** Both flags are inert by default. A review marker is required before either passkey path can activate. */
+/** Production modes must agree; paired disabled Telegram mode remains available. */
 export function validateWalletActivation(env = {}) {
   const publicMode = env.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off';
   const serverMode = env.MINIAPP_ACCESS_MODE || 'waitlist';
   if (!['off', 'passkey'].includes(publicMode)) throw new Error('NEXT_PUBLIC_TELEGRAM_WALLET_MODE must be "off", "passkey", or unset');
   if (!['waitlist', 'passkey'].includes(serverMode)) throw new Error('MINIAPP_ACCESS_MODE must be "waitlist", "passkey", or unset');
+  if ((publicMode === 'passkey') !== (serverMode === 'passkey')) {
+    throw new Error('Production wallet modes must match: use passkey/passkey or off/waitlist');
+  }
   if (env.PRIVY_PUBLIC_SIGNUP_DISABLED && env.PRIVY_PUBLIC_SIGNUP_DISABLED !== 'yes') throw new Error('PRIVY_PUBLIC_SIGNUP_DISABLED must be "yes" after verification or unset');
   if ((publicMode === 'passkey' || serverMode === 'passkey') && env.PRIVY_PUBLIC_SIGNUP_DISABLED !== 'yes') {
     throw new Error('Passkey activation requires explicit verification that native public signup is closed (PRIVY_PUBLIC_SIGNUP_DISABLED=yes)');

@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { test, expect, devices, type Page, type TestInfo } from '@playwright/test';
 import type { MobileWalletHarnessState } from '../harness/mobile-wallet-entry';
 import { buildLabGlobalCss } from '../harness/portfolio-states-build';
+import { chooseForkBrowserWallet } from '../fork/fork-wallet-picker';
 
 const root = resolve(__dirname, '../../../..');
 const miniApp = resolve(root, 'apps/mini-app');
@@ -776,6 +777,24 @@ for (const mode of ['single', 'legacy'] as const) {
     expect(observation.errors).toEqual([]);
   });
 }
+
+test('fork chooser selects the detected unannounced provider before and after reload', async ({ page }) => {
+  const observation = await openHarness(page, 'legacy');
+  const select = async () => {
+    await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+    await chooseForkBrowserWallet(page);
+    await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  };
+  await select();
+  expect((await snapshot(page)).calls[0].some(call => call.method === 'eth_requestAccounts')).toBe(true);
+  await page.reload();
+  await expect(page.locator('[data-harness-ready="true"]')).toBeVisible();
+  // A changed provider session may require an explicit selection after reload.
+  if (await page.locator('main').getAttribute('data-connected') !== 'true') await select();
+  await expect(page.locator('main')).toHaveAttribute('data-address', accountA);
+  expect(observation.errors).toEqual([]);
+});
 
 test('the picker has one logo-and-name row per wallet with no route categories or manual choices', async ({ page }) => {
   await openHarness(page);

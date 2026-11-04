@@ -75,9 +75,9 @@ for (const width of [320, 390, 1280]) {
     await expect(disclosure).toContainText('Base');
     await expect(disclosure.getByRole('link', { name: /LayerZero Scan/ })).toHaveAttribute('href', 'https://layerzeroscan.com/');
     await expect(disclosure).not.toContainText('After review');
-    await expect(disclosure.getByRole('img', { name: 'Ethereum to Base via LayerZero' })).toBeVisible();
+    await expect(disclosure).toContainText('bridge from Ethereum to Base using LayerZero');
     await page.getByRole('button', { name: 'Reverse route to Ethereum', exact: true }).click();
-    await expect(disclosure.getByRole('img', { name: 'Base to Ethereum via LayerZero' })).toBeVisible();
+    await expect(disclosure).toContainText('bridge from Base to Ethereum using LayerZero');
     await disclosure.screenshot({ path: info.outputPath('move-route.png') });
     expect(await disclosure.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

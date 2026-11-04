@@ -1,5 +1,3 @@
-import type { ConnectedWallet } from '@privy-io/react-auth';
-
 export const FX_CHAIN_IDS = {
   ethereum: 1,
   base: 8453,
@@ -8,10 +6,8 @@ export const FX_CHAIN_IDS = {
 export type FxChainId = (typeof FX_CHAIN_IDS)[keyof typeof FX_CHAIN_IDS];
 
 /**
- * The transaction shape the client transaction runner hands to Privy.
- * Quantities intentionally accept the same JSON-safe values as Privy's
- * UnsignedTransactionRequest. Callers should pass hex strings for calldata
- * and numeric quantities when possible.
+ * App-owned transaction input shared by browser and Telegram passkey owners.
+ * Callers should pass hex strings for calldata and numeric quantities when possible.
  */
 export type FxWalletTransaction = {
   from?: string;
@@ -34,33 +30,41 @@ export type FxWalletTransactionOptions = {
   successDescription?: string;
 };
 
-export type FxSelectedWallet = ConnectedWallet & {
+/** Display and read-only provider facade; signing belongs to sendTransaction. */
+export type FxSelectedWallet = {
+  address: string;
+  type: 'ethereum';
   walletClientType?: string;
+  chainId?: string;
+  getEthereumProvider: () => Promise<{
+    request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  }>;
+  switchChain: (chainId: FxChainId) => Promise<void>;
 };
 
 export type FxPrivyWallet = {
   ready: boolean;
-  /** Provider can open login, but an authenticated session's wallets are still hydrating. */
+  /** The owner's authenticated wallet identity is still being restored. */
   restoring?: boolean;
   authenticated: boolean;
   /** Increments after an accepted connection or deliberate wallet selection. */
   connectionVersion: number;
-  wallets: ConnectedWallet[];
+  wallets: FxSelectedWallet[];
   selectedWallet?: FxSelectedWallet;
-  /** Current selected wallet network when Privy has a supported chain value. */
+  /** Current selected wallet network when it is supported. */
   chainId?: FxChainId;
   address?: string;
   isEmbedded: boolean;
-  /** True while a wallet prompt (Privy's modal or the browser wallet chooser) is on screen. */
+  /** True while a wallet chooser or passkey approval prompt is on screen. */
   promptOpen?: boolean;
-  /** Privy has available wallets but requires an explicit choice in Settings. */
+  /** An available wallet requires an explicit choice in Settings. */
   selectionRequired?: boolean;
   /**
    * Request an account from the user's browser wallet. No private key leaves
    * the wallet. Rejects with WalletConnectCancelledError when the person
    * closes the prompt without connecting.
    */
-  connect: (options?: { external?: boolean; loginMethod?: 'email' }) => Promise<void>;
+  connect: () => Promise<void>;
   /** End the app wallet session. This never transfers assets or exposes keys. */
   disconnect: () => Promise<void>;
   selectWallet: (address: string) => void;

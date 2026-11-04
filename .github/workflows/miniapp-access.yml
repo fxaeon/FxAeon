@@ -94,6 +94,7 @@ jobs:
           MINIAPP_OPERATOR_USER_IDS: ${{ inputs.action == 'approve' && secrets.MINIAPP_OPERATOR_USER_IDS || '[]' }}
           MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
           MINIAPP_ACCESS_MODE: ${{ inputs.server_mode || 'waitlist' }}
+          NEXT_PUBLIC_TELEGRAM_WALLET_MODE: ${{ vars.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off' }}
           PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
           MINIAPP_ORIGIN: https://fxaeon.com
           TELEGRAM_MINIAPP_URL: ${{ vars.NEXT_PUBLIC_TELEGRAM_APP_URL }}
@@ -159,6 +160,7 @@ jobs:
           # Required reviewed existing-user inventory: currently 5. No implicit fallback.
           MINIAPP_LEGACY_USERS: ${{ vars.MINIAPP_LEGACY_USERS }}
           MINIAPP_ACCESS_MODE: ${{ inputs.server_mode || 'waitlist' }}
+          NEXT_PUBLIC_TELEGRAM_WALLET_MODE: ${{ vars.NEXT_PUBLIC_TELEGRAM_WALLET_MODE || 'off' }}
           PRIVY_PUBLIC_SIGNUP_DISABLED: ${{ vars.PRIVY_PUBLIC_SIGNUP_DISABLED }}
           MINIAPP_EXPECTED_WALLETS: ${{ vars.MINIAPP_EXPECTED_WALLETS }}
           MINIAPP_ORIGIN: https://fxaeon.com
