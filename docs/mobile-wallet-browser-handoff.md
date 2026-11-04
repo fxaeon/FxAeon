@@ -125,7 +125,7 @@ No physical iOS/Android wallet handoff or original-tab return has been verified.
 Official link references:
 
 - [MetaMask links](https://docs.metamask.io/metamask-connect/evm/guides/metamask-exclusive/use-deeplinks/)
-- [Trust Wallet links](https://developer.trustwallet.com/developer/develop-for-trust/deeplinking)
+- Trust Wallet: the former developer deep-link guide redirects to the wallet home page (checked 4 November 2026). No current live deep-link reference was verified; repeat source and device validation before changing its route.
 - [Phantom browser link](https://docs.phantom.com/phantom-deeplinks/other-methods/browse)
 - [Rabby registered universal link](https://github.com/RabbyHub/rabby-mobile/blob/784783cc9ddce0edf90b8a65e5c18bc02b57af00/apps/mobile/src/constant/universalLink.ts) and [handler](https://github.com/RabbyHub/rabby-mobile/blob/784783cc9ddce0edf90b8a65e5c18bc02b57af00/apps/mobile/src/hooks/universalLink.ts)
 - [Rainbow browser-link handler](https://github.com/rainbow-me/rainbow/blob/206981573a4da4ca24985bc0819a70a17819f079/src/handlers/deeplinks.ts) and [registered domain](https://github.com/rainbow-me/rainbow/blob/206981573a4da4ca24985bc0819a70a17819f079/ios/Rainbow/Rainbow.entitlements)
