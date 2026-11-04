@@ -107,6 +107,12 @@ const debtRatioPackingFix = [
   'Debt ratio bounds must fit uint60',
   'Minimum debt ratio cannot exceed maximum debt ratio',
 ];
+const fxSaveDepositFloorFix = [
+  'const scaledSlippage = slippage * 1000000;',
+  'const tolerance = Math.round(scaledSlippage);',
+  'Deposit slippage supports at most six decimal places',
+  'const minShares = (basePoolSharesOut * BigInt(100000000 - tolerance) + 99999999n) / 100000000n;',
+];
 // A correct patch file/lock hash does not prove the installed files were
 // patched. Check both entry points used by browser builds and Node tooling.
 for (const bundle of ['index.js', 'index.cjs']) {
@@ -120,6 +126,10 @@ for (const bundle of ['index.js', 'index.cjs']) {
   if (debtRatioPackingFix.some((required) => !sdkRuntime.includes(required))
     || sdkRuntime.includes('return cBN(maxDebtRatio).times(cBN(2).pow(60)).plus(minDebtRatio).toFixed(0);')) {
     failInstalledDependency(`the installed SDK ${bundle} is missing exact integer debt-ratio packing`);
+  }
+  if (fxSaveDepositFloorFix.some((required) => !sdkRuntime.includes(required))
+    || sdkRuntime.includes('const minShares = indexRes > 0n ? basePoolSharesOut * 10n ** 18n * 9996n / indexRes / 10000n : basePoolSharesOut;')) {
+    failInstalledDependency(`the installed SDK ${bundle} is missing the selected-slippage fxSAVE deposit floor`);
   }
   if (/console\.log\("(?:err------|poolData-->|poolInfo-->)"/.test(sdkRuntime)) {
     failInstalledDependency(`the installed SDK ${bundle} still contains audited-out production diagnostic logs`);
@@ -142,6 +152,9 @@ for (const required of shortPoolFix) {
 }
 for (const required of debtRatioPackingFix) {
   if (!patch.includes(required)) fail('the local exact debt-ratio packing fix is missing');
+}
+for (const required of fxSaveDepositFloorFix) {
+  if (!patch.includes(required)) fail('the selected-slippage fxSAVE deposit floor fix is missing');
 }
 
 if (JSON.parse(await readFile(join(mini, 'package.json'), 'utf8')).dependencies['@privy-io/react-auth']) {
