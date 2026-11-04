@@ -5,7 +5,7 @@ for configuration and [browser gates](browser-test-gates.md) for deterministic t
 The device-validation limits below remain part of the release contract.
 
 FxAeon uses a browser-only Wagmi session owner on ordinary web and its existing
-Privy flow in Telegram. Shared Wagmi data clients remain read-only. Browser
+Telegram admission/passkey flow for the configured Mini App. Shared Wagmi data clients remain read-only. Browser
 signing configs use exactly one selected provider, with automatic discovery and
 broad reconnect disabled. This change adds no wallet SDK, relay, QR
 pairing, project configuration or metered connection service. Existing RPC
@@ -160,7 +160,7 @@ Already-dispatched transaction results survive local retirement for receipt
 tracking, with no replay or publication of an obsolete session.
 
 None of this changes the shared read-only Wagmi config or mounts a browser signer
-inside the Privy arm. Exact documented namespaces for Base, OKX, Trust and Phantom
+inside the Telegram passkey arm. Exact documented namespaces for Base, OKX, Trust and Phantom
 supplement announcements; conflicting identity claims fail closed before dedup.
 These source-compatible routes still require current release/device testing.
 

@@ -35,7 +35,7 @@ The app at [fxaeon.com](https://fxaeon.com) and the marketing site at [fxaeon.xy
 | --- | --- | --- |
 | [`apps/mini-app`](../apps/mini-app/README.md) | Static financial app, wallet adapters, SDK integration, and browser harnesses | [App guide](../apps/mini-app/README.md) |
 | [`apps/landing`](../apps/landing/README.md) | Independent marketing site and display-only market data | [Landing guide](../apps/landing/README.md) |
-| [`functions`](../functions) | Optional app gas Pages Function | [Deployment](deployment.md#read-only-functions) |
+| [`functions`](../functions) | App gas, Telegram access and passkey wallet Pages Functions | [Deployment](deployment.md) |
 | [`scripts`](../scripts) | Verification, build, deployment, and capture tooling | [Testing](testing.md) · [Deployment](deployment.md) |
 
 ## Evidence and system boundaries

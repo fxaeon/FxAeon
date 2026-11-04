@@ -21,9 +21,9 @@ Use [browser gates](../../docs/browser-test-gates.md) to select an isolated inte
 
 ## Runtime boundaries
 
-Ordinary browsers use an explicitly accepted injected EVM wallet. Configured Telegram Mini App launches with nonempty data load Privy lazily. A Privy ID alone does not enable ordinary-web email login. Host detection selects UX; the authentication service validates signed identity.
+Ordinary browsers use an explicitly accepted injected EVM wallet. Configured Telegram passkey launches load `TelegramPasskeyProvider`: the server validates signed launch identity, resolves admission and checks unresolved wallet operation status before publishing a connected account. Unknown results continue to block signing. Passkey approval authorizes each transaction sent through the bound Privy wallet. Host detection selects UX, not identity authority. An invitation email is optional notification contact, not wallet login or recovery.
 
-The app runs protocol reads, planning, policy checks, simulation, and transaction execution in the browser. Every transaction requires selected-wallet approval. The optional root `/api/gas` Function is read-only. No FxAeon signer or protocol backend exists.
+The app runs protocol reads, planning, policy checks, simulation and receipt verification in the browser. Browser-wallet requests go to the selected injected provider; Telegram passkey requests go through `/api/telegram-wallet` for challenge verification and Privy dispatch. The optional `/api/gas` Function remains read-only. See the public [access guide](https://fxaeon.com/docs/guide/access) and [recovery limits](https://fxaeon.com/docs/guide/history#history-telegram).
 
 Positions, borrowing, and fxSAVE accounting use Ethereum. Move supports specified fxUSD/fxSAVE transfers between Ethereum and Base, with source confirmation and destination delivery tracked separately.
 
