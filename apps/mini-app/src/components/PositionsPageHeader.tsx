@@ -6,7 +6,7 @@ import { ChainIcon } from '@/components/TokenIcon';
 import styles from './PositionsPageHeader.module.css';
 
 /** Positions remain a child of their product, including on a direct visit. */
-export function PositionsPageHeader({ product, onReturn }: { product: 'Trade' | 'Borrow'; onReturn?: () => void }) {
+export function PositionsPageHeader({ product, onReturn, showCreate = true }: { product: 'Trade' | 'Borrow'; onReturn?: () => void; showCreate?: boolean }) {
   const href = product === 'Trade' ? '/trade' : '/borrow';
   const back = <><ArrowLeft size={17} aria-hidden="true" />{product}</>;
   const create = <><Plus size={16} aria-hidden="true" />New position</>;
@@ -18,9 +18,9 @@ export function PositionsPageHeader({ product, onReturn }: { product: 'Trade' | 
     </nav>
     <div className={styles.row}>
       <h1 tabIndex={-1} data-borrow-positions-heading={product === 'Borrow' ? '' : undefined}>Positions</h1>
-      {onReturn
+      {showCreate && (onReturn
         ? <button type="button" className={styles.create} onClick={onReturn}>{create}</button>
-        : <Link href={href} className={styles.create}>{create}</Link>}
+        : <Link href={href} className={styles.create}>{create}</Link>)}
     </div>
     <span className={styles.network}><ChainIcon chainId={1} size={14} />Ethereum</span>
   </header>;

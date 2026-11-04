@@ -720,7 +720,7 @@ export default function BorrowPage() {
       {view === 'new' && <PageHeading title="Borrow" />}
       <ConfirmedPositionCards />
       {view === 'positions' ? <>
-        <PositionsPageHeader product="Borrow" onReturn={() => chooseView('new')} />
+        <PositionsPageHeader product="Borrow" onReturn={() => chooseView('new')} showCreate={positions.length > 0} />
         <section className={presentation.positionsContent} data-testid="borrow-workspace-card" aria-label="Your borrowing positions">
           {wallet.address && !initialRead && !positionReadUnavailable && positions.length > 0 && <>
             <div className={presentation.positionsToolbar}><h2>Open positions <span>{positions.length}</span></h2>
@@ -769,7 +769,7 @@ export default function BorrowPage() {
       </ProductSurface>
       {/* A limit, so rounded down to the tenth of a percent. */}
       {inputStage && <div className={presentation.details}>
-        <BorrowFundingHistory market={limitMarket} rate={funding.rate} status={funding.status} />
+          <BorrowFundingHistory market={limitMarket} />
         <BorrowSensitivity debt={debtAfter} collateralUsd={collateralAfterUsd} limitBps={limitBps} />
         <BorrowSections ltvLimit={debtRange ? `${(Number(debtRange.max / 10n ** 15n) / 10).toFixed(1)}%` : 'Unavailable'} />
       </div>}
